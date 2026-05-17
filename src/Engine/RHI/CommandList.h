@@ -99,4 +99,23 @@ protected:
     CommandList& operator=(const CommandList&) = delete;
 };
 
+// ============================================================
+// RAII guard：作用域内自动 begin/end
+// ============================================================
+
+class ScopedCommandRecorder {
+public:
+    explicit ScopedCommandRecorder(CommandList* cmd) : m_cmd(cmd) { m_cmd->begin(); }
+    ~ScopedCommandRecorder() { m_cmd->end(); }
+
+    CommandList* operator->() { return m_cmd; }
+    CommandList& cmd() { return *m_cmd; }
+
+    ScopedCommandRecorder(const ScopedCommandRecorder&) = delete;
+    ScopedCommandRecorder& operator=(const ScopedCommandRecorder&) = delete;
+
+private:
+    CommandList* m_cmd;
+};
+
 } // namespace MulanGeo::Engine
