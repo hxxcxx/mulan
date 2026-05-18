@@ -37,7 +37,7 @@ set(ENGINE_WASM_SOURCES
     ${ENGINE_SRC_DIR}/RHI/OpenGL/GLRenderTarget.cpp
     ${ENGINE_SRC_DIR}/RHI/OpenGL/GLTexture.cpp
     # Geometry
-    # (MeshGeometry is header-only, no .cpp needed)
+    # (Mesh is header-only, no .cpp needed)
     # WASM entry point
     ${CMAKE_CURRENT_SOURCE_DIR}/main_wasm.cpp
 )

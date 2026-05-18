@@ -27,7 +27,7 @@ OCCTShapeGeometry::OCCTShapeGeometry(TopoDS_Shape shape)
     : m_shape(std::move(shape))
 {}
 
-const Engine::MeshGeometry* OCCTShapeGeometry::displayMesh() const {
+const Engine::Mesh* OCCTShapeGeometry::displayMesh() const {
     std::lock_guard lock(m_cacheMutex);
     if (!m_meshGenerated) {
         m_cachedMesh = triangulate();
@@ -36,7 +36,7 @@ const Engine::MeshGeometry* OCCTShapeGeometry::displayMesh() const {
     return m_cachedMesh.get();
 }
 
-const Engine::MeshGeometry* OCCTShapeGeometry::edgeMesh() const {
+const Engine::Mesh* OCCTShapeGeometry::edgeMesh() const {
     std::lock_guard lock(m_cacheMutex);
     if (!m_edgeMeshGenerated) {
         m_cachedEdgeMesh = extractEdges();
@@ -59,7 +59,7 @@ Engine::AABB OCCTShapeGeometry::boundingBox() const {
     return result;
 }
 
-std::unique_ptr<Engine::MeshGeometry> OCCTShapeGeometry::triangulate() const {
+std::unique_ptr<Engine::Mesh> OCCTShapeGeometry::triangulate() const {
     // 计算线性偏差
     Bnd_Box box;
     BRepBndLib::Add(m_shape, box);
@@ -80,7 +80,7 @@ std::unique_ptr<Engine::MeshGeometry> OCCTShapeGeometry::triangulate() const {
     mesher.Perform();
     if (!mesher.IsDone()) return nullptr;
 
-    auto mesh = std::make_unique<Engine::MeshGeometry>();
+    auto mesh = std::make_unique<Engine::Mesh>();
 
     for (TopExp_Explorer faceExp(shapeToMesh, TopAbs_FACE); faceExp.More(); faceExp.Next()) {
         const auto& face = TopoDS::Face(faceExp.Current());
@@ -125,7 +125,7 @@ std::unique_ptr<Engine::MeshGeometry> OCCTShapeGeometry::triangulate() const {
     return mesh;
 }
 
-std::unique_ptr<Engine::MeshGeometry> OCCTShapeGeometry::extractEdges() const {
+std::unique_ptr<Engine::Mesh> OCCTShapeGeometry::extractEdges() const {
     // 计算线性偏差（与三角化一致）
     Bnd_Box box;
     BRepBndLib::Add(m_shape, box);
@@ -146,7 +146,7 @@ std::unique_ptr<Engine::MeshGeometry> OCCTShapeGeometry::extractEdges() const {
     mesher.Perform();
     if (!mesher.IsDone()) return nullptr;
 
-    auto mesh = std::make_unique<Engine::MeshGeometry>();
+    auto mesh = std::make_unique<Engine::Mesh>();
     mesh->topology = Engine::PrimitiveTopology::LineList;
     // 边线顶点只需 position(3)，但为了复用同一个 vertex layout，补齐 normal(3) + uv(2)
     mesh->vertexStride = sizeof(float) * 8;

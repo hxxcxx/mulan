@@ -11,7 +11,7 @@
 
 #include "Geometry.h"
 
-#include "MulanGeo/Engine/Geometry/MeshGeometry.h"
+#include "MulanGeo/Engine/Geometry/Mesh.h"
 
 #include <TopoDS_Shape.hxx>
 
@@ -31,24 +31,24 @@ public:
     const TopoDS_Shape& shape() const { return m_shape; }
 
     /// 延迟三角化并缓存，线程安全
-    const Engine::MeshGeometry* displayMesh() const override;
+    const Engine::Mesh* displayMesh() const override;
 
     /// 延迟提取边线并缓存（从 OCCT TopAbs_EDGE 提取线段）
-    const Engine::MeshGeometry* edgeMesh() const override;
+    const Engine::Mesh* edgeMesh() const override;
 
     /// 从 OCCT shape 计算包围盒
     Engine::AABB boundingBox() const override;
 
 private:
     /// 执行三角化（内部调用）
-    std::unique_ptr<Engine::MeshGeometry> triangulate() const;
+    std::unique_ptr<Engine::Mesh> triangulate() const;
 
     /// 从 OCCT shape 提取边线（内部调用）
-    std::unique_ptr<Engine::MeshGeometry> extractEdges() const;
+    std::unique_ptr<Engine::Mesh> extractEdges() const;
 
     TopoDS_Shape m_shape;
-    mutable std::unique_ptr<Engine::MeshGeometry> m_cachedMesh;
-    mutable std::unique_ptr<Engine::MeshGeometry> m_cachedEdgeMesh;
+    mutable std::unique_ptr<Engine::Mesh> m_cachedMesh;
+    mutable std::unique_ptr<Engine::Mesh> m_cachedEdgeMesh;
     mutable std::mutex m_cacheMutex;
     mutable bool m_meshGenerated = false;
     mutable bool m_edgeMeshGenerated = false;

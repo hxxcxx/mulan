@@ -23,7 +23,7 @@ target_include_directories(Document PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
 )
 
-# 依赖 Engine（Math 类型、MeshGeometry、AABB）
+# 依赖 Engine（Math 类型、Mesh、AABB）
 target_link_libraries(Document PUBLIC Engine)
 
 # OCCT 头文件路径（仅编译期需要）

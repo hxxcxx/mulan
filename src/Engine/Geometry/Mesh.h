@@ -1,6 +1,6 @@
 /**
- * @file MeshGeometry.h
- * @brief CPU 侧三角网格数据，Engine 的通用几何表示
+ * @file Mesh.h
+ * @brief CPU 侧网格数据，Engine 的通用几何表示
  * @author hxxcxx
  * @date 2026-04-21
  */
@@ -19,13 +19,13 @@
 namespace MulanGeo::Engine {
 
 // ============================================================
-// 三角网格 — CPU 侧拥有顶点与索引数据
+// 网格 — CPU 侧拥有顶点与索引数据
 //
 // 交错顶点布局：position(3) + normal(3) + texCoord(2) = 8 floats
 // 所有来源（文件导入、参数化生成、程序化创建）统一输出此类型。
 // ============================================================
 
-struct MeshGeometry {
+struct Mesh {
     std::vector<float>        vertices;       // 交错顶点数据
     std::vector<uint32_t>     indices;        // 三角形索引
     uint32_t                  vertexStride = sizeof(float) * 8;

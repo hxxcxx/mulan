@@ -8,7 +8,7 @@
 
 #include <MulanGeo/Document/Entity.h>
 #include <MulanGeo/Document/Geometry.h>
-#include <MulanGeo/Engine/Geometry/MeshGeometry.h>
+#include <MulanGeo/Engine/Geometry/Mesh.h>
 
 namespace Doc = MulanGeo::Document;
 namespace Eng = MulanGeo::Engine;
@@ -34,7 +34,7 @@ static void buildRecursive(BuildContext& ctx) {
                 pickId);
 
             const Doc::Geometry* geo = entity.geometry();
-            const Eng::MeshGeometry* mesh = geo->displayMesh();
+            const Eng::Mesh* mesh = geo->displayMesh();
 
             if (mesh && !mesh->empty()) {
                 geoNode->setCachedRenderGeometry(mesh->asRenderGeometry());
@@ -45,7 +45,7 @@ static void buildRecursive(BuildContext& ctx) {
             }
 
             // 构建边线渲染数据
-            const Eng::MeshGeometry* edgeMesh = geo->edgeMesh();
+            const Eng::Mesh* edgeMesh = geo->edgeMesh();
             if (edgeMesh && !edgeMesh->empty()) {
                 geoNode->setCachedEdgeGeometry(edgeMesh->asRenderGeometry());
             }
