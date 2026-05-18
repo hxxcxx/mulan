@@ -27,6 +27,12 @@
 #include <gp_Trsf.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
+#include <BRepPrimAPI_MakeSphere.hxx>
+#include <BRepPrimAPI_MakeCone.hxx>
+#include <BRepPrimAPI_MakeTorus.hxx>
+
 #include <algorithm>
 
 namespace MulanGeo::Modeling {
@@ -329,6 +335,45 @@ std::unique_ptr<OCCTShape> OCCTShape::doBoolean(int op, const OCCTShape& tool) c
     auto out = std::make_unique<OCCTShape>();
     out->m_impl->shape = std::move(result);
     return out;
+}
+
+// ============================================================
+// 基本体创建
+// ============================================================
+
+std::unique_ptr<OCCTShape> OCCTShape::createBox(double dx, double dy, double dz) {
+    BRepPrimAPI_MakeBox maker(dx, dy, dz);
+    auto result = std::make_unique<OCCTShape>();
+    result->m_impl->shape = maker.Shape();
+    return result;
+}
+
+std::unique_ptr<OCCTShape> OCCTShape::createCylinder(double radius, double height) {
+    BRepPrimAPI_MakeCylinder maker(radius, height);
+    auto result = std::make_unique<OCCTShape>();
+    result->m_impl->shape = maker.Shape();
+    return result;
+}
+
+std::unique_ptr<OCCTShape> OCCTShape::createSphere(double radius) {
+    BRepPrimAPI_MakeSphere maker(radius);
+    auto result = std::make_unique<OCCTShape>();
+    result->m_impl->shape = maker.Shape();
+    return result;
+}
+
+std::unique_ptr<OCCTShape> OCCTShape::createCone(double radius, double height) {
+    BRepPrimAPI_MakeCone maker(radius, 0.0, height);
+    auto result = std::make_unique<OCCTShape>();
+    result->m_impl->shape = maker.Shape();
+    return result;
+}
+
+std::unique_ptr<OCCTShape> OCCTShape::createTorus(double majorRadius, double minorRadius) {
+    BRepPrimAPI_MakeTorus maker(majorRadius, minorRadius);
+    auto result = std::make_unique<OCCTShape>();
+    result->m_impl->shape = maker.Shape();
+    return result;
 }
 
 } // namespace MulanGeo::Modeling

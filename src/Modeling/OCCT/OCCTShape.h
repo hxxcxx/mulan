@@ -28,6 +28,13 @@ public:
     OCCTShape(OCCTShape&&) noexcept;
     OCCTShape& operator=(OCCTShape&&) noexcept;
 
+    // --- 基本体创建（分发到 OCCT BRepPrimAPI）---
+    static std::unique_ptr<OCCTShape> createBox(double dx, double dy, double dz);
+    static std::unique_ptr<OCCTShape> createCylinder(double radius, double height);
+    static std::unique_ptr<OCCTShape> createSphere(double radius);
+    static std::unique_ptr<OCCTShape> createCone(double radius, double height);
+    static std::unique_ptr<OCCTShape> createTorus(double majorRadius, double minorRadius);
+
     // --- Derived 接口实现 ---
     std::unique_ptr<OCCTShape>    doClone() const;
     Engine::AABB                  doBoundingBox() const;

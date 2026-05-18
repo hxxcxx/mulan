@@ -8,6 +8,12 @@ set(MODELING_PUBLIC_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/ModelingExport.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/Shape.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/ShapeImpl.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ShapeFactory.h"
+)
+
+# ── 内核无关实现 ──
+set(MODELING_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/ShapeFactory.cpp"
 )
 
 # ── OCCT 后端 ──
@@ -18,6 +24,7 @@ set(OCCT_SHAPE_SOURCES
 
 add_library(Modeling SHARED
     ${MODELING_PUBLIC_HEADERS}
+    ${MODELING_SOURCES}
     ${OCCT_SHAPE_SOURCES}
 )
 
