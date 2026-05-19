@@ -83,6 +83,12 @@ public:
 
     /// 创建自身类型的默认实例（由 MULANGEO_OBJECT 宏实现）
     virtual std::unique_ptr<Object> create() const = 0;
+
+    /// Object 根类的静态 ClassInfo（供 MULANGEO_OBJECT 宏引用基类的 staticClassInfo）
+    static const ClassInfo& staticClassInfo() {
+        static const ClassInfo s_info("Object", TypeInfo::of<Object>(), nullptr, sizeof(Object), true);
+        return s_info;
+    }
 };
 
 // ============================================================

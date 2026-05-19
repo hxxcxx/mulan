@@ -146,6 +146,12 @@ public:
     void setCachedRenderGeometry(const RenderGeometry& geo) { m_cachedGeo = geo; }
     const RenderGeometry& cachedRenderGeometry() const { return m_cachedGeo; }
 
+    /// 更新渲染几何数据并标记 GPU 需要重新上传
+    void updateRenderGeometry(const RenderGeometry& geo) {
+        m_cachedGeo = geo;
+        releaseGpuResources();
+    }
+
     void setCachedEdgeGeometry(const RenderGeometry& geo) { m_cachedEdgeGeo = geo; }
     const RenderGeometry& cachedEdgeGeometry() const { return m_cachedEdgeGeo; }
 

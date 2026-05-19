@@ -25,6 +25,9 @@ struct DOCUMENT_API EntityId {
 
     /// 生成新的唯一 ID（全局原子递增）
     static EntityId generate();
+
+    /// 从已有值构造（用于反序列化恢复）
+    static EntityId fromValue(uint64_t v) { return EntityId{v}; }
 };
 
 } // namespace MulanGeo::Document

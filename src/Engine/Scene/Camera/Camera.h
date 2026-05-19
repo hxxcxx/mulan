@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 #include "../../Math/Math.h"
 #include "../../Math/AABB.h"
@@ -134,6 +135,72 @@ public:
     Vec3 forward() const;
     Vec3 right() const;
     Vec3 up() const;
+
+    // ==================== 3D 拾取 ====================
+
+    /// 射线（起点 + 方向）
+    struct Ray {
+        Vec3 origin;
+        Vec3 direction;  // 单位向量
+    };
+
+    /// 从屏幕像素坐标生成世界空间射线
+    /// @param screenX  像素 X（左上角为原点）
+    /// @param screenY  像素 Y（左上角为原点）
+    Ray screenRay(int screenX, int screenY) const {
+        // 屏幕 → NDC
+        double ndcX =  (2.0 * screenX) / m_width  - 1.0;
+        double ndcY = -(2.0 * screenY) / m_height + 1.0;
+
+        // NDC 近/远裁剪面点
+        Vec4 nearPt(ndcX, ndcY, -1.0, 1.0);
+        Vec4 farPt (ndcX, ndcY,  1.0, 1.0);
+
+        // 逆 VP 变换到世界空间
+        Mat4 invVP = glm::inverse(viewProjectionMatrix());
+
+        Vec4 nearWorld = invVP * nearPt;
+        nearWorld /= nearWorld.w;
+        Vec4 farWorld = invVP * farPt;
+        farWorld /= farWorld.w;
+
+        Vec3 origin = Vec3(nearWorld);
+        Vec3 dir = glm::normalize(Vec3(farWorld) - origin);
+        return Ray{origin, dir};
+    }
+
+    /// 射线与平面求交（平面方程: dot(normal, point) = distance）
+    /// @return 交点世界坐标，无交点返回 std::nullopt
+    static std::optional<Vec3> rayPlaneIntersect(const Ray& ray,
+                                                  const Vec3& planeNormal,
+                                                  double planeDistance)
+    {
+        double denom = glm::dot(planeNormal, ray.direction);
+        if (std::abs(denom) < 1e-8) return std::nullopt;
+        double t = (planeDistance - glm::dot(planeNormal, ray.origin)) / denom;
+        if (t < 0) return std::nullopt;
+        return ray.origin + t * ray.direction;
+    }
+
+    /// 射线与 AABB 求交（slab 方法）
+    static std::optional<double> rayAABBIntersect(const Ray& ray, const AABB& box) {
+        double tMin = 0.0, tMax = 1e30;
+        for (int i = 0; i < 3; ++i) {
+            if (std::abs(ray.direction[i]) < 1e-10) {
+                if (ray.origin[i] < box.min[i] || ray.origin[i] > box.max[i])
+                    return std::nullopt;
+            } else {
+                double invD = 1.0 / ray.direction[i];
+                double t0 = (box.min[i] - ray.origin[i]) * invD;
+                double t1 = (box.max[i] - ray.origin[i]) * invD;
+                if (invD < 0.0) std::swap(t0, t1);
+                tMin = std::max(tMin, t0);
+                tMax = std::min(tMax, t1);
+                if (tMin > tMax) return std::nullopt;
+            }
+        }
+        return tMin;
+    }
 
 private:
     /// 根据模式创建对应的 RotationMode 实例

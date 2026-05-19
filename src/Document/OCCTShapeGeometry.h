@@ -22,10 +22,10 @@ namespace MulanGeo::Document {
 
 class DOCUMENT_API OCCTShapeGeometry : public Geometry {
 public:
+    OCCTShapeGeometry() = default;
     explicit OCCTShapeGeometry(TopoDS_Shape shape);
 
     GeometryType geometryType() const override { return GeometryType::OCCTShape; }
-    const char* typeName() const override { return "occt_shape"; }
 
     /// 原始 OCCT shape（只读）
     const TopoDS_Shape& shape() const { return m_shape; }
@@ -38,6 +38,31 @@ public:
 
     /// 从 OCCT shape 计算包围盒
     Engine::AABB boundingBox() const override;
+
+    // --- Core::Object 序列化 ---
+    // OCCT B-Rep 序列化由 OCCT 的 TKBinXCAF 处理，此处暂不实现
+    void serialize(Core::OutputArchive& ar) const override { (void)ar; }
+    void serialize(Core::InputArchive& ar) override { (void)ar; }
+
+    // --- Core::Object 接口（手动实现，不用 MULANGEO_OBJECT 宏避免 sizeof 问题）---
+
+    static const Core::ClassInfo& staticClassInfo() {
+        static const Core::ClassInfo s_info(
+            "OCCTShapeGeometry",
+            Core::TypeInfo::of<OCCTShapeGeometry>(),
+            &Geometry::staticClassInfo(),
+            sizeof(OCCTShapeGeometry),
+            false);
+        return s_info;
+    }
+
+    const Core::ClassInfo& classInfo() const noexcept override {
+        return staticClassInfo();
+    }
+
+    std::unique_ptr<Core::Object> create() const override {
+        return std::make_unique<OCCTShapeGeometry>();
+    }
 
 private:
     /// 执行三角化（内部调用）
