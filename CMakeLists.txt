@@ -76,6 +76,7 @@ add_subdirectory(3rdparty/msdf-atlas-gen)
 # ── Subdirectories ──
 add_subdirectory(src/Core)
 add_subdirectory(src/Engine)
+add_subdirectory(src/Geometry)
 add_subdirectory(src/Modeling)
 add_subdirectory(src/Document)
 add_subdirectory(src/QtApp)
