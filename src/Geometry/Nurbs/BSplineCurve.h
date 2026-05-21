@@ -167,7 +167,7 @@ public:
 
     // --- BoundedCurve 接口 ---
 
-    std::paBoundedCurve 接口le>, std::vector<P>>
+    std::pair<std::vector<double>, std::vector<P>>
     parameterDivision(std::pair<double, double> range, double tol) const override {
         std::vector<double> params;
         std::vector<P> points;

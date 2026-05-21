@@ -13,6 +13,8 @@
 #include "../Types.h"
 #include "../traits/ParametricSurface.h"
 #include "../Export.h"
+
+#define _USE_MATH_DEFINES
 #include <cmath>
 
 namespace MulanGeo::Geometry {

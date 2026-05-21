@@ -94,7 +94,7 @@ public:
 
     // --- BoundedCurve 接口 ---
 
-    std::paBoundedCurvele>, std::vector<Point3>>
+    std::pair<std::vector<double>, std::vector<Point3>>
     parameterDivision(std::pair<double, double> range, double tol) const override {
         // 使用底层的齐次 B-spline 参数分割
         auto [params, hpoints] = bspline_.parameterDivision(range, tol);
