@@ -153,10 +153,20 @@ public:
     void transformBy(const Matrix4& trans) override {
         for (auto& row : control_points_) {
             for (auto& cp : row) {
-                auto v = trans * glm::dvec4(cp, 1.0);
-                cp = P(v);
+                cp = transform_point(trans, cp);
             }
         }
+    }
+
+    /// 变换点 (特化 Point3)
+    static Point3 transform_point(const Matrix4& mat, const Point3& p) {
+        auto v = mat * glm::dvec4(p, 1.0);
+        return Point3(v);
+    }
+
+    /// 变换点 (特化 Vector4 - NURBS 齐次坐标)
+    static Vector4 transform_point(const Matrix4& mat, const Vector4& p) {
+        return mat * p;
     }
 
     /// u 方向参数曲线

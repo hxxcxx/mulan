@@ -92,6 +92,16 @@ public:
 
     std::optional<double> uPeriod() const override { return 2.0 * M_PI; }
 
+    // --- 变换 ---
+
+    void transformBy(const Matrix4& mat) override {
+        auto c = mat * glm::dvec4(center_, 1.0);
+        center_ = Point3(c);
+        // 通过矩阵行列式提取均匀缩放因子
+        double s = std::cbrt(std::abs(glm::determinant(glm::dmat3(mat))));
+        radius_ *= s;
+    }
+
 private:
     Point3 center_;
     double radius_;

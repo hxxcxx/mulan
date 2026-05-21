@@ -193,6 +193,28 @@ public:
         }
     }
 
+    // --- 方向反转 (Invertible) ---
+
+    /// 反转曲线方向: subs(t) → subs(a + b - t)
+    void invert() {
+        std::reverse(control_points_.begin(), control_points_.end());
+        double a = knot_vec_[0];
+        double b = knot_vec_[knot_vec_.len() - 1];
+        std::vector<double> new_knots;
+        new_knots.reserve(knot_vec_.len());
+        for (size_t i = 0; i < knot_vec_.len(); ++i) {
+            new_knots.push_back(a + b - knot_vec_[knot_vec_.len() - 1 - i]);
+        }
+        knot_vec_ = KnotVec(std::move(new_knots));
+    }
+
+    /// 返回反转后的副本
+    BSplineCurve inverse() const {
+        BSplineCurve c(*this);
+        c.invert();
+        return c;
+    }
+
     // --- 其他操作 ---
 
     void knot_normalize() { knot_vec_.normalize(); }

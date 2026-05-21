@@ -112,6 +112,18 @@ public:
         bspline_.transformBy(trans);
     }
 
+    // --- 方向反转 (Invertible) ---
+
+    void invert() {
+        bspline_.invert();
+    }
+
+    NurbsCurve inverse() const {
+        NurbsCurve c(*this);
+        c.invert();
+        return c;
+    }
+
 private:
     BSplineCurve<Vector4> bspline_;
 
