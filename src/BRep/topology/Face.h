@@ -22,7 +22,7 @@
 #include <functional>
 #include <stdexcept>
 
-namespace MulanGeo::BRep::topology {
+namespace MulanGeo::BRep {
 
 /// 面
 /// @tparam P 点类型
@@ -129,4 +129,4 @@ private:
     std::shared_ptr<S> surface_;
 };
 
-} // namespace MulanGeo::BRep::topology
+} // namespace MulanGeo::BRep

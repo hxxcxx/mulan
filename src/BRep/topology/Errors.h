@@ -11,7 +11,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::BRep::topology {
+namespace MulanGeo::BRep {
 
 enum class TopologyError : uint8_t {
     SameVertex,          // Edge 两端点相同
@@ -25,4 +25,4 @@ enum class TopologyError : uint8_t {
     NotManifold,         // Shell 非流形
 };
 
-} // namespace MulanGeo::BRep::topology
+} // namespace MulanGeo::BRep

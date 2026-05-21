@@ -19,7 +19,7 @@
 #include <optional>
 #include <stdexcept>
 
-namespace MulanGeo::BRep::topology {
+namespace MulanGeo::BRep {
 
 /// 实体
 template<typename P, typename C, typename S>
@@ -116,4 +116,4 @@ private:
         : boundaries_(std::move(boundaries)) {}
 };
 
-} // namespace MulanGeo::BRep::topology
+} // namespace MulanGeo::BRep

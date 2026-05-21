@@ -25,7 +25,7 @@
 #include <vector>
 #include <unordered_map>
 
-namespace MulanGeo::BRep::topology {
+namespace MulanGeo::BRep {
 
 // ============================================================
 // 压缩序列化结构
@@ -188,4 +188,4 @@ private:
     }
 };
 
-} // namespace MulanGeo::BRep::topology
+} // namespace MulanGeo::BRep

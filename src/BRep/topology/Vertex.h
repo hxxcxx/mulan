@@ -19,7 +19,7 @@
 #include <optional>
 #include <functional>
 
-namespace MulanGeo::BRep::topology {
+namespace MulanGeo::BRep {
 
 /// 顶点
 /// @tparam P 点类型 (Point3, Point2 等)
@@ -82,4 +82,4 @@ private:
     std::shared_ptr<P> point_;
 };
 
-} // namespace MulanGeo::BRep::topology
+} // namespace MulanGeo::BRep

@@ -16,7 +16,7 @@
 #include <functional>
 #include <cstddef>
 
-namespace MulanGeo::BRep::topology {
+namespace MulanGeo::BRep {
 
 /// 基于 shared_ptr 指针地址的 ID
 /// @tparam T shared_ptr 的模板参数类型
@@ -47,4 +47,4 @@ template<typename P> using VertexID = ID<P>;
 template<typename C> using EdgeID   = ID<C>;
 template<typename S> using FaceID   = ID<S>;
 
-} // namespace MulanGeo::BRep::topology
+} // namespace MulanGeo::BRep
