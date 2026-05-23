@@ -15,7 +15,6 @@
 #include "Shell.h"
 #include "Errors.h"
 #include <vector>
-#include <tl/expected.hpp>
 #include <optional>
 #include <stdexcept>
 
@@ -29,16 +28,16 @@ public:
 
     // --- 构造 ---
 
-    static tl::expected<Solid, TopologyError> tryNew(
+    static Core::Result<Solid> tryNew(
         std::vector<Shell<P, C, S>> boundaries
     ) {
         if (boundaries.empty()) {
-            return tl::unexpected(TopologyError::EmptyShell);
+            return Core::Err<Solid>(makeError(TopologyError::EmptyShell));
         }
         // 每个边界壳必须是闭合的
         for (const auto& shell : boundaries) {
             if (!shell.isClosed()) {
-                return tl::unexpected(TopologyError::NotClosedShell);
+                return Core::Err<Solid>(makeError(TopologyError::NotClosedShell));
             }
         }
         return Solid(std::move(boundaries));

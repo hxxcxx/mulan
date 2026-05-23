@@ -17,7 +17,6 @@
 #include "ID.h"
 #include "Vertex.h"
 #include "Errors.h"
-#include <tl/expected.hpp>
 #include <memory>
 #include <functional>
 #include <type_traits>
@@ -38,11 +37,11 @@ public:
     // --- 构造 ---
 
     /// 构造并检查有效性（两端点不同）
-    static tl::expected<Edge, TopologyError> tryNew(
+    static Core::Result<Edge> tryNew(
         const Vertex<P>& front, const Vertex<P>& back, C curve
     ) {
         if (front.isSamePoint(back)) {
-            return tl::unexpected(TopologyError::SameVertex);
+            return Core::Err<Edge>(makeError(TopologyError::SameVertex));
         }
         return Edge(front, back, std::move(curve));
     }

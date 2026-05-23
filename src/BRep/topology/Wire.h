@@ -16,7 +16,6 @@
 #include "Errors.h"
 #include <deque>
 #include <optional>
-#include <tl/expected.hpp>
 #include <unordered_set>
 #include <stdexcept>
 
@@ -35,17 +34,17 @@ public:
     // --- 构造 ---
 
     /// 从边列表构造并检查有效性
-    static tl::expected<Wire, TopologyError> tryNew(std::deque<Edge<P, C>> edges) {
+    static Core::Result<Wire> tryNew(std::deque<Edge<P, C>> edges) {
         if (edges.empty()) {
-            return tl::unexpected(TopologyError::EmptyWire);
+            return Core::Err<Wire>(makeError(TopologyError::EmptyWire));
         }
         Wire w;
         w.edge_list_ = std::move(edges);
         if (!w.isClosed()) {
-            return tl::unexpected(TopologyError::NotClosedWire);
+            return Core::Err<Wire>(makeError(TopologyError::NotClosedWire));
         }
         if (!w.isSimple()) {
-            return tl::unexpected(TopologyError::NotSimpleWire);
+            return Core::Err<Wire>(makeError(TopologyError::NotSimpleWire));
         }
         return w;
     }

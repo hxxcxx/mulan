@@ -17,7 +17,6 @@
 #include "ID.h"
 #include "Errors.h"
 #include <memory>
-#include <tl/expected.hpp>
 #include <vector>
 #include <functional>
 #include <stdexcept>
@@ -36,14 +35,14 @@ public:
     // --- 构造 ---
 
     /// 构造并检查有效性（边界线不相交）
-    static tl::expected<Face, TopologyError> tryNew(
+    static Core::Result<Face> tryNew(
         std::vector<Wire<P, C>> boundaries, S surface
     ) {
         if (boundaries.empty()) {
-            return tl::unexpected(TopologyError::EmptyWire);
+            return Core::Err<Face>(makeError(TopologyError::EmptyWire));
         }
         if (!Wire<P, C>::disjointWires(boundaries)) {
-            return tl::unexpected(TopologyError::NotDisjointWires);
+            return Core::Err<Face>(makeError(TopologyError::NotDisjointWires));
         }
         Face f;
         f.boundaries_ = std::move(boundaries);
@@ -105,11 +104,11 @@ public:
     // --- 修改 ---
 
     /// 尝试添加边界线（检查是否与其他边界相交）
-    tl::expected<void, TopologyError> tryAddBoundary(const Wire<P, C>& wire) {
+    Core::Result<void> tryAddBoundary(const Wire<P, C>& wire) {
         auto all = boundaries_;
         all.push_back(wire);
         if (!Wire<P, C>::disjointWires(all)) {
-            return tl::unexpected(TopologyError::NotDisjointWires);
+            return Core::Err<void>(makeError(TopologyError::NotDisjointWires));
         }
         boundaries_.push_back(wire);
         return {};
