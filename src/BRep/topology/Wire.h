@@ -113,6 +113,15 @@ public:
 
     // --- 判断 ---
 
+    /// 每条边的 back 是否与下一条边的 front 连接
+    bool isContinuous() const {
+        for (size_t i = 0; i + 1 < edge_list_.size(); ++i) {
+            if (!edge_list_[i].back().isSamePoint(edge_list_[i + 1].front()))
+                return false;
+        }
+        return true;
+    }
+
     /// 判断多个 Wire 是否不相交（用于 Face 的多边界检查）
     static bool disjointWires(const std::vector<Wire>& wires) {
         if (wires.size() <= 1) return true;

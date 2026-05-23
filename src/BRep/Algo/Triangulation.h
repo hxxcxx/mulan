@@ -286,6 +286,242 @@ inline PolyBoundary buildPolyBoundary(
 // 简化三角化：扇形 + 参数网格填充
 // ============================================================
 
+// ============================================================
+// 简易约束三角化：耳切法边界 + 逐点插入内点
+// ============================================================
+
+/// 辅助：2D 点叉积 (z 分量)
+inline double cross2(const Vector2& a, const Vector2& b) {
+    return a.x * b.y - a.y * b.x;
+}
+
+/// 判断点 p 是否在三角形 (a,b,c) 内部 (UV 空间)
+inline bool pointInTriangle(const Vector2& p, const Vector2& a,
+                            const Vector2& b, const Vector2& c) {
+    auto v0 = c - a, v1 = b - a, v2 = p - a;
+    double dot00 = glm::dot(v0, v0);
+    double dot01 = glm::dot(v0, v1);
+    double dot02 = glm::dot(v0, v2);
+    double dot11 = glm::dot(v1, v1);
+    double dot12 = glm::dot(v1, v2);
+    double inv = 1.0 / (dot00 * dot11 - dot01 * dot01);
+    double u = (dot11 * dot02 - dot01 * dot12) * inv;
+    double v = (dot00 * dot12 - dot01 * dot02) * inv;
+    return u >= -1e-10 && v >= -1e-10 && u + v <= 1.0 + 1e-10;
+}
+
+/// 简易约束三角化结果
+struct CDTResult {
+    struct Tri {
+        int v0, v1, v2;  // vertex indices
+        double area;
+    };
+    std::vector<Vector2> vertices;        // UV coords
+    std::vector<Tri> triangles;
+
+    void addTriangle(int a, int b, int c) {
+        double ar = std::abs(cross2(
+            vertices[b] - vertices[a],
+            vertices[c] - vertices[a])) * 0.5;
+        triangles.push_back({a, b, c, ar});
+    }
+
+    /// 定位包含点 p 的三角形 (线性扫描)
+    int locateTriangle(const Vector2& p) const {
+        for (size_t i = 0; i < triangles.size(); ++i) {
+            const auto& t = triangles[i];
+            if (pointInTriangle(p, vertices[t.v0],
+                                vertices[t.v1], vertices[t.v2]))
+                return static_cast<int>(i);
+        }
+        return -1;
+    }
+};
+
+/// 耳切法：将简单多边形 (ccw) 三角化
+inline bool earClipPolygon(const std::vector<Vector2>& poly,
+                           std::vector<std::array<int, 3>>& tris)
+{
+    size_t n = poly.size();
+    if (n < 3) return false;
+    if (n == 3) { tris.push_back({0, 1, 2}); return true; }
+
+    // 判断顶点是否为凸耳
+    auto isEar = [&](size_t i, size_t j, size_t k, const std::vector<bool>& removed) -> bool {
+        Vector2 a = poly[i], b = poly[j], c = poly[k];
+        // 检查凸性 (cross product z)
+        double cross = cross2(b - a, c - b);
+        if (cross <= 0.0) return false;  // 非凸或共线
+        // 检查没有其他顶点在该三角形内部
+        for (size_t m = 0; m < n; ++m) {
+            if (m == i || m == j || m == k || removed[m]) continue;
+            if (pointInTriangle(poly[m], a, b, c)) return false;
+        }
+        return true;
+    };
+
+    std::vector<bool> removed(n, false);
+    size_t remaining = n;
+    size_t prev = 0, ear_attempts = 0;
+
+    while (remaining > 3) {
+        // 找凸耳
+        bool found = false;
+        for (size_t start = prev; start < n + prev; ++start) {
+            size_t i = start % n;
+            if (removed[i]) continue;
+            size_t j = (i + 1) % n;
+            while (removed[j]) j = (j + 1) % n;
+            size_t k = (j + 1) % n;
+            while (removed[k]) k = (k + 1) % n;
+            if (k == i) break;  // wrapped around
+
+            if (isEar(i, j, k, removed)) {
+                tris.push_back({static_cast<int>(i),
+                                static_cast<int>(j),
+                                static_cast<int>(k)});
+                removed[j] = true;
+                --remaining;
+                prev = i;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            // 回退：强制切掉第一个可用顶点
+            size_t i = prev;
+            while (removed[i]) i = (i + 1) % n;
+            size_t j = (i + 1) % n;
+            while (removed[j]) j = (j + 1) % n;
+            size_t k = (j + 1) % n;
+            while (removed[k]) k = (k + 1) % n;
+            if (k == i) break;
+            tris.push_back({static_cast<int>(i),
+                            static_cast<int>(j),
+                            static_cast<int>(k)});
+            removed[j] = true;
+            --remaining;
+            prev = i;
+            ++ear_attempts;
+            if (ear_attempts > n * 2) break;
+        }
+    }
+
+    // 最后 3 个顶点组成一个三角形
+    std::vector<int> last;
+    for (size_t i = 0; i < n; ++i)
+        if (!removed[i]) last.push_back(static_cast<int>(i));
+    if (last.size() >= 3) {
+        tris.push_back({last[0], last[1], last[2]});
+    }
+
+    return !tris.empty();
+}
+
+/// 构建边界约束三角化 (CDT approximated)
+/// 1. 耳切法三角化边界多边形
+/// 2. 逐点插入内部网格顶点
+inline CDTResult buildConstrainedTriangulation(
+    const PolyBoundary& pb,
+    const std::vector<double>& u_div,
+    const std::vector<double>& v_div)
+{
+    CDTResult cdt;
+
+    // --- 步骤 1: 收集所有边界顶点 ---
+    // 使用外环（第一个 loop）作为约束边界
+    // 内孔暂做反转处理（耳切要求 CCW）
+    if (pb.loops.empty()) return cdt;
+
+    // 使用外环 (第一个 loop)
+    const auto& outer = pb.loops[0];
+    bool outer_ccw = outer.positive_orientation;  // signedArea > 0 表示 CCW
+
+    std::vector<Vector2> boundary_pts = outer.uv_points;
+    if (!outer_ccw) {
+        std::reverse(boundary_pts.begin(), boundary_pts.end());
+    }
+
+    // 添加边界顶点到 CDT
+    for (const auto& p : boundary_pts) {
+        cdt.vertices.push_back(p);
+    }
+
+    // --- 步骤 2: 耳切法三角化边界 ---
+    std::vector<std::array<int, 3>> boundary_tris;
+    earClipPolygon(boundary_pts, boundary_tris);
+    for (const auto& t : boundary_tris) {
+        cdt.addTriangle(t[0], t[1], t[2]);
+    }
+
+    // --- 步骤 3: 添加内孔顶点 (作为额外的约束点，但不作为约束边) ---
+    for (size_t li = 1; li < pb.loops.size(); ++li) {
+        size_t base = cdt.vertices.size();
+        const auto& loop = pb.loops[li];
+        for (const auto& p : loop.uv_points) {
+            // 跳过重复点
+            bool dup = false;
+            for (size_t vi = 0; vi < cdt.vertices.size(); ++vi) {
+                if (near(cdt.vertices[vi].x, p.x) && near(cdt.vertices[vi].y, p.y)) {
+                    dup = true;
+                    break;
+                }
+            }
+            if (!dup) cdt.vertices.push_back(p);
+        }
+        // 孔的点作为独立点插入，但它们的约束边暂时不处理
+        if (base < cdt.vertices.size()) {
+            for (size_t vi = base; vi < cdt.vertices.size(); ++vi) {
+                int tri_idx = cdt.locateTriangle(cdt.vertices[vi]);
+                if (tri_idx >= 0) {
+                    const auto& tri = cdt.triangles[tri_idx];
+                    // 分裂三角形
+                    int t0 = tri.v0, t1 = tri.v1, t2 = tri.v2;
+                    int new_v = static_cast<int>(vi);
+                    // 移除原三角形，添加 3 个新三角形
+                    cdt.triangles.erase(cdt.triangles.begin() + tri_idx);
+                    cdt.addTriangle(t0, t1, new_v);
+                    cdt.addTriangle(t1, t2, new_v);
+                    cdt.addTriangle(t2, t0, new_v);
+                }
+            }
+        }
+    }
+
+    // --- 步骤 4: 插入内部网格顶点 ---
+    for (double u : u_div) {
+        for (double v : v_div) {
+            Vector2 pt(u, v);
+            // 检查是否在边界内
+            if (!pb.include(pt)) continue;
+            // 检查是否与已有顶点重复
+            bool dup = false;
+            for (const auto& vp : cdt.vertices) {
+                if (near(vp.x, pt.x) && near(vp.y, pt.y)) {
+                    dup = true;
+                    break;
+                }
+            }
+            if (dup) continue;
+
+            int tri_idx = cdt.locateTriangle(pt);
+            if (tri_idx < 0) continue;
+
+            const auto& tri = cdt.triangles[tri_idx];
+            int t0 = tri.v0, t1 = tri.v1, t2 = tri.v2;
+            int new_v = static_cast<int>(cdt.vertices.size());
+            cdt.vertices.push_back(pt);
+
+            cdt.triangles.erase(cdt.triangles.begin() + tri_idx);
+            cdt.addTriangle(t0, t1, new_v);
+            cdt.addTriangle(t1, t2, new_v);
+            cdt.addTriangle(t2, t0, new_v);
+        }
+    }
+
+    return cdt;
+}
+
 inline TriMesh triangulateFace(
     const Face<Point3, Curve, Surface>& face,
     double tol)
@@ -306,107 +542,62 @@ inline TriMesh triangulateFace(
     auto [u_div, v_div] = Geometry::Algo::Surface::parameterDivision(
         surface, {urange, vrange}, tol);
 
-    struct GridPoint {
+    // 构建约束三角化
+    CDTResult cdt = buildConstrainedTriangulation(pb, u_div, v_div);
+
+    if (cdt.triangles.empty()) return mesh;
+
+    // 全局索引映射 (为了去重)
+    struct VertInfo {
         Vector2 uv;
         Point3 pos;
         Vector3 normal;
-        bool inside;
-        int index;
     };
+    std::vector<VertInfo> vert_infos;
+    vert_infos.reserve(cdt.vertices.size());
 
-    std::vector<GridPoint> grid;
-    grid.reserve(u_div.size() * v_div.size());
-    int cols = static_cast<int>(v_div.size());
-
-    for (size_t i = 0; i < u_div.size(); ++i) {
-        for (size_t j = 0; j < v_div.size(); ++j) {
-            Vector2 uv(u_div[i], v_div[j]);
-            Point3 pos = surface_subs(surface, uv.x, uv.y);
-            Vector3 normal = surface_normal(surface, uv.x, uv.y);
-
-            bool inside = pb.include(uv);
-            if (!pb.loops.empty()) {
-                bool on_boundary = false;
-                for (const auto& loop : pb.loops) {
-                    for (size_t k = 0; k < loop.uv_points.size(); ++k) {
-                        if (near2(uv.x, loop.uv_points[k].x) &&
-                            near2(uv.y, loop.uv_points[k].y)) {
-                            on_boundary = true;
-                            break;
-                        }
-                    }
-                    if (on_boundary) break;
-                }
-                if (on_boundary) inside = true;
-            }
-
-            int idx = -1;
-            if (inside) {
-                idx = static_cast<int>(mesh.positions.size());
-                mesh.positions.push_back(pos);
-                mesh.normals.push_back(normal);
-                mesh.uvs.push_back(uv);
-            }
-
-            grid.push_back({uv, pos, normal, inside, idx});
-        }
+    for (size_t i = 0; i < cdt.vertices.size(); ++i) {
+        const auto& uv = cdt.vertices[i];
+        Point3 pos = surface_subs(surface, uv.x, uv.y);
+        Vector3 normal = surface_normal(surface, uv.x, uv.y);
+        vert_infos.push_back({uv, pos, normal});
     }
 
-    for (size_t i = 0; i + 1 < u_div.size(); ++i) {
-        for (size_t j = 0; j + 1 < v_div.size(); ++j) {
-            int i00 = static_cast<int>(i * v_div.size() + j);
-            int i10 = static_cast<int>((i + 1) * v_div.size() + j);
-            int i01 = static_cast<int>(i * v_div.size() + (j + 1));
-            int i11 = static_cast<int>((i + 1) * v_div.size() + (j + 1));
-
-            auto& p00 = grid[i00], p10 = grid[i10];
-            auto& p01 = grid[i01], p11 = grid[i11];
-
-            int n = 0;
-            n += p00.inside ? 1 : 0;
-            n += p10.inside ? 1 : 0;
-            n += p01.inside ? 1 : 0;
-            n += p11.inside ? 1 : 0;
-
-            if (n < 3) continue;
-
-            auto emitTriangle = [&](int a, int b, int c) {
-                if (a < 0 || b < 0 || c < 0) return;
-                auto pa = mesh.positions[a];
-                auto pb = mesh.positions[b];
-                auto pc = mesh.positions[c];
-                Vector3 e1 = pb - pa, e2 = pc - pa;
-                Vector3 cross = glm::cross(e1, e2);
-                Vector3 na = mesh.normals[a];
-                if (glm::dot(cross, na) < 0) {
-                    std::swap(b, c);
-                }
-                mesh.indices.push_back(static_cast<uint32_t>(a));
-                mesh.indices.push_back(static_cast<uint32_t>(b));
-                mesh.indices.push_back(static_cast<uint32_t>(c));
-            };
-
-            if (n == 4) {
-                double d1 = glm::length2(p00.pos - p11.pos);
-                double d2 = glm::length2(p10.pos - p01.pos);
-                if (d1 < d2) {
-                    emitTriangle(p00.index, p10.index, p01.index);
-                    emitTriangle(p01.index, p10.index, p11.index);
-                } else {
-                    emitTriangle(p00.index, p10.index, p11.index);
-                    emitTriangle(p00.index, p11.index, p01.index);
-                }
-            } else {
-                if (p00.inside && p10.inside && p11.inside)
-                    emitTriangle(p00.index, p10.index, p11.index);
-                if (p00.inside && p11.inside && p01.inside)
-                    emitTriangle(p00.index, p11.index, p01.index);
-                if (p00.inside && p10.inside && p01.inside && !p11.inside)
-                    emitTriangle(p00.index, p10.index, p01.index);
-                if (p10.inside && p01.inside && p11.inside && !p00.inside)
-                    emitTriangle(p10.index, p01.index, p11.index);
+    // 按 UV 去重（边界顶点可能在多个 loop 中出现）
+    std::vector<int> cdt_to_mesh(cdt.vertices.size(), -1);
+    auto findOrAddVertex = [&](int cdt_idx) -> int {
+        if (cdt_to_mesh[cdt_idx] >= 0) return cdt_to_mesh[cdt_idx];
+        const auto& vi = vert_infos[cdt_idx];
+        // 检查 UV 是否已在 mesh 中
+        for (size_t k = 0; k < mesh.uvs.size(); ++k) {
+            if (near(mesh.uvs[k].x, vi.uv.x) &&
+                near(mesh.uvs[k].y, vi.uv.y)) {
+                cdt_to_mesh[cdt_idx] = static_cast<int>(k);
+                return static_cast<int>(k);
             }
         }
+        int idx = static_cast<int>(mesh.positions.size());
+        mesh.positions.push_back(vi.pos);
+        mesh.normals.push_back(vi.normal);
+        mesh.uvs.push_back(vi.uv);
+        cdt_to_mesh[cdt_idx] = idx;
+        return idx;
+    };
+
+    for (const auto& tri : cdt.triangles) {
+        if (tri.area < 1e-20) continue;
+        int a = findOrAddVertex(tri.v0);
+        int b = findOrAddVertex(tri.v1);
+        int c_c = findOrAddVertex(tri.v2);
+        Vector3 e1 = mesh.positions[b] - mesh.positions[a];
+        Vector3 e2 = mesh.positions[c_c] - mesh.positions[a];
+        Vector3 cross = glm::cross(e1, e2);
+        if (glm::dot(cross, mesh.normals[a]) < 0) {
+            std::swap(b, c_c);
+        }
+        mesh.indices.push_back(static_cast<uint32_t>(a));
+        mesh.indices.push_back(static_cast<uint32_t>(b));
+        mesh.indices.push_back(static_cast<uint32_t>(c_c));
     }
 
     if (!face.orientation()) {

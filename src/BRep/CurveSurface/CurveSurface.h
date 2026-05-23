@@ -114,10 +114,24 @@ public:
         parameterDivision(std::pair<double, double> range, double tol) const;
     void transformBy(const Geometry::Matrix4& mat);
 
+    // --- 参数反求 ---
+
+    std::optional<double> searchNearestParameter(const Geometry::Point3& point, double hint, size_t trials = 100) const;
+    std::optional<double> searchParameter(const Geometry::Point3& point, double hint, size_t trials = 100) const;
+
+    /// 将另一条曲线拼接至末尾
+    Curve concat(const Curve& other) const;
+
     // --- 方向反转 (Invertible) ---
 
     void invert();
     Curve inverse() const;
+
+    // --- 提升为 NURBS (4D 齐次坐标 B样条) ---
+
+    /// 将任意曲线提升为 NURBS 表示 (BSplineCurve<Vector4>)
+    /// 用于同伦曲面等需要统一曲线类型的操作
+    Geometry::BSplineCurve<Geometry::Vector4> liftUp() const;
 
     // --- variant 索引 ---
 

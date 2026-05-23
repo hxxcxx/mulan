@@ -144,12 +144,12 @@ public:
         return true;
     }
 
-    /// 边界线（仅被一个 Face 使用的边构成的线框）
+    /// 边界线（仅被一个 Face 使用的边，按顶点连接排成闭合 Wire）
     std::vector<Wire<P, C>> boundaries() const {
         std::unordered_map<EdgeID<C>, std::pair<size_t, const Edge<P, C>*>,
             typename EdgeID<C>::Hash> edge_map;
         for (const auto& face : face_list_) {
-            for (const auto& wire : face.absoluteBoundaries()) {
+            for (const auto& wire : face.orientedBoundaries()) {
                 for (const auto& edge : wire.edges()) {
                     edge_map[edge.id()].first++;
                     edge_map[edge.id()].second = &edge;
@@ -157,25 +157,68 @@ public:
             }
         }
 
-        // 收集边界边
-        std::vector<const Edge<P, C>*> boundary_edges;
+        std::vector<std::pair<EdgeID<C>, const Edge<P, C>*>> boundary_edges;
         for (const auto& [eid, info] : edge_map) {
             if (info.first == 1) {
-                boundary_edges.push_back(info.second);
+                boundary_edges.push_back({eid, info.second});
             }
         }
 
-        // 简单排序连接成线框（后续可优化）
+        if (boundary_edges.empty()) return {};
+
+        using VertMap = std::unordered_map<VertexID<P>,
+            std::vector<size_t>, typename VertexID<P>::Hash>;
+
+        std::vector<bool> used(boundary_edges.size(), false);
         std::vector<Wire<P, C>> wires;
-        if (boundary_edges.empty()) return wires;
-        // 简化实现：将所有边界边放入一个 Wire（实际需要排序连接）
-        std::deque<Edge<P, C>> edge_deque;
-        for (auto* e : boundary_edges) {
-            edge_deque.push_back(*e);
+
+        for (size_t start = 0; start < boundary_edges.size(); ++start) {
+            if (used[start]) continue;
+            used[start] = true;
+
+            std::deque<Edge<P, C>> chain;
+            chain.push_back(*boundary_edges[start].second);
+
+            bool extended = true;
+            while (extended) {
+                extended = false;
+                VertexID<P> head_id = chain.front().front().id();
+                VertexID<P> tail_id = chain.back().back().id();
+
+                for (size_t i = 0; i < boundary_edges.size(); ++i) {
+                    if (used[i]) continue;
+
+                    const Edge<P, C>& e = *boundary_edges[i].second;
+
+                    if (e.front().id() == tail_id) {
+                        chain.push_back(e);
+                        used[i] = true;
+                        tail_id = e.back().id();
+                        extended = true;
+                    } else if (e.back().id() == head_id) {
+                        chain.push_front(e.inverse());
+                        used[i] = true;
+                        head_id = e.front().id();
+                        extended = true;
+                    } else if (e.back().id() == tail_id) {
+                        chain.push_back(e.inverse());
+                        used[i] = true;
+                        tail_id = e.front().id();
+                        extended = true;
+                    } else if (e.front().id() == head_id) {
+                        chain.push_front(e);
+                        used[i] = true;
+                        head_id = e.back().id();
+                        extended = true;
+                    }
+                }
+            }
+
+            if (!chain.empty()) {
+                wires.push_back(Wire<P, C>::newUnchecked(std::move(chain)));
+            }
         }
-        if (!edge_deque.empty()) {
-            wires.push_back(Wire<P, C>::newUnchecked(std::move(edge_deque)));
-        }
+
         return wires;
     }
 

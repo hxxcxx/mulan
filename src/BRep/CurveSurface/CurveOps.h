@@ -15,6 +15,8 @@
 #include "CurveSurface.h"
 #include <MulanGeo/Geometry/Types.h>
 #include <MulanGeo/Geometry/Tolerance.h>
+#include <MulanGeo/Geometry/Algo/curve/presearch.h>
+#include <MulanGeo/Geometry/Algo/surface/search.h>
 #include <utility>
 
 namespace MulanGeo::BRep {
@@ -144,13 +146,106 @@ inline void curve_transformBy(Curve& c, const Geometry::Matrix4& mat) {
         using T = std::decay_t<decltype(g)>;
         if constexpr (std::is_same_v<T, IntersectionCurve>) {
             g.leader->transformBy(mat);
-            // surface0/1 也需要变换
             if (g.surface0) g.surface0->transformBy(mat);
             if (g.surface1) g.surface1->transformBy(mat);
         } else {
             g.transformBy(mat);
         }
     }, c.variant());
+}
+
+// --- 曲线参数反求 (search parameter) ---
+
+inline std::optional<double> curve_searchNearestParameter(
+    const Curve& c, const Geometry::Point3& point, double hint, size_t trials = 100)
+{
+    return std::visit([&](const auto& g) -> std::optional<double> {
+        using T = std::decay_t<decltype(g)>;
+        if constexpr (std::is_same_v<T, IntersectionCurve>) {
+            return Geometry::Algo::Curve::searchNearestParameter(*g.leader, point, hint, trials);
+        } else {
+            return Geometry::Algo::Curve::searchNearestParameter(g, point, hint, trials);
+        }
+    }, c.variant());
+}
+
+inline std::optional<double> curve_searchParameter(
+    const Curve& c, const Geometry::Point3& point, double hint, size_t trials = 100)
+{
+    return std::visit([&](const auto& g) -> std::optional<double> {
+        using T = std::decay_t<decltype(g)>;
+        if constexpr (std::is_same_v<T, IntersectionCurve>) {
+            return Geometry::Algo::Curve::searchParameter(*g.leader, point, hint, trials);
+        } else {
+            return Geometry::Algo::Curve::searchParameter(g, point, hint, trials);
+        }
+    }, c.variant());
+}
+
+inline std::optional<double> curve_searchNearestParameterWithHint(
+    const Curve& c, const Geometry::Point3& point,
+    const Geometry::SPHint1D& hint = {}, size_t trials = 100)
+{
+    return std::visit([&](const auto& g) -> std::optional<double> {
+        using T = std::decay_t<decltype(g)>;
+        if constexpr (std::is_same_v<T, IntersectionCurve>) {
+            return Geometry::Algo::Curve::searchNearestParameterWithHint(*g.leader, point, hint, trials);
+        } else {
+            return Geometry::Algo::Curve::searchNearestParameterWithHint(g, point, hint, trials);
+        }
+    }, c.variant());
+}
+
+inline std::optional<double> curve_searchParameterWithHint(
+    const Curve& c, const Geometry::Point3& point,
+    const Geometry::SPHint1D& hint = {}, size_t trials = 100)
+{
+    return std::visit([&](const auto& g) -> std::optional<double> {
+        using T = std::decay_t<decltype(g)>;
+        if constexpr (std::is_same_v<T, IntersectionCurve>) {
+            return Geometry::Algo::Curve::searchParameterWithHint(*g.leader, point, hint, trials);
+        } else {
+            return Geometry::Algo::Curve::searchParameterWithHint(g, point, hint, trials);
+        }
+    }, c.variant());
+}
+
+// --- 曲面参数反求 (search parameter) ---
+
+inline std::optional<std::pair<double, double>> surface_searchNearestParameter(
+    const Surface& s, const Geometry::Point3& point,
+    std::pair<double, double> hint, size_t trials = 100)
+{
+    return std::visit([&](const auto& g) -> std::optional<std::pair<double, double>> {
+        return Geometry::Algo::Surface::searchNearestParameter(g, point, hint, trials);
+    }, s.variant());
+}
+
+inline std::optional<std::pair<double, double>> surface_searchParameter(
+    const Surface& s, const Geometry::Point3& point,
+    std::pair<double, double> hint, size_t trials = 100)
+{
+    return std::visit([&](const auto& g) -> std::optional<std::pair<double, double>> {
+        return Geometry::Algo::Surface::searchParameter(g, point, hint, trials);
+    }, s.variant());
+}
+
+inline std::optional<std::pair<double, double>> surface_searchNearestParameterWithHint(
+    const Surface& s, const Geometry::Point3& point,
+    const Geometry::SPHint2D& hint = {}, size_t trials = 100, size_t division = 50)
+{
+    return std::visit([&](const auto& g) -> std::optional<std::pair<double, double>> {
+        return Geometry::Algo::Surface::searchNearestParameterWithHint(g, point, hint, trials, division);
+    }, s.variant());
+}
+
+inline std::optional<std::pair<double, double>> surface_searchParameterWithHint(
+    const Surface& s, const Geometry::Point3& point,
+    const Geometry::SPHint2D& hint = {}, size_t trials = 100, size_t division = 50)
+{
+    return std::visit([&](const auto& g) -> std::optional<std::pair<double, double>> {
+        return Geometry::Algo::Surface::searchParameterWithHint(g, point, hint, trials, division);
+    }, s.variant());
 }
 
 // --- Curve invert ---
@@ -184,6 +279,23 @@ inline Geometry::Vector3 surface_uder(const Surface& s, double u, double v) {
     return std::visit([u, v](const auto& g) -> Geometry::Vector3 {
         return g.uder(u, v);
     }, s.variant());
+}
+
+// --- IncludeCurve: 检查曲线是否在曲面上 ---
+
+inline bool surface_includeCurve(const Surface& s, const Curve& c, double tol = -1.0) {
+    if (tol < 0.0) tol = Geometry::TOLERANCE;
+    auto range = curve_rangeTuple(c);
+    const size_t n = 10;
+    for (size_t i = 0; i <= n; ++i) {
+        double t = range.first + (range.second - range.first) * i / n;
+        Geometry::Point3 pt_on_curve = curve_subs(c, t);
+        auto uv = surface_searchNearestParameter(s, pt_on_curve, {0.0, 0.0}, 50);
+        if (!uv) return false;
+        Geometry::Point3 pt_on_surface = surface_subs(s, uv->first, uv->second);
+        if (glm::distance(pt_on_curve, pt_on_surface) > tol) return false;
+    }
+    return true;
 }
 
 inline Geometry::Vector3 surface_vder(const Surface& s, double u, double v) {
@@ -236,6 +348,48 @@ inline void surface_transformBy(Surface& s, const Geometry::Matrix4& mat) {
     }, s.variant());
 }
 
+// --- 曲线拼接 (concat) ---
+
+/// 将两条曲线的几何拼接成一条连续曲线
+/// 假定 c0 的终点 == c1 的起点
+inline Curve curve_concat(const Curve& c0, const Curve& c1) {
+    using namespace Geometry;
+
+    // 简单情况：两条 Line 直接连接
+    if (c0.holds<Line<Point3>>() && c1.holds<Line<Point3>>()) {
+        const auto& l0 = c0.get<Line<Point3>>();
+        const auto& l1 = c1.get<Line<Point3>>();
+        return Curve(Line<Point3>(l0.front(), l1.back()));
+    }
+
+    // 通用方案：离散采样后拟合 BSplineCurve
+    auto r0 = curve_rangeTuple(c0);
+    auto r1 = curve_rangeTuple(c1);
+
+    auto [div0, pts0] = curve_parameterDivision(c0, r0, TOLERANCE);
+    auto [div1, pts1] = curve_parameterDivision(c1, r1, TOLERANCE);
+
+    std::vector<double> params = std::move(div0);
+    std::vector<Point3> pts = std::move(pts0);
+    for (size_t i = 1; i < div1.size(); ++i) {
+        double t = r0.second - r0.first + div1[i];
+        params.push_back(t);
+        pts.push_back(pts1[i]);
+    }
+
+    double total = params.back() - params.front();
+    if (total < TOLERANCE) return c0;
+    KnotVec knots;
+    std::vector<double> knots_vec;
+    knots_vec.reserve(params.size());
+    for (auto p : params) {
+        knots_vec.push_back((p - params.front()) / total);
+    }
+    knots = KnotVec(std::move(knots_vec));
+
+    return Curve(BSplineCurve<Point3>(std::move(knots), std::move(pts)));
+}
+
 // ============================================================
 // Curve 类方法实现 (内联，委托给自由函数)
 // ============================================================
@@ -257,6 +411,53 @@ inline std::pair<std::vector<double>, std::vector<Geometry::Point3>>
 inline void Curve::transformBy(const Geometry::Matrix4& mat) { curve_transformBy(*this, mat); }
 inline void Curve::invert() { curve_invert(*this); }
 inline Curve Curve::inverse() const { return curve_inverse(*this); }
+inline std::optional<double> Curve::searchNearestParameter(const Geometry::Point3& point, double hint, size_t trials) const { return curve_searchNearestParameter(*this, point, hint, trials); }
+inline std::optional<double> Curve::searchParameter(const Geometry::Point3& point, double hint, size_t trials) const { return curve_searchParameter(*this, point, hint, trials); }
+inline Curve Curve::concat(const Curve& other) const { return curve_concat(*this, other); }
+
+// ============================================================
+// Curve::liftUp — 提升为 4D 齐次 B样条
+// ============================================================
+
+inline Geometry::BSplineCurve<Geometry::Vector4> Curve::liftUp() const {
+    using Geometry::Vector4;
+    using Geometry::BSplineCurve;
+    using Geometry::KnotVec;
+    using Geometry::NurbsCurve;
+    using Geometry::Point3;
+
+    if (holds<Geometry::Line<Point3>>()) {
+        auto& line = get<Geometry::Line<Point3>>();
+        Point3 p0 = line.frontPoint();
+        Point3 p1 = line.backPoint();
+        std::vector<Vector4> cps = {
+            Vector4(p0, 1.0),
+            Vector4(p1, 1.0)
+        };
+        KnotVec knots = KnotVec::bezier_knot(1);
+        return BSplineCurve<Vector4>(std::move(knots), std::move(cps));
+    }
+
+    if (holds<Geometry::BSplineCurve<Point3>>()) {
+        auto& bspline = get<Geometry::BSplineCurve<Point3>>();
+        std::vector<Vector4> cps;
+        cps.reserve(bspline.controlPoints().size());
+        for (const auto& p : bspline.controlPoints()) {
+            cps.push_back(Vector4(p, 1.0));
+        }
+        return BSplineCurve<Vector4>(bspline.knotVec(), std::move(cps));
+    }
+
+    if (holds<NurbsCurve>()) {
+        return get<NurbsCurve>().nonRationalized();
+    }
+
+    if (holds<IntersectionCurve>()) {
+        return get<IntersectionCurve>().leader->liftUp();
+    }
+
+    return BSplineCurve<Vector4>();
+}
 
 // ============================================================
 // Surface 类方法实现 (内联，委托给自由函数)

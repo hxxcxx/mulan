@@ -322,20 +322,47 @@ inline Shell<Point3, Curve, Surface> connectEdgeVectors(
 }
 
 inline Surface makeHomotopySurface(const Curve& c0, const Curve& c1) {
-    // Homotopy: surface(u,v) = (1-v)*c0(u) + v*c1(u)
-    // Simplified: use Plane from the four corner points
-    Point3 p00 = curve_subs(c0, curve_rangeTuple(c0).first);
-    Point3 p01 = curve_subs(c0, curve_rangeTuple(c0).second);
-    Point3 p10 = curve_subs(c1, curve_rangeTuple(c1).first);
-    Point3 p11 = curve_subs(c1, curve_rangeTuple(c1).second);
+    using namespace Geometry;
 
-    // If c0 and c1 are both lines, create a Plane
-    if (c0.holds<Geometry::Line<Point3>>() && c1.holds<Geometry::Line<Point3>>()) {
-        return Surface(Geometry::Plane(p00, p01 - p00, p10 - p00));
+    if (c0.holds<Line<Point3>>() && c1.holds<Line<Point3>>()) {
+        Point3 p00 = curve_subs(c0, curve_rangeTuple(c0).first);
+        Point3 p01 = curve_subs(c0, curve_rangeTuple(c0).second);
+        Point3 p10 = curve_subs(c1, curve_rangeTuple(c1).first);
+        return Surface(Plane(p00, p01 - p00, p10 - p00));
     }
-    // Otherwise use ExtrudedCurve approach or BSplineSurface
-    // Simplified: Plane approximation
-    return Surface(Geometry::Plane(p00, p01 - p00, p10 - p00));
+
+    auto h0 = c0.liftUp();
+    auto h1 = c1.liftUp();
+
+    if (h0.controlPoints().size() == h1.controlPoints().size() &&
+        h0.knotVec().len() == h1.knotVec().len()) {
+        auto surf = BSplineSurface<Vector4>::homotopy(h0, h1);
+        return Surface(NurbsSurface(std::move(surf)));
+    }
+
+    auto [div0, pts0] = c0.parameterDivision(c0.rangeTuple(), TOLERANCE);
+    auto [div1, pts1] = c1.parameterDivision(c1.rangeTuple(), TOLERANCE);
+    size_t n = std::min(pts0.size(), pts1.size());
+
+    std::vector<std::vector<Vector4>> surf_cps;
+    surf_cps.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        surf_cps.push_back({Vector4(pts0[i], 1.0), Vector4(pts1[i], 1.0)});
+    }
+
+    std::vector<double> u_knots_vec;
+    u_knots_vec.reserve(n + 2);
+    u_knots_vec.push_back(div0.front());
+    for (size_t i = 0; i < n; ++i) {
+        u_knots_vec.push_back(div0[i]);
+    }
+    u_knots_vec.push_back(div0.back());
+
+    KnotVec u_kv(std::move(u_knots_vec));
+    KnotVec v_kv = KnotVec::bezier_knot(1);
+
+    return Surface(NurbsSurface(BSplineSurface<Vector4>(
+        {std::move(u_kv), std::move(v_kv)}, std::move(surf_cps))));
 }
 
 inline Vector3 takeOneAxisByNormal(Vector3 n) {
@@ -652,5 +679,118 @@ inline Vertex<Point3> scaled(const Vertex<Point3>& v, Point3 o, Vector3 s) { ret
 inline Edge<Point3, Curve> scaled(const Edge<Point3, Curve>& e, Point3 o, Vector3 s) { return transformed(e, scaleMatrix(o, s)); }
 inline Wire<Point3, Curve> scaled(const Wire<Point3, Curve>& w, Point3 o, Vector3 s) { return transformed(w, scaleMatrix(o, s)); }
 inline Face<Point3, Curve, Surface> scaled(const Face<Point3, Curve, Surface>& f, Point3 o, Vector3 s) { return transformed(f, scaleMatrix(o, s)); }
+
+// ============================================================
+// 拓扑去重 (dedup)
+// ============================================================
+
+/// 对 Shell 执行顶点和边的几何去重
+/// 将几何相同（容差内）的 Vertex 统一为同一个实例，
+/// 并将 (front, back, curve) 相同的 Edge 统一。
+inline Shell<Point3, Curve, Surface> dedup(
+    const Shell<Point3, Curve, Surface>& shell)
+{
+    struct VertexHasher {
+        size_t operator()(const Vertex<Point3>& v) const {
+            auto p = v.point();
+            return std::hash<double>{}(p.x) ^
+                   (std::hash<double>{}(p.y) << 1) ^
+                   (std::hash<double>{}(p.z) << 2);
+        }
+    };
+    struct VertexEq {
+        bool operator()(const Vertex<Point3>& a, const Vertex<Point3>& b) const {
+            return Geometry::near(a.point(), b.point());
+        }
+    };
+    struct EdgeHasher {
+        size_t operator()(const Edge<Point3, Curve>& e) const {
+            auto fp = e.front().point(), bp = e.back().point();
+            return std::hash<double>{}(fp.x) ^ (std::hash<double>{}(fp.y) << 1) ^
+                   (std::hash<double>{}(fp.z) << 2) ^
+                   (std::hash<double>{}(bp.x) << 3) ^ (std::hash<double>{}(bp.y) << 4) ^
+                   (std::hash<double>{}(bp.z) << 5);
+        }
+    };
+    struct EdgeEq {
+        bool operator()(const Edge<Point3, Curve>& a,
+                        const Edge<Point3, Curve>& b) const {
+            // 检查前端点、后端点是否匹配（考虑方向）
+            bool forward = Geometry::near(a.front().point(), b.front().point()) &&
+                           Geometry::near(a.back().point(), b.back().point());
+            bool reverse = Geometry::near(a.front().point(), b.back().point()) &&
+                           Geometry::near(a.back().point(), b.front().point());
+            return forward || reverse;
+        }
+    };
+
+    // --- 顶点去重 ---
+    std::unordered_map<Vertex<Point3>, Vertex<Point3>, VertexHasher, VertexEq> vmap;
+
+    auto getCanonical = [&](const Vertex<Point3>& v) -> Vertex<Point3> {
+        auto it = vmap.find(v);
+        if (it != vmap.end()) return it->second;
+        vmap[v] = v;
+        return v;
+    };
+
+    // 收集所有顶点
+    for (size_t fi = 0; fi < shell.len(); ++fi) {
+        const auto& face = shell[fi];
+        for (size_t bi = 0; bi < face.numBoundaries(); ++bi) {
+            for (const auto& e : face.boundary(bi).edges()) {
+                getCanonical(e.front());
+                getCanonical(e.back());
+            }
+        }
+    }
+
+    // --- 边去重 ---
+    std::unordered_map<Edge<Point3, Curve>, Edge<Point3, Curve>,
+                       EdgeHasher, EdgeEq> emap;
+
+    auto getCanonicalEdge = [&](const Edge<Point3, Curve>& e) -> Edge<Point3, Curve> {
+        auto it = emap.find(e);
+        if (it != emap.end()) return it->second;
+        // 用 canonical 顶点重建边
+        auto cf = getCanonical(e.front());
+        auto cb = getCanonical(e.back());
+        auto ce = Edge<Point3, Curve>::newUnchecked(cf, cb, e.curve());
+        emap[e] = ce;
+        return ce;
+    };
+
+    // --- 重建 Shell ---
+    Shell<Point3, Curve, Surface> result;
+    for (size_t fi = 0; fi < shell.len(); ++fi) {
+        const auto& face = shell[fi];
+        std::vector<Wire<Point3, Curve>> new_bds;
+        for (size_t bi = 0; bi < face.numBoundaries(); ++bi) {
+            std::deque<Edge<Point3, Curve>> new_edges;
+            for (const auto& e : face.boundary(bi).edges()) {
+                new_edges.push_back(getCanonicalEdge(e));
+            }
+            new_bds.push_back(Wire<Point3, Curve>::newUnchecked(std::move(new_edges)));
+        }
+        Surface s = face.surface();
+        auto new_face = Face<Point3, Curve, Surface>::newUnchecked(
+            std::move(new_bds), std::move(s));
+        if (!face.orientation()) new_face.invert();
+        result.push(std::move(new_face));
+    }
+
+    return result;
+}
+
+/// 对 Solid 执行去重
+inline Solid<Point3, Curve, Surface> dedup(
+    const Solid<Point3, Curve, Surface>& solid)
+{
+    std::vector<Shell<Point3, Curve, Surface>> bds;
+    for (const auto& sh : solid.boundaries()) {
+        bds.push_back(dedup(sh));
+    }
+    return Solid<Point3, Curve, Surface>::newUnchecked(std::move(bds));
+}
 
 } // namespace MulanGeo::BRep::builder

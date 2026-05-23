@@ -3,17 +3,22 @@
  * @brief 布尔运算: union (or), intersection (and), difference (cut)
  *
  * 基于 truck-shapeops::transversal 的 C++ 移植。
- * 算法流程:
+ *
+ * 当前实现为简化版本 — 仅做面分类（射线穿面法判定内外），
+ * 不做面分割。这意味着:
+ *   - 不相交的实体: 结果正确
+ *   - 部分相交: 结果近似（相交面不被分割，整体归类为 And/Or）
+ *   - 完整布尔运算需要 LoopsStore + divide_face 面分割拓扑，
+ *     将在后续版本补充
+ *
+ * 完整算法流程 (truck-shapeops):
  *   1. 将两个 Shell 细化为三角网格
  *   2. 用三角形-三角形碰撞检测找到相交线段
  *   3. 将相交线段组装成交线 (Polyline)
- *   4. 用交线分割面 (divide_face)
+ *   4. 用交线分割面 (divide_face) — TODO
  *   5. 将分割后的面分类为 And/Or/Unknown
  *   6. 用射线穿面法判定 Unknown 面归属
  *   7. 合并结果面为最终 Shell
- *
- * 当前为初步实现，仅支持基本的面面相交和分类。
- * 完整的拓扑组装（LoopsStore）将在后续版本补充。
  *
  * @author hxxcxx
  * @date 2026-05-23

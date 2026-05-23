@@ -16,6 +16,7 @@
 #include "Wire.h"
 #include "ID.h"
 #include "Errors.h"
+#include "../CurveSurface/CurveOps.h"
 #include <memory>
 #include <vector>
 #include <functional>
@@ -76,6 +77,17 @@ public:
     const Wire<P, C>& boundary(size_t i) const { return boundaries_[i]; }
     size_t numBoundaries() const { return boundaries_.size(); }
 
+    /// 返回受 orientation 影响的边界线：
+    /// orientation=true → 原样返回；orientation=false → 每条 wire 反转
+    std::vector<Wire<P, C>> orientedBoundaries() const {
+        std::vector<Wire<P, C>> result;
+        result.reserve(boundaries_.size());
+        for (const auto& w : boundaries_) {
+            result.push_back(orientation_ ? w : w.inverse());
+        }
+        return result;
+    }
+
     /// 外环（第一个边界）
     const Wire<P, C>& outerWire() const { return boundaries_.front(); }
 
@@ -88,12 +100,21 @@ public:
         return h;
     }
 
-    /// 绝对方向边界的 const 引用（不受 orientation 影响）
+    /// 绝对方向边界（不受 orientation 影响）
     const std::vector<Wire<P, C>>& absoluteBoundaries() const { return boundaries_; }
 
     // --- 曲面 ---
 
     S surface() const { return *surface_; }
+
+    /// 返回受 orientation 影响的曲面：orientation=false → 反转法线的曲面
+    S orientedSurface() const {
+        if (orientation_) return *surface_;
+        S inv = *surface_;
+        inv.invert();
+        return inv;
+    }
+
     void setSurface(S s) { *surface_ = std::move(s); }
 
     // --- ID ---
@@ -118,7 +139,12 @@ public:
 
     /// 检查曲面是否包含所有边界线
     bool isGeometricConsistent() const {
-        // IncludeCurve 检查需要 Curve/Surface variant，暂略
+        if (!surface_) return true;
+        for (const auto& wire : boundaries_) {
+            for (const auto& edge : wire.edges()) {
+                if (!surface_includeCurve(*surface_, edge.curve())) return false;
+            }
+        }
         return true;
     }
 

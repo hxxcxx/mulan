@@ -225,6 +225,53 @@ public:
         return bb;
     }
 
+    /// 同伦曲面: surface(u,v) = (1-v)*c0(u) + v*c1(u)
+    /// 从两条 B样条曲线创建双线性插值曲面
+    /// c0 和 c1 必须有相同的节点向量（否则会合并节点向量）
+    static BSplineSurface<P> homotopy(
+        const BSplineCurve<P>& c0, const BSplineCurve<P>& c1)
+    {
+        auto c0_knots = c0.knotVec().as_vec();
+        auto c1_knots = c1.knotVec().as_vec();
+        auto c0_cps = c0.controlPoints();
+        auto c1_cps = c1.controlPoints();
+
+        double t0 = c0_knots.front(), t1 = c0_knots.back();
+
+        std::vector<std::vector<P>> cps;
+        cps.reserve(c0_cps.size());
+        for (size_t i = 0; i < c0_cps.size(); ++i) {
+            std::vector<P> row;
+            row.reserve(2);
+            row.push_back(c0_cps[i]);
+            row.push_back(c1_cps[i]);
+            cps.push_back(std::move(row));
+        }
+
+        KnotVec v_knot = KnotVec::bezier_knot(1);
+        KnotVec u_knot = c0.knotVec();
+
+        return BSplineSurface<P>({std::move(u_knot), std::move(v_knot)}, std::move(cps));
+    }
+
+    static BSplineSurface<P> homotopy(
+        const BSplineCurve<P>& curve)
+    {
+        auto cps = curve.controlPoints();
+        auto t0 = curve.knotVec()[0];
+        auto t1 = curve.knotVec()[curve.knotVec().len() - 1];
+
+        std::vector<std::vector<P>> surface_cps;
+        surface_cps.reserve(cps.size());
+        for (const auto& cp : cps) {
+            surface_cps.push_back({P(0.0), cp});
+        }
+
+        KnotVec v_knot = KnotVec::bezier_knot(1);
+
+        return BSplineSurface<P>({curve.knotVec(), std::move(v_knot)}, std::move(surface_cps));
+    }
+
 private:
     std::pair<KnotVec, KnotVec> knot_vecs_;
     std::vector<std::vector<P>> control_points_;

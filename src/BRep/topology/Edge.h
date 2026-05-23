@@ -132,7 +132,7 @@ public:
     }
 
     /// 在参数 t 处切分边，返回两条新边
-    /// 要求 t 在曲线的参数范围内
+    /// 要求 t 在曲线绝对参数范围内
     Core::Result<std::pair<Edge, Edge>> cutWithParameter(double t) const {
         auto [t0, t1] = curve_->rangeTuple();
         if (t <= t0 || t >= t1) {
@@ -141,11 +141,20 @@ public:
         }
 
         P mid_point = curve_->subs(t);
-
         Vertex<P> mid_vertex(mid_point);
 
-        Edge e0 = Edge::newUnchecked(absoluteFront(), mid_vertex, C(*curve_));
-        Edge e1 = Edge::newUnchecked(mid_vertex, absoluteBack(), C(*curve_));
+        C left_curve, right_curve;
+        if constexpr (requires { curve_->cut(t); }) {
+            auto [c0, c1] = curve_->cut(t);
+            left_curve = std::move(c0);
+            right_curve = std::move(c1);
+        } else {
+            left_curve = *curve_;
+            right_curve = *curve_;
+        }
+
+        Edge e0 = Edge::newUnchecked(absoluteFront(), mid_vertex, std::move(left_curve));
+        Edge e1 = Edge::newUnchecked(mid_vertex, absoluteBack(), std::move(right_curve));
 
         if (!orientation_) {
             e0.invert();
@@ -153,6 +162,15 @@ public:
         }
 
         return std::make_pair(std::move(e0), std::move(e1));
+    }
+
+    /// 连接两条边，要求 back of first == front of second
+    static Core::Result<Edge> concat(const Edge& first, const Edge& second) {
+        if (!first.back().isSamePoint(second.front())) {
+            return Core::Err<Edge>(makeError(TopologyError::NotConnected));
+        }
+        C curve = first.curve().concat(second.curve());
+        return Edge::tryNew(first.absoluteFront(), second.absoluteBack(), std::move(curve));
     }
 
     // --- 一致性检查 ---

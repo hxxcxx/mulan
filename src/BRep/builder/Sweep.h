@@ -93,19 +93,32 @@ inline Solid<Point3, Curve, Surface> tsweep(const Face<Point3, Curve, Surface>& 
 // Rotation sweep (rsweep)
 // ============================================================
 
-inline Edge<Point3, Curve> rsweepVertex(
+inline Wire<Point3, Curve> rsweepVertex(
     const Vertex<Point3>& v, Point3 origin, Vector3 axis, double angle, size_t division)
 {
+    if (division <= 1) {
+        double step = angle / static_cast<double>(std::max(division, size_t(1)));
+        auto trsl = builder::rotationMatrix(origin, axis, step);
+        auto next = builder::transformed(v, trsl);
+        std::deque<Edge<Point3, Curve>> edges;
+        edges.push_back(builder::circleArc(v, next,
+            BRep::builder::ArcConstraintValue::fromTangent(glm::cross(axis, next.point() - origin))));
+        return Wire<Point3, Curve>::newUnchecked(std::move(edges));
+    }
+
     double step = angle / static_cast<double>(division);
     auto trsl = builder::rotationMatrix(origin, axis, step);
 
+    std::deque<Edge<Point3, Curve>> edges;
     auto current = v;
     for (size_t i = 0; i < division; ++i) {
         auto next = builder::transformed(current, trsl);
-        return builder::circleArc(current, next,
-            BRep::builder::ArcConstraintValue::fromTangent(glm::cross(axis, next.point() - origin)));
+        edges.push_back(builder::circleArc(current, next,
+            BRep::builder::ArcConstraintValue::fromTangent(glm::cross(axis, next.point() - origin))));
+        current = next;
     }
-    return builder::line(v, builder::transformed(v, trsl));
+
+    return Wire<Point3, Curve>::newUnchecked(std::move(edges));
 }
 
 inline Wire<Point3, Curve> rsweepClosed(
@@ -344,12 +357,6 @@ inline Shell<Point3, Curve, Surface> rsweep(
 inline std::vector<Core::Result<Solid<Point3, Curve, Surface>>> rsweep(
     const Shell<Point3, Curve, Surface>& shell, Point3 origin, Vector3 axis, double angle, size_t division)
 {
-    // Simplified: treat entire shell as one solid
-    auto swept_shell = rsweep(shell.len() > 0 ? shell[0] :
-        Face<Point3, Curve, Surface>(), origin, axis, angle, division);
-
-    // For now, try to make a solid from the swept shell as a single boundary
-    // A proper implementation would split connected components
     Shell<Point3, Curve, Surface> boundary;
     for (size_t i = 0; i < shell.len(); ++i) {
         auto faces = rsweep(shell[i], origin, axis, angle, division);
@@ -358,10 +365,59 @@ inline std::vector<Core::Result<Solid<Point3, Curve, Surface>>> rsweep(
         }
     }
 
+    boundary = builder::dedup(std::move(boundary));
     auto result = Solid<Point3, Curve, Surface>::tryNew({std::move(boundary)});
     std::vector<Core::Result<Solid<Point3, Curve, Surface>>> vec;
     vec.push_back(std::move(result));
     return vec;
+}
+
+// ============================================================
+// 基本体素
+// ============================================================
+
+/// 圆锥/圆台
+/// bottom_radius: 底面半径, top_radius: 顶面半径 (0=尖顶), height: 高度
+/// 轴为 Z 轴正向
+inline Core::Result<Solid<Point3, Curve, Surface>> cone(
+    double bottom_radius, double top_radius, double height, size_t division = 16)
+{
+    Point3 origin(0.0);
+    Vector3 axis(0.0, 0.0, 1.0);
+
+    auto makePlaneFromNormal = [](const Point3& pt, const Vector3& n) -> Geometry::Plane {
+        Vector3 u = std::abs(n.x) < 0.9 ? Vector3(1, 0, 0) : Vector3(0, 1, 0);
+        u = glm::normalize(glm::cross(n, u));
+        Vector3 v = glm::cross(n, u);
+        return Geometry::Plane(pt, u, v);
+    };
+
+    Vertex<Point3> bottom_rim(Point3(bottom_radius, 0.0, 0.0));
+    Wire<Point3, Curve> bottom_circle = rsweepClosed(bottom_rim, origin, axis, division);
+    Vertex<Point3> top_rim(Point3(top_radius, 0.0, height));
+
+    std::deque<Edge<Point3, Curve>> profile_edges;
+    profile_edges.push_back(Edge<Point3, Curve>::newUnchecked(
+        bottom_rim, top_rim, Curve(Geometry::Line<Point3>(bottom_rim.point(), top_rim.point()))));
+    Wire<Point3, Curve> profile_wire = Wire<Point3, Curve>::newUnchecked(std::move(profile_edges));
+    Shell<Point3, Curve, Surface> side_shell = rsweep(profile_wire, origin, axis, 2.0 * builder::BREP_PI, division);
+
+    Face<Point3, Curve, Surface> bottom_face = Face<Point3, Curve, Surface>::newUnchecked(
+        {bottom_circle.inverse()}, Surface(makePlaneFromNormal(Point3(0.0), Vector3(0.0, 0.0, -1.0))));
+
+    Shell<Point3, Curve, Surface> shell;
+    shell.push(bottom_face);
+    for (size_t i = 0; i < side_shell.len(); ++i)
+        shell.push(std::move(side_shell[i]));
+
+    if (top_radius > Geometry::TOLERANCE) {
+        Wire<Point3, Curve> top_circle = rsweepClosed(top_rim, origin, axis, division);
+        Face<Point3, Curve, Surface> top_face = Face<Point3, Curve, Surface>::newUnchecked(
+            {top_circle.inverse()}, Surface(makePlaneFromNormal(Point3(0.0, 0.0, height), Vector3(0.0, 0.0, 1.0))));
+        shell.push(std::move(top_face));
+    }
+
+    return Solid<Point3, Curve, Surface>::tryNew({std::move(shell)});
 }
 
 } // namespace MulanGeo::BRep::sweep

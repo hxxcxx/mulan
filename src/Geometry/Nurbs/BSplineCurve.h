@@ -215,6 +215,92 @@ public:
         return c;
     }
 
+    // --- 切割 ---
+
+    /// 在参数 t 处切割曲线，返回 (左半段, 右半段)
+    /// 使用节点插入使 t 处重复度 = degree+1，然后分割控制点/节点向量
+    std::pair<BSplineCurve<P>, BSplineCurve<P>> cut(double t) const {
+        size_t deg = degree();
+        size_t n = control_points_.size();
+
+        std::vector<double> knots = knot_vec_.as_vec();
+        std::vector<P> cps = control_points_;
+
+        // Boehm 节点插入: 使 t 处重复度 = degree+1
+        // 找 t 所在节点跨 [s, s+1)
+        size_t s = 0;
+        for (size_t i = knots.size() - 1; i > 0; --i) {
+            if (knots[i - 1] <= t + TOLERANCE) { s = i - 1; break; }
+        }
+
+        // 已有重复度
+        size_t mult = 0;
+        for (size_t i = 0; i < knots.size(); ++i) {
+            if (near(knots[i], t)) ++mult;
+            else if (knots[i] > t) break;
+        }
+
+        // 需要插入 (degree+1 - mult) 次
+        size_t insertions = deg + 1 - mult;
+
+        for (size_t r = 0; r < insertions; ++r) {
+            // Boehm 插入一次节点 t
+            // 找插入位置
+            auto ins = std::upper_bound(knots.begin(), knots.end(), t);
+            size_t k = static_cast<size_t>(ins - knots.begin());
+
+            // 修改控制点
+            size_t start = (k > deg + 1) ? k - deg - 1 : 0;
+            size_t end = static_cast<size_t>((k < n + deg + 1 - mult) ? k - mult + r : n);
+
+            for (size_t i = end; i > start; --i) {
+                double alpha;
+                size_t idx = i - 1;
+                if (idx + deg + 1 < knots.size() && idx < knots.size()) {
+                    double denom = knots[idx + deg + 1] - knots[idx];
+                    alpha = soSmall(denom) ? 1.0 : (t - knots[idx]) / denom;
+                } else {
+                    alpha = 1.0;
+                }
+                if (idx < cps.size() && idx + 1 < cps.size()) {
+                    cps[idx] = cps[idx] * (1.0 - alpha) + cps[idx + 1] * alpha;
+                }
+            }
+
+            // 插入节点
+            knots.insert(ins, t);
+        }
+
+        // 现在节点 t 处有 repetition deg+1, 找到它的起始位置
+        size_t k_start = 0;
+        for (size_t i = 0; i < knots.size(); ++i) {
+            if (near(knots[i], t)) { k_start = i; break; }
+        }
+
+        // 控制点分割位置
+        size_t cp_split = k_start - deg;
+
+        // 构造左右两段
+        std::vector<double> left_knots, right_knots;
+        std::vector<P> left_cps, right_cps;
+
+        for (size_t i = 0; i <= cp_split; ++i) left_cps.push_back(cps[i]);
+        for (size_t i = cp_split; i < cps.size(); ++i) right_cps.push_back(cps[i]);
+
+        // 左段: knots[0..k_start] + deg+1 copies of t
+        for (size_t i = 0; i <= k_start; ++i) left_knots.push_back(knots[i]);
+        for (size_t i = 0; i <= deg; ++i) left_knots.push_back(t);
+
+        // 右段: deg+1 copies of t + knots[k_start..end]
+        for (size_t i = 0; i <= deg; ++i) right_knots.push_back(t);
+        for (size_t i = k_start; i < knots.size(); ++i) right_knots.push_back(knots[i]);
+
+        return {
+            BSplineCurve<P>(KnotVec(std::move(left_knots)), std::move(left_cps)),
+            BSplineCurve<P>(KnotVec(std::move(right_knots)), std::move(right_cps))
+        };
+    }
+
     // --- 其他操作 ---
 
     void knot_normalize() { knot_vec_.normalize(); }

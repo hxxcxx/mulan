@@ -124,6 +124,14 @@ public:
         return c;
     }
 
+    // --- 切割 ---
+
+    /// 在参数 t 处切割 NURBS 曲线，返回 (左半段, 右半段)
+    std::pair<NurbsCurve, NurbsCurve> cut(double t) const {
+        auto [left, right] = bspline_.cut(t);
+        return {NurbsCurve(std::move(left)), NurbsCurve(std::move(right))};
+    }
+
 private:
     BSplineCurve<Vector4> bspline_;
 

@@ -52,6 +52,11 @@ public:
     void invert() { std::swap(p0_, p1_); }
     Line inverse() const { return Line(p1_, p0_); }
 
+    std::pair<Line, Line> cut(double t) const {
+        P mid = subs(t);
+        return {Line(p0_, mid), Line(mid, p1_)};
+    }
+
     // --- BoundedCurve 接口 ---
 
     std::pair<std::vector<double>, std::vector<P>>
