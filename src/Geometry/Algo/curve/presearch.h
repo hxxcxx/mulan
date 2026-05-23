@@ -10,10 +10,10 @@
  */
 #pragma once
 
-#include "../Types.h"
-#include "../Tolerance.h"
-#include "../traits/ParametricCurve.h"
-#include "../traits/ParametricSurface.h"
+#include <MulanGeo/Geometry/Types.h>
+#include <MulanGeo/Geometry/Tolerance.h>
+#include <MulanGeo/Geometry/traits/ParametricCurve.h>
+#include <MulanGeo/Geometry/traits/ParametricSurface.h>
 
 #include <cmath>
 #include <cstddef>

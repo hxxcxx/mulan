@@ -31,3 +31,10 @@
 #include "Builder/Builder.h"
 #include "Builder/Sweep.h"
 #include "Primitive/Primitive.h"
+
+// Tessellation + Collision
+#include "Algo/Triangulation.h"
+#include "Algo/Collision.h"
+
+// Boolean operations
+#include "Algo/Boolean.h"

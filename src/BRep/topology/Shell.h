@@ -185,6 +185,52 @@ public:
         }
     }
 
+    std::vector<Shell<P, C, S>> connectedComponents() const {
+        if (face_list_.empty()) return {};
+
+        std::unordered_map<EdgeID<C>, std::vector<size_t>, typename EdgeID<C>::Hash>
+            edge_to_faces;
+        for (size_t i = 0; i < face_list_.size(); ++i) {
+            for (const auto& wire : face_list_[i].absoluteBoundaries()) {
+                for (const auto& edge : wire.edges()) {
+                    edge_to_faces[edge.id()].push_back(i);
+                }
+            }
+        }
+
+        std::vector<bool> visited(face_list_.size(), false);
+        std::vector<Shell<P, C, S>> components;
+
+        for (size_t start = 0; start < face_list_.size(); ++start) {
+            if (visited[start]) continue;
+
+            Shell<P, C, S> component;
+            std::queue<size_t> q;
+            q.push(start);
+            visited[start] = true;
+
+            while (!q.empty()) {
+                size_t fi = q.front(); q.pop();
+                component.push(face_list_[fi]);
+
+                for (const auto& wire : face_list_[fi].absoluteBoundaries()) {
+                    for (const auto& edge : wire.edges()) {
+                        auto it = edge_to_faces.find(edge.id());
+                        if (it == edge_to_faces.end()) continue;
+                        for (size_t nfi : it->second) {
+                            if (!visited[nfi]) {
+                                visited[nfi] = true;
+                                q.push(nfi);
+                            }
+                        }
+                    }
+                }
+            }
+            components.push_back(std::move(component));
+        }
+        return components;
+    }
+
     /// 相邻面信息
     struct AdjacentFace {
         const Face<P, C, S>* face;

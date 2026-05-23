@@ -10,12 +10,12 @@
  */
 #pragma once
 
-#include "../../Types.h"
-#include "../../Tolerance.h"
-#include "../../Newton.h"
-#include "../../traits/ParametricSurface.h"
-#include "../../traits/ParametricCurve.h"
-#include "../../traits/SearchParameter.h"
+#include <MulanGeo/Geometry/Types.h>
+#include <MulanGeo/Geometry/Tolerance.h>
+#include <MulanGeo/Geometry/Newton.h>
+#include <MulanGeo/Geometry/traits/ParametricSurface.h>
+#include <MulanGeo/Geometry/traits/ParametricCurve.h>
+#include <MulanGeo/Geometry/traits/SearchParameter.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp>
@@ -37,6 +37,27 @@ inline double boundsToDouble(const Bound& b) {
 inline std::pair<double, double> boundsToDoublePair(const ParameterRange& range) {
     return {boundsToDouble(range.first), boundsToDouble(range.second)};
 }
+
+template<typename S>
+std::pair<double, double> presearch(const S& surface, const Point3& point,
+    std::pair<std::pair<double, double>, std::pair<double, double>> range,
+    size_t division = 50)
+{
+    auto [urange, vrange] = range;
+    double best_u = urange.first, best_v = vrange.first;
+    double minDist2 = std::numeric_limits<double>::infinity();
+    for (size_t i = 0; i <= division; ++i) {
+        double pu = static_cast<double>(i) / static_cast<double>(division);
+        double u = urange.first * (1.0 - pu) + urange.second * pu;
+        for (size_t j = 0; j <= division; ++j) {
+            double pv = static_cast<double>(j) / static_cast<double>(division);
+            double v = vrange.first * (1.0 - pv) + vrange.second * pv;
+            double dist2 = glm::length2(surface.subs(u, v) - point);
+            if (dist2 < minDist2) {
+                minDist2 = dist2;
+                best_u = u;
+                best_v = v;
+            }
         }
     }
     return {best_u, best_v};
@@ -205,13 +226,10 @@ std::optional<std::pair<double, double>> searchParameterWithHint(
     return searchParameter(surface, point, t0, trials);
 }
 
-// ============================================================
-// 辅助函数
-// ============================================================
-
-inline std::pair<double, double> boundsToDoublePair(const ParameterRange& range) {
-    return {boundsToDouble(range.first), boundsToDouble(range.second)};
-}
+template<typename S>
+void subParameterDivision(const S& surface,
+    std::vector<double>& udiv, std::vector<double>& vdiv,
+    double tol, size_t trials);
 
 /// 曲面参数分割（自适应细分）
 template<typename S>

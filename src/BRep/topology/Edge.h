@@ -131,6 +131,30 @@ public:
         return Edge(vertices_.first, vertices_.second, *curve_);
     }
 
+    /// 在参数 t 处切分边，返回两条新边
+    /// 要求 t 在曲线的参数范围内
+    Core::Result<std::pair<Edge, Edge>> cutWithParameter(double t) const {
+        auto [t0, t1] = curve_->rangeTuple();
+        if (t <= t0 || t >= t1) {
+            return Core::Err<std::pair<Edge, Edge>>(
+                makeError(TopologyError::InvalidParameter));
+        }
+
+        P mid_point = curve_->subs(t);
+
+        Vertex<P> mid_vertex(mid_point);
+
+        Edge e0 = Edge::newUnchecked(absoluteFront(), mid_vertex, C(*curve_));
+        Edge e1 = Edge::newUnchecked(mid_vertex, absoluteBack(), C(*curve_));
+
+        if (!orientation_) {
+            e0.invert();
+            e1.invert();
+        }
+
+        return std::make_pair(std::move(e0), std::move(e1));
+    }
+
     // --- 一致性检查 ---
 
     /// 检查几何与拓扑的一致性
