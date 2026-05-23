@@ -21,6 +21,12 @@ inline constexpr double TOLERANCE = 1.0e-10;
 /// 平方容差
 inline constexpr double TOLERANCE2 = TOLERANCE * TOLERANCE;
 
+/// 圆周率
+inline constexpr double PI = 3.14159265358979323846;
+
+/// 2π
+inline constexpr double TWO_PI = 2.0 * PI;
+
 /// 判断两个标量是否在容差范围内相等
 inline bool near(double a, double b, double tol = TOLERANCE) {
     return std::abs(a - b) < tol;

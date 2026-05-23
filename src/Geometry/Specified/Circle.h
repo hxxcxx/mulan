@@ -13,6 +13,7 @@
 #pragma once
 
 #include "../Types.h"
+#include "../Tolerance.h"
 #include "../traits/ParametricCurve.h"
 #include "../Export.h"
 #include <cmath>
@@ -98,11 +99,11 @@ public:
     }
 
     ParameterRange parameterRange() const override {
-        return {{BoundKind::Included, 0.0}, {BoundKind::Excluded, 2.0 * M_PI}};
+        return {{BoundKind::Included, 0.0}, {BoundKind::Excluded, TWO_PI}};
     }
 
-    std::optional<double> period() const override { return 2.0 * M_PI; }
-    std::pair<double, double> rangeTuple() const override { return {0.0, 2.0 * M_PI}; }
+    std::optional<double> period() const override { return TWO_PI; }
+    std::pair<double, double> rangeTuple() const override { return {0.0, TWO_PI}; }
 
     void invert() {
         if constexpr (std::same_as<P, Point3>) { v_axis_ = -v_axis_; }

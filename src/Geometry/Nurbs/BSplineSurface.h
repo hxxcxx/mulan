@@ -26,7 +26,7 @@ namespace MulanGeo::Geometry {
 /// @tparam P 控制点类型 (Point3/Vector4)
 template<typename P>
 class BSplineSurface
-    : public ParametricSurface3D {
+    : public ParametricSurface<P, decltype(P{} - P{})> {
 public:
     using Diff = decltype(P{} - P{});
 
@@ -97,43 +97,42 @@ public:
         return result;
     }
 
-    Vector3 uder(double u, double v) const override {
+    Diff uder(double u, double v) const override {
         auto [udeg, vdeg] = degree();
-        auto u_basis0 = knot_vecs_.first.bsplineBasisFunctions(udeg, 0, u);
         auto u_basis1 = knot_vecs_.first.bsplineBasisFunctions(udeg, 1, u);
         auto v_basis = knot_vecs_.second.bsplineBasisFunctions(vdeg, 0, v);
         return compute_partial(u_basis1, v_basis);
     }
 
-    Vector3 vder(double u, double v) const override {
+    Diff vder(double u, double v) const override {
         auto [udeg, vdeg] = degree();
         auto u_basis = knot_vecs_.first.bsplineBasisFunctions(udeg, 0, u);
         auto v_basis1 = knot_vecs_.second.bsplineBasisFunctions(vdeg, 1, v);
         return compute_partial(u_basis, v_basis1);
     }
 
-    Vector3 uuder(double u, double v) const override {
+    Diff uuder(double u, double v) const override {
         auto [udeg, vdeg] = degree();
         auto u_basis2 = knot_vecs_.first.bsplineBasisFunctions(udeg, 2, u);
         auto v_basis = knot_vecs_.second.bsplineBasisFunctions(vdeg, 0, v);
         return compute_partial(u_basis2, v_basis);
     }
 
-    Vector3 uvder(double u, double v) const override {
+    Diff uvder(double u, double v) const override {
         auto [udeg, vdeg] = degree();
         auto u_basis1 = knot_vecs_.first.bsplineBasisFunctions(udeg, 1, u);
         auto v_basis1 = knot_vecs_.second.bsplineBasisFunctions(vdeg, 1, v);
         return compute_partial(u_basis1, v_basis1);
     }
 
-    Vector3 vvder(double u, double v) const override {
+    Diff vvder(double u, double v) const override {
         auto [udeg, vdeg] = degree();
         auto u_basis = knot_vecs_.first.bsplineBasisFunctions(udeg, 0, u);
         auto v_basis2 = knot_vecs_.second.bsplineBasisFunctions(vdeg, 2, v);
         return compute_partial(u_basis, v_basis2);
     }
 
-    Vector3 derMN(size_t m, size_t n, double u, double v) const override {
+    Diff derMN(size_t m, size_t n, double u, double v) const override {
         auto [udeg, vdeg] = degree();
         auto u_basis = knot_vecs_.first.bsplineBasisFunctions(udeg, m, u);
         auto v_basis = knot_vecs_.second.bsplineBasisFunctions(vdeg, n, v);
@@ -150,7 +149,7 @@ public:
 
     // --- 变换 ---
 
-    void transformBy(const Matrix4& trans) override {
+    void transformBy(const Matrix4& trans) {
         for (auto& row : control_points_) {
             for (auto& cp : row) {
                 cp = transform_point(trans, cp);
@@ -231,7 +230,7 @@ private:
     std::vector<std::vector<P>> control_points_;
 
     /// 双重求和辅助函数
-    Vector3 compute_partial(const BasisWindow& u_basis, const BasisWindow& v_basis) const {
+    Diff compute_partial(const BasisWindow& u_basis, const BasisWindow& v_basis) const {
         size_t nu = control_points_.size();
         size_t nv = control_points_.empty() ? 0 : control_points_[0].size();
         auto u_slice = u_basis.as_slice();
@@ -247,7 +246,7 @@ private:
                 result += control_points_[ui][vj] * (u_slice[i] * v_slice[j]);
             }
         }
-        return Vector3(result);
+        return static_cast<Diff>(result);
     }
 };
 

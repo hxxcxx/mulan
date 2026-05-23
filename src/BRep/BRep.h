@@ -22,3 +22,7 @@
 #include "Topology/Shell.h"
 #include "Topology/Solid.h"
 #include "Topology/Compressed.h"
+
+// Curve/Surface variant + visitor 分发
+#include "CurveSurface/CurveSurface.h"
+#include "CurveSurface/CurveOps.h"

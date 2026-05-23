@@ -11,6 +11,7 @@
 #pragma once
 
 #include "../Types.h"
+#include "../Tolerance.h"
 #include "../traits/ParametricSurface.h"
 #include "../Export.h"
 #include <cmath>
@@ -86,12 +87,12 @@ public:
     std::pair<ParameterRange, ParameterRange> parameterRange() const override {
         auto cr = curve_.parameterRange();
         return {
-            {Bound{BoundKind::Included, 0.0}, Bound{BoundKind::Excluded, 2.0 * M_PI}},
+            {Bound{BoundKind::Included, 0.0}, Bound{BoundKind::Excluded, TWO_PI}},
             cr
         };
     }
 
-    std::optional<double> uPeriod() const override { return 2.0 * M_PI; }
+    std::optional<double> uPeriod() const override { return TWO_PI; }
 
     // --- 变换 ---
 

@@ -11,10 +11,9 @@
 #pragma once
 
 #include "../Types.h"
+#include "../Tolerance.h"
 #include "../traits/ParametricSurface.h"
 #include "../Export.h"
-
-#define _USE_MATH_DEFINES
 #include <cmath>
 
 namespace MulanGeo::Geometry {
@@ -87,12 +86,12 @@ public:
 
     std::pair<ParameterRange, ParameterRange> parameterRange() const override {
         return {
-            {Bound{BoundKind::Included, 0.0}, Bound{BoundKind::Excluded, 2.0 * M_PI}},
-            {Bound{BoundKind::Included, -M_PI / 2.0}, Bound{BoundKind::Included, M_PI / 2.0}}
+            {Bound{BoundKind::Included, 0.0}, Bound{BoundKind::Excluded, TWO_PI}},
+            {Bound{BoundKind::Included, -PI / 2.0}, Bound{BoundKind::Included, PI / 2.0}}
         };
     }
 
-    std::optional<double> uPeriod() const override { return 2.0 * M_PI; }
+    std::optional<double> uPeriod() const override { return TWO_PI; }
 
     // --- 变换 ---
 
