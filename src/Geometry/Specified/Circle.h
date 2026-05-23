@@ -115,7 +115,7 @@ public:
     parameterDivision(std::pair<double, double> range, double tol) const override {
         double t0 = range.first, t1 = range.second;
         double arc_len = radius_ * (t1 - t0);
-        size_t n = std::max(4uz, static_cast<size_t>(arc_len / tol) + 1);
+        size_t n = std::max(size_t(4), static_cast<size_t>(arc_len / tol) + 1);
         std::vector<double> params;
         std::vector<P> points;
         for (size_t i = 0; i <= n; ++i) {

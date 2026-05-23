@@ -26,3 +26,8 @@
 // Curve/Surface variant + visitor 分发
 #include "CurveSurface/CurveSurface.h"
 #include "CurveSurface/CurveOps.h"
+
+// Builder + Sweep + Primitive 建模 API
+#include "Builder/Builder.h"
+#include "Builder/Sweep.h"
+#include "Primitive/Primitive.h"
