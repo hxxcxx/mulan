@@ -454,38 +454,139 @@ inline CDTResult buildConstrainedTriangulation(
         cdt.addTriangle(t[0], t[1], t[2]);
     }
 
-    // --- 步骤 3: 添加内孔顶点 (作为额外的约束点，但不作为约束边) ---
+    // --- 步骤 3: 插入内孔 — 带约束边 ---
+    // 对每个内孔，插入孔的所有边作为约束边
     for (size_t li = 1; li < pb.loops.size(); ++li) {
-        size_t base = cdt.vertices.size();
         const auto& loop = pb.loops[li];
-        for (const auto& p : loop.uv_points) {
-            // 跳过重复点
-            bool dup = false;
+
+        // 确保 CCW 方向（耳切需要）
+        std::vector<Vector2> hole_pts = loop.uv_points;
+        bool hole_ccw = true;
+        {
+            double area = 0.0;
+            size_t n = hole_pts.size();
+            for (size_t i = 0; i < n; ++i) {
+                size_t j = (i + 1) % n;
+                area += hole_pts[i].x * hole_pts[j].y;
+                area -= hole_pts[j].x * hole_pts[i].y;
+            }
+            hole_ccw = area > 0.0;
+        }
+        if (!hole_ccw) std::reverse(hole_pts.begin(), hole_pts.end());
+
+        // 添加孔顶点（去重）
+        std::vector<int> hole_vertex_indices;
+        for (const auto& p : hole_pts) {
+            // 查找已有顶点
+            int found = -1;
             for (size_t vi = 0; vi < cdt.vertices.size(); ++vi) {
-                if (near(cdt.vertices[vi].x, p.x) && near(cdt.vertices[vi].y, p.y)) {
-                    dup = true;
+                if (near(cdt.vertices[vi].x, p.x) &&
+                    near(cdt.vertices[vi].y, p.y)) {
+                    found = static_cast<int>(vi);
                     break;
                 }
             }
-            if (!dup) cdt.vertices.push_back(p);
+            if (found < 0) {
+                found = static_cast<int>(cdt.vertices.size());
+                cdt.vertices.push_back(p);
+            }
+            hole_vertex_indices.push_back(found);
         }
-        // TODO: 应建立内孔约束边，防止三角形穿越孔洞
-        if (base < cdt.vertices.size()) {
-            for (size_t vi = base; vi < cdt.vertices.size(); ++vi) {
-                int tri_idx = cdt.locateTriangle(cdt.vertices[vi]);
-                if (tri_idx >= 0) {
-                    const auto& tri = cdt.triangles[tri_idx];
-                    // 分裂三角形
-                    int t0 = tri.v0, t1 = tri.v1, t2 = tri.v2;
-                    int new_v = static_cast<int>(vi);
-                    // 移除原三角形，添加 3 个新三角形
-                    cdt.triangles.erase(cdt.triangles.begin() + tri_idx);
-                    cdt.addTriangle(t0, t1, new_v);
-                    cdt.addTriangle(t1, t2, new_v);
-                    cdt.addTriangle(t2, t0, new_v);
+
+        // 用耳切法三角化孔洞本身（这些三角形会被后续移除）
+        size_t hole_num = hole_vertex_indices.size();
+        std::vector<std::array<int, 3>> hole_tris;
+        earClipPolygon(hole_pts, hole_tris);
+
+        // 逐点插入孔顶点到 CDT（标准点插入）
+        for (int vi : hole_vertex_indices) {
+            int tri_idx = cdt.locateTriangle(cdt.vertices[vi]);
+            if (tri_idx >= 0) {
+                const auto& tri = cdt.triangles[tri_idx];
+                int t0 = tri.v0, t1 = tri.v1, t2 = tri.v2;
+                cdt.triangles.erase(cdt.triangles.begin() + tri_idx);
+                cdt.addTriangle(t0, t1, vi);
+                cdt.addTriangle(t1, t2, vi);
+                cdt.addTriangle(t2, t0, vi);
+            }
+        }
+
+        // 翻转受影响的边以恢复约束边
+        // 对于每条孔边 (hole[i], hole[i+1])，确保它在三角化中存在
+        for (size_t ei = 0; ei < hole_num; ++ei) {
+            int va = hole_vertex_indices[ei];
+            int vb = hole_vertex_indices[(ei + 1) % hole_num];
+
+            // 查找包含这条边的三角形
+            bool edge_exists = false;
+            for (const auto& tri : cdt.triangles) {
+                int cnt = 0;
+                if (tri.v0 == va || tri.v1 == va || tri.v2 == va) cnt++;
+                if (tri.v0 == vb || tri.v1 == vb || tri.v2 == vb) cnt++;
+                if (cnt == 2) { edge_exists = true; break; }
+            }
+
+            if (!edge_exists) {
+                // 边不存在 → 需要翻转边
+                // 找到共享 va 和 vb 的两个三角形对
+                int tri_a = -1, tri_b = -1;
+                for (size_t ti = 0; ti < cdt.triangles.size(); ++ti) {
+                    const auto& tri = cdt.triangles[ti];
+                    bool has_a = (tri.v0 == va || tri.v1 == va || tri.v2 == va);
+                    bool has_b = (tri.v0 == vb || tri.v1 == vb || tri.v2 == vb);
+                    if (has_a && has_b) {
+                        if (tri_a < 0) tri_a = static_cast<int>(ti);
+                        else { tri_b = static_cast<int>(ti); break; }
+                    }
+                }
+
+                if (tri_a >= 0 && tri_b >= 0) {
+                    // 边翻转: 找到四边形的对角顶点
+                    const auto& ta = cdt.triangles[tri_a];
+                    const auto& tb = cdt.triangles[tri_b];
+
+                    // 找到 ta 中不是 va/vb 的顶点
+                    int other_a = -1;
+                    if (ta.v0 != va && ta.v0 != vb) other_a = ta.v0;
+                    if (ta.v1 != va && ta.v1 != vb) other_a = ta.v1;
+                    if (ta.v2 != va && ta.v2 != vb) other_a = ta.v2;
+
+                    int other_b = -1;
+                    if (tb.v0 != va && tb.v0 != vb) other_b = tb.v0;
+                    if (tb.v1 != va && tb.v1 != vb) other_b = tb.v1;
+                    if (tb.v2 != va && tb.v2 != vb) other_b = tb.v2;
+
+                    if (other_a >= 0 && other_b >= 0) {
+                        // 用 va-vb 边替换 other_a-other_b 边
+                        // 移除旧的两个三角形，添加两个新的
+                        int idx = static_cast<int>(tri_a);
+                        cdt.triangles.erase(cdt.triangles.begin() + idx);
+                        if (tri_b > idx) tri_b--;
+                        cdt.triangles.erase(cdt.triangles.begin() + tri_b);
+                        cdt.addTriangle(va, vb, other_a);
+                        cdt.addTriangle(va, vb, other_b);
+                    }
                 }
             }
         }
+
+        // 移除孔内部的三角形
+        // 用孔的质心做点包含测试
+        Vector2 hole_centroid(0.0);
+        for (const auto& p : hole_pts) hole_centroid += p;
+        hole_centroid /= static_cast<double>(hole_pts.size());
+
+        // 也检查孔边界上的中点
+        cdt.triangles.erase(
+            std::remove_if(cdt.triangles.begin(), cdt.triangles.end(),
+                [&](const CDTResult::Tri& tri) {
+                    Vector2 centroid = (cdt.vertices[tri.v0] +
+                                        cdt.vertices[tri.v1] +
+                                        cdt.vertices[tri.v2]) / 3.0;
+                    // 如果三角形质心在孔内部，移除
+                    return PolyBoundary::pointInPolygon(centroid, hole_pts);
+                }),
+            cdt.triangles.end());
     }
 
     // --- 步骤 4: 插入内部网格顶点 ---
