@@ -25,6 +25,7 @@
 #include <MulanGeo/Geometry/Nurbs/NurbsCurve.h>
 #include <MulanGeo/Geometry/Nurbs/NurbsSurface.h>
 #include <MulanGeo/Geometry/Decorators/RevolutedCurve.h>
+#include <MulanGeo/Geometry/Decorators/ExtrudedCurve.h>
 #include <MulanGeo/Geometry/Decorators/Processor.h>
 
 #include <variant>
@@ -145,7 +146,8 @@ public:
         Geometry::Plane,
         Geometry::BSplineSurface<Geometry::Point3>,
         Geometry::NurbsSurface,
-        Geometry::Processor<Geometry::RevolutedCurve<Curve>, Geometry::Matrix4>
+        Geometry::Processor<Geometry::RevolutedCurve<Curve>, Geometry::Matrix4>,
+        Geometry::Processor<Geometry::ExtrudedCurve<Curve>, Geometry::Matrix4>
     >;
 
     Surface() = default;
@@ -155,6 +157,7 @@ public:
     Surface(Geometry::BSplineSurface<Geometry::Point3> bspline)                       : data_(std::move(bspline)) {}
     Surface(Geometry::NurbsSurface nurbs)                                             : data_(std::move(nurbs)) {}
     Surface(Geometry::Processor<Geometry::RevolutedCurve<Curve>, Geometry::Matrix4> p): data_(std::move(p)) {}
+    Surface(Geometry::Processor<Geometry::ExtrudedCurve<Curve>, Geometry::Matrix4> p)         : data_(std::move(p)) {}
 
     // --- 访问底层 variant ---
 

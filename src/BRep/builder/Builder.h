@@ -35,6 +35,7 @@ namespace MulanGeo::BRep::builder {
 
 using Point3  = Geometry::Point3;
 using Vector3 = Geometry::Vector3;
+using Vector4 = Geometry::Vector4;
 using Matrix4 = Geometry::Matrix4;
 
 constexpr double BREP_PI = 3.14159265358979323846;
@@ -95,60 +96,88 @@ inline Point3 circumCenter(Point3 pt0, Point3 pt1, Point3 pt2) {
     return pt0 + u * vec0 + v * vec1;
 }
 
-inline std::vector<Point3> sampleArc(Point3 pt0, Point3 origin, Vector3 axis, double angle, size_t numSamples) {
-    origin = origin + glm::dot(pt0 - origin, axis) * axis;
-    Vector3 diag = pt0 - origin;
-    Vector3 y_axis = glm::cross(axis, diag);
-    Matrix4 mat = glm::transpose(glm::dmat4(
-        glm::dvec4(diag, 0.0),
-        glm::dvec4(y_axis, 0.0),
-        glm::dvec4(axis, 0.0),
-        glm::dvec4(origin, 1.0)));
-
-    std::vector<Point3> points;
-    points.reserve(numSamples + 1);
-    for (size_t i = 0; i <= numSamples; ++i) {
-        double t = static_cast<double>(i) / static_cast<double>(numSamples) * angle;
-        double ct = std::cos(t), st = std::sin(t);
-        Point3 p = origin + diag * ct + y_axis * st + axis * glm::dot(pt0 - origin, axis);
-        auto v = mat * glm::dvec4(Point3(ct, st, 0.0), 1.0);
-        points.push_back(Point3(v));
-    }
-    // Direct evaluation
-    points.clear();
-    for (size_t i = 0; i <= numSamples; ++i) {
-        double t = static_cast<double>(i) / static_cast<double>(numSamples) * angle;
-        double ct = std::cos(t), st = std::sin(t);
-        Point3 p = origin + (diag * ct + y_axis * st) + axis * glm::dot(pt0 - origin, axis);
-        points.push_back(p);
-    }
-    return points;
-}
-
 inline Curve makeArcCurve(Point3 pt0, Point3 origin, Vector3 axis, double angle) {
-    // Sample the arc and create a degree-1 BSpline approximation
+    // Project origin onto the plane containing pt0 and perpendicular to axis
     origin = origin + glm::dot(pt0 - origin, axis) * axis;
     Vector3 diag = pt0 - origin;
     Vector3 y_axis = glm::cross(axis, diag);
 
-    size_t ns = 8;
-    std::vector<Point3> cps;
-    for (size_t i = 0; i <= ns; ++i) {
-        double t = static_cast<double>(i) / static_cast<double>(ns) * angle;
-        double ct = std::cos(t), st = std::sin(t);
-        cps.push_back(origin + diag * ct + y_axis * st);
+    // Determine the number of arc segments (each segment spans at most PI/2)
+    size_t n_segs = static_cast<size_t>(std::ceil(std::abs(angle) / (BREP_PI / 2.0)));
+    if (n_segs < 1) n_segs = 1;
+    double seg_angle = angle / static_cast<double>(n_segs);
+
+    // For a single segment (angle <= PI/2), use the standard 3-point quadratic NURBS arc
+    // For multiple segments, chain them together as a degree-2 NURBS
+    if (n_segs == 1) {
+        double half_angle = seg_angle / 2.0;
+        double ch = std::cos(half_angle);
+        double sh = std::sin(half_angle);
+
+        Point3 P0 = pt0;
+        Point3 P2 = origin + diag * std::cos(seg_angle) + y_axis * std::sin(seg_angle);
+        Point3 P1 = origin + diag + y_axis * (sh / ch);
+
+        std::vector<Vector4> ctrl_pts;
+        ctrl_pts.push_back(Vector4(P0, 1.0));
+        ctrl_pts.push_back(Vector4(P1 * ch, ch));
+        ctrl_pts.push_back(Vector4(P2, 1.0));
+
+        std::vector<double> knots = {0.0, 0.0, 0.0, 1.0, 1.0, 1.0};
+
+        auto bspline = Geometry::BSplineCurve<Vector4>(
+            Geometry::KnotVec(std::move(knots)), std::move(ctrl_pts));
+        return Curve(Geometry::NurbsCurve(std::move(bspline)));
+    } else {
+        // Multi-segment arc: n_segs quadratic NURBS arcs pieced together
+        // Each segment: Bezier degree-2 with weight = cos(seg_angle/2) at interior point
+        // Total control points: n_segs + 2 (endpoints shared + interior points)
+        // Actually for piecing quadratic Bezier arcs:
+        // n_ctrl = 2*n_segs + 1, knots are clamped
+
+        std::vector<Vector4> ctrl_pts;
+
+        for (size_t seg = 0; seg < n_segs; ++seg) {
+            double half_seg = seg_angle / 2.0;
+            double ch = std::cos(half_seg);
+            double sh = std::sin(half_seg);
+            double wt = ch;
+
+            double t_start = static_cast<double>(seg) * seg_angle;
+            double t_end = (static_cast<double>(seg) + 1.0) * seg_angle;
+            double t_mid = t_start + half_seg;
+
+            Point3 P_start = origin + diag * std::cos(t_start) + y_axis * std::sin(t_start);
+            Point3 P_end = origin + diag * std::cos(t_end) + y_axis * std::sin(t_end);
+
+            Vector3 diag_rot = diag * std::cos(t_start) + y_axis * std::sin(t_start);
+            Vector3 y_rot = glm::cross(axis, diag_rot);
+            Point3 P1 = origin + diag_rot + y_rot * (sh / ch);
+
+            // Start point (weight 1) - only add for first segment
+            if (seg == 0) {
+                ctrl_pts.push_back(Vector4(P_start, 1.0));
+            }
+            // Interior point (with weight wt)
+            ctrl_pts.push_back(Vector4(P1 * wt, wt));
+            // End point (weight 1)
+            ctrl_pts.push_back(Vector4(P_end, 1.0));
+        }
+
+        // Knot vector: [0,0,0, 1/n, 2/n, ..., (n-1)/n, 1,1,1]
+        // For degree 2 with n_segs segments, n_ctrl = 2*n_segs + 1
+        // Total knots = n_ctrl + degree + 1 = 2*n_segs + 4
+        std::vector<double> knots;
+        for (size_t i = 0; i < 3; ++i) knots.push_back(0.0);
+        for (size_t i = 1; i < n_segs; ++i) {
+            knots.push_back(static_cast<double>(i) / static_cast<double>(n_segs));
+        }
+        for (size_t i = 0; i < 3; ++i) knots.push_back(1.0);
+
+        auto bspline = Geometry::BSplineCurve<Vector4>(
+            Geometry::KnotVec(std::move(knots)), std::move(ctrl_pts));
+        return Curve(Geometry::NurbsCurve(std::move(bspline)));
     }
-
-    // Build degree-1 BSpline (piecewise linear approximation)
-    size_t n_cp = cps.size();
-    size_t deg = 1;
-    std::vector<double> knots;
-    for (size_t i = 0; i <= deg; ++i) knots.push_back(0.0);
-    for (size_t i = 1; i < n_cp - deg; ++i)
-        knots.push_back(static_cast<double>(i) / static_cast<double>(n_cp - deg));
-    for (size_t i = 0; i <= deg; ++i) knots.push_back(1.0);
-
-    return Curve(Geometry::BSplineCurve<Point3>(Geometry::KnotVec(knots), std::move(cps)));
 }
 
 inline Curve makeLineCurve(const Point3& p0, const Point3& p1) {
@@ -160,20 +189,14 @@ inline Surface makePlaneSurface(const Point3& origin, const Vector3& u, const Ve
 }
 
 inline Surface makeExtrudedSurface(const Curve& curve, const Vector3& vec) {
-    // For Line curves, use Plane; for others, use ExtrudedCurve
     if (curve.holds<Geometry::Line<Point3>>()) {
         auto& line = curve.get<Geometry::Line<Point3>>();
         Point3 p0 = line.frontPoint();
         Point3 p1 = line.backPoint();
         return Surface(Geometry::Plane(p0, p1 - p0, vec));
     }
-    // Generic: use RevolutedCurve wrapper or ExtrudedCurve
-    // Since Surface variant only has Plane/BSplineSurface/NurbsSurface/Processor<RevolutedCurve>,
-    // we approximate via Plane for now
-    auto [t0, t1] = curve_rangeTuple(curve);
-    Point3 start = curve_subs(curve, t0);
-    Vector3 dir = curve_der(curve, (t0 + t1) * 0.5);
-    return Surface(Geometry::Plane(start, dir, vec));
+    auto ext = Geometry::ExtrudedCurve<Curve>(curve, vec);
+    return Surface(Geometry::Processor<Geometry::ExtrudedCurve<Curve>, Matrix4>(std::move(ext), Matrix4(1.0)));
 }
 
 inline Surface makeRevolutedSurface(const Curve& curve, const Point3& origin, const Vector3& axis) {

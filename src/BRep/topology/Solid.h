@@ -98,10 +98,9 @@ public:
     // --- 一致性检查 ---
 
     bool isGeometricConsistent() const {
-        // 检查每个壳的几何一致性
         for (const auto& shell : boundaries_) {
-            if (!shell.shellCondition() == ShellCondition::Closed &&
-                !shell.shellCondition() == ShellCondition::Oriented) {
+            auto cond = shell.shellCondition();
+            if (cond != ShellCondition::Closed && cond != ShellCondition::Oriented) {
                 return false;
             }
         }
