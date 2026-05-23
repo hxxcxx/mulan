@@ -286,7 +286,7 @@ inline Geometry::Vector3 surface_uder(const Surface& s, double u, double v) {
 inline bool surface_includeCurve(const Surface& s, const Curve& c, double tol = -1.0) {
     if (tol < 0.0) tol = Geometry::TOLERANCE;
     auto range = curve_rangeTuple(c);
-    const size_t n = 10;
+    const size_t n = 32;
     for (size_t i = 0; i <= n; ++i) {
         double t = range.first + (range.second - range.first) * i / n;
         Geometry::Point3 pt_on_curve = curve_subs(c, t);
@@ -352,6 +352,7 @@ inline void surface_transformBy(Surface& s, const Geometry::Matrix4& mat) {
 
 /// 将两条曲线的几何拼接成一条连续曲线
 /// 假定 c0 的终点 == c1 的起点
+/// 策略: 提升为 NURBS (4D B-spline), 合并 knot 向量和控制点
 inline Curve curve_concat(const Curve& c0, const Curve& c1) {
     using namespace Geometry;
 
@@ -362,32 +363,44 @@ inline Curve curve_concat(const Curve& c0, const Curve& c1) {
         return Curve(Line<Point3>(l0.front(), l1.back()));
     }
 
-    // 通用方案：离散采样后拟合 BSplineCurve
-    auto r0 = curve_rangeTuple(c0);
-    auto r1 = curve_rangeTuple(c1);
+    // 提升为 4D 齐次 B-spline
+    auto bsp0 = c0.liftUp();
+    auto bsp1 = c1.liftUp();
 
-    auto [div0, pts0] = curve_parameterDivision(c0, r0, TOLERANCE);
-    auto [div1, pts1] = curve_parameterDivision(c1, r1, TOLERANCE);
+    // 拷贝并归一化 knot 向量到 [0,1]
+    auto knots0_vec = bsp0.knotVec().as_vec();
+    auto knots1_vec = bsp1.knotVec().as_vec();
 
-    std::vector<double> params = std::move(div0);
-    std::vector<Point3> pts = std::move(pts0);
-    for (size_t i = 1; i < div1.size(); ++i) {
-        double t = r0.second - r0.first + div1[i];
-        params.push_back(t);
-        pts.push_back(pts1[i]);
+    double r0_len = knots0_vec.back() - knots0_vec.front();
+    double r1_len = knots1_vec.back() - knots1_vec.front();
+    if (r0_len < TOLERANCE || r1_len < TOLERANCE) return c0;
+
+    double off0 = knots0_vec.front();
+    for (auto& k : knots0_vec) k = (k - off0) / r0_len;
+
+    double off1 = knots1_vec.front();
+    for (auto& k : knots1_vec) k = (k - off1) / r1_len + 1.0;
+
+    // 合并 knot 向量 (bsp0 的 + bsp1 去掉第一个)
+    std::vector<double> merged_knots = knots0_vec;
+    for (size_t i = 1; i < knots1_vec.size(); ++i) {
+        merged_knots.push_back(knots1_vec[i]);
     }
 
-    double total = params.back() - params.front();
-    if (total < TOLERANCE) return c0;
-    KnotVec knots;
-    std::vector<double> knots_vec;
-    knots_vec.reserve(params.size());
-    for (auto p : params) {
-        knots_vec.push_back((p - params.front()) / total);
+    // 合并控制点（去掉 bsp1 的第一个，它和 bsp0 的最后一个重合）
+    auto cps0 = bsp0.controlPoints();
+    auto cps1 = bsp1.controlPoints();
+    std::vector<Vector4> merged_cps = cps0;
+    for (size_t i = 1; i < cps1.size(); ++i) {
+        merged_cps.push_back(cps1[i]);
     }
-    knots = KnotVec(std::move(knots_vec));
 
-    return Curve(BSplineCurve<Point3>(std::move(knots), std::move(pts)));
+    // 归一化到 [0, 1]
+    double total_len = knots1_vec.back();
+    for (auto& k : merged_knots) k /= total_len;
+
+    KnotVec knot_vec(std::move(merged_knots));
+    return Curve(NurbsCurve(BSplineCurve<Vector4>(std::move(knot_vec), std::move(merged_cps))));
 }
 
 // ============================================================
@@ -473,5 +486,20 @@ inline Geometry::Vector3 Surface::derMN(size_t m, size_t n, double u, double v) 
 inline Geometry::Vector3 Surface::normal(double u, double v) const { return surface_normal(*this, u, v); }
 inline std::pair<Geometry::ParameterRange, Geometry::ParameterRange> Surface::parameterRange() const { return surface_parameterRange(*this); }
 inline void Surface::transformBy(const Geometry::Matrix4& mat) { surface_transformBy(*this, mat); }
+
+// --- Surface invert ---
+
+inline void surface_invert(Surface& s) {
+    std::visit([](auto& g) { g.invert(); }, s.variant());
+}
+
+inline Surface surface_inverse(const Surface& s) {
+    Surface copy = s;
+    copy.invert();
+    return copy;
+}
+
+inline void Surface::invert() { surface_invert(*this); }
+inline Surface Surface::inverse() const { return surface_inverse(*this); }
 
 } // namespace MulanGeo::BRep

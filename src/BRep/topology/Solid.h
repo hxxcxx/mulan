@@ -71,27 +71,27 @@ public:
     // --- 拓扑编辑（布尔运算的低级原语） ---
 
     /// 在指定边上插入一个顶点，将边一分为二
+    /// TODO: 实现面分割后补充
     std::optional<std::pair<Edge<P, C>, Edge<P, C>>>
     cutEdge(EdgeID<C> id, const Vertex<P>& v) {
         (void)id;
         (void)v;
-        // 暂未实现，后续布尔运算时补充
         return std::nullopt;
     }
 
     /// 移除一个顶点，合并相邻两条边
+    /// TODO: 实现面分割后补充
     std::optional<Edge<P, C>>
     removeVertexByConcatEdges(VertexID<P> id) {
         (void)id;
-        // 暂未实现
         return std::nullopt;
     }
 
     /// 在面上插入一条边，将一个面一分为二
+    /// TODO: 实现面分割后补充
     bool cutFaceByEdge(FaceID<S> id, const Edge<P, C>& e) {
         (void)id;
         (void)e;
-        // 暂未实现
         return false;
     }
 

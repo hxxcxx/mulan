@@ -469,7 +469,7 @@ inline CDTResult buildConstrainedTriangulation(
             }
             if (!dup) cdt.vertices.push_back(p);
         }
-        // 孔的点作为独立点插入，但它们的约束边暂时不处理
+        // TODO: 应建立内孔约束边，防止三角形穿越孔洞
         if (base < cdt.vertices.size()) {
             for (size_t vi = base; vi < cdt.vertices.size(); ++vi) {
                 int tri_idx = cdt.locateTriangle(cdt.vertices[vi]);

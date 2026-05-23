@@ -57,6 +57,9 @@ public:
         return {{unbounded, unbounded}, {unbounded, unbounded}};
     }
 
+    void invert() { std::swap(u_axis_, v_axis_); }
+    Plane inverse() const { return Plane(origin_, v_axis_, u_axis_); }
+
     void transformBy(const Matrix4& mat) override {
         auto o = mat * glm::dvec4(origin_, 1.0);
         origin_ = Point3(o);

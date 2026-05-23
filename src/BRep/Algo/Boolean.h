@@ -192,6 +192,8 @@ inline Core::Result<Solid<Point3, Curve, Surface>> booleanOp(
                 continue;
             }
 
+            // TODO: 用交线分割面 (divide_face)，实现完整布尔运算
+            // 当前简化版：不做面分割，仅通过射线穿面法分类
             (void)op;
         }
     }

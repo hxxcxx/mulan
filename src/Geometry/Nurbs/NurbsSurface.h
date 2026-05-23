@@ -105,6 +105,14 @@ public:
         bspline_.transformBy(trans);
     }
 
+    /// 反转法线方向：委托给内部 BSplineSurface 的 u/v 交换
+    void invert() { bspline_.invert(); }
+    NurbsSurface inverse() const {
+        NurbsSurface copy = *this;
+        copy.invert();
+        return copy;
+    }
+
 private:
     BSplineSurface<Vector4> bspline_;
 

@@ -40,6 +40,9 @@ public:
         }
         Wire w;
         w.edge_list_ = std::move(edges);
+        if (!w.isContinuous()) {
+            return Core::Err<Wire>(makeError(TopologyError::NotConnected));
+        }
         if (!w.isClosed()) {
             return Core::Err<Wire>(makeError(TopologyError::NotClosedWire));
         }

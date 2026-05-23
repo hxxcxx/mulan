@@ -225,6 +225,27 @@ public:
         return bb;
     }
 
+    /// 反转法线方向：交换 u/v 轴 (转置控制点网格 + 交换 knot 向量)
+    void invert() {
+        // 交换 knot 向量
+        std::swap(knot_vecs_.first, knot_vecs_.second);
+        // 转置控制点网格
+        if (control_points_.empty()) return;
+        size_t nu = control_points_.size();
+        size_t nv = control_points_[0].size();
+        std::vector<std::vector<P>> transposed(nv, std::vector<P>(nu));
+        for (size_t i = 0; i < nu; ++i)
+            for (size_t j = 0; j < nv; ++j)
+                transposed[j][i] = control_points_[i][j];
+        control_points_ = std::move(transposed);
+    }
+
+    BSplineSurface inverse() const {
+        BSplineSurface copy = *this;
+        copy.invert();
+        return copy;
+    }
+
     /// 同伦曲面: surface(u,v) = (1-v)*c0(u) + v*c1(u)
     /// 从两条 B样条曲线创建双线性插值曲面
     /// c0 和 c1 必须有相同的节点向量（否则会合并节点向量）

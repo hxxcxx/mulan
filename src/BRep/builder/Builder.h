@@ -507,14 +507,19 @@ inline Face<Point3, Curve, Surface> homotopy(
     const Edge<Point3, Curve>& edge0,
     const Edge<Point3, Curve>& edge1)
 {
-    auto edge_right = line(edge0.front(), edge1.back());
-    auto edge_left_inv = line(edge1.front(), edge0.back());
+    // Wire 边序 (闭合):
+    // edge0:              edge0.front → edge0.back
+    // edge_right:         edge0.back  → edge1.back
+    // edge1.inverse():    edge1.back  → edge1.front
+    // edge_left.inverse():edge1.front → edge0.front
+    auto edge_right = line(edge0.back(), edge1.back());
+    auto edge_left = line(edge0.front(), edge1.front());
 
     std::deque<Edge<Point3, Curve>> wire_edges;
     wire_edges.push_back(edge0);
     wire_edges.push_back(std::move(edge_right));
     wire_edges.push_back(edge1.inverse());
-    wire_edges.push_back(line(edge1.front(), edge0.back()).inverse());
+    wire_edges.push_back(std::move(edge_left).inverse());
     auto wire = Wire<Point3, Curve>::newUnchecked(std::move(wire_edges));
 
     Surface surface = detail::makeHomotopySurface(edge0.orientedCurve(), edge1.orientedCurve());

@@ -191,6 +191,11 @@ public:
     std::pair<Geometry::ParameterRange, Geometry::ParameterRange> parameterRange() const;
     void transformBy(const Geometry::Matrix4& mat);
 
+    // --- 方向反转 ---
+
+    void invert();
+    Surface inverse() const;
+
     // --- variant 索引 ---
 
     size_t index() const { return data_.index(); }
