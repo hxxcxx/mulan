@@ -26,9 +26,8 @@
 #include "../CurveSurface/CurveSurface.h"
 #include "../CurveSurface/CurveOps.h"
 #include "Collision.h"
-#include "Collision.h"
 #include "Triangulation.h"
-#include "Boolean.h"
+#include "PolylineAssembly.h"
 
 #include <MulanGeo/Geometry/Types.h>
 #include <MulanGeo/Geometry/Tolerance.h>

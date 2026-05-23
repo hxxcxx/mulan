@@ -4,21 +4,14 @@
  *
  * 基于 truck-shapeops::transversal 的 C++ 移植。
  *
- * 当前实现为简化版本 — 仅做面分类（射线穿面法判定内外），
- * 不做面分割。这意味着:
- *   - 不相交的实体: 结果正确
- *   - 部分相交: 结果近似（相交面不被分割，整体归类为 And/Or）
- *   - 完整布尔运算需要 LoopsStore + divide_face 面分割拓扑，
- *     将在后续版本补充
- *
- * 完整算法流程 (truck-shapeops):
+ * 完整算法流程:
  *   1. 将两个 Shell 细化为三角网格
  *   2. 用三角形-三角形碰撞检测找到相交线段
- *   3. 将相交线段组装成交线 (Polyline)
- *   4. 用交线分割面 (divide_face) — TODO
+ *   3. 将相交线段组装成交线 (Polyline) → LoopsStore
+ *   4. 用交线分割面 (divide_face)
  *   5. 将分割后的面分类为 And/Or/Unknown
- *   6. 用射线穿面法判定 Unknown 面归属
- *   7. 合并结果面为最终 Shell
+ *   6. 用连通分量 + 射线穿面法判定 Unknown 面归属
+ *   7. 按操作类型选取面，合并为最终 Shell
  *
  * @author hxxcxx
  * @date 2026-05-23
@@ -37,6 +30,8 @@
 #include "Triangulation.h"
 #include "Collision.h"
 #include "BVH.h"
+#include "PolylineAssembly.h"
+#include "DivideFace.h"
 
 #include <MulanGeo/Geometry/Types.h>
 #include <MulanGeo/Geometry/Tolerance.h>
@@ -79,96 +74,24 @@ enum class FaceClass {
 };
 
 // ============================================================
-// 折线组装 — 从线段集合构建有序折线
+// 面分类 — 判断面在另一个 Shell 的内部或外部（射线穿面法）
 // ============================================================
 
-inline std::vector<tessellation::PolylineCurve> assemblePolylines(
-    const std::vector<tessellation::LineSegment>& segments,
-    double tol = Geometry::TOLERANCE * 10.0)
-{
-    if (segments.empty()) return {};
-
-    std::vector<bool> used(segments.size(), false);
-    std::vector<tessellation::PolylineCurve> polylines;
-
-    for (size_t start = 0; start < segments.size(); ++start) {
-        if (used[start]) continue;
-        used[start] = true;
-
-        tessellation::PolylineCurve plc;
-        plc.points.push_back(segments[start].p[0]);
-        plc.points.push_back(segments[start].p[1]);
-        plc.params.push_back(0.0);
-        plc.params.push_back(1.0);
-
-        bool extended = true;
-        while (extended) {
-            extended = false;
-            Point3 head = plc.points.front();
-            Point3 tail = plc.points.back();
-
-            for (size_t j = 0; j < segments.size(); ++j) {
-                if (used[j]) continue;
-
-                if (near(tail, segments[j].p[0], tol)) {
-                    plc.points.push_back(segments[j].p[1]);
-                    plc.params.push_back(static_cast<double>(plc.params.size()));
-                    tail = segments[j].p[1];
-                    used[j] = true;
-                    extended = true;
-                } else if (near(tail, segments[j].p[1], tol)) {
-                    plc.points.push_back(segments[j].p[0]);
-                    plc.params.push_back(static_cast<double>(plc.params.size()));
-                    tail = segments[j].p[0];
-                    used[j] = true;
-                    extended = true;
-                } else if (near(head, segments[j].p[0], tol)) {
-                    plc.points.insert(plc.points.begin(), segments[j].p[1]);
-                    plc.params.insert(plc.params.begin(), 0.0);
-                    head = segments[j].p[1];
-                    used[j] = true;
-                    extended = true;
-                } else if (near(head, segments[j].p[1], tol)) {
-                    plc.points.insert(plc.points.begin(), segments[j].p[0]);
-                    plc.params.insert(plc.params.begin(), 0.0);
-                    head = segments[j].p[0];
-                    used[j] = true;
-                    extended = true;
-                }
-            }
-        }
-
-        polylines.push_back(std::move(plc));
-    }
-
-    return polylines;
-}
-
-// ============================================================
-// 面分类 — 判断面在另一个 Shell 的内部或外部
-// ============================================================
-
-inline FaceClass classifyFaceAgainstShell(
+inline ShapeOpStatus classifyFace(
     const Face<Point3, Curve, Surface>& face,
-    const tessellation::TriMesh& other_mesh,
-    BoolOp op)
+    const tessellation::TriMesh& other_mesh)
 {
     if (face.boundaries().empty() || face.boundary(0).len() == 0) {
-        return FaceClass::Unknown;
+        return ShapeOpStatus::Unknown;
     }
 
     Point3 test_point = face.boundary(0)[0].front().point();
     bool inside = tessellation::pointInSolid(other_mesh, test_point);
-
-    if (op == BoolOp::Intersection) {
-        return inside ? FaceClass::And : FaceClass::Or;
-    } else {
-        return inside ? FaceClass::Or : FaceClass::And;
-    }
+    return inside ? ShapeOpStatus::And : ShapeOpStatus::Or;
 }
 
 // ============================================================
-// 布尔核心算法
+// 布尔核心算法 — 完整管线
 // ============================================================
 
 inline Core::Result<Solid<Point3, Curve, Surface>> booleanOp(
@@ -183,74 +106,119 @@ inline Core::Result<Solid<Point3, Curve, Surface>> booleanOp(
     auto mesh0_all = tessellation::triangulateSolidMerged(solid0, tol);
     auto mesh1_all = tessellation::triangulateSolidMerged(solid1, tol);
 
-    // 使用加速碰撞检测判断是否相交
+    // Step 1: 碰撞检测
     auto segments = tessellation::extractInterferenceAccelerated(mesh0_all, mesh1_all);
     bool has_intersection = !segments.empty();
 
-    // 处理 solid0 的面
-    for (size_t i = 0; i < solid0.numBoundaries(); ++i) {
-        const auto& shell0 = solid0.boundary(i);
+    if (!has_intersection) {
+        // 无相交 → 两个体完全分离，直接按操作类型选取
+        switch (op) {
+        case BoolOp::Union:
+            for (size_t i = 0; i < solid0.numBoundaries(); ++i)
+                for (size_t fi = 0; fi < solid0.boundary(i).len(); ++fi)
+                    result_shell.push(solid0.boundary(i)[fi]);
+            for (size_t j = 0; j < solid1.numBoundaries(); ++j)
+                for (size_t fi = 0; fi < solid1.boundary(j).len(); ++fi)
+                    result_shell.push(solid1.boundary(j)[fi]);
+            break;
+        case BoolOp::Intersection:
+            // 不相交 → 交集为空
+            return Core::Err<Solid<Point3, Curve, Surface>>(
+                makeError(TopologyError::EmptyShell));
+        case BoolOp::Difference:
+            for (size_t i = 0; i < solid0.numBoundaries(); ++i)
+                for (size_t fi = 0; fi < solid0.boundary(i).len(); ++fi)
+                    result_shell.push(solid0.boundary(i)[fi]);
+            break;
+        }
+    } else {
+        // Step 2: 对两个 shell 分别构建 LoopsStore 并分割面
 
-        for (size_t fi = 0; fi < shell0.len(); ++fi) {
-            if (!has_intersection) {
-                // 无相交 → 两个体完全分离
-                // Union: 保留所有面
-                // Intersection: 结果为空
-                // Difference: 保留 solid0 所有面
-                if (op == BoolOp::Union || op == BoolOp::Difference) {
-                    result_shell.push(shell0[fi]);
+        // --- 处理 solid0 的面 ---
+        for (size_t i = 0; i < solid0.numBoundaries(); ++i) {
+            const auto& shell0 = solid0.boundary(i);
+            auto loops_store0 = createLoopsStore(shell0, segments, tol);
+
+            auto cls0 = divideFaces(shell0, loops_store0, tol);
+            if (!cls0) {
+                // divide_face 失败，回退到简单分类
+                for (size_t fi = 0; fi < shell0.len(); ++fi) {
+                    auto status = classifyFace(shell0[fi], mesh1_all);
+                    if ((op == BoolOp::Union && status == ShapeOpStatus::Or) ||
+                        (op == BoolOp::Intersection && status == ShapeOpStatus::And) ||
+                        (op == BoolOp::Difference && status == ShapeOpStatus::And))
+                        result_shell.push(shell0[fi]);
                 }
                 continue;
             }
 
-            auto cls = classifyFaceAgainstShell(shell0[fi], mesh1_all, op);
+            cls0->integrateByComponent();
+            auto [and0, or0, unknown0] = cls0->andOrUnknown();
 
-            bool keep = false;
+            // 射线穿面分类 Unknown 面
+            for (size_t fi = 0; fi < unknown0.len(); ++fi) {
+                auto status = classifyFace(unknown0[fi], mesh1_all);
+                if (status == ShapeOpStatus::And) and0.push(unknown0[fi]);
+                else or0.push(unknown0[fi]);
+            }
+
+            // 按操作类型选取
             switch (op) {
             case BoolOp::Union:
-                keep = (cls == FaceClass::Or); break;
+                for (size_t fi = 0; fi < or0.len(); ++fi)
+                    result_shell.push(or0[fi]);
+                break;
             case BoolOp::Intersection:
-                keep = (cls == FaceClass::And); break;
+                for (size_t fi = 0; fi < and0.len(); ++fi)
+                    result_shell.push(and0[fi]);
+                break;
             case BoolOp::Difference:
-                keep = (cls == FaceClass::And); break;
-            }
-            if (keep) {
-                result_shell.push(shell0[fi]);
+                for (size_t fi = 0; fi < and0.len(); ++fi)
+                    result_shell.push(and0[fi]);
+                break;
             }
         }
-    }
 
-    // 处理 solid1 的面
-    for (size_t j = 0; j < solid1.numBoundaries(); ++j) {
-        const auto& shell1 = solid1.boundary(j);
+        // --- 处理 solid1 的面 ---
+        for (size_t j = 0; j < solid1.numBoundaries(); ++j) {
+            const auto& shell1 = solid1.boundary(j);
+            auto loops_store1 = createLoopsStore(shell1, segments, tol);
 
-        for (size_t fi = 0; fi < shell1.len(); ++fi) {
-            if (!has_intersection) {
-                // 无相交
-                if (op == BoolOp::Union) {
-                    result_shell.push(shell1[fi]);
+            auto cls1 = divideFaces(shell1, loops_store1, tol);
+            if (!cls1) {
+                for (size_t fi = 0; fi < shell1.len(); ++fi) {
+                    auto status = classifyFace(shell1[fi], mesh0_all);
+                    if ((op == BoolOp::Union && status == ShapeOpStatus::Or) ||
+                        (op == BoolOp::Intersection && status == ShapeOpStatus::And) ||
+                        (op == BoolOp::Difference && status == ShapeOpStatus::Or))
+                        result_shell.push(op == BoolOp::Difference
+                            ? shell1[fi].inverse() : shell1[fi]);
                 }
-                // Intersection 和 Difference 不需要 solid1 的面
                 continue;
             }
 
-            auto cls = classifyFaceAgainstShell(shell1[fi], mesh0_all, op);
+            cls1->integrateByComponent();
+            auto [and1, or1, unknown1] = cls1->andOrUnknown();
 
-            bool keep = false;
+            for (size_t fi = 0; fi < unknown1.len(); ++fi) {
+                auto status = classifyFace(unknown1[fi], mesh0_all);
+                if (status == ShapeOpStatus::And) and1.push(unknown1[fi]);
+                else or1.push(unknown1[fi]);
+            }
+
             switch (op) {
             case BoolOp::Union:
-                keep = (cls == FaceClass::Or); break;
+                for (size_t fi = 0; fi < or1.len(); ++fi)
+                    result_shell.push(or1[fi]);
+                break;
             case BoolOp::Intersection:
-                keep = (cls == FaceClass::And); break;
+                for (size_t fi = 0; fi < and1.len(); ++fi)
+                    result_shell.push(and1[fi]);
+                break;
             case BoolOp::Difference:
-                keep = (cls == FaceClass::Or); break;
-            }
-            if (keep) {
-                if (op == BoolOp::Difference) {
-                    result_shell.push(shell1[fi].inverse());
-                } else {
-                    result_shell.push(shell1[fi]);
-                }
+                for (size_t fi = 0; fi < or1.len(); ++fi)
+                    result_shell.push(or1[fi].inverse());
+                break;
             }
         }
     }
