@@ -36,6 +36,7 @@
 #include "../CurveSurface/CurveOps.h"
 #include "Triangulation.h"
 #include "Collision.h"
+#include "BVH.h"
 
 #include <MulanGeo/Geometry/Types.h>
 #include <MulanGeo/Geometry/Tolerance.h>
@@ -178,57 +179,78 @@ inline Core::Result<Solid<Point3, Curve, Surface>> booleanOp(
 {
     Shell<Point3, Curve, Surface> result_shell;
 
-    for (size_t si = 0; si < solid0.numBoundaries(); ++si) {
-        const auto& shell0 = solid0.boundary(si);
-        auto mesh0 = tessellation::triangulateShell(shell0, tol);
+    // 三角化两个 Solid
+    auto mesh0_all = tessellation::triangulateSolidMerged(solid0, tol);
+    auto mesh1_all = tessellation::triangulateSolidMerged(solid1, tol);
 
-        for (size_t sj = 0; sj < solid1.numBoundaries(); ++sj) {
-            const auto& shell1 = solid1.boundary(sj);
-            auto mesh1 = tessellation::triangulateShell(shell1, tol);
+    // 使用加速碰撞检测判断是否相交
+    auto segments = tessellation::extractInterferenceAccelerated(mesh0_all, mesh1_all);
+    bool has_intersection = !segments.empty();
 
-            auto segments = tessellation::extractInterference(mesh0, mesh1);
+    // 处理 solid0 的面
+    for (size_t i = 0; i < solid0.numBoundaries(); ++i) {
+        const auto& shell0 = solid0.boundary(i);
 
-            if (segments.empty()) {
+        for (size_t fi = 0; fi < shell0.len(); ++fi) {
+            if (!has_intersection) {
+                // 无相交 → 两个体完全分离
+                // Union: 保留所有面
+                // Intersection: 结果为空
+                // Difference: 保留 solid0 所有面
+                if (op == BoolOp::Union || op == BoolOp::Difference) {
+                    result_shell.push(shell0[fi]);
+                }
                 continue;
             }
 
-            // TODO: 用交线分割面 (divide_face)，实现完整布尔运算
-            // 当前简化版：不做面分割，仅通过射线穿面法分类
-            (void)op;
-        }
-    }
-
-    for (size_t i = 0; i < solid0.numBoundaries(); ++i) {
-        const auto& shell0 = solid0.boundary(i);
-        auto mesh0 = tessellation::triangulateShell(shell0, tol);
-        auto mesh1_all = tessellation::triangulateSolidMerged(solid1, tol);
-
-        for (size_t fi = 0; fi < shell0.len(); ++fi) {
             auto cls = classifyFaceAgainstShell(shell0[fi], mesh1_all, op);
-            if (op == BoolOp::Union && cls == FaceClass::Or) {
-                result_shell.push(shell0[fi]);
-            } else if (op == BoolOp::Intersection && cls == FaceClass::And) {
-                result_shell.push(shell0[fi]);
-            } else if (op == BoolOp::Difference && cls == FaceClass::And) {
+
+            bool keep = false;
+            switch (op) {
+            case BoolOp::Union:
+                keep = (cls == FaceClass::Or); break;
+            case BoolOp::Intersection:
+                keep = (cls == FaceClass::And); break;
+            case BoolOp::Difference:
+                keep = (cls == FaceClass::And); break;
+            }
+            if (keep) {
                 result_shell.push(shell0[fi]);
             }
         }
     }
 
+    // 处理 solid1 的面
     for (size_t j = 0; j < solid1.numBoundaries(); ++j) {
         const auto& shell1 = solid1.boundary(j);
-        auto mesh1 = tessellation::triangulateShell(shell1, tol);
-        auto mesh0_all = tessellation::triangulateSolidMerged(solid0, tol);
 
         for (size_t fi = 0; fi < shell1.len(); ++fi) {
+            if (!has_intersection) {
+                // 无相交
+                if (op == BoolOp::Union) {
+                    result_shell.push(shell1[fi]);
+                }
+                // Intersection 和 Difference 不需要 solid1 的面
+                continue;
+            }
+
             auto cls = classifyFaceAgainstShell(shell1[fi], mesh0_all, op);
-            if (op == BoolOp::Union && cls == FaceClass::Or) {
-                result_shell.push(shell1[fi]);
-            } else if (op == BoolOp::Intersection && cls == FaceClass::And) {
-                result_shell.push(shell1[fi]);
-            } else if (op == BoolOp::Difference && cls == FaceClass::Or) {
-                auto inv_face = shell1[fi].inverse();
-                result_shell.push(inv_face);
+
+            bool keep = false;
+            switch (op) {
+            case BoolOp::Union:
+                keep = (cls == FaceClass::Or); break;
+            case BoolOp::Intersection:
+                keep = (cls == FaceClass::And); break;
+            case BoolOp::Difference:
+                keep = (cls == FaceClass::Or); break;
+            }
+            if (keep) {
+                if (op == BoolOp::Difference) {
+                    result_shell.push(shell1[fi].inverse());
+                } else {
+                    result_shell.push(shell1[fi]);
+                }
             }
         }
     }

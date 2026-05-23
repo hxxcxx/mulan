@@ -46,6 +46,10 @@ public:
     const std::vector<Face<P, C, S>>& faces() const { return face_list_; }
 
     void push(const Face<P, C, S>& f) { face_list_.push_back(f); }
+    void push(Face<P, C, S>&& f) { face_list_.push_back(std::move(f)); }
+
+    /// 替换指定索引处的面
+    void replaceFace(size_t i, Face<P, C, S> f) { face_list_[i] = std::move(f); }
 
     // --- 拓扑查询 ---
 
