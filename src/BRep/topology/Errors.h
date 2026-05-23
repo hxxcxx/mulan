@@ -31,6 +31,7 @@ enum class TopologyError : int32_t {
     NotConnected,        // Shell 不连通
     NotClosedShell,      // Shell 不闭合
     NotManifold,         // Shell 非流形
+    InvalidParameter,    // 参数不在有效范围内
 };
 
 /// 拓扑错误描述文本
@@ -45,6 +46,7 @@ constexpr std::string_view toString(TopologyError e) noexcept {
     case TopologyError::NotConnected:     return "shell is not connected";
     case TopologyError::NotClosedShell:   return "shell is not closed";
     case TopologyError::NotManifold:      return "shell is not manifold";
+    case TopologyError::InvalidParameter: return "parameter out of valid range";
     }
     return "unknown topology error";
 }
