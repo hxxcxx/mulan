@@ -18,7 +18,7 @@
 #include <memory>
 #include <mutex>
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 class DOCUMENT_API OCCTShapeGeometry : public Geometry {
 public:
@@ -39,12 +39,12 @@ public:
     /// 从 OCCT shape 计算包围盒
     engine::AABB boundingBox() const override;
 
-    // --- Core::Object 序列化 ---
+    // --- core::Object 序列化 ---
     // OCCT B-Rep 序列化由 OCCT 的 TKBinXCAF 处理，此处暂不实现
     void serialize(core::OutputArchive& ar) const override { (void)ar; }
     void serialize(core::InputArchive& ar) override { (void)ar; }
 
-    // --- Core::Object 接口（手动实现，不用 MULANGEO_OBJECT 宏避免 sizeof 问题）---
+    // --- core::Object 接口（手动实现，不用 MULANGEO_OBJECT 宏避免 sizeof 问题）---
 
     static const core::ClassInfo& staticClassInfo() {
         static const core::ClassInfo s_info(

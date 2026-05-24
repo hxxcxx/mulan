@@ -50,12 +50,12 @@
 
 namespace MulanGeo::BRep::boolean {
 
-using Geometry::Point3;
-using Geometry::Vector3;
-using Geometry::Vector2;
-using Geometry::near;
-using Geometry::near2;
-using Geometry::soSmall;
+using geometry::Point3;
+using geometry::Vector3;
+using geometry::Vector2;
+using geometry::near;
+using geometry::near2;
+using geometry::soSmall;
 
 // ============================================================
 // 布尔运算状态标记
@@ -98,7 +98,7 @@ inline core::Result<Solid<Point3, Curve, Surface>> booleanOp(
     const Solid<Point3, Curve, Surface>& solid0,
     const Solid<Point3, Curve, Surface>& solid1,
     BoolOp op,
-    double tol = Geometry::TOLERANCE)
+    double tol = geometry::TOLERANCE)
 {
     Shell<Point3, Curve, Surface> result_shell;
 
@@ -243,7 +243,7 @@ inline core::Result<Solid<Point3, Curve, Surface>> booleanOp(
 inline core::Result<Solid<Point3, Curve, Surface>> unionOp(
     const Solid<Point3, Curve, Surface>& a,
     const Solid<Point3, Curve, Surface>& b,
-    double tol = Geometry::TOLERANCE)
+    double tol = geometry::TOLERANCE)
 {
     return booleanOp(a, b, BoolOp::Union, tol);
 }
@@ -251,7 +251,7 @@ inline core::Result<Solid<Point3, Curve, Surface>> unionOp(
 inline core::Result<Solid<Point3, Curve, Surface>> intersection(
     const Solid<Point3, Curve, Surface>& a,
     const Solid<Point3, Curve, Surface>& b,
-    double tol = Geometry::TOLERANCE)
+    double tol = geometry::TOLERANCE)
 {
     return booleanOp(a, b, BoolOp::Intersection, tol);
 }
@@ -259,7 +259,7 @@ inline core::Result<Solid<Point3, Curve, Surface>> intersection(
 inline core::Result<Solid<Point3, Curve, Surface>> difference(
     const Solid<Point3, Curve, Surface>& a,
     const Solid<Point3, Curve, Surface>& b,
-    double tol = Geometry::TOLERANCE)
+    double tol = geometry::TOLERANCE)
 {
     return booleanOp(a, b, BoolOp::Difference, tol);
 }

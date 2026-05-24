@@ -9,7 +9,7 @@
 
 #include <MulanGeo/Engine/Render/EngineView.h>
 
-UIDocument::UIDocument(MulanGeo::Document::Document* doc)
+UIDocument::UIDocument(MulanGeo::document::Document* doc)
     : m_doc(doc)
 {}
 
@@ -51,7 +51,7 @@ void UIDocument::detachView() {
     m_pickIdMap.clear();
 }
 
-MulanGeo::Document::EntityId UIDocument::resolvePickId(uint32_t pickId) const {
+MulanGeo::document::EntityId UIDocument::resolvePickId(uint32_t pickId) const {
     auto it = m_pickIdMap.find(pickId);
     if (it != m_pickIdMap.end()) return it->second;
     return {};

@@ -10,7 +10,7 @@
 #include <MulanGeo/Document/Geometry.h>
 #include <MulanGeo/Engine/Geometry/Mesh.h>
 
-namespace Doc = MulanGeo::Document;
+namespace Doc = MulanGeo::document;
 namespace Eng = MulanGeo::engine;
 
 // ============================================================

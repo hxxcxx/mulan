@@ -42,7 +42,7 @@ static constexpr uint32_t kGeometryVersion       = 1;
 // ============================================================
 
 inline bool saveDocument(const Document& doc, const std::string& filePath) {
-    Core::BinaryOutputArchive ar(filePath);
+    core::BinaryOutputArchive ar(filePath);
     if (!ar.isOpen()) return false;
 
     // 文件头：魔数 + 版本
@@ -112,7 +112,7 @@ inline bool saveDocument(const Document& doc, const std::string& filePath) {
 // ============================================================
 
 inline std::unique_ptr<Document> loadDocument(const std::string& filePath) {
-    Core::BinaryInputArchive ar(filePath);
+    core::BinaryInputArchive ar(filePath);
     if (!ar.isOpen()) return nullptr;
 
     // 读文件头
@@ -140,7 +140,7 @@ inline std::unique_ptr<Document> loadDocument(const std::string& filePath) {
         ar >> visible;
 
         // 变换矩阵
-        Engine::Mat4 transform(1.0);
+        engine::Mat4 transform(1.0);
         for (int ri = 0; ri < 4; ++ri)
             for (int ci = 0; ci < 4; ++ci)
                 ar >> transform[ri][ci];
@@ -177,7 +177,7 @@ inline std::unique_ptr<Document> loadDocument(const std::string& filePath) {
             ar >> geomType;
 
             // 通过 ObjectFactory 创建对应类型
-            auto obj = Core::ObjectFactory::instance().create(className);
+            auto obj = core::ObjectFactory::instance().create(className);
             if (obj) {
                 geom = std::unique_ptr<Geometry>(
                     static_cast<Geometry*>(obj.release()));

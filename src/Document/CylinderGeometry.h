@@ -17,7 +17,7 @@
 
 #include <memory>
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 class DOCUMENT_API CylinderGeometry : public Geometry {
     MULANGEO_OBJECT(CylinderGeometry, Geometry)
@@ -25,18 +25,18 @@ class DOCUMENT_API CylinderGeometry : public Geometry {
 public:
     CylinderGeometry() = default;
 
-    CylinderGeometry(const Engine::Vec3& startPos,
-                     const Engine::Vec3& endPos,
+    CylinderGeometry(const engine::Vec3& startPos,
+                     const engine::Vec3& endPos,
                      double radius)
         : m_startPos(startPos), m_endPos(endPos), m_radius(radius) {}
 
     // --- 参数 ---
 
-    const Engine::Vec3& startPosition() const { return m_startPos; }
-    const Engine::Vec3& endPosition() const { return m_endPos; }
+    const engine::Vec3& startPosition() const { return m_startPos; }
+    const engine::Vec3& endPosition() const { return m_endPos; }
     double radius() const { return m_radius; }
 
-    void setParameters(const Engine::Vec3& start, const Engine::Vec3& end, double r) {
+    void setParameters(const engine::Vec3& start, const engine::Vec3& end, double r) {
         m_startPos = start; m_endPos = end; m_radius = r;
         invalidateCache();
     }
@@ -45,36 +45,36 @@ public:
 
     GeometryType geometryType() const override { return GeometryType::Cylinder; }
 
-    const Engine::Mesh* displayMesh() const override {
+    const engine::Mesh* displayMesh() const override {
         ensureMesh();
         return m_cachedMesh.get();
     }
 
-    Engine::AABB boundingBox() const override {
+    engine::AABB boundingBox() const override {
         // 简化：用两端点 + 半径的 AABB 包围
         double r = m_radius;
-        Engine::Vec3 mn(
+        engine::Vec3 mn(
             std::min(m_startPos.x, m_endPos.x) - r,
             std::min(m_startPos.y, m_endPos.y) - r,
             std::min(m_startPos.z, m_endPos.z) - r
         );
-        Engine::Vec3 mx(
+        engine::Vec3 mx(
             std::max(m_startPos.x, m_endPos.x) + r,
             std::max(m_startPos.y, m_endPos.y) + r,
             std::max(m_startPos.z, m_endPos.z) + r
         );
-        return Engine::AABB(mn, mx);
+        return engine::AABB(mn, mx);
     }
 
     // --- 序列化（只存 7 个 double）---
 
-    void serialize(Core::OutputArchive& ar) const override {
+    void serialize(core::OutputArchive& ar) const override {
         ar << m_startPos.x << m_startPos.y << m_startPos.z;
         ar << m_endPos.x   << m_endPos.y   << m_endPos.z;
         ar << m_radius;
     }
 
-    void serialize(Core::InputArchive& ar) override {
+    void serialize(core::InputArchive& ar) override {
         ar >> m_startPos.x >> m_startPos.y >> m_startPos.z;
         ar >> m_endPos.x   >> m_endPos.y   >> m_endPos.z;
         ar >> m_radius;
@@ -85,9 +85,9 @@ private:
     void ensureMesh() const {
         if (!m_cachedMesh) {
             double height = glm::length(m_endPos - m_startPos);
-            auto baseMesh = Engine::PrimitiveMesh::cylinder(m_radius, height);
+            auto baseMesh = engine::PrimitiveMesh::cylinder(m_radius, height);
             // 旋转 + 平移使圆柱从 startPos 到 endPos
-            m_cachedMesh = std::make_unique<Engine::Mesh>();
+            m_cachedMesh = std::make_unique<engine::Mesh>();
             *m_cachedMesh = std::move(*baseMesh);
             // TODO: 应用变换矩阵到顶点
         }
@@ -95,11 +95,11 @@ private:
 
     void invalidateCache() { m_cachedMesh.reset(); }
 
-    Engine::Vec3 m_startPos{0.0};
-    Engine::Vec3 m_endPos{0.0, 1.0, 0.0};
+    engine::Vec3 m_startPos{0.0};
+    engine::Vec3 m_endPos{0.0, 1.0, 0.0};
     double m_radius = 0.5;
 
-    mutable std::unique_ptr<Engine::Mesh> m_cachedMesh;
+    mutable std::unique_ptr<engine::Mesh> m_cachedMesh;
 };
 
 } // namespace MulanGeo::Document

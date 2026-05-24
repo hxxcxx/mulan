@@ -15,7 +15,7 @@
 #include "../traits/ParametricCurve.h"
 #include "../Export.h"
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 /// 参数曲线: 2D 曲线在 3D 曲面上的映射
 template<typename Curve2D, typename Surface>

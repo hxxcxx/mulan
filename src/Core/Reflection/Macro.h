@@ -4,13 +4,13 @@
  *
  * 使用方式：
  *
- *   class MyGeometry : public MulanGeo::Core::Object {
+ *   class MyGeometry : public MulanGeo::core::Object {
  *   public:
  *       MULANGEO_OBJECT(MyGeometry, Object)
  *       // ... 自定义字段和方法 ...
  *
- *       void serialize(MulanGeo::Core::OutputArchive& ar) const override { ... }
- *       void serialize(MulanGeo::Core::InputArchive& ar) override { ... }
+ *       void serialize(MulanGeo::core::OutputArchive& ar) const override { ... }
+ *       void serialize(MulanGeo::core::InputArchive& ar) override { ... }
  *   };
  *
  * MULANGEO_OBJECT 展开：
@@ -30,34 +30,34 @@
 
 #define MULANGEO_OBJECT(ClassName, BaseClassName)                                         \
 public:                                                                                   \
-    static const ::MulanGeo::Core::ClassInfo& staticClassInfo() {                         \
-        static const ::MulanGeo::Core::ClassInfo s_info(                                  \
+    static const ::MulanGeo::core::ClassInfo& staticClassInfo() {                         \
+        static const ::MulanGeo::core::ClassInfo s_info(                                  \
             #ClassName,                                                                   \
-            ::MulanGeo::Core::TypeInfo::of<ClassName>(),                                  \
+            ::MulanGeo::core::TypeInfo::of<ClassName>(),                                  \
             &BaseClassName::staticClassInfo(),                                             \
             sizeof(ClassName),                                                             \
             false);                                                                        \
         return s_info;                                                                     \
     }                                                                                     \
                                                                                            \
-    const ::MulanGeo::Core::ClassInfo& classInfo() const noexcept override {              \
+    const ::MulanGeo::core::ClassInfo& classInfo() const noexcept override {              \
         return staticClassInfo();                                                          \
     }                                                                                     \
                                                                                            \
-    std::unique_ptr<::MulanGeo::Core::Object> create() const override {                   \
+    std::unique_ptr<::MulanGeo::core::Object> create() const override {                   \
         return std::make_unique<ClassName>();                                              \
     }                                                                                     \
                                                                                            \
-    static std::unique_ptr<::MulanGeo::Core::Object> createStatic() {                     \
+    static std::unique_ptr<::MulanGeo::core::Object> createStatic() {                     \
         return std::make_unique<ClassName>();                                              \
     }                                                                                     \
 private:                                                                                  \
     static inline bool _registered_##ClassName = [] {                                     \
-        ::MulanGeo::Core::ObjectFactory::instance().registerType(                         \
+        ::MulanGeo::core::ObjectFactory::instance().registerType(                         \
             #ClassName, &ClassName::createStatic);                                        \
-        ::MulanGeo::Core::TypeRegistry::instance().registerClass(                         \
+        ::MulanGeo::core::TypeRegistry::instance().registerClass(                         \
             #ClassName,                                                                   \
-            ::MulanGeo::Core::TypeInfo::of<ClassName>(),                                  \
+            ::MulanGeo::core::TypeInfo::of<ClassName>(),                                  \
             &BaseClassName::staticClassInfo(),                                             \
             sizeof(ClassName),                                                             \
             false);                                                                        \
@@ -69,15 +69,15 @@ public:
 // MULANGEO_PROPERTY — 属性注册宏
 //
 // 使用方式（在 .cpp 文件中）：
-//   MULANGEO_PROPERTY(MyGeometry, "width", width_, MulanGeo::Core::PropertyAccess::ReadWrite)
+//   MULANGEO_PROPERTY(MyGeometry, "width", width_, MulanGeo::core::PropertyAccess::ReadWrite)
 // ============================================================
 
 #define MULANGEO_PROPERTY(ClassName, PropName, MemberPtr, Access)                         \
     do {                                                                                  \
-        ::MulanGeo::Core::PropertyInfo prop;                                              \
+        ::MulanGeo::core::PropertyInfo prop;                                              \
         prop.name = (PropName);                                                           \
         prop.offset = offsetof(ClassName, MemberPtr);                                     \
         prop.access = (Access);                                                           \
-        ::MulanGeo::Core::TypeRegistry::instance().registerProperty(#ClassName,           \
+        ::MulanGeo::core::TypeRegistry::instance().registerProperty(#ClassName,           \
                                                                       std::move(prop));   \
     } while (0)

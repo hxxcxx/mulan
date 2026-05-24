@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <filesystem>
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 DocumentManager::~DocumentManager() = default;
 

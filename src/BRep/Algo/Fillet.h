@@ -50,14 +50,14 @@
 
 namespace MulanGeo::BRep::fillet {
 
-using Geometry::Point3;
-using Geometry::Vector3;
-using Geometry::Vector2;
-using Geometry::Matrix4;
-using Geometry::near;
-using Geometry::soSmall;
-using Geometry::TOLERANCE;
-using Geometry::PI;
+using geometry::Point3;
+using geometry::Vector3;
+using geometry::Vector2;
+using geometry::Matrix4;
+using geometry::near;
+using geometry::soSmall;
+using geometry::TOLERANCE;
+using geometry::PI;
 
 // ============================================================
 // 圆角结果
@@ -245,12 +245,12 @@ simpleFillet(
     }
 
     // 构建 2阶(u方向) x 2阶(v方向) BSplineSurface
-    using KnotVec = Geometry::KnotVec;
+    using KnotVec = geometry::KnotVec;
     auto u_knots = KnotVec::bezier_knot(num_samples);  // 沿边方向
     auto v_knots = KnotVec::bezier_knot(2);             // 截面方向
 
     auto fillet_surface = Surface(
-        Geometry::BSplineSurface<Point3>(
+        geometry::BSplineSurface<Point3>(
             std::make_pair(u_knots, v_knots),
             std::move(control_points)
         ));
@@ -261,7 +261,7 @@ simpleFillet(
         if (pts.size() < 2) return curve;
         // 用 BSplineCurve 插值偏移点
         auto interp_knots = KnotVec::bezier_knot(static_cast<int>(pts.size()) - 1);
-        return Curve(Geometry::BSplineCurve<Point3>(interp_knots, pts));
+        return Curve(geometry::BSplineCurve<Point3>(interp_knots, pts));
     };
 
     Curve offset_curve0 = makeOffsetCurve(offset_pts0);
@@ -281,7 +281,7 @@ simpleFillet(
     Edge<Point3, Curve> fillet_edge0(v_orig_front, v_back0, std::move(offset_curve0));
     Edge<Point3, Curve> fillet_edge1(v_orig_front, v_front1, curve); // 复用原始曲线近似
     Edge<Point3, Curve> fillet_edge2(v_front1, v_back1, std::move(offset_curve1));
-    Edge<Point3, Curve> fillet_edge3(v_back0, v_back1, Curve(Geometry::Line<Point3>(
+    Edge<Point3, Curve> fillet_edge3(v_back0, v_back1, Curve(geometry::Line<Point3>(
         offset_pts0.back(), offset_pts1.back())));
 
     // 构建圆角面的边界线
@@ -387,7 +387,7 @@ simpleChamfer(
     }
 
     // 构建倒角面 (平面，用 BSplineSurface 表示)
-    using KnotVec = Geometry::KnotVec;
+    using KnotVec = geometry::KnotVec;
 
     std::vector<std::vector<Point3>> control_points;
     control_points.reserve(num_samples + 1);
@@ -399,7 +399,7 @@ simpleChamfer(
     auto v_knots = KnotVec::bezier_knot(1);
 
     auto chamfer_surface = Surface(
-        Geometry::BSplineSurface<Point3>(
+        geometry::BSplineSurface<Point3>(
             std::make_pair(u_knots, v_knots),
             std::move(control_points)
         ));
@@ -413,15 +413,15 @@ simpleChamfer(
     auto makeOffsetCurve = [&](const std::vector<Point3>& pts) -> Curve {
         if (pts.size() < 2) return curve;
         auto interp_knots = KnotVec::bezier_knot(static_cast<int>(pts.size()) - 1);
-        return Curve(Geometry::BSplineCurve<Point3>(interp_knots, pts));
+        return Curve(geometry::BSplineCurve<Point3>(interp_knots, pts));
     };
 
     Edge<Point3, Curve> edge0(v_front0, v_back0, makeOffsetCurve(offset_pts0));
     Edge<Point3, Curve> edge1(v_front0, v_front1,
-        Curve(Geometry::Line<Point3>(offset_pts0.front(), offset_pts1.front())));
+        Curve(geometry::Line<Point3>(offset_pts0.front(), offset_pts1.front())));
     Edge<Point3, Curve> edge2(v_front1, v_back1, makeOffsetCurve(offset_pts1));
     Edge<Point3, Curve> edge3(v_back0, v_back1,
-        Curve(Geometry::Line<Point3>(offset_pts0.back(), offset_pts1.back())));
+        Curve(geometry::Line<Point3>(offset_pts0.back(), offset_pts1.back())));
 
     std::deque<Edge<Point3, Curve>> chamfer_edges;
     chamfer_edges.push_back(edge0);
@@ -456,7 +456,7 @@ simpleChamfer(
  * @param tol 容差
  * @return 圆角后的新 Solid，失败返回 nullopt
  */
-inline Core::Result<Solid<Point3, Curve, Surface>>
+inline core::Result<Solid<Point3, Curve, Surface>>
 filletEdge(
     const Solid<Point3, Curve, Surface>& solid,
     EdgeID<Curve> edge_id,
@@ -480,7 +480,7 @@ filletEdge(
     }
 
     if (face_indices.size() != 2) {
-        return Core::Err<Solid<Point3, Curve, Surface>>(
+        return core::Err<Solid<Point3, Curve, Surface>>(
             makeError(TopologyError::InvalidParameter));
     }
 
@@ -496,7 +496,7 @@ filletEdge(
 
     auto fillet_result = simpleFillet(face0, face1, edge_id, radius, tol);
     if (!fillet_result) {
-        return Core::Err<Solid<Point3, Curve, Surface>>(
+        return core::Err<Solid<Point3, Curve, Surface>>(
             makeError(TopologyError::InvalidParameter));
     }
 
@@ -515,7 +515,7 @@ filletEdge(
 /**
  * @brief 在 Solid 的指定边上做倒角
  */
-inline Core::Result<Solid<Point3, Curve, Surface>>
+inline core::Result<Solid<Point3, Curve, Surface>>
 chamferEdge(
     const Solid<Point3, Curve, Surface>& solid,
     EdgeID<Curve> edge_id,
@@ -538,7 +538,7 @@ chamferEdge(
     }
 
     if (face_indices.size() != 2) {
-        return Core::Err<Solid<Point3, Curve, Surface>>(
+        return core::Err<Solid<Point3, Curve, Surface>>(
             makeError(TopologyError::InvalidParameter));
     }
 
@@ -551,7 +551,7 @@ chamferEdge(
 
     auto chamfer_result = simpleChamfer(face0, face1, edge_id, d, tol);
     if (!chamfer_result) {
-        return Core::Err<Solid<Point3, Curve, Surface>>(
+        return core::Err<Solid<Point3, Curve, Surface>>(
             makeError(TopologyError::InvalidParameter));
     }
 

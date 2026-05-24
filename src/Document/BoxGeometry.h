@@ -20,7 +20,7 @@
 
 #include <memory>
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 class DOCUMENT_API BoxGeometry : public Geometry {
     MULANGEO_OBJECT(BoxGeometry, Geometry)
@@ -46,25 +46,25 @@ public:
 
     GeometryType geometryType() const override { return GeometryType::Box; }
 
-    const Engine::Mesh* displayMesh() const override {
+    const engine::Mesh* displayMesh() const override {
         ensureMesh();
         return m_cachedMesh.get();
     }
 
-    Engine::AABB boundingBox() const override {
-        return Engine::AABB(
+    engine::AABB boundingBox() const override {
+        return engine::AABB(
             Vec3(-m_dx * 0.5, -m_dy * 0.5, -m_dz * 0.5),
             Vec3( m_dx * 0.5,  m_dy * 0.5,  m_dz * 0.5)
         );
     }
 
-    // --- Core::Object 序列化（只写 3 个 double）---
+    // --- core::Object 序列化（只写 3 个 double）---
 
-    void serialize(Core::OutputArchive& ar) const override {
+    void serialize(core::OutputArchive& ar) const override {
         ar << m_dx << m_dy << m_dz;
     }
 
-    void serialize(Core::InputArchive& ar) override {
+    void serialize(core::InputArchive& ar) override {
         ar >> m_dx >> m_dy >> m_dz;
         invalidateCache();
     }
@@ -72,7 +72,7 @@ public:
 private:
     void ensureMesh() const {
         if (!m_cachedMesh) {
-            m_cachedMesh = Engine::PrimitiveMesh::box(m_dx, m_dy, m_dz);
+            m_cachedMesh = engine::PrimitiveMesh::box(m_dx, m_dy, m_dz);
         }
     }
 
@@ -86,7 +86,7 @@ private:
     double m_dz = 1.0;
 
     // ---- 缓存（不序列化，按需生成）----
-    mutable std::unique_ptr<Engine::Mesh> m_cachedMesh;
+    mutable std::unique_ptr<engine::Mesh> m_cachedMesh;
 };
 
 } // namespace MulanGeo::Document

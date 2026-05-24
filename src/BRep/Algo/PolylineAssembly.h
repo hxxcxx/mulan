@@ -18,12 +18,12 @@
 
 namespace MulanGeo::BRep::boolean {
 
-using Geometry::Point3;
-using Geometry::near;
+using geometry::Point3;
+using geometry::near;
 
 inline std::vector<tessellation::PolylineCurve> assemblePolylines(
     const std::vector<tessellation::LineSegment>& segments,
-    double tol = Geometry::TOLERANCE * 10.0)
+    double tol = geometry::TOLERANCE * 10.0)
 {
     if (segments.empty()) return {};
 

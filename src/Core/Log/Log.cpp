@@ -139,4 +139,4 @@ void log(Level lvl, std::string_view msg) {
     }
 }
 
-} // namespace MulanGeo::Core::Log
+} // namespace MulanGeo::core::Log

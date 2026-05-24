@@ -22,7 +22,7 @@
 #include <optional>
 #include <functional>
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 // ============================================================
 // 2D 类型

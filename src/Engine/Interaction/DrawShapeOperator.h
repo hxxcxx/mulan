@@ -42,7 +42,7 @@ enum class DrawShapeType {
 
 class DrawShapeOperator : public Operator {
 public:
-    DrawShapeOperator(Scene& scene, Document::Document& doc)
+    DrawShapeOperator(Scene& scene, document::Document& doc)
         : m_scene(scene), m_doc(doc) {}
 
     /// 设置绘制类型
@@ -204,14 +204,14 @@ private:
 
     /// 提交到 Document（创建参数化 Geometry + Entity）
     void commitShape(const Vec3& p0, const Vec3& p1) {
-        std::unique_ptr<Document::Geometry> geom;
+        std::unique_ptr<document::Geometry> geom;
 
         switch (m_shapeType) {
         case DrawShapeType::Box: {
             double dx = std::abs(p1.x - p0.x);
             double dz = std::abs(p1.z - p0.z);
             double dy = std::max(dx, dz) * 0.5;
-            geom = std::make_unique<Document::BoxGeometry>(
+            geom = std::make_unique<document::BoxGeometry>(
                 dx > 0.01 ? dx : 0.01,
                 dy > 0.01 ? dy : 0.01,
                 dz > 0.01 ? dz : 0.01);
@@ -221,14 +221,14 @@ private:
             double r = glm::length(p1 - p0) * 0.5;
             Vec3 center = (p0 + p1) * 0.5;
             center.y = r;
-            geom = std::make_unique<Document::SphereGeometry>(center, r);
+            geom = std::make_unique<document::SphereGeometry>(center, r);
             break;
         }
         case DrawShapeType::Cylinder: {
             double r = glm::length(Vec2(p1.x - p0.x, p1.z - p0.z)) * 0.5;
             double h = r * 2.0;
             Vec3 center = (p0 + p1) * 0.5;
-            geom = std::make_unique<Document::CylinderGeometry>(
+            geom = std::make_unique<document::CylinderGeometry>(
                 center, center + Vec3(0, h, 0), r);
             break;
         }
@@ -236,7 +236,7 @@ private:
             double r = glm::length(Vec2(p1.x - p0.x, p1.z - p0.z)) * 0.5;
             double h = r * 2.0;
             Vec3 center = (p0 + p1) * 0.5;
-            geom = std::make_unique<Document::ConeGeometry>(center, r, h);
+            geom = std::make_unique<document::ConeGeometry>(center, r, h);
             break;
         }
         }
@@ -244,7 +244,7 @@ private:
         if (!geom) return;
 
         // 创建 Entity
-        auto id = Document::EntityId::generate();
+        auto id = document::EntityId::generate();
         std::string name = shapeTypeName();
         auto entityId = m_doc.createEntity(name, std::move(geom));
 
@@ -271,7 +271,7 @@ private:
 
     // ---- 状态 ----
     Scene& m_scene;
-    Document::Document& m_doc;
+    document::Document& m_doc;
     DrawShapeType m_shapeType = DrawShapeType::Box;
 
     Vec3 m_workPlaneNormal{0.0, 1.0, 0.0};

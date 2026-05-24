@@ -27,8 +27,8 @@ namespace MulanGeo::BRep {
 
 // --- Curve 求值 ---
 
-inline Geometry::Point3 curve_subs(const Curve& c, double t) {
-    return std::visit([t](const auto& g) -> Geometry::Point3 {
+inline geometry::Point3 curve_subs(const Curve& c, double t) {
+    return std::visit([t](const auto& g) -> geometry::Point3 {
         using T = std::decay_t<decltype(g)>;
         if constexpr (std::is_same_v<T, IntersectionCurve>) {
             // 交线求值委托给 leader
@@ -39,8 +39,8 @@ inline Geometry::Point3 curve_subs(const Curve& c, double t) {
     }, c.variant());
 }
 
-inline Geometry::Vector3 curve_der(const Curve& c, double t) {
-    return std::visit([t](const auto& g) -> Geometry::Vector3 {
+inline geometry::Vector3 curve_der(const Curve& c, double t) {
+    return std::visit([t](const auto& g) -> geometry::Vector3 {
         using T = std::decay_t<decltype(g)>;
         if constexpr (std::is_same_v<T, IntersectionCurve>) {
             return g.leader->der(t);
@@ -50,8 +50,8 @@ inline Geometry::Vector3 curve_der(const Curve& c, double t) {
     }, c.variant());
 }
 
-inline Geometry::Vector3 curve_der2(const Curve& c, double t) {
-    return std::visit([t](const auto& g) -> Geometry::Vector3 {
+inline geometry::Vector3 curve_der2(const Curve& c, double t) {
+    return std::visit([t](const auto& g) -> geometry::Vector3 {
         using T = std::decay_t<decltype(g)>;
         if constexpr (std::is_same_v<T, IntersectionCurve>) {
             return g.leader->der2(t);
@@ -61,8 +61,8 @@ inline Geometry::Vector3 curve_der2(const Curve& c, double t) {
     }, c.variant());
 }
 
-inline Geometry::Vector3 curve_derN(const Curve& c, size_t n, double t) {
-    return std::visit([n, t](const auto& g) -> Geometry::Vector3 {
+inline geometry::Vector3 curve_derN(const Curve& c, size_t n, double t) {
+    return std::visit([n, t](const auto& g) -> geometry::Vector3 {
         using T = std::decay_t<decltype(g)>;
         if constexpr (std::is_same_v<T, IntersectionCurve>) {
             return g.leader->derN(n, t);
@@ -72,8 +72,8 @@ inline Geometry::Vector3 curve_derN(const Curve& c, size_t n, double t) {
     }, c.variant());
 }
 
-inline Geometry::CurveDers<Geometry::Vector3> curve_ders(const Curve& c, size_t n, double t) {
-    return std::visit([n, t](const auto& g) -> Geometry::CurveDers<Geometry::Vector3> {
+inline geometry::CurveDers<geometry::Vector3> curve_ders(const Curve& c, size_t n, double t) {
+    return std::visit([n, t](const auto& g) -> geometry::CurveDers<geometry::Vector3> {
         using T = std::decay_t<decltype(g)>;
         if constexpr (std::is_same_v<T, IntersectionCurve>) {
             return g.leader->ders(n, t);
@@ -83,8 +83,8 @@ inline Geometry::CurveDers<Geometry::Vector3> curve_ders(const Curve& c, size_t 
     }, c.variant());
 }
 
-inline Geometry::ParameterRange curve_parameterRange(const Curve& c) {
-    return std::visit([](const auto& g) -> Geometry::ParameterRange {
+inline geometry::ParameterRange curve_parameterRange(const Curve& c) {
+    return std::visit([](const auto& g) -> geometry::ParameterRange {
         using T = std::decay_t<decltype(g)>;
         if constexpr (std::is_same_v<T, IntersectionCurve>) {
             return g.leader->parameterRange();
@@ -116,22 +116,22 @@ inline std::pair<double, double> curve_rangeTuple(const Curve& c) {
     }, c.variant());
 }
 
-inline Geometry::Point3 curve_front(const Curve& c) {
+inline geometry::Point3 curve_front(const Curve& c) {
     auto [t0, t1] = curve_rangeTuple(c);
     (void)t1;
     return curve_subs(c, t0);
 }
 
-inline Geometry::Point3 curve_back(const Curve& c) {
+inline geometry::Point3 curve_back(const Curve& c) {
     auto [t0, t1] = curve_rangeTuple(c);
     (void)t0;
     return curve_subs(c, t1);
 }
 
-inline std::pair<std::vector<double>, std::vector<Geometry::Point3>>
+inline std::pair<std::vector<double>, std::vector<geometry::Point3>>
 curve_parameterDivision(const Curve& c, std::pair<double, double> range, double tol) {
     return std::visit([&](const auto& g)
-        -> std::pair<std::vector<double>, std::vector<Geometry::Point3>> {
+        -> std::pair<std::vector<double>, std::vector<geometry::Point3>> {
         using T = std::decay_t<decltype(g)>;
         if constexpr (std::is_same_v<T, IntersectionCurve>) {
             return g.leader->parameterDivision(range, tol);
@@ -141,7 +141,7 @@ curve_parameterDivision(const Curve& c, std::pair<double, double> range, double 
     }, c.variant());
 }
 
-inline void curve_transformBy(Curve& c, const Geometry::Matrix4& mat) {
+inline void curve_transformBy(Curve& c, const geometry::Matrix4& mat) {
     std::visit([&mat](auto& g) {
         using T = std::decay_t<decltype(g)>;
         if constexpr (std::is_same_v<T, IntersectionCurve>) {
@@ -157,55 +157,55 @@ inline void curve_transformBy(Curve& c, const Geometry::Matrix4& mat) {
 // --- 曲线参数反求 (search parameter) ---
 
 inline std::optional<double> curve_searchNearestParameter(
-    const Curve& c, const Geometry::Point3& point, double hint, size_t trials = 100)
+    const Curve& c, const geometry::Point3& point, double hint, size_t trials = 100)
 {
     return std::visit([&](const auto& g) -> std::optional<double> {
         using T = std::decay_t<decltype(g)>;
         if constexpr (std::is_same_v<T, IntersectionCurve>) {
-            return Geometry::Algo::Curve::searchNearestParameter(*g.leader, point, hint, trials);
+            return geometry::Algo::Curve::searchNearestParameter(*g.leader, point, hint, trials);
         } else {
-            return Geometry::Algo::Curve::searchNearestParameter(g, point, hint, trials);
+            return geometry::Algo::Curve::searchNearestParameter(g, point, hint, trials);
         }
     }, c.variant());
 }
 
 inline std::optional<double> curve_searchParameter(
-    const Curve& c, const Geometry::Point3& point, double hint, size_t trials = 100)
+    const Curve& c, const geometry::Point3& point, double hint, size_t trials = 100)
 {
     return std::visit([&](const auto& g) -> std::optional<double> {
         using T = std::decay_t<decltype(g)>;
         if constexpr (std::is_same_v<T, IntersectionCurve>) {
-            return Geometry::Algo::Curve::searchParameter(*g.leader, point, hint, trials);
+            return geometry::Algo::Curve::searchParameter(*g.leader, point, hint, trials);
         } else {
-            return Geometry::Algo::Curve::searchParameter(g, point, hint, trials);
+            return geometry::Algo::Curve::searchParameter(g, point, hint, trials);
         }
     }, c.variant());
 }
 
 inline std::optional<double> curve_searchNearestParameterWithHint(
-    const Curve& c, const Geometry::Point3& point,
-    const Geometry::SPHint1D& hint = {}, size_t trials = 100)
+    const Curve& c, const geometry::Point3& point,
+    const geometry::SPHint1D& hint = {}, size_t trials = 100)
 {
     return std::visit([&](const auto& g) -> std::optional<double> {
         using T = std::decay_t<decltype(g)>;
         if constexpr (std::is_same_v<T, IntersectionCurve>) {
-            return Geometry::Algo::Curve::searchNearestParameterWithHint(*g.leader, point, hint, trials);
+            return geometry::Algo::Curve::searchNearestParameterWithHint(*g.leader, point, hint, trials);
         } else {
-            return Geometry::Algo::Curve::searchNearestParameterWithHint(g, point, hint, trials);
+            return geometry::Algo::Curve::searchNearestParameterWithHint(g, point, hint, trials);
         }
     }, c.variant());
 }
 
 inline std::optional<double> curve_searchParameterWithHint(
-    const Curve& c, const Geometry::Point3& point,
-    const Geometry::SPHint1D& hint = {}, size_t trials = 100)
+    const Curve& c, const geometry::Point3& point,
+    const geometry::SPHint1D& hint = {}, size_t trials = 100)
 {
     return std::visit([&](const auto& g) -> std::optional<double> {
         using T = std::decay_t<decltype(g)>;
         if constexpr (std::is_same_v<T, IntersectionCurve>) {
-            return Geometry::Algo::Curve::searchParameterWithHint(*g.leader, point, hint, trials);
+            return geometry::Algo::Curve::searchParameterWithHint(*g.leader, point, hint, trials);
         } else {
-            return Geometry::Algo::Curve::searchParameterWithHint(g, point, hint, trials);
+            return geometry::Algo::Curve::searchParameterWithHint(g, point, hint, trials);
         }
     }, c.variant());
 }
@@ -213,38 +213,38 @@ inline std::optional<double> curve_searchParameterWithHint(
 // --- 曲面参数反求 (search parameter) ---
 
 inline std::optional<std::pair<double, double>> surface_searchNearestParameter(
-    const Surface& s, const Geometry::Point3& point,
+    const Surface& s, const geometry::Point3& point,
     std::pair<double, double> hint, size_t trials = 100)
 {
     return std::visit([&](const auto& g) -> std::optional<std::pair<double, double>> {
-        return Geometry::Algo::Surface::searchNearestParameter(g, point, hint, trials);
+        return geometry::Algo::Surface::searchNearestParameter(g, point, hint, trials);
     }, s.variant());
 }
 
 inline std::optional<std::pair<double, double>> surface_searchParameter(
-    const Surface& s, const Geometry::Point3& point,
+    const Surface& s, const geometry::Point3& point,
     std::pair<double, double> hint, size_t trials = 100)
 {
     return std::visit([&](const auto& g) -> std::optional<std::pair<double, double>> {
-        return Geometry::Algo::Surface::searchParameter(g, point, hint, trials);
+        return geometry::Algo::Surface::searchParameter(g, point, hint, trials);
     }, s.variant());
 }
 
 inline std::optional<std::pair<double, double>> surface_searchNearestParameterWithHint(
-    const Surface& s, const Geometry::Point3& point,
-    const Geometry::SPHint2D& hint = {}, size_t trials = 100, size_t division = 50)
+    const Surface& s, const geometry::Point3& point,
+    const geometry::SPHint2D& hint = {}, size_t trials = 100, size_t division = 50)
 {
     return std::visit([&](const auto& g) -> std::optional<std::pair<double, double>> {
-        return Geometry::Algo::Surface::searchNearestParameterWithHint(g, point, hint, trials, division);
+        return geometry::Algo::Surface::searchNearestParameterWithHint(g, point, hint, trials, division);
     }, s.variant());
 }
 
 inline std::optional<std::pair<double, double>> surface_searchParameterWithHint(
-    const Surface& s, const Geometry::Point3& point,
-    const Geometry::SPHint2D& hint = {}, size_t trials = 100, size_t division = 50)
+    const Surface& s, const geometry::Point3& point,
+    const geometry::SPHint2D& hint = {}, size_t trials = 100, size_t division = 50)
 {
     return std::visit([&](const auto& g) -> std::optional<std::pair<double, double>> {
-        return Geometry::Algo::Surface::searchParameterWithHint(g, point, hint, trials, division);
+        return geometry::Algo::Surface::searchParameterWithHint(g, point, hint, trials, division);
     }, s.variant());
 }
 
@@ -269,14 +269,14 @@ inline Curve curve_inverse(const Curve& c) {
 
 // --- Surface 求值 ---
 
-inline Geometry::Point3 surface_subs(const Surface& s, double u, double v) {
-    return std::visit([u, v](const auto& g) -> Geometry::Point3 {
+inline geometry::Point3 surface_subs(const Surface& s, double u, double v) {
+    return std::visit([u, v](const auto& g) -> geometry::Point3 {
         return g.subs(u, v);
     }, s.variant());
 }
 
-inline Geometry::Vector3 surface_uder(const Surface& s, double u, double v) {
-    return std::visit([u, v](const auto& g) -> Geometry::Vector3 {
+inline geometry::Vector3 surface_uder(const Surface& s, double u, double v) {
+    return std::visit([u, v](const auto& g) -> geometry::Vector3 {
         return g.uder(u, v);
     }, s.variant());
 }
@@ -284,65 +284,65 @@ inline Geometry::Vector3 surface_uder(const Surface& s, double u, double v) {
 // --- IncludeCurve: 检查曲线是否在曲面上 ---
 
 inline bool surface_includeCurve(const Surface& s, const Curve& c, double tol = -1.0) {
-    if (tol < 0.0) tol = Geometry::TOLERANCE;
+    if (tol < 0.0) tol = geometry::TOLERANCE;
     auto range = curve_rangeTuple(c);
     const size_t n = 32;
     for (size_t i = 0; i <= n; ++i) {
         double t = range.first + (range.second - range.first) * i / n;
-        Geometry::Point3 pt_on_curve = curve_subs(c, t);
+        geometry::Point3 pt_on_curve = curve_subs(c, t);
         auto uv = surface_searchNearestParameter(s, pt_on_curve, {0.0, 0.0}, 50);
         if (!uv) return false;
-        Geometry::Point3 pt_on_surface = surface_subs(s, uv->first, uv->second);
+        geometry::Point3 pt_on_surface = surface_subs(s, uv->first, uv->second);
         if (glm::distance(pt_on_curve, pt_on_surface) > tol) return false;
     }
     return true;
 }
 
-inline Geometry::Vector3 surface_vder(const Surface& s, double u, double v) {
-    return std::visit([u, v](const auto& g) -> Geometry::Vector3 {
+inline geometry::Vector3 surface_vder(const Surface& s, double u, double v) {
+    return std::visit([u, v](const auto& g) -> geometry::Vector3 {
         return g.vder(u, v);
     }, s.variant());
 }
 
-inline Geometry::Vector3 surface_uuder(const Surface& s, double u, double v) {
-    return std::visit([u, v](const auto& g) -> Geometry::Vector3 {
+inline geometry::Vector3 surface_uuder(const Surface& s, double u, double v) {
+    return std::visit([u, v](const auto& g) -> geometry::Vector3 {
         return g.uuder(u, v);
     }, s.variant());
 }
 
-inline Geometry::Vector3 surface_uvder(const Surface& s, double u, double v) {
-    return std::visit([u, v](const auto& g) -> Geometry::Vector3 {
+inline geometry::Vector3 surface_uvder(const Surface& s, double u, double v) {
+    return std::visit([u, v](const auto& g) -> geometry::Vector3 {
         return g.uvder(u, v);
     }, s.variant());
 }
 
-inline Geometry::Vector3 surface_vvder(const Surface& s, double u, double v) {
-    return std::visit([u, v](const auto& g) -> Geometry::Vector3 {
+inline geometry::Vector3 surface_vvder(const Surface& s, double u, double v) {
+    return std::visit([u, v](const auto& g) -> geometry::Vector3 {
         return g.vvder(u, v);
     }, s.variant());
 }
 
-inline Geometry::Vector3 surface_derMN(const Surface& s, size_t m, size_t n, double u, double v) {
-    return std::visit([m, n, u, v](const auto& g) -> Geometry::Vector3 {
+inline geometry::Vector3 surface_derMN(const Surface& s, size_t m, size_t n, double u, double v) {
+    return std::visit([m, n, u, v](const auto& g) -> geometry::Vector3 {
         return g.derMN(m, n, u, v);
     }, s.variant());
 }
 
-inline Geometry::Vector3 surface_normal(const Surface& s, double u, double v) {
+inline geometry::Vector3 surface_normal(const Surface& s, double u, double v) {
     auto du = surface_uder(s, u, v);
     auto dv = surface_vder(s, u, v);
     return glm::normalize(glm::cross(du, dv));
 }
 
-inline std::pair<Geometry::ParameterRange, Geometry::ParameterRange>
+inline std::pair<geometry::ParameterRange, geometry::ParameterRange>
 surface_parameterRange(const Surface& s) {
     return std::visit([](const auto& g)
-        -> std::pair<Geometry::ParameterRange, Geometry::ParameterRange> {
+        -> std::pair<geometry::ParameterRange, geometry::ParameterRange> {
         return g.parameterRange();
     }, s.variant());
 }
 
-inline void surface_transformBy(Surface& s, const Geometry::Matrix4& mat) {
+inline void surface_transformBy(Surface& s, const geometry::Matrix4& mat) {
     std::visit([&mat](auto& g) {
         g.transformBy(mat);
     }, s.variant());
@@ -407,40 +407,40 @@ inline Curve curve_concat(const Curve& c0, const Curve& c1) {
 // Curve 类方法实现 (内联，委托给自由函数)
 // ============================================================
 
-inline Geometry::Point3 Curve::subs(double t) const { return curve_subs(*this, t); }
-inline Geometry::Vector3 Curve::der(double t) const { return curve_der(*this, t); }
-inline Geometry::Vector3 Curve::der2(double t) const { return curve_der2(*this, t); }
-inline Geometry::Vector3 Curve::derN(size_t n, double t) const { return curve_derN(*this, n, t); }
-inline Geometry::CurveDers<Geometry::Vector3> Curve::ders(size_t n, double t) const { return curve_ders(*this, n, t); }
-inline Geometry::ParameterRange Curve::parameterRange() const { return curve_parameterRange(*this); }
+inline geometry::Point3 Curve::subs(double t) const { return curve_subs(*this, t); }
+inline geometry::Vector3 Curve::der(double t) const { return curve_der(*this, t); }
+inline geometry::Vector3 Curve::der2(double t) const { return curve_der2(*this, t); }
+inline geometry::Vector3 Curve::derN(size_t n, double t) const { return curve_derN(*this, n, t); }
+inline geometry::CurveDers<geometry::Vector3> Curve::ders(size_t n, double t) const { return curve_ders(*this, n, t); }
+inline geometry::ParameterRange Curve::parameterRange() const { return curve_parameterRange(*this); }
 inline std::optional<double> Curve::period() const { return curve_period(*this); }
 inline std::pair<double, double> Curve::rangeTuple() const { return curve_rangeTuple(*this); }
-inline Geometry::Point3 Curve::front() const { return curve_front(*this); }
-inline Geometry::Point3 Curve::back() const { return curve_back(*this); }
-inline std::pair<std::vector<double>, std::vector<Geometry::Point3>>
+inline geometry::Point3 Curve::front() const { return curve_front(*this); }
+inline geometry::Point3 Curve::back() const { return curve_back(*this); }
+inline std::pair<std::vector<double>, std::vector<geometry::Point3>>
     Curve::parameterDivision(std::pair<double, double> range, double tol) const {
     return curve_parameterDivision(*this, range, tol);
 }
-inline void Curve::transformBy(const Geometry::Matrix4& mat) { curve_transformBy(*this, mat); }
+inline void Curve::transformBy(const geometry::Matrix4& mat) { curve_transformBy(*this, mat); }
 inline void Curve::invert() { curve_invert(*this); }
 inline Curve Curve::inverse() const { return curve_inverse(*this); }
-inline std::optional<double> Curve::searchNearestParameter(const Geometry::Point3& point, double hint, size_t trials) const { return curve_searchNearestParameter(*this, point, hint, trials); }
-inline std::optional<double> Curve::searchParameter(const Geometry::Point3& point, double hint, size_t trials) const { return curve_searchParameter(*this, point, hint, trials); }
+inline std::optional<double> Curve::searchNearestParameter(const geometry::Point3& point, double hint, size_t trials) const { return curve_searchNearestParameter(*this, point, hint, trials); }
+inline std::optional<double> Curve::searchParameter(const geometry::Point3& point, double hint, size_t trials) const { return curve_searchParameter(*this, point, hint, trials); }
 inline Curve Curve::concat(const Curve& other) const { return curve_concat(*this, other); }
 
 // ============================================================
 // Curve::liftUp — 提升为 4D 齐次 B样条
 // ============================================================
 
-inline Geometry::BSplineCurve<Geometry::Vector4> Curve::liftUp() const {
-    using Geometry::Vector4;
-    using Geometry::BSplineCurve;
-    using Geometry::KnotVec;
-    using Geometry::NurbsCurve;
-    using Geometry::Point3;
+inline geometry::BSplineCurve<geometry::Vector4> Curve::liftUp() const {
+    using geometry::Vector4;
+    using geometry::BSplineCurve;
+    using geometry::KnotVec;
+    using geometry::NurbsCurve;
+    using geometry::Point3;
 
-    if (holds<Geometry::Line<Point3>>()) {
-        auto& line = get<Geometry::Line<Point3>>();
+    if (holds<geometry::Line<Point3>>()) {
+        auto& line = get<geometry::Line<Point3>>();
         Point3 p0 = line.frontPoint();
         Point3 p1 = line.backPoint();
         std::vector<Vector4> cps = {
@@ -451,8 +451,8 @@ inline Geometry::BSplineCurve<Geometry::Vector4> Curve::liftUp() const {
         return BSplineCurve<Vector4>(std::move(knots), std::move(cps));
     }
 
-    if (holds<Geometry::BSplineCurve<Point3>>()) {
-        auto& bspline = get<Geometry::BSplineCurve<Point3>>();
+    if (holds<geometry::BSplineCurve<Point3>>()) {
+        auto& bspline = get<geometry::BSplineCurve<Point3>>();
         std::vector<Vector4> cps;
         cps.reserve(bspline.controlPoints().size());
         for (const auto& p : bspline.controlPoints()) {
@@ -476,16 +476,16 @@ inline Geometry::BSplineCurve<Geometry::Vector4> Curve::liftUp() const {
 // Surface 类方法实现 (内联，委托给自由函数)
 // ============================================================
 
-inline Geometry::Point3 Surface::subs(double u, double v) const { return surface_subs(*this, u, v); }
-inline Geometry::Vector3 Surface::uder(double u, double v) const { return surface_uder(*this, u, v); }
-inline Geometry::Vector3 Surface::vder(double u, double v) const { return surface_vder(*this, u, v); }
-inline Geometry::Vector3 Surface::uuder(double u, double v) const { return surface_uuder(*this, u, v); }
-inline Geometry::Vector3 Surface::uvder(double u, double v) const { return surface_uvder(*this, u, v); }
-inline Geometry::Vector3 Surface::vvder(double u, double v) const { return surface_vvder(*this, u, v); }
-inline Geometry::Vector3 Surface::derMN(size_t m, size_t n, double u, double v) const { return surface_derMN(*this, m, n, u, v); }
-inline Geometry::Vector3 Surface::normal(double u, double v) const { return surface_normal(*this, u, v); }
-inline std::pair<Geometry::ParameterRange, Geometry::ParameterRange> Surface::parameterRange() const { return surface_parameterRange(*this); }
-inline void Surface::transformBy(const Geometry::Matrix4& mat) { surface_transformBy(*this, mat); }
+inline geometry::Point3 Surface::subs(double u, double v) const { return surface_subs(*this, u, v); }
+inline geometry::Vector3 Surface::uder(double u, double v) const { return surface_uder(*this, u, v); }
+inline geometry::Vector3 Surface::vder(double u, double v) const { return surface_vder(*this, u, v); }
+inline geometry::Vector3 Surface::uuder(double u, double v) const { return surface_uuder(*this, u, v); }
+inline geometry::Vector3 Surface::uvder(double u, double v) const { return surface_uvder(*this, u, v); }
+inline geometry::Vector3 Surface::vvder(double u, double v) const { return surface_vvder(*this, u, v); }
+inline geometry::Vector3 Surface::derMN(size_t m, size_t n, double u, double v) const { return surface_derMN(*this, m, n, u, v); }
+inline geometry::Vector3 Surface::normal(double u, double v) const { return surface_normal(*this, u, v); }
+inline std::pair<geometry::ParameterRange, geometry::ParameterRange> Surface::parameterRange() const { return surface_parameterRange(*this); }
+inline void Surface::transformBy(const geometry::Matrix4& mat) { surface_transformBy(*this, mat); }
 
 // --- Surface invert ---
 

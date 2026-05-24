@@ -85,15 +85,15 @@ void logf(Level lvl, spdlog::format_string_t<Args...> fmt, Args&&... args,
     }
 }
 
-} // namespace MulanGeo::Core::Log
+} // namespace MulanGeo::core::Log
 
 // ============================================================
 // 便捷宏
 // ============================================================
 
-#define LOG_TRACE(...)    ::MulanGeo::Core::Log::logf(::MulanGeo::Core::Log::Level::Trace,    __VA_ARGS__)
-#define LOG_DEBUG(...)    ::MulanGeo::Core::Log::logf(::MulanGeo::Core::Log::Level::Debug,    __VA_ARGS__)
-#define LOG_INFO(...)     ::MulanGeo::Core::Log::logf(::MulanGeo::Core::Log::Level::Info,     __VA_ARGS__)
-#define LOG_WARN(...)     ::MulanGeo::Core::Log::logf(::MulanGeo::Core::Log::Level::Warn,     __VA_ARGS__)
-#define LOG_ERROR(...)    ::MulanGeo::Core::Log::logf(::MulanGeo::Core::Log::Level::Error,    __VA_ARGS__)
-#define LOG_CRITICAL(...) ::MulanGeo::Core::Log::logf(::MulanGeo::Core::Log::Level::Critical, __VA_ARGS__)
+#define LOG_TRACE(...)    ::MulanGeo::core::Log::logf(::MulanGeo::core::Log::Level::Trace,    __VA_ARGS__)
+#define LOG_DEBUG(...)    ::MulanGeo::core::Log::logf(::MulanGeo::core::Log::Level::Debug,    __VA_ARGS__)
+#define LOG_INFO(...)     ::MulanGeo::core::Log::logf(::MulanGeo::core::Log::Level::Info,     __VA_ARGS__)
+#define LOG_WARN(...)     ::MulanGeo::core::Log::logf(::MulanGeo::core::Log::Level::Warn,     __VA_ARGS__)
+#define LOG_ERROR(...)    ::MulanGeo::core::Log::logf(::MulanGeo::core::Log::Level::Error,    __VA_ARGS__)
+#define LOG_CRITICAL(...) ::MulanGeo::core::Log::logf(::MulanGeo::core::Log::Level::Critical, __VA_ARGS__)

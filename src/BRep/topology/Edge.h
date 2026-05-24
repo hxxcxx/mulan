@@ -105,7 +105,7 @@ public:
     C orientedCurve() const {
         C c = *curve_;
         if (!orientation_) {
-            // 假设 C 有 invert() 方法（来自 Geometry::Invertible）
+            // 假设 C 有 invert() 方法（来自 geometry::Invertible）
             c.invert();
         }
         return c;

@@ -8,7 +8,7 @@
 
 #include <atomic>
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 EntityId EntityId::generate() {
     static std::atomic<uint64_t> counter{1};

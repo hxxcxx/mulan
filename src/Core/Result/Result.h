@@ -71,8 +71,8 @@ Result<T> Err(Error err) {
 // 便捷宏
 // ============================================================
 
-#define CORE_ERR(...)    ::MulanGeo::Core::Error::make(__VA_ARGS__)
-#define CORE_ERR_CODE(c, ...) ::MulanGeo::Core::Error::make((c), __VA_ARGS__)
+#define CORE_ERR(...)    ::MulanGeo::core::Error::make(__VA_ARGS__)
+#define CORE_ERR_CODE(c, ...) ::MulanGeo::core::Error::make((c), __VA_ARGS__)
 
 /// 传播错误：失败时直接 return，成功时绑定值
 #define PROPAGATE(var_name, expr)                                      \

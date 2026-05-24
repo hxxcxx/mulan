@@ -21,7 +21,7 @@
 
 #include <algorithm>
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 OCCTShapeGeometry::OCCTShapeGeometry(TopoDS_Shape shape)
     : m_shape(std::move(shape))

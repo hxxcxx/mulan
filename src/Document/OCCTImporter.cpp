@@ -23,7 +23,7 @@
 #include <clocale>
 #include <filesystem>
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 namespace {
 

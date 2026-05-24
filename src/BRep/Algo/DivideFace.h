@@ -51,12 +51,12 @@
 
 namespace MulanGeo::BRep::boolean {
 
-using Geometry::Point3;
-using Geometry::Vector3;
-using Geometry::Vector2;
-using Geometry::near;
-using Geometry::soSmall;
-using Geometry::TOLERANCE;
+using geometry::Point3;
+using geometry::Vector3;
+using geometry::Vector2;
+using geometry::near;
+using geometry::soSmall;
+using geometry::TOLERANCE;
 
 // ============================================================
 // 布尔运算面状态
@@ -184,9 +184,9 @@ inline std::optional<Polyline2D> projectWireToParameterSpace(
             Point3 pt = curve.subs(t);
 
             // 先用暴力搜索获取初始提示
-            auto hint = Geometry::Algo::Surface::presearch(surface, pt, range, 20);
+            auto hint = geometry::Algo::Surface::presearch(surface, pt, range, 20);
             // 再用 Newton 法精确求解
-            auto uv = Geometry::Algo::Surface::searchParameter(
+            auto uv = geometry::Algo::Surface::searchParameter(
                 surface, pt, hint, 50);
             if (!uv) return std::nullopt;
             result.points.push_back(Vector2(uv->first, uv->second));
@@ -467,8 +467,8 @@ inline LoopsStore<Point3, Curve> createLoopsStore(
             int count = 0;
             for (const auto& pt : polyline.points) {
                 // 检查点是否在曲面上（参数空间搜索）
-                auto hint = Geometry::Algo::Surface::presearch(surface, pt, range, 10);
-                auto uv = Geometry::Algo::Surface::searchParameter(
+                auto hint = geometry::Algo::Surface::presearch(surface, pt, range, 10);
+                auto uv = geometry::Algo::Surface::searchParameter(
                     surface, pt, hint, 20);
                 if (uv) count++;
             }
@@ -481,7 +481,7 @@ inline LoopsStore<Point3, Curve> createLoopsStore(
         // 用折线创建一个 Wire
         std::deque<Edge<Point3, Curve>> edges;
         for (size_t i = 0; i + 1 < polyline.points.size(); ++i) {
-            auto curve = Curve(Geometry::Line<Point3>(
+            auto curve = Curve(geometry::Line<Point3>(
                 polyline.points[i], polyline.points[i + 1]));
             Vertex<Point3> v0(polyline.points[i]);
             Vertex<Point3> v1(polyline.points[i + 1]);

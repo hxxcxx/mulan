@@ -15,7 +15,7 @@
 #include <memory>
 #include <utility>
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 /// 对几何对象施加变换的包装器
 /// @tparam Geom 被包装的几何类型 (曲线或曲面)

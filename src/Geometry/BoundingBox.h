@@ -14,7 +14,7 @@
 #include <limits>
 #include <algorithm>
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 /// 2D 轴对齐包围盒
 struct GEOMETRY_API BoundingBox2D {

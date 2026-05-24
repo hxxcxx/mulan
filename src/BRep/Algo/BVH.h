@@ -30,11 +30,11 @@
 
 namespace MulanGeo::BRep::tessellation {
 
-using Geometry::Point3;
-using Geometry::Vector3;
-using Geometry::near;
-using Geometry::soSmall;
-using Geometry::TOLERANCE;
+using geometry::Point3;
+using geometry::Vector3;
+using geometry::near;
+using geometry::soSmall;
+using geometry::TOLERANCE;
 
 // ============================================================
 // AABB 包围盒

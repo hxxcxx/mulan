@@ -79,18 +79,18 @@ struct IntersectionCurve {
 class Curve {
 public:
     using Variant = std::variant<
-        Geometry::Line<Geometry::Point3>,
-        Geometry::BSplineCurve<Geometry::Point3>,
-        Geometry::NurbsCurve,
+        geometry::Line<geometry::Point3>,
+        geometry::BSplineCurve<geometry::Point3>,
+        geometry::NurbsCurve,
         IntersectionCurve
     >;
 
     Curve() = default;
 
     // 从各变体隐式构造
-    Curve(Geometry::Line<Geometry::Point3> line)           : data_(std::move(line)) {}
-    Curve(Geometry::BSplineCurve<Geometry::Point3> bspline): data_(std::move(bspline)) {}
-    Curve(Geometry::NurbsCurve nurbs)                       : data_(std::move(nurbs)) {}
+    Curve(geometry::Line<geometry::Point3> line)           : data_(std::move(line)) {}
+    Curve(geometry::BSplineCurve<geometry::Point3> bspline): data_(std::move(bspline)) {}
+    Curve(geometry::NurbsCurve nurbs)                       : data_(std::move(nurbs)) {}
     Curve(IntersectionCurve ic)                             : data_(std::move(ic)) {}
 
     // --- 访问底层 variant ---
@@ -100,24 +100,24 @@ public:
 
     // --- 求值接口 (委托给 CurveOps) ---
 
-    Geometry::Point3 subs(double t) const;
-    Geometry::Vector3 der(double t) const;
-    Geometry::Vector3 der2(double t) const;
-    Geometry::Vector3 derN(size_t n, double t) const;
-    Geometry::CurveDers<Geometry::Vector3> ders(size_t n, double t) const;
-    Geometry::ParameterRange parameterRange() const;
+    geometry::Point3 subs(double t) const;
+    geometry::Vector3 der(double t) const;
+    geometry::Vector3 der2(double t) const;
+    geometry::Vector3 derN(size_t n, double t) const;
+    geometry::CurveDers<geometry::Vector3> ders(size_t n, double t) const;
+    geometry::ParameterRange parameterRange() const;
     std::optional<double> period() const;
     std::pair<double, double> rangeTuple() const;
-    Geometry::Point3 front() const;
-    Geometry::Point3 back() const;
-    std::pair<std::vector<double>, std::vector<Geometry::Point3>>
+    geometry::Point3 front() const;
+    geometry::Point3 back() const;
+    std::pair<std::vector<double>, std::vector<geometry::Point3>>
         parameterDivision(std::pair<double, double> range, double tol) const;
-    void transformBy(const Geometry::Matrix4& mat);
+    void transformBy(const geometry::Matrix4& mat);
 
     // --- 参数反求 ---
 
-    std::optional<double> searchNearestParameter(const Geometry::Point3& point, double hint, size_t trials = 100) const;
-    std::optional<double> searchParameter(const Geometry::Point3& point, double hint, size_t trials = 100) const;
+    std::optional<double> searchNearestParameter(const geometry::Point3& point, double hint, size_t trials = 100) const;
+    std::optional<double> searchParameter(const geometry::Point3& point, double hint, size_t trials = 100) const;
 
     /// 将另一条曲线拼接至末尾
     Curve concat(const Curve& other) const;
@@ -131,7 +131,7 @@ public:
 
     /// 将任意曲线提升为 NURBS 表示 (BSplineCurve<Vector4>)
     /// 用于同伦曲面等需要统一曲线类型的操作
-    Geometry::BSplineCurve<Geometry::Vector4> liftUp() const;
+    geometry::BSplineCurve<geometry::Vector4> liftUp() const;
 
     // --- variant 索引 ---
 
@@ -157,21 +157,21 @@ private:
 class Surface {
 public:
     using Variant = std::variant<
-        Geometry::Plane,
-        Geometry::BSplineSurface<Geometry::Point3>,
-        Geometry::NurbsSurface,
-        Geometry::Processor<Geometry::RevolutedCurve<Curve>, Geometry::Matrix4>,
-        Geometry::Processor<Geometry::ExtrudedCurve<Curve>, Geometry::Matrix4>
+        geometry::Plane,
+        geometry::BSplineSurface<geometry::Point3>,
+        geometry::NurbsSurface,
+        geometry::Processor<geometry::RevolutedCurve<Curve>, geometry::Matrix4>,
+        geometry::Processor<geometry::ExtrudedCurve<Curve>, geometry::Matrix4>
     >;
 
     Surface() = default;
 
     // 从各变体隐式构造
-    Surface(Geometry::Plane plane)                                                    : data_(std::move(plane)) {}
-    Surface(Geometry::BSplineSurface<Geometry::Point3> bspline)                       : data_(std::move(bspline)) {}
-    Surface(Geometry::NurbsSurface nurbs)                                             : data_(std::move(nurbs)) {}
-    Surface(Geometry::Processor<Geometry::RevolutedCurve<Curve>, Geometry::Matrix4> p): data_(std::move(p)) {}
-    Surface(Geometry::Processor<Geometry::ExtrudedCurve<Curve>, Geometry::Matrix4> p)         : data_(std::move(p)) {}
+    Surface(geometry::Plane plane)                                                    : data_(std::move(plane)) {}
+    Surface(geometry::BSplineSurface<geometry::Point3> bspline)                       : data_(std::move(bspline)) {}
+    Surface(geometry::NurbsSurface nurbs)                                             : data_(std::move(nurbs)) {}
+    Surface(geometry::Processor<geometry::RevolutedCurve<Curve>, geometry::Matrix4> p): data_(std::move(p)) {}
+    Surface(geometry::Processor<geometry::ExtrudedCurve<Curve>, geometry::Matrix4> p)         : data_(std::move(p)) {}
 
     // --- 访问底层 variant ---
 
@@ -180,16 +180,16 @@ public:
 
     // --- 求值接口 ---
 
-    Geometry::Point3 subs(double u, double v) const;
-    Geometry::Vector3 uder(double u, double v) const;
-    Geometry::Vector3 vder(double u, double v) const;
-    Geometry::Vector3 uuder(double u, double v) const;
-    Geometry::Vector3 uvder(double u, double v) const;
-    Geometry::Vector3 vvder(double u, double v) const;
-    Geometry::Vector3 derMN(size_t m, size_t n, double u, double v) const;
-    Geometry::Vector3 normal(double u, double v) const;
-    std::pair<Geometry::ParameterRange, Geometry::ParameterRange> parameterRange() const;
-    void transformBy(const Geometry::Matrix4& mat);
+    geometry::Point3 subs(double u, double v) const;
+    geometry::Vector3 uder(double u, double v) const;
+    geometry::Vector3 vder(double u, double v) const;
+    geometry::Vector3 uuder(double u, double v) const;
+    geometry::Vector3 uvder(double u, double v) const;
+    geometry::Vector3 vvder(double u, double v) const;
+    geometry::Vector3 derMN(size_t m, size_t n, double u, double v) const;
+    geometry::Vector3 normal(double u, double v) const;
+    std::pair<geometry::ParameterRange, geometry::ParameterRange> parameterRange() const;
+    void transformBy(const geometry::Matrix4& mat);
 
     // --- 方向反转 ---
 

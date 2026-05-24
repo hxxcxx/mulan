@@ -8,12 +8,12 @@
  *   static constexpr KernelId s_kernelId;
  *   static constexpr const char* s_kernelName;
  *   std::unique_ptr<Derived>   doClone() const;
- *   Engine::AABB               doBoundingBox() const;
+ *   engine::AABB               doBoundingBox() const;
  *   bool                       doIsNull() const;
  *   std::string                doDumpType() const;
- *   void                       doTransform(const Engine::Mat4& mat);
- *   std::unique_ptr<Engine::Mesh> doTriangulate(const TessellationParams&) const;
- *   std::unique_ptr<Engine::Mesh> doExtractEdges(const TessellationParams&) const;
+ *   void                       doTransform(const engine::Mat4& mat);
+ *   std::unique_ptr<engine::Mesh> doTriangulate(const TessellationParams&) const;
+ *   std::unique_ptr<engine::Mesh> doExtractEdges(const TessellationParams&) const;
  *   std::unique_ptr<Derived>   doBoolean(int op, const Derived& tool) const;
  */
 #pragma once

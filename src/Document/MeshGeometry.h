@@ -27,7 +27,7 @@ public:
     MeshGeometry() = default;
 
     /// 从已有 Mesh 构造（移动语义，零拷贝）
-    explicit MeshGeometry(std::unique_ptr<Engine::Mesh> mesh)
+    explicit MeshGeometry(std::unique_ptr<engine::Mesh> mesh)
         : m_mesh(std::move(mesh)) {}
 
     /// 从外部数据构造（导入器等使用）
@@ -35,7 +35,7 @@ public:
                  std::vector<uint32_t> indices,
                  const std::string& name = {})
     {
-        m_mesh = std::make_unique<Engine::Mesh>();
+        m_mesh = std::make_unique<engine::Mesh>();
         m_mesh->vertices = std::move(vertices);
         m_mesh->indices  = std::move(indices);
         m_mesh->name     = name;
@@ -46,12 +46,12 @@ public:
 
     GeometryType geometryType() const override { return GeometryType::Mesh; }
 
-    const Engine::Mesh* displayMesh() const override {
+    const engine::Mesh* displayMesh() const override {
         return m_mesh ? m_mesh.get() : nullptr;
     }
 
-    Engine::AABB boundingBox() const override {
-        return m_mesh ? m_mesh->bounds : Engine::AABB::empty();
+    engine::AABB boundingBox() const override {
+        return m_mesh ? m_mesh->bounds : engine::AABB::empty();
     }
 
     // --- 访问原始数据（用于序列化）---
@@ -60,9 +60,9 @@ public:
     const std::vector<uint32_t>& indices() const { return m_mesh->indices; }
     const std::string& meshName() const { return m_mesh->name; }
 
-    // --- Core::Object 序列化 ---
+    // --- core::Object 序列化 ---
 
-    void serialize(Core::OutputArchive& ar) const override {
+    void serialize(core::OutputArchive& ar) const override {
         if (!m_mesh) return;
         // 写入网格名称
         ar << m_mesh->name;
@@ -76,8 +76,8 @@ public:
         ar.writeBytes(std::as_bytes(std::span{m_mesh->indices}));
     }
 
-    void serialize(Core::InputArchive& ar) override {
-        m_mesh = std::make_unique<Engine::Mesh>();
+    void serialize(core::InputArchive& ar) override {
+        m_mesh = std::make_unique<engine::Mesh>();
         // 读名称
         ar >> m_mesh->name;
         // 读顶点
@@ -94,7 +94,7 @@ public:
     }
 
 private:
-    std::unique_ptr<Engine::Mesh> m_mesh;
+    std::unique_ptr<engine::Mesh> m_mesh;
 };
 
 } // namespace MulanGeo::Document

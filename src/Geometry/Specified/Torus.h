@@ -16,7 +16,7 @@
 #include "../Export.h"
 #include <cmath>
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 /// 环面
 class GEOMETRY_API Torus : public ParametricSurface3D {

@@ -20,7 +20,7 @@
 #include <unordered_map>
 #include <variant>
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 class DOCUMENT_API Entity {
 public:

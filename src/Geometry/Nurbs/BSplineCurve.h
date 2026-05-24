@@ -22,7 +22,7 @@
 #include <stdexcept>
 #include <algorithm>
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 /// B样条曲线
 /// @tparam P 控制点类型 (Point2/Point3/Vector4)

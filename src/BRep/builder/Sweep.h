@@ -28,9 +28,9 @@ namespace MulanGeo::BRep {
 
 class Sweep {
 public:
-    using Point3  = Geometry::Point3;
-    using Vector3 = Geometry::Vector3;
-    using Matrix4 = Geometry::Matrix4;
+    using Point3  = geometry::Point3;
+    using Vector3 = geometry::Vector3;
+    using Matrix4 = geometry::Matrix4;
 
     Sweep() = delete;
 
@@ -45,7 +45,7 @@ public:
 
     static inline Face<Point3, Curve, Surface> tsweep(const Edge<Point3, Curve>& edge, Vector3 vector) {
         auto connectPoints = [&vector](const Point3& p0, const Point3& p1) -> Curve {
-            return Curve(Geometry::Line<Point3>(p0, p1));
+            return Curve(geometry::Line<Point3>(p0, p1));
         };
         auto connectCurves = [&vector](const Curve& c0, const Curve& c1) -> Surface {
             return Builder::Detail::makeExtrudedSurface(c0, vector);
@@ -57,7 +57,7 @@ public:
 
     static inline Shell<Point3, Curve, Surface> tsweep(const Wire<Point3, Curve>& wire, Vector3 vector) {
         auto connectPoints = [&vector](const Point3& p0, const Point3& p1) -> Curve {
-            return Curve(Geometry::Line<Point3>(p0, p1));
+            return Curve(geometry::Line<Point3>(p0, p1));
         };
         auto connectCurves = [&vector](const Curve& c0, const Curve& c1) -> Surface {
             return Builder::Detail::makeExtrudedSurface(c0, vector);
@@ -71,7 +71,7 @@ public:
         auto mat = Matrix4(glm::translate(glm::dmat4(1.0), vector));
 
         auto connectPoints = [&vector](const Point3& p0, const Point3& p1) -> Curve {
-            return Curve(Geometry::Line<Point3>(p0, p1));
+            return Curve(geometry::Line<Point3>(p0, p1));
         };
         auto connectCurves = [&vector](const Curve& c0, const Curve& c1) -> Surface {
             return Builder::Detail::makeExtrudedSurface(c0, vector);
@@ -171,8 +171,8 @@ public:
         auto connectPoints = [origin, axis](const Point3& p0, const Point3& p1) -> Curve {
             Point3 proj = origin + glm::dot(p0 - origin, axis) * axis;
             Vector3 r = p0 - proj;
-            if (Geometry::soSmall(glm::length(r)))
-                return Curve(Geometry::Line<Point3>(p0, p1));
+            if (geometry::soSmall(glm::length(r)))
+                return Curve(geometry::Line<Point3>(p0, p1));
             return Builder::Detail::makeArcCurve(p0, proj, axis, 0.0);
         };
 
@@ -192,8 +192,8 @@ public:
                     [origin, axis, step](const Point3& p0, const Point3& p1) -> Curve {
                         Point3 proj = origin + glm::dot(p0 - origin, axis) * axis;
                         Vector3 r = p0 - proj;
-                        if (Geometry::soSmall(glm::length(r)))
-                            return Curve(Geometry::Line<Point3>(p0, p1));
+                        if (geometry::soSmall(glm::length(r)))
+                            return Curve(geometry::Line<Point3>(p0, p1));
                         return Builder::Detail::makeArcCurve(p0, proj, axis, step);
                     },
                     [origin, axis](const Curve& c0, const Curve& c1) -> Surface {
@@ -206,8 +206,8 @@ public:
                 [origin, axis, step](const Point3& p0, const Point3& p1) -> Curve {
                     Point3 proj = origin + glm::dot(p0 - origin, axis) * axis;
                     Vector3 r = p0 - proj;
-                    if (Geometry::soSmall(glm::length(r)))
-                        return Curve(Geometry::Line<Point3>(p0, p1));
+                    if (geometry::soSmall(glm::length(r)))
+                        return Curve(geometry::Line<Point3>(p0, p1));
                     return Builder::Detail::makeArcCurve(p0, proj, axis, step);
                 },
                 [origin, axis](const Curve& c0, const Curve& c1) -> Surface {
@@ -227,8 +227,8 @@ public:
                     [origin, axis, step](const Point3& p0, const Point3& p1) -> Curve {
                         Point3 proj = origin + glm::dot(p0 - origin, axis) * axis;
                         Vector3 r = p0 - proj;
-                        if (Geometry::soSmall(glm::length(r)))
-                            return Curve(Geometry::Line<Point3>(p0, p1));
+                        if (geometry::soSmall(glm::length(r)))
+                            return Curve(geometry::Line<Point3>(p0, p1));
                         return Builder::Detail::makeArcCurve(p0, proj, axis, step);
                     },
                     [origin, axis](const Curve& c0, const Curve& c1) -> Surface {
@@ -248,8 +248,8 @@ public:
             return [origin, axis, step](const Point3& p0, const Point3& p1) -> Curve {
                 Point3 proj = origin + glm::dot(p0 - origin, axis) * axis;
                 Vector3 r = p0 - proj;
-                if (Geometry::soSmall(glm::length(r)))
-                    return Curve(Geometry::Line<Point3>(p0, p1));
+                if (geometry::soSmall(glm::length(r)))
+                    return Curve(geometry::Line<Point3>(p0, p1));
                 return Builder::Detail::makeArcCurve(p0, proj, axis, step);
             };
         };
@@ -305,8 +305,8 @@ public:
         auto arcConnector = [origin, axis, step](const Point3& p0, const Point3& p1) -> Curve {
             Point3 proj = origin + glm::dot(p0 - origin, axis) * axis;
             Vector3 r = p0 - proj;
-            if (Geometry::soSmall(glm::length(r)))
-                return Curve(Geometry::Line<Point3>(p0, p1));
+            if (geometry::soSmall(glm::length(r)))
+                return Curve(geometry::Line<Point3>(p0, p1));
             return Builder::Detail::makeArcCurve(p0, proj, axis, step);
         };
 
@@ -381,11 +381,11 @@ public:
         Point3 origin(0.0);
         Vector3 axis(0.0, 0.0, 1.0);
 
-        auto makePlaneFromNormal = [](const Point3& pt, const Vector3& n) -> Geometry::Plane {
+        auto makePlaneFromNormal = [](const Point3& pt, const Vector3& n) -> geometry::Plane {
             Vector3 u = std::abs(n.x) < 0.9 ? Vector3(1, 0, 0) : Vector3(0, 1, 0);
             u = glm::normalize(glm::cross(n, u));
             Vector3 v = glm::cross(n, u);
-            return Geometry::Plane(pt, u, v);
+            return geometry::Plane(pt, u, v);
         };
 
         Vertex<Point3> bottom_rim(Point3(bottom_radius, 0.0, 0.0));
@@ -394,7 +394,7 @@ public:
 
         std::deque<Edge<Point3, Curve>> profile_edges;
         profile_edges.push_back(Edge<Point3, Curve>::newUnchecked(
-            bottom_rim, top_rim, Curve(Geometry::Line<Point3>(bottom_rim.point(), top_rim.point()))));
+            bottom_rim, top_rim, Curve(geometry::Line<Point3>(bottom_rim.point(), top_rim.point()))));
         Wire<Point3, Curve> profile_wire = Wire<Point3, Curve>::newUnchecked(std::move(profile_edges));
         Shell<Point3, Curve, Surface> side_shell = rsweep(profile_wire, origin, axis, 2.0 * Builder::BREP_PI, division);
 
@@ -406,7 +406,7 @@ public:
         for (size_t i = 0; i < side_shell.len(); ++i)
             shell.push(std::move(side_shell[i]));
 
-        if (top_radius > Geometry::TOLERANCE) {
+        if (top_radius > geometry::TOLERANCE) {
             Wire<Point3, Curve> top_circle = rsweepClosed(top_rim, origin, axis, division);
             Face<Point3, Curve, Surface> top_face = Face<Point3, Curve, Surface>::newUnchecked(
                 {top_circle.inverse()}, Surface(makePlaneFromNormal(Point3(0.0, 0.0, height), Vector3(0.0, 0.0, 1.0))));

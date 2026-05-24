@@ -15,7 +15,7 @@
 #include "../Export.h"
 #include <memory>
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 /// 挤压曲面: 3D 曲线沿向量 v 挤压
 template<typename Curve>

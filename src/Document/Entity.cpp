@@ -6,7 +6,7 @@
  */
 #include "Entity.h"
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 Entity::Entity(EntityId id, std::string name)
     : m_id(id)

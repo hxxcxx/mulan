@@ -19,7 +19,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 // ============================================================
 // Newton 求解器输出

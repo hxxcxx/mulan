@@ -14,7 +14,7 @@
 #include "../traits/ParametricSurface.h"
 #include "../Export.h"
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 /// 平面
 class GEOMETRY_API Plane : public ParametricSurface3D {

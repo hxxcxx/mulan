@@ -16,7 +16,7 @@
 #include <optional>
 #include <utility>
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 // ============================================================
 // 维度标记

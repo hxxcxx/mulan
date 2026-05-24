@@ -7,7 +7,7 @@
 #include "EntityHandle.h"
 #include "Document.h"
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 EntityHandle::EntityHandle(EntityId id, Document* doc)
     : m_id(id)

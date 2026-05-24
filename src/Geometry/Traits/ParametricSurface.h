@@ -14,7 +14,7 @@
 #include <optional>
 #include <utility>
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 /// 参数曲面抽象接口
 template<typename P, typename V>

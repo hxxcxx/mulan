@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <stdexcept>
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 // 前向声明
 class BasisWindow;

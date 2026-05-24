@@ -30,13 +30,13 @@ class EngineView;
 
 class UIDocument {
 public:
-    explicit UIDocument(MulanGeo::Document::Document* doc);
+    explicit UIDocument(MulanGeo::document::Document* doc);
     ~UIDocument();
 
     // --- 数据层 ---
 
-    MulanGeo::Document::Document& document() { return *m_doc; }
-    const MulanGeo::Document::Document& document() const { return *m_doc; }
+    MulanGeo::document::Document& document() { return *m_doc; }
+    const MulanGeo::document::Document& document() const { return *m_doc; }
 
     // --- 场景 ---
 
@@ -54,15 +54,15 @@ public:
     MulanGeo::engine::EngineView* view() const { return m_view; }
 
     /// 通过 pickId 反查 EntityId（拾取用）
-    MulanGeo::Document::EntityId resolvePickId(uint32_t pickId) const;
+    MulanGeo::document::EntityId resolvePickId(uint32_t pickId) const;
 
 private:
-    MulanGeo::Document::Document*  m_doc;   // 不拥有，由 DocumentManager 管理
+    MulanGeo::document::Document*  m_doc;   // 不拥有，由 DocumentManager 管理
     MulanGeo::engine::EngineView*  m_view = nullptr;
 
     /// 由 SceneBuilder 一次性构建的渲染场景
     std::unique_ptr<MulanGeo::engine::Scene> m_scene;
 
     /// pickId → EntityId 映射（拾取反查用）
-    std::unordered_map<uint32_t, MulanGeo::Document::EntityId> m_pickIdMap;
+    std::unordered_map<uint32_t, MulanGeo::document::EntityId> m_pickIdMap;
 };

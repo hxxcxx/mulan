@@ -18,7 +18,7 @@
 #include "../Export.h"
 #include <cmath>
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 /// 通用圆
 /// @tparam P 点类型 (Point2/Point3)

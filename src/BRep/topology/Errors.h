@@ -1,14 +1,14 @@
 /**
  * @file Errors.h
- * @brief 拓扑错误类型枚举 + Core::Error 转换
+ * @brief 拓扑错误类型枚举 + core::Error 转换
  *
- * 拓扑错误统一通过 Core::Error 传播：
+ * 拓扑错误统一通过 core::Error 传播：
  *   code    = TopologyError 枚举值
  *   message = 人类可读描述（自动填充）
  *   file/line = 由 source_location 自动捕获
  *
  * 用法:
- *   return Core::Err<T>(makeError(TopologyError::EmptyWire));
+ *   return core::Err<T>(makeError(TopologyError::EmptyWire));
  *
  * @author hxxcxx
  * @date 2026-05-21
@@ -51,7 +51,7 @@ constexpr std::string_view toString(TopologyError e) noexcept {
     return "unknown topology error";
 }
 
-/// TopologyError → Core::Error 转换（自动捕获调用位置）
+/// TopologyError → core::Error 转换（自动捕获调用位置）
 inline core::Error makeError(TopologyError e,
     std::source_location loc = std::source_location::current()) {
     return core::Error::make(static_cast<int32_t>(e), toString(e), loc);

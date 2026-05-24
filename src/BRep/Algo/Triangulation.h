@@ -54,16 +54,16 @@
 
 namespace MulanGeo::BRep::tessellation {
 
-using Geometry::Point3;
-using Geometry::Vector3;
-using Geometry::Vector2;
-using Geometry::Matrix4;
-using Geometry::ParameterRange;
-using Geometry::Bound;
-using Geometry::BoundKind;
-using Geometry::near;
-using Geometry::near2;
-using Geometry::soSmall;
+using geometry::Point3;
+using geometry::Vector3;
+using geometry::Vector2;
+using geometry::Matrix4;
+using geometry::ParameterRange;
+using geometry::Bound;
+using geometry::BoundKind;
+using geometry::near;
+using geometry::near2;
+using geometry::soSmall;
 
 // ============================================================
 // 折线 — 离散化的曲线
@@ -91,7 +91,7 @@ struct PolylineCurve {
     bool empty() const { return points.empty(); }
     const Point3& front() const { return points.front(); }
     const Point3& back() const { return points.back(); }
-    bool isClosed(double tol = Geometry::TOLERANCE) const {
+    bool isClosed(double tol = geometry::TOLERANCE) const {
         return size() > 1 && near(front(), back(), tol);
     }
 };
@@ -189,7 +189,7 @@ inline std::optional<Vector2> projectToSurface(
     const Surface& surface, const Point3& point,
     const std::pair<double, double>& hint)
 {
-    using namespace Geometry::Algo::Surface;
+    using namespace geometry::Algo::Surface;
 
     auto result = searchParameter(surface, point, hint);
     if (result) return Vector2(result->first, result->second);
@@ -204,7 +204,7 @@ inline Vector2 projectToSurfaceRobust(
     const Surface& surface, const Point3& point,
     const std::pair<double, double>& hint)
 {
-    using namespace Geometry::Algo::Surface;
+    using namespace geometry::Algo::Surface;
 
     auto result = searchParameter(surface, point, hint);
     if (result) return Vector2(result->first, result->second);
@@ -243,11 +243,11 @@ inline PolyBoundary buildPolyBoundary(
 
         auto surface_ranges = surface_parameterRange(face.surface());
         auto urange = std::make_pair(
-            Geometry::Algo::Surface::boundsToDouble(surface_ranges.first.first),
-            Geometry::Algo::Surface::boundsToDouble(surface_ranges.first.second));
+            geometry::Algo::Surface::boundsToDouble(surface_ranges.first.first),
+            geometry::Algo::Surface::boundsToDouble(surface_ranges.first.second));
         auto vrange = std::make_pair(
-            Geometry::Algo::Surface::boundsToDouble(surface_ranges.second.first),
-            Geometry::Algo::Surface::boundsToDouble(surface_ranges.second.second));
+            geometry::Algo::Surface::boundsToDouble(surface_ranges.second.first),
+            geometry::Algo::Surface::boundsToDouble(surface_ranges.second.second));
 
         double mid_u = (urange.first + urange.second) * 0.5;
         double mid_v = (vrange.first + vrange.second) * 0.5;
@@ -632,15 +632,15 @@ inline TriMesh triangulateFace(
     Surface surface = face.surface();
     auto ranges = surface_parameterRange(surface);
     auto urange = std::make_pair(
-        Geometry::Algo::Surface::boundsToDouble(ranges.first.first),
-        Geometry::Algo::Surface::boundsToDouble(ranges.first.second));
+        geometry::Algo::Surface::boundsToDouble(ranges.first.first),
+        geometry::Algo::Surface::boundsToDouble(ranges.first.second));
     auto vrange = std::make_pair(
-        Geometry::Algo::Surface::boundsToDouble(ranges.second.first),
-        Geometry::Algo::Surface::boundsToDouble(ranges.second.second));
+        geometry::Algo::Surface::boundsToDouble(ranges.second.first),
+        geometry::Algo::Surface::boundsToDouble(ranges.second.second));
 
     PolyBoundary pb = buildPolyBoundary(face, tol);
 
-    auto [u_div, v_div] = Geometry::Algo::Surface::parameterDivision(
+    auto [u_div, v_div] = geometry::Algo::Surface::parameterDivision(
         surface, {urange, vrange}, tol);
 
     // 构建约束三角化

@@ -10,7 +10,7 @@
 
 #include <cctype>
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 namespace {
 

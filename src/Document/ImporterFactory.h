@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 class IFileImporter;
 

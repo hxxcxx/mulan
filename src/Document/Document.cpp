@@ -9,7 +9,7 @@
 
 #include <algorithm>
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 std::unique_ptr<Document> Document::create() {
     return std::unique_ptr<Document>(new Document());

@@ -26,11 +26,11 @@ namespace MulanGeo::BRep {
 
 class Primitive {
 public:
-    using Point3  = Geometry::Point3;
-    using Vector3 = Geometry::Vector3;
-    using Matrix4 = Geometry::Matrix4;
-    using BoundingBox2D = Geometry::BoundingBox2D;
-    using BoundingBox3D = Geometry::BoundingBox3D;
+    using Point3  = geometry::Point3;
+    using Vector3 = geometry::Vector3;
+    using Matrix4 = geometry::Matrix4;
+    using BoundingBox2D = geometry::BoundingBox2D;
+    using BoundingBox3D = geometry::BoundingBox3D;
 
     Primitive() = delete;
 
@@ -38,7 +38,7 @@ public:
     // Rectangle on a Plane
     // ============================================================
 
-    static inline Wire<Point3, Curve> rect(const BoundingBox2D& box, const Geometry::Plane& plane) {
+    static inline Wire<Point3, Curve> rect(const BoundingBox2D& box, const geometry::Plane& plane) {
         auto [min, max] = std::make_pair(box.minPt, box.maxPt);
 
         auto v = Builder::vertices({
@@ -155,7 +155,7 @@ public:
             auto wire = Wire<Point3, Curve>::newUnchecked(std::move(w_edges));
             auto face = Face<Point3, Curve, Surface>::newUnchecked(
                 {std::move(wire)},
-                Surface(Geometry::Plane(v[0].point(), v[3].point(), v[1].point())));
+                Surface(geometry::Plane(v[0].point(), v[3].point(), v[1].point())));
             shell.push(std::move(face));
         }
 
@@ -169,7 +169,7 @@ public:
             auto wire = Wire<Point3, Curve>::newUnchecked(std::move(w_edges));
             auto face = Face<Point3, Curve, Surface>::newUnchecked(
                 {std::move(wire)},
-                Surface(Geometry::Plane(v[i].point(), v[i + 1].point(), v[i + 4].point())));
+                Surface(geometry::Plane(v[i].point(), v[i + 1].point(), v[i + 4].point())));
             shell.push(std::move(face));
         }
 
@@ -183,7 +183,7 @@ public:
             auto wire = Wire<Point3, Curve>::newUnchecked(std::move(w_edges));
             auto face = Face<Point3, Curve, Surface>::newUnchecked(
                 {std::move(wire)},
-                Surface(Geometry::Plane(v[4].point(), v[5].point(), v[7].point())));
+                Surface(geometry::Plane(v[4].point(), v[5].point(), v[7].point())));
             shell.push(std::move(face));
         }
 
@@ -203,7 +203,7 @@ public:
         Vector3 vec = height * axis;
         return Sweep::tsweep(Face<Point3, Curve, Surface>::newUnchecked(
             {circle_wire},
-            Surface(Geometry::Plane(
+            Surface(geometry::Plane(
                 circle_wire.frontVertex().point(),
                 Builder::Detail::takeOneAxisByNormal(axis),
                 axis))), vec);

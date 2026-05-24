@@ -14,7 +14,7 @@
 
 #include <memory>
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 class DOCUMENT_API ConeGeometry : public Geometry {
     MULANGEO_OBJECT(ConeGeometry, Geometry)
@@ -22,39 +22,39 @@ class DOCUMENT_API ConeGeometry : public Geometry {
 public:
     ConeGeometry() = default;
 
-    ConeGeometry(const Engine::Vec3& baseCenter, double radius, double height)
+    ConeGeometry(const engine::Vec3& baseCenter, double radius, double height)
         : m_baseCenter(baseCenter), m_radius(radius), m_height(height) {}
 
-    const Engine::Vec3& baseCenter() const { return m_baseCenter; }
+    const engine::Vec3& baseCenter() const { return m_baseCenter; }
     double radius() const { return m_radius; }
     double height() const { return m_height; }
 
-    void setParameters(const Engine::Vec3& bc, double r, double h) {
+    void setParameters(const engine::Vec3& bc, double r, double h) {
         m_baseCenter = bc; m_radius = r; m_height = h; invalidateCache();
     }
 
     GeometryType geometryType() const override { return GeometryType::Cone; }
 
-    const Engine::Mesh* displayMesh() const override {
+    const engine::Mesh* displayMesh() const override {
         if (!m_cachedMesh) {
-            m_cachedMesh = Engine::PrimitiveMesh::cone(m_radius, m_height);
+            m_cachedMesh = engine::PrimitiveMesh::cone(m_radius, m_height);
         }
         return m_cachedMesh.get();
     }
 
-    Engine::AABB boundingBox() const override {
-        return Engine::AABB(
-            Engine::Vec3(m_baseCenter.x - m_radius, m_baseCenter.y, m_baseCenter.z - m_radius),
-            Engine::Vec3(m_baseCenter.x + m_radius, m_baseCenter.y + m_height, m_baseCenter.z + m_radius)
+    engine::AABB boundingBox() const override {
+        return engine::AABB(
+            engine::Vec3(m_baseCenter.x - m_radius, m_baseCenter.y, m_baseCenter.z - m_radius),
+            engine::Vec3(m_baseCenter.x + m_radius, m_baseCenter.y + m_height, m_baseCenter.z + m_radius)
         );
     }
 
-    void serialize(Core::OutputArchive& ar) const override {
+    void serialize(core::OutputArchive& ar) const override {
         ar << m_baseCenter.x << m_baseCenter.y << m_baseCenter.z;
         ar << m_radius << m_height;
     }
 
-    void serialize(Core::InputArchive& ar) override {
+    void serialize(core::InputArchive& ar) override {
         ar >> m_baseCenter.x >> m_baseCenter.y >> m_baseCenter.z;
         ar >> m_radius >> m_height;
         invalidateCache();
@@ -63,10 +63,10 @@ public:
 private:
     void invalidateCache() { m_cachedMesh.reset(); }
 
-    Engine::Vec3 m_baseCenter{0.0};
+    engine::Vec3 m_baseCenter{0.0};
     double m_radius = 0.5;
     double m_height = 1.0;
-    mutable std::unique_ptr<Engine::Mesh> m_cachedMesh;
+    mutable std::unique_ptr<engine::Mesh> m_cachedMesh;
 };
 
 } // namespace MulanGeo::Document

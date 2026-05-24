@@ -8,7 +8,7 @@
  *   - 参数化几何体只存参数（几个 double），不存三角网格
  *   - displayMesh() 按需从参数生成网格并缓存
  *   - 序列化只写参数，文件极小
- *   - 继承 Core::Object，获得多态序列化 + 工厂创建能力
+ *   - 继承 core::Object，获得多态序列化 + 工厂创建能力
  */
 #pragma once
 
@@ -20,11 +20,16 @@
 #include "MulanGeo/Engine/Math/Math.h"
 #include "MulanGeo/Engine/Math/AABB.h"
 
+namespace MulanGeo::core
+{
+	class ClassInfo;
+}
+
 namespace MulanGeo::engine {
 class Mesh;
 }
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 /// 几何体类型枚举（序列化时写入文件，用于多态反序列化）
 enum class GeometryType : uint8_t {
@@ -46,7 +51,7 @@ enum class GeometryType : uint8_t {
 
 /// 几何基类 — 持有具体几何数据，提供统一查询接口
 ///
-/// 继承 Core::Object 获得：
+/// 继承 core::Object 获得：
 ///   - serialize(OutputArchive&) / serialize(InputArchive&) 多态序列化
 ///   - ObjectFactory::create("BoxGeometry") 工厂创建
 ///   - MULANGEO_OBJECT 宏自动注册

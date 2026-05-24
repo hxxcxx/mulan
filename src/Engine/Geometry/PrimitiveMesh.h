@@ -4,7 +4,7 @@
  * @author hxxcxx
  * @date 2026-05-19
  *
- * 所有函数返回完整的 Engine::Mesh（pos+normal+texCoord 交错布局）。
+ * 所有函数返回完整的 engine::Mesh（pos+normal+texCoord 交错布局）。
  * 这是参数化 Geometry 的底层支撑：Entity 存参数 → 调这里生成 Mesh → 渲染。
  */
 #pragma once
@@ -345,4 +345,4 @@ inline std::unique_ptr<Mesh> wireframeRect(const Vec3& p0, const Vec3& p1,
     return mesh;
 }
 
-} // namespace MulanGeo::Engine::PrimitiveMesh
+} // namespace MulanGeo::engine::PrimitiveMesh

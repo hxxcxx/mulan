@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 class Document;
 

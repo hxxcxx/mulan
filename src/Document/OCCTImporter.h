@@ -12,7 +12,7 @@
 
 #include "IFileImporter.h"
 
-namespace MulanGeo::Document {
+namespace MulanGeo::document {
 
 class DOCUMENT_API OCCTImporter : public IFileImporter {
 public:

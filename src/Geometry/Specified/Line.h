@@ -13,7 +13,7 @@
 #include "../traits/ParametricCurve.h"
 #include "../Export.h"
 
-namespace MulanGeo::Geometry {
+namespace MulanGeo::geometry {
 
 /// 直线: subs(t) = p0 + t * (p1 - p0)
 template<typename P>
