@@ -1,6 +1,6 @@
 #include "Result.h"
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 Error Error::make(std::string_view msg, std::source_location loc) {
     return Error{0, std::string(msg), loc.file_name(), loc.line()};

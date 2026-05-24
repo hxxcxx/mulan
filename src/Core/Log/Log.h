@@ -9,7 +9,7 @@
 #include <source_location>
 #include <string_view>
 
-namespace MulanGeo::Core::Log {
+namespace MulanGeo::core::log {
 
 // ============================================================
 // 配置

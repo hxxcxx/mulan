@@ -28,16 +28,16 @@ public:
 
     // --- 构造 ---
 
-    static Core::Result<Solid> tryNew(
+    static core::Result<Solid> tryNew(
         std::vector<Shell<P, C, S>> boundaries
     ) {
         if (boundaries.empty()) {
-            return Core::Err<Solid>(makeError(TopologyError::EmptyShell));
+            return core::Err<Solid>(makeError(TopologyError::EmptyShell));
         }
         // 每个边界壳必须是闭合的
         for (const auto& shell : boundaries) {
             if (!shell.isClosed()) {
-                return Core::Err<Solid>(makeError(TopologyError::NotClosedShell));
+                return core::Err<Solid>(makeError(TopologyError::NotClosedShell));
             }
         }
         return Solid(std::move(boundaries));

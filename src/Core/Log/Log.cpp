@@ -14,7 +14,7 @@
 #endif
 #include <windows.h>
 
-namespace MulanGeo::Core::Log {
+namespace MulanGeo::core::log {
 namespace {
 
 std::once_flag g_initFlag;

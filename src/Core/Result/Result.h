@@ -21,7 +21,7 @@
 
 #include <tl/expected.hpp>
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 // ============================================================
 // Error — 携带错误码、消息、源码位置的值类型

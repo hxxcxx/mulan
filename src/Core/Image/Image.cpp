@@ -18,7 +18,7 @@
 #include <filesystem>
 #include <string>
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 // ============================================================
 // 构造

@@ -5,7 +5,7 @@
 
 #include "Archive.h"
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 // ============================================================
 // InputArchive 路径栈实现

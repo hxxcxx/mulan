@@ -12,7 +12,7 @@
 
 #include <tl/expected.hpp>
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 // ============================================================
 // ArchiveError — 序列化失败时的错误描述

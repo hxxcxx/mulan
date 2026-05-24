@@ -22,7 +22,7 @@
 #include <string_view>
 #include <vector>
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 // ============================================================
 // 像素格式

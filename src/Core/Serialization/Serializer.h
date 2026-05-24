@@ -24,7 +24,7 @@
 #include <variant>
 #include <vector>
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 // ============================================================
 // 数组最大元素数量（防恶意文件 / 检查溢出）

@@ -18,7 +18,7 @@
 #include <string_view>
 #include <vector>
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 // ============================================================
 // 类型别名

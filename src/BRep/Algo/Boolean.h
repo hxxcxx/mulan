@@ -94,7 +94,7 @@ inline ShapeOpStatus classifyFace(
 // 布尔核心算法 — 完整管线
 // ============================================================
 
-inline Core::Result<Solid<Point3, Curve, Surface>> booleanOp(
+inline core::Result<Solid<Point3, Curve, Surface>> booleanOp(
     const Solid<Point3, Curve, Surface>& solid0,
     const Solid<Point3, Curve, Surface>& solid1,
     BoolOp op,
@@ -123,7 +123,7 @@ inline Core::Result<Solid<Point3, Curve, Surface>> booleanOp(
             break;
         case BoolOp::Intersection:
             // 不相交 → 交集为空
-            return Core::Err<Solid<Point3, Curve, Surface>>(
+            return core::Err<Solid<Point3, Curve, Surface>>(
                 makeError(TopologyError::EmptyShell));
         case BoolOp::Difference:
             for (size_t i = 0; i < solid0.numBoundaries(); ++i)
@@ -224,7 +224,7 @@ inline Core::Result<Solid<Point3, Curve, Surface>> booleanOp(
     }
 
     if (result_shell.isEmpty()) {
-        return Core::Err<Solid<Point3, Curve, Surface>>(
+        return core::Err<Solid<Point3, Curve, Surface>>(
             makeError(TopologyError::EmptyShell));
     }
 
@@ -240,7 +240,7 @@ inline Core::Result<Solid<Point3, Curve, Surface>> booleanOp(
     return Solid<Point3, Curve, Surface>::newUnchecked({std::move(result_shell)});
 }
 
-inline Core::Result<Solid<Point3, Curve, Surface>> unionOp(
+inline core::Result<Solid<Point3, Curve, Surface>> unionOp(
     const Solid<Point3, Curve, Surface>& a,
     const Solid<Point3, Curve, Surface>& b,
     double tol = Geometry::TOLERANCE)
@@ -248,7 +248,7 @@ inline Core::Result<Solid<Point3, Curve, Surface>> unionOp(
     return booleanOp(a, b, BoolOp::Union, tol);
 }
 
-inline Core::Result<Solid<Point3, Curve, Surface>> intersection(
+inline core::Result<Solid<Point3, Curve, Surface>> intersection(
     const Solid<Point3, Curve, Surface>& a,
     const Solid<Point3, Curve, Surface>& b,
     double tol = Geometry::TOLERANCE)
@@ -256,7 +256,7 @@ inline Core::Result<Solid<Point3, Curve, Surface>> intersection(
     return booleanOp(a, b, BoolOp::Intersection, tol);
 }
 
-inline Core::Result<Solid<Point3, Curve, Surface>> difference(
+inline core::Result<Solid<Point3, Curve, Surface>> difference(
     const Solid<Point3, Curve, Surface>& a,
     const Solid<Point3, Curve, Surface>& b,
     double tol = Geometry::TOLERANCE)

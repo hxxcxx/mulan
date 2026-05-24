@@ -52,9 +52,9 @@ constexpr std::string_view toString(TopologyError e) noexcept {
 }
 
 /// TopologyError → Core::Error 转换（自动捕获调用位置）
-inline Core::Error makeError(TopologyError e,
+inline core::Error makeError(TopologyError e,
     std::source_location loc = std::source_location::current()) {
-    return Core::Error::make(static_cast<int32_t>(e), toString(e), loc);
+    return core::Error::make(static_cast<int32_t>(e), toString(e), loc);
 }
 
 } // namespace MulanGeo::BRep

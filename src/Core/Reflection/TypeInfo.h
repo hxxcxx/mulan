@@ -17,7 +17,7 @@
 #include <typeindex>
 #include <typeinfo>
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 // ============================================================
 // TypeInfo — 轻量类型标识
@@ -83,8 +83,8 @@ private:
 // ============================================================
 
 template<>
-struct std::hash<MulanGeo::Core::TypeInfo> {
-    size_t operator()(const MulanGeo::Core::TypeInfo& ti) const noexcept {
+struct std::hash<MulanGeo::core::TypeInfo> {
+    size_t operator()(const MulanGeo::core::TypeInfo& ti) const noexcept {
         return ti.typeIndex().hash_code();
     }
 };

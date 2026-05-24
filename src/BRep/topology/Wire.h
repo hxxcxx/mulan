@@ -34,20 +34,20 @@ public:
     // --- 构造 ---
 
     /// 从边列表构造并检查有效性
-    static Core::Result<Wire> tryNew(std::deque<Edge<P, C>> edges) {
+    static core::Result<Wire> tryNew(std::deque<Edge<P, C>> edges) {
         if (edges.empty()) {
-            return Core::Err<Wire>(makeError(TopologyError::EmptyWire));
+            return core::Err<Wire>(makeError(TopologyError::EmptyWire));
         }
         Wire w;
         w.edge_list_ = std::move(edges);
         if (!w.isContinuous()) {
-            return Core::Err<Wire>(makeError(TopologyError::NotConnected));
+            return core::Err<Wire>(makeError(TopologyError::NotConnected));
         }
         if (!w.isClosed()) {
-            return Core::Err<Wire>(makeError(TopologyError::NotClosedWire));
+            return core::Err<Wire>(makeError(TopologyError::NotClosedWire));
         }
         if (!w.isSimple()) {
-            return Core::Err<Wire>(makeError(TopologyError::NotSimpleWire));
+            return core::Err<Wire>(makeError(TopologyError::NotSimpleWire));
         }
         return w;
     }

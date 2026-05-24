@@ -1,6 +1,6 @@
 /**
  * @file TextureLoader.cpp
- * @brief 纹理加载器实现 — 基于 Core::Image
+ * @brief 纹理加载器实现 — 基于 core::Image
  */
 
 #include "TextureLoader.h"
@@ -17,12 +17,12 @@ namespace MulanGeo::engine {
 
 LoadedTexture TextureLoader::loadFromFile(const std::string& path,
                                            const TextureLoadOptions& options) const {
-    auto image = Core::Image::load(path);
+    auto image = core::Image::load(path);
     if (!image || !image->valid()) return {};
     return loadFromImage(image, options);
 }
 
-LoadedTexture TextureLoader::loadFromImage(const std::shared_ptr<Core::Image>& image,
+LoadedTexture TextureLoader::loadFromImage(const std::shared_ptr<core::Image>& image,
                                             const TextureLoadOptions& options) const {
     if (!image || !image->valid()) return {};
 
@@ -31,7 +31,7 @@ LoadedTexture TextureLoader::loadFromImage(const std::shared_ptr<Core::Image>& i
     result.height   = image->height();
 
     // 确保是 RGBA8（RHI 纹理需要 4 字节对齐）
-    if (image->format() != Core::PixelFormat::RGBA8) {
+    if (image->format() != core::PixelFormat::RGBA8) {
         auto rgba = image->toRGBA();
         if (!rgba) return {};
         result.pixels = rgba->detachPixels();
@@ -51,24 +51,24 @@ LoadedTexture TextureLoader::loadFromImage(const std::shared_ptr<Core::Image>& i
 
 LoadedTexture TextureLoader::loadFromMemory(const uint8_t* data, size_t size,
                                              const TextureLoadOptions& options) const {
-    auto image = Core::Image::loadFromMemory(data, size);
+    auto image = core::Image::loadFromMemory(data, size);
     if (!image || !image->valid()) return {};
     return loadFromImage(image, options);
 }
 
 bool TextureLoader::isSupportedFormat(const std::string& path) {
-    return Core::Image::isSupportedFile(path);
+    return core::Image::isSupportedFile(path);
 }
 
 TextureFormat TextureLoader::guessFormat(const std::string& path,
-                                          Core::PixelFormat pixelFmt) {
+                                          core::PixelFormat pixelFmt) {
     namespace fs = std::filesystem;
     fs::path p(path);
     auto ext = p.extension().string();
     for (auto& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     bool isSrgb = (ext == ".jpg" || ext == ".jpeg");
 
-    if (pixelFmt == Core::PixelFormat::R8) return TextureFormat::R8_UNorm;
+    if (pixelFmt == core::PixelFormat::R8) return TextureFormat::R8_UNorm;
     return isSrgb ? TextureFormat::RGBA8_sRGB : TextureFormat::RGBA8_UNorm;
 }
 
@@ -76,12 +76,12 @@ TextureFormat TextureLoader::guessFormat(const std::string& path,
 // 内部
 // ============================================================
 
-TextureFormat TextureLoader::toRHITextureFormat(Core::PixelFormat pixelFmt, bool /*isSrgb*/) {
+TextureFormat TextureLoader::toRHITextureFormat(core::PixelFormat pixelFmt, bool /*isSrgb*/) {
     switch (pixelFmt) {
-    case Core::PixelFormat::R8:    return TextureFormat::R8_UNorm;
-    case Core::PixelFormat::RG8:   return TextureFormat::RGBA8_UNorm;
-    case Core::PixelFormat::RGB8:  return TextureFormat::RGBA8_UNorm;
-    case Core::PixelFormat::RGBA8: return TextureFormat::RGBA8_UNorm;
+    case core::PixelFormat::R8:    return TextureFormat::R8_UNorm;
+    case core::PixelFormat::RG8:   return TextureFormat::RGBA8_UNorm;
+    case core::PixelFormat::RGB8:  return TextureFormat::RGBA8_UNorm;
+    case core::PixelFormat::RGBA8: return TextureFormat::RGBA8_UNorm;
     default:                       return TextureFormat::RGBA8_UNorm;
     }
 }

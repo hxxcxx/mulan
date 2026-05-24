@@ -8,7 +8,7 @@
 
 #include <mutex>
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 // ============================================================
 // ObjectFactory 实现

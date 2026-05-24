@@ -350,7 +350,7 @@ public:
         return shell;
     }
 
-    static inline std::vector<Core::Result<Solid<Point3, Curve, Surface>>> rsweep(
+    static inline std::vector<core::Result<Solid<Point3, Curve, Surface>>> rsweep(
         const Shell<Point3, Curve, Surface>& shell, Point3 origin, Vector3 axis, double angle, size_t division)
     {
         Shell<Point3, Curve, Surface> boundary;
@@ -363,7 +363,7 @@ public:
 
         boundary = Builder::dedup(std::move(boundary));
         auto result = Solid<Point3, Curve, Surface>::tryNew({std::move(boundary)});
-        std::vector<Core::Result<Solid<Point3, Curve, Surface>>> vec;
+        std::vector<core::Result<Solid<Point3, Curve, Surface>>> vec;
         vec.push_back(std::move(result));
         return vec;
     }
@@ -375,7 +375,7 @@ public:
     /// 鍦嗛敟/鍦嗗彴
     /// bottom_radius: 搴曢潰鍗婂緞, top_radius: 椤堕潰鍗婂緞 (0=灏栭《), height: 楂樺害
     /// 杞翠负 Z 杞存鍚?
-    static inline Core::Result<Solid<Point3, Curve, Surface>> cone(
+    static inline core::Result<Solid<Point3, Curve, Surface>> cone(
         double bottom_radius, double top_radius, double height, size_t division = 16)
     {
         Point3 origin(0.0);

@@ -50,25 +50,25 @@ enum class GeometryType : uint8_t {
 ///   - serialize(OutputArchive&) / serialize(InputArchive&) 多态序列化
 ///   - ObjectFactory::create("BoxGeometry") 工厂创建
 ///   - MULANGEO_OBJECT 宏自动注册
-class DOCUMENT_API Geometry : public Core::Object {
+class DOCUMENT_API Geometry : public core::Object {
 public:
     /// Geometry 是抽象基类，手动实现 classInfo/create，不使用 MULANGEO_OBJECT 宏
-    static const Core::ClassInfo& staticClassInfo() {
-        static const Core::ClassInfo s_info(
+    static const core::ClassInfo& staticClassInfo() {
+        static const core::ClassInfo s_info(
             "Geometry",
-            Core::TypeInfo::of<Geometry>(),
-            &Core::Object::staticClassInfo(),
+            core::TypeInfo::of<Geometry>(),
+            &core::Object::staticClassInfo(),
             sizeof(Geometry),
             true);  // isAbstract = true
         return s_info;
     }
 
-    const Core::ClassInfo& classInfo() const noexcept override {
+    const core::ClassInfo& classInfo() const noexcept override {
         return staticClassInfo();
     }
 
     /// 抽象基类不可直接创建，但需要满足 Object 接口
-    std::unique_ptr<Core::Object> create() const override {
+    std::unique_ptr<core::Object> create() const override {
         return nullptr;
     }
 

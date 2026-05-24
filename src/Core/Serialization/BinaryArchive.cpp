@@ -9,7 +9,7 @@
 #include <fstream>
 #include <stdexcept>
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 // ============================================================
 // BinaryOutputArchive::Impl

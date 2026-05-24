@@ -37,11 +37,11 @@ public:
     // --- 构造 ---
 
     /// 构造并检查有效性（两端点不同）
-    static Core::Result<Edge> tryNew(
+    static core::Result<Edge> tryNew(
         const Vertex<P>& front, const Vertex<P>& back, C curve
     ) {
         if (front.isSamePoint(back)) {
-            return Core::Err<Edge>(makeError(TopologyError::SameVertex));
+            return core::Err<Edge>(makeError(TopologyError::SameVertex));
         }
         return Edge(front, back, std::move(curve));
     }
@@ -133,10 +133,10 @@ public:
 
     /// 在参数 t 处切分边，返回两条新边
     /// 要求 t 在曲线绝对参数范围内
-    Core::Result<std::pair<Edge, Edge>> cutWithParameter(double t) const {
+    core::Result<std::pair<Edge, Edge>> cutWithParameter(double t) const {
         auto [t0, t1] = curve_->rangeTuple();
         if (t <= t0 || t >= t1) {
-            return Core::Err<std::pair<Edge, Edge>>(
+            return core::Err<std::pair<Edge, Edge>>(
                 makeError(TopologyError::InvalidParameter));
         }
 
@@ -165,9 +165,9 @@ public:
     }
 
     /// 连接两条边，要求 back of first == front of second
-    static Core::Result<Edge> concat(const Edge& first, const Edge& second) {
+    static core::Result<Edge> concat(const Edge& first, const Edge& second) {
         if (!first.back().isSamePoint(second.front())) {
-            return Core::Err<Edge>(makeError(TopologyError::NotConnected));
+            return core::Err<Edge>(makeError(TopologyError::NotConnected));
         }
         C curve = first.curve().concat(second.curve());
         return Edge::tryNew(first.absoluteFront(), second.absoluteBack(), std::move(curve));

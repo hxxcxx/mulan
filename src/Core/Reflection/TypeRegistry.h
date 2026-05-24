@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 // ============================================================
 // PropertyAccess — 属性读写标志

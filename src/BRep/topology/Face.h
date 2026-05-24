@@ -36,14 +36,14 @@ public:
     // --- 构造 ---
 
     /// 构造并检查有效性（边界线不相交）
-    static Core::Result<Face> tryNew(
+    static core::Result<Face> tryNew(
         std::vector<Wire<P, C>> boundaries, S surface
     ) {
         if (boundaries.empty()) {
-            return Core::Err<Face>(makeError(TopologyError::EmptyWire));
+            return core::Err<Face>(makeError(TopologyError::EmptyWire));
         }
         if (!Wire<P, C>::disjointWires(boundaries)) {
-            return Core::Err<Face>(makeError(TopologyError::NotDisjointWires));
+            return core::Err<Face>(makeError(TopologyError::NotDisjointWires));
         }
         Face f;
         f.boundaries_ = std::move(boundaries);
@@ -125,11 +125,11 @@ public:
     // --- 修改 ---
 
     /// 尝试添加边界线（检查是否与其他边界相交）
-    Core::Result<void> tryAddBoundary(const Wire<P, C>& wire) {
+    core::Result<void> tryAddBoundary(const Wire<P, C>& wire) {
         auto all = boundaries_;
         all.push_back(wire);
         if (!Wire<P, C>::disjointWires(all)) {
-            return Core::Err<void>(makeError(TopologyError::NotDisjointWires));
+            return core::Err<void>(makeError(TopologyError::NotDisjointWires));
         }
         boundaries_.push_back(wire);
         return {};

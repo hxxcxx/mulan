@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <memory>
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 void TypeRegistry::registerClass(std::string_view name,
                                   TypeInfo typeInfo,

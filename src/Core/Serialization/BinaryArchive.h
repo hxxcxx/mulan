@@ -33,7 +33,7 @@
 #include <string_view>
 #include <vector>
 
-namespace MulanGeo::Core {
+namespace MulanGeo::core {
 
 // ============================================================
 // TypeTag — 二进制格式类型标记

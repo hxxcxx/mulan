@@ -41,26 +41,26 @@ public:
 
     // --- Core::Object 序列化 ---
     // OCCT B-Rep 序列化由 OCCT 的 TKBinXCAF 处理，此处暂不实现
-    void serialize(Core::OutputArchive& ar) const override { (void)ar; }
-    void serialize(Core::InputArchive& ar) override { (void)ar; }
+    void serialize(core::OutputArchive& ar) const override { (void)ar; }
+    void serialize(core::InputArchive& ar) override { (void)ar; }
 
     // --- Core::Object 接口（手动实现，不用 MULANGEO_OBJECT 宏避免 sizeof 问题）---
 
-    static const Core::ClassInfo& staticClassInfo() {
-        static const Core::ClassInfo s_info(
+    static const core::ClassInfo& staticClassInfo() {
+        static const core::ClassInfo s_info(
             "OCCTShapeGeometry",
-            Core::TypeInfo::of<OCCTShapeGeometry>(),
+            core::TypeInfo::of<OCCTShapeGeometry>(),
             &Geometry::staticClassInfo(),
             sizeof(OCCTShapeGeometry),
             false);
         return s_info;
     }
 
-    const Core::ClassInfo& classInfo() const noexcept override {
+    const core::ClassInfo& classInfo() const noexcept override {
         return staticClassInfo();
     }
 
-    std::unique_ptr<Core::Object> create() const override {
+    std::unique_ptr<core::Object> create() const override {
         return std::make_unique<OCCTShapeGeometry>();
     }
 
