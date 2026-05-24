@@ -16,26 +16,26 @@ set(ENGINE_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Engine")
 # ── 收集 Engine 中与 WASM 兼容的源文件（仅 OpenGL 后端 + 场景/渲染层）──
 set(ENGINE_WASM_SOURCES
     # Scene
-    ${ENGINE_SRC_DIR}/Scene/SceneNode.cpp
-    ${ENGINE_SRC_DIR}/Scene/Scene.cpp
-    ${ENGINE_SRC_DIR}/Scene/Frustum.cpp
-    ${ENGINE_SRC_DIR}/Scene/Camera.cpp
+    ${ENGINE_SRC_DIR}/scene/SceneNode.cpp
+    ${ENGINE_SRC_DIR}/scene/Scene.cpp
+    ${ENGINE_SRC_DIR}/scene/Frustum.cpp
+    ${ENGINE_SRC_DIR}/scene/Camera.cpp
     # Render
-    ${ENGINE_SRC_DIR}/Render/GeometryCache.cpp
-    ${ENGINE_SRC_DIR}/Render/SceneRenderer.cpp
-    ${ENGINE_SRC_DIR}/Render/EngineView.cpp
+    ${ENGINE_SRC_DIR}/render/GeometryCache.cpp
+    ${ENGINE_SRC_DIR}/render/SceneRenderer.cpp
+    ${ENGINE_SRC_DIR}/render/EngineView.cpp
     # RHI base
-    ${ENGINE_SRC_DIR}/RHI/DeviceFactory.cpp
+    ${ENGINE_SRC_DIR}/rhi/DeviceFactory.cpp
     # vertex_layout_test.cpp 使用安装路径 include，不包含在 WASM 构建中
     # OpenGL backend
-    ${ENGINE_SRC_DIR}/RHI/OpenGL/GLDevice.cpp
-    ${ENGINE_SRC_DIR}/RHI/OpenGL/GLShader.cpp
-    ${ENGINE_SRC_DIR}/RHI/OpenGL/GLSwapChain.cpp
-    ${ENGINE_SRC_DIR}/RHI/OpenGL/GLPipelineState.cpp
-    ${ENGINE_SRC_DIR}/RHI/OpenGL/GLBuffer.cpp
-    ${ENGINE_SRC_DIR}/RHI/OpenGL/GLCommandList.cpp
-    ${ENGINE_SRC_DIR}/RHI/OpenGL/GLRenderTarget.cpp
-    ${ENGINE_SRC_DIR}/RHI/OpenGL/GLTexture.cpp
+    ${ENGINE_SRC_DIR}/rhi/opengl/GLDevice.cpp
+    ${ENGINE_SRC_DIR}/rhi/opengl/GLShader.cpp
+    ${ENGINE_SRC_DIR}/rhi/opengl/GLSwapChain.cpp
+    ${ENGINE_SRC_DIR}/rhi/opengl/GLPipelineState.cpp
+    ${ENGINE_SRC_DIR}/rhi/opengl/GLBuffer.cpp
+    ${ENGINE_SRC_DIR}/rhi/opengl/GLCommandList.cpp
+    ${ENGINE_SRC_DIR}/rhi/opengl/GLRenderTarget.cpp
+    ${ENGINE_SRC_DIR}/rhi/opengl/GLTexture.cpp
     # Geometry
     # (Mesh is header-only, no .cpp needed)
     # WASM entry point
