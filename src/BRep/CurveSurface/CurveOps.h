@@ -354,7 +354,7 @@ inline void surface_transformBy(Surface& s, const geometry::Matrix4& mat) {
 /// 假定 c0 的终点 == c1 的起点
 /// 策略: 提升为 NURBS (4D B-spline), 合并 knot 向量和控制点
 inline Curve curve_concat(const Curve& c0, const Curve& c1) {
-    using namespace Geometry;
+    using namespace geometry;
 
     // 简单情况：两条 Line 直接连接
     if (c0.holds<Line<Point3>>() && c1.holds<Line<Point3>>()) {
