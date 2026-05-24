@@ -22,7 +22,7 @@
 #include <functional>
 #include <stdexcept>
 
-namespace MulanGeo::BRep {
+namespace MulanGeo::brep {
 
 /// 面
 /// @tparam P 点类型

@@ -22,7 +22,7 @@
 #include <queue>
 #include <stdexcept>
 
-namespace MulanGeo::BRep {
+namespace MulanGeo::brep {
 
 enum class ShellCondition : uint8_t {
     Open,    // 非闭合壳

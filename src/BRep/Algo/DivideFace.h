@@ -49,7 +49,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace MulanGeo::BRep::boolean {
+namespace MulanGeo::brep::boolean {
 
 using geometry::Point3;
 using geometry::Vector3;

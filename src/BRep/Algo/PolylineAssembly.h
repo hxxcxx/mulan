@@ -16,7 +16,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace MulanGeo::BRep::boolean {
+namespace MulanGeo::brep::boolean {
 
 using geometry::Point3;
 using geometry::near;

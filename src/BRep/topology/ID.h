@@ -16,7 +16,7 @@
 #include <functional>
 #include <cstddef>
 
-namespace MulanGeo::BRep {
+namespace MulanGeo::brep {
 
 /// 基于 shared_ptr 指针地址的 ID
 /// @tparam T shared_ptr 的模板参数类型

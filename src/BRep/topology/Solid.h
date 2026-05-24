@@ -18,7 +18,7 @@
 #include <optional>
 #include <stdexcept>
 
-namespace MulanGeo::BRep {
+namespace MulanGeo::brep {
 
 /// 实体
 template<typename P, typename C, typename S>

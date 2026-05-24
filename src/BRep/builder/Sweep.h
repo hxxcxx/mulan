@@ -24,7 +24,7 @@
 #include <cmath>
 #include <vector>
 
-namespace MulanGeo::BRep {
+namespace MulanGeo::brep {
 
 class Sweep {
 public:

@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace MulanGeo::BRep {
+namespace MulanGeo::brep {
 
 enum class TopologyError : int32_t {
     SameVertex,          // Edge 两端点相同

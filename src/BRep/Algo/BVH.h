@@ -28,7 +28,7 @@
 #include <array>
 #include <utility>
 
-namespace MulanGeo::BRep::tessellation {
+namespace MulanGeo::brep::tessellation {
 
 using geometry::Point3;
 using geometry::Vector3;

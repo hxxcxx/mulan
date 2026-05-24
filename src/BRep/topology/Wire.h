@@ -19,7 +19,7 @@
 #include <unordered_set>
 #include <stdexcept>
 
-namespace MulanGeo::BRep {
+namespace MulanGeo::brep {
 
 /// 线框
 /// @tparam P 点类型

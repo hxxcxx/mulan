@@ -19,7 +19,7 @@
 #include <MulanGeo/Geometry/Algo/surface/search.h>
 #include <utility>
 
-namespace MulanGeo::BRep {
+namespace MulanGeo::brep {
 
 // ============================================================
 // 自由函数 (free function) 分发

@@ -25,7 +25,7 @@
 #include <vector>
 #include <unordered_map>
 
-namespace MulanGeo::BRep {
+namespace MulanGeo::brep {
 
 // ============================================================
 // 压缩序列化结构

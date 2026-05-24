@@ -19,7 +19,7 @@
 #include <optional>
 #include <functional>
 
-namespace MulanGeo::BRep {
+namespace MulanGeo::brep {
 
 /// 顶点
 /// @tparam P 点类型 (Point3, Point2 等)

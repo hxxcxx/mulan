@@ -32,7 +32,7 @@
 #include <memory>
 #include <utility>
 
-namespace MulanGeo::BRep {
+namespace MulanGeo::brep {
 
 // ============================================================
 // 前向声明

@@ -24,7 +24,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp>
 
-namespace MulanGeo::BRep {
+namespace MulanGeo::brep {
 
 /// 边
 /// @tparam P 点类型
