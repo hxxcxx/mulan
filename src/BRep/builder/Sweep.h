@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "../BRepExport.h"
 #include "../Topology/Vertex.h"

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file MainWindow.cpp
  * @brief Qt 主窗口实现 — SARibbon + DocumentArea
  * @author hxxcxx
