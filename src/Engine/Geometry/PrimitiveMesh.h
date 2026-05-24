@@ -16,7 +16,7 @@
 #include <cmath>
 #include <memory>
 
-namespace MulanGeo::Engine::PrimitiveMesh {
+namespace MulanGeo::engine::primitive_mesh {
 
 // ============================================================
 // 常用数学常量
