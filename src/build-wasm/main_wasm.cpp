@@ -19,15 +19,15 @@
 #include <memory>
 
 // Engine headers
-#include "RHI/Device.h"
-#include "RHI/SwapChain.h"
-#include "RHI/CommandList.h"
-#include "RHI/opengl/GLDevice.h"
-#include "RHI/opengl/GLSwapChain.h"
-#include "RHI/opengl/GLCommandList.h"
-#include "Scene/Camera.h"
-#include "Scene/Scene.h"
-#include "Render/SceneRenderer.h"
+#include "rhi/Device.h"
+#include "rhi/SwapChain.h"
+#include "rhi/CommandList.h"
+#include "rhi/opengl/GLDevice.h"
+#include "rhi/opengl/GLSwapChain.h"
+#include "rhi/opengl/GLCommandList.h"
+#include "scene/Camera.h"
+#include "scene/Scene.h"
+#include "render/SceneRenderer.h"
 #include "Window.h"
 
 using namespace mulan::Engine;

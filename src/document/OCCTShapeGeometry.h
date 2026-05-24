@@ -11,7 +11,7 @@
 
 #include "Geometry.h"
 
-#include "mulan/Engine/geometry/Mesh.h"
+#include "mulan/engine/geometry/Mesh.h"
 
 #include <TopoDS_Shape.hxx>
 

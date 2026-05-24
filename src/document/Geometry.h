@@ -14,11 +14,11 @@
 
 #include "DocumentExport.h"
 
-#include "mulan/Core/reflection/Object.h"
-#include "mulan/Core/reflection/Macro.h"
+#include "mulan/core/reflection/Object.h"
+#include "mulan/core/reflection/Macro.h"
 
-#include "mulan/Engine/math/Math.h"
-#include "mulan/Engine/math/AABB.h"
+#include "mulan/engine/math/Math.h"
+#include "mulan/engine/math/AABB.h"
 
 namespace mulan::core
 {

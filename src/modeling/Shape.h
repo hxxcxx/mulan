@@ -14,8 +14,8 @@
 #include <memory>
 #include <string>
 
-#include "mulan/Engine/geometry/Mesh.h"
-#include "mulan/Engine/math/Math.h"
+#include "mulan/engine/geometry/Mesh.h"
+#include "mulan/engine/math/Math.h"
 
 namespace mulan::modeling {
 

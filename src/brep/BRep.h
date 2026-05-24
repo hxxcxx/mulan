@@ -13,28 +13,28 @@
 #include "BRepExport.h"
 
 // 拓扑结构
-#include "Topology/Errors.h"
-#include "Topology/ID.h"
-#include "Topology/Vertex.h"
-#include "Topology/Edge.h"
-#include "Topology/Wire.h"
-#include "Topology/Face.h"
-#include "Topology/Shell.h"
-#include "Topology/Solid.h"
-#include "Topology/Compressed.h"
+#include "topology/Errors.h"
+#include "topology/ID.h"
+#include "topology/Vertex.h"
+#include "topology/Edge.h"
+#include "topology/Wire.h"
+#include "topology/Face.h"
+#include "topology/Shell.h"
+#include "topology/Solid.h"
+#include "topology/Compressed.h"
 
 // Curve/Surface variant + visitor 分发
-#include "CurveSurface/CurveSurface.h"
-#include "CurveSurface/CurveOps.h"
+#include "curvesurface/CurveSurface.h"
+#include "curvesurface/CurveOps.h"
 
 // Builder + Sweep + Primitive 建模 API
-#include "Builder/Builder.h"
-#include "Builder/Sweep.h"
-#include "Primitive/Primitive.h"
+#include "builder/Builder.h"
+#include "builder/Sweep.h"
+#include "primitive/Primitive.h"
 
 // Tessellation + Collision
-#include "Algo/Triangulation.h"
-#include "Algo/Collision.h"
+#include "algo/Triangulation.h"
+#include "algo/Collision.h"
 
 // Boolean operations
-#include "Algo/Boolean.h"
+#include "algo/Boolean.h"

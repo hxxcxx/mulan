@@ -3,14 +3,14 @@
 # 图片加载/保存、日志、文件 IO 等通用功能。
 # 所有模块均可引入。
 add_library(Core SHARED
-    Image/Image.cpp
-    Log/Log.cpp
-    Result/Result.cpp
-    Serialization/Archive.cpp
-    Serialization/BinaryArchive.cpp
-    Serialization/VersionBlock.cpp
-    Reflection/Object.cpp
-    Reflection/TypeRegistry.cpp
+    image/Image.cpp
+    log/Log.cpp
+    result/Result.cpp
+    serialization/Archive.cpp
+    serialization/BinaryArchive.cpp
+    serialization/VersionBlock.cpp
+    reflection/Object.cpp
+    reflection/TypeRegistry.cpp
 )
 
 # 构建时将头文件复制到 build/include/mulan/core/...

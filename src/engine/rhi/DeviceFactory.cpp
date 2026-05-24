@@ -1,10 +1,10 @@
 #include "Device.h"
-#include "OpenGL/GLDevice.h"
+#include "opengl/GLDevice.h"
 
 #ifndef __EMSCRIPTEN__
-#include "Vulkan/VKDevice.h"
-#include "D3D12/DX12Device.h"
-#include "D3D11/DX11Device.h"
+#include "vulkan/VKDevice.h"
+#include "d3d12/DX12Device.h"
+#include "d3d11/DX11Device.h"
 #endif
 
 namespace mulan::engine {

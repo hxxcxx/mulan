@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <mulan/Core/result/Result.h>
+#include <mulan/core/result/Result.h>
 #include <cstdint>
 #include <string_view>
 

@@ -5,7 +5,7 @@
  * @date 2026-05-18
  */
 #include "ShapeFactory.h"
-#include "OCCT/OCCTShape.h"
+#include "occt/OCCTShape.h"
 
 namespace mulan::modeling {
 

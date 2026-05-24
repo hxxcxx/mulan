@@ -1,24 +1,24 @@
-# QtApp - 主应用程序
+# APP - 主应用程序
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 add_executable(${PROJECT_NAME}
     main.cpp
-    Resource/icon.qrc
-    UI/UIDocument.h
-    UI/UIDocument.cpp
-    UI/SceneBuilder.h
-    UI/SceneBuilder.cpp
-    UI/DocumentArea.h
-    UI/DocumentArea.cpp
-    UI/MainWindow.h
-    UI/MainWindow.cpp
-    UI/DocWidget.h
-    UI/DocWidget.cpp
-    UI/EngineSettings.h
-    UI/EngineSettings.cpp
-    UI/EngineSettingsDialog.h
-    UI/EngineSettingsDialog.cpp
+    resource/icon.qrc
+    ui/UIDocument.h
+    ui/UIDocument.cpp
+    ui/SceneBuilder.h
+    ui/SceneBuilder.cpp
+    ui/DocumentArea.h
+    ui/DocumentArea.cpp
+    ui/MainWindow.h
+    ui/MainWindow.cpp
+    ui/DocWidget.h
+    ui/DocWidget.cpp
+    ui/EngineSettings.h
+    ui/EngineSettings.cpp
+    ui/EngineSettingsDialog.h
+    ui/EngineSettingsDialog.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

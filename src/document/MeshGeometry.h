@@ -13,8 +13,8 @@
 #include "DocumentExport.h"
 #include "Geometry.h"
 
-#include "mulan/Engine/geometry/Mesh.h"
-#include "mulan/Core/serialization/Archive.h"
+#include "mulan/engine/geometry/Mesh.h"
+#include "mulan/core/serialization/Archive.h"
 
 #include <memory>
 

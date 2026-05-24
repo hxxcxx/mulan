@@ -16,7 +16,7 @@
 #include "SceneNode.h"
 #include "Frustum.h"
 #include "../render/RenderGeometry.h"
-#include "Camera/Camera.h"
+#include "camera/Camera.h"
 #include "../rhi/Device.h"
 
 #include <cstdint>

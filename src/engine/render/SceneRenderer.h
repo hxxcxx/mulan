@@ -18,13 +18,13 @@
 #include "../scene/camera/Camera.h"
 #include "RenderGeometry.h"
 #include "LightEnvironment.h"
-#include "Material/Material.h"
-#include "Material/MaterialInstance.h"
-#include "Material/MaterialCache.h"
-#include "Pass/ForwardPass.h"
-#include "Pass/RenderPass.h"
-#include "Text/TextRenderer.h"
-#include "Text/FontAtlas.h"
+#include "material/Material.h"
+#include "material/MaterialInstance.h"
+#include "material/MaterialCache.h"
+#include "pass/ForwardPass.h"
+#include "pass/RenderPass.h"
+#include "text/TextRenderer.h"
+#include "text/FontAtlas.h"
 
 #include <cstdint>
 #include <memory>

@@ -21,8 +21,8 @@
 #include "EntityId.h"
 #include "Geometry.h"
 
-#include "mulan/Core/serialization/BinaryArchive.h"
-#include "mulan/Core/reflection/Object.h"
+#include "mulan/core/serialization/BinaryArchive.h"
+#include "mulan/core/reflection/Object.h"
 
 #include <filesystem>
 #include <string>

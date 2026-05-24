@@ -44,5 +44,5 @@
 #include "decorators/PCurve.h"
 
 // 算法
-#include "Algo/curve/presearch.h"
-#include "Algo/surface/search.h"
+#include "algo/curve/presearch.h"
+#include "algo/surface/search.h"

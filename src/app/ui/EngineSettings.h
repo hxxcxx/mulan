@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <mulan/Engine/render/EngineView.h>
+#include <mulan/engine/render/EngineView.h>
 #include <QColor>
 #include <QSettings>
 

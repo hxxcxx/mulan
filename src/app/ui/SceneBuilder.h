@@ -14,8 +14,8 @@
  */
 #pragma once
 
-#include <mulan/Document/Document.h>
-#include <mulan/Engine/scene/Scene.h>
+#include <mulan/document/Document.h>
+#include <mulan/engine/scene/Scene.h>
 
 #include <memory>
 #include <unordered_map>

@@ -13,7 +13,7 @@
 #include "EntityId.h"
 #include "Geometry.h"
 
-#include "mulan/Engine/math/Math.h"
+#include "mulan/engine/math/Math.h"
 
 #include <memory>
 #include <string>

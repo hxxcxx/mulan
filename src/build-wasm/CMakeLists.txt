@@ -47,7 +47,7 @@ add_executable(MulanGeoWasm ${ENGINE_WASM_SOURCES})
 # ── 头文件目录 ──
 target_include_directories(MulanGeoWasm PRIVATE
     ${ENGINE_SRC_DIR}
-    ${ENGINE_SRC_DIR}/..        # src/ — 使 #include "Engine/..." 生效
+    ${ENGINE_SRC_DIR}/..        # src/ — 使 #include "engine/..." 生效
 )
 
 # ── GLM ──

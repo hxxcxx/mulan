@@ -14,12 +14,12 @@
  */
 #pragma once
 
-#include <mulan/Document/Document.h>
-#include <mulan/Engine/scene/Scene.h>
-#include <mulan/Engine/render/RenderGeometry.h>
-#include <mulan/Engine/scene/camera/Camera.h>
-#include <mulan/Engine/math/Math.h>
-#include <mulan/Engine/math/AABB.h>
+#include <mulan/document/Document.h>
+#include <mulan/engine/scene/Scene.h>
+#include <mulan/engine/render/RenderGeometry.h>
+#include <mulan/engine/scene/camera/Camera.h>
+#include <mulan/engine/math/Math.h>
+#include <mulan/engine/math/AABB.h>
 
 #include <memory>
 #include <unordered_map>

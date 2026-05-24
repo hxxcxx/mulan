@@ -15,8 +15,8 @@
 #include "DocumentExport.h"
 #include "Geometry.h"
 
-#include "mulan/Engine/geometry/PrimitiveMesh.h"
-#include "mulan/Core/serialization/Archive.h"
+#include "mulan/engine/geometry/PrimitiveMesh.h"
+#include "mulan/core/serialization/Archive.h"
 
 #include <memory>
 

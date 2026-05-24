@@ -8,8 +8,8 @@
 
 #include <QWidget>
 
-#include <mulan/Engine/render/EngineView.h>
-#include <mulan/Engine/interaction/InputEvent.h>
+#include <mulan/engine/render/EngineView.h>
+#include <mulan/engine/interaction/InputEvent.h>
 
 #include <memory>
 

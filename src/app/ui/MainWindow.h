@@ -7,7 +7,7 @@
 #pragma once
 
 #include <SARibbon.h>
-#include <mulan/Document/DocumentManager.h>
+#include <mulan/document/DocumentManager.h>
 
 class DocumentArea;
 class UIDocument;

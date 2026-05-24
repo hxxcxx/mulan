@@ -6,9 +6,9 @@
  */
 #include "SceneBuilder.h"
 
-#include <mulan/Document/Entity.h>
-#include <mulan/Document/Geometry.h>
-#include <mulan/Engine/geometry/Mesh.h>
+#include <mulan/document/Entity.h>
+#include <mulan/document/Geometry.h>
+#include <mulan/engine/geometry/Mesh.h>
 
 namespace Doc = mulan::document;
 namespace Eng = mulan::engine;
