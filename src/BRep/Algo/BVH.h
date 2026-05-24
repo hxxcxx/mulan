@@ -28,7 +28,7 @@
 #include <array>
 #include <utility>
 
-namespace MulanGeo::brep::tessellation {
+namespace mulan::brep::tessellation {
 
 using geometry::Point3;
 using geometry::Vector3;
@@ -383,4 +383,4 @@ private:
     }
 };
 
-} // namespace MulanGeo::BRep::tessellation
+} // namespace mulan::BRep::tessellation

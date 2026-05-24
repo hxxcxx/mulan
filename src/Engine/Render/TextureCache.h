@@ -16,7 +16,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 纹理资产 — 持有 RHI Texture 资源
@@ -108,4 +108,4 @@ private:
     std::unordered_map<std::string, TextureAsset> m_textures;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

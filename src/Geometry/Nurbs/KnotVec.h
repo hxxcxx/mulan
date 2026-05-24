@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <stdexcept>
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 // 前向声明
 class BasisWindow;
@@ -209,4 +209,4 @@ private:
     size_t total_len_;
 };
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

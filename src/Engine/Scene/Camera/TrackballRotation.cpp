@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 namespace {
 constexpr double kPi = 3.14159265358979323846;
@@ -98,4 +98,4 @@ void TrackballRotation::endOrbit() {
     m_arcballActive = false;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

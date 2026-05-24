@@ -9,7 +9,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 渲染配置 — 窗口级渲染参数
@@ -130,4 +130,4 @@ protected:
     void*          m_resizeCbData = nullptr;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -8,7 +8,7 @@
 #include "DX11CommandList.h"
 #include "DX11Convert.h"
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 DX11RenderTarget::DX11RenderTarget(const RenderTargetDesc& desc,
@@ -41,4 +41,4 @@ void DX11RenderTarget::resize(uint32_t width, uint32_t height)
     createResources();
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

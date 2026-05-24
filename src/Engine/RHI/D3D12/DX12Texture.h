@@ -9,7 +9,7 @@
 #include "../Texture.h"
 #include "DX12Common.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class DX12Texture final : public Texture {
 public:
@@ -43,4 +43,4 @@ private:
     bool m_hasDSV = false;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

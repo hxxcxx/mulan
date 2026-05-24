@@ -17,7 +17,7 @@
 #include <memory>
 #include <cstdio>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ── 前向声明 OpenGL 子资源类型（后续实现）──
 class GLBuffer;
@@ -141,4 +141,4 @@ private:
     std::unique_ptr<GLCommandList> m_frameCommandList;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

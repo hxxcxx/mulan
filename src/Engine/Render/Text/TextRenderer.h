@@ -19,7 +19,7 @@
 #include <memory>
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // MSDF 文字渲染器
@@ -102,4 +102,4 @@ private:
     std::vector<uint32_t>         m_indices;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -12,7 +12,7 @@
 #include <array>
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 /// 轻量描述符集封装：收集写入操作，一次性 flush 到 GPU
 class VKDescriptorSet {
@@ -69,4 +69,4 @@ private:
     std::array<vk::WriteDescriptorSet,   kMaxWrites> m_writes;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

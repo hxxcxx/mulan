@@ -1,6 +1,6 @@
 #include "VKFence.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 VKFence::VKFence(vk::Device device, uint64_t initialValue)
     : m_device(device)
@@ -42,4 +42,4 @@ uint64_t VKFence::completedValue() const {
     return m_device.getSemaphoreCounterValue(m_semaphore);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -19,7 +19,7 @@
 #include <unordered_set>
 #include <stdexcept>
 
-namespace MulanGeo::brep {
+namespace mulan::brep {
 
 /// 线框
 /// @tparam P 点类型
@@ -161,4 +161,4 @@ private:
     std::deque<Edge<P, C>> edge_list_;
 };
 
-} // namespace MulanGeo::BRep
+} // namespace mulan::BRep

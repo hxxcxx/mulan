@@ -7,7 +7,7 @@
 #include "DX11Shader.h"
 #include <cstdio>
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 DX11Shader::DX11Shader(const ShaderDesc& desc, ID3D11Device* device)
@@ -49,4 +49,4 @@ DX11Shader::DX11Shader(const ShaderDesc& desc, ID3D11Device* device)
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

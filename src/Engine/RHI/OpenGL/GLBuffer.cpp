@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <string>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 内部工具函数
@@ -224,4 +224,4 @@ bool GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
     return true;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -30,7 +30,7 @@
 #include <memory>
 #include <optional>
 
-namespace MulanGeo::Engine {
+namespace mulan::Engine {
 
 /// 绘制形状类型
 enum class DrawShapeType {
@@ -284,4 +284,4 @@ private:
     SceneNode* m_previewNode = nullptr;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

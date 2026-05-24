@@ -14,7 +14,7 @@
 #include <optional>
 #include <utility>
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 /// 参数曲面抽象接口
 template<typename P, typename V>
@@ -104,4 +104,4 @@ public:
     virtual void transformBy(const Matrix4& mat) = 0;
 };
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

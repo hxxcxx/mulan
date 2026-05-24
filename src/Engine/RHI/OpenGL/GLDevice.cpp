@@ -18,7 +18,7 @@
 #include <cstring>
 #include <string>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 namespace {
 bool isExtensionSupported(const char* name) {
@@ -361,4 +361,4 @@ void GLDevice::submitOffscreen() {
     glFlush();
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

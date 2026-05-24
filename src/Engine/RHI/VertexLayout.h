@@ -14,7 +14,7 @@
 #include <span>
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 顶点属性（布局中的单个属性）
@@ -333,4 +333,4 @@ static_assert(layouts::skinned().stride() == 68);
 static_assert(layouts::solidTextured().stride() == 40);
 static_assert(layouts::lightmap().stride() == 56);
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <functional>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 struct DOCUMENT_API EntityId {
     uint64_t value = 0;
@@ -30,11 +30,11 @@ struct DOCUMENT_API EntityId {
     static EntityId fromValue(uint64_t v) { return EntityId{v}; }
 };
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document
 
 template<>
-struct std::hash<MulanGeo::document::EntityId> {
-    size_t operator()(const MulanGeo::document::EntityId& id) const noexcept {
+struct std::hash<mulan::document::EntityId> {
+    size_t operator()(const mulan::document::EntityId& id) const noexcept {
         return std::hash<uint64_t>{}(id.value);
     }
 };

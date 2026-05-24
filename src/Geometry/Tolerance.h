@@ -13,7 +13,7 @@
 #include <glm/gtx/norm.hpp>
 #include <cmath>
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 /// 一般容差
 inline constexpr double TOLERANCE = 1.0e-10;
@@ -66,4 +66,4 @@ inline double inv_or_zero(double x) {
 inline constexpr size_t SEARCH_PARAMETER_TRIALS = 100;
 inline constexpr size_t PRESEARCH_DIVISION = 50;
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

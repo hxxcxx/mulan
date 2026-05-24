@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 class DocumentManager;
 
@@ -95,4 +95,4 @@ private:
     bool m_modified = false;
 };
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

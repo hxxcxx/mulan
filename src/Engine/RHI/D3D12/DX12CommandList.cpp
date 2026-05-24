@@ -10,7 +10,7 @@
 #include "DX12PipelineState.h"
 #include "DX12Convert.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 DX12CommandList::DX12CommandList(ID3D12Device* device,
                                  ID3D12CommandAllocator* allocator)
@@ -299,4 +299,4 @@ void DX12CommandList::endRenderPass() {
     m_rpColorTex = nullptr;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

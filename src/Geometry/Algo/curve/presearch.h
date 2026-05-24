@@ -19,7 +19,7 @@
 #include <cstddef>
 #include <optional>
 
-namespace MulanGeo::geometry::Algo::Curve {
+namespace mulan::geometry::Algo::Curve {
 
 /// 在参数范围 [t0, t1] 内均匀搜索，返回 subs(t) 最接近 point 的参数 t。
 /// division 控制网格密度。
@@ -159,4 +159,4 @@ std::pair<std::vector<double>, std::vector<Point3>> subParameterDivision(
     return {params0, pts0};
 }
 
-} // namespace MulanGeo::geometry::Algo::Curve
+} // namespace mulan::geometry::Algo::Curve

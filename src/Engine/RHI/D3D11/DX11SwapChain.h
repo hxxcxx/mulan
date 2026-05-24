@@ -13,7 +13,7 @@
 
 #include <memory>
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 class DX11SwapChain final : public SwapChain
@@ -48,4 +48,4 @@ private:
     RenderConfig                        m_renderConfig;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

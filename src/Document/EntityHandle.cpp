@@ -7,7 +7,7 @@
 #include "EntityHandle.h"
 #include "Document.h"
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 EntityHandle::EntityHandle(EntityId id, Document* doc)
     : m_id(id)
@@ -28,4 +28,4 @@ bool EntityHandle::valid() const {
     return get() != nullptr;
 }
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

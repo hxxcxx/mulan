@@ -27,7 +27,7 @@
 #include <filesystem>
 #include <string>
 
-namespace MulanGeo::Document {
+namespace mulan::Document {
 
 // ============================================================
 // 文件格式版本
@@ -203,4 +203,4 @@ inline std::unique_ptr<Document> loadDocument(const std::string& filePath) {
     return doc;
 }
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

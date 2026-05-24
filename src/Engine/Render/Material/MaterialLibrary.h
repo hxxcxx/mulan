@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // MaterialLibrary — 预设材质库
@@ -91,4 +91,4 @@ private:
     std::vector<std::string> m_presets;  // 已注册的预设名称列表
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

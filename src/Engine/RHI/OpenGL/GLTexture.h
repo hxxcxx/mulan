@@ -22,7 +22,7 @@
 #include "GLCommon.h"
 #include "../Texture.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class GLTexture final : public Texture {
 public:
@@ -79,4 +79,4 @@ private:
     GLenum      m_internalFormat = GL_RGBA8;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

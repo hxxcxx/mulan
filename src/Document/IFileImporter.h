@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 class Document;
 
@@ -37,4 +37,4 @@ public:
     virtual std::string name() const = 0;
 };
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

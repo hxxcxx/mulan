@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 着色器阶段
@@ -75,4 +75,4 @@ protected:
     Shader& operator=(const Shader&) = delete;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

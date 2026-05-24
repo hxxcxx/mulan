@@ -8,7 +8,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 using json = nlohmann::json;
 
@@ -174,4 +174,4 @@ SerializeResult MaterialSerializer::loadCollection(const std::string& path,
     return result;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

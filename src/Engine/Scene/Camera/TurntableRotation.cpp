@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 TurntableRotation::TurntableRotation()
     : m_yaw(kPi * 0.25)
@@ -59,4 +59,4 @@ void TurntableRotation::endOrbit() {
     m_orbitDrag = false;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

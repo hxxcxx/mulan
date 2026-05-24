@@ -11,7 +11,7 @@
 #include <cstdio>
 #include <cstring>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 构造 / 析构
@@ -316,4 +316,4 @@ void TextRenderer::clear() {
     m_indices.clear();
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

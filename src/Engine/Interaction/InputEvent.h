@@ -14,7 +14,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 鼠标按钮
@@ -143,4 +143,4 @@ struct InputEvent {
     }
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

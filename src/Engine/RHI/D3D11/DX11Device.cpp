@@ -8,7 +8,7 @@
 
 #include <d3d11_1.h>
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 // ============================================================
@@ -273,4 +273,4 @@ void DX11Device::submitOffscreen()
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

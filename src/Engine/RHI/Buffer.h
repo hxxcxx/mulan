@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 缓冲区用途
@@ -119,4 +119,4 @@ protected:
     Buffer& operator=(const Buffer&) = delete;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

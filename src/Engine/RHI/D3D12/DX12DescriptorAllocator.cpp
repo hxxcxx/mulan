@@ -6,7 +6,7 @@
  */
 #include "DX12DescriptorAllocator.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 DX12DescriptorAllocator::DX12DescriptorAllocator(
     ID3D12Device* device,
@@ -47,4 +47,4 @@ DX12Descriptor DX12DescriptorAllocator::allocate() {
     return desc;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

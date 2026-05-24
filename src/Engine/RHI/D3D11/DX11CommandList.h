@@ -12,7 +12,7 @@
 #include "../CommandList.h"
 #include "DX11Common.h"
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 class DX11CommandList final : public CommandList
@@ -63,4 +63,4 @@ private:
     uint32_t m_cachedStride = 0;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

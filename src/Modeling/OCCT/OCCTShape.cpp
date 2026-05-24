@@ -35,7 +35,7 @@
 
 #include <algorithm>
 
-namespace MulanGeo::Modeling {
+namespace mulan::modeling {
 
 // ============================================================
 // pimpl — 持有 TopoDS_Shape
@@ -376,4 +376,4 @@ std::unique_ptr<OCCTShape> OCCTShape::createTorus(double majorRadius, double min
     return result;
 }
 
-} // namespace MulanGeo::Modeling
+} // namespace mulan::Modeling

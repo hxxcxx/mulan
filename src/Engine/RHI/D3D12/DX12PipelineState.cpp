@@ -9,8 +9,8 @@
 #include <string>
 
 namespace {
-D3D12_PRIMITIVE_TOPOLOGY_TYPE toDX12TopologyType(MulanGeo::engine::PrimitiveTopology topology) {
-    using MulanGeo::engine::PrimitiveTopology;
+D3D12_PRIMITIVE_TOPOLOGY_TYPE toDX12TopologyType(mulan::engine::PrimitiveTopology topology) {
+    using mulan::engine::PrimitiveTopology;
     switch (topology) {
     case PrimitiveTopology::PointList:
         return D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
@@ -30,7 +30,7 @@ D3D12_PRIMITIVE_TOPOLOGY_TYPE toDX12TopologyType(MulanGeo::engine::PrimitiveTopo
 }
 } // namespace
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 DX12PipelineState::DX12PipelineState(const GraphicsPipelineDesc& desc,
                                      ID3D12Device* device)
@@ -234,4 +234,4 @@ void DX12PipelineState::build(DXGI_FORMAT rtFormat, DXGI_FORMAT dsFormat) {
     DX12_CHECK(hr);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

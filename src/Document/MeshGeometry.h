@@ -18,7 +18,7 @@
 
 #include <memory>
 
-namespace MulanGeo::Document {
+namespace mulan::Document {
 
 class DOCUMENT_API MeshGeometry : public Geometry {
     MULANGEO_OBJECT(MeshGeometry, Geometry)
@@ -97,4 +97,4 @@ private:
     std::unique_ptr<engine::Mesh> m_mesh;
 };
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

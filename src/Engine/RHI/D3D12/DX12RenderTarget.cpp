@@ -8,7 +8,7 @@
 #include "DX12CommandList.h"
 #include "DX12Convert.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 DX12RenderTarget::DX12RenderTarget(const RenderTargetDesc& desc,
                                    ID3D12Device* device)
@@ -68,4 +68,4 @@ void DX12RenderTarget::resize(uint32_t width, uint32_t height) {
     createResources();
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

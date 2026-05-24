@@ -14,7 +14,7 @@
 #include "../traits/ParametricSurface.h"
 #include "../Export.h"
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 /// 平面
 class GEOMETRY_API Plane : public ParametricSurface3D {
@@ -73,4 +73,4 @@ private:
     Vector3 v_axis_;
 };
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

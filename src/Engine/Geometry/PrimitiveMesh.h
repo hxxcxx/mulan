@@ -16,7 +16,7 @@
 #include <cmath>
 #include <memory>
 
-namespace MulanGeo::engine::primitive_mesh {
+namespace mulan::engine::primitive_mesh {
 
 // ============================================================
 // 常用数学常量
@@ -345,4 +345,4 @@ inline std::unique_ptr<Mesh> wireframeRect(const Vec3& p0, const Vec3& p1,
     return mesh;
 }
 
-} // namespace MulanGeo::engine::PrimitiveMesh
+} // namespace mulan::engine::PrimitiveMesh

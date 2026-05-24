@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 class Document;
 
@@ -54,4 +54,4 @@ private:
     std::string m_lastError;
 };
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

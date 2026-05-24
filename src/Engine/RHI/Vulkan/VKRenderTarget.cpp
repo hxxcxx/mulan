@@ -7,7 +7,7 @@
 
 #include "VKRenderTarget.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 VKRenderTarget::VKRenderTarget(const RenderTargetDesc& desc,
                                vk::Device device, VmaAllocator allocator)
@@ -149,4 +149,4 @@ void VKRenderTarget::cleanup() {
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 常量
@@ -483,4 +483,4 @@ void SceneRenderer::addText(std::string_view text,
         m_textRenderer->addText(text, x, y, fontSize, color);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

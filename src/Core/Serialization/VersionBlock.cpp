@@ -6,7 +6,7 @@
 #include "../Serialization/VersionBlock.h"
 #include "../Serialization/BinaryArchive.h"
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // WriteVersionBlock
@@ -64,4 +64,4 @@ ReadVersionBlock::~ReadVersionBlock() {
     }
 }
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core

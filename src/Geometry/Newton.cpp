@@ -10,7 +10,7 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtx/norm.hpp>
 
-namespace MulanGeo::Geometry {
+namespace mulan::Geometry {
 
 std::optional<double> newton_solve1d(
     std::function<std::pair<double, double>(double)> func,
@@ -65,4 +65,4 @@ std::optional<Vector3> newton_solve3d(
     return std::nullopt;
 }
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

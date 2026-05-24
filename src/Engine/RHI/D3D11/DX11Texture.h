@@ -9,7 +9,7 @@
 #include "../Texture.h"
 #include "DX11Common.h"
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 class DX11Texture final : public Texture
@@ -39,4 +39,4 @@ private:
     ComPtr<ID3D11ShaderResourceView>    m_srv;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

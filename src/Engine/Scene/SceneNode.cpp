@@ -1,7 +1,7 @@
 #include "SceneNode.h"
 #include "../RHI/Buffer.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 SceneNode* SceneNode::addChild(std::unique_ptr<SceneNode> child) {
     child->m_parent = this;
@@ -92,4 +92,4 @@ void SceneNode::releaseGpuResources() {
     m_gpuEdgeGeo = {};
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

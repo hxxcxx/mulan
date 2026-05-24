@@ -19,7 +19,7 @@
 #include <array>
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class CommandList;
 
@@ -104,4 +104,4 @@ protected:
     RenderTarget& operator=(const RenderTarget&) = delete;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

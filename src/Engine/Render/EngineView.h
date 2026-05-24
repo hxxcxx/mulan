@@ -35,7 +35,7 @@
 #include <string>
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // ViewConfig — UI 端可控制的引擎初始化配置
@@ -197,4 +197,4 @@ private:
     bool m_initialized = false;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

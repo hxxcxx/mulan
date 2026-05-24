@@ -21,7 +21,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class CullVisitor {
 public:
@@ -73,4 +73,4 @@ private:
     RHIDevice*     m_device;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

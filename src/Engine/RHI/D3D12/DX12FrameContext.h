@@ -11,7 +11,7 @@
 
 #include <memory>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class DX12FrameContext {
 public:
@@ -34,4 +34,4 @@ private:
     uint64_t                           m_fenceValue = 0;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

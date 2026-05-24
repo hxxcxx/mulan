@@ -1,9 +1,9 @@
 #include "Scene.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 Scene::Scene() {
-    m_root = SceneNode::create(MulanGeo::NodeType::Base, "__root__");
+    m_root = SceneNode::create(mulan::NodeType::Base, "__root__");
 }
 
 SceneNode* Scene::addNode(std::string name, uint32_t pickId) {
@@ -11,7 +11,7 @@ SceneNode* Scene::addNode(std::string name, uint32_t pickId) {
 }
 
 SceneNode* Scene::addNode(SceneNode* parent, std::string name, uint32_t pickId) {
-    auto child = SceneNode::create(MulanGeo::NodeType::Base, std::move(name), pickId);
+    auto child = SceneNode::create(mulan::NodeType::Base, std::move(name), pickId);
     return parent->addChild(std::move(child));
 }
 
@@ -50,7 +50,7 @@ size_t Scene::nodeCount() const {
 }
 
 void Scene::clear() {
-    m_root = SceneNode::create(MulanGeo::NodeType::Base, "__root__");
+    m_root = SceneNode::create(mulan::NodeType::Base, "__root__");
 }
 
 // --- private ---
@@ -122,4 +122,4 @@ void Scene::countNodes(const SceneNode* node, size_t& count) const {
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

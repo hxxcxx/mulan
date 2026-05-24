@@ -7,7 +7,7 @@
 #include "DX12UploadContext.h"
 #include "DX12Buffer.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 DX12UploadContext::DX12UploadContext(ID3D12Device* device,
                                      ID3D12CommandQueue* queue,
@@ -132,4 +132,4 @@ void DX12UploadContext::flush() {
     // 当前实现是同步上传，flush 无需额外操作
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

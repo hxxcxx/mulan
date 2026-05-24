@@ -16,7 +16,7 @@
 #include "../Export.h"
 #include <cmath>
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 /// 旋转曲面: 3D 曲线绕轴旋转
 template<typename Curve>
@@ -110,4 +110,4 @@ private:
     Vector3 axis_;
 };
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

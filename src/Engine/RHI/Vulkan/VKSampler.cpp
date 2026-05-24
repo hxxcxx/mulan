@@ -9,7 +9,7 @@
 #include "VKConvert.h"
 #include <cstdio>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // Helper: RHI enum → Vulkan enum
@@ -75,4 +75,4 @@ VKSampler::~VKSampler() {
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -16,7 +16,7 @@
 #include <cstring>
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ================================================================
 // 构造 / 析构
@@ -275,4 +275,4 @@ void GLShader::checkCompileError(GLuint shader, const char* shaderName) {
     std::fprintf(stdout, "[GLShader] Successfully specialized '%s'\n", shaderName);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

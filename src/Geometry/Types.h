@@ -22,7 +22,7 @@
 #include <optional>
 #include <functional>
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 // ============================================================
 // 2D 类型
@@ -123,4 +123,4 @@ enum class GeometryError {
     CannotEvaluate,
 };
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

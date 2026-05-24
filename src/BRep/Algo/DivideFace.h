@@ -49,7 +49,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace MulanGeo::brep::boolean {
+namespace mulan::brep::boolean {
 
 using geometry::Point3;
 using geometry::Vector3;
@@ -500,4 +500,4 @@ inline LoopsStore<Point3, Curve> createLoopsStore(
     return store;
 }
 
-} // namespace MulanGeo::BRep::boolean
+} // namespace mulan::BRep::boolean

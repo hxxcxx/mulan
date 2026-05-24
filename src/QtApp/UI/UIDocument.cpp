@@ -9,7 +9,7 @@
 
 #include <MulanGeo/Engine/Render/EngineView.h>
 
-UIDocument::UIDocument(MulanGeo::document::Document* doc)
+UIDocument::UIDocument(mulan::document::Document* doc)
     : m_doc(doc)
 {}
 
@@ -17,7 +17,7 @@ UIDocument::~UIDocument() {
     detachView();
 }
 
-void UIDocument::attachView(MulanGeo::engine::EngineView* view) {
+void UIDocument::attachView(mulan::engine::EngineView* view) {
     if (m_view) detachView();
     m_view = view;
 
@@ -29,8 +29,8 @@ void UIDocument::attachView(MulanGeo::engine::EngineView* view) {
     view->setScene(m_scene.get());
 
     // 适配相机到场景包围盒
-    MulanGeo::engine::AABB sceneBounds;
-    m_scene->traverse([&](MulanGeo::engine::SceneNode& node) {
+    mulan::engine::AABB sceneBounds;
+    m_scene->traverse([&](mulan::engine::SceneNode& node) {
         const auto& bounds = node.worldBoundingBox();
         if (!bounds.isEmpty()) {
             sceneBounds.expand(bounds.min);
@@ -51,7 +51,7 @@ void UIDocument::detachView() {
     m_pickIdMap.clear();
 }
 
-MulanGeo::document::EntityId UIDocument::resolvePickId(uint32_t pickId) const {
+mulan::document::EntityId UIDocument::resolvePickId(uint32_t pickId) const {
     auto it = m_pickIdMap.find(pickId);
     if (it != m_pickIdMap.end()) return it->second;
     return {};

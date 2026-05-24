@@ -26,7 +26,7 @@
 #include "../Frustum.h"
 #include "RotationMode.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 /// 相机旋转模式
 enum class CameraMode : uint8_t {
@@ -228,4 +228,4 @@ private:
     double m_minDistance = 0.001;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

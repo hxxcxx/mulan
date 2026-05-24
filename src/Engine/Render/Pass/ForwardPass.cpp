@@ -8,7 +8,7 @@
 #include "ForwardPass.h"
 #include "../SceneRenderer.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 ForwardPass::ForwardPass(SceneRenderer& renderer)
     : m_renderer(renderer) {}
@@ -36,4 +36,4 @@ void ForwardPass::execute(PassContext& ctx) {
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

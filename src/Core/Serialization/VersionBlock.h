@@ -13,7 +13,7 @@
 #include "../CoreExport.h"
 #include "ArchiveError.h"
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // 前向声明（Binary 格式的完整 Archive 定义在 BinaryArchive.h）
@@ -77,4 +77,4 @@ private:
     uint64_t m_endPos;        // 块结束位置
 };
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core

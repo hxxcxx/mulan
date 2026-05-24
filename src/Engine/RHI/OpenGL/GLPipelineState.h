@@ -20,7 +20,7 @@
 
 #include <string_view>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class GLPipelineState final : public PipelineState {
 public:
@@ -63,4 +63,4 @@ private:
     GLuint               m_program = 0;  // Linked shader program
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

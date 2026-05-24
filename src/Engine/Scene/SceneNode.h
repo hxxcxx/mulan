@@ -28,7 +28,7 @@ enum class NodeType : uint8_t {
 
 } // namespace MulanGeo
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class RHIDevice;  // 前向声明
 
@@ -55,18 +55,18 @@ public:
 
     // --- 类型查询 ---
 
-    MulanGeo::NodeType type() const { return m_type; }
+    mulan::NodeType type() const { return m_type; }
 
-    bool isType(MulanGeo::NodeType t) const { return m_type == t; }
+    bool isType(mulan::NodeType t) const { return m_type == t; }
 
     // --- 构造 ---
 
-    static std::unique_ptr<SceneNode> create(MulanGeo::NodeType type, std::string name = {}, uint32_t pickId = 0) {
+    static std::unique_ptr<SceneNode> create(mulan::NodeType type, std::string name = {}, uint32_t pickId = 0) {
         return std::unique_ptr<SceneNode>(new SceneNode(type, std::move(name), pickId));
     }
 
 private:
-    explicit SceneNode(MulanGeo::NodeType type, std::string name = {}, uint32_t pickId = 0)
+    explicit SceneNode(mulan::NodeType type, std::string name = {}, uint32_t pickId = 0)
         : m_type(type), m_name(std::move(name)), m_pickId(pickId) {}
 
 public:
@@ -166,7 +166,7 @@ public:
     void setMaterialIndex(uint16_t idx) { m_materialIndex = idx; }
 
 private:
-    MulanGeo::NodeType m_type;
+    mulan::NodeType m_type;
     std::string m_name;
     uint32_t    m_pickId   = 0;
     bool        m_visible  = true;
@@ -198,4 +198,4 @@ inline SceneNode::DirtyFlag operator&(SceneNode::DirtyFlag a, SceneNode::DirtyFl
     return static_cast<SceneNode::DirtyFlag>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

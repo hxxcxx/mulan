@@ -32,7 +32,7 @@
 #include <memory>
 #include <utility>
 
-namespace MulanGeo::brep {
+namespace mulan::brep {
 
 // ============================================================
 // 前向声明
@@ -231,4 +231,4 @@ inline IntersectionCurve& IntersectionCurve::operator=(const IntersectionCurve& 
     return *this;
 }
 
-} // namespace MulanGeo::BRep
+} // namespace mulan::BRep

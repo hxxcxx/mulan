@@ -6,7 +6,7 @@
  */
 #include "DX12FrameContext.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 DX12FrameContext::DX12FrameContext(ID3D12Device* device) {
     HRESULT hr = device->CreateCommandAllocator(
@@ -35,4 +35,4 @@ void DX12FrameContext::resetCommandAllocator() {
     m_cmdList->Reset(m_cmdAllocator.Get(), nullptr);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -7,7 +7,7 @@
 
 #include <stdexcept>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // TextureAsset
@@ -149,4 +149,4 @@ ResourcePtr<Texture> TextureCache::createRHITexture(const LoadedTexture& loaded,
     return texture;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

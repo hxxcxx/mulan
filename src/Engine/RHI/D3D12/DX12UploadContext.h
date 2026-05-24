@@ -10,7 +10,7 @@
 
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class DX12Buffer;
 
@@ -51,4 +51,4 @@ private:
     StagingSlab& getOrCreateSlab(uint32_t minSize);
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

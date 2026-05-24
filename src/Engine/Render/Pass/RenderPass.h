@@ -15,7 +15,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 struct RenderStats;
 
@@ -60,4 +60,4 @@ public:
     virtual const char* name() const = 0;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

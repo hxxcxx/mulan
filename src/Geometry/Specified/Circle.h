@@ -18,7 +18,7 @@
 #include "../Export.h"
 #include <cmath>
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 /// 通用圆
 /// @tparam P 点类型 (Point2/Point3)
@@ -149,4 +149,4 @@ private:
     Vector3 v_axis_{0.0, 1.0, 0.0};
 };
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

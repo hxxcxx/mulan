@@ -17,7 +17,7 @@
 #include <string>
 #include <Windows.h>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class Win32Window : public IWindow {
 public:
@@ -59,6 +59,6 @@ private:
     bool     m_shouldClose  = false;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine
 
 #endif // _WIN32

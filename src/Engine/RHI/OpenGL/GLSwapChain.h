@@ -11,7 +11,7 @@
 #include "../SwapChain.h"
 #include "../../Window.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class CommandList;
 
@@ -66,4 +66,4 @@ private:
 #endif
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

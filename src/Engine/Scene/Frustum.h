@@ -10,7 +10,7 @@
 #include "../Math/Math.h"
 #include "../Math/AABB.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 struct Plane {
     Vec3  normal = {0, 1, 0};
@@ -29,4 +29,4 @@ struct Frustum {
     bool intersects(const AABB& box) const;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

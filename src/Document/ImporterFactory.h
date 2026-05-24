@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 class IFileImporter;
 
@@ -44,4 +44,4 @@ public:
     AutoRegisterImporter(const std::string& extension, ImporterFactory::Creator creator);
 };
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

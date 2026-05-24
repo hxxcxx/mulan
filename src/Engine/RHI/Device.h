@@ -24,7 +24,7 @@
 #include <string_view>
 #include <memory>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 后端类型
@@ -200,4 +200,4 @@ void DeviceResourceDeleter::operator()(T* ptr) const noexcept {
 }
 
 // ============================================================
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

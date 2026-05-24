@@ -1,6 +1,6 @@
 #include "VKDescriptorAllocator.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 VKDescriptorAllocator::VKDescriptorAllocator(vk::Device device,
                                              const PoolSizes& poolSizes)
@@ -96,4 +96,4 @@ VKDescriptorAllocator::PoolSizes VKDescriptorAllocator::defaultPoolSizes() {
     }};
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

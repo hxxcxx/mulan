@@ -3,7 +3,7 @@
 #include "VKDevice.h"
 #include <algorithm>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 VKSwapChain::VKSwapChain(const SwapChainDesc& desc, const InitParams& params,
                          const RenderConfig& renderConfig)
@@ -184,4 +184,4 @@ void VKSwapChain::cleanup() {
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -13,7 +13,7 @@
 #include <vector>
 #include <array>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class VKDescriptorAllocator {
 public:
@@ -46,4 +46,4 @@ private:
     vk::DescriptorPool                m_activePool = nullptr;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

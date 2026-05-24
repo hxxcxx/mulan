@@ -47,7 +47,7 @@
 #define DX12_LOG(...) do {} while (0)
 #endif
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 using Microsoft::WRL::ComPtr;
 
@@ -63,4 +63,4 @@ inline void safeRelease(ComPtr<T>& ptr) {
     ptr.Reset();
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

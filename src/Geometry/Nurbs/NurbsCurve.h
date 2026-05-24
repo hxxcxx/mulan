@@ -16,7 +16,7 @@
 #include "BSplineCurve.h"
 #include "../Export.h"
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 /// NURBS 曲线 — 内部持有齐次坐标 B-spline 曲线
 class GEOMETRY_API NurbsCurve
@@ -156,4 +156,4 @@ private:
     }
 };
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

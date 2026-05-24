@@ -20,16 +20,16 @@
 #include "MulanGeo/Engine/Math/Math.h"
 #include "MulanGeo/Engine/Math/AABB.h"
 
-namespace MulanGeo::core
+namespace mulan::core
 {
 	class ClassInfo;
 }
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 class Mesh;
 }
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 /// 几何体类型枚举（序列化时写入文件，用于多态反序列化）
 enum class GeometryType : uint8_t {
@@ -91,4 +91,4 @@ public:
     virtual engine::AABB boundingBox() const = 0;
 };
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

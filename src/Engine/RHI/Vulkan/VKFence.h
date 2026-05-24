@@ -10,7 +10,7 @@
 #include "../Fence.h"
 #include "VkConvert.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class VKFence : public Fence {
 public:
@@ -28,4 +28,4 @@ private:
     vk::Semaphore m_semaphore;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

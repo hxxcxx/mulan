@@ -9,7 +9,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class Fence {
 public:
@@ -30,4 +30,4 @@ protected:
     Fence& operator=(const Fence&) = delete;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -1,6 +1,6 @@
 #include "VKFrameContext.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 VKFrameContext::VKFrameContext(vk::Device device, uint32_t queueFamily)
     : m_device(device)
@@ -46,4 +46,4 @@ void VKFrameContext::resetCommandBuffer() {
     m_device.resetCommandPool(m_cmdPool);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

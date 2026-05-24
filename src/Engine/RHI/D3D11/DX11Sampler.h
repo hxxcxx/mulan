@@ -10,7 +10,7 @@
 #include "../Sampler.h"
 #include "DX11Common.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class DX11Sampler : public Sampler {
 public:
@@ -26,4 +26,4 @@ private:
     ComPtr<ID3D11SamplerState>   m_handle;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

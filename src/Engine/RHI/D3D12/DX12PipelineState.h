@@ -12,7 +12,7 @@
 
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class DX12PipelineState final : public PipelineState {
 public:
@@ -37,4 +37,4 @@ private:
     std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputElements;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

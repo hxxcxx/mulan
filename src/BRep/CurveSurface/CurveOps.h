@@ -19,7 +19,7 @@
 #include <MulanGeo/Geometry/Algo/surface/search.h>
 #include <utility>
 
-namespace MulanGeo::brep {
+namespace mulan::brep {
 
 // ============================================================
 // 自由函数 (free function) 分发
@@ -502,4 +502,4 @@ inline Surface surface_inverse(const Surface& s) {
 inline void Surface::invert() { surface_invert(*this); }
 inline Surface Surface::inverse() const { return surface_inverse(*this); }
 
-} // namespace MulanGeo::BRep
+} // namespace mulan::BRep

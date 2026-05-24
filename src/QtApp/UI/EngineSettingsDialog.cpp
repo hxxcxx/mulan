@@ -14,7 +14,7 @@
 #include <QLabel>
 #include <QPushButton>
 
-using namespace MulanGeo::engine;
+using namespace mulan::engine;
 
 EngineSettingsDialog::EngineSettingsDialog(QWidget* parent)
     : QDialog(parent)

@@ -14,7 +14,7 @@
 #endif
 #include <windows.h>
 
-namespace MulanGeo::core::log {
+namespace mulan::core::log {
 namespace {
 
 std::once_flag g_initFlag;
@@ -139,4 +139,4 @@ void log(Level lvl, std::string_view msg) {
     }
 }
 
-} // namespace MulanGeo::core::Log
+} // namespace mulan::core::Log

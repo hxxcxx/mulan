@@ -16,7 +16,7 @@
 #include <optional>
 #include <utility>
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 // ============================================================
 // 维度标记
@@ -90,4 +90,4 @@ public:
         const P& point, const SPHint2D& hint, size_t trials = SEARCH_PARAMETER_TRIALS) const = 0;
 };
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

@@ -24,7 +24,7 @@
 #include <cmath>
 #include <vector>
 
-namespace MulanGeo::brep {
+namespace mulan::brep {
 
 class Sweep {
 public:
@@ -417,4 +417,4 @@ public:
     }
 };
 
-} // namespace MulanGeo::BRep
+} // namespace mulan::BRep

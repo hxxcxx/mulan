@@ -8,7 +8,7 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 #include <algorithm>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 资源创建
@@ -418,4 +418,4 @@ void VKDevice::clearFramebufferCache() {
     m_framebufferCache.clear();
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

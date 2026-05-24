@@ -16,7 +16,7 @@
 #include <cstdio>
 #include <cstring>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 GLCommandList::GLCommandList() {
     glGenVertexArrays(1, &m_vao);
@@ -414,4 +414,4 @@ void GLCommandList::endRenderPass() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

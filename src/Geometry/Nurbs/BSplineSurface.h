@@ -20,7 +20,7 @@
 #include <utility>
 #include <optional>
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 /// B样条曲面
 /// @tparam P 控制点类型 (Point3/Vector4)
@@ -318,4 +318,4 @@ private:
     }
 };
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

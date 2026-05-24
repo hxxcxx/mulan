@@ -21,7 +21,7 @@
 
 #include <algorithm>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 OCCTShapeGeometry::OCCTShapeGeometry(TopoDS_Shape shape)
     : m_shape(std::move(shape))
@@ -208,4 +208,4 @@ std::unique_ptr<engine::Mesh> OCCTShapeGeometry::extractEdges() const {
     return mesh;
 }
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

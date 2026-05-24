@@ -39,7 +39,7 @@ private:
     DocumentArea* m_docArea = nullptr;
 
     // --- 文档管理 ---
-    MulanGeo::document::DocumentManager m_docManager;
+    mulan::document::DocumentManager m_docManager;
 
     // --- Actions ---
     QAction* m_actionOpen   = nullptr;

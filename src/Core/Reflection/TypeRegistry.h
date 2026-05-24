@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // PropertyAccess — 属性读写标志
@@ -103,4 +103,4 @@ private:
     std::unordered_map<std::type_index, ClassInfo*> m_classesByType;
 };
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core

@@ -10,7 +10,7 @@
 #include "GLCommon.h"
 #include "../Shader.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 /**
  * @brief OpenGL 着色器
@@ -59,4 +59,4 @@ private:
     GLuint     m_shader = 0;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

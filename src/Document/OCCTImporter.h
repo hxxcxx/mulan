@@ -12,7 +12,7 @@
 
 #include "IFileImporter.h"
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 class DOCUMENT_API OCCTImporter : public IFileImporter {
 public:
@@ -21,4 +21,4 @@ public:
     std::string name() const override;
 };
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

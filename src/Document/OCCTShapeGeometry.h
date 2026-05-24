@@ -18,7 +18,7 @@
 #include <memory>
 #include <mutex>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 class DOCUMENT_API OCCTShapeGeometry : public Geometry {
 public:
@@ -79,4 +79,4 @@ private:
     mutable bool m_edgeMeshGenerated = false;
 };
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

@@ -14,7 +14,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class Buffer;
 class Texture;
@@ -50,4 +50,4 @@ struct BindGroup {
     void clear() noexcept { count = 0; }
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

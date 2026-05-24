@@ -15,7 +15,7 @@
 #include "BSplineSurface.h"
 #include "../Export.h"
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 /// NURBS 曲面 — 内部持有齐次坐标 B-spline 曲面
 class GEOMETRY_API NurbsSurface
@@ -138,4 +138,4 @@ private:
     }
 };
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

@@ -30,7 +30,7 @@
 #include "Render/SceneRenderer.h"
 #include "Window.h"
 
-using namespace MulanGeo::Engine;
+using namespace mulan::Engine;
 
 // ── 全局状态 ────────────────────────────────────────────────
 

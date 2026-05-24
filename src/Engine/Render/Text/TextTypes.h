@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 字形信息（由 FontAtlas 记录）
@@ -59,4 +59,4 @@ struct TextDrawItem {
     float       color[4] = {1,1,1,1}; ///< RGBA（线性空间）
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

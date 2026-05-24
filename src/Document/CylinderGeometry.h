@@ -17,7 +17,7 @@
 
 #include <memory>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 class DOCUMENT_API CylinderGeometry : public Geometry {
     MULANGEO_OBJECT(CylinderGeometry, Geometry)
@@ -102,4 +102,4 @@ private:
     mutable std::unique_ptr<engine::Mesh> m_cachedMesh;
 };
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

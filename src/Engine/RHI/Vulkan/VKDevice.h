@@ -31,7 +31,7 @@
 #include <span>
 #include <unordered_map>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class VKDevice : public RHIDevice {
 public:
@@ -191,4 +191,4 @@ private:
     std::unordered_map<FramebufferKey, vk::Framebuffer, FramebufferKeyHash> m_framebufferCache;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

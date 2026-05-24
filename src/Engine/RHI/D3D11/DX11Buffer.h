@@ -9,7 +9,7 @@
 #include "../Buffer.h"
 #include "DX11Common.h"
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 class DX11Buffer final : public Buffer
@@ -31,4 +31,4 @@ private:
     ID3D11DeviceContext*  m_ctx;  // immediate context, not owned
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

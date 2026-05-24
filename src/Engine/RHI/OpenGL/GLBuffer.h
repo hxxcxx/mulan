@@ -25,7 +25,7 @@
 
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class GLBuffer final : public Buffer {
 public:
@@ -91,4 +91,4 @@ private:
     std::vector<uint8_t> m_pendingData;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

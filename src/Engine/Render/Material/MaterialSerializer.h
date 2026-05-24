@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 struct SerializeResult {
     bool        success = false;
@@ -33,4 +33,4 @@ public:
                                             std::vector<Material>& outMaterials);
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -24,7 +24,7 @@
 #include <variant>
 #include <vector>
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // 数组最大元素数量（防恶意文件 / 检查溢出）
@@ -383,4 +383,4 @@ struct Serializer<std::unique_ptr<T>> {
     }
 };
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core

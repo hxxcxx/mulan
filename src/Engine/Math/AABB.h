@@ -11,7 +11,7 @@
 
 #include <limits>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 struct AABB {
     Vec3 min = {std::numeric_limits<double>::max(),
@@ -87,4 +87,4 @@ struct AABB {
     }
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

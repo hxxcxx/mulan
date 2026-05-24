@@ -9,7 +9,7 @@
 #include <cmath>
 #include <filesystem>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 加载
@@ -101,4 +101,4 @@ void TextureLoader::convertSRGBToLinear(std::vector<uint8_t>& pixels) {
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

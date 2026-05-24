@@ -11,7 +11,7 @@
 #include "DX11Shader.h"
 #include "DX11Convert.h"
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 DX11CommandList::DX11CommandList(ID3D11DeviceContext* ctx)
@@ -226,4 +226,4 @@ void DX11CommandList::endRenderPass() {
     // D3D11: no explicit end — render targets remain bound until changed
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

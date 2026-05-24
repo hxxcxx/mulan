@@ -12,7 +12,7 @@
 
 #include <tl/expected.hpp>
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // ArchiveError — 序列化失败时的错误描述
@@ -71,4 +71,4 @@ struct CORE_API ArchiveError {
 // 序列化 read 操作的返回类型
 using ArchiveResult = tl::expected<void, ArchiveError>;
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core

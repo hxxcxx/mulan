@@ -13,7 +13,7 @@
 #include "../Types.h"
 #include "../Export.h"
 
-namespace MulanGeo::Geometry {
+namespace mulan::Geometry {
 
 /// 可翻转接口
 template<typename T>
@@ -45,4 +45,4 @@ public:
     virtual bool include(const C& curve) const = 0;
 };
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

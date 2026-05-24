@@ -9,7 +9,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 顶点语义
@@ -123,4 +123,4 @@ constexpr const char* semanticGlsl(VertexSemantic sem) {
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -20,7 +20,7 @@
 
 #include <memory>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 class DOCUMENT_API BoxGeometry : public Geometry {
     MULANGEO_OBJECT(BoxGeometry, Geometry)
@@ -89,4 +89,4 @@ private:
     mutable std::unique_ptr<engine::Mesh> m_cachedMesh;
 };
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

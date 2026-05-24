@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 /// 文字排版引擎：将字符串 + 排版参数 → Quad 顶点列表
 class TextLayout {
@@ -49,4 +49,4 @@ private:
     static uint32_t packColor(const float color[4]);
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

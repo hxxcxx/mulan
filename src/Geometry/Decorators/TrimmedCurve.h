@@ -14,7 +14,7 @@
 #include "../Export.h"
 #include <memory>
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 /// 裁剪曲线: 将底层曲线限制在参数范围 [t0, t1]
 template<typename Curve>
@@ -70,4 +70,4 @@ private:
     double t1_ = 1.0;
 };
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

@@ -9,7 +9,7 @@
 #include "DX11Convert.h"
 #include <cstdio>
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 DX11SwapChain::DX11SwapChain(const SwapChainDesc& desc, ID3D11Device* device,
@@ -93,4 +93,4 @@ void DX11SwapChain::resize(uint32_t width, uint32_t height)
     createBackBuffer();
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

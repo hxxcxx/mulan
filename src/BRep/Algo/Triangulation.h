@@ -52,7 +52,7 @@
 #include <vector>
 #include <utility>
 
-namespace MulanGeo::brep::tessellation {
+namespace mulan::brep::tessellation {
 
 using geometry::Point3;
 using geometry::Vector3;
@@ -746,4 +746,4 @@ inline TriMesh triangulateSolidMerged(
     return mesh;
 }
 
-} // namespace MulanGeo::BRep::tessellation
+} // namespace mulan::BRep::tessellation

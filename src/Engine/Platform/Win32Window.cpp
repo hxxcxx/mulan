@@ -2,7 +2,7 @@
 
 #ifdef _WIN32
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 Win32Window::Win32Window(const Desc& desc)
     : m_width(desc.width)
@@ -110,6 +110,6 @@ LRESULT CALLBACK Win32Window::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
     return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine
 
 #endif // _WIN32

@@ -9,7 +9,7 @@
 
 #include <algorithm>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 std::unique_ptr<Document> Document::create() {
     return std::unique_ptr<Document>(new Document());
@@ -120,4 +120,4 @@ void Document::clear() {
     m_modified = true;
 }
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

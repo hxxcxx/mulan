@@ -11,7 +11,7 @@
 #include <cstdio>
 #include <cstring>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 构造 / 析构
@@ -319,4 +319,4 @@ void EngineView::shutdown() {
     m_initialized = false;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

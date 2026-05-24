@@ -24,7 +24,7 @@
 #include <optional>
 #include <utility>
 
-namespace MulanGeo::geometry::Algo::Surface {
+namespace mulan::geometry::Algo::Surface {
 
 // ============================================================
 // 辅助函数
@@ -314,4 +314,4 @@ void subParameterDivision(const S& surface,
     }
 }
 
-} // namespace MulanGeo::geometry::Algo::Surface
+} // namespace mulan::geometry::Algo::Surface

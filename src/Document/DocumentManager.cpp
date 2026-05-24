@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <filesystem>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 DocumentManager::~DocumentManager() = default;
 
@@ -55,4 +55,4 @@ std::vector<std::string> DocumentManager::supportedExtensions() const {
     return ImporterFactory::instance().allSupportedExtensions();
 }
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

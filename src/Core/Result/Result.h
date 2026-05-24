@@ -21,7 +21,7 @@
 
 #include <tl/expected.hpp>
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // Error — 携带错误码、消息、源码位置的值类型
@@ -65,14 +65,14 @@ Result<T> Err(Error err) {
     return tl::make_unexpected(std::move(err));
 }
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core
 
 // ============================================================
 // 便捷宏
 // ============================================================
 
-#define CORE_ERR(...)    ::MulanGeo::core::Error::make(__VA_ARGS__)
-#define CORE_ERR_CODE(c, ...) ::MulanGeo::core::Error::make((c), __VA_ARGS__)
+#define CORE_ERR(...)    ::mulan::core::Error::make(__VA_ARGS__)
+#define CORE_ERR_CODE(c, ...) ::mulan::core::Error::make((c), __VA_ARGS__)
 
 /// 传播错误：失败时直接 return，成功时绑定值
 #define PROPAGATE(var_name, expr)                                      \

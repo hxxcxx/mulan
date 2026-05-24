@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 /// 描述符句柄（CPU + GPU 可见性分离）
 struct DX12Descriptor {
@@ -52,4 +52,4 @@ private:
     uint32_t m_descriptorSize = 0;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

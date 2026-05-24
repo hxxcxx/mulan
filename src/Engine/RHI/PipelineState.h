@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 输入布局元素（PSO 层定义 stride）
@@ -109,4 +109,4 @@ protected:
     PipelineState& operator=(const PipelineState&) = delete;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

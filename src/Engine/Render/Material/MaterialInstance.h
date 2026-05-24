@@ -13,7 +13,7 @@
 #include <string>
 #include <functional>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 材质实例 — 基于 MaterialAsset 模板创建
@@ -170,4 +170,4 @@ private:
     Material             m_savedMaterial;  // 高亮前保存
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

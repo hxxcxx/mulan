@@ -26,7 +26,7 @@
 #include <vector>
 #include <memory>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class DX12Device final : public RHIDevice {
 public:
@@ -103,4 +103,4 @@ private:
     std::unique_ptr<DX12DescriptorAllocator>       m_shaderVisibleHeap;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

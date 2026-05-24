@@ -22,7 +22,7 @@
 #include <array>
 #include <string>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 材质渲染类型 — 决定着色器选择
@@ -308,4 +308,4 @@ struct alignas(16) MaterialGPU {
     }
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

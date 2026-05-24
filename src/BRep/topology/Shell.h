@@ -22,7 +22,7 @@
 #include <queue>
 #include <stdexcept>
 
-namespace MulanGeo::brep {
+namespace mulan::brep {
 
 enum class ShellCondition : uint8_t {
     Open,    // 非闭合壳
@@ -315,4 +315,4 @@ private:
     std::vector<Face<P, C, S>> face_list_;
 };
 
-} // namespace MulanGeo::BRep
+} // namespace mulan::BRep

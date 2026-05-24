@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 字体图集 — MSDF 纹理 + 字形查找表
@@ -78,4 +78,4 @@ private:
     uint32_t  m_atlasHeight  = 0;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

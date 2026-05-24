@@ -7,7 +7,7 @@
 #include "DX12Shader.h"
 #include <cstring>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 DX12Shader::DX12Shader(const ShaderDesc& desc)
     : m_desc(desc)
@@ -22,4 +22,4 @@ DX12Shader::DX12Shader(const ShaderDesc& desc)
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

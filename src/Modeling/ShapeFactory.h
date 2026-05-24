@@ -16,7 +16,7 @@
 
 #include <memory>
 
-namespace MulanGeo::Modeling {
+namespace mulan::modeling {
 
 class MODELING_API ShapeFactory {
 public:
@@ -38,4 +38,4 @@ public:
     static std::unique_ptr<Shape> torus(KernelId kernel, double majorRadius, double minorRadius);
 };
 
-} // namespace MulanGeo::Modeling
+} // namespace mulan::Modeling

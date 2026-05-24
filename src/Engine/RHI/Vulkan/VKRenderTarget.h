@@ -14,7 +14,7 @@
 
 #include <memory>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class VKRenderTarget : public RenderTarget {
 public:
@@ -48,4 +48,4 @@ private:
     vk::Framebuffer  m_framebuffer = nullptr;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -13,7 +13,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 前向声明
@@ -118,4 +118,4 @@ private:
     CommandList* m_cmd;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

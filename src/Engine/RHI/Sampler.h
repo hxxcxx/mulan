@@ -11,7 +11,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class Sampler {
 public:
@@ -25,4 +25,4 @@ protected:
     Sampler& operator=(const Sampler&) = delete;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

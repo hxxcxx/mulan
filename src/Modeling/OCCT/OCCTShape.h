@@ -11,7 +11,7 @@
 
 #include "../ShapeImpl.h"
 
-namespace MulanGeo::Modeling {
+namespace mulan::modeling {
 
 class OCCTShape final : public ShapeImpl<OCCTShape> {
 public:
@@ -58,4 +58,4 @@ private:
     Impl* m_impl = nullptr;
 };
 
-} // namespace MulanGeo::Modeling
+} // namespace mulan::Modeling

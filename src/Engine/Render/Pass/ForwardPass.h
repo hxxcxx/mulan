@@ -9,7 +9,7 @@
 
 #include "RenderPass.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class SceneRenderer;
 
@@ -24,4 +24,4 @@ private:
     SceneRenderer& m_renderer;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

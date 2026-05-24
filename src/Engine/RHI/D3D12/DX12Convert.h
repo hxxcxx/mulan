@@ -10,7 +10,7 @@
 #include "../Device.h"
 #include "DX12Common.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // TextureFormat → DXGI_FORMAT
@@ -200,4 +200,4 @@ inline DXGI_FORMAT toDXGIFormat(VertexFormat fmt) {
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

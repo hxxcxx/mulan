@@ -11,7 +11,7 @@
 #include "../Device.h"
 #include "VkCommon.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 inline vk::Format toVkFormat(TextureFormat fmt) {
     switch (fmt) {
@@ -193,4 +193,4 @@ inline vk::AttachmentStoreOp toVkStoreOp(StoreAction action) {
     return vk::AttachmentStoreOp::eStore;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

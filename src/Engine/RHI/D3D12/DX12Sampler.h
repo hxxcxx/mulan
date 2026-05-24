@@ -11,7 +11,7 @@
 #include "DX12Common.h"
 #include "DX12DescriptorAllocator.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class DX12Sampler : public Sampler {
 public:
@@ -29,4 +29,4 @@ private:
     DX12Descriptor  m_descriptor;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -11,7 +11,7 @@
 #include <array>
 #include <string_view>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 顶点分量格式
@@ -172,4 +172,4 @@ struct VertexFormatTraits {
     using type = std::array<std::byte, vertexFormatSize(F)>;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

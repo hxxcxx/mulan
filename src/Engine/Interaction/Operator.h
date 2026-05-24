@@ -15,7 +15,7 @@
 
 #include "InputEvent.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class Camera;
 
@@ -57,4 +57,4 @@ public:
     }
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

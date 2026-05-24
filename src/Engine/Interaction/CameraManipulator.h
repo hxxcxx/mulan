@@ -16,7 +16,7 @@
 #include "Operator.h"
 #include "../Scene/Camera/Camera.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class CameraManipulator : public Operator {
 public:
@@ -97,4 +97,4 @@ private:
     bool m_dragging = false;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

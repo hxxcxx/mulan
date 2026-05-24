@@ -11,7 +11,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 前向声明
@@ -131,4 +131,4 @@ enum class ResourceTransitionMode : uint8_t {
     Transition,  // 自动转换
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

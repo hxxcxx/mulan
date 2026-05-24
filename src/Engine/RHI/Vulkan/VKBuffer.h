@@ -12,7 +12,7 @@
 
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class VKBuffer : public Buffer {
 public:
@@ -41,4 +41,4 @@ private:
     std::vector<uint8_t> m_pendingData;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -12,7 +12,7 @@
 
 #include <unordered_map>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class VKDevice;
 
@@ -43,4 +43,4 @@ private:
     std::vector<vk::VertexInputAttributeDescription> m_attributeDescriptions;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -20,7 +20,7 @@
 #include <unordered_map>
 #include <variant>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 class DOCUMENT_API Entity {
 public:
@@ -81,4 +81,4 @@ private:
     std::unordered_map<std::string, Metadata> m_metadata;
 };
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

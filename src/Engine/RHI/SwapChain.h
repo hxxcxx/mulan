@@ -12,7 +12,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class CommandList;
 
@@ -99,4 +99,4 @@ protected:
     SwapChain& operator=(const SwapChain&) = delete;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

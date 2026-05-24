@@ -9,7 +9,7 @@
 #include "../CommandList.h"
 #include "DX12Common.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class DX12Texture;  // forward declaration
 
@@ -69,4 +69,4 @@ private:
     DX12Texture* m_rpColorTex = nullptr; // 当前 render pass 的颜色附件
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -22,7 +22,7 @@
 #include <cmath>
 #include <vector>
 
-namespace MulanGeo::brep {
+namespace mulan::brep {
 
 class Primitive {
 public:
@@ -243,4 +243,4 @@ public:
     }
 };
 
-} // namespace MulanGeo::BRep
+} // namespace mulan::BRep

@@ -13,7 +13,7 @@
 
 #include <memory>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class DX12RenderTarget final : public RenderTarget {
 public:
@@ -40,4 +40,4 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE             m_dsvHandle = {};
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

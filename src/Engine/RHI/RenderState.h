@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 图元拓扑
@@ -206,4 +206,4 @@ struct SamplerDesc {
     }
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

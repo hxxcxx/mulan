@@ -36,9 +36,9 @@
 #define DX11_CHECK(hr) (void)(hr)
 #endif
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 using Microsoft::WRL::ComPtr;
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

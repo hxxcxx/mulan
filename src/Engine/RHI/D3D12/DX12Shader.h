@@ -11,7 +11,7 @@
 
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class DX12Shader final : public Shader {
 public:
@@ -32,4 +32,4 @@ private:
     std::vector<uint8_t>    m_byteCode;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

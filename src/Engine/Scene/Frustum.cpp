@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 double Plane::signedDistance(const Vec3& point) const {
     return glm::dot(normal, point) + distance;
@@ -55,4 +55,4 @@ bool Frustum::intersects(const AABB& box) const {
     return true;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

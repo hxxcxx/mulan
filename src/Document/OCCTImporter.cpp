@@ -23,7 +23,7 @@
 #include <clocale>
 #include <filesystem>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 namespace {
 
@@ -154,4 +154,4 @@ static AutoRegisterImporter _reg_igs("igs", []() -> std::unique_ptr<IFileImporte
     return std::make_unique<OCCTImporter>();
 });
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 构造 / 模式切换
@@ -165,4 +165,4 @@ Vec3 Camera::forward() const { return m_active->forward(); }
 Vec3 Camera::right()   const { return m_active->right(); }
 Vec3 Camera::up()      const { return m_active->up(); }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -9,7 +9,7 @@
  */
 #include "DX11Fence.h"
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 DX11Fence::DX11Fence(ID3D11Device* device, uint64_t initialValue)
@@ -58,4 +58,4 @@ uint64_t DX11Fence::completedValue() const
     return m_completed;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

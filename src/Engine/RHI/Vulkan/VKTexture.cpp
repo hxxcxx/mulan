@@ -1,6 +1,6 @@
 #include "VKTexture.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 bool VKTexture::isDepthFormat(TextureFormat f) {
     return f == TextureFormat::D16_UNorm
@@ -89,4 +89,4 @@ vk::ImageViewCreateInfo VKTexture::viewForFramebuffer() const {
     return ci;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -9,7 +9,7 @@
 
 #include <cstdio>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 格式转换
@@ -173,4 +173,4 @@ void GLRenderTarget::resize(uint32_t width, uint32_t height) {
 }
 
 // ============================================================
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

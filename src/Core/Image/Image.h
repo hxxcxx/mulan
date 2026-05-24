@@ -22,7 +22,7 @@
 #include <string_view>
 #include <vector>
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // 像素格式
@@ -144,4 +144,4 @@ private:
     std::vector<uint8_t>  m_pixels;
 };
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core

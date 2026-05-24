@@ -6,7 +6,7 @@
 #include "MaterialInstance.h"
 #include "MaterialCache.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // MaterialInstance
@@ -249,4 +249,4 @@ void MaterialInstance::rebuildFromTemplate() {
     m_highlighted = false;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

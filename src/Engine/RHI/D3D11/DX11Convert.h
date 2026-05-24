@@ -10,7 +10,7 @@
 #include "../Device.h"
 #include "DX11Common.h"
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 // ============================================================
@@ -197,4 +197,4 @@ inline DXGI_FORMAT toDXGIFormat11(VertexFormat fmt)
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -5,7 +5,7 @@
 
 #include "MaterialLibrary.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // MaterialLibrary
@@ -262,4 +262,4 @@ Material MaterialLibrary::emissive_blue() {
     return m;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

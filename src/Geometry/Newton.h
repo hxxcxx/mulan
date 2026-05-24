@@ -19,7 +19,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 // ============================================================
 // Newton 求解器输出
@@ -116,4 +116,4 @@ std::optional<std::vector<double>> simultaneous_newton(
     return std::nullopt;
 }
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

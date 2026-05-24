@@ -17,7 +17,7 @@
 #include <typeindex>
 #include <typeinfo>
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // TypeInfo — 轻量类型标识
@@ -76,15 +76,15 @@ private:
     std::string m_displayName;
 };
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core
 
 // ============================================================
 // std::hash 特化，允许 TypeInfo 作为 unordered_map/unordered_set 的 key
 // ============================================================
 
 template<>
-struct std::hash<MulanGeo::core::TypeInfo> {
-    size_t operator()(const MulanGeo::core::TypeInfo& ti) const noexcept {
+struct std::hash<mulan::core::TypeInfo> {
+    size_t operator()(const mulan::core::TypeInfo& ti) const noexcept {
         return ti.typeIndex().hash_code();
     }
 };

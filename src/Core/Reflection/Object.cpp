@@ -8,7 +8,7 @@
 
 #include <mutex>
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // ObjectFactory 实现
@@ -92,4 +92,4 @@ ArchiveResult Serializer<std::unique_ptr<Object>>::read(InputArchive& ar,
     return {};
 }
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core

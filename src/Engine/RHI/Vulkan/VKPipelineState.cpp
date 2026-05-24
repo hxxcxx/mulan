@@ -2,7 +2,7 @@
 #include "VKDevice.h"
 #include "VKShader.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 VKPipelineState::VKPipelineState(const GraphicsPipelineDesc& desc,
                                  vk::Device device, VKDevice* ownerDevice)
@@ -198,4 +198,4 @@ vk::PipelineVertexInputStateCreateInfo VKPipelineState::buildVertexInputState() 
     return vi;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -11,7 +11,7 @@
 #include <cstring>
 #include <string>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 格式映射表
@@ -331,4 +331,4 @@ void GLTexture::generateMipmaps() {
     glBindTexture(m_target, 0);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

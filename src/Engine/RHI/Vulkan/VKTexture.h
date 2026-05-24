@@ -10,7 +10,7 @@
 #include "../Texture.h"
 #include "VkConvert.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class VKTexture : public Texture {
 public:
@@ -44,4 +44,4 @@ private:
     bool            m_ownsResources = true;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

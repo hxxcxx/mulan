@@ -12,7 +12,7 @@
 
 #include <memory>
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 class DX11RenderTarget final : public RenderTarget
@@ -36,4 +36,4 @@ private:
     std::unique_ptr<DX11Texture>        m_depthTexture;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

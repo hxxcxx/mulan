@@ -48,7 +48,7 @@
 #include <vector>
 #include <utility>
 
-namespace MulanGeo::BRep::fillet {
+namespace mulan::BRep::fillet {
 
 using geometry::Point3;
 using geometry::Vector3;
@@ -566,4 +566,4 @@ chamferEdge(
     return Solid<Point3, Curve, Surface>::newUnchecked(std::move(shells));
 }
 
-} // namespace MulanGeo::BRep::fillet
+} // namespace mulan::BRep::fillet

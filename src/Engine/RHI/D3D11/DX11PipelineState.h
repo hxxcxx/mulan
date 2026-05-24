@@ -16,7 +16,7 @@
 
 #include <vector>
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 class DX11PipelineState final : public PipelineState
@@ -49,4 +49,4 @@ private:
     ComPtr<ID3D11DepthStencilState>     m_depthStencil;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

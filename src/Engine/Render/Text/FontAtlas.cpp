@@ -15,7 +15,7 @@
 #include <cstring>
 #include <algorithm>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 构造 / 析构
@@ -211,4 +211,4 @@ bool FontAtlas::uploadAtlas(const std::vector<uint8_t>& rgbaData) {
     return true;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

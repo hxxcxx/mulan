@@ -5,7 +5,7 @@
 
 #include "Archive.h"
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // InputArchive 路径栈实现
@@ -46,4 +46,4 @@ std::string InputArchive::buildPath() const {
     return path;
 }
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core

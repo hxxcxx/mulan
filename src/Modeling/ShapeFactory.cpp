@@ -7,7 +7,7 @@
 #include "ShapeFactory.h"
 #include "OCCT/OCCTShape.h"
 
-namespace MulanGeo::Modeling {
+namespace mulan::modeling {
 
 std::unique_ptr<Shape> ShapeFactory::box(KernelId kernel, double dx, double dy, double dz) {
     switch (kernel) {
@@ -49,4 +49,4 @@ std::unique_ptr<Shape> ShapeFactory::torus(KernelId kernel, double majorRadius, 
     return nullptr;
 }
 
-} // namespace MulanGeo::Modeling
+} // namespace mulan::Modeling

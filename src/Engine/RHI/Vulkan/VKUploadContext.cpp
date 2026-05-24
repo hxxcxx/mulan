@@ -1,7 +1,7 @@
 #include "VKUploadContext.h"
 #include "VKBuffer.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 VKUploadContext::VKUploadContext(vk::Device device, VmaAllocator allocator,
                                  uint32_t queueFamily, vk::Queue queue)
@@ -128,4 +128,4 @@ uint32_t VKUploadContext::alignUp(uint32_t v, uint32_t align) {
     return (v + align - 1) & ~(align - 1);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

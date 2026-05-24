@@ -1,6 +1,6 @@
 #include "VKBuffer.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 VKBuffer::VKBuffer(const BufferDesc& desc, VmaAllocator allocator)
     : m_desc(desc), m_allocator(allocator)
@@ -87,4 +87,4 @@ bool VKBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
     return true;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

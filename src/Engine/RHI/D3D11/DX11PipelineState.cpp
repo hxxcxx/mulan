@@ -7,7 +7,7 @@
 #include "DX11PipelineState.h"
 #include "DX11Shader.h"
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 DX11PipelineState::DX11PipelineState(const GraphicsPipelineDesc& desc,
@@ -140,4 +140,4 @@ void DX11PipelineState::createDepthStencilState()
     DX11_CHECK(hr);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

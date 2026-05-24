@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <memory>
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 void TypeRegistry::registerClass(std::string_view name,
                                   TypeInfo typeInfo,
@@ -70,4 +70,4 @@ std::vector<std::string> TypeRegistry::registeredClasses() const {
     return names;
 }
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core

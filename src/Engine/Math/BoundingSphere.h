@@ -12,7 +12,7 @@
 #include <cmath>
 #include <algorithm>
 
-namespace MulanGeo::Engine {
+namespace mulan::Engine {
 
 struct BoundingSphere {
     Vec3   center;
@@ -111,4 +111,4 @@ struct BoundingSphere {
     }
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

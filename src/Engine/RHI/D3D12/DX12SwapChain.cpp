@@ -8,7 +8,7 @@
 #include "DX12CommandList.h"
 #include "DX12Convert.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 DX12SwapChain::DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device,
                              IDXGIFactory4* factory, ID3D12CommandQueue* queue,
@@ -139,4 +139,4 @@ void DX12SwapChain::resize(uint32_t width, uint32_t height) {
     createBackBuffers();
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

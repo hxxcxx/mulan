@@ -6,7 +6,7 @@
  */
 #include "DX12Device.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 构造 / 析构
@@ -264,4 +264,4 @@ void DX12Device::submitOffscreen() {
     m_commandQueue->Signal(frame->fence()->fence(), fenceVal);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

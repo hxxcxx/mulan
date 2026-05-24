@@ -18,7 +18,7 @@
 #include <string_view>
 #include <vector>
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // 类型别名
@@ -168,4 +168,4 @@ private:
     std::vector<PathEntry> m_pathStack;
 };
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core

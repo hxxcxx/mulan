@@ -22,7 +22,7 @@
 
 #include <cassert>
 
-namespace MulanGeo::Modeling {
+namespace mulan::modeling {
 
 template<typename Derived>
 class ShapeImpl : public Shape {
@@ -89,4 +89,4 @@ private:
     }
 };
 
-} // namespace MulanGeo::Modeling
+} // namespace mulan::Modeling

@@ -18,7 +18,7 @@
 #include <span>
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 可绘制几何数据 — 原始字节 + 元信息
@@ -162,4 +162,4 @@ private:
     size_t m_edgeSplit   = 0;  ///< 边线/半透明分割点
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

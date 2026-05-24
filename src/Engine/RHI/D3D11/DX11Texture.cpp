@@ -7,7 +7,7 @@
 #include "DX11Texture.h"
 #include "DX11Convert.h"
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 DX11Texture::DX11Texture(const TextureDesc& desc, ID3D11Device* device)
@@ -126,4 +126,4 @@ void DX11Texture::createSRV(ID3D11Device* device, DXGI_FORMAT fmt)
     DX11_CHECK(hr);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

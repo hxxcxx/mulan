@@ -5,7 +5,7 @@
 
 #include "MaterialCache.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // MaterialAsset
@@ -166,4 +166,4 @@ void MaterialCache::rebuildIndex() {
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

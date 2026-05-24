@@ -16,7 +16,7 @@
 
 #include "RotationMode.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class TrackballRotation : public RotationMode {
 public:
@@ -47,4 +47,4 @@ private:
     double m_arcballSpeed  = 1.75;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

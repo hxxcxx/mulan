@@ -15,22 +15,22 @@ public:
     static EngineSettings& instance();
 
     /// 后端
-    MulanGeo::engine::GraphicsBackend backend() const;
-    void setBackend(MulanGeo::engine::GraphicsBackend b);
+    mulan::engine::GraphicsBackend backend() const;
+    void setBackend(mulan::engine::GraphicsBackend b);
 
     /// 抗锯齿
-    MulanGeo::engine::RenderConfig::MSAALevel msaa() const;
-    void setMsaa(MulanGeo::engine::RenderConfig::MSAALevel level);
+    mulan::engine::RenderConfig::MSAALevel msaa() const;
+    void setMsaa(mulan::engine::RenderConfig::MSAALevel level);
 
     /// VSync
     bool vsync() const;
     void setVsync(bool v);
 
     /// 填充 ViewConfig 中 UI 可控的字段（不影响原生窗口句柄等）
-    void applyTo(MulanGeo::engine::ViewConfig& cfg) const;
+    void applyTo(mulan::engine::ViewConfig& cfg) const;
 
     /// 从 ViewConfig 读取（用于首次保存默认值以外的场景）
-    void loadFrom(const MulanGeo::engine::ViewConfig& cfg);
+    void loadFrom(const mulan::engine::ViewConfig& cfg);
 
     /// 获取当前的背景色
     QColor backgroundColor() const;
@@ -47,8 +47,8 @@ private:
 
     QSettings m_qsettings{"MulanGeo", "Engine"};
 
-    MulanGeo::engine::GraphicsBackend           m_backend = MulanGeo::engine::GraphicsBackend::Vulkan;
-    MulanGeo::engine::RenderConfig::MSAALevel   m_msaa    = MulanGeo::engine::RenderConfig::MSAALevel::x4;
+    mulan::engine::GraphicsBackend           m_backend = mulan::engine::GraphicsBackend::Vulkan;
+    mulan::engine::RenderConfig::MSAALevel   m_msaa    = mulan::engine::RenderConfig::MSAALevel::x4;
     bool                                        m_vsync   = true;
     QColor                                     m_bgcolor;
 };

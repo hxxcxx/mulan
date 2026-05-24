@@ -14,7 +14,7 @@
 #include "../Export.h"
 #include <optional>
 
-namespace MulanGeo::geometry {
+namespace mulan::geometry {
 
 /// 参数曲线抽象接口
 /// @tparam P 点类型 (Point2/Point3)
@@ -77,4 +77,4 @@ public:
     /// 返回变换后的副本 (调用方自己拷贝再变换)
 };
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

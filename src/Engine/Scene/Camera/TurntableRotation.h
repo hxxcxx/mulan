@@ -15,7 +15,7 @@
 
 #include "RotationMode.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class TurntableRotation : public RotationMode {
 public:
@@ -52,4 +52,4 @@ private:
     static constexpr double kMinPitch = -kPi * 0.5 + 0.01;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

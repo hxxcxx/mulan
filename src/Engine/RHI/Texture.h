@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 纹理格式
@@ -138,4 +138,4 @@ protected:
     Texture& operator=(const Texture&) = delete;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

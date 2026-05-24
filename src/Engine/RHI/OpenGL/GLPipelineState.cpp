@@ -13,7 +13,7 @@
 #include <cstdio>
 #include <string>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // OpenGL 状态转换工具
@@ -362,4 +362,4 @@ GLenum GLPipelineState::glTopology() const {
     return getGLPrimitiveType(m_desc.topology);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

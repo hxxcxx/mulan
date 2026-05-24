@@ -6,7 +6,7 @@
  */
 #include "DX11Buffer.h"
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device,
@@ -104,4 +104,4 @@ bool DX11Buffer::readback(uint32_t offset, uint32_t size, void* outData)
     return true;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

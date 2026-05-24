@@ -10,8 +10,8 @@
 #include <MulanGeo/Document/Geometry.h>
 #include <MulanGeo/Engine/Geometry/Mesh.h>
 
-namespace Doc = MulanGeo::document;
-namespace Eng = MulanGeo::engine;
+namespace Doc = mulan::document;
+namespace Eng = mulan::engine;
 
 // ============================================================
 // 辅助：构建上下文
@@ -29,7 +29,7 @@ static void buildRecursive(BuildContext& ctx) {
         auto pickId = static_cast<uint32_t>(entity.id().value);
 
         if (entity.hasGeometry()) {
-            auto geoNode = Eng::SceneNode::create(MulanGeo::NodeType::Geometry,
+            auto geoNode = Eng::SceneNode::create(mulan::NodeType::Geometry,
                 entity.name().empty() ? std::string{} : std::string(entity.name()),
                 pickId);
 
@@ -54,7 +54,7 @@ static void buildRecursive(BuildContext& ctx) {
             ctx.scene.root()->addChild(std::move(geoNode));
             ctx.entityIdToNode[entity.id().value] = rawPtr;
         } else {
-            auto node = Eng::SceneNode::create(MulanGeo::NodeType::Base,
+            auto node = Eng::SceneNode::create(mulan::NodeType::Base,
                 entity.name().empty() ? std::string{} : std::string(entity.name()),
                 pickId);
 

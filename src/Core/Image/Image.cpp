@@ -18,7 +18,7 @@
 #include <filesystem>
 #include <string>
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // 构造
@@ -250,4 +250,4 @@ bool Image::isSupportedFile(std::string_view path) {
         || ext == ".bmp" || ext == ".tga" || ext == ".hdr";
 }
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core

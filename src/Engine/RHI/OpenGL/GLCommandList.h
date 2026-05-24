@@ -27,7 +27,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // 前向声明
 class GLBuffer;
@@ -183,4 +183,4 @@ private:
     bool               m_vertexLayoutDirty = true;  // VBO/PSO 变化时重新设置属性指针
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

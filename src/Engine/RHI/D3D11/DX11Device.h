@@ -22,7 +22,7 @@
 
 #include <memory>
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 class DX11Device final : public RHIDevice
@@ -86,4 +86,4 @@ private:
     std::unique_ptr<DX11CommandList>   m_frameCmdList;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

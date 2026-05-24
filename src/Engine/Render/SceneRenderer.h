@@ -31,7 +31,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 渲染模式
@@ -189,4 +189,4 @@ private:
     RenderStats       m_stats;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

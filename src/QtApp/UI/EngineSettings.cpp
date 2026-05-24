@@ -6,7 +6,7 @@
  */
 #include "EngineSettings.h"
 #include <QColor>
-using namespace MulanGeo::engine;
+using namespace mulan::engine;
 
 EngineSettings& EngineSettings::instance() {
     static EngineSettings s;

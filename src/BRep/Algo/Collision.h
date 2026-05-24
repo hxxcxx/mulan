@@ -30,7 +30,7 @@
 #include <vector>
 #include <utility>
 
-namespace MulanGeo::brep::tessellation {
+namespace mulan::brep::tessellation {
 
 using geometry::Point3;
 using geometry::Vector3;
@@ -300,4 +300,4 @@ inline bool pointInSolid(
     return result.is_inside;
 }
 
-} // namespace MulanGeo::BRep::tessellation
+} // namespace mulan::BRep::tessellation

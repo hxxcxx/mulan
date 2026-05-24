@@ -11,7 +11,7 @@
 
 #include <vector>
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 class DX11Shader final : public Shader
@@ -37,4 +37,4 @@ private:
     ComPtr<ID3D11GeometryShader>    m_gs;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

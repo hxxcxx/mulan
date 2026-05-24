@@ -9,7 +9,7 @@
 #include "../Fence.h"
 #include "DX12Common.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class DX12Fence final : public Fence {
 public:
@@ -28,4 +28,4 @@ private:
     HANDLE m_event = nullptr;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

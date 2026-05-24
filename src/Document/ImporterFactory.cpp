@@ -10,7 +10,7 @@
 
 #include <cctype>
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 namespace {
 
@@ -51,4 +51,4 @@ AutoRegisterImporter::AutoRegisterImporter(const std::string& extension, Importe
     ImporterFactory::instance().registerImporter(extension, std::move(creator));
 }
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

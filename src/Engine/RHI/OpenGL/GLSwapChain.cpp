@@ -9,7 +9,7 @@
 
 #include <cstdio>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 GLSwapChain::GLSwapChain(const SwapChainDesc& desc,
                          const InitParams&    params,
@@ -79,4 +79,4 @@ void GLSwapChain::resize(uint32_t width, uint32_t height) {
     glViewport(0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height));
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

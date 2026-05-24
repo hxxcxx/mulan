@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // 加载选项
@@ -84,4 +84,4 @@ private:
     static void convertSRGBToLinear(std::vector<uint8_t>& pixels);
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

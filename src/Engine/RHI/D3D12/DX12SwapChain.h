@@ -17,7 +17,7 @@
 #include <memory>
 #include <array>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class DX12SwapChain final : public SwapChain {
 public:
@@ -60,4 +60,4 @@ private:
     float                              m_clearColor[4] = { 0.15f, 0.15f, 0.15f, 1.0f };
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

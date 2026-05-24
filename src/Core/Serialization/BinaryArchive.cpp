@@ -9,7 +9,7 @@
 #include <fstream>
 #include <stdexcept>
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // BinaryOutputArchive::Impl
@@ -572,4 +572,4 @@ uint64_t BinaryInputArchive::remaining() const {
     return m_impl->buffer.size() - m_impl->pos;
 }
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core

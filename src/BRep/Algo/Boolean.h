@@ -48,7 +48,7 @@
 #include <vector>
 #include <utility>
 
-namespace MulanGeo::brep::boolean {
+namespace mulan::brep::boolean {
 
 using geometry::Point3;
 using geometry::Vector3;
@@ -264,4 +264,4 @@ inline core::Result<Solid<Point3, Curve, Surface>> difference(
     return booleanOp(a, b, BoolOp::Difference, tol);
 }
 
-} // namespace MulanGeo::BRep::boolean
+} // namespace mulan::BRep::boolean

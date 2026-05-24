@@ -1,6 +1,6 @@
 #include "VKShader.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 VKShader::VKShader(const ShaderDesc& desc, vk::Device device)
     : m_desc(desc), m_device(device)
@@ -68,4 +68,4 @@ vk::ShaderStageFlagBits VKShader::toVkShaderStage(ShaderType type) {
     }
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

@@ -15,7 +15,7 @@
 
 #include <array>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class VKDevice;
 
@@ -82,4 +82,4 @@ private:
     RenderConfig m_renderConfig;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

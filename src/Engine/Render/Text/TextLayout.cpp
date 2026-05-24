@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <algorithm>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // UTF-8 解码
@@ -176,4 +176,4 @@ float TextLayout::measureWidth(
     return width;
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

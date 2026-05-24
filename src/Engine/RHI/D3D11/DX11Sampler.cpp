@@ -8,7 +8,7 @@
 #include "DX11Sampler.h"
 #include <cstdio>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 // ============================================================
 // Helper: RHI enum → D3D11 enum
@@ -95,4 +95,4 @@ DX11Sampler::DX11Sampler(const SamplerDesc& desc, ID3D11Device* device)
 
 DX11Sampler::~DX11Sampler() = default;
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

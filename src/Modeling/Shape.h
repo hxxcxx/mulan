@@ -16,7 +16,7 @@
 #include <memory>
 #include <string>
 
-namespace MulanGeo::Modeling {
+namespace mulan::modeling {
 
 // ============================================================
 // 内核标识
@@ -74,4 +74,4 @@ public:
     virtual std::unique_ptr<Shape> booleanIntersect(const Shape& tool) const = 0;
 };
 
-} // namespace MulanGeo::Modeling
+} // namespace mulan::Modeling

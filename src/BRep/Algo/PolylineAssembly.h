@@ -16,7 +16,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace MulanGeo::brep::boolean {
+namespace mulan::brep::boolean {
 
 using geometry::Point3;
 using geometry::near;
@@ -83,4 +83,4 @@ inline std::vector<tessellation::PolylineCurve> assemblePolylines(
     return polylines;
 }
 
-} // namespace MulanGeo::BRep::boolean
+} // namespace mulan::BRep::boolean

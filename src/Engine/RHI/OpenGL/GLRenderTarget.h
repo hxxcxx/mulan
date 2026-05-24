@@ -14,7 +14,7 @@
 
 #include <memory>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class GLRenderTarget final : public RenderTarget {
 public:
@@ -48,4 +48,4 @@ private:
     std::unique_ptr<GLTexture> m_depthTexture;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

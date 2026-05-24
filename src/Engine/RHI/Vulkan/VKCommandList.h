@@ -15,7 +15,7 @@
 
 #include <array>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class VKDescriptorAllocator;
 class VKDevice;
@@ -113,4 +113,4 @@ private:
     bool                    m_ownsPool;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

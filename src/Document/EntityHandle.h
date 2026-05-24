@@ -13,7 +13,7 @@
 #include "DocumentExport.h"
 #include "EntityId.h"
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 class Entity;
 class Document;
@@ -51,4 +51,4 @@ private:
     Document* m_doc = nullptr;
 };
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

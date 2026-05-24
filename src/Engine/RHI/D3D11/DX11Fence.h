@@ -9,7 +9,7 @@
 #include "../Fence.h"
 #include "DX11Common.h"
 
-namespace MulanGeo::engine
+namespace mulan::engine
 {
 
 class DX11Fence final : public Fence
@@ -29,4 +29,4 @@ private:
     uint64_t             m_completed = 0;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

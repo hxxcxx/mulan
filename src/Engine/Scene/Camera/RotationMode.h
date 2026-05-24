@@ -16,7 +16,7 @@
 
 #include "../../Math/Math.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class RotationMode {
 public:
@@ -47,4 +47,4 @@ public:
     virtual void setRotation(const Quat& /*q*/) {}
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

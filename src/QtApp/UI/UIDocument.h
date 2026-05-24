@@ -24,45 +24,45 @@
 #include <memory>
 #include <unordered_map>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 class EngineView;
 }
 
 class UIDocument {
 public:
-    explicit UIDocument(MulanGeo::document::Document* doc);
+    explicit UIDocument(mulan::document::Document* doc);
     ~UIDocument();
 
     // --- 数据层 ---
 
-    MulanGeo::document::Document& document() { return *m_doc; }
-    const MulanGeo::document::Document& document() const { return *m_doc; }
+    mulan::document::Document& document() { return *m_doc; }
+    const mulan::document::Document& document() const { return *m_doc; }
 
     // --- 场景 ---
 
-    MulanGeo::engine::Scene* scene() { return m_scene.get(); }
-    const MulanGeo::engine::Scene* scene() const { return m_scene.get(); }
+    mulan::engine::Scene* scene() { return m_scene.get(); }
+    const mulan::engine::Scene* scene() const { return m_scene.get(); }
 
     // --- 视图连接 ---
 
     /// 绑定 EngineView（构建场景 + 设置 collector 回调 + 适配相机）
-    void attachView(MulanGeo::engine::EngineView* view);
+    void attachView(mulan::engine::EngineView* view);
 
     /// 解除绑定
     void detachView();
 
-    MulanGeo::engine::EngineView* view() const { return m_view; }
+    mulan::engine::EngineView* view() const { return m_view; }
 
     /// 通过 pickId 反查 EntityId（拾取用）
-    MulanGeo::document::EntityId resolvePickId(uint32_t pickId) const;
+    mulan::document::EntityId resolvePickId(uint32_t pickId) const;
 
 private:
-    MulanGeo::document::Document*  m_doc;   // 不拥有，由 DocumentManager 管理
-    MulanGeo::engine::EngineView*  m_view = nullptr;
+    mulan::document::Document*  m_doc;   // 不拥有，由 DocumentManager 管理
+    mulan::engine::EngineView*  m_view = nullptr;
 
     /// 由 SceneBuilder 一次性构建的渲染场景
-    std::unique_ptr<MulanGeo::engine::Scene> m_scene;
+    std::unique_ptr<mulan::engine::Scene> m_scene;
 
     /// pickId → EntityId 映射（拾取反查用）
-    std::unordered_map<uint32_t, MulanGeo::document::EntityId> m_pickIdMap;
+    std::unordered_map<uint32_t, mulan::document::EntityId> m_pickIdMap;
 };

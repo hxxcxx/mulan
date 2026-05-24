@@ -6,7 +6,7 @@
  */
 #include "Entity.h"
 
-namespace MulanGeo::document {
+namespace mulan::document {
 
 Entity::Entity(EntityId id, std::string name)
     : m_id(id)
@@ -26,4 +26,4 @@ bool Entity::removeMetadata(const std::string& key) {
     return m_metadata.erase(key) > 0;
 }
 
-} // namespace MulanGeo::Document
+} // namespace mulan::Document

@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 // ============================================================
 // ClassInfo — 类描述信息（用于继承判断、属性面板等）
@@ -127,7 +127,7 @@ private:
 };
 
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core
 
 // ============================================================
 // Serializer<std::unique_ptr<Object>> 声明（DLL 导出）
@@ -136,7 +136,7 @@ private:
 
 #include "../Serialization/Serializer.h"
 
-namespace MulanGeo::core {
+namespace mulan::core {
 
 template<>
 struct CORE_API Serializer<std::unique_ptr<Object>> {
@@ -144,4 +144,4 @@ struct CORE_API Serializer<std::unique_ptr<Object>> {
     static ArchiveResult read(InputArchive& ar, std::unique_ptr<Object>& out);
 };
 
-} // namespace MulanGeo::Core
+} // namespace mulan::Core

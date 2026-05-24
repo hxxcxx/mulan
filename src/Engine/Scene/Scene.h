@@ -14,7 +14,7 @@
 #include <memory>
 #include <string_view>
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class Scene {
 public:
@@ -89,4 +89,4 @@ private:
     std::unique_ptr<SceneNode> m_root;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

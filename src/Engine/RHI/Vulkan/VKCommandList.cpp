@@ -3,7 +3,7 @@
 #include "VKDescriptorAllocator.h"
 #include "VKDevice.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 VKCommandList::VKCommandList(vk::Device device, uint32_t queueFamilyIndex)
     : m_device(device)
@@ -350,4 +350,4 @@ void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
     m_cmdBuffer.beginRenderPass(rpBegin, vk::SubpassContents::eInline);
 }
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine

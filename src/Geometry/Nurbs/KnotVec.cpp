@@ -11,7 +11,7 @@
 #include "../Tolerance.h"
 #include <cmath>
 
-namespace MulanGeo::Geometry {
+namespace mulan::Geometry {
 
 // ============================================================
 // Cox-de Boor 递推算法
@@ -168,4 +168,4 @@ std::optional<BasisWindow> KnotVec::tryBsplineBasisFunctions(
     return BasisWindow(base, std::move(basis), num_basis);
 }
 
-} // namespace MulanGeo::Geometry
+} // namespace mulan::Geometry

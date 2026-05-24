@@ -9,7 +9,7 @@
 
 #include "VkCommon.h"
 
-namespace MulanGeo::engine {
+namespace mulan::engine {
 
 class VKFrameContext {
 public:
@@ -38,4 +38,4 @@ private:
     vk::Fence          m_inFlightFence;
 };
 
-} // namespace MulanGeo::Engine
+} // namespace mulan::Engine
