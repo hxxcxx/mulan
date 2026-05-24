@@ -11,7 +11,7 @@
 #include "DX12Common.h"
 #include "DX12DescriptorAllocator.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class DX12Sampler : public Sampler {
 public:

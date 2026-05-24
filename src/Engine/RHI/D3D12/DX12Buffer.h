@@ -11,7 +11,7 @@
 
 #include <vector>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class DX12Buffer final : public Buffer {
 public:

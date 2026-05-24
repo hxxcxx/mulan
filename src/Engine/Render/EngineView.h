@@ -35,7 +35,7 @@
 #include <string>
 #include <cstdint>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // ViewConfig — UI 端可控制的引擎初始化配置

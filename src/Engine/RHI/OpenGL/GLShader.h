@@ -10,7 +10,7 @@
 #include "GLCommon.h"
 #include "../Shader.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 /**
  * @brief OpenGL 着色器

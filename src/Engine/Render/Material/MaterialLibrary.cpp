@@ -5,7 +5,7 @@
 
 #include "MaterialLibrary.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // MaterialLibrary

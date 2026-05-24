@@ -16,7 +16,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 纹理资产 — 持有 RHI Texture 资源

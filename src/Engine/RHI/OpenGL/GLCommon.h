@@ -37,7 +37,7 @@ typedef HGLRC (WINAPI* PFNWGLCREATECONTEXTATTRIBSARBPROC)(HDC hDC, HGLRC hShareC
 #include <cstdio>
 #include <cstdlib>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 /// 检查 OpenGL 错误（Debug 模式下使用）
 inline void glCheckError(const char* file, int line) {
@@ -57,6 +57,6 @@ inline void glCheckError(const char* file, int line) {
 #endif
 }
 
-#define GL_CHECK() ::MulanGeo::Engine::glCheckError(__FILE__, __LINE__)
+#define GL_CHECK() ::MulanGeo::engine::glCheckError(__FILE__, __LINE__)
 
 } // namespace MulanGeo::Engine

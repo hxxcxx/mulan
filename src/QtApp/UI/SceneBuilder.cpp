@@ -11,7 +11,7 @@
 #include <MulanGeo/Engine/Geometry/Mesh.h>
 
 namespace Doc = MulanGeo::Document;
-namespace Eng = MulanGeo::Engine;
+namespace Eng = MulanGeo::engine;
 
 // ============================================================
 // 辅助：构建上下文

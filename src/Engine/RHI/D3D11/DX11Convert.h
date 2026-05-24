@@ -10,7 +10,7 @@
 #include "../Device.h"
 #include "DX11Common.h"
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 // ============================================================

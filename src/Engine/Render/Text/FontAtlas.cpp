@@ -15,7 +15,7 @@
 #include <cstring>
 #include <algorithm>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 构造 / 析构

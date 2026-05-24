@@ -8,7 +8,7 @@
 #include "ForwardPass.h"
 #include "../SceneRenderer.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 ForwardPass::ForwardPass(SceneRenderer& renderer)
     : m_renderer(renderer) {}

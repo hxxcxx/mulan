@@ -9,7 +9,7 @@
 
 #include <cstdio>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 GLSwapChain::GLSwapChain(const SwapChainDesc& desc,
                          const InitParams&    params,

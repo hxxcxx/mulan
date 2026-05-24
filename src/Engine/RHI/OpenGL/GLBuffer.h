@@ -25,7 +25,7 @@
 
 #include <vector>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class GLBuffer final : public Buffer {
 public:

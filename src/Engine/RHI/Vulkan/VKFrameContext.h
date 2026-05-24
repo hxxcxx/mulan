@@ -9,7 +9,7 @@
 
 #include "VkCommon.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class VKFrameContext {
 public:

@@ -7,7 +7,7 @@
 #include "DX12Texture.h"
 #include "DX12Convert.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 DX12Texture::DX12Texture(const TextureDesc& desc, ID3D12Device* device,
                          D3D12_RESOURCE_STATES initialState)

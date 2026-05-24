@@ -1,7 +1,7 @@
 #include "VKUploadContext.h"
 #include "VKBuffer.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 VKUploadContext::VKUploadContext(vk::Device device, VmaAllocator allocator,
                                  uint32_t queueFamily, vk::Queue queue)

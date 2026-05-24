@@ -7,7 +7,7 @@
 #include "DX11PipelineState.h"
 #include "DX11Shader.h"
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 DX11PipelineState::DX11PipelineState(const GraphicsPipelineDesc& desc,

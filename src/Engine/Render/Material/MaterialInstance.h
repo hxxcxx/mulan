@@ -13,7 +13,7 @@
 #include <string>
 #include <functional>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 材质实例 — 基于 MaterialAsset 模板创建

@@ -2,7 +2,7 @@
 
 #ifdef _WIN32
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 Win32Window::Win32Window(const Desc& desc)
     : m_width(desc.width)

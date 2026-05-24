@@ -10,7 +10,7 @@
 #include "../Fence.h"
 #include "VkConvert.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class VKFence : public Fence {
 public:

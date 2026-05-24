@@ -16,7 +16,7 @@
 #include <cstdio>
 #include <cstring>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 GLCommandList::GLCommandList() {
     glGenVertexArrays(1, &m_vao);

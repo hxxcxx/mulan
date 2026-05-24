@@ -1,6 +1,6 @@
 #include "VKFence.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 VKFence::VKFence(vk::Device device, uint64_t initialValue)
     : m_device(device)

@@ -26,10 +26,10 @@ public:
     void setUIDocument(UIDocument* doc);
 
     /// 设置引擎初始化配置（需在 init() 之前调用）
-    void setViewConfig(const MulanGeo::Engine::ViewConfig& cfg) { m_viewConfig = cfg; }
+    void setViewConfig(const MulanGeo::engine::ViewConfig& cfg) { m_viewConfig = cfg; }
 
     /// 获取可修改的引擎配置引用（需在 init() 之前调用）
-    MulanGeo::Engine::ViewConfig& viewConfig() { return m_viewConfig; }
+    MulanGeo::engine::ViewConfig& viewConfig() { return m_viewConfig; }
 
     /// 初始化 Vulkan 设备与 SwapChain（需在 widget 显示后、渲染前调用）
     void init();
@@ -38,7 +38,7 @@ public:
     void requestFrame();
 
     /// 访问底层引擎视图
-    MulanGeo::Engine::EngineView& engineView() { return m_view; }
+    MulanGeo::engine::EngineView& engineView() { return m_view; }
 
 protected:
     void resizeEvent(QResizeEvent* e) override;
@@ -54,12 +54,12 @@ protected:
     void keyReleaseEvent(QKeyEvent* e) override;
 
 private:
-    static MulanGeo::Engine::MouseButton translateButton(Qt::MouseButton btn);
-    static MulanGeo::Engine::MouseButton translateButtons(Qt::MouseButtons btns);
-    static MulanGeo::Engine::KeyModifier translateModifiers(Qt::KeyboardModifiers mods);
-    static MulanGeo::Engine::Key translateKey(int qtKey);
+    static MulanGeo::engine::MouseButton translateButton(Qt::MouseButton btn);
+    static MulanGeo::engine::MouseButton translateButtons(Qt::MouseButtons btns);
+    static MulanGeo::engine::KeyModifier translateModifiers(Qt::KeyboardModifiers mods);
+    static MulanGeo::engine::Key translateKey(int qtKey);
 
-    MulanGeo::Engine::EngineView  m_view;
-    MulanGeo::Engine::ViewConfig  m_viewConfig;
+    MulanGeo::engine::EngineView  m_view;
+    MulanGeo::engine::ViewConfig  m_viewConfig;
     UIDocument*                   m_uiDoc = nullptr;
 };

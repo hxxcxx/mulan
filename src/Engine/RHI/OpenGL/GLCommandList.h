@@ -27,7 +27,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // 前向声明
 class GLBuffer;

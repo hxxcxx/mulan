@@ -6,7 +6,7 @@
  */
 #include "DX12Buffer.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 DX12Buffer::DX12Buffer(const BufferDesc& desc, ID3D12Device* device)
     : m_desc(desc)

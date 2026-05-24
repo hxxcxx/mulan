@@ -22,7 +22,7 @@
 #include <array>
 #include <string>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 材质渲染类型 — 决定着色器选择

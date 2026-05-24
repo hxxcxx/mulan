@@ -18,7 +18,7 @@
 #include <cstring>
 #include <string>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 namespace {
 bool isExtensionSupported(const char* name) {

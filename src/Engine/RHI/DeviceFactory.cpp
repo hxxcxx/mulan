@@ -7,7 +7,7 @@
 #include "D3D11/DX11Device.h"
 #endif
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 std::shared_ptr<RHIDevice> RHIDevice::create(const DeviceCreateInfo& ci) {
     switch (ci.backend) {

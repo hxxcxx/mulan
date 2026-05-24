@@ -9,7 +9,7 @@
 #include <cmath>
 #include <filesystem>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 加载

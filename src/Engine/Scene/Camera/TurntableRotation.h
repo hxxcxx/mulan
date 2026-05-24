@@ -15,7 +15,7 @@
 
 #include "RotationMode.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class TurntableRotation : public RotationMode {
 public:

@@ -1,6 +1,6 @@
 #include "VKTexture.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 bool VKTexture::isDepthFormat(TextureFormat f) {
     return f == TextureFormat::D16_UNorm

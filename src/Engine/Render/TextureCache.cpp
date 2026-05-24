@@ -7,7 +7,7 @@
 
 #include <stdexcept>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // TextureAsset

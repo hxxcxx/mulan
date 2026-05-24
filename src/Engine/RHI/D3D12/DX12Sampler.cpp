@@ -9,7 +9,7 @@
 #include "DX12DescriptorAllocator.h"
 #include <cstdio>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // Helper: RHI enum → D3D12 enum

@@ -16,7 +16,7 @@
 
 #include <vector>
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 class DX11PipelineState final : public PipelineState

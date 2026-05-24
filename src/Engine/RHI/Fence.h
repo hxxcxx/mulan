@@ -9,7 +9,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class Fence {
 public:

@@ -20,7 +20,7 @@
 #include "MulanGeo/Engine/Math/Math.h"
 #include "MulanGeo/Engine/Math/AABB.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 class Mesh;
 }
 
@@ -76,14 +76,14 @@ public:
 
     /// 获取用于显示的三角网格（可能延迟生成并缓存）
     /// @return nullptr 表示该几何体暂无可显示的网格
-    virtual const Engine::Mesh* displayMesh() const = 0;
+    virtual const engine::Mesh* displayMesh() const = 0;
 
     /// 获取边线网格（用于 CAD 边线叠加渲染）
     /// 默认返回 nullptr，B-Rep 类型可重写
-    virtual const Engine::Mesh* edgeMesh() const { return nullptr; }
+    virtual const engine::Mesh* edgeMesh() const { return nullptr; }
 
     /// 轴对齐包围盒
-    virtual Engine::AABB boundingBox() const = 0;
+    virtual engine::AABB boundingBox() const = 0;
 };
 
 } // namespace MulanGeo::Document

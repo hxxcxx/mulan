@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 构造 / 模式切换

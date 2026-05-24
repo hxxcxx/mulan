@@ -23,7 +23,7 @@
 #include <glm/gtx/norm.hpp>           // length2, distance2
 #include <glm/gtx/quaternion.hpp>     // angleAxis, quat casting
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 场景层类型别名 — double 精度

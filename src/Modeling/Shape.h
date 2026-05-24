@@ -53,19 +53,19 @@ public:
     virtual std::unique_ptr<Shape> clone() const = 0;
 
     // --- 查询 ---
-    virtual Engine::AABB boundingBox() const = 0;
+    virtual engine::AABB boundingBox() const = 0;
     virtual bool isNull() const = 0;
     virtual std::string dumpType() const = 0;
 
     // --- 变换 ---
-    virtual void transform(const Engine::Mat4& mat) = 0;
+    virtual void transform(const engine::Mat4& mat) = 0;
 
     // --- 三角化 ---
-    virtual std::unique_ptr<Engine::Mesh> triangulate(
+    virtual std::unique_ptr<engine::Mesh> triangulate(
         const TessellationParams& params = {}) const = 0;
 
     // --- 边线提取 ---
-    virtual std::unique_ptr<Engine::Mesh> extractEdges(
+    virtual std::unique_ptr<engine::Mesh> extractEdges(
         const TessellationParams& params = {}) const = 0;
 
     // --- 布尔操作 ---

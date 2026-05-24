@@ -23,7 +23,7 @@
 class SceneBuilder {
 public:
     /// 从 Document 一次性构建 Scene
-    static std::unique_ptr<MulanGeo::Engine::Scene> build(
+    static std::unique_ptr<MulanGeo::engine::Scene> build(
         const MulanGeo::Document::Document* doc);
 
     static std::unordered_map<uint32_t, MulanGeo::Document::EntityId> buildPickIdMap(

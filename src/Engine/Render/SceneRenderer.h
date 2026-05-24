@@ -31,7 +31,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 渲染模式

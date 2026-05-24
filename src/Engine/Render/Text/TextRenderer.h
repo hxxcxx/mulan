@@ -19,7 +19,7 @@
 #include <memory>
 #include <vector>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // MSDF 文字渲染器

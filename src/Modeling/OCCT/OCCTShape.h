@@ -37,12 +37,12 @@ public:
 
     // --- Derived 接口实现 ---
     std::unique_ptr<OCCTShape>    doClone() const;
-    Engine::AABB                  doBoundingBox() const;
+    engine::AABB                  doBoundingBox() const;
     bool                          doIsNull() const;
     std::string                   doDumpType() const;
-    void                          doTransform(const Engine::Mat4& mat);
-    std::unique_ptr<Engine::Mesh> doTriangulate(const TessellationParams& params) const;
-    std::unique_ptr<Engine::Mesh> doExtractEdges(const TessellationParams& params) const;
+    void                          doTransform(const engine::Mat4& mat);
+    std::unique_ptr<engine::Mesh> doTriangulate(const TessellationParams& params) const;
+    std::unique_ptr<engine::Mesh> doExtractEdges(const TessellationParams& params) const;
     std::unique_ptr<OCCTShape>    doBoolean(int op, const OCCTShape& tool) const;
 
     // --- 工厂方法（定义在 .cpp 中，接受 TopoDS_Shape）---

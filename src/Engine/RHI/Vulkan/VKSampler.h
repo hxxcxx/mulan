@@ -10,7 +10,7 @@
 #include "../Sampler.h"
 #include "VkCommon.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class VKSampler : public Sampler {
 public:

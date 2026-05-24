@@ -11,7 +11,7 @@
 #include "../Device.h"
 #include "VkCommon.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 inline vk::Format toVkFormat(TextureFormat fmt) {
     switch (fmt) {

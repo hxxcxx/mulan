@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // MaterialLibrary — 预设材质库

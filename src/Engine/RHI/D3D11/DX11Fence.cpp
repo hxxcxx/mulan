@@ -9,7 +9,7 @@
  */
 #include "DX11Fence.h"
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 DX11Fence::DX11Fence(ID3D11Device* device, uint64_t initialValue)

@@ -14,7 +14,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 鼠标按钮

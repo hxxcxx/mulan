@@ -12,7 +12,7 @@
 #include <array>
 #include <cstdint>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 /// 轻量描述符集封装：收集写入操作，一次性 flush 到 GPU
 class VKDescriptorSet {

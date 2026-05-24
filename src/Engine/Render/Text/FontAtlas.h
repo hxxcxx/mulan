@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 字体图集 — MSDF 纹理 + 字形查找表

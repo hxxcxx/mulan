@@ -8,7 +8,7 @@
 
 #include <d3d11_1.h>
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 // ============================================================

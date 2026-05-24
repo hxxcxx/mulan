@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 着色器阶段

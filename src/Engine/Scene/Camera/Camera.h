@@ -26,7 +26,7 @@
 #include "../Frustum.h"
 #include "RotationMode.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 /// 相机旋转模式
 enum class CameraMode : uint8_t {

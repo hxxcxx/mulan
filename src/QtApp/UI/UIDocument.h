@@ -24,7 +24,7 @@
 #include <memory>
 #include <unordered_map>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 class EngineView;
 }
 
@@ -40,28 +40,28 @@ public:
 
     // --- 场景 ---
 
-    MulanGeo::Engine::Scene* scene() { return m_scene.get(); }
-    const MulanGeo::Engine::Scene* scene() const { return m_scene.get(); }
+    MulanGeo::engine::Scene* scene() { return m_scene.get(); }
+    const MulanGeo::engine::Scene* scene() const { return m_scene.get(); }
 
     // --- 视图连接 ---
 
     /// 绑定 EngineView（构建场景 + 设置 collector 回调 + 适配相机）
-    void attachView(MulanGeo::Engine::EngineView* view);
+    void attachView(MulanGeo::engine::EngineView* view);
 
     /// 解除绑定
     void detachView();
 
-    MulanGeo::Engine::EngineView* view() const { return m_view; }
+    MulanGeo::engine::EngineView* view() const { return m_view; }
 
     /// 通过 pickId 反查 EntityId（拾取用）
     MulanGeo::Document::EntityId resolvePickId(uint32_t pickId) const;
 
 private:
     MulanGeo::Document::Document*  m_doc;   // 不拥有，由 DocumentManager 管理
-    MulanGeo::Engine::EngineView*  m_view = nullptr;
+    MulanGeo::engine::EngineView*  m_view = nullptr;
 
     /// 由 SceneBuilder 一次性构建的渲染场景
-    std::unique_ptr<MulanGeo::Engine::Scene> m_scene;
+    std::unique_ptr<MulanGeo::engine::Scene> m_scene;
 
     /// pickId → EntityId 映射（拾取反查用）
     std::unordered_map<uint32_t, MulanGeo::Document::EntityId> m_pickIdMap;

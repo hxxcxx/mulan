@@ -50,8 +50,8 @@ public:
 
     // --- 变换 ---
 
-    const Engine::Mat4& localTransform() const { return m_transform; }
-    void setLocalTransform(const Engine::Mat4& t) { m_transform = t; }
+    const engine::Mat4& localTransform() const { return m_transform; }
+    void setLocalTransform(const engine::Mat4& t) { m_transform = t; }
 
     // --- 可见性 ---
 
@@ -75,7 +75,7 @@ private:
     EntityId                           m_id;
     std::string                        m_name;
     std::unique_ptr<Geometry>          m_geometry;
-    Engine::Mat4                       m_transform{1.0}; // identity
+    engine::Mat4                       m_transform{1.0}; // identity
     bool                               m_visible = true;
     EntityId                           m_parentId;
     std::unordered_map<std::string, Metadata> m_metadata;

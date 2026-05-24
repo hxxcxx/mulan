@@ -10,7 +10,7 @@
 #include "../Texture.h"
 #include "VkConvert.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class VKTexture : public Texture {
 public:

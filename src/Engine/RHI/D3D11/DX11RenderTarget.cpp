@@ -8,7 +8,7 @@
 #include "DX11CommandList.h"
 #include "DX11Convert.h"
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 DX11RenderTarget::DX11RenderTarget(const RenderTargetDesc& desc,

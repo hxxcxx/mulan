@@ -18,7 +18,7 @@
 #include <span>
 #include <vector>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 可绘制几何数据 — 原始字节 + 元信息

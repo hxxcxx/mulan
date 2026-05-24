@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 namespace {
 constexpr double kPi = 3.14159265358979323846;

@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 字形信息（由 FontAtlas 记录）

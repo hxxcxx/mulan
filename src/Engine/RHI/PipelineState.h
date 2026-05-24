@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 输入布局元素（PSO 层定义 stride）

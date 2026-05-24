@@ -8,7 +8,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 using json = nlohmann::json;
 

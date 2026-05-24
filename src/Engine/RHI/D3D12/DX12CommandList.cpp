@@ -10,7 +10,7 @@
 #include "DX12PipelineState.h"
 #include "DX12Convert.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 DX12CommandList::DX12CommandList(ID3D12Device* device,
                                  ID3D12CommandAllocator* allocator)

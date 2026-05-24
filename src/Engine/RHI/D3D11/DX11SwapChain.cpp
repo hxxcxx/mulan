@@ -9,7 +9,7 @@
 #include "DX11Convert.h"
 #include <cstdio>
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 DX11SwapChain::DX11SwapChain(const SwapChainDesc& desc, ID3D11Device* device,

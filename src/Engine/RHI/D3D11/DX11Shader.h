@@ -11,7 +11,7 @@
 
 #include <vector>
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 class DX11Shader final : public Shader

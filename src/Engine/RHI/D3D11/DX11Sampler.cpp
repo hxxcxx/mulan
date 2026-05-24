@@ -8,7 +8,7 @@
 #include "DX11Sampler.h"
 #include <cstdio>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // Helper: RHI enum → D3D11 enum

@@ -15,7 +15,7 @@
 #include <vector>
 #include <functional>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 材质资产 — 持有材质模板（不可变）

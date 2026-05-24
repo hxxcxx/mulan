@@ -6,7 +6,7 @@
 #include "MaterialInstance.h"
 #include "MaterialCache.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // MaterialInstance

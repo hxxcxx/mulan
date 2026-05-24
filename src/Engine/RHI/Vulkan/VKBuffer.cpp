@@ -1,6 +1,6 @@
 #include "VKBuffer.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 VKBuffer::VKBuffer(const BufferDesc& desc, VmaAllocator allocator)
     : m_desc(desc), m_allocator(allocator)

@@ -14,7 +14,7 @@
 
 #include <memory>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class VKRenderTarget : public RenderTarget {
 public:

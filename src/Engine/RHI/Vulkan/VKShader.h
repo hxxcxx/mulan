@@ -10,7 +10,7 @@
 #include "../Shader.h"
 #include "VkConvert.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class VKShader : public Shader {
 public:

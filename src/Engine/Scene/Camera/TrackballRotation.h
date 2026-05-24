@@ -16,7 +16,7 @@
 
 #include "RotationMode.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class TrackballRotation : public RotationMode {
 public:

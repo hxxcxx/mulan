@@ -9,7 +9,7 @@
 #include "../Fence.h"
 #include "DX11Common.h"
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 class DX11Fence final : public Fence

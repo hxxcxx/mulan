@@ -27,7 +27,7 @@ OCCTShapeGeometry::OCCTShapeGeometry(TopoDS_Shape shape)
     : m_shape(std::move(shape))
 {}
 
-const Engine::Mesh* OCCTShapeGeometry::displayMesh() const {
+const engine::Mesh* OCCTShapeGeometry::displayMesh() const {
     std::lock_guard lock(m_cacheMutex);
     if (!m_meshGenerated) {
         m_cachedMesh = triangulate();
@@ -36,7 +36,7 @@ const Engine::Mesh* OCCTShapeGeometry::displayMesh() const {
     return m_cachedMesh.get();
 }
 
-const Engine::Mesh* OCCTShapeGeometry::edgeMesh() const {
+const engine::Mesh* OCCTShapeGeometry::edgeMesh() const {
     std::lock_guard lock(m_cacheMutex);
     if (!m_edgeMeshGenerated) {
         m_cachedEdgeMesh = extractEdges();
@@ -45,21 +45,21 @@ const Engine::Mesh* OCCTShapeGeometry::edgeMesh() const {
     return m_cachedEdgeMesh.get();
 }
 
-Engine::AABB OCCTShapeGeometry::boundingBox() const {
+engine::AABB OCCTShapeGeometry::boundingBox() const {
     Bnd_Box box;
     BRepBndLib::Add(m_shape, box);
-    if (box.IsVoid()) return Engine::AABB::empty();
+    if (box.IsVoid()) return engine::AABB::empty();
 
     double xmin, ymin, zmin, xmax, ymax, zmax;
     box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
 
-    Engine::AABB result;
+    engine::AABB result;
     result.min = {xmin, ymin, zmin};
     result.max = {xmax, ymax, zmax};
     return result;
 }
 
-std::unique_ptr<Engine::Mesh> OCCTShapeGeometry::triangulate() const {
+std::unique_ptr<engine::Mesh> OCCTShapeGeometry::triangulate() const {
     // 计算线性偏差
     Bnd_Box box;
     BRepBndLib::Add(m_shape, box);
@@ -80,7 +80,7 @@ std::unique_ptr<Engine::Mesh> OCCTShapeGeometry::triangulate() const {
     mesher.Perform();
     if (!mesher.IsDone()) return nullptr;
 
-    auto mesh = std::make_unique<Engine::Mesh>();
+    auto mesh = std::make_unique<engine::Mesh>();
 
     for (TopExp_Explorer faceExp(shapeToMesh, TopAbs_FACE); faceExp.More(); faceExp.Next()) {
         const auto& face = TopoDS::Face(faceExp.Current());
@@ -125,7 +125,7 @@ std::unique_ptr<Engine::Mesh> OCCTShapeGeometry::triangulate() const {
     return mesh;
 }
 
-std::unique_ptr<Engine::Mesh> OCCTShapeGeometry::extractEdges() const {
+std::unique_ptr<engine::Mesh> OCCTShapeGeometry::extractEdges() const {
     // 计算线性偏差（与三角化一致）
     Bnd_Box box;
     BRepBndLib::Add(m_shape, box);
@@ -146,8 +146,8 @@ std::unique_ptr<Engine::Mesh> OCCTShapeGeometry::extractEdges() const {
     mesher.Perform();
     if (!mesher.IsDone()) return nullptr;
 
-    auto mesh = std::make_unique<Engine::Mesh>();
-    mesh->topology = Engine::PrimitiveTopology::LineList;
+    auto mesh = std::make_unique<engine::Mesh>();
+    mesh->topology = engine::PrimitiveTopology::LineList;
     // 边线顶点只需 position(3)，但为了复用同一个 vertex layout，补齐 normal(3) + uv(2)
     mesh->vertexStride = sizeof(float) * 8;
 

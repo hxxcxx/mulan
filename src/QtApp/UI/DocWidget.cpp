@@ -18,7 +18,7 @@
 #include <windows.h>
 #endif
 
-using namespace MulanGeo::Engine;
+using namespace MulanGeo::engine;
 
 DocWidget::DocWidget(QWidget* parent)
     : QWidget(parent)
@@ -152,7 +152,7 @@ void DocWidget::requestFrame() {
     }
 }
 
-MulanGeo::Engine::MouseButton DocWidget::translateButton(Qt::MouseButton btn) {
+MulanGeo::engine::MouseButton DocWidget::translateButton(Qt::MouseButton btn) {
     switch (btn) {
     case Qt::LeftButton:   return MouseButton::Left;
     case Qt::RightButton:  return MouseButton::Right;
@@ -161,7 +161,7 @@ MulanGeo::Engine::MouseButton DocWidget::translateButton(Qt::MouseButton btn) {
     }
 }
 
-MulanGeo::Engine::MouseButton DocWidget::translateButtons(Qt::MouseButtons btns) {
+MulanGeo::engine::MouseButton DocWidget::translateButtons(Qt::MouseButtons btns) {
     MouseButton result = MouseButton::None;
     if (btns & Qt::LeftButton)   result = result | MouseButton::Left;
     if (btns & Qt::RightButton)  result = result | MouseButton::Right;
@@ -169,7 +169,7 @@ MulanGeo::Engine::MouseButton DocWidget::translateButtons(Qt::MouseButtons btns)
     return result;
 }
 
-MulanGeo::Engine::KeyModifier DocWidget::translateModifiers(Qt::KeyboardModifiers mods) {
+MulanGeo::engine::KeyModifier DocWidget::translateModifiers(Qt::KeyboardModifiers mods) {
     KeyModifier result = KeyModifier::None;
     if (mods & Qt::ControlModifier) result = result | KeyModifier::Ctrl;
     if (mods & Qt::ShiftModifier)   result = result | KeyModifier::Shift;
@@ -177,7 +177,7 @@ MulanGeo::Engine::KeyModifier DocWidget::translateModifiers(Qt::KeyboardModifier
     return result;
 }
 
-MulanGeo::Engine::Key DocWidget::translateKey(int qtKey) {
+MulanGeo::engine::Key DocWidget::translateKey(int qtKey) {
     switch (qtKey) {
     case Qt::Key_Escape:    return Key::Escape;
     case Qt::Key_Return:

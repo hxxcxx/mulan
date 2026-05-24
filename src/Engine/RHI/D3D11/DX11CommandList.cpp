@@ -11,7 +11,7 @@
 #include "DX11Shader.h"
 #include "DX11Convert.h"
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 DX11CommandList::DX11CommandList(ID3D11DeviceContext* ctx)

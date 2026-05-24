@@ -13,7 +13,7 @@
 #include <cstdio>
 #include <string>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // OpenGL 状态转换工具

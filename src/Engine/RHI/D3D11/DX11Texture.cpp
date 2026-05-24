@@ -7,7 +7,7 @@
 #include "DX11Texture.h"
 #include "DX11Convert.h"
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 DX11Texture::DX11Texture(const TextureDesc& desc, ID3D11Device* device)

@@ -99,15 +99,15 @@ std::unique_ptr<OCCTShape> OCCTShape::doClone() const {
     return result;
 }
 
-Engine::AABB OCCTShape::doBoundingBox() const {
+engine::AABB OCCTShape::doBoundingBox() const {
     Bnd_Box box;
     BRepBndLib::Add(m_impl->shape, box);
-    if (box.IsVoid()) return Engine::AABB::empty();
+    if (box.IsVoid()) return engine::AABB::empty();
 
     double xmin, ymin, zmin, xmax, ymax, zmax;
     box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
 
-    Engine::AABB result;
+    engine::AABB result;
     result.min = {xmin, ymin, zmin};
     result.max = {xmax, ymax, zmax};
     return result;
@@ -137,7 +137,7 @@ std::string OCCTShape::doDumpType() const {
 // 变换
 // ============================================================
 
-void OCCTShape::doTransform(const Engine::Mat4& mat) {
+void OCCTShape::doTransform(const engine::Mat4& mat) {
     gp_Trsf trsf;
     const double* d = glm::value_ptr(mat);
     trsf.SetValues(
@@ -153,7 +153,7 @@ void OCCTShape::doTransform(const Engine::Mat4& mat) {
 // 三角化
 // ============================================================
 
-std::unique_ptr<Engine::Mesh> OCCTShape::doTriangulate(const TessellationParams& params) const {
+std::unique_ptr<engine::Mesh> OCCTShape::doTriangulate(const TessellationParams& params) const {
     Bnd_Box box;
     BRepBndLib::Add(m_impl->shape, box);
     if (box.IsVoid()) return nullptr;
@@ -175,7 +175,7 @@ std::unique_ptr<Engine::Mesh> OCCTShape::doTriangulate(const TessellationParams&
     mesher.Perform();
     if (!mesher.IsDone()) return nullptr;
 
-    auto mesh = std::make_unique<Engine::Mesh>();
+    auto mesh = std::make_unique<engine::Mesh>();
 
     for (TopExp_Explorer faceExp(shapeToMesh, TopAbs_FACE); faceExp.More(); faceExp.Next()) {
         const auto& face = TopoDS::Face(faceExp.Current());
@@ -224,7 +224,7 @@ std::unique_ptr<Engine::Mesh> OCCTShape::doTriangulate(const TessellationParams&
 // 边线提取
 // ============================================================
 
-std::unique_ptr<Engine::Mesh> OCCTShape::doExtractEdges(const TessellationParams& params) const {
+std::unique_ptr<engine::Mesh> OCCTShape::doExtractEdges(const TessellationParams& params) const {
     Bnd_Box box;
     BRepBndLib::Add(m_impl->shape, box);
     if (box.IsVoid()) return nullptr;
@@ -246,8 +246,8 @@ std::unique_ptr<Engine::Mesh> OCCTShape::doExtractEdges(const TessellationParams
     mesher.Perform();
     if (!mesher.IsDone()) return nullptr;
 
-    auto mesh = std::make_unique<Engine::Mesh>();
-    mesh->topology = Engine::PrimitiveTopology::LineList;
+    auto mesh = std::make_unique<engine::Mesh>();
+    mesh->topology = engine::PrimitiveTopology::LineList;
     mesh->vertexStride = sizeof(float) * 8;
 
     for (TopExp_Explorer edgeExp(shapeToMesh, TopAbs_EDGE); edgeExp.More(); edgeExp.Next()) {

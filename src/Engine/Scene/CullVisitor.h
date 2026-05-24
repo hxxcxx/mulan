@@ -21,7 +21,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class CullVisitor {
 public:

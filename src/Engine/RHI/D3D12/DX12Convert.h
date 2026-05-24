@@ -10,7 +10,7 @@
 #include "../Device.h"
 #include "DX12Common.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // TextureFormat → DXGI_FORMAT

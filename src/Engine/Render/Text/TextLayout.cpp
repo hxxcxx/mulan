@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <algorithm>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // UTF-8 解码

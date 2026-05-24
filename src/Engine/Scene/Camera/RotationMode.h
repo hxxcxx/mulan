@@ -16,7 +16,7 @@
 
 #include "../../Math/Math.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class RotationMode {
 public:

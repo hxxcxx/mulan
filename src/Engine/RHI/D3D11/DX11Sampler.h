@@ -10,7 +10,7 @@
 #include "../Sampler.h"
 #include "DX11Common.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class DX11Sampler : public Sampler {
 public:

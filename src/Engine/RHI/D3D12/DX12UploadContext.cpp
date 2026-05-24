@@ -7,7 +7,7 @@
 #include "DX12UploadContext.h"
 #include "DX12Buffer.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 DX12UploadContext::DX12UploadContext(ID3D12Device* device,
                                      ID3D12CommandQueue* queue,

@@ -1,6 +1,6 @@
 #include "Scene.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 Scene::Scene() {
     m_root = SceneNode::create(MulanGeo::NodeType::Base, "__root__");

@@ -14,7 +14,7 @@
 #include <span>
 #include <cstdint>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 顶点属性（布局中的单个属性）

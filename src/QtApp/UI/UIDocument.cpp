@@ -17,7 +17,7 @@ UIDocument::~UIDocument() {
     detachView();
 }
 
-void UIDocument::attachView(MulanGeo::Engine::EngineView* view) {
+void UIDocument::attachView(MulanGeo::engine::EngineView* view) {
     if (m_view) detachView();
     m_view = view;
 
@@ -29,8 +29,8 @@ void UIDocument::attachView(MulanGeo::Engine::EngineView* view) {
     view->setScene(m_scene.get());
 
     // 适配相机到场景包围盒
-    MulanGeo::Engine::AABB sceneBounds;
-    m_scene->traverse([&](MulanGeo::Engine::SceneNode& node) {
+    MulanGeo::engine::AABB sceneBounds;
+    m_scene->traverse([&](MulanGeo::engine::SceneNode& node) {
         const auto& bounds = node.worldBoundingBox();
         if (!bounds.isEmpty()) {
             sceneBounds.expand(bounds.min);

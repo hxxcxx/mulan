@@ -8,7 +8,7 @@
 #include "DX12CommandList.h"
 #include "DX12Convert.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 DX12RenderTarget::DX12RenderTarget(const RenderTargetDesc& desc,
                                    ID3D12Device* device)

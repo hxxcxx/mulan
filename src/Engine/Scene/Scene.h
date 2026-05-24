@@ -14,7 +14,7 @@
 #include <memory>
 #include <string_view>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class Scene {
 public:

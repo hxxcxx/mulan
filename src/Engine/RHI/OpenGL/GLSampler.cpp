@@ -8,7 +8,7 @@
 #include "GLSampler.h"
 #include <cstdio>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // Helper: RHI enum → OpenGL enum

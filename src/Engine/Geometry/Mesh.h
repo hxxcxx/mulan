@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 网格 — CPU 侧拥有顶点与索引数据

@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <string>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 内部工具函数

@@ -6,7 +6,7 @@
  */
 #include "DX12FrameContext.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 DX12FrameContext::DX12FrameContext(ID3D12Device* device) {
     HRESULT hr = device->CreateCommandAllocator(

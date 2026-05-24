@@ -15,7 +15,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 struct RenderStats;
 

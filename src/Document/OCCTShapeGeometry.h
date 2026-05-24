@@ -31,13 +31,13 @@ public:
     const TopoDS_Shape& shape() const { return m_shape; }
 
     /// 延迟三角化并缓存，线程安全
-    const Engine::Mesh* displayMesh() const override;
+    const engine::Mesh* displayMesh() const override;
 
     /// 延迟提取边线并缓存（从 OCCT TopAbs_EDGE 提取线段）
-    const Engine::Mesh* edgeMesh() const override;
+    const engine::Mesh* edgeMesh() const override;
 
     /// 从 OCCT shape 计算包围盒
-    Engine::AABB boundingBox() const override;
+    engine::AABB boundingBox() const override;
 
     // --- Core::Object 序列化 ---
     // OCCT B-Rep 序列化由 OCCT 的 TKBinXCAF 处理，此处暂不实现
@@ -66,14 +66,14 @@ public:
 
 private:
     /// 执行三角化（内部调用）
-    std::unique_ptr<Engine::Mesh> triangulate() const;
+    std::unique_ptr<engine::Mesh> triangulate() const;
 
     /// 从 OCCT shape 提取边线（内部调用）
-    std::unique_ptr<Engine::Mesh> extractEdges() const;
+    std::unique_ptr<engine::Mesh> extractEdges() const;
 
     TopoDS_Shape m_shape;
-    mutable std::unique_ptr<Engine::Mesh> m_cachedMesh;
-    mutable std::unique_ptr<Engine::Mesh> m_cachedEdgeMesh;
+    mutable std::unique_ptr<engine::Mesh> m_cachedMesh;
+    mutable std::unique_ptr<engine::Mesh> m_cachedEdgeMesh;
     mutable std::mutex m_cacheMutex;
     mutable bool m_meshGenerated = false;
     mutable bool m_edgeMeshGenerated = false;

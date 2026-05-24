@@ -10,7 +10,7 @@
 #include "../Sampler.h"
 #include "GLCommon.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class GLSampler : public Sampler {
 public:

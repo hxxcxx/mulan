@@ -6,7 +6,7 @@
  */
 #include "DX12Device.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 构造 / 析构

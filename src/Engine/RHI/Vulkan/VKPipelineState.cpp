@@ -2,7 +2,7 @@
 #include "VKDevice.h"
 #include "VKShader.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 VKPipelineState::VKPipelineState(const GraphicsPipelineDesc& desc,
                                  vk::Device device, VKDevice* ownerDevice)

@@ -7,7 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // Vulkan 验证层调试回调

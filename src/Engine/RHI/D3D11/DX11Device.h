@@ -22,7 +22,7 @@
 
 #include <memory>
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 class DX11Device final : public RHIDevice

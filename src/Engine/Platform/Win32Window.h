@@ -17,7 +17,7 @@
 #include <string>
 #include <Windows.h>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class Win32Window : public IWindow {
 public:

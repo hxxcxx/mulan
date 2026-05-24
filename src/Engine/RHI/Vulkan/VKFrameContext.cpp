@@ -1,6 +1,6 @@
 #include "VKFrameContext.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 VKFrameContext::VKFrameContext(vk::Device device, uint32_t queueFamily)
     : m_device(device)

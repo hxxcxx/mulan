@@ -37,21 +37,21 @@ public:
     }
 
     // --- 查询 ---
-    Engine::AABB boundingBox() const override { return self().doBoundingBox(); }
+    engine::AABB boundingBox() const override { return self().doBoundingBox(); }
     bool isNull() const override { return self().doIsNull(); }
     std::string dumpType() const override { return self().doDumpType(); }
 
     // --- 变换 ---
-    void transform(const Engine::Mat4& mat) override { selfMut().doTransform(mat); }
+    void transform(const engine::Mat4& mat) override { selfMut().doTransform(mat); }
 
     // --- 三角化 ---
-    std::unique_ptr<Engine::Mesh> triangulate(
+    std::unique_ptr<engine::Mesh> triangulate(
         const TessellationParams& params = {}) const override {
         return self().doTriangulate(params);
     }
 
     // --- 边线提取 ---
-    std::unique_ptr<Engine::Mesh> extractEdges(
+    std::unique_ptr<engine::Mesh> extractEdges(
         const TessellationParams& params = {}) const override {
         return self().doExtractEdges(params);
     }

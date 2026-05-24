@@ -16,7 +16,7 @@
 #include "Operator.h"
 #include "../Scene/Camera/Camera.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class CameraManipulator : public Operator {
 public:

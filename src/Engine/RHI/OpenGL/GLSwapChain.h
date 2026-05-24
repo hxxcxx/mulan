@@ -11,7 +11,7 @@
 #include "../SwapChain.h"
 #include "../../Window.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class CommandList;
 

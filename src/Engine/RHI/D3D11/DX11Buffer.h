@@ -9,7 +9,7 @@
 #include "../Buffer.h"
 #include "DX11Common.h"
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 class DX11Buffer final : public Buffer

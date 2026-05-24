@@ -9,7 +9,7 @@
 
 #include <cstdint>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 // ============================================================
 // 渲染配置 — 窗口级渲染参数

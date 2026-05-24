@@ -20,7 +20,7 @@
 
 #include <string_view>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class GLPipelineState final : public PipelineState {
 public:

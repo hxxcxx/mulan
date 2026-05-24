@@ -12,7 +12,7 @@
 
 #include <memory>
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 class DX11RenderTarget final : public RenderTarget

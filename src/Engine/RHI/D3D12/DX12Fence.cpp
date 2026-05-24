@@ -6,7 +6,7 @@
  */
 #include "DX12Fence.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 DX12Fence::DX12Fence(ID3D12Device* device, uint64_t initialValue) {
     HRESULT hr = device->CreateFence(initialValue, D3D12_FENCE_FLAG_NONE,

@@ -1,6 +1,6 @@
 #include "VKShader.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 VKShader::VKShader(const ShaderDesc& desc, vk::Device device)
     : m_desc(desc), m_device(device)

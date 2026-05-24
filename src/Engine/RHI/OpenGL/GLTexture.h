@@ -22,7 +22,7 @@
 #include "GLCommon.h"
 #include "../Texture.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class GLTexture final : public Texture {
 public:

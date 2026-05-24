@@ -8,7 +8,7 @@
 #include "DX12CommandList.h"
 #include "DX12Convert.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 DX12SwapChain::DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device,
                              IDXGIFactory4* factory, ID3D12CommandQueue* queue,

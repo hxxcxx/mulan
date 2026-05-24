@@ -10,7 +10,7 @@
 #include "../Math/Math.h"
 #include "../Math/AABB.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 struct Plane {
     Vec3  normal = {0, 1, 0};

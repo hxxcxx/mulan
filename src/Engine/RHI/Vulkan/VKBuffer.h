@@ -12,7 +12,7 @@
 
 #include <vector>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class VKBuffer : public Buffer {
 public:

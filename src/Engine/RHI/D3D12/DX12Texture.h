@@ -9,7 +9,7 @@
 #include "../Texture.h"
 #include "DX12Common.h"
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 class DX12Texture final : public Texture {
 public:

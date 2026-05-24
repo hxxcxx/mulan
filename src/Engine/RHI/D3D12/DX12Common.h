@@ -47,7 +47,7 @@
 #define DX12_LOG(...) do {} while (0)
 #endif
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 using Microsoft::WRL::ComPtr;
 

@@ -13,7 +13,7 @@
 
 #include <memory>
 
-namespace MulanGeo::Engine
+namespace MulanGeo::engine
 {
 
 class DX11SwapChain final : public SwapChain

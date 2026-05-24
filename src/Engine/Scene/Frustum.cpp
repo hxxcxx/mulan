@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace MulanGeo::Engine {
+namespace MulanGeo::engine {
 
 double Plane::signedDistance(const Vec3& point) const {
     return glm::dot(normal, point) + distance;
