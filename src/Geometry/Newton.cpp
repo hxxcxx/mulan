@@ -10,7 +10,7 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtx/norm.hpp>
 
-namespace mulan::Geometry {
+namespace mulan::geometry {
 
 std::optional<double> newton_solve1d(
     std::function<std::pair<double, double>(double)> func,

@@ -10,11 +10,12 @@
 #pragma once
 
 #include "ModelingExport.h"
-#include "MulanGeo/Engine/Geometry/Mesh.h"
-#include "MulanGeo/Engine/Math/Math.h"
 
 #include <memory>
 #include <string>
+
+#include "MulanGeo/Engine/Geometry/Mesh.h"
+#include "MulanGeo/Engine/Math/Math.h"
 
 namespace mulan::modeling {
 

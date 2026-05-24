@@ -11,7 +11,7 @@
 #include "../Tolerance.h"
 #include <cmath>
 
-namespace mulan::Geometry {
+namespace mulan::geometry {
 
 // ============================================================
 // Cox-de Boor 递推算法

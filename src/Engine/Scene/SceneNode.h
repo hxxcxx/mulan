@@ -17,7 +17,7 @@
 #include <vector>
 #include <memory>
 
-namespace MulanGeo {
+namespace mulan {
 
 // 节点类型枚举
 enum class NodeType : uint8_t {
@@ -26,7 +26,7 @@ enum class NodeType : uint8_t {
     Group     = 2,
 };
 
-} // namespace MulanGeo
+} // namespace mulan
 
 namespace mulan::engine {
 
