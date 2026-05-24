@@ -10,12 +10,12 @@
  */
 #pragma once
 
-#include <MulanGeo/Geometry/Types.h>
-#include <MulanGeo/Geometry/Tolerance.h>
-#include <MulanGeo/Geometry/Newton.h>
-#include <MulanGeo/Geometry/traits/ParametricSurface.h>
-#include <MulanGeo/Geometry/traits/ParametricCurve.h>
-#include <MulanGeo/Geometry/traits/SearchParameter.h>
+#include <mulan/Geometry/Types.h>
+#include <mulan/Geometry/Tolerance.h>
+#include <mulan/Geometry/Newton.h>
+#include <mulan/Geometry/traits/ParametricSurface.h>
+#include <mulan/Geometry/traits/ParametricCurve.h>
+#include <mulan/Geometry/traits/SearchParameter.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp>

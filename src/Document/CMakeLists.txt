@@ -10,13 +10,13 @@ add_library(Document STATIC
     DocumentManager.cpp
 )
 
-# 构建时将头文件复制到 build/include/MulanGeo/Document/...
+# 构建时将头文件复制到 build/include/mulan/Document/...
 file(GLOB_RECURSE DOCUMENT_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
 )
 foreach(hdr ${DOCUMENT_HEADERS})
     file(RELATIVE_PATH rel "${CMAKE_CURRENT_SOURCE_DIR}" "${hdr}")
-    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/MulanGeo/Document/${rel}" COPYONLY)
+    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/Document/${rel}" COPYONLY)
 endforeach()
 
 target_include_directories(Document PUBLIC

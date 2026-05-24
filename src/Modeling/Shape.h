@@ -14,8 +14,8 @@
 #include <memory>
 #include <string>
 
-#include "MulanGeo/Engine/Geometry/Mesh.h"
-#include "MulanGeo/Engine/Math/Math.h"
+#include "mulan/Engine/Geometry/Mesh.h"
+#include "mulan/Engine/Math/Math.h"
 
 namespace mulan::modeling {
 

@@ -28,16 +28,16 @@ add_library(Modeling SHARED
     ${OCCT_SHAPE_SOURCES}
 )
 
-# 构建时将公共头文件复制到 build/include/MulanGeo/Modeling/...
+# 构建时将公共头文件复制到 build/include/mulan/Modeling/...
 foreach(hdr ${MODELING_PUBLIC_HEADERS})
     file(RELATIVE_PATH rel "${CMAKE_CURRENT_SOURCE_DIR}" "${hdr}")
-    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/MulanGeo/Modeling/${rel}" COPYONLY)
+    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/Modeling/${rel}" COPYONLY)
 endforeach()
 
 # OCCTShape.h 也复制（供需要知道具体类型的地方使用）
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/OCCT/OCCTShape.h"
-    "${CMAKE_BINARY_DIR}/include/MulanGeo/Modeling/OCCT/OCCTShape.h"
+    "${CMAKE_BINARY_DIR}/include/mulan/Modeling/OCCT/OCCTShape.h"
     COPYONLY
 )
 

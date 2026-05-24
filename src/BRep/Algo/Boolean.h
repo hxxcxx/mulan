@@ -33,10 +33,10 @@
 #include "PolylineAssembly.h"
 #include "DivideFace.h"
 
-#include <MulanGeo/Geometry/Types.h>
-#include <MulanGeo/Geometry/Tolerance.h>
-#include <MulanGeo/Geometry/Specified/Line.h>
-#include <MulanGeo/Geometry/Nurbs/BSplineCurve.h>
+#include <mulan/Geometry/Types.h>
+#include <mulan/Geometry/Tolerance.h>
+#include <mulan/Geometry/Specified/Line.h>
+#include <mulan/Geometry/Nurbs/BSplineCurve.h>
 
 #include <glm/glm.hpp>
 

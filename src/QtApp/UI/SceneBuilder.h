@@ -14,8 +14,8 @@
  */
 #pragma once
 
-#include <MulanGeo/Document/Document.h>
-#include <MulanGeo/Engine/Scene/Scene.h>
+#include <mulan/Document/Document.h>
+#include <mulan/Engine/Scene/Scene.h>
 
 #include <memory>
 #include <unordered_map>

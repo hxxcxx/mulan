@@ -10,19 +10,19 @@
 #include "../CurveSurface/CurveSurface.h"
 #include "../CurveSurface/CurveOps.h"
 
-#include <MulanGeo/Geometry/Types.h>
-#include <MulanGeo/Geometry/Tolerance.h>
-#include <MulanGeo/Geometry/Specified/Line.h>
-#include <MulanGeo/Geometry/Specified/Plane.h>
-#include <MulanGeo/Geometry/Specified/Circle.h>
-#include <MulanGeo/Geometry/Nurbs/BSplineCurve.h>
-#include <MulanGeo/Geometry/Nurbs/NurbsCurve.h>
-#include <MulanGeo/Geometry/Nurbs/BSplineSurface.h>
-#include <MulanGeo/Geometry/Nurbs/NurbsSurface.h>
-#include <MulanGeo/Geometry/Decorators/Processor.h>
-#include <MulanGeo/Geometry/Decorators/TrimmedCurve.h>
-#include <MulanGeo/Geometry/Decorators/ExtrudedCurve.h>
-#include <MulanGeo/Geometry/Decorators/RevolutedCurve.h>
+#include <mulan/Geometry/Types.h>
+#include <mulan/Geometry/Tolerance.h>
+#include <mulan/Geometry/Specified/Line.h>
+#include <mulan/Geometry/Specified/Plane.h>
+#include <mulan/Geometry/Specified/Circle.h>
+#include <mulan/Geometry/Nurbs/BSplineCurve.h>
+#include <mulan/Geometry/Nurbs/NurbsCurve.h>
+#include <mulan/Geometry/Nurbs/BSplineSurface.h>
+#include <mulan/Geometry/Nurbs/NurbsSurface.h>
+#include <mulan/Geometry/Decorators/Processor.h>
+#include <mulan/Geometry/Decorators/TrimmedCurve.h>
+#include <mulan/Geometry/Decorators/ExtrudedCurve.h>
+#include <mulan/Geometry/Decorators/RevolutedCurve.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp>

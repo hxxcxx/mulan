@@ -8,8 +8,8 @@
 
 #include <QWidget>
 
-#include <MulanGeo/Engine/Render/EngineView.h>
-#include <MulanGeo/Engine/Interaction/InputEvent.h>
+#include <mulan/Engine/Render/EngineView.h>
+#include <mulan/Engine/Interaction/InputEvent.h>
 
 #include <memory>
 

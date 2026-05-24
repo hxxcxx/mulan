@@ -14,11 +14,11 @@
 
 #include "DocumentExport.h"
 
-#include "MulanGeo/Core/Reflection/Object.h"
-#include "MulanGeo/Core/Reflection/Macro.h"
+#include "mulan/Core/Reflection/Object.h"
+#include "mulan/Core/Reflection/Macro.h"
 
-#include "MulanGeo/Engine/Math/Math.h"
-#include "MulanGeo/Engine/Math/AABB.h"
+#include "mulan/Engine/Math/Math.h"
+#include "mulan/Engine/Math/AABB.h"
 
 namespace mulan::core
 {

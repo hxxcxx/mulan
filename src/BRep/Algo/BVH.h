@@ -15,8 +15,8 @@
 
 #include "Triangulation.h"
 
-#include <MulanGeo/Geometry/Types.h>
-#include <MulanGeo/Geometry/Tolerance.h>
+#include <mulan/Geometry/Types.h>
+#include <mulan/Geometry/Tolerance.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp>

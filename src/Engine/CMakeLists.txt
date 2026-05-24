@@ -75,13 +75,13 @@ add_library(Engine STATIC
     RHI/OpenGL/GLSampler.cpp
 )
 
-# 构建时将头文件复制到 build/include/MulanGeo/Engine/...
+# 构建时将头文件复制到 build/include/mulan/Engine/...
 file(GLOB_RECURSE ENGINE_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
 )
 foreach(hdr ${ENGINE_HEADERS})
     file(RELATIVE_PATH rel "${CMAKE_CURRENT_SOURCE_DIR}" "${hdr}")
-    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/MulanGeo/Engine/${rel}" COPYONLY)
+    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/Engine/${rel}" COPYONLY)
 endforeach()
 
 target_include_directories(Engine PUBLIC

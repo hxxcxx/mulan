@@ -13,17 +13,17 @@ add_library(Core SHARED
     Reflection/TypeRegistry.cpp
 )
 
-# 构建时将头文件复制到 build/include/MulanGeo/Core/...
+# 构建时将头文件复制到 build/include/mulan/Core/...
 file(GLOB_RECURSE CORE_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/**/*.h"
 )
 foreach(hdr ${CORE_HEADERS})
     file(RELATIVE_PATH rel "${CMAKE_CURRENT_SOURCE_DIR}" "${hdr}")
-    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/MulanGeo/Core/${rel}" COPYONLY)
+    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/Core/${rel}" COPYONLY)
 endforeach()
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/CoreExport.h"
-               "${CMAKE_BINARY_DIR}/include/MulanGeo/Core/CoreExport.h" COPYONLY)
+               "${CMAKE_BINARY_DIR}/include/mulan/Core/CoreExport.h" COPYONLY)
 
 
 target_include_directories(Core PUBLIC

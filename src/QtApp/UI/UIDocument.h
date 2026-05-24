@@ -14,12 +14,12 @@
  */
 #pragma once
 
-#include <MulanGeo/Document/Document.h>
-#include <MulanGeo/Engine/Scene/Scene.h>
-#include <MulanGeo/Engine/Render/RenderGeometry.h>
-#include <MulanGeo/Engine/Scene/Camera/Camera.h>
-#include <MulanGeo/Engine/Math/Math.h>
-#include <MulanGeo/Engine/Math/AABB.h>
+#include <mulan/Document/Document.h>
+#include <mulan/Engine/Scene/Scene.h>
+#include <mulan/Engine/Render/RenderGeometry.h>
+#include <mulan/Engine/Scene/Camera/Camera.h>
+#include <mulan/Engine/Math/Math.h>
+#include <mulan/Engine/Math/AABB.h>
 
 #include <memory>
 #include <unordered_map>

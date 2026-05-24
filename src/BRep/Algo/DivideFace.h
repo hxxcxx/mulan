@@ -29,12 +29,12 @@
 #include "Triangulation.h"
 #include "PolylineAssembly.h"
 
-#include <MulanGeo/Geometry/Types.h>
-#include <MulanGeo/Geometry/Tolerance.h>
-#include <MulanGeo/Geometry/Specified/Line.h>
-#include <MulanGeo/Geometry/Specified/Plane.h>
-#include <MulanGeo/Geometry/Nurbs/BSplineCurve.h>
-#include <MulanGeo/Geometry/Algo/surface/search.h>
+#include <mulan/Geometry/Types.h>
+#include <mulan/Geometry/Tolerance.h>
+#include <mulan/Geometry/Specified/Line.h>
+#include <mulan/Geometry/Specified/Plane.h>
+#include <mulan/Geometry/Nurbs/BSplineCurve.h>
+#include <mulan/Geometry/Algo/surface/search.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp>

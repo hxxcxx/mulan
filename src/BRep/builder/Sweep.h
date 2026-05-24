@@ -11,14 +11,14 @@
 #include "../CurveSurface/CurveOps.h"
 #include "Builder.h"
 
-#include <MulanGeo/Geometry/Types.h>
-#include <MulanGeo/Geometry/Tolerance.h>
-#include <MulanGeo/Geometry/Specified/Line.h>
-#include <MulanGeo/Geometry/Specified/Plane.h>
-#include <MulanGeo/Geometry/Specified/Circle.h>
-#include <MulanGeo/Geometry/Nurbs/BSplineCurve.h>
-#include <MulanGeo/Geometry/Decorators/RevolutedCurve.h>
-#include <MulanGeo/Geometry/Decorators/ExtrudedCurve.h>
+#include <mulan/Geometry/Types.h>
+#include <mulan/Geometry/Tolerance.h>
+#include <mulan/Geometry/Specified/Line.h>
+#include <mulan/Geometry/Specified/Plane.h>
+#include <mulan/Geometry/Specified/Circle.h>
+#include <mulan/Geometry/Nurbs/BSplineCurve.h>
+#include <mulan/Geometry/Decorators/RevolutedCurve.h>
+#include <mulan/Geometry/Decorators/ExtrudedCurve.h>
 
 #include <glm/glm.hpp>
 #include <cmath>

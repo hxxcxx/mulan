@@ -13,10 +13,10 @@
 #pragma once
 
 #include "CurveSurface.h"
-#include <MulanGeo/Geometry/Types.h>
-#include <MulanGeo/Geometry/Tolerance.h>
-#include <MulanGeo/Geometry/Algo/curve/presearch.h>
-#include <MulanGeo/Geometry/Algo/surface/search.h>
+#include <mulan/Geometry/Types.h>
+#include <mulan/Geometry/Tolerance.h>
+#include <mulan/Geometry/Algo/curve/presearch.h>
+#include <mulan/Geometry/Algo/surface/search.h>
 #include <utility>
 
 namespace mulan::brep {

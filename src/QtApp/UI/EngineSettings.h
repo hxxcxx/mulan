@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <MulanGeo/Engine/Render/EngineView.h>
+#include <mulan/Engine/Render/EngineView.h>
 #include <QColor>
 #include <QSettings>
 

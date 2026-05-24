@@ -7,13 +7,13 @@ add_library(Geometry SHARED
     nurbs/KnotVec.cpp
 )
 
-# 构建时将头文件复制到 build/include/MulanGeo/Geometry/...
+# 构建时将头文件复制到 build/include/mulan/Geometry/...
 file(GLOB_RECURSE GEO_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
 )
 foreach(hdr ${GEO_HEADERS})
     file(RELATIVE_PATH rel "${CMAKE_CURRENT_SOURCE_DIR}" "${hdr}")
-    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/MulanGeo/Geometry/${rel}" COPYONLY)
+    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/Geometry/${rel}" COPYONLY)
 endforeach()
 
 target_include_directories(Geometry PUBLIC

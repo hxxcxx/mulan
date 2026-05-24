@@ -15,7 +15,7 @@
 #pragma once
 
 #include "../RHI/Texture.h"
-#include <MulanGeo/Core/Image/Image.h>
+#include <mulan/Core/Image/Image.h>
 
 #include <cstdint>
 #include <memory>

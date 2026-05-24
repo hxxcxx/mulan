@@ -19,13 +19,13 @@
 #include "../../Scene/SceneNode.h"
 #include "../../Geometry/PrimitiveMesh.h"
 
-#include "MulanGeo/Document/Document.h"
-#include "MulanGeo/Document/Entity.h"
-#include "MulanGeo/Document/BoxGeometry.h"
-#include "MulanGeo/Document/CylinderGeometry.h"
-#include "MulanGeo/Document/SphereGeometry.h"
-#include "MulanGeo/Document/ConeGeometry.h"
-#include "MulanGeo/Document/MeshGeometry.h"
+#include "mulan/Document/Document.h"
+#include "mulan/Document/Entity.h"
+#include "mulan/Document/BoxGeometry.h"
+#include "mulan/Document/CylinderGeometry.h"
+#include "mulan/Document/SphereGeometry.h"
+#include "mulan/Document/ConeGeometry.h"
+#include "mulan/Document/MeshGeometry.h"
 
 #include <memory>
 #include <optional>

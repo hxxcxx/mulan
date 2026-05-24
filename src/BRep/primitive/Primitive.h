@@ -12,11 +12,11 @@
 #include "../Builder/Builder.h"
 #include "../Builder/Sweep.h"
 
-#include <MulanGeo/Geometry/Types.h>
-#include <MulanGeo/Geometry/Specified/Line.h>
-#include <MulanGeo/Geometry/Specified/Plane.h>
-#include <MulanGeo/Geometry/Specified/Circle.h>
-#include <MulanGeo/Geometry/BoundingBox.h>
+#include <mulan/Geometry/Types.h>
+#include <mulan/Geometry/Specified/Line.h>
+#include <mulan/Geometry/Specified/Plane.h>
+#include <mulan/Geometry/Specified/Circle.h>
+#include <mulan/Geometry/BoundingBox.h>
 
 #include <glm/glm.hpp>
 #include <cmath>

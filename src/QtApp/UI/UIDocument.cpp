@@ -7,7 +7,7 @@
 #include "UIDocument.h"
 #include "SceneBuilder.h"
 
-#include <MulanGeo/Engine/Render/EngineView.h>
+#include <mulan/Engine/Render/EngineView.h>
 
 UIDocument::UIDocument(mulan::document::Document* doc)
     : m_doc(doc)
