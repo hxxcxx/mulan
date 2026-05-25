@@ -275,6 +275,25 @@ void EngineView::setOperator(std::unique_ptr<Operator> op) {
     m_operator->onActivate(m_camera);
 }
 
+std::unique_ptr<Operator> EngineView::takeOperator() {
+    auto old = std::move(m_operator);
+    m_operator = std::make_unique<CameraManipulator>();
+    m_operator->onActivate(m_camera);
+    return old;
+}
+
+void EngineView::setOperatorRaw(Operator* op) {
+    if (m_operator) {
+        m_operator->onDeactivate(m_camera);
+    }
+    // release 旧指针（不 delete，因为可能是 setOperatorRaw 设进来的）
+    m_operator.release();
+    m_operator.reset(op);
+    if (m_operator) {
+        m_operator->onActivate(m_camera);
+    }
+}
+
 // ============================================================
 // 场景
 // ============================================================

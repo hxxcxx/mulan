@@ -146,6 +146,13 @@ public:
     /// 设置当前操作器（nullptr 恢复默认 CameraManipulator）
     void setOperator(std::unique_ptr<Operator> op);
 
+    /// 临时设置操作器指针（不获取所有权，不 delete）
+    /// 恢复时调 setOperator(nullptr) 或 setOperator(unique_ptr)
+    void setOperatorRaw(Operator* op);
+
+    /// 取出当前操作器并替换为默认 CameraManipulator
+    std::unique_ptr<Operator> takeOperator();
+
     /// 获取当前操作器
     Operator* currentOperator() const { return m_operator.get(); }
 
