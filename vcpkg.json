@@ -16,6 +16,7 @@
         "tl-expected",
         "freetype",
         "tinyxml2",
-        "libpng"
+        "libpng",
+        "tomlplusplus"
     ]
 }

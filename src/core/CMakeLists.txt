@@ -4,6 +4,7 @@
 # 所有模块均可引入。
 add_library(Core SHARED
     image/Image.cpp
+    ini/ConfigFile.cpp
     log/Log.cpp
     result/Result.cpp
     serialization/Archive.cpp
@@ -41,6 +42,10 @@ endif()
 # --- spdlog (日志) ---
 find_package(spdlog CONFIG REQUIRED)
 target_link_libraries(Core PRIVATE spdlog::spdlog)
+
+# --- toml++ (TOML 配置文件) ---
+find_package(tomlplusplus CONFIG REQUIRED)
+target_link_libraries(Core PUBLIC tomlplusplus::tomlplusplus)
 
 # --- tl-expected (Result<T, Error>) ---
 find_path(TL_EXPECTED_INCLUDE_DIR "tl/expected.hpp")
