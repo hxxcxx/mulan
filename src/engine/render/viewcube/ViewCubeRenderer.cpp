@@ -217,9 +217,18 @@ bool ViewCubeRenderer::init(TextureFormat colorFmt, TextureFormat depthFmt) {
     }
 
     // --- UBO ---
+    // 材质 UBO 需要按 minUniformBufferOffsetAlignment 对齐
+    uint32_t uboAlign = m_device->capabilities().minUniformBufferOffsetAlignment;
+    if (uboAlign == 0) uboAlign = 256;
+    auto alignUp32 = [](uint32_t value, uint32_t alignment) -> uint32_t {
+        uint32_t mask = alignment - 1;
+        return (value + mask) & ~mask;
+    };
+    m_materialStride = alignUp32(static_cast<uint32_t>(sizeof(MaterialUBO)), uboAlign);
+
     m_sceneUBO   = m_device->createBuffer(BufferDesc::uniform(sizeof(SceneUBO),   "ViewCube_SceneUBO"));
     m_objectUBO  = m_device->createBuffer(BufferDesc::uniform(sizeof(ObjectUBO),  "ViewCube_ObjectUBO"));
-    m_materialUBO= m_device->createBuffer(BufferDesc::uniform(sizeof(MaterialUBO) * kFaceCount, "ViewCube_MaterialUBO"));
+    m_materialUBO= m_device->createBuffer(BufferDesc::uniform(m_materialStride * kFaceCount, "ViewCube_MaterialUBO"));
 
     if (!m_sceneUBO || !m_objectUBO || !m_materialUBO) return false;
 
@@ -236,8 +245,10 @@ bool ViewCubeRenderer::init(TextureFormat colorFmt, TextureFormat depthFmt) {
         m.materialType = 0;  // Unlit-like
     }
 
-    // 上传材质 UBO
-    m_materialUBO->update(0, sizeof(MaterialUBO) * kFaceCount, m_faceMaterials);
+    // 逐面上传材质 UBO（使用对齐偏移）
+    for (int i = 0; i < kFaceCount; ++i) {
+        m_materialUBO->update(i * m_materialStride, sizeof(MaterialUBO), &m_faceMaterials[i]);
+    }
 
     // --- 几何体 ---
     createGeometry();
@@ -288,10 +299,10 @@ void ViewCubeRenderer::createFaceGeometry() {
         float uy = kFaces[f].up[1];
         float uz = kFaces[f].up[2];
 
-        // 计算 right = cross(up, normal)，保证所有面 CCW winding
-        float rx = uy * nz - uz * ny;
-        float ry = uz * nx - ux * nz;
-        float rz = ux * ny - uy * nx;
+        // 计算 right = cross(normal, up)
+        float rx = ny * uz - nz * uy;
+        float ry = nz * ux - nx * uz;
+        float rz = nx * uy - ny * ux;
 
         // 4 个角的中心偏移
         // 中心 = normal * h
@@ -435,16 +446,16 @@ void ViewCubeRenderer::render(CommandList* cmd, const Camera& mainCamera,
     storeMat4(sceneUbo.projection,     corrProj);
     storeMat4(sceneUbo.viewProjection, cubeVP_mat);
 
-    // 光照：正面方向光
+    // 光照：正面方向光 + 强环境光（ViewCube 是 UI 元素，所有面都需要可见）
     sceneUbo.lightDir[0]  = -0.3f;
     sceneUbo.lightDir[1]  = -1.0f;
     sceneUbo.lightDir[2]  = -0.4f;
     sceneUbo.lightColor[0] = 1.0f;
     sceneUbo.lightColor[1] = 1.0f;
     sceneUbo.lightColor[2] = 1.0f;
-    sceneUbo.ambientColor[0] = 0.35f;
-    sceneUbo.ambientColor[1] = 0.35f;
-    sceneUbo.ambientColor[2] = 0.35f;
+    sceneUbo.ambientColor[0] = 0.85f;
+    sceneUbo.ambientColor[1] = 0.85f;
+    sceneUbo.ambientColor[2] = 0.85f;
     sceneUbo.edgeColor[0] = 0.08f;
     sceneUbo.edgeColor[1] = 0.08f;
     sceneUbo.edgeColor[2] = 0.08f;
@@ -469,7 +480,7 @@ void ViewCubeRenderer::render(CommandList* cmd, const Camera& mainCamera,
     cmd->setPipelineState(m_solidPso.get());
 
     for (int f = 0; f < kFaceCount; ++f) {
-        uint32_t matOffset = f * sizeof(MaterialUBO);
+        uint32_t matOffset = f * m_materialStride;
 
         BindGroup bg;
         bg.addUBO(0, m_sceneUBO.get(),   0, sizeof(SceneUBO))

@@ -166,6 +166,7 @@ private:
 
     // --- 面材质数据 ---
     MaterialUBO                 m_faceMaterials[kFaceCount];
+    uint32_t                    m_materialStride = sizeof(MaterialUBO);
 
     // --- 配置 ---
     uint32_t                    m_cubeSize = 128;
