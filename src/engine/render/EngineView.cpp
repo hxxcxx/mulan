@@ -193,6 +193,13 @@ void EngineView::renderFrame() {
     // 委托给 SceneRenderer（含 CameraUBO 更新 + PSO 设置 + 绘制）
     m_sceneRenderer->render(m_renderQueue, m_camera, cmd, m_lightEnv);
 
+    // 导航立方体（在场景渲染之后，叠加在右下角）
+    if (m_viewCubeRenderer) {
+        m_viewCubeRenderer->render(cmd, m_camera,
+                                   static_cast<uint32_t>(m_width),
+                                   static_cast<uint32_t>(m_height));
+    }
+
     // --- end render pass ---
     cmd->endRenderPass();
 
@@ -250,6 +257,15 @@ bool EngineView::initSceneRenderer() {
                              "(shaders or PSOs not loaded)\n");
         return false;
     }
+
+    // 导航立方体
+    m_viewCubeRenderer = std::make_unique<ViewCubeRenderer>(m_device.get());
+    if (!m_viewCubeRenderer->init(colorFmt, depthFmt)) {
+        std::fprintf(stderr, "[EngineView] ViewCubeRenderer::init() failed\n");
+        m_viewCubeRenderer.reset();
+        // 不阻止初始化，ViewCube 是可选功能
+    }
+
     return true;
 }
 

@@ -18,6 +18,8 @@ add_library(Engine STATIC
     render/text/FontAtlas.cpp
     render/text/TextLayout.cpp
     render/text/TextRenderer.cpp
+    # ViewCube navigation
+    render/viewcube/ViewCubeRenderer.cpp
     # Material system
     render/material/MaterialCache.cpp
     render/material/MaterialInstance.cpp

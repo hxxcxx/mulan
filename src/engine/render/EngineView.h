@@ -27,6 +27,7 @@
 #include "../Window.h"
 #include "SceneRenderer.h"
 #include "RenderGeometry.h"
+#include "viewcube/ViewCubeRenderer.h"
 #include "../math/Math.h"
 #include "../math/AABB.h"
 
@@ -193,6 +194,7 @@ private:
 
     // --- Renderer ---
     std::unique_ptr<SceneRenderer>      m_sceneRenderer;
+    std::unique_ptr<ViewCubeRenderer>   m_viewCubeRenderer;
     RenderQueue                         m_renderQueue;
     Scene*                              m_scene = nullptr;
     LightEnvironment                    m_lightEnv;
