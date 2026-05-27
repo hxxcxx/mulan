@@ -29,10 +29,7 @@
 #include <optional>
 #include <cstdint>
 
-// toml++ 前向声明，避免头文件泄露
-namespace toml {
-    class table;
-}
+#include <toml++/toml.hpp>
 
 namespace mulan::core {
 
