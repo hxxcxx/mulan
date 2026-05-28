@@ -102,6 +102,30 @@ public:
 
     /// 应用 4x4 变换矩阵
     virtual void transformBy(const Matrix4& mat) = 0;
+
+protected:
+    /// 数值差分计算高阶偏导数 (中心差分递归)
+    ///
+    /// 策略:
+    ///   - m > 0: 对 derMN(m-1, n) 沿 u 方向做中心差分
+    ///   - m == 0 && n > 0: 对 derMN(0, n-1) 沿 v 方向做中心差分
+    ///
+    /// 适用于 m+n > 2 的情况（0~2 阶应由子类解析实现）
+    Vector3 numericalDerMN(size_t m, size_t n, double u, double v,
+                           double h = 1e-5) const
+    {
+        if (m == 0 && n == 0) return subs(u, v) - Point3(0.0);
+
+        if (m > 0) {
+            // ∂/∂u [ derMN(m-1, n) ]
+            auto f = [&](double uu) { return derMN(m - 1, n, uu, v); };
+            return (f(u + h) - f(u - h)) / (2.0 * h);
+        }
+
+        // m == 0 && n > 0: ∂/∂v [ derMN(0, n-1) ]
+        auto f = [&](double vv) { return derMN(0, n - 1, u, vv); };
+        return (f(v + h) - f(v - h)) / (2.0 * h);
+    }
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

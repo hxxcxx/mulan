@@ -72,16 +72,15 @@ public:
     }
 
     Vector3 derMN(size_t m, size_t n, double u, double v) const override {
-        // 使用数值差分作为 fallback
-        double eps = 1e-6;
+        // 0~2 阶解析实现
         if (m == 0 && n == 0) return subs(u, v) - Point3(0.0);
         if (m == 1 && n == 0) return uder(u, v);
         if (m == 0 && n == 1) return vder(u, v);
         if (m == 2 && n == 0) return uuder(u, v);
         if (m == 1 && n == 1) return uvder(u, v);
         if (m == 0 && n == 2) return vvder(u, v);
-        // 高阶
-        return Vector3(0.0);
+        // 高阶: 数值差分兜底
+        return numericalDerMN(m, n, u, v);
     }
 
     std::pair<ParameterRange, ParameterRange> parameterRange() const override {

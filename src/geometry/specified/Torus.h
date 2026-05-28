@@ -107,7 +107,8 @@ public:
         if (m == 2 && n == 0) return uuder(u, v);
         if (m == 1 && n == 1) return uvder(u, v);
         if (m == 0 && n == 2) return vvder(u, v);
-        return Vector3(0.0);
+        // 高阶: 数值差分兜底
+        return numericalDerMN(m, n, u, v);
     }
 
     std::pair<ParameterRange, ParameterRange> parameterRange() const override {
