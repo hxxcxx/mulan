@@ -82,6 +82,11 @@ public:
     uint16_t materialId() const { return m_materialId; }
     void setMaterialId(uint16_t id);
 
+    // --- 颜色 ---
+
+    const engine::Vec3& color() const { return m_color; }
+    void setColor(const engine::Vec3& c) { m_color = c; }
+
     // --- 几何数据 ---
 
     GeometryData* geometry() { return m_geometry.get(); }
@@ -130,6 +135,7 @@ private:
     bool            m_visible = true;
     bool            m_selected = false;
     uint16_t        m_materialId = 0xFFFF;
+    engine::Vec3    m_color{1.0, 1.0, 1.0};
     uint64_t        m_dirtyFlags = 0;
     engine::AABB    m_cachedBounds;
 

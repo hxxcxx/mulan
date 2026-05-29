@@ -55,6 +55,13 @@ public:
 
     void clearDirty(EntityDirty mask);
 
+    // 遍历
+    template<typename Func>
+    void forEachEntity(Func&& fn) {
+        for (auto& [id, entity] : m_entities)
+            fn(entity.get());
+    }
+
     // 数量
     size_t entityCount() const { return m_entities.size(); }
 
