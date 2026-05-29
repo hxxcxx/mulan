@@ -156,7 +156,7 @@ void ForwardPass::uploadSceneUBO(const PassContext& ctx) {
 }
 
 void ForwardPass::execute(const PassContext& ctx) {
-    if (!m_initialized || !m_pso || !ctx.cmd) return;
+    if (!m_initialized || !m_pso || !ctx.cmd || !m_batches) return;
 
     uploadSceneUBO(ctx);
     ctx.cmd->setPipelineState(m_pso.get());
@@ -165,8 +165,14 @@ void ForwardPass::execute(const PassContext& ctx) {
     bg.addUBO(0, m_sceneUbo.get(), 0, 256);
     ctx.cmd->bindResources(bg);
 
-    for (auto& item : m_items) {
-        const GpuGeometry* geo = m_gpu.faceGeometry(item.key);
+    for (auto& batch : *m_batches) {
+        drawBatch(batch, ctx);
+    }
+}
+
+void ForwardPass::drawBatch(const DrawBatch& batch, const PassContext& ctx) {
+    for (auto key : batch.keys) {
+        const GpuGeometry* geo = m_gpu.faceGeometry(key);
         if (!geo || !geo->isValid()) continue;
 
         ctx.cmd->setVertexBuffer(0, geo->vertexBuffer.get(), 0);
@@ -182,7 +188,6 @@ void ForwardPass::execute(const PassContext& ctx) {
             ctx.cmd->draw(da);
         }
     }
-    m_items.clear();
 }
 
 } // namespace mulan::engine

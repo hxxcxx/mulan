@@ -29,7 +29,7 @@ class Viewport {
 public:
     Viewport(World& world, engine::RHIDevice& device);
 
-    /// 渲染后端初始化后调用（创建 ForwardPass）
+    /// 渲染后端初始化后调用
     bool initRendering(int width, int height);
 
     void render(float dt);

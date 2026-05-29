@@ -42,32 +42,21 @@ bool Viewport::initRendering(int width, int height) {
 void Viewport::render(float dt) {
     if (!m_renderingInited) return;
 
-    // Phase 1: World 逻辑更新
+    // 1. World 逻辑
     if (!m_worldLogicUpdated) {
         m_world.updateLogic(dt);
         m_worldLogicUpdated = true;
     }
 
-    // Phase 2: 渲染收集 + GPU 上传
+    // 2. RenderSystem：收集 + 上传 GPU + 产出 DrawBatch
     m_renderSys.update(m_world, dt);
 
-    // Phase 3: 填充 draw items
+    // 3. 把 RenderSystem 产出的 DrawBatch 交给 ForwardPass
     auto* fwd = m_renderGraph.pass<engine::ForwardPass>(0);
-    if (fwd) {
-        fwd->items().clear();
-        m_world.forEachEntity([&](Entity* e) {
-            if (!e->geometry() || !e->visible()) return;
-            engine::ForwardPass::DrawItem item;
-            item.key            = e->id();
-            item.worldTransform = e->worldTransform();
-            item.color          = e->color();
-            fwd->items().push_back(item);
-        });
-    }
+    if (fwd)
+        fwd->setDrawList(&m_renderSys.drawBatches());
 
-    // Phase 4: RenderGraph 执行（后期通过外部传入 CommandList）
-    // PassContext ctx{cmd, m_width, m_height};
-    // m_renderGraph.execute(ctx);
+    // 4. RenderGraph 执行（后期外部传入 CommandList）
 }
 
 void Viewport::onFrameEnd() {
