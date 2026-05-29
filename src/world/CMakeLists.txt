@@ -29,3 +29,10 @@ target_link_libraries(World PUBLIC Engine)
 target_compile_definitions(World PRIVATE
     $<$<CONFIG:Debug>:_DEBUG>
 )
+
+# ── 内存测试 ──
+add_executable(WorldTest WorldTest.cpp)
+target_link_libraries(WorldTest PRIVATE World Engine)
+target_include_directories(WorldTest PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
+)

@@ -122,11 +122,13 @@ public:
 private:
     friend class World;
 
-    void markDirty(EntityDirty d) { m_dirtyFlags |= static_cast<uint64_t>(d); }
+    void markDirty(EntityDirty d);
     void clearDirtyInternal(EntityDirty d) { m_dirtyFlags &= ~static_cast<uint64_t>(d); }
     void setParentId(Id parentId) { m_parent = parentId; }
+    void setWorldPtr(World* w) { m_world = w; }
 
     Id              m_id;
+    World*          m_world = nullptr;
     std::string     m_name;
     std::unique_ptr<GeometryData> m_geometry;
     engine::Mat4    m_localTransform{1.0};

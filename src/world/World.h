@@ -67,7 +67,7 @@ public:
 
 private:
     struct Slot {
-        uint32_t generation = 0;
+        uint32_t generation = 1;
         bool     alive = false;
     };
 

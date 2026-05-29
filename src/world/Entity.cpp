@@ -20,6 +20,11 @@ Entity::Entity(Id id, std::string name)
 
 // --- setter 自动标脏 ---
 
+void Entity::markDirty(EntityDirty d) {
+    m_dirtyFlags |= static_cast<uint64_t>(d);
+    if (m_world) m_world->markDirty(m_id, d);
+}
+
 void Entity::setName(std::string name) {
     if (m_name != name) {
         m_name = std::move(name);
