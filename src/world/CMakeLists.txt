@@ -2,6 +2,7 @@
 add_library(World STATIC
     Entity.cpp
     World.cpp
+    Viewport.cpp
     RenderCollector.cpp
     geometry/BoxGeometryData.cpp
     geometry/MeshGeometryData.cpp
