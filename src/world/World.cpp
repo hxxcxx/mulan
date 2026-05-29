@@ -6,6 +6,7 @@
  */
 
 #include "World.h"
+#include "system/System.h"
 
 namespace mulan::world {
 
@@ -109,6 +110,72 @@ void World::clearDirty(EntityDirty mask) {
             it = m_dirty.erase(it);
         else
             ++it;
+    }
+}
+
+World::~World() = default;
+
+bool World::isValid(Entity::Id id) const {
+    if (id == Entity::INVALID_ID) return false;
+    uint32_t idx = static_cast<uint32_t>(id & Entity::INDEX_MASK);
+    if (idx >= m_slots.size()) return false;
+    return m_slots[idx].alive && (id >> Entity::INDEX_BITS) == m_slots[idx].generation;
+}
+
+bool World::setParent(Entity::Id childId, Entity::Id parentId) {
+    Entity* child = entityById(childId);
+    if (!child) return false;
+
+    // 允许解除 parent
+    if (parentId == Entity::INVALID_ID) {
+        if (child->parentId() != Entity::INVALID_ID) {
+            removeChild(child->parentId(), childId);
+        }
+        child->setParentId(Entity::INVALID_ID);
+        child->markDirty(EntityDirty::Parent | EntityDirty::Transform);
+        return true;
+    }
+
+    // 目标 parent 必须有效
+    Entity* parent = entityById(parentId);
+    if (!parent) return false;
+
+    // 循环检测
+    if (detectCycle(childId, parentId)) return false;
+
+    // 从旧 parent 移出
+    if (child->parentId() != Entity::INVALID_ID) {
+        removeChild(child->parentId(), childId);
+    }
+
+    // 注册到新 parent
+    child->setParentId(parentId);
+    addChild(parentId, childId);
+    child->markDirty(EntityDirty::Parent | EntityDirty::Transform);
+    return true;
+}
+
+bool World::detectCycle(Entity::Id childId, Entity::Id parentId) const {
+    if (childId == parentId) return true;
+    Entity::Id cursor = parentId;
+    while (cursor != Entity::INVALID_ID) {
+        if (cursor == childId) return true;
+        const Entity* e = entityById(cursor);
+        if (!e) break;
+        cursor = e->parentId();
+    }
+    return false;
+}
+
+void World::addSystem(std::unique_ptr<System> sys) {
+    m_systems.push_back(std::move(sys));
+    std::sort(m_systems.begin(), m_systems.end(),
+              [](const auto& a, const auto& b) { return a->priority() < b->priority(); });
+}
+
+void World::updateLogic(float dt) {
+    for (auto& sys : m_systems) {
+        sys->update(*this, dt);
     }
 }
 

@@ -64,7 +64,8 @@ public:
     // --- 父子关系 ---
 
     Id parentId() const { return m_parent; }
-    bool setParentId(Id parentId);
+    /// 仅 World 可调用 setParentId，外部通过 World::setParent() 操作
+
 
     // --- 可见性 ---
 
@@ -118,6 +119,7 @@ private:
 
     void markDirty(EntityDirty d) { m_dirtyFlags |= static_cast<uint64_t>(d); }
     void clearDirtyInternal(EntityDirty d) { m_dirtyFlags &= ~static_cast<uint64_t>(d); }
+    void setParentId(Id parentId) { m_parent = parentId; }
 
     Id              m_id;
     std::string     m_name;

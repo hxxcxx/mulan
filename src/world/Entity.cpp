@@ -32,12 +32,6 @@ void Entity::setLocalTransform(const engine::Mat4& t) {
     markDirty(EntityDirty::Transform);
 }
 
-bool Entity::setParentId(Id parentId) {
-    m_parent = parentId;
-    markDirty(EntityDirty::Parent | EntityDirty::Transform);
-    return true;
-}
-
 void Entity::setVisible(bool v) {
     if (m_visible != v) {
         m_visible = v;
@@ -83,7 +77,7 @@ const engine::Mesh& Entity::cachedEdgeMesh() const {
 }
 
 bool Entity::valid(const World& world) const {
-    return m_id != INVALID_ID;
+    return m_id != INVALID_ID && world.isValid(m_id);
 }
 
 } // namespace mulan::world

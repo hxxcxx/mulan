@@ -9,6 +9,7 @@
 
 #include "Entity.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -17,27 +18,36 @@
 
 namespace mulan::world {
 
+class System;
+
 class World {
 public:
     World() = default;
-    ~World() = default;
+    ~World();
 
     // 创建/销毁
     Entity* createEntity(std::string name);
     void destroyEntity(Entity::Id id);
 
-    // 查找
+    // 查找 + 校验
     Entity* entityById(Entity::Id id);
     const Entity* entityById(Entity::Id id) const;
+    bool isValid(Entity::Id id) const;
 
-    // children 索引
+    // 父子关系（统一入口：循环检测 + children索引 + Entity字段 + 标脏）
+    bool setParent(Entity::Id childId, Entity::Id parentId);
+
+    // children 索引（World 维护，setParent 自动更新）
     void addChild(Entity::Id parentId, Entity::Id childId);
     void removeChild(Entity::Id parentId, Entity::Id childId);
     const std::vector<Entity::Id>& childrenOf(Entity::Id parentId) const;
 
+    // System 管理
+    void addSystem(std::unique_ptr<System> sys);
+    void updateLogic(float dt);
+
     // 脏标记（System 消费）
     void markDirty(Entity::Id id, EntityDirty d);
-
     uint64_t getDirtyFlags(Entity::Id id) const;
 
     template<typename Func>
@@ -56,12 +66,14 @@ private:
 
     Entity::Id allocateId();
     uint32_t indexOf(Entity::Id id) const { return static_cast<uint32_t>(id & Entity::INDEX_MASK); }
+    bool detectCycle(Entity::Id childId, Entity::Id parentId) const;
 
     std::vector<Slot>                         m_slots;
     std::vector<Entity::Id>                   m_freeIndices;
     std::unordered_map<Entity::Id, std::unique_ptr<Entity>> m_entities;
     std::unordered_map<Entity::Id, std::vector<Entity::Id>> m_children;
     std::unordered_map<Entity::Id, uint64_t>  m_dirty;
+    std::vector<std::unique_ptr<System>>      m_systems;
 };
 
 // --- 模板实现 ---

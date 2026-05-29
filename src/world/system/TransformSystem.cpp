@@ -42,6 +42,7 @@ void TransformSystem::update(World& world, float /*dt*/) {
             if (seen.insert(childId).second) {
                 queue.push_back(childId);
                 dirtySet.insert(childId);
+                world.markDirty(childId, EntityDirty::Transform);
             }
         }
     }
