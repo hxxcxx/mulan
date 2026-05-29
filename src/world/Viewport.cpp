@@ -7,12 +7,13 @@
 
 #include "Viewport.h"
 #include "World.h"
+#include "mulan/engine/rhi/Device.h"
 
 namespace mulan::world {
 
-Viewport::Viewport(World& world)
+Viewport::Viewport(World& world, engine::RHIDevice& device)
     : m_world(world)
-    , m_gpu()
+    , m_gpu(device)
     , m_renderSys(m_gpu) {
 }
 

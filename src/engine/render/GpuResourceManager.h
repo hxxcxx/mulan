@@ -1,12 +1,12 @@
 /**
  * @file GpuResourceManager.h
- * @brief GPU 资源管理器 — 集中管理 GPU Buffer，按 uint64_t key 索引
+ * @brief GPU 资源管理器 — 集中管理 GpuGeometry，按 uint64_t key 索引
  *
  * 设计原则：
  * - 通用接口，不知道 Entity 或 world/ 领域概念
  * - key 为 uint64_t（对应 world::Entity::Id，但此处不作假设）
- * - 管理三角面 mesh / 边线 mesh / 点云三种 GPU 资源
- * - 后期接入 RHI 做真实 GPU 上传
+ * - 管理三角面 mesh / 边线 mesh 两种 GPU 资源
+ * - 构造函数传入 RHIDevice，Buffer 创建时自动上传
  *
  * @author hxxcxx
  * @date 2026-05-29
@@ -15,44 +15,37 @@
 #pragma once
 
 #include "../geometry/Mesh.h"
+#include "../render/RenderGeometry.h"
 
 #include <cstdint>
 #include <unordered_map>
 
 namespace mulan::engine {
 
+class RHIDevice;
+
 class GpuResourceManager {
 public:
-    GpuResourceManager() = default;
-    ~GpuResourceManager() = default;
+    explicit GpuResourceManager(RHIDevice& device);
 
-    /// 上传三角面 mesh
     void uploadFaceMesh(uint64_t key, const Mesh& mesh);
-
-    /// 上传边线 mesh
     void uploadEdgeMesh(uint64_t key, const Mesh& mesh);
-
-    /// 释放某个 key 的所有 GPU 资源
     void releaseResource(uint64_t key);
 
-    /// 查询是否已有 GPU 资源
     bool hasResource(uint64_t key) const;
+    size_t resourceCount() const { return m_faceGeos.size() + m_edgeGeos.size(); }
 
-    /// 资源数量
-    size_t resourceCount() const { return m_faceMeshes.size() + m_edgeMeshes.size(); }
+    const GpuGeometry* faceGeometry(uint64_t key) const;
+    const GpuGeometry* edgeGeometry(uint64_t key) const;
 
-    /// 按 key 获取缓存的三角面 mesh（CPU 侧，调试/验证用）
-    const Mesh* faceMesh(uint64_t key) const;
-
-    /// 按 key 获取缓存的边线 mesh
-    const Mesh* edgeMesh(uint64_t key) const;
-
-    /// 清空所有资源
     void clear();
 
 private:
-    std::unordered_map<uint64_t, Mesh> m_faceMeshes;
-    std::unordered_map<uint64_t, Mesh> m_edgeMeshes;
+    static GpuGeometry createGpuBuffer(RHIDevice& device, const Mesh& mesh);
+
+    RHIDevice& m_device;
+    std::unordered_map<uint64_t, GpuGeometry> m_faceGeos;
+    std::unordered_map<uint64_t, GpuGeometry> m_edgeGeos;
 };
 
 } // namespace mulan::engine

@@ -16,19 +16,19 @@
 
 #include <cstdint>
 
+namespace mulan::engine {
+class RHIDevice;
+}
+
 namespace mulan::world {
 
 class World;
 
 class Viewport {
 public:
-    explicit Viewport(World& world);
+    Viewport(World& world, engine::RHIDevice& device);
 
-    /// 逐帧渲染入口
-    /// @param dt 帧间隔（秒）
     void render(float dt);
-
-    /// 所有 Viewport 渲染完毕后的帧末清理
     void onFrameEnd();
 
     engine::GpuResourceManager& gpu() { return m_gpu; }
