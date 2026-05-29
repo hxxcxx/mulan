@@ -6,12 +6,11 @@
  */
 
 #include "ForwardPass.h"
+#include "ShaderUtil.h"
 #include "../../rhi/BindGroup.h"
 #include "../../rhi/RenderTypes.h"
 
-#include <cstdio>
 #include <string>
-#include <vector>
 
 namespace mulan::engine {
 
@@ -44,50 +43,10 @@ bool ForwardPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasD
 
 // ─── Shader ────────────────────────────────────────────────────
 
-static std::vector<uint8_t> readFile(const char* path) {
-    FILE* f = nullptr;
-#ifdef _WIN32
-    fopen_s(&f, path, "rb");
-#else
-    f = fopen(path, "rb");
-#endif
-    if (!f) return {};
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    std::vector<uint8_t> data(size > 0 ? size : 0);
-    if (size > 0) fread(data.data(), 1, size, f);
-    fclose(f);
-    return data;
-}
-
 bool ForwardPass::loadSolidShaders() {
-#ifdef SHADER_DIR
-    std::string dir = SHADER_DIR;
-#else
-    std::string dir = "shaders";
-#endif
-
-    const char* ext = ".spv";
-    if      (m_device.backend() == GraphicsBackend::D3D12) ext = ".dxil";
-    else if (m_device.backend() == GraphicsBackend::D3D11) ext = ".dxbc";
-
-    auto vs = readFile((dir + "/solid.vert" + ext).c_str());
-    auto fs = readFile((dir + "/solid.frag" + ext).c_str());
-    if (vs.empty() || fs.empty()) return false;
-
-    ShaderDesc d;
-    d.type = ShaderType::Vertex;
-    d.byteCode = vs.data();
-    d.byteCodeSize = static_cast<uint32_t>(vs.size());
-    m_vs = m_device.createShader(d);
-
-    d.type = ShaderType::Pixel;
-    d.byteCode = fs.data();
-    d.byteCodeSize = static_cast<uint32_t>(fs.size());
-    m_fs = m_device.createShader(d);
-
-    return m_vs != nullptr && m_fs != nullptr;
+    m_vs = loadShader(m_device, ShaderType::Vertex, "solid.vert");
+    m_fs = loadShader(m_device, ShaderType::Pixel,  "solid.frag");
+    return m_vs && m_fs;
 }
 
 // ─── PSO ───────────────────────────────────────────────────────

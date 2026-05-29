@@ -56,9 +56,8 @@ private:
     World&                     m_world;
     engine::RHIDevice&         m_device;
     engine::GpuResourceManager m_gpu;
-    RenderSystem               m_renderSys;
-
     engine::Camera             m_camera;
+    RenderSystem               m_renderSys;
     engine::LightEnvironment   m_lightEnv;
     engine::RenderGraph        m_renderGraph;
 

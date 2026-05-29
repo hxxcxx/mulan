@@ -17,6 +17,7 @@
 #include "../RenderCollector.h"
 #include "mulan/engine/render/GpuResourceManager.h"
 #include "mulan/engine/render/graph/ForwardPass.h"
+#include "mulan/engine/scene/camera/Camera.h"
 
 #include <vector>
 
@@ -24,7 +25,7 @@ namespace mulan::world {
 
 class RenderSystem : public System {
 public:
-    explicit RenderSystem(engine::GpuResourceManager& gpu);
+    explicit RenderSystem(engine::GpuResourceManager& gpu, const engine::Camera& camera);
 
     void update(World& world, float dt) override;
 
@@ -37,6 +38,7 @@ public:
 private:
     RenderCollector m_collector;
     engine::GpuResourceManager& m_gpu;
+    const engine::Camera& m_camera;
     std::vector<engine::DrawBatch> m_drawBatches;
 };
 

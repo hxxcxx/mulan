@@ -6,12 +6,11 @@
  */
 
 #include "EdgePass.h"
+#include "ShaderUtil.h"
 #include "../../rhi/BindGroup.h"
 #include "../../rhi/RenderTypes.h"
 
-#include <cstdio>
 #include <string>
-#include <vector>
 
 namespace mulan::engine {
 
@@ -44,48 +43,9 @@ bool EdgePass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDept
 
 // ─── Shader ────────────────────────────────────────────────────
 
-static std::vector<uint8_t> loadFile(const char* path) {
-    FILE* f = nullptr;
-#ifdef _WIN32
-    fopen_s(&f, path, "rb");
-#else
-    f = fopen(path, "rb");
-#endif
-    if (!f) return {};
-    fseek(f, 0, SEEK_END);
-    long sz = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    std::vector<uint8_t> d(sz > 0 ? sz : 0);
-    if (sz > 0) fread(d.data(), 1, sz, f);
-    fclose(f);
-    return d;
-}
-
 bool EdgePass::loadEdgeShaders() {
-#ifdef SHADER_DIR
-    std::string dir = SHADER_DIR;
-#else
-    std::string dir = "shaders";
-#endif
-    const char* ext = ".spv";
-    if      (m_device.backend() == GraphicsBackend::D3D12) ext = ".dxil";
-    else if (m_device.backend() == GraphicsBackend::D3D11) ext = ".dxbc";
-
-    auto vs = loadFile((dir + "/edge.vert" + ext).c_str());
-    auto fs = loadFile((dir + "/edge.frag" + ext).c_str());
-    if (vs.empty() || fs.empty()) return false;
-
-    ShaderDesc d;
-    d.type = ShaderType::Vertex;
-    d.byteCode = vs.data();
-    d.byteCodeSize = static_cast<uint32_t>(vs.size());
-    m_vs = m_device.createShader(d);
-
-    d.type = ShaderType::Pixel;
-    d.byteCode = fs.data();
-    d.byteCodeSize = static_cast<uint32_t>(fs.size());
-    m_fs = m_device.createShader(d);
-
+    m_vs = loadShader(m_device, ShaderType::Vertex, "edge.vert");
+    m_fs = loadShader(m_device, ShaderType::Pixel,  "edge.frag");
     return m_vs && m_fs;
 }
 

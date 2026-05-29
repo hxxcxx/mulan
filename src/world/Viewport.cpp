@@ -17,8 +17,8 @@ Viewport::Viewport(World& world, engine::RHIDevice& device)
     : m_world(world)
     , m_device(device)
     , m_gpu(device)
-    , m_renderSys(m_gpu)
-    , m_camera(engine::CameraMode::Trackball) {
+    , m_camera(engine::CameraMode::Trackball)
+    , m_renderSys(m_gpu, m_camera) {
     m_camera.setOrthographic(true);
     m_camera.setOrthoSize(5.0);
     m_camera.setDistance(10.0);

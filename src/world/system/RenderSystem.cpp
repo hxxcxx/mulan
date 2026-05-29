@@ -12,8 +12,8 @@
 
 namespace mulan::world {
 
-RenderSystem::RenderSystem(engine::GpuResourceManager& gpu)
-    : System(0), m_gpu(gpu) {}
+RenderSystem::RenderSystem(engine::GpuResourceManager& gpu, const engine::Camera& camera)
+    : System(0), m_gpu(gpu), m_camera(camera) {}
 
 // ─── update ────────────────────────────────────────────────────
 
@@ -62,10 +62,13 @@ void RenderSystem::update(World& world, float /*dt*/) {
     });
 
     // ── 产出 DrawBatch（按 materialId 分组可见 Entity）──
+    auto frustum = m_camera.frustum();
     std::unordered_map<uint16_t, std::vector<engine::DrawKey>> groups;
     world.forEachEntity([&](Entity* e) {
         if (!e->geometry() || !e->visible()) return;
         if (!m_gpu.hasResource(e->id())) return;
+        // frustum culling
+        if (!frustum.intersects(e->cachedBounds())) return;
         engine::DrawKey dk;
         dk.key            = e->id();
         dk.worldTransform = e->worldTransform();
