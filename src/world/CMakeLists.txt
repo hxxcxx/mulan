@@ -1,0 +1,24 @@
+# World - 领域实体层（静态库）
+add_library(World STATIC
+    Entity.cpp
+    World.cpp
+)
+
+# 构建时将头文件复制到 build/include/mulan/world/...
+file(GLOB_RECURSE WORLD_HEADERS
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
+)
+foreach(hdr ${WORLD_HEADERS})
+    file(RELATIVE_PATH rel "${CMAKE_CURRENT_SOURCE_DIR}" "${hdr}")
+    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/world/${rel}" COPYONLY)
+endforeach()
+
+target_include_directories(World PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
+)
+
+target_link_libraries(World PUBLIC Engine)
+
+target_compile_definitions(World PRIVATE
+    $<$<CONFIG:Debug>:_DEBUG>
+)
