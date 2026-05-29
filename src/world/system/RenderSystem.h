@@ -16,21 +16,22 @@
 
 #include "System.h"
 #include "../RenderCollector.h"
+#include "mulan/engine/render/GpuResourceManager.h"
 
 namespace mulan::world {
 
 class RenderSystem : public System {
 public:
-    RenderSystem();
+    explicit RenderSystem(engine::GpuResourceManager& gpu);
 
     void update(World& world, float dt) override;
 
-    /// 获取收集器（Viewport 或外部渲染后端从中取数据）
     RenderCollector& collector() { return m_collector; }
     const RenderCollector& collector() const { return m_collector; }
 
 private:
     RenderCollector m_collector;
+    engine::GpuResourceManager& m_gpu;
 };
 
 } // namespace mulan::world

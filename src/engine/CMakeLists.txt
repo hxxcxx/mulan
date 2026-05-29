@@ -12,6 +12,7 @@ add_library(Engine STATIC
     render/EngineView.cpp
     render/TextureLoader.cpp
     render/TextureCache.cpp
+    render/GpuResourceManager.cpp
     # Render passes
     render/pass/ForwardPass.cpp
     # Text rendering (MSDF)
