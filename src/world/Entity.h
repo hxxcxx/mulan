@@ -15,11 +15,13 @@
 #pragma once
 
 #include "EntityDirty.h"
+#include "GeometryData.h"
 
 #include "mulan/engine/math/Math.h"
 #include "mulan/engine/math/AABB.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
 
 namespace mulan::world {
@@ -79,6 +81,28 @@ public:
     uint16_t materialId() const { return m_materialId; }
     void setMaterialId(uint16_t id);
 
+    // --- 几何数据 ---
+
+    GeometryData* geometry() { return m_geometry.get(); }
+    const GeometryData* geometry() const { return m_geometry.get(); }
+    bool hasGeometry() const { return m_geometry != nullptr; }
+
+    void setGeometry(std::unique_ptr<GeometryData> geo);
+
+    /// 安全修改几何数据（先标脏再修改，清除 mesh 缓存）
+    template<typename Func>
+    void modifyGeometry(Func&& fn) {
+        markDirty(EntityDirty::Geometry);
+        m_cachedFaceMesh = engine::Mesh{};
+        m_cachedEdgeMesh = engine::Mesh{};
+        if (m_geometry) fn(*m_geometry);
+    }
+
+    // --- 惰性网格缓存 ---
+
+    const engine::Mesh& cachedFaceMesh() const;
+    const engine::Mesh& cachedEdgeMesh() const;
+
     // --- 脏标记（由 Entity setter 自动设置，World 消费）---
 
     uint64_t dirtyFlags() const { return m_dirtyFlags; }
@@ -97,6 +121,7 @@ private:
 
     Id              m_id;
     std::string     m_name;
+    std::unique_ptr<GeometryData> m_geometry;
     engine::Mat4    m_localTransform{1.0};
     engine::Mat4    m_worldTransform{1.0};
     Id              m_parent{INVALID_ID};
@@ -105,6 +130,9 @@ private:
     uint16_t        m_materialId = 0xFFFF;
     uint64_t        m_dirtyFlags = 0;
     engine::AABB    m_cachedBounds;
+
+    mutable engine::Mesh m_cachedFaceMesh;
+    mutable engine::Mesh m_cachedEdgeMesh;
 };
 
 } // namespace mulan::world

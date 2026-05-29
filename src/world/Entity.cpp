@@ -59,6 +59,29 @@ void Entity::setMaterialId(uint16_t id) {
     }
 }
 
+void Entity::setGeometry(std::unique_ptr<GeometryData> geo) {
+    m_geometry = std::move(geo);
+    m_cachedFaceMesh = engine::Mesh{};
+    m_cachedEdgeMesh = engine::Mesh{};
+    markDirty(EntityDirty::Geometry);
+}
+
+const engine::Mesh& Entity::cachedFaceMesh() const {
+    if (m_cachedFaceMesh.empty() && m_geometry) {
+        m_cachedFaceMesh = m_geometry->faceMesh();
+        m_cachedEdgeMesh = m_geometry->edgeMesh();
+    }
+    return m_cachedFaceMesh;
+}
+
+const engine::Mesh& Entity::cachedEdgeMesh() const {
+    if (m_cachedEdgeMesh.empty() && m_geometry) {
+        m_cachedFaceMesh = m_geometry->faceMesh();
+        m_cachedEdgeMesh = m_geometry->edgeMesh();
+    }
+    return m_cachedEdgeMesh;
+}
+
 bool Entity::valid(const World& world) const {
     return m_id != INVALID_ID;
 }

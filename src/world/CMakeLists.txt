@@ -2,6 +2,8 @@
 add_library(World STATIC
     Entity.cpp
     World.cpp
+    geometry/BoxGeometryData.cpp
+    geometry/MeshGeometryData.cpp
 )
 
 # 构建时将头文件复制到 build/include/mulan/world/...
