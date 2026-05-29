@@ -1,11 +1,11 @@
 /**
- * @file ForwardPass.cpp
- * @brief 前向渲染 Pass 实现
+ * @file EdgePass.cpp
+ * @brief 边线渲染 Pass 实现
  * @author hxxcxx
  * @date 2026-05-29
  */
 
-#include "ForwardPass.h"
+#include "EdgePass.h"
 #include "../../rhi/BindGroup.h"
 #include "../../rhi/RenderTypes.h"
 
@@ -15,7 +15,7 @@
 
 namespace mulan::engine {
 
-// ─── Scene UBO（对齐 solid.vert 的 sceneUBO）──────────────────
+// ─── Scene UBO ─────────────────────────────────────────────────
 
 #pragma pack(push, 1)
 struct alignas(16) SceneUniforms {
@@ -28,23 +28,23 @@ static_assert(sizeof(SceneUniforms) == 96);
 
 // ─── 构造 / init ───────────────────────────────────────────────
 
-ForwardPass::ForwardPass(RHIDevice& device, GpuResourceManager& gpu,
-                         const Camera& camera, const LightEnvironment& lightEnv)
+EdgePass::EdgePass(RHIDevice& device, GpuResourceManager& gpu,
+                   const Camera& camera, const LightEnvironment& lightEnv)
     : m_device(device), m_gpu(gpu), m_camera(camera), m_lightEnv(lightEnv) {
 }
 
-bool ForwardPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
-    if (!loadSolidShaders()) return false;
-    createSolidPSO(colorFmt, depthFmt, hasDepth);
-    m_sceneUbo  = m_device.createBuffer(BufferDesc::uniform(256, "FwdSceneUBO"));
-    m_objectUbo = m_device.createBuffer(BufferDesc::uniform(128, "FwdObjUBO"));   // 128B, 足够 world(64B) + extra
+bool EdgePass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
+    if (!loadEdgeShaders()) return false;
+    createEdgePSO(colorFmt, depthFmt, hasDepth);
+    m_sceneUbo  = m_device.createBuffer(BufferDesc::uniform(256, "EdgeSceneUBO"));
+    m_objectUbo = m_device.createBuffer(BufferDesc::uniform(128, "EdgeObjUBO"));
     m_initialized = true;
     return true;
 }
 
 // ─── Shader ────────────────────────────────────────────────────
 
-static std::vector<uint8_t> readFile(const char* path) {
+static std::vector<uint8_t> loadFile(const char* path) {
     FILE* f = nullptr;
 #ifdef _WIN32
     fopen_s(&f, path, "rb");
@@ -53,27 +53,26 @@ static std::vector<uint8_t> readFile(const char* path) {
 #endif
     if (!f) return {};
     fseek(f, 0, SEEK_END);
-    long size = ftell(f);
+    long sz = ftell(f);
     fseek(f, 0, SEEK_SET);
-    std::vector<uint8_t> data(size > 0 ? size : 0);
-    if (size > 0) fread(data.data(), 1, size, f);
+    std::vector<uint8_t> d(sz > 0 ? sz : 0);
+    if (sz > 0) fread(d.data(), 1, sz, f);
     fclose(f);
-    return data;
+    return d;
 }
 
-bool ForwardPass::loadSolidShaders() {
+bool EdgePass::loadEdgeShaders() {
 #ifdef SHADER_DIR
     std::string dir = SHADER_DIR;
 #else
     std::string dir = "shaders";
 #endif
-
     const char* ext = ".spv";
     if      (m_device.backend() == GraphicsBackend::D3D12) ext = ".dxil";
     else if (m_device.backend() == GraphicsBackend::D3D11) ext = ".dxbc";
 
-    auto vs = readFile((dir + "/solid.vert" + ext).c_str());
-    auto fs = readFile((dir + "/solid.frag" + ext).c_str());
+    auto vs = loadFile((dir + "/edge.vert" + ext).c_str());
+    auto fs = loadFile((dir + "/edge.frag" + ext).c_str());
     if (vs.empty() || fs.empty()) return false;
 
     ShaderDesc d;
@@ -87,13 +86,13 @@ bool ForwardPass::loadSolidShaders() {
     d.byteCodeSize = static_cast<uint32_t>(fs.size());
     m_fs = m_device.createShader(d);
 
-    return m_vs != nullptr && m_fs != nullptr;
+    return m_vs && m_fs;
 }
 
 // ─── PSO ───────────────────────────────────────────────────────
 
-void ForwardPass::createSolidPSO(TextureFormat colorFmt, TextureFormat depthFmt,
-                                  bool hasDepth) {
+void EdgePass::createEdgePSO(TextureFormat colorFmt, TextureFormat depthFmt,
+                              bool hasDepth) {
     VertexLayout vl;
     vl.begin()
       .add(VertexSemantic::Position,  VertexFormat::Float3)
@@ -101,16 +100,16 @@ void ForwardPass::createSolidPSO(TextureFormat colorFmt, TextureFormat depthFmt,
       .add(VertexSemantic::TexCoord0, VertexFormat::Float2);
 
     GraphicsPipelineDesc desc{};
-    desc.name             = "ForwardSolid";
+    desc.name             = "EdgeSolid";
     desc.vs               = m_vs.get();
     desc.ps               = m_fs.get();
     desc.vertexLayout     = vl;
-    desc.topology         = PrimitiveTopology::TriangleList;
+    desc.topology         = PrimitiveTopology::LineList;
     desc.cullMode         = CullMode::None;
     desc.frontFace        = FrontFace::CounterClockwise;
     desc.fillMode         = FillMode::Solid;
     desc.depthStencil.depthEnable = true;
-    desc.depthStencil.depthWrite  = true;
+    desc.depthStencil.depthWrite  = false;
     desc.depthStencil.depthFunc   = CompareFunc::LessEqual;
 
     using PB = PipelineBinding;
@@ -134,7 +133,7 @@ void ForwardPass::createSolidPSO(TextureFormat colorFmt, TextureFormat depthFmt,
 
 // ─── Execute ───────────────────────────────────────────────────
 
-void ForwardPass::uploadSceneUBO(const PassContext& ctx) {
+void EdgePass::uploadSceneUBO(const PassContext& ctx) {
     Mat4 vp   = m_camera.projectionMatrix() * m_camera.viewMatrix();
     Vec3 eye  = m_camera.eyePosition();
     auto* dl  = m_lightEnv.primaryDirectional();
@@ -156,16 +155,15 @@ void ForwardPass::uploadSceneUBO(const PassContext& ctx) {
     ctx.cmd->updateBuffer(m_sceneUbo.get(), 0, sizeof(ubo), &ubo);
 }
 
-void ForwardPass::uploadObjectUBO(const Mat4& world, const PassContext& ctx) {
-    // per-object world matrix (64 字节 float)
-    float objData[16];
+void EdgePass::uploadObjectUBO(const Mat4& world, const PassContext& ctx) {
+    float d[16];
     for (int c = 0; c < 4; ++c)
         for (int r = 0; r < 4; ++r)
-            objData[c * 4 + r] = static_cast<float>(world[c][r]);
-    ctx.cmd->updateBuffer(m_objectUbo.get(), 0, sizeof(objData), objData);
+            d[c * 4 + r] = static_cast<float>(world[c][r]);
+    ctx.cmd->updateBuffer(m_objectUbo.get(), 0, sizeof(d), d);
 }
 
-void ForwardPass::execute(const PassContext& ctx) {
+void EdgePass::execute(const PassContext& ctx) {
     if (!m_initialized || !m_pso || !ctx.cmd || !m_batches) return;
 
     uploadSceneUBO(ctx);
@@ -175,12 +173,11 @@ void ForwardPass::execute(const PassContext& ctx) {
         drawBatch(batch, ctx);
 }
 
-void ForwardPass::drawBatch(const DrawBatch& batch, const PassContext& ctx) {
+void EdgePass::drawBatch(const DrawBatch& batch, const PassContext& ctx) {
     for (auto& dk : batch.keys) {
-        const GpuGeometry* geo = m_gpu.faceGeometry(dk.key);
+        const GpuGeometry* geo = m_gpu.edgeGeometry(dk.key);
         if (!geo || !geo->isValid()) continue;
 
-        // 每 entity 的 world 变换 + scene UBO
         BindGroup bg;
         bg.addUBO(0, m_sceneUbo.get(),  0, 256);
         bg.addUBO(1, m_objectUbo.get(), 0, 128);

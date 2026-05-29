@@ -15,6 +15,7 @@ add_library(Engine STATIC
     render/GpuResourceManager.cpp
     # RenderGraph
     render/graph/ForwardPass.cpp
+    render/graph/EdgePass.cpp
     # Render passes
     render/pass/ForwardPass.cpp
     # Text rendering (MSDF)

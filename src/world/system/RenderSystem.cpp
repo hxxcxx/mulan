@@ -62,12 +62,14 @@ void RenderSystem::update(World& world, float /*dt*/) {
     });
 
     // ── 产出 DrawBatch（按 materialId 分组可见 Entity）──
-    // 分组：所有可见且有几何的 Entity 按 materialId 分组
-    std::unordered_map<uint16_t, std::vector<uint64_t>> groups;
+    std::unordered_map<uint16_t, std::vector<engine::DrawKey>> groups;
     world.forEachEntity([&](Entity* e) {
         if (!e->geometry() || !e->visible()) return;
         if (!m_gpu.hasResource(e->id())) return;
-        groups[e->materialId()].push_back(e->id());
+        engine::DrawKey dk;
+        dk.key            = e->id();
+        dk.worldTransform = e->worldTransform();
+        groups[e->materialId()].push_back(dk);
     });
 
     for (auto& [matId, keys] : groups) {

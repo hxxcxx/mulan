@@ -32,7 +32,12 @@ public:
     /// 渲染后端初始化后调用
     bool initRendering(int width, int height);
 
+    /// 逻辑 + 渲染收集（可在 beginFrame 之前调用）
     void render(float dt);
+
+    /// 绘制到指定的 CommandList（外部管理 beginRenderPass / endRenderPass）
+    void renderPass(engine::CommandList* cmd);
+
     void onFrameEnd();
     void resize(int width, int height);
 
