@@ -3,11 +3,10 @@
  * @brief Image 实现 — stb_image / stb_image_write 后端
  * @author hxxcxx
  * @date 2026-04-23
+ *
+ * 注意：STB_IMAGE_IMPLEMENTATION 已移至 stb_impl.cpp，
+ * 本文件只使用 stb 头文件声明。
  */
-
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#define STBI_MAX_DIMENSIONS (16384)
 
 #include "Image.h"
 

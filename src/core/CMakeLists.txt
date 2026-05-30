@@ -4,6 +4,7 @@
 # 所有模块均可引入。
 add_library(Core SHARED
     image/Image.cpp
+    image/StbImpl.cpp
     ini/ConfigFile.cpp
     log/Log.cpp
     result/Result.cpp

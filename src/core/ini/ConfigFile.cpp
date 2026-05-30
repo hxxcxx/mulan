@@ -102,19 +102,13 @@ std::string ConfigFile::getString(std::string_view section, std::string_view key
                                    std::string_view defaultValue) const {
     if (!m_table) return std::string(defaultValue);
 
-    // 支持嵌套路径: "server" + "port" → server.port
-    auto dotted = std::string(section) + "." + std::string(key);
-    auto node = m_table->at_path(dotted);
-    if (node) {
-        if (auto val = node.value<std::string>()) {
-            return *val;
-        }
-    }
-    // 回退：直接键（无 section）
-    if (auto* node = m_table->get(std::string(key))) {
-        if (auto val = node->value<std::string>()) {
-            return *val;
-        }
+    // section 为空 → 查全局 key；非空 → 查 section.key
+    std::string path = section.empty()
+        ? std::string(key)
+        : std::string(section) + "." + std::string(key);
+
+    if (auto val = m_table->at_path(path).value<std::string>()) {
+        return *val;
     }
     return std::string(defaultValue);
 }
@@ -123,15 +117,12 @@ int ConfigFile::getInt(std::string_view section, std::string_view key,
                        int defaultValue) const {
     if (!m_table) return defaultValue;
 
-    auto dotted = std::string(section) + "." + std::string(key);
-    if (auto val = m_table->at_path(dotted).value<int64_t>()) {
+    std::string path = section.empty()
+        ? std::string(key)
+        : std::string(section) + "." + std::string(key);
+
+    if (auto val = m_table->at_path(path).value<int64_t>()) {
         return static_cast<int>(*val);
-    }
-    // 回退：直接键
-    if (auto* node = m_table->get(std::string(key))) {
-        if (auto val = node->value<int64_t>()) {
-            return static_cast<int>(*val);
-        }
     }
     return defaultValue;
 }
@@ -140,14 +131,12 @@ int64_t ConfigFile::getInt64(std::string_view section, std::string_view key,
                               int64_t defaultValue) const {
     if (!m_table) return defaultValue;
 
-    auto dotted = std::string(section) + "." + std::string(key);
-    if (auto val = m_table->at_path(dotted).value<int64_t>()) {
+    std::string path = section.empty()
+        ? std::string(key)
+        : std::string(section) + "." + std::string(key);
+
+    if (auto val = m_table->at_path(path).value<int64_t>()) {
         return *val;
-    }
-    if (auto* node = m_table->get(std::string(key))) {
-        if (auto val = node->value<int64_t>()) {
-            return *val;
-        }
     }
     return defaultValue;
 }
@@ -156,14 +145,12 @@ double ConfigFile::getDouble(std::string_view section, std::string_view key,
                               double defaultValue) const {
     if (!m_table) return defaultValue;
 
-    auto dotted = std::string(section) + "." + std::string(key);
-    if (auto val = m_table->at_path(dotted).value<double>()) {
+    std::string path = section.empty()
+        ? std::string(key)
+        : std::string(section) + "." + std::string(key);
+
+    if (auto val = m_table->at_path(path).value<double>()) {
         return *val;
-    }
-    if (auto* node = m_table->get(std::string(key))) {
-        if (auto val = node->value<double>()) {
-            return *val;
-        }
     }
     return defaultValue;
 }
@@ -172,14 +159,12 @@ bool ConfigFile::getBool(std::string_view section, std::string_view key,
                           bool defaultValue) const {
     if (!m_table) return defaultValue;
 
-    auto dotted = std::string(section) + "." + std::string(key);
-    if (auto val = m_table->at_path(dotted).value<bool>()) {
+    std::string path = section.empty()
+        ? std::string(key)
+        : std::string(section) + "." + std::string(key);
+
+    if (auto val = m_table->at_path(path).value<bool>()) {
         return *val;
-    }
-    if (auto* node = m_table->get(std::string(key))) {
-        if (auto val = node->value<bool>()) {
-            return *val;
-        }
     }
     return defaultValue;
 }
@@ -187,9 +172,11 @@ bool ConfigFile::getBool(std::string_view section, std::string_view key,
 bool ConfigFile::hasKey(std::string_view section, std::string_view key) const {
     if (!m_table) return false;
 
-    auto dotted = std::string(section) + "." + std::string(key);
-    return !!m_table->at_path(dotted)
-        || m_table->get(std::string(key)) != nullptr;
+    std::string path = section.empty()
+        ? std::string(key)
+        : std::string(section) + "." + std::string(key);
+
+    return !!m_table->at_path(path);
 }
 
 bool ConfigFile::hasSection(std::string_view section) const {
