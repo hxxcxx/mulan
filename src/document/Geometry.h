@@ -91,4 +91,4 @@ public:
     virtual engine::AABB boundingBox() const = 0;
 };
 
-} // namespace mulan::Document
+} // namespace mulan::document

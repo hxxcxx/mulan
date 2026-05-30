@@ -191,4 +191,4 @@ struct alignas(16) SceneLightGPU {
 
 static_assert(sizeof(SceneLightGPU) == 544, "SceneLightGPU = 8*64 + 32 = 544");
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

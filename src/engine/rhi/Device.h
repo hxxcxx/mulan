@@ -200,4 +200,4 @@ void DeviceResourceDeleter::operator()(T* ptr) const noexcept {
 }
 
 // ============================================================
-} // namespace mulan::Engine
+} // namespace mulan::engine

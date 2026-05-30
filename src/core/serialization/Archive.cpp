@@ -46,4 +46,4 @@ std::string InputArchive::buildPath() const {
     return path;
 }
 
-} // namespace mulan::Core
+} // namespace mulan::core

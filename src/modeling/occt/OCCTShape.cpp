@@ -376,4 +376,4 @@ std::unique_ptr<OCCTShape> OCCTShape::createTorus(double majorRadius, double min
     return result;
 }
 
-} // namespace mulan::Modeling
+} // namespace mulan::modeling

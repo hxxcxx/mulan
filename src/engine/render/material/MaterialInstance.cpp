@@ -249,4 +249,4 @@ void MaterialInstance::rebuildFromTemplate() {
     m_highlighted = false;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

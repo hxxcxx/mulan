@@ -264,4 +264,4 @@ void DX12Device::submitOffscreen() {
     m_commandQueue->Signal(frame->fence()->fence(), fenceVal);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

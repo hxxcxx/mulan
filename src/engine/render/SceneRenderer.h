@@ -189,4 +189,4 @@ private:
     RenderStats       m_stats;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

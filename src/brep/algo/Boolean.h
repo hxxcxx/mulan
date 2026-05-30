@@ -264,4 +264,4 @@ inline core::Result<Solid<Point3, Curve, Surface>> difference(
     return booleanOp(a, b, BoolOp::Difference, tol);
 }
 
-} // namespace mulan::BRep::boolean
+} // namespace mulan::brep::boolean

@@ -89,4 +89,4 @@ private:
     mutable std::unique_ptr<engine::Mesh> m_cachedMesh;
 };
 
-} // namespace mulan::Document
+} // namespace mulan::document

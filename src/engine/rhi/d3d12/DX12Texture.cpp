@@ -77,4 +77,4 @@ DX12Texture::DX12Texture(const TextureDesc& desc, ID3D12Resource* existingResour
 
 DX12Texture::~DX12Texture() = default;
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

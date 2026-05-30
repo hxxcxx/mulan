@@ -89,4 +89,4 @@ private:
     std::unique_ptr<SceneNode> m_root;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

@@ -68,4 +68,4 @@ vk::ShaderStageFlagBits VKShader::toVkShaderStage(ShaderType type) {
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

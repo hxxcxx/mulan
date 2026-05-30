@@ -28,4 +28,4 @@ private:
     vk::Semaphore m_semaphore;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

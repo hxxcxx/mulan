@@ -38,4 +38,4 @@ public:
     static std::unique_ptr<Shape> torus(KernelId kernel, double majorRadius, double minorRadius);
 };
 
-} // namespace mulan::Modeling
+} // namespace mulan::modeling

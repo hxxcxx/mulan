@@ -55,4 +55,4 @@ std::vector<std::string> DocumentManager::supportedExtensions() const {
     return ImporterFactory::instance().allSupportedExtensions();
 }
 
-} // namespace mulan::Document
+} // namespace mulan::document

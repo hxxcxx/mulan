@@ -65,4 +65,4 @@ private:
     Vector3 vec_;
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

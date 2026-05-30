@@ -33,4 +33,4 @@ public:
                                             std::vector<Material>& outMaterials);
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

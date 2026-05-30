@@ -63,4 +63,4 @@ private:
     GLuint               m_program = 0;  // Linked shader program
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

@@ -234,4 +234,4 @@ void DX12PipelineState::build(DXGI_FORMAT rtFormat, DXGI_FORMAT dsFormat) {
     DX12_CHECK(hr);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

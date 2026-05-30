@@ -262,4 +262,4 @@ Material MaterialLibrary::emissive_blue() {
     return m;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

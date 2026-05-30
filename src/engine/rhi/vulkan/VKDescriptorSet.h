@@ -69,4 +69,4 @@ private:
     std::array<vk::WriteDescriptorSet,   kMaxWrites> m_writes;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

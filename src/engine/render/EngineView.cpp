@@ -354,4 +354,4 @@ void EngineView::shutdown() {
     m_initialized = false;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

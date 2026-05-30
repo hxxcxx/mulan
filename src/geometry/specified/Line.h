@@ -85,4 +85,4 @@ private:
     P p0_, p1_;
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

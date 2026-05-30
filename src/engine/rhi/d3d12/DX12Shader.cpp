@@ -22,4 +22,4 @@ DX12Shader::DX12Shader(const ShaderDesc& desc)
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

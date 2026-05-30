@@ -143,4 +143,4 @@ struct InputEvent {
     }
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

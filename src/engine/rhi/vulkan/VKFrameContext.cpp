@@ -46,4 +46,4 @@ void VKFrameContext::resetCommandBuffer() {
     m_device.resetCommandPool(m_cmdPool);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

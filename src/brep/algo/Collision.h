@@ -300,4 +300,4 @@ inline bool pointInSolid(
     return result.is_inside;
 }
 
-} // namespace mulan::BRep::tessellation
+} // namespace mulan::brep::tessellation

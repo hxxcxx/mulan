@@ -37,4 +37,4 @@ private:
     ComPtr<ID3D11GeometryShader>    m_gs;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

@@ -206,4 +206,4 @@ struct SamplerDesc {
     }
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

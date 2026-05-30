@@ -77,4 +77,4 @@ private:
     uint64_t m_endPos;        // 块结束位置
 };
 
-} // namespace mulan::Core
+} // namespace mulan::core

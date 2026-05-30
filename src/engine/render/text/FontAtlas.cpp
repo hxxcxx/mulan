@@ -211,4 +211,4 @@ bool FontAtlas::uploadAtlas(const std::vector<uint8_t>& rgbaData) {
     return true;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

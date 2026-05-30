@@ -37,4 +37,4 @@ public:
     virtual std::string name() const = 0;
 };
 
-} // namespace mulan::Document
+} // namespace mulan::document

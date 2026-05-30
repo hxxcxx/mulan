@@ -154,4 +154,4 @@ static AutoRegisterImporter _reg_igs("igs", []() -> std::unique_ptr<IFileImporte
     return std::make_unique<OCCTImporter>();
 });
 
-} // namespace mulan::Document
+} // namespace mulan::document

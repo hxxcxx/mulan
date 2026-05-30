@@ -65,7 +65,7 @@ Result<T> Err(Error err) {
     return tl::make_unexpected(std::move(err));
 }
 
-} // namespace mulan::Core
+} // namespace mulan::core
 
 // ============================================================
 // 便捷宏

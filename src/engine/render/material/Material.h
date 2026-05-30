@@ -308,4 +308,4 @@ struct alignas(16) MaterialGPU {
     }
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

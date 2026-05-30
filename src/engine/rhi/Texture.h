@@ -138,4 +138,4 @@ protected:
     Texture& operator=(const Texture&) = delete;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

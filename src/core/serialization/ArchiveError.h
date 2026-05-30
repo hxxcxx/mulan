@@ -71,4 +71,4 @@ struct CORE_API ArchiveError {
 // 序列化 read 操作的返回类型
 using ArchiveResult = tl::expected<void, ArchiveError>;
 
-} // namespace mulan::Core
+} // namespace mulan::core

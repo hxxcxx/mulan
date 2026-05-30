@@ -52,4 +52,4 @@ private:
     uint32_t m_descriptorSize = 0;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

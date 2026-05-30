@@ -120,4 +120,4 @@ void Document::clear() {
     m_modified = true;
 }
 
-} // namespace mulan::Document
+} // namespace mulan::document

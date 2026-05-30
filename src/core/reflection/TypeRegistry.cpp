@@ -70,4 +70,4 @@ std::vector<std::string> TypeRegistry::registeredClasses() const {
     return names;
 }
 
-} // namespace mulan::Core
+} // namespace mulan::core

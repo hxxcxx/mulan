@@ -119,4 +119,4 @@ protected:
     Buffer& operator=(const Buffer&) = delete;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

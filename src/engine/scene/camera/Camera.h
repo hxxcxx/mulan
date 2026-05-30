@@ -228,4 +228,4 @@ private:
     double m_minDistance = 0.001;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

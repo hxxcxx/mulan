@@ -59,4 +59,4 @@ private:
     GLuint     m_shader = 0;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

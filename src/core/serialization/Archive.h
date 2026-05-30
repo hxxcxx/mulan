@@ -168,4 +168,4 @@ private:
     std::vector<PathEntry> m_pathStack;
 };
 
-} // namespace mulan::Core
+} // namespace mulan::core

@@ -26,4 +26,4 @@ private:
     ComPtr<ID3D11SamplerState>   m_handle;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

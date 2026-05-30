@@ -49,4 +49,4 @@ std::unique_ptr<Shape> ShapeFactory::torus(KernelId kernel, double majorRadius, 
     return nullptr;
 }
 
-} // namespace mulan::Modeling
+} // namespace mulan::modeling

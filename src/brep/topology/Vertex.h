@@ -82,4 +82,4 @@ private:
     std::shared_ptr<P> point_;
 };
 
-} // namespace mulan::BRep
+} // namespace mulan::brep

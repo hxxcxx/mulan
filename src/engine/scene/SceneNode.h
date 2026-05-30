@@ -198,4 +198,4 @@ inline SceneNode::DirtyFlag operator&(SceneNode::DirtyFlag a, SceneNode::DirtyFl
     return static_cast<SceneNode::DirtyFlag>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

@@ -21,4 +21,4 @@ public:
     std::string name() const override;
 };
 
-} // namespace mulan::Document
+} // namespace mulan::document

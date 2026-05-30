@@ -75,4 +75,4 @@ public:
     virtual std::unique_ptr<Shape> booleanIntersect(const Shape& tool) const = 0;
 };
 
-} // namespace mulan::Modeling
+} // namespace mulan::modeling

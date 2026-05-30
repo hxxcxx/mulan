@@ -200,4 +200,4 @@ inline DXGI_FORMAT toDXGIFormat(VertexFormat fmt) {
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

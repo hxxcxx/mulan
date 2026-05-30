@@ -126,4 +126,4 @@ void DX11Texture::createSRV(ID3D11Device* device, DXGI_FORMAT fmt)
     DX11_CHECK(hr);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

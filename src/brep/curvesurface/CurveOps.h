@@ -502,4 +502,4 @@ inline Surface surface_inverse(const Surface& s) {
 inline void Surface::invert() { surface_invert(*this); }
 inline Surface Surface::inverse() const { return surface_inverse(*this); }
 
-} // namespace mulan::BRep
+} // namespace mulan::brep

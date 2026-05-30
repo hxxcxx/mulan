@@ -383,4 +383,4 @@ private:
     }
 };
 
-} // namespace mulan::BRep::tessellation
+} // namespace mulan::brep::tessellation

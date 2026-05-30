@@ -95,4 +95,4 @@ private:
     bool m_modified = false;
 };
 
-} // namespace mulan::Document
+} // namespace mulan::document

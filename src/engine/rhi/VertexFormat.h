@@ -172,4 +172,4 @@ struct VertexFormatTraits {
     using type = std::array<std::byte, vertexFormatSize(F)>;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

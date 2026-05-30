@@ -168,4 +168,4 @@ std::optional<BasisWindow> KnotVec::tryBsplineBasisFunctions(
     return BasisWindow(base, std::move(basis), num_basis);
 }
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

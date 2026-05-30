@@ -32,4 +32,4 @@ private:
     vk::ShaderModule m_module;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

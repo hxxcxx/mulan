@@ -299,4 +299,4 @@ void DX12CommandList::endRenderPass() {
     m_rpColorTex = nullptr;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

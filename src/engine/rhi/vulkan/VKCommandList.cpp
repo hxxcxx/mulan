@@ -350,4 +350,4 @@ void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
     m_cmdBuffer.beginRenderPass(rpBegin, vk::SubpassContents::eInline);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

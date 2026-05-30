@@ -51,4 +51,4 @@ private:
     StagingSlab& getOrCreateSlab(uint32_t minSize);
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

@@ -128,4 +128,4 @@ uint32_t VKUploadContext::alignUp(uint32_t v, uint32_t align) {
     return (v + align - 1) & ~(align - 1);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

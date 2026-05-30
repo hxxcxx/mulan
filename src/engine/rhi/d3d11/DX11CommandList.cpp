@@ -226,4 +226,4 @@ void DX11CommandList::endRenderPass() {
     // D3D11: no explicit end — render targets remain bound until changed
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

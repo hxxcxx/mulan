@@ -108,4 +108,4 @@ private:
     std::unordered_map<std::string, TextureAsset> m_textures;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

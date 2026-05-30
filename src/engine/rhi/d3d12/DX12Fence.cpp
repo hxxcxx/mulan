@@ -37,4 +37,4 @@ DX12Fence::~DX12Fence() {
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

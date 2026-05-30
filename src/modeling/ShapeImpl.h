@@ -89,4 +89,4 @@ private:
     }
 };
 
-} // namespace mulan::Modeling
+} // namespace mulan::modeling

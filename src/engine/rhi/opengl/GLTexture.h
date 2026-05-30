@@ -79,4 +79,4 @@ private:
     GLenum      m_internalFormat = GL_RGBA8;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

@@ -57,4 +57,4 @@ inline core::Error makeError(TopologyError e,
     return core::Error::make(static_cast<int32_t>(e), toString(e), loc);
 }
 
-} // namespace mulan::BRep
+} // namespace mulan::brep

@@ -28,4 +28,4 @@ bool EntityHandle::valid() const {
     return get() != nullptr;
 }
 
-} // namespace mulan::Document
+} // namespace mulan::document

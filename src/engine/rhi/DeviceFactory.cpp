@@ -36,4 +36,4 @@ std::shared_ptr<RHIDevice> RHIDevice::create(const DeviceCreateInfo& ci) {
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

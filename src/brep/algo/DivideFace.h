@@ -500,4 +500,4 @@ inline LoopsStore<Point3, Curve> createLoopsStore(
     return store;
 }
 
-} // namespace mulan::BRep::boolean
+} // namespace mulan::brep::boolean

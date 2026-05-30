@@ -417,4 +417,4 @@ public:
     }
 };
 
-} // namespace mulan::BRep
+} // namespace mulan::brep

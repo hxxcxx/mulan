@@ -124,4 +124,4 @@ private:
     uint32_t                                           m_nextId = 1;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

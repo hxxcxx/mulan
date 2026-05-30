@@ -12,7 +12,7 @@
 #include <cmath>
 #include <algorithm>
 
-namespace mulan::Engine {
+namespace mulan::engine {
 
 struct BoundingSphere {
     Vec3   center;
@@ -111,4 +111,4 @@ struct BoundingSphere {
     }
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

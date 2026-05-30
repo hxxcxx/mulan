@@ -208,4 +208,4 @@ std::unique_ptr<engine::Mesh> OCCTShapeGeometry::extractEdges() const {
     return mesh;
 }
 
-} // namespace mulan::Document
+} // namespace mulan::document

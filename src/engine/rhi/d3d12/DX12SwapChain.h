@@ -60,4 +60,4 @@ private:
     float                              m_clearColor[4] = { 0.15f, 0.15f, 0.15f, 1.0f };
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

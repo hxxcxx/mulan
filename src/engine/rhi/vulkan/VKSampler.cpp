@@ -75,4 +75,4 @@ VKSampler::~VKSampler() {
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

@@ -38,4 +38,4 @@ private:
     vk::Fence          m_inFlightFence;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

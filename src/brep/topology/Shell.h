@@ -315,4 +315,4 @@ private:
     std::vector<Face<P, C, S>> face_list_;
 };
 
-} // namespace mulan::BRep
+} // namespace mulan::brep

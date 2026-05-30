@@ -43,4 +43,4 @@ private:
     std::vector<vk::VertexInputAttributeDescription> m_attributeDescriptions;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

@@ -44,4 +44,4 @@ public:
     AutoRegisterImporter(const std::string& extension, ImporterFactory::Creator creator);
 };
 
-} // namespace mulan::Document
+} // namespace mulan::document

@@ -19,7 +19,7 @@
 
 namespace mulan::engine {
 class RHIDevice;
-}  // namespace mulan::engine
+} // namespace mulan::engine
 
 namespace mulan::world {
 

@@ -47,4 +47,4 @@ template<typename P> using VertexID = ID<P>;
 template<typename C> using EdgeID   = ID<C>;
 template<typename S> using FaceID   = ID<S>;
 
-} // namespace mulan::BRep
+} // namespace mulan::brep

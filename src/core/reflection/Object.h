@@ -127,7 +127,7 @@ private:
 };
 
 
-} // namespace mulan::Core
+} // namespace mulan::core
 
 // ============================================================
 // Serializer<std::unique_ptr<Object>> 声明（DLL 导出）
@@ -144,4 +144,4 @@ struct CORE_API Serializer<std::unique_ptr<Object>> {
     static ArchiveResult read(InputArchive& ar, std::unique_ptr<Object>& out);
 };
 
-} // namespace mulan::Core
+} // namespace mulan::core

@@ -49,4 +49,4 @@ private:
     ComPtr<ID3D11DepthStencilState>     m_depthStencil;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

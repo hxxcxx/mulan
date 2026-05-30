@@ -572,4 +572,4 @@ uint64_t BinaryInputArchive::remaining() const {
     return m_impl->buffer.size() - m_impl->pos;
 }
 
-} // namespace mulan::Core
+} // namespace mulan::core

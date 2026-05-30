@@ -59,6 +59,6 @@ private:
     bool     m_shouldClose  = false;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine
 
 #endif // _WIN32

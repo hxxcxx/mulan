@@ -47,4 +47,4 @@ private:
     double m_arcballSpeed  = 1.75;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

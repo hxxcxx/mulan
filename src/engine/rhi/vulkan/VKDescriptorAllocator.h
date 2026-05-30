@@ -46,4 +46,4 @@ private:
     vk::DescriptorPool                m_activePool = nullptr;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

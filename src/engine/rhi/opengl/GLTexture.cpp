@@ -331,4 +331,4 @@ void GLTexture::generateMipmaps() {
     glBindTexture(m_target, 0);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

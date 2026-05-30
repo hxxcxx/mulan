@@ -194,4 +194,4 @@ private:
     uint32_t m_bulkRemaining = 0;
 };
 
-} // namespace mulan::Core
+} // namespace mulan::core

@@ -63,4 +63,4 @@ private:
     uint32_t m_cachedStride = 0;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

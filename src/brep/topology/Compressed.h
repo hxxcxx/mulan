@@ -188,4 +188,4 @@ private:
     }
 };
 
-} // namespace mulan::BRep
+} // namespace mulan::brep

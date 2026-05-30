@@ -184,4 +184,4 @@ void VKSwapChain::cleanup() {
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

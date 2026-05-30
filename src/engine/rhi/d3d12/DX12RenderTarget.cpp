@@ -68,4 +68,4 @@ void DX12RenderTarget::resize(uint32_t width, uint32_t height) {
     createResources();
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

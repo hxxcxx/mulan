@@ -103,4 +103,4 @@ private:
     std::unique_ptr<DX12DescriptorAllocator>       m_shaderVisibleHeap;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

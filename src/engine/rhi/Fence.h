@@ -30,4 +30,4 @@ protected:
     Fence& operator=(const Fence&) = delete;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

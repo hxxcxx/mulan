@@ -48,4 +48,4 @@ private:
     std::unique_ptr<GLTexture> m_depthTexture;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

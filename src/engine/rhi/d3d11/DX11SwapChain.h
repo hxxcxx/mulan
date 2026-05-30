@@ -48,4 +48,4 @@ private:
     RenderConfig                        m_renderConfig;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

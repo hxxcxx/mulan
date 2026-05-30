@@ -75,4 +75,4 @@ protected:
     Shader& operator=(const Shader&) = delete;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

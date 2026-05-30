@@ -42,4 +42,4 @@ using FVec4 = glm::vec4;
 using FMat4 = glm::mat4;
 using FQuat = glm::quat;
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

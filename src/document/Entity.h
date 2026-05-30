@@ -81,4 +81,4 @@ private:
     std::unordered_map<std::string, Metadata> m_metadata;
 };
 
-} // namespace mulan::Document
+} // namespace mulan::document

@@ -69,4 +69,4 @@ private:
     DX12Texture* m_rpColorTex = nullptr; // 当前 render pass 的颜色附件
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

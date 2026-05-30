@@ -58,4 +58,4 @@ uint64_t DX11Fence::completedValue() const
     return m_completed;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

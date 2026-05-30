@@ -139,4 +139,4 @@ void DX12SwapChain::resize(uint32_t width, uint32_t height) {
     createBackBuffers();
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

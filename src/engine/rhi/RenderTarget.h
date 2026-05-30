@@ -104,4 +104,4 @@ protected:
     RenderTarget& operator=(const RenderTarget&) = delete;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

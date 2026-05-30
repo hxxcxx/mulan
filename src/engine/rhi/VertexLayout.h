@@ -333,4 +333,4 @@ static_assert(layouts::skinned().stride() == 68);
 static_assert(layouts::solidTextured().stride() == 40);
 static_assert(layouts::lightmap().stride() == 56);
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

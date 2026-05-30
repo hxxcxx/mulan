@@ -50,4 +50,4 @@ struct BindGroup {
     void clear() noexcept { count = 0; }
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

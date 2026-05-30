@@ -135,4 +135,4 @@ private:
     }
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

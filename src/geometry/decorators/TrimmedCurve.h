@@ -70,4 +70,4 @@ private:
     double t1_ = 1.0;
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

@@ -104,4 +104,4 @@ DX12Sampler::~DX12Sampler() {
     // 描述符由 DX12DescriptorAllocator 统一管理，无需单独释放
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

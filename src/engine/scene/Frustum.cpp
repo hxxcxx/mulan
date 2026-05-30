@@ -55,4 +55,4 @@ bool Frustum::intersects(const AABB& box) const {
     return true;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

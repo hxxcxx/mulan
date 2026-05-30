@@ -34,4 +34,4 @@ private:
     uint64_t                           m_fenceValue = 0;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

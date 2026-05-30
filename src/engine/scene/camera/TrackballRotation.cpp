@@ -98,4 +98,4 @@ void TrackballRotation::endOrbit() {
     m_arcballActive = false;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

@@ -28,4 +28,4 @@ private:
     HANDLE m_event = nullptr;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

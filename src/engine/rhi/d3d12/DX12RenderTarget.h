@@ -40,4 +40,4 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE             m_dsvHandle = {};
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

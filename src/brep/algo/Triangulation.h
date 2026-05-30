@@ -746,4 +746,4 @@ inline TriMesh triangulateSolidMerged(
     return mesh;
 }
 
-} // namespace mulan::BRep::tessellation
+} // namespace mulan::brep::tessellation

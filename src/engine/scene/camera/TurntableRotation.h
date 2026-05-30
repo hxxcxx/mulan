@@ -52,4 +52,4 @@ private:
     static constexpr double kMinPitch = -kPi * 0.5 + 0.01;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

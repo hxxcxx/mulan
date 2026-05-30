@@ -414,4 +414,4 @@ void GLCommandList::endRenderPass() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

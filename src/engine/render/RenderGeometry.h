@@ -162,4 +162,4 @@ private:
     size_t m_edgeSplit   = 0;  ///< 边线/半透明分割点
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

@@ -24,4 +24,4 @@ private:
     SceneRenderer& m_renderer;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

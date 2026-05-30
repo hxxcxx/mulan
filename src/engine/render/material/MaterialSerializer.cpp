@@ -174,4 +174,4 @@ SerializeResult MaterialSerializer::loadCollection(const std::string& path,
     return result;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

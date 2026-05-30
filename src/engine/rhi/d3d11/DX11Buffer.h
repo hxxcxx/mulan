@@ -31,4 +31,4 @@ private:
     ID3D11DeviceContext*  m_ctx;  // immediate context, not owned
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

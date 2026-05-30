@@ -361,4 +361,4 @@ void GLDevice::submitOffscreen() {
     glFlush();
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

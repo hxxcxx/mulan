@@ -59,4 +59,4 @@ void TurntableRotation::endOrbit() {
     m_orbitDrag = false;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

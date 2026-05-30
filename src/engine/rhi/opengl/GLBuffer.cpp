@@ -224,4 +224,4 @@ bool GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
     return true;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

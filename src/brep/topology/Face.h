@@ -154,4 +154,4 @@ private:
     std::shared_ptr<S> surface_;
 };
 
-} // namespace mulan::BRep
+} // namespace mulan::brep

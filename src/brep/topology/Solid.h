@@ -315,4 +315,4 @@ private:
         : boundaries_(std::move(boundaries)) {}
 };
 
-} // namespace mulan::BRep
+} // namespace mulan::brep

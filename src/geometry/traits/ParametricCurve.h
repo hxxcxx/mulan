@@ -77,4 +77,4 @@ public:
     /// 返回变换后的副本 (调用方自己拷贝再变换)
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

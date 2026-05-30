@@ -110,6 +110,6 @@ LRESULT CALLBACK Win32Window::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
     return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine
 
 #endif // _WIN32

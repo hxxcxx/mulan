@@ -149,4 +149,4 @@ ResourcePtr<Texture> TextureCache::createRHITexture(const LoadedTexture& loaded,
     return texture;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

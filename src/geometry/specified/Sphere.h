@@ -107,4 +107,4 @@ private:
     double radius_;
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

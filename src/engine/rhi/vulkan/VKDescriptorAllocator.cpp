@@ -96,4 +96,4 @@ VKDescriptorAllocator::PoolSizes VKDescriptorAllocator::defaultPoolSizes() {
     }};
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

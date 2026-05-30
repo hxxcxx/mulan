@@ -166,4 +166,4 @@ void MaterialCache::rebuildIndex() {
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

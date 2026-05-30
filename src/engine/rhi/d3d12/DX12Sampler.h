@@ -29,4 +29,4 @@ private:
     DX12Descriptor  m_descriptor;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

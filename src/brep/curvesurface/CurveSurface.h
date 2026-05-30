@@ -231,4 +231,4 @@ inline IntersectionCurve& IntersectionCurve::operator=(const IntersectionCurve& 
     return *this;
 }
 
-} // namespace mulan::BRep
+} // namespace mulan::brep

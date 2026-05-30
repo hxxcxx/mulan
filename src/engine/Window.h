@@ -130,4 +130,4 @@ protected:
     void*          m_resizeCbData = nullptr;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

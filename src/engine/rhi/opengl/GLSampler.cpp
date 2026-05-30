@@ -105,4 +105,4 @@ GLSampler::~GLSampler() {
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

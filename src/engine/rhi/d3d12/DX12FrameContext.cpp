@@ -35,4 +35,4 @@ void DX12FrameContext::resetCommandAllocator() {
     m_cmdList->Reset(m_cmdAllocator.Get(), nullptr);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

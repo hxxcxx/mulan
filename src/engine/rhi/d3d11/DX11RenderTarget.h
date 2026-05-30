@@ -36,4 +36,4 @@ private:
     std::unique_ptr<DX11Texture>        m_depthTexture;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

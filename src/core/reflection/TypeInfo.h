@@ -76,7 +76,7 @@ private:
     std::string m_displayName;
 };
 
-} // namespace mulan::Core
+} // namespace mulan::core
 
 // ============================================================
 // std::hash 特化，允许 TypeInfo 作为 unordered_map/unordered_set 的 key

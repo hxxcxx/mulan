@@ -144,4 +144,4 @@ private:
     std::vector<uint8_t>  m_pixels;
 };
 
-} // namespace mulan::Core
+} // namespace mulan::core

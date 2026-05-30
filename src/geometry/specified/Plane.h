@@ -73,4 +73,4 @@ private:
     Vector3 v_axis_;
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

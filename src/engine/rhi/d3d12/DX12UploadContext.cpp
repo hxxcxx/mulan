@@ -132,4 +132,4 @@ void DX12UploadContext::flush() {
     // 当前实现是同步上传，flush 无需额外操作
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

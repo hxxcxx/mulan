@@ -47,4 +47,4 @@ public:
     virtual void setRotation(const Quat& /*q*/) {}
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

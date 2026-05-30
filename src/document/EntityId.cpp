@@ -15,4 +15,4 @@ EntityId EntityId::generate() {
     return EntityId{counter.fetch_add(1, std::memory_order_relaxed)};
 }
 
-} // namespace mulan::Document
+} // namespace mulan::document

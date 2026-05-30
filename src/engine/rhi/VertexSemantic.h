@@ -123,4 +123,4 @@ constexpr const char* semanticGlsl(VertexSemantic sem) {
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

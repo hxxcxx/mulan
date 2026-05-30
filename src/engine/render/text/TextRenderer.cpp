@@ -316,4 +316,4 @@ void TextRenderer::clear() {
     m_indices.clear();
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

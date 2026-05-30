@@ -39,4 +39,4 @@ private:
     ComPtr<ID3D11ShaderResourceView>    m_srv;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

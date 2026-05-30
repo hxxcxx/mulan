@@ -161,4 +161,4 @@ private:
     std::deque<Edge<P, C>> edge_list_;
 };
 
-} // namespace mulan::BRep
+} // namespace mulan::brep

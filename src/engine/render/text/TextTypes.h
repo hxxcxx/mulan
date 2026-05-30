@@ -59,4 +59,4 @@ struct TextDrawItem {
     float       color[4] = {1,1,1,1}; ///< RGBA（线性空间）
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

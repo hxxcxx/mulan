@@ -74,4 +74,4 @@ private:
     Surface surface_;
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

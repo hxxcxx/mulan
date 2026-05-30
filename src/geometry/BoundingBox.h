@@ -93,4 +93,4 @@ struct GEOMETRY_API BoundingBox3D {
     }
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

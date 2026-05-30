@@ -49,4 +49,4 @@ private:
     static uint32_t packColor(const float color[4]);
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

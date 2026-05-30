@@ -51,4 +51,4 @@ private:
     Document* m_doc = nullptr;
 };
 
-} // namespace mulan::Document
+} // namespace mulan::document

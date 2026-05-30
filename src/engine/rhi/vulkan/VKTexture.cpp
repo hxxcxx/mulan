@@ -89,4 +89,4 @@ vk::ImageViewCreateInfo VKTexture::viewForFramebuffer() const {
     return ci;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

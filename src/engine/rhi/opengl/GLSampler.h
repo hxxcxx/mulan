@@ -26,4 +26,4 @@ private:
     GLuint      m_handle = 0;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

@@ -32,4 +32,4 @@ private:
     std::vector<uint8_t>    m_byteCode;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

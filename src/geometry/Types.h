@@ -123,4 +123,4 @@ enum class GeometryError {
     CannotEvaluate,
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

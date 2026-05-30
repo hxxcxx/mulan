@@ -42,4 +42,4 @@ uint64_t VKFence::completedValue() const {
     return m_device.getSemaphoreCounterValue(m_semaphore);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

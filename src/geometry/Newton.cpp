@@ -65,4 +65,4 @@ std::optional<Vector3> newton_solve3d(
     return std::nullopt;
 }
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

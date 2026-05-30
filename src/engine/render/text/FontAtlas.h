@@ -78,4 +78,4 @@ private:
     uint32_t  m_atlasHeight  = 0;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

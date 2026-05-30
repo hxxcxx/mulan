@@ -49,4 +49,4 @@ DX11Shader::DX11Shader(const ShaderDesc& desc, ID3D11Device* device)
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

@@ -102,4 +102,4 @@ private:
     std::vector<uint32_t>         m_indices;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

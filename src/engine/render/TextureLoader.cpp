@@ -101,4 +101,4 @@ void TextureLoader::convertSRGBToLinear(std::vector<uint8_t>& pixels) {
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

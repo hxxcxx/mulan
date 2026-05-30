@@ -66,4 +66,4 @@ inline double inv_or_zero(double x) {
 inline constexpr size_t SEARCH_PARAMETER_TRIALS = 100;
 inline constexpr size_t PRESEARCH_DIVISION = 50;
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

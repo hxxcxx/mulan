@@ -140,4 +140,4 @@ void DX11PipelineState::createDepthStencilState()
     DX11_CHECK(hr);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

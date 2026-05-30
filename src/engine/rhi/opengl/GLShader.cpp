@@ -275,4 +275,4 @@ void GLShader::checkCompileError(GLuint shader, const char* shaderName) {
     std::fprintf(stdout, "[GLShader] Successfully specialized '%s'\n", shaderName);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

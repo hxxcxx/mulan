@@ -77,4 +77,4 @@ struct Mesh {
     }
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

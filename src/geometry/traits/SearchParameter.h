@@ -90,4 +90,4 @@ public:
         const P& point, const SPHint2D& hint, size_t trials = SEARCH_PARAMETER_TRIALS) const = 0;
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

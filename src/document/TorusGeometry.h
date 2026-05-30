@@ -14,7 +14,7 @@
 
 #include <memory>
 
-namespace mulan::Document {
+namespace mulan::document {
 
 class DOCUMENT_API TorusGeometry : public Geometry {
     MULANGEO_OBJECT(TorusGeometry, Geometry)
@@ -70,4 +70,4 @@ private:
     mutable std::unique_ptr<engine::Mesh> m_cachedMesh;
 };
 
-} // namespace mulan::Document
+} // namespace mulan::document

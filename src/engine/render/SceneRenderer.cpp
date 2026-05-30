@@ -483,4 +483,4 @@ void SceneRenderer::addText(std::string_view text,
         m_textRenderer->addText(text, x, y, fontSize, color);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

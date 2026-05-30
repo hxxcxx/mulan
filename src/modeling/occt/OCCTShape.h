@@ -58,4 +58,4 @@ private:
     Impl* m_impl = nullptr;
 };
 
-} // namespace mulan::Modeling
+} // namespace mulan::modeling

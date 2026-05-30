@@ -173,4 +173,4 @@ void GLRenderTarget::resize(uint32_t width, uint32_t height) {
 }
 
 // ============================================================
-} // namespace mulan::Engine
+} // namespace mulan::engine

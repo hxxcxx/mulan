@@ -30,7 +30,7 @@ struct DOCUMENT_API EntityId {
     static EntityId fromValue(uint64_t v) { return EntityId{v}; }
 };
 
-} // namespace mulan::Document
+} // namespace mulan::document
 
 template<>
 struct std::hash<mulan::document::EntityId> {

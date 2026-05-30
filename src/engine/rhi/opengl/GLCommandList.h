@@ -183,4 +183,4 @@ private:
     bool               m_vertexLayoutDirty = true;  // VBO/PSO 变化时重新设置属性指针
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

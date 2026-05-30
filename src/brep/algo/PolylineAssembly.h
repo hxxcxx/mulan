@@ -83,4 +83,4 @@ inline std::vector<tessellation::PolylineCurve> assemblePolylines(
     return polylines;
 }
 
-} // namespace mulan::BRep::boolean
+} // namespace mulan::brep::boolean

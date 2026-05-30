@@ -362,4 +362,4 @@ GLenum GLPipelineState::glTopology() const {
     return getGLPrimitiveType(m_desc.topology);
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

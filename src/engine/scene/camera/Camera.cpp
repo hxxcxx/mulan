@@ -165,4 +165,4 @@ Vec3 Camera::forward() const { return m_active->forward(); }
 Vec3 Camera::right()   const { return m_active->right(); }
 Vec3 Camera::up()      const { return m_active->up(); }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

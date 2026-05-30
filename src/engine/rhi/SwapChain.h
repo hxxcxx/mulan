@@ -99,4 +99,4 @@ protected:
     SwapChain& operator=(const SwapChain&) = delete;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

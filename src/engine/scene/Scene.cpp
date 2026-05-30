@@ -122,4 +122,4 @@ void Scene::countNodes(const SceneNode* node, size_t& count) const {
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

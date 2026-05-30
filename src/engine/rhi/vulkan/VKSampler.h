@@ -27,4 +27,4 @@ private:
     vk::Sampler m_sampler;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

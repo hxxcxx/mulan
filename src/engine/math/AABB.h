@@ -87,4 +87,4 @@ struct AABB {
     }
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

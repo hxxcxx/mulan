@@ -63,4 +63,4 @@ inline void safeRelease(ComPtr<T>& ptr) {
     ptr.Reset();
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

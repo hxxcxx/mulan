@@ -47,4 +47,4 @@ DX12Descriptor DX12DescriptorAllocator::allocate() {
     return desc;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

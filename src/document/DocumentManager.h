@@ -54,4 +54,4 @@ private:
     std::string m_lastError;
 };
 
-} // namespace mulan::Document
+} // namespace mulan::document

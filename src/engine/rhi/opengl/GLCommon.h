@@ -59,4 +59,4 @@ inline void glCheckError(const char* file, int line) {
 
 #define GL_CHECK() ::mulan::engine::glCheckError(__FILE__, __LINE__)
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

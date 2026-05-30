@@ -566,4 +566,4 @@ chamferEdge(
     return Solid<Point3, Curve, Surface>::newUnchecked(std::move(shells));
 }
 
-} // namespace mulan::BRep::fillet
+} // namespace mulan::brep::fillet

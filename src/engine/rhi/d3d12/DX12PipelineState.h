@@ -37,4 +37,4 @@ private:
     std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputElements;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

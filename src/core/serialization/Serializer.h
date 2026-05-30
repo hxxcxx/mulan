@@ -383,4 +383,4 @@ struct Serializer<std::unique_ptr<T>> {
     }
 };
 
-} // namespace mulan::Core
+} // namespace mulan::core

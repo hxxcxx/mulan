@@ -193,4 +193,4 @@ inline vk::AttachmentStoreOp toVkStoreOp(StoreAction action) {
     return vk::AttachmentStoreOp::eStore;
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

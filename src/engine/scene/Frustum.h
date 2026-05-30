@@ -29,4 +29,4 @@ struct Frustum {
     bool intersects(const AABB& box) const;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

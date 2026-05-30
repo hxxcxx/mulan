@@ -209,4 +209,4 @@ private:
     size_t total_len_;
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

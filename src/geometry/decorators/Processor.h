@@ -166,4 +166,4 @@ private:
     Trans transform_;
 };
 
-} // namespace mulan::Geometry
+} // namespace mulan::geometry

@@ -131,4 +131,4 @@ enum class ResourceTransitionMode : uint8_t {
     Transition,  // 自动转换
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

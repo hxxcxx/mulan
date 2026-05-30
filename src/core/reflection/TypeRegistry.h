@@ -103,4 +103,4 @@ private:
     std::unordered_map<std::type_index, ClassInfo*> m_classesByType;
 };
 
-} // namespace mulan::Core
+} // namespace mulan::core

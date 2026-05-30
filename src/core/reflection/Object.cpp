@@ -92,4 +92,4 @@ ArchiveResult Serializer<std::unique_ptr<Object>>::read(InputArchive& ar,
     return {};
 }
 
-} // namespace mulan::Core
+} // namespace mulan::core

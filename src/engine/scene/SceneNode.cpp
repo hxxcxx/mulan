@@ -92,4 +92,4 @@ void SceneNode::releaseGpuResources() {
     m_gpuEdgeGeo = {};
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

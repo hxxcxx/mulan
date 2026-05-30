@@ -36,4 +36,4 @@ void ForwardPass::execute(PassContext& ctx) {
     }
 }
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

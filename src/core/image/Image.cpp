@@ -250,4 +250,4 @@ bool Image::isSupportedFile(std::string_view path) {
         || ext == ".bmp" || ext == ".tga" || ext == ".hdr";
 }
 
-} // namespace mulan::Core
+} // namespace mulan::core

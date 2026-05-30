@@ -26,4 +26,4 @@ bool Entity::removeMetadata(const std::string& key) {
     return m_metadata.erase(key) > 0;
 }
 
-} // namespace mulan::Document
+} // namespace mulan::document

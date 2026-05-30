@@ -44,4 +44,4 @@ private:
     bool            m_ownsResources = true;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine

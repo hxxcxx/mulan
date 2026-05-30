@@ -79,4 +79,4 @@ private:
     mutable bool m_edgeMeshGenerated = false;
 };
 
-} // namespace mulan::Document
+} // namespace mulan::document

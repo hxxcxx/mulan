@@ -13,7 +13,7 @@
 #include <vector>
 #include <cstdint>
 
-namespace mulan::Engine {
+namespace mulan::engine {
 
 // ============================================================
 // 颜色打包工具
@@ -178,4 +178,4 @@ private:
     std::vector<std::byte> m_buffer;
 };
 
-} // namespace mulan::Engine
+} // namespace mulan::engine
