@@ -9,7 +9,7 @@
 
 #include <cctype>
 
-namespace mulan::document {
+namespace mulan::io {
 
 namespace {
 
@@ -50,4 +50,4 @@ AutoRegisterImporter::AutoRegisterImporter(const std::string& extension, Importe
     ImporterFactory::instance().registerImporter(extension, std::move(creator));
 }
 
-} // namespace mulan::document
+} // namespace mulan::io

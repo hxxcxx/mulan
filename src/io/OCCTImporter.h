@@ -15,13 +15,13 @@ namespace mulan::world {
 class World;
 }
 
-namespace mulan::document {
+namespace mulan::io {
 
-class DOCUMENT_API OCCTImporter : public IFileImporter {
+class IO_API OCCTImporter : public IFileImporter {
 public:
     bool import(const std::string& path, mulan::world::World& world) override;
     std::vector<std::string> supportedExtensions() const override;
     std::string name() const override;
 };
 
-} // namespace mulan::document
+} // namespace mulan::io

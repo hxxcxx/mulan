@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "DocumentExport.h"
+#include "IOExport.h"
 
 #include <functional>
 #include <memory>
@@ -14,11 +14,11 @@
 #include <unordered_map>
 #include <vector>
 
-namespace mulan::document {
+namespace mulan::io {
 
 class IFileImporter;
 
-class DOCUMENT_API ImporterFactory {
+class IO_API ImporterFactory {
 public:
     using Creator = std::function<std::unique_ptr<IFileImporter>()>;
 
@@ -39,9 +39,9 @@ private:
 };
 
 /// 自动注册辅助类 — 放在 .cpp 文件全局作用域即可完成注册
-class DOCUMENT_API AutoRegisterImporter {
+class IO_API AutoRegisterImporter {
 public:
     AutoRegisterImporter(const std::string& extension, ImporterFactory::Creator creator);
 };
 
-} // namespace mulan::document
+} // namespace mulan::io

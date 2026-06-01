@@ -22,7 +22,7 @@
 #include <clocale>
 #include <filesystem>
 
-namespace mulan::document {
+namespace mulan::io {
 
 namespace {
 
@@ -145,4 +145,4 @@ static AutoRegisterImporter _reg_igs("igs", []() -> std::unique_ptr<IFileImporte
     return std::make_unique<OCCTImporter>();
 });
 
-} // namespace mulan::document
+} // namespace mulan::io

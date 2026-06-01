@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "DocumentExport.h"
+#include "IOExport.h"
 
 #include <memory>
 #include <string>
@@ -16,10 +16,10 @@ namespace mulan::world {
 class World;
 }
 
-namespace mulan::document {
+namespace mulan::io {
 
 /// 文件导入器接口 — 直接创建 world::Entity 填充 World
-class DOCUMENT_API IFileImporter {
+class IO_API IFileImporter {
 public:
     virtual ~IFileImporter() = default;
 
@@ -39,4 +39,4 @@ protected:
     std::string m_lastError;
 };
 
-} // namespace mulan::document
+} // namespace mulan::io

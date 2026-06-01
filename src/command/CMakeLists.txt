@@ -1,7 +1,7 @@
 # Command - 命令体系（静态库）
 #
 # 命令注册、执行、历史记录。
-# 依赖 Document（纯数据模型），不依赖 Qt。
+# 依赖 IO（导入器）、World（数据模型），不依赖 Qt。
 add_library(Command STATIC
     CommandManager.cpp
 )
@@ -19,7 +19,7 @@ target_include_directories(Command PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
 )
 
-target_link_libraries(Command PUBLIC Document)
+target_link_libraries(Command PUBLIC IO)
 
 target_compile_definitions(Command PRIVATE
     BUILDING_COMMAND

@@ -25,7 +25,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     World
     Engine
     Command
-    $<LINK_LIBRARY:WHOLE_ARCHIVE,Document>
+    $<LINK_LIBRARY:WHOLE_ARCHIVE,IO>
     SARibbon
     Qt6::Core
     Qt6::Gui

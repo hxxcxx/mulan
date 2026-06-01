@@ -7,7 +7,7 @@
 #pragma once
 
 #include <SARibbon.h>
-#include <mulan/document/DocumentManager.h>
+#include <mulan/io/FileManager.h>
 
 class DocumentArea;
 class UIDocument;
@@ -39,7 +39,7 @@ private:
     DocumentArea* m_docArea = nullptr;
 
     // --- 文档管理 ---
-    mulan::document::DocumentManager m_docManager;
+    mulan::io::FileManager m_docManager;
 
     // --- Actions ---
     QAction* m_actionOpen   = nullptr;

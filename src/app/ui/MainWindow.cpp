@@ -9,7 +9,7 @@
 #include "UIDocument.h"
 #include "EngineSettingsDialog.h"
 
-#include <mulan/document/DocumentManager.h>
+#include <mulan/io/FileManager.h>
 
 #include <QFileDialog>
 #include <QStatusBar>

@@ -1,15 +1,14 @@
 /**
- * @file DocumentManager.h
+ * @file FileManager.h
  * @brief 文件管理器 — 打开文件直接填充 World
  * @author hxxcxx
  * @date 2026-04-22
  *
  * 唯一入口：openFile() → 选 Importer → 创建 World → 填充 → 返回所有权。
- * 不再持有 Document 实体容器。
  */
 #pragma once
 
-#include "DocumentExport.h"
+#include "IOExport.h"
 
 #include <memory>
 #include <string>
@@ -19,15 +18,15 @@ namespace mulan::world {
 class World;
 }
 
-namespace mulan::document {
+namespace mulan::io {
 
-class DOCUMENT_API DocumentManager {
+class IO_API FileManager {
 public:
-    DocumentManager() = default;
-    ~DocumentManager() = default;
+    FileManager() = default;
+    ~FileManager() = default;
 
-    DocumentManager(const DocumentManager&) = delete;
-    DocumentManager& operator=(const DocumentManager&) = delete;
+    FileManager(const FileManager&) = delete;
+    FileManager& operator=(const FileManager&) = delete;
 
     /// 打开文件 → 自动匹配 Importer → 填充 World → 返回所有权
     std::unique_ptr<mulan::world::World> openFile(const std::string& path);
@@ -42,4 +41,4 @@ private:
     std::string m_lastError;
 };
 
-} // namespace mulan::document
+} // namespace mulan::io
