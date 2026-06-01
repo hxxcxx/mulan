@@ -6,7 +6,6 @@
  */
 #include "ImporterFactory.h"
 #include "IFileImporter.h"
-#include "Document.h"
 
 #include <cctype>
 

@@ -1,10 +1,5 @@
-# Document - 实体-文档数据模型（静态库）
+# Document - 文件I/O + 导入器（静态库）
 add_library(Document STATIC
-    EntityId.cpp
-    Entity.cpp
-    EntityHandle.cpp
-    Document.cpp
-    OCCTShapeGeometry.cpp
     OCCTImporter.cpp
     ImporterFactory.cpp
     DocumentManager.cpp

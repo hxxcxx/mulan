@@ -17,7 +17,7 @@
 #include "Command.h"
 #include "MacroCommand.h"
 
-#include "mulan/document/Document.h"
+#include <mulan/world/World.h>
 
 #include <functional>
 #include <memory>
@@ -30,8 +30,8 @@ namespace mulan::command {
 
 class COMMAND_API CommandManager {
 public:
-    explicit CommandManager(document::Document& doc)
-        : m_doc(doc) {}
+    explicit CommandManager(world::World& world)
+        : m_world(world) {}
 
     // --- 命令注册 ---
 
@@ -92,18 +92,17 @@ private:
         if (!cmd || m_executing) return false;
 
         m_executing = true;
-        bool ok = cmd->execute(m_doc);
+        bool ok = cmd->execute(m_world);
         m_executing = false;
 
         if (ok) {
             m_history.push_back(std::move(cmd));
-            m_doc.setModified(true);
             if (onDocumentChanged) onDocumentChanged();
         }
         return ok;
     }
 
-    document::Document& m_doc;
+    world::World& m_world;
     std::unordered_map<std::string, CommandFactory> m_factories;
     std::vector<std::unique_ptr<Command>> m_history;
     std::unique_ptr<MacroCommand> m_activeMacro;

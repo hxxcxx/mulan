@@ -26,9 +26,9 @@ public:
         m_commands.push_back(std::move(cmd));
     }
 
-    bool execute(document::Document& doc) override {
+    bool execute(world::World& world) override {
         for (auto& cmd : m_commands) {
-            if (!cmd->execute(doc))
+            if (!cmd->execute(world))
                 return false;
         }
         return true;
