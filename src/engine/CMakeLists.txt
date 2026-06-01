@@ -8,8 +8,6 @@ add_library(Engine STATIC
     scene/camera/Camera.cpp
     scene/camera/TurntableRotation.cpp
     scene/camera/TrackballRotation.cpp
-    render/SceneRenderer.cpp
-    render/EngineView.cpp
     render/TextureLoader.cpp
     render/TextureCache.cpp
     render/GpuResourceManager.cpp
@@ -17,8 +15,6 @@ add_library(Engine STATIC
     # RenderGraph
     render/graph/ForwardPass.cpp
     render/graph/EdgePass.cpp
-    # Render passes
-    render/pass/ForwardPass.cpp
     # Text rendering (MSDF)
     render/text/FontAtlas.cpp
     render/text/TextLayout.cpp

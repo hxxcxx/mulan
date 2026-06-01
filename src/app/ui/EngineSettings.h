@@ -11,10 +11,6 @@
 #include <QColor>
 #include <QSettings>
 
-namespace mulan::engine {
-struct ViewConfig;
-}
-
 class EngineSettings {
 public:
     static EngineSettings& instance();
@@ -31,14 +27,11 @@ public:
     bool vsync() const;
     void setVsync(bool v);
 
-    /// 填充 engine::ViewConfig
-    void applyTo(mulan::engine::ViewConfig& cfg) const;
-
-    /// 填充 world::ViewConfig（新增）
+    /// 填充 world::ViewConfig
     void applyTo(mulan::world::ViewConfig& cfg) const;
 
-    /// 从 ViewConfig 读取（用于首次保存默认值以外的场景）
-    void loadFrom(const mulan::engine::ViewConfig& cfg);
+    /// 从 ViewConfig 读取
+    void loadFrom(const mulan::world::ViewConfig& cfg);
 
     /// 获取当前的背景色
     QColor backgroundColor() const;

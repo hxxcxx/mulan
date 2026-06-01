@@ -50,7 +50,7 @@ void EngineSettings::setBackgroundColor(const QColor& color) {
 
 // --- 批量应用 / 读取 ---
 
-void EngineSettings::applyTo(ViewConfig& cfg) const {
+void EngineSettings::applyTo(mulan::world::ViewConfig& cfg) const {
     cfg.backend = m_backend;
     cfg.msaa    = m_msaa;
     cfg.vsync   = m_vsync;
@@ -60,7 +60,7 @@ void EngineSettings::applyTo(ViewConfig& cfg) const {
     cfg.clearColor[3] = static_cast<float>(m_bgcolor.alphaF());
 }
 
-void EngineSettings::loadFrom(const ViewConfig& cfg) {
+void EngineSettings::loadFrom(const mulan::world::ViewConfig& cfg) {
     m_backend = cfg.backend;
     m_msaa    = cfg.msaa;
     m_vsync   = cfg.vsync;
@@ -112,14 +112,4 @@ void EngineSettings::load() {
         "backgroundColor",
         QColor::fromRgbF(defaults.clearColor[0], defaults.clearColor[1], defaults.clearColor[2], defaults.clearColor[3])
     ).value<QColor>();
-}
-
-void EngineSettings::applyTo(mulan::world::ViewConfig& cfg) const {
-    cfg.backend = m_backend;
-    cfg.msaa    = m_msaa;
-    cfg.vsync   = m_vsync;
-    cfg.clearColor[0] = static_cast<float>(m_bgcolor.redF());
-    cfg.clearColor[1] = static_cast<float>(m_bgcolor.greenF());
-    cfg.clearColor[2] = static_cast<float>(m_bgcolor.blueF());
-    cfg.clearColor[3] = static_cast<float>(m_bgcolor.alphaF());
 }
