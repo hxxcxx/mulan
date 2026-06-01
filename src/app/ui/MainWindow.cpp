@@ -9,7 +9,7 @@
 #include "UIDocument.h"
 #include "EngineSettingsDialog.h"
 
-#include <mulan/document/Document.h>
+#include <mulan/document/DocumentManager.h>
 
 #include <QFileDialog>
 #include <QStatusBar>
@@ -184,22 +184,21 @@ void MainWindow::onOpenFile() {
 
     statusBar()->showMessage("Loading: " + filePath);
 
-    auto* doc = m_docManager.openFile(filePath.toStdString());
-    if (!doc) {
+    auto world = m_docManager.openFile(filePath.toStdString());
+    if (!world) {
         QMessageBox::warning(this, "Import Error",
             QString::fromStdString(m_docManager.lastError()));
         statusBar()->showMessage("Ready");
         return;
     }
 
-    auto* uiDoc = new UIDocument(doc);
     QString title = QFileInfo(filePath).fileName();
+    auto* uiDoc = new UIDocument(std::move(world), title.toStdString());
     m_docArea->addDocument(uiDoc, title);
 
     statusBar()->showMessage(
-        QString("Loaded: %1 | %2")
-            .arg(QString::fromStdString(doc->displayName()))
-            .arg(QString::fromStdString(doc->summary())));
+        QString("Loaded: %1")
+            .arg(title));
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* e) {
@@ -215,20 +214,19 @@ void MainWindow::dropEvent(QDropEvent* e) {
 
     statusBar()->showMessage("Loading: " + filePath);
 
-    auto* doc = m_docManager.openFile(filePath.toStdString());
-    if (!doc) {
+    auto world = m_docManager.openFile(filePath.toStdString());
+    if (!world) {
         QMessageBox::warning(this, "Import Error",
             QString::fromStdString(m_docManager.lastError()));
         statusBar()->showMessage("Ready");
         return;
     }
 
-    auto* uiDoc = new UIDocument(doc);
     QString title = QFileInfo(filePath).fileName();
+    auto* uiDoc = new UIDocument(std::move(world), title.toStdString());
     m_docArea->addDocument(uiDoc, title);
 
     statusBar()->showMessage(
-        QString("Loaded: %1 | %2")
-            .arg(QString::fromStdString(doc->displayName()))
-            .arg(QString::fromStdString(doc->summary())));
+        QString("Loaded: %1")
+            .arg(title));
 }

@@ -121,7 +121,7 @@ void DocumentArea::onCurrentTabChanged(int index) {
 
     auto it = m_docs.find(docWidget);
     if (it != m_docs.end()) {
-        QString name = QString::fromStdString(it->second->document().displayName());
+        QString name = QString::fromStdString(it->second->displayName());
         emit currentDocumentChanged(name);
     }
 }

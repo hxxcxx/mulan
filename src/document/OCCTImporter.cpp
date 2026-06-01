@@ -1,13 +1,15 @@
 /**
  * @file OCCTImporter.cpp
- * @brief OCCT 文件导入器实现 — 保留 B-Rep，不做三角化
+ * @brief OCCT 文件导入器实现 — 直接填充 World
  * @author hxxcxx
  * @date 2026-04-22
  */
 #include "OCCTImporter.h"
-#include "Document.h"
-#include "OCCTShapeGeometry.h"
 #include "ImporterFactory.h"
+
+#include <mulan/world/World.h>
+#include <mulan/world/Entity.h>
+#include <mulan/world/geometry/SolidGeometryData.h>
 
 #include <STEPControl_Reader.hxx>
 #include <IGESControl_Reader.hxx>
@@ -15,9 +17,6 @@
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Shape.hxx>
-#include <Bnd_Box.hxx>
-#include <BRepBndLib.hxx>
-#include <TopAbs.hxx>
 
 #include <algorithm>
 #include <clocale>
@@ -69,7 +68,7 @@ TopoDS_Shape readFile(const std::string& path) {
     throw std::runtime_error("Unsupported format: " + ext);
 }
 
-void populateDocument(const TopoDS_Shape& shape, Document& doc) {
+void populateWorld(const TopoDS_Shape& shape, world::World& world) {
     int partIndex = 0;
 
     if (shape.ShapeType() == TopAbs_COMPOUND || shape.ShapeType() == TopAbs_COMPSOLID) {
@@ -78,58 +77,50 @@ void populateDocument(const TopoDS_Shape& shape, Document& doc) {
             hasSolids = true;
             ++partIndex;
             std::string name = "Part_" + std::to_string(partIndex);
-            auto geo = std::make_unique<OCCTShapeGeometry>(exp.Current());
-            doc.createEntity(std::move(name), std::move(geo));
+            auto* entity = world.createEntity(std::move(name));
+            auto geo = std::make_unique<world::SolidGeometryData>(exp.Current());
+            entity->setGeometry(std::move(geo));
         }
 
         if (!hasSolids) {
             for (TopExp_Explorer exp(shape, TopAbs_SHELL); exp.More(); exp.Next()) {
                 ++partIndex;
                 std::string name = "Shell_" + std::to_string(partIndex);
-                auto geo = std::make_unique<OCCTShapeGeometry>(exp.Current());
-                doc.createEntity(std::move(name), std::move(geo));
+                auto* entity = world.createEntity(std::move(name));
+                auto geo = std::make_unique<world::SolidGeometryData>(exp.Current());
+                entity->setGeometry(std::move(geo));
             }
 
             if (partIndex == 0) {
                 ++partIndex;
-                auto geo = std::make_unique<OCCTShapeGeometry>(shape);
-                doc.createEntity("Shape_1", std::move(geo));
+                auto* entity = world.createEntity("Shape_1");
+                auto geo = std::make_unique<world::SolidGeometryData>(shape);
+                entity->setGeometry(std::move(geo));
             }
         }
     } else {
         ++partIndex;
-        auto geo = std::make_unique<OCCTShapeGeometry>(shape);
-        doc.createEntity("Shape_1", std::move(geo));
+        auto* entity = world.createEntity("Shape_1");
+        auto geo = std::make_unique<world::SolidGeometryData>(shape);
+        entity->setGeometry(std::move(geo));
     }
 }
 
 } // anonymous namespace
 
-ImportResult OCCTImporter::importFile(const std::string& path) {
-    ImportResult result;
-
+bool OCCTImporter::import(const std::string& path, mulan::world::World& world) {
     try {
         auto* oldLocale = std::setlocale(LC_NUMERIC, "C");
 
         TopoDS_Shape shape = readFile(path);
-
-        auto doc = Document::create();
-        std::filesystem::path p(path);
-        doc->setFilePath(path);
-        doc->setDisplayName(p.filename().string());
-
-        populateDocument(shape, *doc);
+        populateWorld(shape, world);
 
         if (oldLocale) std::setlocale(LC_NUMERIC, oldLocale);
-
-        result.document = std::move(doc);
-        result.success = true;
+        return true;
     } catch (const std::exception& e) {
-        result.error = e.what();
-        result.success = false;
+        m_lastError = e.what();
+        return false;
     }
-
-    return result;
 }
 
 std::vector<std::string> OCCTImporter::supportedExtensions() const {

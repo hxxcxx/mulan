@@ -1,22 +1,21 @@
 /**
  * @file DocumentManager.cpp
- * @brief DocumentManager 实现
+ * @brief DocumentManager 实现 — 打开文件直接填充 World
  * @author hxxcxx
  * @date 2026-04-22
  */
 #include "DocumentManager.h"
-#include "Document.h"
 #include "IFileImporter.h"
 #include "ImporterFactory.h"
+
+#include <mulan/world/World.h>
 
 #include <algorithm>
 #include <filesystem>
 
 namespace mulan::document {
 
-DocumentManager::~DocumentManager() = default;
-
-Document* DocumentManager::openFile(const std::string& path) {
+std::unique_ptr<mulan::world::World> DocumentManager::openFile(const std::string& path) {
     m_lastError.clear();
 
     std::string ext = std::filesystem::path(path).extension().string();
@@ -30,25 +29,13 @@ Document* DocumentManager::openFile(const std::string& path) {
         return nullptr;
     }
 
-    auto result = importer->importFile(path);
-    if (!result.success) {
-        m_lastError = result.error;
+    auto world = std::make_unique<mulan::world::World>();
+    if (!importer->import(path, *world)) {
+        m_lastError = importer->lastError();
         return nullptr;
     }
 
-    auto* ptr = result.document.get();
-    m_documents.push_back(std::move(result.document));
-    m_active = ptr;
-    return ptr;
-}
-
-void DocumentManager::closeDocument(Document* doc) {
-    if (!doc) return;
-    if (m_active == doc) m_active = nullptr;
-    std::erase_if(m_documents, [doc](auto& p) { return p.get() == doc; });
-    if (!m_active && !m_documents.empty()) {
-        m_active = m_documents.back().get();
-    }
+    return world;
 }
 
 std::vector<std::string> DocumentManager::supportedExtensions() const {

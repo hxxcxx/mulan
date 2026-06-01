@@ -9,8 +9,6 @@ add_executable(${PROJECT_NAME}
     QtInteractionHost.cpp
     ui/UIDocument.h
     ui/UIDocument.cpp
-    ui/SceneBuilder.h
-    ui/SceneBuilder.cpp
     ui/DocumentArea.h
     ui/DocumentArea.cpp
     ui/MainWindow.h
