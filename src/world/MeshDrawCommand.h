@@ -1,56 +1,18 @@
-/**
- * @file MeshDrawCommand.h
- * @brief 完全绑定的 GPU 绘制命令 — Pipeline + Buffers + UBO offsets + instancing
- *
- * 对应 UE5 的 FMeshDrawCommand。
- * 一旦构建完成，GPU 提交时无需查表，直接 execute() 即可。
- *
- * @author hxxcxx
- * @date 2026-06-01
- */
-
 #pragma once
 
-#include "mulan/engine/rhi/PipelineState.h"
-#include "mulan/engine/rhi/Buffer.h"
-#include "mulan/engine/rhi/CommandList.h"
-#include "mulan/engine/rhi/RenderTypes.h"
+// MeshDrawCommand 已迁移到 Engine 层
+// 此文件通过 build/include/ 路径间接包含 Engine 头文件
+// 使用 world 命名空间别名保持兼容性
 
-#include <cstdint>
+// 通过绝对路径包含 Engine 的 MeshDrawCommand（避免双路径重定义）
+// Engine 头文件在 build/include/mulan/engine/render/ 下
+// 但它们使用相对路径，所以我们在这里手动定义别名
+
+namespace mulan::engine {
+struct MeshDrawCommand;
+}
 
 namespace mulan::world {
+    using MeshDrawCommand = engine::MeshDrawCommand;
+}
 
-struct MeshDrawCommand {
-    // Pipeline
-    engine::PipelineState* pipelineState = nullptr;
-
-    // Geometry（来自 GpuResourceManager）
-    engine::Buffer*  vertexBuffer  = nullptr;
-    engine::Buffer*  indexBuffer   = nullptr;
-    uint32_t         indexCount    = 0;
-    uint32_t         firstIndex    = 0;
-    int32_t          baseVertex    = 0;
-    uint32_t         vertexCount   = 0;       // non-indexed draw 用
-    uint32_t         instanceCount = 1;       // 0 = 不绘制
-    engine::PrimitiveTopology topology = engine::PrimitiveTopology::TriangleList;
-
-    // Per-instance UBO offset（instancing 时多个 Entity 共享 command）
-    uint32_t         objectUboOffset   = 0;
-    uint32_t         materialUboOffset = 0;
-
-    // Sort / Meta
-    uint64_t         sortKey     = 0;
-    uint32_t         pickId      = 0;
-    bool             selected    = false;
-    bool             visible     = true;
-    bool             isEdge      = false;
-    bool             translucent = false;
-
-    /// 提交到 CommandList
-    void execute(engine::CommandList& cmd,
-                 engine::Buffer* sceneUBO,
-                 engine::Buffer* objectUBO,
-                 engine::Buffer* materialUBO) const;
-};
-
-} // namespace mulan::world

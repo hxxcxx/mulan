@@ -65,7 +65,7 @@ void SceneProxy::updateFromEntity(const Entity& entity, engine::GpuResourceManag
     m_bounds = localBounds.transformed(m_worldTransform);
 
     // 重建 SubMesh + 上传 GPU
-    buildSubMeshes(geo, gpu);
+    buildSubMeshes(*geo, gpu);
 }
 
 void SceneProxy::buildSubMeshes(const GeometryData& geo, engine::GpuResourceManager& gpu) {

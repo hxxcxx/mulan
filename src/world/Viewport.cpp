@@ -276,11 +276,21 @@ void Viewport::renderFrame() {
     // 2. RenderSystem 收集
     m_renderSys->update(*m_world, 0);
 
-    // 3. 传递 DrawBatch 给 Pass
+    // 3. 传递 MeshDrawCommand 给 Pass（Phase 3 路径）
     auto* fwd  = m_renderGraph.pass<engine::ForwardPass>(0);
     auto* edge = m_renderGraph.pass<engine::EdgePass>(1);
-    if (fwd)  fwd->setDrawList(&m_renderSys->drawBatches());
-    if (edge) edge->setDrawList(&m_renderSys->drawBatches());
+
+    if (fwd) {
+        // 首次设置 PSO（RenderSystem 需要）
+        if (!m_renderSys->hasFacePso())
+            m_renderSys->setFacePso(fwd->pipelineState());
+        fwd->setDrawCommands(m_renderSys->staticFaceCommands());
+    }
+    if (edge) {
+        if (!m_renderSys->hasEdgePso())
+            m_renderSys->setEdgePso(edge->pipelineState());
+        edge->setDrawCommands(m_renderSys->staticEdgeCommands());
+    }
 
     // 4. GPU 提交
     m_device->beginFrame();
@@ -337,14 +347,22 @@ void Viewport::render(float dt) {
         m_worldLogicUpdated = true;
     }
 
-    // 2. RenderSystem：收集 + 上传 GPU + 产出 DrawBatch
+    // 2. RenderSystem：收集 + 上传 GPU + 产出 MeshDrawCommand
     m_renderSys->update(*m_world, dt);
 
-    // 3. 把 DrawBatch 交给两个 Pass
+    // 3. 把 MeshDrawCommand 交给两个 Pass
     auto* fwd  = m_renderGraph.pass<engine::ForwardPass>(0);
     auto* edge = m_renderGraph.pass<engine::EdgePass>(1);
-    if (fwd)  fwd->setDrawList(&m_renderSys->drawBatches());
-    if (edge) edge->setDrawList(&m_renderSys->drawBatches());
+    if (fwd) {
+        if (!m_renderSys->hasFacePso())
+            m_renderSys->setFacePso(fwd->pipelineState());
+        fwd->setDrawCommands(m_renderSys->staticFaceCommands());
+    }
+    if (edge) {
+        if (!m_renderSys->hasEdgePso())
+            m_renderSys->setEdgePso(edge->pipelineState());
+        edge->setDrawCommands(m_renderSys->staticEdgeCommands());
+    }
 }
 
 void Viewport::renderPass(engine::CommandList* cmd) {

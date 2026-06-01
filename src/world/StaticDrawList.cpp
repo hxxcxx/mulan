@@ -9,6 +9,7 @@
  */
 
 #include "StaticDrawList.h"
+#include "Entity.h"
 #include "mulan/engine/render/GpuResourceManager.h"
 
 namespace mulan::world {
@@ -126,7 +127,7 @@ MeshDrawCommand StaticDrawList::buildFaceSubMeshCmd(const SceneProxy& proxy,
     cmd.baseVertex    = static_cast<int32_t>(sm.vertexOffset);
     cmd.instanceCount = 1;
     cmd.topology      = sm.topology;
-    cmd.pickId        = proxy.entityId().index();
+    cmd.pickId        = static_cast<uint32_t>(proxy.entityId() & Entity::INDEX_MASK);
     cmd.selected      = proxy.selected();
     return cmd;
 }
@@ -146,7 +147,7 @@ MeshDrawCommand StaticDrawList::buildEdgeCmd(const SceneProxy& proxy,
     cmd.instanceCount = 1;
     cmd.topology      = engine::PrimitiveTopology::LineList;
     cmd.isEdge        = true;
-    cmd.pickId        = proxy.entityId().index();
+    cmd.pickId        = static_cast<uint32_t>(proxy.entityId() & Entity::INDEX_MASK);
     cmd.selected      = proxy.selected();
     return cmd;
 }

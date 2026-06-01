@@ -13,6 +13,7 @@ add_library(Engine STATIC
     render/TextureLoader.cpp
     render/TextureCache.cpp
     render/GpuResourceManager.cpp
+    render/MeshDrawCommand.cpp
     # RenderGraph
     render/graph/ForwardPass.cpp
     render/graph/EdgePass.cpp
