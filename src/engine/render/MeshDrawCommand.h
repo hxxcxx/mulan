@@ -15,6 +15,7 @@
 #include "../rhi/Buffer.h"
 #include "../rhi/CommandList.h"
 #include "../rhi/RenderTypes.h"
+#include "../math/Math.h"
 
 #include <cstdint>
 
@@ -38,6 +39,9 @@ struct MeshDrawCommand {
     uint32_t objectUboOffset   = 0;
     uint32_t materialUboOffset = 0;
 
+    // Per-object data（Pass::execute 时写入 objectUBO）
+    Mat4 worldTransform{1.0f};
+
     // Sort / Meta
     uint64_t sortKey     = 0;
     uint32_t pickId      = 0;
@@ -51,6 +55,9 @@ struct MeshDrawCommand {
                  Buffer* sceneUBO,
                  Buffer* objectUBO,
                  Buffer* materialUBO) const;
+
+    /// Object UBO 单条记录大小（与 shader cbuffer Object 对齐）
+    static constexpr uint32_t kObjectUboStride = 128;
 };
 
 } // namespace mulan::engine

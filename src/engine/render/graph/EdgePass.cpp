@@ -36,7 +36,8 @@ bool EdgePass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDept
     if (!loadEdgeShaders()) return false;
     createEdgePSO(colorFmt, depthFmt, hasDepth);
     m_sceneUbo  = m_device.createBuffer(BufferDesc::uniform(256, "EdgeSceneUBO"));
-    m_objectUbo = m_device.createBuffer(BufferDesc::uniform(128, "EdgeObjUBO"));
+    m_objectUbo = m_device.createBuffer(BufferDesc::uniform(
+        MeshDrawCommand::kObjectUboStride * 4096, "EdgeObjUBO"));  // 4096 objects
     m_initialized = true;
     return true;
 }

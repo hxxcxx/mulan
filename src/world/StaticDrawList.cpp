@@ -11,6 +11,7 @@
 #include "StaticDrawList.h"
 #include "Entity.h"
 #include "mulan/engine/render/GpuResourceManager.h"
+#include "mulan/engine/render/MeshDrawCommand.h"
 
 namespace mulan::world {
 
@@ -19,6 +20,8 @@ void StaticDrawList::rebuild(std::span<SceneProxy* const> proxies,
                               engine::PipelineState* facePso,
                               engine::PipelineState* /*edgePso*/) {
     clear();
+
+    uint32_t nextObjectOffset = 0;  // 跟踪 object UBO 分配
 
     for (auto* proxy : proxies) {
         if (!proxy || !proxy->visible() || !proxy->hasRenderData()) continue;
@@ -31,7 +34,10 @@ void StaticDrawList::rebuild(std::span<SceneProxy* const> proxies,
             for (int si = 0; si < static_cast<int>(level.subMeshes.size()); ++si) {
                 auto cmd = buildFaceSubMeshCmd(*proxy, lod, si, gpu);
                 cmd.pipelineState = facePso;
+                cmd.objectUboOffset = nextObjectOffset;
+                cmd.worldTransform  = proxy->worldTransform();
                 m_faceCmds.push_back(std::move(cmd));
+                nextObjectOffset += MeshDrawCommand::kObjectUboStride;
             }
         }
         idx.faceCount = m_faceCmds.size() - idx.faceStart;
@@ -39,8 +45,11 @@ void StaticDrawList::rebuild(std::span<SceneProxy* const> proxies,
         idx.edgeStart = m_edgeCmds.size();
         if (proxy->hasEdgeData()) {
             auto cmd = buildEdgeCmd(*proxy, gpu);
+            cmd.objectUboOffset = nextObjectOffset;
+            cmd.worldTransform  = proxy->worldTransform();
             m_edgeCmds.push_back(std::move(cmd));
             idx.edgeCount = 1;
+            nextObjectOffset += MeshDrawCommand::kObjectUboStride;
         }
 
         m_proxyIndex[proxy->entityId()] = idx;
@@ -95,6 +104,7 @@ void StaticDrawList::rebuildProxy(const SceneProxy& proxy,
                     cmd.firstIndex    = level.subMeshes[si].firstIndex;
                     cmd.baseVertex    = static_cast<int32_t>(level.subMeshes[si].vertexOffset);
                     cmd.selected      = proxy.selected();
+                    cmd.worldTransform = proxy.worldTransform();
                 }
             }
             ++cmdPos;
@@ -108,6 +118,7 @@ void StaticDrawList::rebuildProxy(const SceneProxy& proxy,
             cmd.vertexBuffer = edgeGeo->vertexBuffer.get();
             cmd.indexBuffer  = edgeGeo->indexBuffer.get();
             cmd.selected     = proxy.selected();
+            cmd.worldTransform = proxy.worldTransform();
         }
     }
 }

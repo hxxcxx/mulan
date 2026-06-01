@@ -377,7 +377,13 @@ void Viewport::renderPass(engine::CommandList* cmd) {
 }
 
 void Viewport::onFrameEnd() {
-    if (m_world) m_world->clearDirty(EntityDirty::Created);
+    if (m_world) {
+        // 清除 RenderSystem 已消费的所有脏标记
+        using ED = EntityDirty;
+        m_world->clearDirty(ED::Created | ED::Destroyed | ED::Transform
+                          | ED::Geometry | ED::Visibility | ED::Material
+                          | ED::Selection | ED::Parent);
+    }
     m_worldLogicUpdated = false;
 }
 

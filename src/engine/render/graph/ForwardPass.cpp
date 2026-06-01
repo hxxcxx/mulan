@@ -36,7 +36,8 @@ bool ForwardPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasD
     if (!loadSolidShaders()) return false;
     createSolidPSO(colorFmt, depthFmt, hasDepth);
     m_sceneUbo  = m_device.createBuffer(BufferDesc::uniform(256, "FwdSceneUBO"));
-    m_objectUbo = m_device.createBuffer(BufferDesc::uniform(128, "FwdObjUBO"));   // 128B, 足够 world(64B) + extra
+    m_objectUbo = m_device.createBuffer(BufferDesc::uniform(
+        MeshDrawCommand::kObjectUboStride * 4096, "FwdObjUBO"));   // 4096 objects
     m_initialized = true;
     return true;
 }

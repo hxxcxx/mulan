@@ -2,8 +2,6 @@
 add_library(Engine STATIC
     platform/Win32Window.cpp
     rhi/DeviceFactory.cpp
-    scene/SceneNode.cpp
-    scene/Scene.cpp
     scene/Frustum.cpp
     scene/camera/Camera.cpp
     scene/camera/TurntableRotation.cpp
