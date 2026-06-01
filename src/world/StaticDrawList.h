@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "MeshDrawCommand.h"
+#include <mulan/engine/render/MeshDrawCommand.h>
 #include "SubMesh.h"
 #include "SceneProxy.h"
 
@@ -26,6 +26,8 @@
 namespace mulan::engine { class GpuResourceManager; }
 
 namespace mulan::world {
+
+using engine::MeshDrawCommand;
 
 class StaticDrawList {
 public:

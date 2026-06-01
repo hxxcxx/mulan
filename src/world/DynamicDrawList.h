@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "MeshDrawCommand.h"
+#include <mulan/engine/render/MeshDrawCommand.h>
 
 #include <span>
 #include <vector>
@@ -25,6 +25,8 @@ class PipelineState;
 }
 
 namespace mulan::world {
+
+using engine::MeshDrawCommand;
 
 class SceneProxy;
 
