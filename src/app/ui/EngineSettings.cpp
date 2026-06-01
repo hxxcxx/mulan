@@ -5,6 +5,7 @@
  * @date 2026-04-24
  */
 #include "EngineSettings.h"
+#include <mulan/engine/render/EngineView.h>
 #include <QColor>
 using namespace mulan::engine;
 
@@ -112,4 +113,14 @@ void EngineSettings::load() {
         "backgroundColor",
         QColor::fromRgbF(defaults.clearColor[0], defaults.clearColor[1], defaults.clearColor[2], defaults.clearColor[3])
     ).value<QColor>();
+}
+
+void EngineSettings::applyTo(mulan::world::ViewConfig& cfg) const {
+    cfg.backend = m_backend;
+    cfg.msaa    = m_msaa;
+    cfg.vsync   = m_vsync;
+    cfg.clearColor[0] = static_cast<float>(m_bgcolor.redF());
+    cfg.clearColor[1] = static_cast<float>(m_bgcolor.greenF());
+    cfg.clearColor[2] = static_cast<float>(m_bgcolor.blueF());
+    cfg.clearColor[3] = static_cast<float>(m_bgcolor.alphaF());
 }

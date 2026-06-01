@@ -1,14 +1,14 @@
 /**
  * @file DocWidget.h
- * @brief Qt 渲染控件 — EngineView 的薄壳封装
+ * @brief Qt 渲染控件 — Viewport 的薄壳封装
  * @author hxxcxx
- * @date 2026-04-22
+ * @date 2026-04-22 (原始) / 2026-06-01 (重构)
  */
 #pragma once
 
 #include <QWidget>
 
-#include <mulan/engine/render/EngineView.h>
+#include <mulan/world/Viewport.h>
 #include <mulan/engine/interaction/InputEvent.h>
 
 #include <memory>
@@ -26,10 +26,10 @@ public:
     void setUIDocument(UIDocument* doc);
 
     /// 设置引擎初始化配置（需在 init() 之前调用）
-    void setViewConfig(const mulan::engine::ViewConfig& cfg) { m_viewConfig = cfg; }
+    void setViewConfig(const mulan::world::ViewConfig& cfg) { m_viewConfig = cfg; }
 
     /// 获取可修改的引擎配置引用（需在 init() 之前调用）
-    mulan::engine::ViewConfig& viewConfig() { return m_viewConfig; }
+    mulan::world::ViewConfig& viewConfig() { return m_viewConfig; }
 
     /// 初始化 Vulkan 设备与 SwapChain（需在 widget 显示后、渲染前调用）
     void init();
@@ -37,8 +37,8 @@ public:
     /// 请求渲染下一帧
     void requestFrame();
 
-    /// 访问底层引擎视图
-    mulan::engine::EngineView& engineView() { return m_view; }
+    /// 访问底层 Viewport
+    mulan::world::Viewport& viewport() { return m_viewport; }
 
 protected:
     void resizeEvent(QResizeEvent* e) override;
@@ -59,7 +59,7 @@ private:
     static mulan::engine::KeyModifier translateModifiers(Qt::KeyboardModifiers mods);
     static mulan::engine::Key translateKey(int qtKey);
 
-    mulan::engine::EngineView  m_view;
-    mulan::engine::ViewConfig  m_viewConfig;
+    mulan::world::Viewport  m_viewport;
+    mulan::world::ViewConfig m_viewConfig;
     UIDocument*                   m_uiDoc = nullptr;
 };

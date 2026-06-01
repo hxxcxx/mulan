@@ -8,6 +8,7 @@
 #pragma once
 
 #include "Entity.h"
+#include "system/System.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -17,8 +18,6 @@
 #include <vector>
 
 namespace mulan::world {
-
-class System;
 
 class World {
 public:

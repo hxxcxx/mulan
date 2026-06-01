@@ -6,9 +6,14 @@
  */
 #pragma once
 
-#include <mulan/engine/render/EngineView.h>
+#include <mulan/engine/Window.h>
+#include <mulan/world/ViewConfig.h>
 #include <QColor>
 #include <QSettings>
+
+namespace mulan::engine {
+struct ViewConfig;
+}
 
 class EngineSettings {
 public:
@@ -26,8 +31,11 @@ public:
     bool vsync() const;
     void setVsync(bool v);
 
-    /// 填充 ViewConfig 中 UI 可控的字段（不影响原生窗口句柄等）
+    /// 填充 engine::ViewConfig
     void applyTo(mulan::engine::ViewConfig& cfg) const;
+
+    /// 填充 world::ViewConfig（新增）
+    void applyTo(mulan::world::ViewConfig& cfg) const;
 
     /// 从 ViewConfig 读取（用于首次保存默认值以外的场景）
     void loadFrom(const mulan::engine::ViewConfig& cfg);

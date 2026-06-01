@@ -1,8 +1,8 @@
 /**
  * @file DocWidget.cpp
- * @brief Qt 渲染控件实现 — 事件翻译 + EngineView 驱动
+ * @brief Qt 渲染控件实现 — 事件翻译 + Viewport 驱动
  * @author hxxcxx
- * @date 2026-04-22
+ * @date 2026-04-22 (原始) / 2026-06-01 (重构)
  */
 #include "DocWidget.h"
 #include "UIDocument.h"
@@ -32,7 +32,7 @@ DocWidget::DocWidget(QWidget* parent)
 DocWidget::~DocWidget() = default;
 
 void DocWidget::init() {
-    if (m_view.isInitialized()) return;
+    if (m_viewport.isInitialized()) return;
 
     // 从全局设置读取后端 / MSAA / VSync 等配置
     EngineSettings::instance().applyTo(m_viewConfig);
@@ -46,26 +46,26 @@ void DocWidget::init() {
     const qreal dpr = devicePixelRatioF();
     const int pw = static_cast<int>(width()  * dpr);
     const int ph = static_cast<int>(height() * dpr);
-    if (!m_view.init(m_viewConfig, pw, ph)) return;
+    if (!m_viewport.init(m_viewConfig, pw, ph)) return;
 
     if (m_uiDoc) {
-        m_uiDoc->attachView(&m_view);
+        m_uiDoc->attachViewport(&m_viewport);
     }
 }
 
 void DocWidget::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);
-    if (m_view.isInitialized()) {
+    if (m_viewport.isInitialized()) {
         const qreal dpr = devicePixelRatioF();
         const int pw = static_cast<int>(width()  * dpr);
         const int ph = static_cast<int>(height() * dpr);
-        m_view.resize(pw, ph);
+        m_viewport.resize(pw, ph);
         requestFrame();
     }
 }
 
 void DocWidget::paintEvent(QPaintEvent*) {
-    if (m_view.isInitialized()) requestFrame();
+    if (m_viewport.isInitialized()) requestFrame();
 }
 
 void DocWidget::mousePressEvent(QMouseEvent* e) {
@@ -74,7 +74,7 @@ void DocWidget::mousePressEvent(QMouseEvent* e) {
         translateButton(e->button()),
         translateButtons(e->buttons()),
         translateModifiers(e->modifiers()));
-    m_view.handleInput(ev);
+    m_viewport.handleInput(ev);
     requestFrame();
 }
 
@@ -84,7 +84,7 @@ void DocWidget::mouseReleaseEvent(QMouseEvent* e) {
         translateButton(e->button()),
         translateButtons(e->buttons()),
         translateModifiers(e->modifiers()));
-    m_view.handleInput(ev);
+    m_viewport.handleInput(ev);
     requestFrame();
 }
 
@@ -93,7 +93,7 @@ void DocWidget::mouseMoveEvent(QMouseEvent* e) {
         e->pos().x(), e->pos().y(),
         translateButtons(e->buttons()),
         translateModifiers(e->modifiers()));
-    m_view.handleInput(ev);
+    m_viewport.handleInput(ev);
     requestFrame();
 }
 
@@ -105,7 +105,7 @@ void DocWidget::mouseDoubleClickEvent(QMouseEvent* e) {
     ev.button    = translateButton(e->button());
     ev.buttons   = translateButtons(e->buttons());
     ev.modifiers = translateModifiers(e->modifiers());
-    m_view.handleInput(ev);
+    m_viewport.handleInput(ev);
     requestFrame();
 }
 
@@ -116,7 +116,7 @@ void DocWidget::wheelEvent(QWheelEvent* e) {
         static_cast<int>(e->position().y()),
         delta,
         translateModifiers(e->modifiers()));
-    m_view.handleInput(ev);
+    m_viewport.handleInput(ev);
     requestFrame();
 }
 
@@ -124,7 +124,7 @@ void DocWidget::keyPressEvent(QKeyEvent* e) {
     auto ev = InputEvent::keyPress(
         translateKey(e->key()),
         translateModifiers(e->modifiers()));
-    m_view.handleInput(ev);
+    m_viewport.handleInput(ev);
     requestFrame();
 }
 
@@ -132,23 +132,23 @@ void DocWidget::keyReleaseEvent(QKeyEvent* e) {
     auto ev = InputEvent::keyRelease(
         translateKey(e->key()),
         translateModifiers(e->modifiers()));
-    m_view.handleInput(ev);
+    m_viewport.handleInput(ev);
     requestFrame();
 }
 
 void DocWidget::setUIDocument(UIDocument* doc) {
-    if (m_uiDoc) m_uiDoc->detachView();
+    if (m_uiDoc) m_uiDoc->detachViewport();
     m_uiDoc = doc;
 
-    if (m_view.isInitialized() && m_uiDoc) {
-        m_uiDoc->attachView(&m_view);
+    if (m_viewport.isInitialized() && m_uiDoc) {
+        m_uiDoc->attachViewport(&m_viewport);
         requestFrame();
     }
 }
 
 void DocWidget::requestFrame() {
-    if (m_view.isInitialized() && isVisible()) {
-        m_view.renderFrame();
+    if (m_viewport.isInitialized() && isVisible()) {
+        m_viewport.renderFrame();
     }
 }
 
