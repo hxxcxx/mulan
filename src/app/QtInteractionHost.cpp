@@ -6,7 +6,7 @@
  */
 
 #include "QtInteractionHost.h"
-#include "mulan/engine/render/EngineView.h"
+#include "mulan/world/Viewport.h"
 #include "mulan/engine/scene/camera/Camera.h"
 
 namespace mulan::app {

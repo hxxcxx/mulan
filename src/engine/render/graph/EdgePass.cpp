@@ -115,59 +115,14 @@ void EdgePass::uploadSceneUBO(const PassContext& ctx) {
     ctx.cmd->updateBuffer(m_sceneUbo.get(), 0, sizeof(ubo), &ubo);
 }
 
-void EdgePass::uploadObjectUBO(const Mat4& world, const PassContext& ctx) {
-    float d[16];
-    for (int c = 0; c < 4; ++c)
-        for (int r = 0; r < 4; ++r)
-            d[c * 4 + r] = static_cast<float>(world[c][r]);
-    ctx.cmd->updateBuffer(m_objectUbo.get(), 0, sizeof(d), d);
-}
-
 void EdgePass::execute(const PassContext& ctx) {
     if (!m_initialized || !m_pso || !ctx.cmd) return;
 
     uploadSceneUBO(ctx);
 
-    // Phase 3: MeshDrawCommand path（优先）
-    if (!m_commands.empty()) {
-        for (auto& cmd : m_commands) {
-            if (!cmd.visible || cmd.instanceCount == 0) continue;
-            cmd.execute(*ctx.cmd, m_sceneUbo.get(), m_objectUbo.get(), nullptr);
-        }
-        return;
-    }
-
-    // Legacy: DrawBatch path
-    if (!m_batches) return;
-    ctx.cmd->setPipelineState(m_pso.get());
-    for (auto& batch : *m_batches)
-        drawBatch(batch, ctx);
-}
-
-void EdgePass::drawBatch(const DrawBatch& batch, const PassContext& ctx) {
-    for (auto& dk : batch.keys) {
-        const GpuGeometry* geo = m_gpu.edgeGeometry(dk.key);
-        if (!geo || !geo->isValid()) continue;
-
-        BindGroup bg;
-        bg.addUBO(0, m_sceneUbo.get(),  0, 256);
-        bg.addUBO(1, m_objectUbo.get(), 0, 128);
-        ctx.cmd->bindResources(bg);
-
-        uploadObjectUBO(dk.worldTransform, ctx);
-
-        ctx.cmd->setVertexBuffer(0, geo->vertexBuffer.get(), 0);
-
-        if (geo->indexCount > 0 && geo->indexBuffer) {
-            ctx.cmd->setIndexBuffer(geo->indexBuffer.get(), 0, IndexType::UInt32);
-            DrawIndexedAttribs da{};
-            da.indexCount = geo->indexCount;
-            ctx.cmd->drawIndexed(da);
-        } else {
-            DrawAttribs da{};
-            da.vertexCount = geo->vertexCount;
-            ctx.cmd->draw(da);
-        }
+    for (auto& cmd : m_commands) {
+        if (!cmd.visible || cmd.instanceCount == 0) continue;
+        cmd.execute(*ctx.cmd, m_sceneUbo.get(), m_objectUbo.get(), nullptr);
     }
 }
 

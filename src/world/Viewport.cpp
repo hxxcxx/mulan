@@ -424,6 +424,23 @@ void Viewport::setOperator(std::unique_ptr<engine::Operator> op) {
     m_operator->onActivate(m_camera);
 }
 
+void Viewport::setOperatorRaw(engine::Operator* op) {
+    if (m_operator) {
+        m_operator->onDeactivate(m_camera);
+    }
+    m_operator.reset(op);  // 不拥有，但用 unique_ptr 管理
+    if (m_operator) {
+        m_operator->onActivate(m_camera);
+    }
+}
+
+std::unique_ptr<engine::Operator> Viewport::takeOperator() {
+    if (m_operator) {
+        m_operator->onDeactivate(m_camera);
+    }
+    return std::move(m_operator);
+}
+
 // ============================================================
 // 离屏回读
 // ============================================================

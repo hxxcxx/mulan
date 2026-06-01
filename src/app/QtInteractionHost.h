@@ -18,8 +18,11 @@
 #include <QObject>
 #include <QEventLoop>
 
+namespace mulan::world {
+class Viewport;
+}
+
 namespace mulan::engine {
-class EngineView;
 class Camera;
 }
 
@@ -28,7 +31,7 @@ namespace mulan::app {
 class QtInteractionHost : public QObject, public mulan::engine::InteractionHost {
     Q_OBJECT
 public:
-    explicit QtInteractionHost(mulan::engine::EngineView* view, QObject* parent = nullptr)
+    explicit QtInteractionHost(mulan::world::Viewport* view, QObject* parent = nullptr)
         : QObject(parent), m_view(view) {}
 
     mulan::engine::InteractionStatus run(mulan::engine::Operator& op,
@@ -37,7 +40,7 @@ public:
     bool isRunning() const override;
 
 private:
-    mulan::engine::EngineView* m_view;
+    mulan::world::Viewport* m_view;
     QEventLoop* m_loop = nullptr;
 };
 

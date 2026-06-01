@@ -3,7 +3,6 @@ add_library(World STATIC
     Entity.cpp
     World.cpp
     Viewport.cpp
-    RenderCollector.cpp
     SceneProxy.cpp
     StaticDrawList.cpp
     DynamicDrawList.cpp

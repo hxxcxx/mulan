@@ -5,7 +5,6 @@
  * @date 2026-04-24
  */
 #include "EngineSettings.h"
-#include <mulan/engine/render/EngineView.h>
 #include <QColor>
 using namespace mulan::engine;
 

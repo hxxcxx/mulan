@@ -1,6 +1,6 @@
 /**
  * @file EdgePass.h
- * @brief 边线渲染 Pass
+ * @brief 边线渲染 Pass — 消费 MeshDrawCommand 绘制边线
  * @author hxxcxx
  * @date 2026-05-29
  */
@@ -8,7 +8,6 @@
 #pragma once
 
 #include "RenderPass.h"
-#include "ForwardPass.h"
 #include "../GpuResourceManager.h"
 #include "../MeshDrawCommand.h"
 #include "../LightEnvironment.h"
@@ -21,7 +20,6 @@
 
 #include <cstdint>
 #include <span>
-#include <vector>
 
 namespace mulan::engine {
 
@@ -35,20 +33,14 @@ public:
     bool init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
     void execute(const PassContext& ctx) override;
 
-    void setDrawList(const std::vector<DrawBatch>* batches) { m_batches = batches; }
-
-    /// Phase 3: 直接消费 MeshDrawCommand（优先于 DrawBatch）
     void setDrawCommands(std::span<const MeshDrawCommand> cmds) { m_commands = cmds; }
 
-    /// 获取 PipelineState（供 RenderSystem 设置 PSO）
     PipelineState* pipelineState() const { return m_pso.get(); }
 
 private:
     bool loadEdgeShaders();
     void createEdgePSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
     void uploadSceneUBO(const PassContext& ctx);
-    void uploadObjectUBO(const Mat4& world, const PassContext& ctx);
-    void drawBatch(const DrawBatch& batch, const PassContext& ctx);
 
     RHIDevice&              m_device;
     GpuResourceManager&     m_gpu;
@@ -61,7 +53,6 @@ private:
     ResourcePtr<Buffer>        m_sceneUbo;
     ResourcePtr<Buffer>        m_objectUbo;
 
-    const std::vector<DrawBatch>* m_batches = nullptr;
     std::span<const MeshDrawCommand> m_commands;
     bool m_initialized = false;
 };

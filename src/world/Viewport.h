@@ -93,6 +93,12 @@ public:
     /// 设置操作器（nullptr 恢复默认 CameraManipulator）
     void setOperator(std::unique_ptr<engine::Operator> op);
 
+    /// 设置裸指针操作器（不获取所有权，用于模态交互）
+    void setOperatorRaw(engine::Operator* op);
+
+    /// 取出当前操作器（返回所有权，用于保存/恢复）
+    std::unique_ptr<engine::Operator> takeOperator();
+
     /// 获取当前操作器
     engine::Operator* currentOperator() const { return m_operator.get(); }
 
