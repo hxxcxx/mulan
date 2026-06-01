@@ -4,6 +4,9 @@ add_library(World STATIC
     World.cpp
     Viewport.cpp
     RenderCollector.cpp
+    SceneProxy.cpp
+    StaticDrawList.cpp
+    DynamicDrawList.cpp
     geometry/BoxGeometryData.cpp
     geometry/MeshGeometryData.cpp
     geometry/SolidGeometryData.cpp

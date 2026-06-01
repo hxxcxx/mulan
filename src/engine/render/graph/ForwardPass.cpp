@@ -125,11 +125,22 @@ void ForwardPass::uploadObjectUBO(const Mat4& world, const PassContext& ctx) {
 }
 
 void ForwardPass::execute(const PassContext& ctx) {
-    if (!m_initialized || !m_pso || !ctx.cmd || !m_batches) return;
+    if (!m_initialized || !m_pso || !ctx.cmd) return;
 
     uploadSceneUBO(ctx);
-    ctx.cmd->setPipelineState(m_pso.get());
 
+    // Phase 3: MeshDrawCommand path（优先）
+    if (!m_commands.empty()) {
+        for (auto& cmd : m_commands) {
+            if (!cmd.visible || cmd.instanceCount == 0) continue;
+            cmd.execute(*ctx.cmd, m_sceneUbo.get(), m_objectUbo.get(), nullptr);
+        }
+        return;
+    }
+
+    // Legacy: DrawBatch path
+    if (!m_batches) return;
+    ctx.cmd->setPipelineState(m_pso.get());
     for (auto& batch : *m_batches)
         drawBatch(batch, ctx);
 }
