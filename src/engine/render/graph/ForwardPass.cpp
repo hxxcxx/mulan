@@ -32,6 +32,7 @@ ForwardPass::ForwardPass(RHIDevice& device, GpuResourceManager& gpu,
     : m_device(device), m_gpu(gpu), m_camera(camera), m_lightEnv(lightEnv) {
 }
 
+
 bool ForwardPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
     if (!loadSolidShaders()) return false;
     createSolidPSO(colorFmt, depthFmt, hasDepth);
