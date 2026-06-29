@@ -26,10 +26,8 @@ EngineSettingsDialog::EngineSettingsDialog(QWidget* parent)
 
     // --- 渲染后端 ---
     m_comboBackend = new QComboBox(this);
-    m_comboBackend->addItem("OpenGL",   static_cast<int>(GraphicsBackend::OpenGL));
     m_comboBackend->addItem("Vulkan",   static_cast<int>(GraphicsBackend::Vulkan));
     m_comboBackend->addItem("D3D12",    static_cast<int>(GraphicsBackend::D3D12));
-    m_comboBackend->addItem("D3D11",    static_cast<int>(GraphicsBackend::D3D11));
     layout->addRow(tr("Render Backend:"), m_comboBackend);
 
     // --- 抗锯齿 ---

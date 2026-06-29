@@ -40,8 +40,7 @@ inline ResourcePtr<Shader> loadShader(RHIDevice& device, ShaderType type, const 
     std::string dir = "shaders";
 #endif
     const char* ext = ".spv";
-    if      (device.backend() == GraphicsBackend::D3D12) ext = ".dxil";
-    else if (device.backend() == GraphicsBackend::D3D11) ext = ".dxbc";
+    if (device.backend() == GraphicsBackend::D3D12) ext = ".dxil";
 
     std::string path = dir + "/" + name + ext;
     auto data = readFile(path.c_str());

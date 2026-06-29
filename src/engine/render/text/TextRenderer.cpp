@@ -91,8 +91,6 @@ void TextRenderer::loadShaders() {
     const char* ext = ".spv";
     if (m_device->backend() == GraphicsBackend::D3D12)
         ext = ".dxil";
-    else if (m_device->backend() == GraphicsBackend::D3D11)
-        ext = ".dxbc";
 
     auto vsData = loadFile((shaderDir + "/text.vert" + ext).c_str());
     auto fsData = loadFile((shaderDir + "/text.frag" + ext).c_str());

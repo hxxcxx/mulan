@@ -53,27 +53,6 @@ add_library(Engine STATIC
     rhi/d3d12/DX12FrameContext.cpp
     rhi/d3d12/DX12Device.cpp
     rhi/d3d12/DX12Sampler.cpp
-    # D3D11 backend
-    rhi/d3d11/DX11Buffer.cpp
-    rhi/d3d11/DX11Texture.cpp
-    rhi/d3d11/DX11Shader.cpp
-    rhi/d3d11/DX11Fence.cpp
-    rhi/d3d11/DX11PipelineState.cpp
-    rhi/d3d11/DX11CommandList.cpp
-    rhi/d3d11/DX11SwapChain.cpp
-    rhi/d3d11/DX11RenderTarget.cpp
-    rhi/d3d11/DX11Device.cpp
-    rhi/d3d11/DX11Sampler.cpp
-    # OpenGL backend (placeholder)
-    rhi/opengl/GLDevice.cpp
-    rhi/opengl/GLShader.cpp
-    rhi/opengl/GLSwapChain.cpp
-    rhi/opengl/GLPipelineState.cpp
-    rhi/opengl/GLBuffer.cpp
-    rhi/opengl/GLCommandList.cpp
-    rhi/opengl/GLRenderTarget.cpp
-    rhi/opengl/GLTexture.cpp
-    rhi/opengl/GLSampler.cpp
 )
 
 # 构建时将头文件复制到 build/include/mulan/engine/...
@@ -92,10 +71,6 @@ target_include_directories(Engine PUBLIC
 # --- GLM (header-only math library) ---
 find_package(glm CONFIG REQUIRED)
 
-# --- OpenGL + GLAD (vcpkg) ---
-find_package(OpenGL REQUIRED)
-find_package(glad CONFIG REQUIRED)
-
 # --- Vulkan ---
 find_package(Vulkan REQUIRED)
 
@@ -110,13 +85,10 @@ target_link_libraries(Engine PUBLIC
     glm::glm
     Vulkan::Vulkan
     GPUOpen::VulkanMemoryAllocator
-    OpenGL::GL
-    glad::glad
     nlohmann_json::nlohmann_json
     msdfgen::msdfgen
     msdf-atlas-gen
     d3d12
-    d3d11
     dxgi
 )
 
@@ -142,19 +114,6 @@ find_program(DXC_EXECUTABLE dxc
 set(SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
 file(MAKE_DIRECTORY "${SHADER_OUTPUT_DIR}")
-
-# 查找 fxc (Windows SDK, 用于 DXBC/SM5.0)
-find_program(FXC_EXECUTABLE fxc
-    HINTS
-        "C:/Program Files (x86)/Windows Kits/10/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64"
-        "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64"
-        "C:/Program Files (x86)/Windows Kits/10/bin/10.0.19041.0/x64"
-)
-if(FXC_EXECUTABLE)
-    message(STATUS "Found fxc: ${FXC_EXECUTABLE}")
-else()
-    message(WARNING "fxc not found — DXBC shaders (D3D11) will not be compiled.")
-endif()
 
 if(DXC_EXECUTABLE)
     message(STATUS "Found dxc: ${DXC_EXECUTABLE}")
@@ -252,26 +211,6 @@ if(DXC_EXECUTABLE)
             COMMENT "Compiling shader: ${SHADER_FILE} → ${DXIL_FILE} (DXIL)"
         )
         list(APPEND SHADER_OUTPUTS "${DXIL_OUTPUT}")
-
-        # --- DXBC (D3D11, SM 5.0 via fxc) ---
-        if(FXC_EXECUTABLE)
-            string(REPLACE ".hlsl" ".dxbc" DXBC_FILE "${SHADER_FILE}")
-            set(DXBC_OUTPUT "${SHADER_OUTPUT_DIR}/${DXBC_FILE}")
-
-            add_custom_command(
-                OUTPUT  "${DXBC_OUTPUT}"
-                COMMAND "${FXC_EXECUTABLE}"
-                    /T ${SHADER_STAGE}_5_0
-                    /E ${SHADER_ENTRY}
-                    /I "${SHADER_SOURCE_DIR}"
-                    /Fo "${DXBC_OUTPUT}"
-                    /nologo
-                    "${SHADER_INPUT}"
-                DEPENDS "${SHADER_INPUT}" "${SHADER_COMMON}"
-                COMMENT "Compiling shader: ${SHADER_FILE} → ${DXBC_FILE} (DXBC/SM5.0 via fxc)"
-            )
-            list(APPEND SHADER_OUTPUTS "${DXBC_OUTPUT}")
-        endif()
     endforeach()
 
     add_custom_target(Shaders ALL DEPENDS ${SHADER_OUTPUTS})
