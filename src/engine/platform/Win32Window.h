@@ -22,7 +22,7 @@ namespace mulan::engine {
 class Win32Window : public IWindow {
 public:
     struct Desc {
-        std::wstring title     = L"MulanGeo";
+        std::wstring title     = L"mulan";
         uint32_t     width     = 1280;
         uint32_t     height    = 720;
         bool         resizable = true;
@@ -46,7 +46,7 @@ public:
     HWND hwnd() const { return m_hwnd; }
 
 private:
-    static constexpr const wchar_t* kClassName = L"MulanGeoWindow";
+    static constexpr const wchar_t* kClassName = L"mulanWindow";
 
     void registerClass();
     void createWindow(const Desc& desc);

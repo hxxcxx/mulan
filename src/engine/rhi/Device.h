@@ -61,7 +61,7 @@ struct DeviceCreateInfo {
     NativeWindowHandle window           = {};
     RenderConfig       renderConfig     = {};
     bool               enableValidation = true;
-    const char*        appName          = "MulanGeo";
+    const char*        appName          = "mulan";
 };
 
 // Forward declaration (needed for DeviceResourceDeleter)

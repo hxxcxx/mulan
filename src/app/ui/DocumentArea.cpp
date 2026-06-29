@@ -25,7 +25,7 @@ DocumentArea::DocumentArea(QWidget* parent) : QWidget(parent) {
 
     // Page 0: 欢迎页
     m_welcomePage = new QLabel(
-        "<h2 style='color:#888;'>MulanGeo</h2>"
+        "<h2 style='color:#888;'>mulan</h2>"
         "<p style='color:#aaa;'>Open a CAD file to begin: File → Open, or drag & drop</p>",
         this);
     m_welcomePage->setAlignment(Qt::AlignCenter);

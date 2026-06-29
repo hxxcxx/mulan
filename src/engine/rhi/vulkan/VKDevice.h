@@ -40,7 +40,7 @@ public:
         NativeWindowHandle window;
         RenderConfig       renderConfig;
         uint32_t           frameCount       = 0;
-        const char*        appName          = "MulanGeo";
+        const char*        appName          = "mulan";
     };
 
     explicit VKDevice(const CreateInfo& ci = {});

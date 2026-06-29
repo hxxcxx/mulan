@@ -26,7 +26,7 @@
 //===================================================
 
 MainWindow::MainWindow(QWidget* parent) : SARibbonMainWindow(parent) {
-    setWindowTitle("MulanGeo");
+    setWindowTitle("mulan");
     resize(1280, 720);
     setAcceptDrops(true);
 
@@ -84,8 +84,8 @@ void MainWindow::buildRibbonHomeCategory() {
     m_panelSetting = new SARibbonPanel(tr("Setting"), m_categoryHome);
     auto* actionAbout = new QAction(QIcon(":/app/bright/icon/about.svg"), tr("About"), this);
     connect(actionAbout, &QAction::triggered, this, [this]() {
-        QMessageBox::about(this, tr("About MulanGeo"),
-            tr("MulanGeo v1.0\nA CAD geometry viewer."));
+        QMessageBox::about(this, tr("About mulan"),
+            tr("mulan v1.0\nA CAD geometry viewer."));
     });
     m_panelSetting->addLargeAction(actionAbout);
 

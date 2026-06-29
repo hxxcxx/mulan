@@ -46,7 +46,7 @@ private:
     void save();
     void load();
 
-    QSettings m_qsettings{"MulanGeo", "Engine"};
+    QSettings m_qsettings{"mulan", "Engine"};
 
     mulan::engine::GraphicsBackend           m_backend = mulan::engine::GraphicsBackend::Vulkan;
     mulan::engine::RenderConfig::MSAALevel   m_msaa    = mulan::engine::RenderConfig::MSAALevel::x4;

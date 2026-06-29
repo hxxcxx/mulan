@@ -245,7 +245,7 @@ void VKDevice::init(const CreateInfo& ci) {
     vk::ApplicationInfo appInfo;
     appInfo.pApplicationName   = ci.appName;
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName        = "MulanGeo";
+    appInfo.pEngineName        = "mulan";
     appInfo.engineVersion      = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion         = VK_API_VERSION_1_3;
 
