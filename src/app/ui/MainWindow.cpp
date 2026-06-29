@@ -6,6 +6,7 @@
  */
 #include "MainWindow.h"
 #include "DocumentArea.h"
+#include "DocWidget.h"
 #include "UIDocument.h"
 #include "EngineSettingsDialog.h"
 
@@ -76,7 +77,9 @@ void MainWindow::buildRibbonHomeCategory() {
     m_panelView = new SARibbonPanel(tr("Navigation"), m_categoryHome);
     m_actionFitAll = new QAction(QIcon(":/app/bright/icon/fitall.svg"), tr("Fit All"), this);
     m_actionFitAll->setShortcut(Qt::Key_F);
-    // TODO: 连接到 DocWidget 的 fitAll 操作
+    connect(m_actionFitAll, &QAction::triggered, this, [this]() {
+        if (auto* doc = m_docArea->currentDocWidget()) doc->fitAll();
+    });
     m_panelView->addLargeAction(m_actionFitAll);
     m_categoryHome->addPanel(m_panelView);
 

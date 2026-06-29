@@ -5,8 +5,6 @@ set(CMAKE_AUTORCC ON)
 add_executable(${PROJECT_NAME}
     main.cpp
     resource/icon.qrc
-    QtInteractionHost.h
-    QtInteractionHost.cpp
     ui/UIDocument.h
     ui/UIDocument.cpp
     ui/DocumentArea.h

@@ -37,6 +37,9 @@ public:
     /// 请求渲染下一帧
     void requestFrame();
 
+    /// 适配相机到整个场景包围盒（Fit All）
+    void fitAll();
+
     /// 访问底层 Viewport
     mulan::world::Viewport& viewport() { return m_viewport; }
 

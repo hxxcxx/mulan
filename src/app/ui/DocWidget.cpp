@@ -8,6 +8,9 @@
 #include "UIDocument.h"
 #include "EngineSettings.h"
 
+#include <mulan/world/World.h>
+#include <mulan/world/Entity.h>
+
 #include <QShowEvent>
 #include <QResizeEvent>
 #include <QMouseEvent>
@@ -150,6 +153,28 @@ void DocWidget::requestFrame() {
     if (m_viewport.isInitialized() && isVisible()) {
         m_viewport.renderFrame();
     }
+}
+
+void DocWidget::fitAll() {
+    if (!m_viewport.isInitialized()) return;
+
+    mulan::world::World* world = m_viewport.world();
+    if (!world) return;
+
+    // 累加所有实体（世界空间）包围盒
+    mulan::engine::AABB sceneBounds;
+    world->forEachEntity([&](mulan::world::Entity* e) {
+        if (e->geometry()) {
+            auto worldBox = e->geometry()->bounds().transformed(e->worldTransform());
+            sceneBounds.expand(worldBox.min);
+            sceneBounds.expand(worldBox.max);
+        }
+    });
+
+    if (!sceneBounds.isEmpty()) {
+        m_viewport.camera().fitToBox(sceneBounds);
+    }
+    requestFrame();
 }
 
 mulan::engine::MouseButton DocWidget::translateButton(Qt::MouseButton btn) {

@@ -27,10 +27,12 @@ Viewport::Viewport(World& world, engine::RHIDevice& device)
     , m_world(&world)
     , m_gpuStorage(std::make_unique<engine::GpuResourceManager>(device))
     , m_renderSysStorage(std::make_unique<RenderSystem>(*m_gpuStorage, m_camera))
-    , m_operator(std::make_unique<engine::CameraManipulator>())
+    , m_defaultOp(std::make_unique<engine::CameraManipulator>())
 {
     m_gpu      = m_gpuStorage.get();
     m_renderSys = m_renderSysStorage.get();
+    m_defaultOp->setState(engine::Operator::State::Active);
+    m_defaultOp->onActivate(m_camera);
     m_camera.setOrthographic(true);
     m_camera.setOrthoSize(5.0);
     m_camera.setDistance(10.0);
@@ -41,8 +43,10 @@ Viewport::Viewport(World& world, engine::RHIDevice& device)
 // ============================================================
 
 Viewport::Viewport()
-    : m_operator(std::make_unique<engine::CameraManipulator>())
+    : m_defaultOp(std::make_unique<engine::CameraManipulator>())
 {
+    m_defaultOp->setState(engine::Operator::State::Active);
+    m_defaultOp->onActivate(m_camera);
     m_camera.setOrthographic(true);
     m_camera.setOrthoSize(5.0);
     m_camera.setDistance(10.0);
@@ -413,38 +417,58 @@ void Viewport::resize(int width, int height) {
 // ============================================================
 
 void Viewport::handleInput(const engine::InputEvent& event) {
-    if (m_operator) {
-        m_operator->handleEvent(event, m_camera);
+    engine::Operator* op = activeOperator();
+    if (!op) return;
+
+    op->handleEvent(event, m_camera);
+
+    // 状态机检测：模态 Operator 调用 finish() 后，由 Viewport 在外部触发
+    // 回调并 pop（避免在 Operator 成员函数内析构自身的 UB）。
+    if (op->isFinished() && !m_opStack.empty()) {
+        auto finishedHook = op->finishHook();  // 拷贝回调（pop 会析构 Operator）
+        if (finishedHook) finishedHook(*op);
+        popOperator();
     }
 }
 
 // ============================================================
-// Operator
+// Operator（LIFO 栈）
 // ============================================================
 
-void Viewport::setOperator(std::unique_ptr<engine::Operator> op) {
-    if (m_operator) {
-        m_operator->onDeactivate(m_camera);
+void Viewport::pushOperator(std::unique_ptr<engine::Operator> op) {
+    if (!op) return;
+
+    // 挂起当前栈顶（若有）
+    if (auto* cur = activeOperator()) {
+        cur->setState(engine::Operator::State::Inactive);
+        cur->onDeactivate(m_camera);
     }
-    m_operator = op ? std::move(op) : std::make_unique<engine::CameraManipulator>();
-    m_operator->onActivate(m_camera);
+
+    op->setState(engine::Operator::State::Active);
+    op->onActivate(m_camera);
+    m_opStack.push_back(std::move(op));
 }
 
-void Viewport::setOperatorRaw(engine::Operator* op) {
-    if (m_operator) {
-        m_operator->onDeactivate(m_camera);
-    }
-    m_operator.reset(op);  // 不拥有，但用 unique_ptr 管理
-    if (m_operator) {
-        m_operator->onActivate(m_camera);
+void Viewport::popOperator() {
+    if (m_opStack.empty()) return;
+
+    // 析构栈顶（先 deactivate）
+    auto top = std::move(m_opStack.back());
+    m_opStack.pop_back();
+    top->setState(engine::Operator::State::Inactive);
+    top->onDeactivate(m_camera);
+    top.reset();  // 析构
+
+    // 恢复下层
+    if (auto* next = activeOperator()) {
+        next->setState(engine::Operator::State::Active);
+        next->onActivate(m_camera);
     }
 }
 
-std::unique_ptr<engine::Operator> Viewport::takeOperator() {
-    if (m_operator) {
-        m_operator->onDeactivate(m_camera);
-    }
-    return std::move(m_operator);
+engine::Operator* Viewport::activeOperator() const {
+    if (!m_opStack.empty()) return m_opStack.back().get();
+    return m_defaultOp.get();
 }
 
 // ============================================================

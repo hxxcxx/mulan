@@ -85,22 +85,24 @@ public:
 
     // ===== 输入 =====
 
-    /// 处理平台无关输入事件，委托给 Operator
+    /// 处理平台无关输入事件，委托给当前 active Operator（栈顶或默认）
     void handleInput(const engine::InputEvent& event);
 
-    // ===== Operator =====
+    // ===== Operator（LIFO 栈）=====
 
-    /// 设置操作器（nullptr 恢复默认 CameraManipulator）
-    void setOperator(std::unique_ptr<engine::Operator> op);
+    /// 压入模态交互 Operator。挂起栈顶操作器，激活新 Operator。
+    /// 新 Operator 的 onFinish 回调会被自动连接到 popOperator()，
+    /// 因此子类只需调用 finish() 即可自动恢复下层操作器。
+    void pushOperator(std::unique_ptr<engine::Operator> op);
 
-    /// 设置裸指针操作器（不获取所有权，用于模态交互）
-    void setOperatorRaw(engine::Operator* op);
+    /// 弹出栈顶模态交互 Operator，恢复下层（或默认 CameraManipulator）。
+    void popOperator();
 
-    /// 取出当前操作器（返回所有权，用于保存/恢复）
-    std::unique_ptr<engine::Operator> takeOperator();
+    /// 当前 active 操作器（栈顶；栈空时为默认 CameraManipulator）。
+    engine::Operator* activeOperator() const;
 
-    /// 获取当前操作器
-    engine::Operator* currentOperator() const { return m_operator.get(); }
+    /// 默认相机操控操作器（栈底，始终存在）
+    engine::Operator* defaultOperator() const { return m_defaultOp.get(); }
 
     // ===== 离屏 =====
 
@@ -153,7 +155,8 @@ private:
     engine::Camera m_camera{engine::CameraMode::Trackball};
 
     // ===== Operator =====
-    std::unique_ptr<engine::Operator> m_operator;
+    std::unique_ptr<engine::Operator>              m_defaultOp;   // 栈底：CameraManipulator
+    std::vector<std::unique_ptr<engine::Operator>> m_opStack;     // 模态交互栈（LIFO）
 
     // ===== ViewCube =====
     std::unique_ptr<engine::ViewCubeRenderer> m_viewCubeRenderer;
