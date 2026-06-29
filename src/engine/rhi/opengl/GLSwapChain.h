@@ -28,7 +28,7 @@ class CommandList;
  */
 class GLSwapChain : public SwapChain {
 public:
-#if defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#if defined(_WIN32)
     struct InitParams {
         HDC    hdc   = nullptr;
         HWND   hwnd  = nullptr;

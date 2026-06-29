@@ -51,22 +51,19 @@ void GLDevice::init(const CreateInfo& ci) {
 #endif
 
     // 加载 OpenGL 函数指针 (GLAD)
-    // Emscripten: WebGL 函数已静态链接，无需 GLAD 动态加载
-#ifndef __EMSCRIPTEN__
     if (!gladLoadGL()) {
         std::fprintf(stderr, "[GLDevice] Failed to load OpenGL via GLAD\n");
         shutdown();
         return;
     }
-#endif
 
     std::fprintf(stdout, "[GLDevice] OpenGL %s | %s | %s\n",
                  reinterpret_cast<const char*>(glGetString(GL_VERSION)),
                  reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
                  reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
 
-    // Debug output（OpenGL 4.3+，WebGL/Emscripten 不支持）
-#if defined(_DEBUG) && !defined(__EMSCRIPTEN__)
+    // Debug output（OpenGL 4.3+）
+#if defined(_DEBUG)
     if (ci.enableValidation && glDebugMessageCallback) {
         glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);

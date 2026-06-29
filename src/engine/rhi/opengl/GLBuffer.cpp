@@ -31,8 +31,6 @@ GLenum determinePrimaryTarget(BufferBindFlags bindFlags) {
     if (bindFlags & BufferBindFlags::UniformBuffer) {
         return GL_UNIFORM_BUFFER;
     }
-    #ifndef __EMSCRIPTEN__
-        // WebGL ES3 不支持 SSBO 和 IndirectBuffer
         if (bindFlags & BufferBindFlags::ShaderResource) {
             return GL_SHADER_STORAGE_BUFFER;
         }
@@ -42,7 +40,6 @@ GLenum determinePrimaryTarget(BufferBindFlags bindFlags) {
         if (bindFlags & BufferBindFlags::IndirectBuffer) {
             return GL_DRAW_INDIRECT_BUFFER;
         }
-    #endif
         return GL_COPY_READ_BUFFER;  // 默认
 }
 
@@ -197,23 +194,8 @@ bool GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
 
     glBindBuffer(GL_COPY_READ_BUFFER, m_buffer);
 
-#ifdef __EMSCRIPTEN__
-    // WebGL ES3 无 glGetBufferSubData，使用 glMapBufferRange 替代
-    void* mapped = glMapBufferRange(GL_COPY_READ_BUFFER,
-                                    static_cast<GLintptr>(offset),
-                                    static_cast<GLsizeiptr>(size),
-                                    GL_MAP_READ_BIT);
-    if (!mapped) {
-        std::fprintf(stderr, "[GLBuffer] glMapBufferRange failed for readback\n");
-        glBindBuffer(GL_COPY_READ_BUFFER, 0);
-        return false;
-    }
-    std::memcpy(outData, mapped, size);
-    glUnmapBuffer(GL_COPY_READ_BUFFER);
-#else
     // 使用 glGetBufferSubData 读取数据
     glGetBufferSubData(GL_COPY_READ_BUFFER, offset, size, outData);
-#endif
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {

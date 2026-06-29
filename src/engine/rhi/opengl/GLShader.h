@@ -40,12 +40,6 @@ private:
     // 从文件加载 SPIR-V
     void loadSPIRVFromFile(std::string_view filePath);
 
-    // 从 GLSL 源码创建着色器（WebGL/Emscripten 路径）
-    void createFromGLSL(const char* source, int length = -1);
-
-    // 从文件加载 GLSL 源码（WebGL/Emscripten 路径）
-    void loadGLSLFromFile(std::string_view filePath);
-
     // 检查 GL 版本是否支持 SPIR-V（需要 4.6+）
     static bool isSPIRVSupported();
 

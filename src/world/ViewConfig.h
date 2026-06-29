@@ -4,7 +4,7 @@
  * @date 2026-06-01
  *
  * ViewConfig 是 UI 端可控制的引擎初始化参数。
- * 由 DocWidget / WASM shell 等上层填充，传入 Viewport::init()。
+ * 由 DocWidget 等上层填充，传入 Viewport::init()。
  */
 
 #pragma once

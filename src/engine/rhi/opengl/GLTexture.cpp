@@ -35,11 +35,9 @@ GLenum GLTexture::toGLInternalFormat(TextureFormat fmt) {
     case TextureFormat::D32_Float_S8X24_UInt:    return GL_DEPTH32F_STENCIL8;
     case TextureFormat::BC1_RGBA_UNorm:          return 0x83F1; // GL_COMPRESSED_RGBA_S3TC_DXT1_EXT
     case TextureFormat::BC3_RGBA_UNorm:          return 0x83F3; // GL_COMPRESSED_RGBA_S3TC_DXT5_EXT
-#ifndef __EMSCRIPTEN__
     case TextureFormat::BC5_RG_UNorm:            return GL_COMPRESSED_RG_RGTC2;
     case TextureFormat::BC7_RGBA_UNorm:          return GL_COMPRESSED_RGBA_BPTC_UNORM;
     case TextureFormat::BC7_RGBA_sRGB:           return GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM;
-#endif
     default:
         std::fprintf(stderr, "[GLTexture] Unknown TextureFormat %d, defaulting to GL_RGBA8\n",
                      static_cast<int>(fmt));
@@ -67,11 +65,7 @@ GLenum GLTexture::toGLBaseFormat(TextureFormat fmt) {
 
     case TextureFormat::BGRA8_UNorm:
     case TextureFormat::BGRA8_sRGB:
-#ifndef __EMSCRIPTEN__
         return GL_BGRA;
-#else
-        return GL_RGBA; // WebGL ES3 不支持 GL_BGRA
-#endif
 
     default:
         return GL_RGBA;
@@ -142,17 +136,11 @@ void GLTexture::create() {
     // 确定 GL target
     bool isMultisample = m_desc.sampleCount > 1;
     switch (m_desc.dimension) {
-#ifndef __EMSCRIPTEN__
     case TextureDimension::Texture1D:
         m_target = GL_TEXTURE_1D;
         break;
-#endif
     case TextureDimension::Texture2D:
-#ifndef __EMSCRIPTEN__
         m_target = isMultisample ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
-#else
-        m_target = GL_TEXTURE_2D; // WebGL ES3 MSAA 由 Framebuffer 管理，无独立多采样纹理目标
-#endif
         break;
     case TextureDimension::Texture3D:
         m_target = GL_TEXTURE_3D;
@@ -179,12 +167,10 @@ void GLTexture::create() {
 
     // 使用不可变存储（GL 4.2+）
     switch (m_target) {
-#ifndef __EMSCRIPTEN__
     case GL_TEXTURE_1D:
         glTexStorage1D(GL_TEXTURE_1D, mips, m_internalFormat,
                        static_cast<GLsizei>(m_desc.width));
         break;
-#endif
 
     case GL_TEXTURE_2D:
     case GL_TEXTURE_CUBE_MAP:
@@ -193,7 +179,6 @@ void GLTexture::create() {
                        static_cast<GLsizei>(m_desc.height));
         break;
 
-#ifndef __EMSCRIPTEN__
     case GL_TEXTURE_2D_MULTISAMPLE:
         // MSAA 纹理无 mip
         glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE,
@@ -203,7 +188,6 @@ void GLTexture::create() {
                                   static_cast<GLsizei>(m_desc.height),
                                   GL_TRUE);
         break;
-#endif
 
     case GL_TEXTURE_3D:
         glTexStorage3D(GL_TEXTURE_3D, mips, m_internalFormat,
@@ -217,11 +201,7 @@ void GLTexture::create() {
     }
 
     // 默认采样参数
-#ifndef __EMSCRIPTEN__
     if (m_target != GL_TEXTURE_2D_MULTISAMPLE) {
-#else
-    if (true) { // WebGL ES3 无独立多采样纹理目标，始终设置采样参数
-#endif
         glTexParameteri(m_target, GL_TEXTURE_MIN_FILTER,
                         mips > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
         glTexParameteri(m_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -250,9 +230,7 @@ void GLTexture::create() {
 void GLTexture::upload(uint32_t mipLevel, const void* data) {
     if (!m_handle || !data) return;
     if (m_target != GL_TEXTURE_2D &&
-#ifndef __EMSCRIPTEN__
         m_target != GL_TEXTURE_1D &&
-#endif
         m_target != GL_TEXTURE_3D) {
         std::fprintf(stderr, "[GLTexture] upload: use uploadCubeFace for cube textures\n");
         return;
@@ -269,12 +247,10 @@ void GLTexture::upload(uint32_t mipLevel, const void* data) {
     glBindTexture(m_target, m_handle);
 
     switch (m_target) {
-#ifndef __EMSCRIPTEN__
     case GL_TEXTURE_1D:
         glTexSubImage1D(GL_TEXTURE_1D, static_cast<GLint>(mipLevel),
                         0, w, baseFormat, type, data);
         break;
-#endif
     case GL_TEXTURE_2D:
         glTexSubImage2D(GL_TEXTURE_2D, static_cast<GLint>(mipLevel),
                         0, 0, w, h, baseFormat, type, data);

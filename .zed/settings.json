@@ -1,9 +1,0 @@
-{
-  "lsp": {
-    "clangd": {
-      "binary": {
-        "arguments": ["-j=8", "--header-insertion=never"],
-      },
-    },
-  },
-}

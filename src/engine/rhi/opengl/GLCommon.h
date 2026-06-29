@@ -7,22 +7,17 @@
 
 #pragma once
 
-#if defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
 #endif
 
 // GLAD must be included before any OpenGL headers
-// Emscripten: 使用系统 GLES3 头文件，无需 GLAD
-#ifdef __EMSCRIPTEN__
-#include <GLES3/gl3.h>
-#else
 #include <glad/glad.h>
-#endif
 
 // WGL_ARB_create_context constants (not provided by vcpkg glad)
-#if defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#if defined(_WIN32)
 #ifndef WGL_CONTEXT_MAJOR_VERSION_ARB
 #define WGL_CONTEXT_MAJOR_VERSION_ARB     0x2091
 #define WGL_CONTEXT_MINOR_VERSION_ARB     0x2092

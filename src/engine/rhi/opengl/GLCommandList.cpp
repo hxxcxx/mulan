@@ -146,11 +146,7 @@ void GLCommandList::draw(const DrawAttribs& attribs) {
                    static_cast<GLint>(m_viewport.y),
                    static_cast<GLint>(m_viewport.width),
                    static_cast<GLint>(m_viewport.height));
-#ifdef __EMSCRIPTEN__
-        glDepthRangef(m_viewport.minDepth, m_viewport.maxDepth);
-#else
         glDepthRange(m_viewport.minDepth, m_viewport.maxDepth);
-#endif
         m_viewportDirty = false;
     }
 
@@ -189,11 +185,7 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
                    static_cast<GLint>(m_viewport.y),
                    static_cast<GLint>(m_viewport.width),
                    static_cast<GLint>(m_viewport.height));
-#ifdef __EMSCRIPTEN__
-        glDepthRangef(m_viewport.minDepth, m_viewport.maxDepth);
-#else
         glDepthRange(m_viewport.minDepth, m_viewport.maxDepth);
-#endif
         m_viewportDirty = false;
     }
 

@@ -1,17 +1,13 @@
 #include "Device.h"
 #include "opengl/GLDevice.h"
-
-#ifndef __EMSCRIPTEN__
 #include "vulkan/VKDevice.h"
 #include "d3d12/DX12Device.h"
 #include "d3d11/DX11Device.h"
-#endif
 
 namespace mulan::engine {
 
 std::shared_ptr<RHIDevice> RHIDevice::create(const DeviceCreateInfo& ci) {
     switch (ci.backend) {
-#ifndef __EMSCRIPTEN__
     case GraphicsBackend::Vulkan:
         return std::make_shared<VKDevice>(ci);
 
@@ -20,7 +16,6 @@ std::shared_ptr<RHIDevice> RHIDevice::create(const DeviceCreateInfo& ci) {
 
     case GraphicsBackend::D3D11:
         return std::make_shared<DX11Device>(ci);
-#endif
 
     case GraphicsBackend::OpenGL: {
         auto dev = std::make_shared<GLDevice>(ci);
