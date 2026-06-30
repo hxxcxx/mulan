@@ -23,9 +23,12 @@
 
 namespace mulan::engine {
 
+class MaterialCache;
+
 class EdgePass : public RenderPass {
 public:
     EdgePass(RHIDevice& device, GpuResourceManager& gpu,
+             MaterialCache& matCache,
              const Camera& camera, const LightEnvironment& lightEnv);
 
     const char* name() const override { return "EdgePass"; }
@@ -44,6 +47,7 @@ private:
 
     RHIDevice&              m_device;
     GpuResourceManager&     m_gpu;
+    MaterialCache&          m_matCache;
     const Camera&           m_camera;
     const LightEnvironment& m_lightEnv;
 
@@ -52,7 +56,6 @@ private:
     ResourcePtr<PipelineState> m_pso;
     ResourcePtr<Buffer>        m_sceneUbo;
     ResourcePtr<Buffer>        m_objectUbo;
-    ResourcePtr<Buffer>        m_materialUbo;
 
     std::span<const MeshDrawCommand> m_commands;
     bool m_initialized = false;

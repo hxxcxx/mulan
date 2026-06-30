@@ -8,12 +8,16 @@
 #include "RenderSystem.h"
 #include "../World.h"
 
+#include "mulan/engine/render/material/MaterialCache.h"
+
 #include <algorithm>
 
 namespace mulan::world {
 
-RenderSystem::RenderSystem(engine::GpuResourceManager& gpu, const engine::Camera& camera)
-    : System(0), m_gpu(gpu), m_camera(camera) {}
+RenderSystem::RenderSystem(engine::GpuResourceManager& gpu,
+                           engine::MaterialCache& matCache,
+                           const engine::Camera& camera)
+    : System(0), m_gpu(gpu), m_matCache(matCache), m_camera(camera) {}
 
 // ─── update ────────────────────────────────────────────────────
 
@@ -108,7 +112,7 @@ void RenderSystem::rebuildStaticList() {
         visible.push_back(proxy);
     }
 
-    m_staticList.rebuild(visible, m_gpu, m_facePso, m_edgePso);
+    m_staticList.rebuild(visible, m_gpu, m_matCache, m_facePso, m_edgePso);
 }
 
 // ─── Rebuild Dynamic ──────────────────────────────────────────

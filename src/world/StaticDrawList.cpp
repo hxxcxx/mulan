@@ -12,11 +12,13 @@
 #include "Entity.h"
 #include "mulan/engine/render/GpuResourceManager.h"
 #include "mulan/engine/render/MeshDrawCommand.h"
+#include "mulan/engine/render/material/MaterialCache.h"
 
 namespace mulan::world {
 
 void StaticDrawList::rebuild(std::span<SceneProxy* const> proxies,
                               engine::GpuResourceManager& gpu,
+                              engine::MaterialCache& matCache,
                               engine::PipelineState* facePso,
                               engine::PipelineState* /*edgePso*/) {
     clear();
@@ -35,6 +37,7 @@ void StaticDrawList::rebuild(std::span<SceneProxy* const> proxies,
                 auto cmd = buildFaceSubMeshCmd(*proxy, lod, si, gpu);
                 cmd.pipelineState = facePso;
                 cmd.objectUboOffset = nextObjectOffset;
+                cmd.materialUboOffset = matCache.materialGpuOffset(level.subMeshes[si].materialId);
                 cmd.worldTransform  = proxy->worldTransform();
                 m_faceCmds.push_back(std::move(cmd));
                 nextObjectOffset += MeshDrawCommand::kObjectUboStride;

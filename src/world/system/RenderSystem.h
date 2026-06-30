@@ -25,11 +25,17 @@
 #include <unordered_map>
 #include <vector>
 
+namespace mulan::engine {
+class MaterialCache;
+}
+
 namespace mulan::world {
 
 class RenderSystem : public System {
 public:
-    explicit RenderSystem(engine::GpuResourceManager& gpu, const engine::Camera& camera);
+    explicit RenderSystem(engine::GpuResourceManager& gpu,
+                          engine::MaterialCache& matCache,
+                          const engine::Camera& camera);
 
     void update(World& world, float dt) override;
 
@@ -58,7 +64,8 @@ private:
     void rebuildDynamicList();
 
     engine::GpuResourceManager& m_gpu;
-    const engine::Camera& m_camera;
+    engine::MaterialCache&     m_matCache;
+    const engine::Camera&      m_camera;
 
     // SceneProxy 管理
     std::unordered_map<Entity::Id, std::unique_ptr<SceneProxy>> m_proxies;

@@ -23,7 +23,10 @@
 #include <unordered_map>
 #include <vector>
 
-namespace mulan::engine { class GpuResourceManager; }
+namespace mulan::engine {
+class GpuResourceManager;
+class MaterialCache;
+}
 
 namespace mulan::world {
 
@@ -37,6 +40,7 @@ public:
     /// @param pso 由调用方（ForwardPass）提供 PSO 指针
     void rebuild(std::span<SceneProxy* const> proxies,
                  engine::GpuResourceManager& gpu,
+                 engine::MaterialCache& matCache,
                  engine::PipelineState* facePso,
                  engine::PipelineState* edgePso);
 

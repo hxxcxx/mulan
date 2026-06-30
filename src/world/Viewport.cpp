@@ -12,6 +12,7 @@
 #include "mulan/engine/rhi/RenderTypes.h"
 #include "mulan/engine/render/graph/ForwardPass.h"
 #include "mulan/engine/render/graph/EdgePass.h"
+#include "mulan/engine/render/material/MaterialCache.h"
 
 #include <cstdio>
 #include <cstring>
@@ -26,7 +27,8 @@ Viewport::Viewport(World& world, engine::RHIDevice& device)
     : m_device(&device)
     , m_world(&world)
     , m_gpuStorage(std::make_unique<engine::GpuResourceManager>(device))
-    , m_renderSysStorage(std::make_unique<RenderSystem>(*m_gpuStorage, m_camera))
+    , m_renderSysStorage(std::make_unique<RenderSystem>(*m_gpuStorage,
+        engine::MaterialCache::instance(), m_camera))
     , m_defaultOp(std::make_unique<engine::CameraManipulator>())
 {
     m_gpu      = m_gpuStorage.get();
@@ -98,7 +100,8 @@ bool Viewport::init(const ViewConfig& cfg, int width, int height) {
 
     // --- GPU / RenderSystem ---
     m_gpuStorage  = std::make_unique<engine::GpuResourceManager>(*m_device);
-    m_renderSysStorage = std::make_unique<RenderSystem>(*m_gpuStorage, m_camera);
+    m_renderSysStorage = std::make_unique<RenderSystem>(*m_gpuStorage,
+        engine::MaterialCache::instance(), m_camera);
     m_gpu      = m_gpuStorage.get();
     m_renderSys = m_renderSysStorage.get();
 
@@ -157,7 +160,8 @@ bool Viewport::initOffscreen(int width, int height) {
 
     // --- GPU / RenderSystem ---
     m_gpuStorage  = std::make_unique<engine::GpuResourceManager>(*m_device);
-    m_renderSysStorage = std::make_unique<RenderSystem>(*m_gpuStorage, m_camera);
+    m_renderSysStorage = std::make_unique<RenderSystem>(*m_gpuStorage,
+        engine::MaterialCache::instance(), m_camera);
     m_gpu      = m_gpuStorage.get();
     m_renderSys = m_renderSysStorage.get();
 
@@ -221,14 +225,17 @@ bool Viewport::initRendering(int width, int height) {
         ? m_renderTarget->depthFormat()
         : (m_swapchain ? m_swapchain->depthFormat() : engine::TextureFormat::D32_Float);
 
+    auto& matCache = engine::MaterialCache::instance();
+    matCache.setDevice(m_device);
+
     auto fwd = std::make_unique<engine::ForwardPass>(
-        *m_device, *m_gpu, m_camera, m_lightEnv);
+        *m_device, *m_gpu, matCache, m_camera, m_lightEnv);
     if (!fwd->init(colorFmt, depthFmt, true))
         return false;
     m_renderGraph.addPass(std::move(fwd));
 
     auto edge = std::make_unique<engine::EdgePass>(
-        *m_device, *m_gpu, m_camera, m_lightEnv);
+        *m_device, *m_gpu, matCache, m_camera, m_lightEnv);
     if (!edge->init(colorFmt, depthFmt, true))
         return false;
     m_renderGraph.addPass(std::move(edge));

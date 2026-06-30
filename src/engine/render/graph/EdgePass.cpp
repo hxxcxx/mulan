@@ -9,6 +9,7 @@
 #include "ShaderUtil.h"
 #include "../../rhi/BindGroup.h"
 #include "../../rhi/RenderTypes.h"
+#include "../material/MaterialCache.h"
 
 #include <string>
 
@@ -34,8 +35,9 @@ static_assert(sizeof(SceneUniforms) == 288);
 // ─── 构造 / init ───────────────────────────────────────────────
 
 EdgePass::EdgePass(RHIDevice& device, GpuResourceManager& gpu,
+                   MaterialCache& matCache,
                    const Camera& camera, const LightEnvironment& lightEnv)
-    : m_device(device), m_gpu(gpu), m_camera(camera), m_lightEnv(lightEnv) {
+    : m_device(device), m_gpu(gpu), m_matCache(matCache), m_camera(camera), m_lightEnv(lightEnv) {
 }
 
 bool EdgePass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
@@ -44,24 +46,7 @@ bool EdgePass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDept
     m_sceneUbo  = m_device.createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "EdgeSceneUBO"));
     m_objectUbo = m_device.createBuffer(BufferDesc::uniform(
         MeshDrawCommand::kObjectUboStride * 4096, "EdgeObjUBO"));  // 4096 objects
-    m_materialUbo = m_device.createBuffer(BufferDesc::uniform(256, "EdgeMatUBO"));
-    // 填充默认材质（与 shader cbuffer Material 布局匹配，避免 descriptor 未更新）
-    {
-        struct DefaultMaterial {
-            float baseColor[3];   float metallic;
-            float emissive[3];    float roughness;
-            float specular[3];    float shininess;
-            float alpha;          float ao;
-            float emissiveStrength; float alphaCutoff;
-            uint32_t materialType; uint32_t alphaMode;
-            uint32_t textureFlags;  uint32_t doubleSided;
-        } dm{};
-        dm.baseColor[0] = dm.baseColor[1] = dm.baseColor[2] = 0.6f;
-        dm.alpha = 1.0f;
-        dm.roughness = 0.5f;
-        dm.doubleSided = 1;
-        m_materialUbo->update(0, sizeof(dm), &dm);
-    }
+
     m_initialized = true;
     return true;
 }
@@ -163,9 +148,11 @@ void EdgePass::execute(const PassContext& ctx) {
 
     uploadSceneUBO(ctx);
 
+    auto* matUbo = m_matCache.materialUbo();
+
     for (auto& cmd : m_commands) {
         if (!cmd.visible || cmd.instanceCount == 0) continue;
-        cmd.execute(*ctx.cmd, m_sceneUbo.get(), m_objectUbo.get(), m_materialUbo.get());
+        cmd.execute(*ctx.cmd, m_sceneUbo.get(), m_objectUbo.get(), matUbo);
     }
 }
 

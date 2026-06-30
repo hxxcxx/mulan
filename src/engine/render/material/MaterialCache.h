@@ -8,12 +8,14 @@
 #pragma once
 
 #include "Material.h"
+#include "../../rhi/Device.h"
 
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include <functional>
+#include <set>
 
 namespace mulan::engine {
 
@@ -31,6 +33,9 @@ public:
 
     uint32_t           id()   const { return m_id; }
     const std::string& name() const { return m_material.name; }
+
+    /// 转换为 GPU 可用的常量结构
+    MaterialGPU toGPU() const { return MaterialGPU::fromMaterial(m_material); }
 
 private:
     Material m_material;
@@ -108,6 +113,21 @@ public:
     /// 是否为空
     bool empty() const { return m_materials.empty(); }
 
+    // --- GPU UBO 管理 ---
+
+    /// 设置 RHIDevice 引用（创建材质 UBO 用）
+    void setDevice(RHIDevice* device);
+
+    /// 材质 ID → UBO 偏移（字节），供 MeshDrawCommand 使用
+    /// 首次查询时自动分配 slot
+    uint32_t materialGpuOffset(uint32_t materialId);
+
+    /// 获取材质 UBO buffer（供 ForwardPass / EdgePass bind）
+    Buffer* materialUbo() const { return m_materialUbo.get(); }
+
+    /// 上传所有脏材质到 GPU（每帧调用一次）
+    void uploadDirtyMaterials();
+
 private:
     MaterialCache();
     ~MaterialCache() = default;
@@ -122,6 +142,14 @@ private:
     std::unordered_map<uint32_t, size_t>               m_idToIndex;
     std::unordered_map<std::string, size_t>            m_nameToIndex;
     uint32_t                                           m_nextId = 1;
+
+    // GPU UBO
+    RHIDevice*                                          m_device = nullptr;
+    ResourcePtr<Buffer>                                  m_materialUbo;
+    static constexpr uint32_t                            kMaxMaterials = 256;
+    static constexpr uint32_t                            kMaterialSlotStride = 256; // 对齐到 256 bytes
+    std::unordered_map<uint32_t, uint32_t>              m_materialOffsets; // id → offset
+    std::set<uint32_t>                                  m_dirtyMaterials;  // 需要重新上传到 GPU 的材质 ID
 };
 
 } // namespace mulan::engine

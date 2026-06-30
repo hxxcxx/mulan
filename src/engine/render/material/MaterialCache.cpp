@@ -47,6 +47,10 @@ uint32_t MaterialCache::registerMaterial(Material material) {
     }
     m_materials.push_back(std::move(asset));
 
+    // 为新材质分配 UBO 偏移
+    m_materialOffsets[id] = 0xFFFFFFFF; // 触发首次分配
+    m_dirtyMaterials.insert(id);
+
     return id;
 }
 
@@ -59,6 +63,7 @@ uint32_t MaterialCache::registerMaterial(const std::string& name, Material mater
         uint32_t existingId = m_materials[idx]->id();
         material.name = name;
         m_materials[idx] = std::make_unique<MaterialAsset>(std::move(material), existingId);
+        m_dirtyMaterials.insert(existingId);
         return existingId;
     }
 
@@ -70,6 +75,9 @@ uint32_t MaterialCache::registerMaterial(const std::string& name, Material mater
     m_nameToIndex[name] = m_materials.size();
     m_idToIndex[id] = m_materials.size();
     m_materials.push_back(std::move(asset));
+
+    m_materialOffsets[id] = 0xFFFFFFFF;
+    m_dirtyMaterials.insert(id);
 
     return id;
 }
@@ -164,6 +172,75 @@ void MaterialCache::rebuildIndex() {
             m_nameToIndex[n] = i;
         }
     }
+}
+
+// ============================================================
+// GPU UBO 管理
+// ============================================================
+
+void MaterialCache::setDevice(RHIDevice* device) {
+    m_device = device;
+    if (m_device) {
+        m_materialUbo = m_device->createBuffer(
+            BufferDesc::uniform(kMaxMaterials * kMaterialSlotStride, "MaterialCacheUBO"));
+        // 上传当前所有材质
+        for (auto& mat : m_materials) {
+            m_dirtyMaterials.insert(mat->id());
+        }
+    }
+}
+
+uint32_t MaterialCache::materialGpuOffset(uint32_t materialId) {
+    // 0xFFFF = 默认材质，回退到 ID=1（DefaultPBR）
+    if (materialId == 0xFFFF) {
+        materialId = 1;
+    }
+
+    // 已分配 → 直接返回
+    auto it = m_materialOffsets.find(materialId);
+    if (it != m_materialOffsets.end() && it->second != 0xFFFFFFFF) {
+        return it->second;
+    }
+
+    // 未分配 → 当场分配（首次查询时自动分配下一个可用 slot）
+    uint32_t nextSlot = 0;
+    for (auto& [id, offset] : m_materialOffsets) {
+        if (offset != 0xFFFFFFFF) {
+            uint32_t slotEnd = offset + kMaterialSlotStride;
+            if (slotEnd > nextSlot) nextSlot = slotEnd;
+        }
+    }
+    // 对齐到 kMaterialSlotStride
+    nextSlot = ((nextSlot + kMaterialSlotStride - 1) / kMaterialSlotStride) * kMaterialSlotStride;
+
+    m_materialOffsets[materialId] = nextSlot;
+    m_dirtyMaterials.insert(materialId);
+    return nextSlot;
+}
+
+void MaterialCache::uploadDirtyMaterials() {
+    if (!m_materialUbo || m_dirtyMaterials.empty()) return;
+
+    // 对每个脏材质，分配 UBO 偏移（若尚未分配）并上传
+    uint32_t nextSlot = 0;
+    for (auto& asset : m_materials) {
+        uint32_t id = asset->id();
+        if (m_materialOffsets[id] == 0xFFFFFFFF) {
+            m_materialOffsets[id] = nextSlot * kMaterialSlotStride;
+            ++nextSlot;
+        }
+    }
+
+    for (uint32_t id : m_dirtyMaterials) {
+        uint32_t offset = m_materialOffsets[id];
+        auto* asset = findById(id);
+        if (!asset) continue;
+
+        MaterialGPU gpu = asset->toGPU();
+        m_materialUbo->update(offset, static_cast<uint32_t>(MaterialGPU::kSize), &gpu);
+    }
+
+    m_dirtyMaterials.clear();
 }
 
 } // namespace mulan::engine
