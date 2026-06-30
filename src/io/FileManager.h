@@ -1,10 +1,10 @@
 /**
  * @file FileManager.h
- * @brief 文件管理器 — 打开文件直接填充 World
+ * @brief 文件管理器 — 打开文件返回 Document
  * @author hxxcxx
  * @date 2026-04-22
  *
- * 唯一入口：openFile() → 选 Importer → 创建 World → 填充 → 返回所有权。
+ * 唯一入口：openFile() → 选 Importer → 创建 Document → 填充 → 返回所有权。
  */
 #pragma once
 
@@ -14,8 +14,8 @@
 #include <string>
 #include <vector>
 
-namespace mulan::world {
-class World;
+namespace mulan::document {
+class Document;
 }
 
 namespace mulan::io {
@@ -28,8 +28,8 @@ public:
     FileManager(const FileManager&) = delete;
     FileManager& operator=(const FileManager&) = delete;
 
-    /// 打开文件 → 自动匹配 Importer → 填充 World → 返回所有权
-    std::unique_ptr<mulan::world::World> openFile(const std::string& path);
+    /// 打开文件 → 自动匹配 Importer → 填充 Document → 返回所有权
+    std::unique_ptr<mulan::document::Document> openFile(const std::string& path);
 
     /// 获取最近一次 openFile 的错误信息
     const std::string& lastError() const { return m_lastError; }

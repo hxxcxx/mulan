@@ -1,6 +1,6 @@
 /**
  * @file FileManager.cpp
- * @brief FileManager 实现 — 打开文件直接填充 World
+ * @brief FileManager 实现 — 打开文件返回 Document
  * @author hxxcxx
  * @date 2026-04-22
  */
@@ -8,14 +8,14 @@
 #include "IFileImporter.h"
 #include "ImporterFactory.h"
 
-#include <mulan/world/World.h>
+#include <mulan/document/Document.h>
 
 #include <algorithm>
 #include <filesystem>
 
 namespace mulan::io {
 
-std::unique_ptr<mulan::world::World> FileManager::openFile(const std::string& path) {
+std::unique_ptr<mulan::document::Document> FileManager::openFile(const std::string& path) {
     m_lastError.clear();
 
     std::string ext = std::filesystem::path(path).extension().string();
@@ -29,13 +29,16 @@ std::unique_ptr<mulan::world::World> FileManager::openFile(const std::string& pa
         return nullptr;
     }
 
-    auto world = std::make_unique<mulan::world::World>();
-    if (!importer->import(path, *world)) {
+    std::string displayName = std::filesystem::path(path).filename().string();
+    auto doc = std::make_unique<mulan::document::Document>(std::move(displayName));
+    doc->setFilePath(path);
+
+    if (!importer->import(path, *doc)) {
         m_lastError = importer->lastError();
         return nullptr;
     }
 
-    return world;
+    return doc;
 }
 
 std::vector<std::string> FileManager::supportedExtensions() const {

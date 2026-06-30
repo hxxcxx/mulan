@@ -8,7 +8,6 @@ add_library(World STATIC
     DynamicDrawList.cpp
     geometry/BoxGeometryData.cpp
     geometry/MeshGeometryData.cpp
-    geometry/SolidGeometryData.cpp
     geometry/LineGeometryData.cpp
     geometry/ArcGeometryData.cpp
     geometry/PolylineGeometryData.cpp
@@ -31,15 +30,6 @@ target_include_directories(World PUBLIC
 )
 
 target_link_libraries(World PUBLIC Engine)
-
-# OCCT（SolidGeometryData）
-target_include_directories(World PRIVATE ${OCCT_INCLUDE_DIR})
-foreach(lib ${OCCT_LIBS})
-    find_library(OCCT_WORLD_${lib} ${lib} PATHS ${OCCT_LIB_DIR} NO_DEFAULT_PATH)
-    if(OCCT_WORLD_${lib})
-        target_link_libraries(World PRIVATE ${OCCT_WORLD_${lib}})
-    endif()
-endforeach()
 
 target_compile_definitions(World PRIVATE
     $<$<CONFIG:Debug>:_DEBUG>

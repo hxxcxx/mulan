@@ -187,16 +187,16 @@ void MainWindow::onOpenFile() {
 
     statusBar()->showMessage("Loading: " + filePath);
 
-    auto world = m_docManager.openFile(filePath.toStdString());
-    if (!world) {
+    auto doc = m_docManager.openFile(filePath.toStdString());
+    if (!doc) {
         QMessageBox::warning(this, "Import Error",
             QString::fromStdString(m_docManager.lastError()));
         statusBar()->showMessage("Ready");
         return;
     }
 
-    QString title = QFileInfo(filePath).fileName();
-    auto* uiDoc = new UIDocument(std::move(world), title.toStdString());
+    QString title = QString::fromStdString(doc->displayName());
+    auto* uiDoc = new UIDocument(std::move(doc));
     m_docArea->addDocument(uiDoc, title);
 
     statusBar()->showMessage(
@@ -217,16 +217,16 @@ void MainWindow::dropEvent(QDropEvent* e) {
 
     statusBar()->showMessage("Loading: " + filePath);
 
-    auto world = m_docManager.openFile(filePath.toStdString());
-    if (!world) {
+    auto doc = m_docManager.openFile(filePath.toStdString());
+    if (!doc) {
         QMessageBox::warning(this, "Import Error",
             QString::fromStdString(m_docManager.lastError()));
         statusBar()->showMessage("Ready");
         return;
     }
 
-    QString title = QFileInfo(filePath).fileName();
-    auto* uiDoc = new UIDocument(std::move(world), title.toStdString());
+    QString title = QString::fromStdString(doc->displayName());
+    auto* uiDoc = new UIDocument(std::move(doc));
     m_docArea->addDocument(uiDoc, title);
 
     statusBar()->showMessage(

@@ -1,21 +1,20 @@
 /**
  * @file UIDocument.cpp
- * @brief UIDocument 实现 — 桥接 World 数据层与渲染层
+ * @brief UIDocument 实现 — Document 的视图层包装
  * @author hxxcxx
- * @date 2026-04-23 (原始) / 2026-06-01 (重构)
+ * @date 2026-04-23 (原始) / 2026-06-30 (持有 Document)
  */
 #include "UIDocument.h"
 
 #include <mulan/world/Viewport.h>
+#include <mulan/world/World.h>
 
-UIDocument::UIDocument(std::unique_ptr<mulan::world::World> world,
-                       std::string displayName)
-    : m_world(std::move(world))
-    , m_displayName(std::move(displayName))
+UIDocument::UIDocument(std::unique_ptr<mulan::document::Document> doc)
+    : m_document(std::move(doc))
 {
     // 构建 pickId 映射（pickId = entity.index()）
-    if (m_world) {
-        m_world->forEachEntity([&](mulan::world::Entity* e) {
+    if (m_document && m_document->world()) {
+        m_document->world()->forEachEntity([&](mulan::world::Entity* e) {
             m_pickIdMap[e->index()] = e->id();
         });
     }
@@ -23,6 +22,19 @@ UIDocument::UIDocument(std::unique_ptr<mulan::world::World> world,
 
 UIDocument::~UIDocument() {
     detachViewport();
+}
+
+mulan::world::World* UIDocument::world() {
+    return m_document ? m_document->world() : nullptr;
+}
+
+const mulan::world::World* UIDocument::world() const {
+    return m_document ? m_document->world() : nullptr;
+}
+
+const std::string& UIDocument::displayName() const {
+    static const std::string empty;
+    return m_document ? m_document->displayName() : empty;
 }
 
 // ============================================================
@@ -33,12 +45,15 @@ void UIDocument::attachViewport(mulan::world::Viewport* viewport) {
     if (m_viewport) detachViewport();
     m_viewport = viewport;
 
+    mulan::world::World* w = world();
+    if (!w) return;
+
     // 设置 World 到 Viewport
-    viewport->setWorld(m_world.get());
+    viewport->setWorld(w);
 
     // 适配相机到场景包围盒
     mulan::engine::AABB sceneBounds;
-    m_world->forEachEntity([&](mulan::world::Entity* e) {
+    w->forEachEntity([&](mulan::world::Entity* e) {
         if (e->geometry()) {
             auto bounds = e->geometry()->bounds();
             auto worldBox = bounds.transformed(e->worldTransform());

@@ -2,19 +2,23 @@
  * @file SolidGeometryData.h
  * @brief OCCT Shape 几何数据 — BRepMesh 三角化 + 边线提取 + bounds
  * @author hxxcxx
- * @date 2026-05-29
+ * @date 2026-05-29 (原始) / 2026-06-30 (迁移到 document 层)
+ *
+ * 从 world 层迁移至 document 层：B-Rep (TopoDS_Shape) 是真实数据源，
+ * 由 Document 层持有。本类作为 world::GeometryData 的子类，负责把
+ * B-Rep 惰性三角化为渲染网格。World 层不感知 OCCT。
  */
 
 #pragma once
 
-#include "../GeometryData.h"
+#include <mulan/world/GeometryData.h>
 
 // OCCT 前向声明
 class TopoDS_Shape;
 
-namespace mulan::world {
+namespace mulan::document {
 
-class SolidGeometryData : public GeometryData {
+class SolidGeometryData : public world::GeometryData {
 public:
     SolidGeometryData();
     ~SolidGeometryData() override;
@@ -40,4 +44,4 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-} // namespace mulan::world
+} // namespace mulan::document

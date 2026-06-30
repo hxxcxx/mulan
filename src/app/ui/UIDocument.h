@@ -1,19 +1,20 @@
 /**
  * @file UIDocument.h
- * @brief UI 文档 — 桥接 World 数据层与 Viewport 渲染层
+ * @brief UI 文档 — Document 的视图层包装，桥接 Document 与 Viewport 渲染
  * @author hxxcxx
- * @date 2026-04-22 (原始) / 2026-06-01 (重构)
+ * @date 2026-04-22 (原始) / 2026-06-30 (持有 Document)
  *
  * 职责：
- *  - 持有 World（数据源，由 DocumentManager::openFile 返回）
- *  - 绑定 Viewport，设置 World + 适配相机
+ *  - 持有 Document（真实数据源 + World）
+ *  - 绑定 Viewport，把 Document 的 World 接入渲染
  *  - 管理拾取映射（pickId → Entity::Id）
  *
- * 位于 QtApp 层，是唯一同时依赖 Document 模块（I/O）和 World 模块的类。
+ * 位于 QtApp 层。真实几何（B-Rep）由 Document 层持有，本类不感知 OCCT。
  */
 #pragma once
 
-#include <mulan/world/World.h>
+#include <mulan/document/Document.h>
+#include <mulan/world/Entity.h>
 #include <mulan/engine/math/Math.h>
 #include <mulan/engine/math/AABB.h>
 
@@ -27,17 +28,20 @@ class Viewport;
 
 class UIDocument {
 public:
-    /// 从已填充的 World 构造（由 DocumentManager::openFile 返回）
-    explicit UIDocument(std::unique_ptr<mulan::world::World> world,
-                        std::string displayName);
+    /// 从已填充的 Document 构造（由 FileManager::openFile 返回）
+    explicit UIDocument(std::unique_ptr<mulan::document::Document> doc);
     ~UIDocument();
 
     // --- 数据层 ---
 
-    mulan::world::World* world() { return m_world.get(); }
-    const mulan::world::World* world() const { return m_world.get(); }
+    mulan::document::Document* document() { return m_document.get(); }
+    const mulan::document::Document* document() const { return m_document.get(); }
 
-    const std::string& displayName() const { return m_displayName; }
+    /// 便捷访问 Document 拥有的 World
+    mulan::world::World* world();
+    const mulan::world::World* world() const;
+
+    const std::string& displayName() const;
 
     // --- 视图连接 ---
 
@@ -53,9 +57,7 @@ public:
     mulan::world::Entity::Id resolvePickId(uint32_t pickId) const;
 
 private:
-    std::unique_ptr<mulan::world::World> m_world;
-    std::string m_displayName;
-
+    std::unique_ptr<mulan::document::Document> m_document;
     mulan::world::Viewport* m_viewport = nullptr;
 
     /// pickId → Entity::Id 映射（拾取反查用）

@@ -2,9 +2,8 @@
  * @file SolidGeometryData.cpp
  * @brief OCCT Shape 几何数据实现
  * @author hxxcxx
- * @date 2026-05-29
+ * @date 2026-05-29 (原始) / 2026-06-30 (迁移到 document 层)
  */
-
 #include "SolidGeometryData.h"
 
 #include <TopoDS_Shape.hxx>
@@ -27,7 +26,7 @@
 #include <algorithm>
 #include <mutex>
 
-namespace mulan::world {
+namespace mulan::document {
 
 struct SolidGeometryData::Impl {
     TopoDS_Shape shape;
@@ -115,7 +114,7 @@ engine::Mesh SolidGeometryData::triangulate() const {
                 static_cast<float>(p.X()), static_cast<float>(p.Y()), static_cast<float>(p.Z())});
 
             // normals (face-level, approximate)
-            // 使用三角形法线平均（简化：每顶点用零法线，solid shader 接受）
+            // TODO: 从解析曲面求精确法线（当前每顶点用零法线，solid shader 接受）
             verts.insert(verts.end(), {0.f, 0.f, 0.f});
 
             // texcoords (unused)
@@ -206,4 +205,4 @@ engine::AABB SolidGeometryData::bounds() const {
     return result;
 }
 
-} // namespace mulan::world
+} // namespace mulan::document
