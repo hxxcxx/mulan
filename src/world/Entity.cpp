@@ -15,7 +15,8 @@ Entity::Entity(Id id, std::string name)
     , m_name(std::move(name))
     , m_localTransform(1.0)
     , m_worldTransform(1.0) {
-    markDirty(EntityDirty::Created);
+    // 注意：不在此处 markDirty(Created) —— 此时 m_world 尚未设置，
+    // 标记无法传给 World。Created 由 World::createEntity 在 setWorldPtr 之后补标。
 }
 
 // --- setter 自动标脏 ---

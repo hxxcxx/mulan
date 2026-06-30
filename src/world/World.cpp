@@ -30,6 +30,8 @@ Entity* World::createEntity(std::string name) {
     auto entity = std::make_unique<Entity>(id, std::move(name));
     Entity* ptr = entity.get();
     ptr->setWorldPtr(this);
+    // 在 m_world 就绪后标 Created，确保 dirty 正确传入 World 的 dirty map
+    ptr->markDirty(EntityDirty::Created);
     m_entities[id] = std::move(entity);
     return ptr;
 }
