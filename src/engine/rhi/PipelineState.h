@@ -44,6 +44,7 @@ struct PipelineBinding {
 
     static constexpr uint32_t kStageVertex   = 0x00000001;
     static constexpr uint32_t kStageFragment = 0x00000010;
+    static constexpr uint32_t kStageCompute  = 0x00000100;
     static constexpr uint32_t kStageAll      = 0x7FFFFFFF;
 
     uint32_t       stages  = kStageAll;
@@ -85,6 +86,10 @@ struct GraphicsPipelineDesc {
     TextureFormat  depthStencilFormat = TextureFormat::Unknown;
     bool           depthEnable        = false;
     uint32_t       sampleCount        = 1;   // MSAA: 1=无, 2/4/8=多采样
+
+    // Push constant / root constant 范围
+    // 若 size > 0，则 PSO 创建时会预留该范围
+    uint32_t       pushConstantSize   = 0;   // 字节，必须 ≤ 128（VK 保证的最小值）
 };
 
 // ============================================================

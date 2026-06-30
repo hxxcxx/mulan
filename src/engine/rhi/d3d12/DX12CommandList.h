@@ -38,6 +38,16 @@ public:
 
     void draw(const DrawAttribs& attribs) override;
     void drawIndexed(const DrawIndexedAttribs& attribs) override;
+    void drawIndirect(Buffer* argsBuffer, uint32_t offset,
+                      uint32_t drawCount = 1, uint32_t stride = 0) override;
+
+    // --- Compute ---
+    void dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) override;
+    void dispatchIndirect(Buffer* argsBuffer, uint32_t offset) override;
+
+    // --- Push Constants ---
+    void setPushConstants(uint32_t offset, uint32_t size,
+                          const void* data, uint32_t stageFlags) override;
 
     void updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size,
                       const void* data,
@@ -61,12 +71,25 @@ public:
     /// 设置内部命令列表（帧循环中使用外部 cmd list）
     void setCommandList(ID3D12GraphicsCommandList* cmdList);
 
+    /// 设置当前帧的描述符堆（纹理绑定时分配 SRV 句柄）
+    void setDescriptorHeap(ID3D12DescriptorHeap* heap,
+                           D3D12_CPU_DESCRIPTOR_HANDLE cpuBase,
+                           D3D12_GPU_DESCRIPTOR_HANDLE gpuBase,
+                           uint32_t descriptorSize);
+
 private:
     ComPtr<ID3D12GraphicsCommandList> m_cmdList;
     bool m_ownsCmdList = true;  // 是否在析构时释放
     uint32_t m_cachedStride = 0;  // 从 PSO vertexLayout 缓存的 stride
     bool m_rpPresentSource = false; // endRenderPass 中决定 barrier 目标状态（PRESENT vs SRV）
     DX12Texture* m_rpColorTex = nullptr; // 当前 render pass 的颜色附件
+
+    // 纹理绑定用：当前帧的描述符堆
+    ID3D12DescriptorHeap*   m_descHeap = nullptr;
+    D3D12_CPU_DESCRIPTOR_HANDLE m_descCpuBase = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE m_descGpuBase = {};
+    uint32_t                m_descSize = 0;
+    uint32_t                m_descAllocCount = 0;  // 当前帧已分配数
 };
 
 } // namespace mulan::engine

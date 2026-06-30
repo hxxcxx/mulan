@@ -64,6 +64,39 @@ public:
     virtual void draw(const DrawAttribs& attribs) = 0;
     virtual void drawIndexed(const DrawIndexedAttribs& attribs) = 0;
 
+    // --- 间接绘制（GPU-driven，buffer 内含 DrawIndexedAttribs）---
+    // Indirect draw arguments layout in buffer:
+    //   DrawIndirectArgs: { indexCount, instanceCount, firstIndex, baseVertex, startInstance }
+    //   DispatchIndirectArgs: { groupCountX, groupCountY, groupCountZ }
+    virtual void drawIndirect(Buffer* argsBuffer, uint32_t offset,
+                              uint32_t drawCount = 1, uint32_t stride = 0) {
+        (void)argsBuffer; (void)offset; (void)drawCount; (void)stride;
+    }
+
+    // --- Compute ---
+
+    /// 执行 compute shader dispatch
+    virtual void dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
+        (void)threadGroupX; (void)threadGroupY; (void)threadGroupZ;
+    }
+
+    /// 间接 dispatch（GPU-driven）
+    virtual void dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
+        (void)argsBuffer; (void)offset;
+    }
+
+    // --- Push Constants（快速小数据路径，不走 UBO）---
+
+    /// 设置 push / root constants（所有后端统一）
+    /// @param offset  偏移（字节），对应 shader 中 layout(offset=...) 或 root constant offset
+    /// @param size    数据大小（字节），必须是 4 的倍数
+    /// @param data    数据指针
+    /// @param stageFlags 着色器阶段（PipelineBinding::kStageVertex 等）
+    virtual void setPushConstants(uint32_t offset, uint32_t size,
+                                  const void* data, uint32_t stageFlags) {
+        (void)offset; (void)size; (void)data; (void)stageFlags;
+    }
+
     // --- 资源更新 ---
 
     virtual void updateBuffer(Buffer* buffer, uint32_t offset,

@@ -119,6 +119,38 @@ void DX12CommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
                                     attribs.startInstance);
 }
 
+void DX12CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset,
+                                    uint32_t drawCount, uint32_t /*stride*/) {
+    auto* dx12Buf = static_cast<DX12Buffer*>(argsBuffer);
+    // CommandSignature 需要预创建（按 PSO index 格式），暂时用 nullptr
+    // TODO: 在 DX12Device 中维护 CommandSignature cache
+    m_cmdList->ExecuteIndirect(nullptr, drawCount,
+                               dx12Buf->resource(), offset,
+                               nullptr, 0);
+}
+
+void DX12CommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY,
+                                uint32_t threadGroupZ) {
+    m_cmdList->Dispatch(threadGroupX, threadGroupY, threadGroupZ);
+}
+
+void DX12CommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
+    auto* dx12Buf = static_cast<DX12Buffer*>(argsBuffer);
+    m_cmdList->ExecuteIndirect(nullptr, 1,
+                               dx12Buf->resource(), offset,
+                               nullptr, 0);
+}
+
+void DX12CommandList::setPushConstants(uint32_t offset, uint32_t size,
+                                        const void* data, uint32_t /*stageFlags*/) {
+    // DX12 root constants: binding slot 3 reserved for push constants
+    // (slot 0=scene UBO, 1=object UBO, 2=material UBO, 3=push constants)
+    uint32_t count = size / 4;
+    if (count > 0) {
+        m_cmdList->SetGraphicsRoot32BitConstants(3, count, data, offset / 4);
+    }
+}
+
 void DX12CommandList::updateBuffer(Buffer* buffer, uint32_t offset,
                                     uint32_t size, const void* data,
                                     ResourceTransitionMode mode) {
@@ -133,9 +165,42 @@ void DX12CommandList::bindResources(const BindGroup& group) {
             auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
             m_cmdList->SetGraphicsRootConstantBufferView(
                 e.binding, dx12Buf->gpuAddress() + e.offset);
+        } else if (e.texture && m_descHeap) {
+            // 纹理绑定：从 shader-visible heap 分配句柄，copy SRV，设置描述符表
+            auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
+            if (!dx12Tex->srv().ptr) continue;
+
+            // 分配描述符
+            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = m_descCpuBase;
+            cpuHandle.ptr += m_descAllocCount * m_descSize;
+            D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = m_descGpuBase;
+            gpuHandle.ptr += m_descAllocCount * m_descSize;
+            ++m_descAllocCount;
+
+            // 复制 SRV 到分配的位置
+            ID3D12Device* device = nullptr;
+            m_cmdList->GetDevice(IID_PPV_ARGS(&device));
+            if (device) {
+                device->CopyDescriptorsSimple(1, cpuHandle, dx12Tex->srv(),
+                                              D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+                device->Release();
+            }
+
+            // 绑定描述符表
+            m_cmdList->SetGraphicsRootDescriptorTable(e.binding, gpuHandle);
         }
-        // texture → 未来用 SetGraphicsRootDescriptorTable
     }
+}
+
+void DX12CommandList::setDescriptorHeap(ID3D12DescriptorHeap* heap,
+                                         D3D12_CPU_DESCRIPTOR_HANDLE cpuBase,
+                                         D3D12_GPU_DESCRIPTOR_HANDLE gpuBase,
+                                         uint32_t descriptorSize) {
+    m_descHeap = heap;
+    m_descCpuBase = cpuBase;
+    m_descGpuBase = gpuBase;
+    m_descSize = descriptorSize;
+    m_descAllocCount = 0;
 }
 
 void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState) {

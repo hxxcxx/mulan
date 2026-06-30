@@ -71,6 +71,8 @@ public:
     void beginFrame() override;
     CommandList* frameCommandList() override;
     void submitAndPresent(SwapChain* swapchain) override;
+    void submit() override;
+    void present(SwapChain* swapchain) override;
     void submitOffscreen() override;
 
 private:

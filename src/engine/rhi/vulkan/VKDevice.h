@@ -84,6 +84,8 @@ public:
     void beginFrame() override;
     CommandList* frameCommandList() override;
     void submitAndPresent(SwapChain* swapchain) override;
+    void submit() override;
+    void present(SwapChain* swapchain) override;
     void submitOffscreen() override;
 
     // --- Vulkan 特有访问器 ---
@@ -157,6 +159,10 @@ private:
     // 按 acquired image index 索引，解决 present 异步持有信号量的问题
     std::vector<vk::Semaphore>  m_renderFinishedSemaphores;
     uint32_t                    m_acquiredImageIndex = 0;
+
+    // 分离 submit/present 所需状态
+    vk::Semaphore               m_pendingRenderFinished = nullptr;
+    bool                        m_submitted = false;
 
     // --- RenderPass Cache ---
     struct RenderPassKey {

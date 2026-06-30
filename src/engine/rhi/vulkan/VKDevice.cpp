@@ -295,11 +295,15 @@ CommandList* VKDevice::frameCommandList() {
 }
 
 void VKDevice::submitAndPresent(SwapChain* swapchain) {
-    auto* vkSC  = static_cast<VKSwapChain*>(swapchain);
+    submit();
+    present(swapchain);
+}
+
+void VKDevice::submit() {
     auto& frame = currentFrameContext();
 
     // 使用 per-image 的 renderFinished 信号量
-    vk::Semaphore renderFinished = m_renderFinishedSemaphores[m_acquiredImageIndex];
+    m_pendingRenderFinished = m_renderFinishedSemaphores[m_acquiredImageIndex];
 
     vk::SubmitInfo submitInfo;
     submitInfo.commandBufferCount = 1;
@@ -315,12 +319,21 @@ void VKDevice::submitAndPresent(SwapChain* swapchain) {
     submitInfo.pWaitDstStageMask    = waitStages;
 
     submitInfo.signalSemaphoreCount  = 1;
-    submitInfo.pSignalSemaphores     = &renderFinished;
+    submitInfo.pSignalSemaphores     = &m_pendingRenderFinished;
 
     m_graphicsQueue.submit(submitInfo, frame.inFlightFence());
+    m_submitted = true;
+}
 
-    vkSC->presentWithSemaphores(renderFinished);
-
+void VKDevice::present(SwapChain* swapchain) {
+    auto* vkSC = static_cast<VKSwapChain*>(swapchain);
+    if (m_submitted && m_pendingRenderFinished) {
+        vkSC->presentWithSemaphores(m_pendingRenderFinished);
+    } else {
+        vkSC->present();
+    }
+    m_submitted = false;
+    m_pendingRenderFinished = nullptr;
     m_currentFrame = (m_currentFrame + 1) % m_frameCount;
 }
 

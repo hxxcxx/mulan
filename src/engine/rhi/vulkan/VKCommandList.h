@@ -64,6 +64,16 @@ public:
     // --- 绘制 ---
     void draw(const DrawAttribs& attribs) override;
     void drawIndexed(const DrawIndexedAttribs& attribs) override;
+    void drawIndirect(Buffer* argsBuffer, uint32_t offset,
+                      uint32_t drawCount = 1, uint32_t stride = 0) override;
+
+    // --- Compute ---
+    void dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) override;
+    void dispatchIndirect(Buffer* argsBuffer, uint32_t offset) override;
+
+    // --- Push Constants ---
+    void setPushConstants(uint32_t offset, uint32_t size,
+                          const void* data, uint32_t stageFlags) override;
 
     // --- 资源更新 ---
     void updateBuffer(Buffer* buffer, uint32_t offset,

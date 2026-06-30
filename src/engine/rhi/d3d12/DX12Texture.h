@@ -25,22 +25,29 @@ public:
     D3D12_RESOURCE_STATES state() const { return m_state; }
     void setState(D3D12_RESOURCE_STATES s) { m_state = s; }
 
-    // RTV/DSV 句柄（由 SwapChain/RenderTarget 在创建时设置）
+    // RTV/DSV/SRV 句柄
     void setRTV(D3D12_CPU_DESCRIPTOR_HANDLE handle) { m_rtv = handle; m_hasRTV = true; }
     void setDSV(D3D12_CPU_DESCRIPTOR_HANDLE handle) { m_dsv = handle; m_hasDSV = true; }
     D3D12_CPU_DESCRIPTOR_HANDLE rtv() const { return m_rtv; }
     D3D12_CPU_DESCRIPTOR_HANDLE dsv() const { return m_dsv; }
+    D3D12_CPU_DESCRIPTOR_HANDLE srv() const { return m_srv; }
     bool hasRTV() const { return m_hasRTV; }
     bool hasDSV() const { return m_hasDSV; }
+    bool hasSRV() const { return m_hasSRV; }
 
 private:
+    void createSRVIfNeeded(ID3D12Device* device);
+
     TextureDesc               m_desc;
     ComPtr<ID3D12Resource>    m_resource;
     D3D12_RESOURCE_STATES     m_state;
     D3D12_CPU_DESCRIPTOR_HANDLE m_rtv = {};
     D3D12_CPU_DESCRIPTOR_HANDLE m_dsv = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE m_srv = {};
+    ComPtr<ID3D12DescriptorHeap> m_srvHeap;  // 仅用于持有 SRV
     bool m_hasRTV = false;
     bool m_hasDSV = false;
+    bool m_hasSRV = false;
 };
 
 } // namespace mulan::engine

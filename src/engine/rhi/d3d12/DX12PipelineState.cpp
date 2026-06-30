@@ -53,8 +53,23 @@ DX12PipelineState::~DX12PipelineState() = default;
 
 void DX12PipelineState::createRootSignature() {
     // 根据 descriptorBindings 构建 root parameters
-    // 策略：每个 binding slot 对应一个 root CBV (b0, b1, b2...)
-    // 这简化了设计，对于 UBO-only 的场景足够
+    // 策略：
+    //   UniformBuffer → Root CBV (直接 GPU 地址)
+    //   TextureSRV    → Descriptor Table (1 个 SRV range)
+    //   Sampler       → (未来) static sampler
+    //
+    // 纹理绑定数由 m_desc.descriptorBindingCount 中的 TextureSRV 项决定
+
+    // 第一遍：统计 TextureSRV bindings 数量
+    uint32_t texBindingCount = 0;
+    for (uint8_t i = 0; i < m_desc.descriptorBindingCount; ++i) {
+        if (m_desc.descriptorBindings[i].type == DescriptorType::TextureSRV)
+            ++texBindingCount;
+    }
+
+    // 为每个描述符表预分配 range（堆上分配以避免悬垂指针）
+    std::vector<D3D12_DESCRIPTOR_RANGE> texRanges;
+    texRanges.reserve(texBindingCount);
 
     std::vector<D3D12_ROOT_PARAMETER> rootParams;
     rootParams.reserve(m_desc.descriptorBindingCount);
@@ -64,29 +79,42 @@ void DX12PipelineState::createRootSignature() {
         if (db.count == 0) continue;
 
         D3D12_ROOT_PARAMETER param = {};
-
-        switch (db.type) {
-        case DescriptorType::UniformBuffer:
-            param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-            param.Descriptor.ShaderRegister = db.binding;
-            param.Descriptor.RegisterSpace  = 0;
-            break;
-        case DescriptorType::TextureSRV:
-            // 未来：descriptor table (SRV)
-            continue;
-        case DescriptorType::Sampler:
-            // 未来：static sampler 或 descriptor table
-            continue;
-        }
-
-        // Shader stages
         D3D12_SHADER_VISIBILITY visibility = D3D12_SHADER_VISIBILITY_ALL;
         if (db.stages == PipelineBinding::kStageVertex) {
             visibility = D3D12_SHADER_VISIBILITY_VERTEX;
         } else if (db.stages == PipelineBinding::kStageFragment) {
             visibility = D3D12_SHADER_VISIBILITY_PIXEL;
         }
-        param.ShaderVisibility = visibility;
+
+        switch (db.type) {
+        case DescriptorType::UniformBuffer:
+            param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+            param.Descriptor.ShaderRegister = db.binding;
+            param.Descriptor.RegisterSpace  = 0;
+            param.ShaderVisibility = visibility;
+            break;
+
+        case DescriptorType::TextureSRV: {
+            D3D12_DESCRIPTOR_RANGE range = {};
+            range.RangeType          = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+            range.NumDescriptors     = db.count;
+            range.BaseShaderRegister = db.binding;
+            range.RegisterSpace      = 0;
+            range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+            texRanges.push_back(range);
+
+            param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            param.DescriptorTable.NumDescriptorRanges = 1;
+            // 指针在 push_back 后仍然有效，因为 texRanges 在此函数作用域内
+            param.DescriptorTable.pDescriptorRanges = &texRanges.back();
+            param.ShaderVisibility = visibility;
+            break;
+        }
+
+        case DescriptorType::Sampler:
+            // 未来：static sampler 或 descriptor table
+            continue;
+        }
 
         rootParams.push_back(param);
     }

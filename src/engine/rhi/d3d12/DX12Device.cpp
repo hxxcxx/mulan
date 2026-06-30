@@ -232,25 +232,42 @@ void DX12Device::beginFrame() {
 CommandList* DX12Device::frameCommandList() {
     auto& frame = m_frames[m_frameIndex];
     m_frameCmdWrapper->setCommandList(frame->commandList());
+
+    // 设置当前帧的描述符堆（bindResources 时分配 SRV 句柄用）
+    auto* heap = m_shaderVisibleHeap->heap();
+    if (heap) {
+        D3D12_CPU_DESCRIPTOR_HANDLE cpuBase = heap->GetCPUDescriptorHandleForHeapStart();
+        D3D12_GPU_DESCRIPTOR_HANDLE gpuBase = heap->GetGPUDescriptorHandleForHeapStart();
+        uint32_t descSize = m_shaderVisibleHeap->descriptorSize();
+        m_frameCmdWrapper->setDescriptorHeap(heap, cpuBase, gpuBase, descSize);
+    }
+
     return m_frameCmdWrapper.get();
 }
 
 void DX12Device::submitAndPresent(SwapChain* swapchain) {
-    auto* dx12Swap = static_cast<DX12SwapChain*>(swapchain);
+    submit();
+    present(swapchain);
+}
+
+void DX12Device::submit() {
     auto& frame = m_frames[m_frameIndex];
 
     // cmd list 已由 EngineView::cmd->end() 关闭，直接提交
     ID3D12CommandList* lists[] = { frame->commandList() };
     m_commandQueue->ExecuteCommandLists(1, lists);
 
-    // Present
-    dx12Swap->present();
-
     // Signal fence
     auto fenceVal = frame->fenceValue() + 1;
     frame->setFenceValue(fenceVal);
     HRESULT hr = m_commandQueue->Signal(frame->fence()->fence(), fenceVal);
     DX12_CHECK(hr);
+}
+
+void DX12Device::present(SwapChain* swapchain) {
+    auto* dx12Swap = static_cast<DX12SwapChain*>(swapchain);
+    dx12Swap->present();
+    m_frameIndex = (m_frameIndex + 1) % m_frameCount;
 }
 
 void DX12Device::submitOffscreen() {

@@ -30,6 +30,8 @@ public:
 private:
     ShaderDesc              m_desc;
     std::vector<uint8_t>    m_byteCode;
+
+    void loadFromFile(std::string_view path);
 };
 
 } // namespace mulan::engine

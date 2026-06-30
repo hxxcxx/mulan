@@ -65,6 +65,8 @@ DX12Texture::DX12Texture(const TextureDesc& desc, ID3D12Device* device,
         &resDesc, initialState,
         pClearVal, IID_PPV_ARGS(&m_resource));
     DX12_CHECK(hr);
+
+    createSRVIfNeeded(device);
 }
 
 DX12Texture::DX12Texture(const TextureDesc& desc, ID3D12Resource* existingResource,
@@ -73,6 +75,33 @@ DX12Texture::DX12Texture(const TextureDesc& desc, ID3D12Resource* existingResour
     , m_resource(existingResource)
     , m_state(initialState)
 {
+}
+
+void DX12Texture::createSRVIfNeeded(ID3D12Device* device) {
+    if (!(m_desc.usage & TextureUsageFlags::ShaderResource) || !m_resource)
+        return;
+
+    // 创建私有 CPU-only 描述符堆存放 SRV
+    D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+    heapDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    heapDesc.NumDescriptors = 1;
+    heapDesc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+    HRESULT hr = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&m_srvHeap));
+    if (FAILED(hr)) return;
+
+    m_srv = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format                  = toDXGIFormat(m_desc.format);
+    srvDesc.ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels     = m_desc.mipLevels;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.PlaneSlice    = 0;
+    srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+    device->CreateShaderResourceView(m_resource.Get(), &srvDesc, m_srv);
+    m_hasSRV = true;
 }
 
 DX12Texture::~DX12Texture() = default;

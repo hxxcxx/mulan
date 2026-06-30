@@ -175,7 +175,15 @@ public:
     virtual CommandList* frameCommandList() = 0;
 
     /// 提交当前帧命令 + present
+    /// 内部调用 submit() → present()
     virtual void submitAndPresent(SwapChain* swapchain) = 0;
+
+    /// 提交当前帧命令（不 present，用于多线程录制场景）
+    /// 调用后可继续用其他 cmd list + present()
+    virtual void submit() = 0;
+
+    /// 呈现 swapchain 到屏幕（与 submit 分离，支持多线程录制后统一 present）
+    virtual void present(SwapChain* swapchain) = 0;
 
     /// 提交当前帧命令（无 present — 用于离屏渲染）
     virtual void submitOffscreen() = 0;

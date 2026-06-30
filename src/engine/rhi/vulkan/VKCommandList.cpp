@@ -126,6 +126,36 @@ void VKCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
                             attribs.startInstance);
 }
 
+void VKCommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset,
+                                  uint32_t drawCount, uint32_t stride) {
+    auto* vkBuf = static_cast<VKBuffer*>(argsBuffer);
+    vk::Buffer buf = vkBuf->vkBuffer();
+    m_cmdBuffer.drawIndexedIndirect(buf, offset, drawCount,
+                                     stride > 0 ? stride : uint32_t(sizeof(VkDrawIndexedIndirectCommand)));
+}
+
+void VKCommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY,
+                              uint32_t threadGroupZ) {
+    m_cmdBuffer.dispatch(threadGroupX, threadGroupY, threadGroupZ);
+}
+
+void VKCommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
+    auto* vkBuf = static_cast<VKBuffer*>(argsBuffer);
+    m_cmdBuffer.dispatchIndirect(vkBuf->vkBuffer(), offset);
+}
+
+void VKCommandList::setPushConstants(uint32_t offset, uint32_t size,
+                                      const void* data, uint32_t stageFlags) {
+    vk::ShaderStageFlags vkStages;
+    if (stageFlags & PipelineBinding::kStageVertex)   vkStages |= vk::ShaderStageFlagBits::eVertex;
+    if (stageFlags & PipelineBinding::kStageFragment) vkStages |= vk::ShaderStageFlagBits::eFragment;
+    if (stageFlags & PipelineBinding::kStageCompute)  vkStages |= vk::ShaderStageFlagBits::eCompute;
+
+    if (vkStages) {
+        m_cmdBuffer.pushConstants(m_currentLayout, vkStages, offset, size, data);
+    }
+}
+
 void VKCommandList::updateBuffer(Buffer* buffer, uint32_t offset,
                                   uint32_t size, const void* data,
                                   ResourceTransitionMode) {
