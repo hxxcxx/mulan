@@ -180,6 +180,10 @@ void MaterialCache::rebuildIndex() {
 
 void MaterialCache::setDevice(RHIDevice* device) {
     m_device = device;
+    // 新 device 的 buffer 是空的，标记所有材质为脏强制上传
+    for (auto& mat : m_materials) {
+        m_dirtyMaterials.insert(mat->id());
+    }
 }
 
 uint32_t MaterialCache::materialGpuOffset(uint32_t materialId) {
