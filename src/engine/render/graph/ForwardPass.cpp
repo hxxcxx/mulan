@@ -47,6 +47,8 @@ bool ForwardPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasD
     m_sceneUbo   = m_device.createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "FwdSceneUBO"));
     m_objectUbo  = m_device.createBuffer(BufferDesc::uniform(
         MeshDrawCommand::kObjectUboStride * 4096, "FwdObjUBO"));   // 4096 objects
+    m_materialUbo = m_device.createBuffer(BufferDesc::uniform(
+        MaterialCache::kMaxMaterials * 256, "FwdMatUBO"));  // MaterialCache统一尺寸
 
     m_initialized = true;
     return true;
@@ -149,13 +151,11 @@ void ForwardPass::execute(const PassContext& ctx) {
     if (!m_initialized || !m_pso || !ctx.cmd) return;
 
     uploadSceneUBO(ctx);
-    m_matCache.uploadDirtyMaterials();
-
-    auto* matUbo = m_matCache.materialUbo();
+    m_matCache.uploadDirtyMaterials(m_materialUbo.get());
 
     for (auto& cmd : m_commands) {
         if (!cmd.visible || cmd.instanceCount == 0) continue;
-        cmd.execute(*ctx.cmd, m_sceneUbo.get(), m_objectUbo.get(), matUbo);
+        cmd.execute(*ctx.cmd, m_sceneUbo.get(), m_objectUbo.get(), m_materialUbo.get());
     }
 }
 

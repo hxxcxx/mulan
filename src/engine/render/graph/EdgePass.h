@@ -56,6 +56,7 @@ private:
     ResourcePtr<PipelineState> m_pso;
     ResourcePtr<Buffer>        m_sceneUbo;
     ResourcePtr<Buffer>        m_objectUbo;
+    ResourcePtr<Buffer>        m_materialUbo;
 
     std::span<const MeshDrawCommand> m_commands;
     bool m_initialized = false;

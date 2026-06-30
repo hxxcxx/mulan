@@ -115,18 +115,19 @@ public:
 
     // --- GPU UBO 管理 ---
 
-    /// 设置 RHIDevice 引用（创建材质 UBO 用）
+    /// 设置 RHIDevice 引用（用于材质数据写入时的 device 引用）
     void setDevice(RHIDevice* device);
 
     /// 材质 ID → UBO 偏移（字节），供 MeshDrawCommand 使用
-    /// 首次查询时自动分配 slot
     uint32_t materialGpuOffset(uint32_t materialId);
 
-    /// 获取材质 UBO buffer（供 ForwardPass / EdgePass bind）
-    Buffer* materialUbo() const { return m_materialUbo.get(); }
-
     /// 上传所有脏材质到 GPU（每帧调用一次）
-    void uploadDirtyMaterials();
+    /// @param materialUbo 由调用方（ForwardPass/EdgePass）持有和管理的 UBO
+    void uploadDirtyMaterials(Buffer* materialUbo);
+
+    /// 材质 UBO 尺寸常量
+    static constexpr uint32_t kMaxMaterials = 256;
+    static constexpr uint32_t kMaterialSlotStride = 256;
 
 private:
     MaterialCache();
@@ -137,20 +138,16 @@ private:
 
     uint32_t allocateId();
     void     rebuildIndex();
-    void     ensureUboCreated();
 
     std::vector<std::unique_ptr<MaterialAsset>>        m_materials;
     std::unordered_map<uint32_t, size_t>               m_idToIndex;
     std::unordered_map<std::string, size_t>            m_nameToIndex;
     uint32_t                                           m_nextId = 1;
 
-    // GPU UBO
+    // GPU UBO 管理（不持有 buffer，由调用方提供）
     RHIDevice*                                          m_device = nullptr;
-    ResourcePtr<Buffer>                                  m_materialUbo;
-    static constexpr uint32_t                            kMaxMaterials = 256;
-    static constexpr uint32_t                            kMaterialSlotStride = 256; // 对齐到 256 bytes
     std::unordered_map<uint32_t, uint32_t>              m_materialOffsets; // id → offset
-    std::set<uint32_t>                                  m_dirtyMaterials;  // 需要重新上传到 GPU 的材质 ID
+    std::set<uint32_t>                                  m_dirtyMaterials;
 };
 
 } // namespace mulan::engine

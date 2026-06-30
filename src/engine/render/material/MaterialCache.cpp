@@ -180,17 +180,6 @@ void MaterialCache::rebuildIndex() {
 
 void MaterialCache::setDevice(RHIDevice* device) {
     m_device = device;
-    if (m_device) {
-        m_materialUbo = m_device->createBuffer(
-            BufferDesc::uniform(kMaxMaterials * kMaterialSlotStride, "MaterialCacheUBO"));
-        for (auto& mat : m_materials) {
-            m_dirtyMaterials.insert(mat->id());
-        }
-    }
-}
-
-void MaterialCache::ensureUboCreated() {
-    // Buffer created in setDevice(); no-op now.
 }
 
 uint32_t MaterialCache::materialGpuOffset(uint32_t materialId) {
@@ -221,8 +210,8 @@ uint32_t MaterialCache::materialGpuOffset(uint32_t materialId) {
     return nextSlot;
 }
 
-void MaterialCache::uploadDirtyMaterials() {
-    if (!m_materialUbo || m_dirtyMaterials.empty()) return;
+void MaterialCache::uploadDirtyMaterials(Buffer* materialUbo) {
+    if (!materialUbo || m_dirtyMaterials.empty()) return;
 
     // 对每个脏材质，分配 UBO 偏移（若尚未分配）并上传
     uint32_t nextSlot = 0;
@@ -240,7 +229,7 @@ void MaterialCache::uploadDirtyMaterials() {
         if (!asset) continue;
 
         MaterialGPU gpu = asset->toGPU();
-        m_materialUbo->update(offset, static_cast<uint32_t>(MaterialGPU::kSize), &gpu);
+        materialUbo->update(offset, static_cast<uint32_t>(MaterialGPU::kSize), &gpu);
     }
 
     m_dirtyMaterials.clear();
