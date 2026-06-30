@@ -6,6 +6,9 @@
  */
 #include "DX12Device.h"
 
+#include <vector>
+#include <cstring>
+
 namespace mulan::engine {
 
 // ============================================================
@@ -34,14 +37,11 @@ void DX12Device::init(const DeviceCreateInfo& ci) {
     m_window       = ci.window;
     m_renderConfig = ci.renderConfig;
     m_frameCount   = ci.renderConfig.bufferCount > 0 ? ci.renderConfig.bufferCount : 2;
-    DX12_LOG("[DX12] Init windowType=%d hwnd=%p frameCount=%u validation=%d\n",
-             static_cast<int>(ci.window.type),
-             reinterpret_cast<void*>(ci.window.win32.hWnd),
-             m_frameCount, ci.enableValidation ? 1 : 0);
     if (ci.enableValidation) enableDebugLayer();
     createFactory();
     findAdapter();
     createDevice();
+    if (ci.enableValidation) attachInfoQueue();
     createCommandQueue();
     createFrameContexts();
 
@@ -62,7 +62,49 @@ void DX12Device::enableDebugLayer() {
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)))) {
         debug->EnableDebugLayer();
         m_debugController = debug;
+
+        // 同步命令队列校验：把异步的 device removed 变成同步上报，
+        // 便于在故障点立刻拿到 InfoQueue 消息。
+        ComPtr<ID3D12Debug1> debug1;
+        if (SUCCEEDED(debug.As(&debug1))) {
+            debug1->SetEnableSynchronizedCommandQueueValidation(TRUE);
+        }
     }
+}
+
+void DX12Device::attachInfoQueue() {
+    // 挂载 InfoQueue：让 D3D12 运行时把所有消息（error/warning/info）留存，
+    // 供 dumpInfoQueueMessages() 在 device removed 时导出真正的原因。
+    // 这是定位 device removed 根因的唯一可靠手段——
+    // GetDeviceRemovedReason() 只返回「已移除」，从不说明原因。
+    ComPtr<ID3D12InfoQueue> infoQueue;
+    if (FAILED(m_device.As(&infoQueue))) return;
+    m_infoQueue = infoQueue;
+
+    // 关闭存储过滤：让所有严重级别的消息都被留存
+    infoQueue->PushEmptyStorageFilter();
+    infoQueue->SetMessageCountLimit(D3D12_INFO_QUEUE_DEFAULT_MESSAGE_COUNT_LIMIT);
+}
+
+void DX12Device::dumpInfoQueueMessages() const {
+    if (!m_infoQueue) return;
+    UINT64 count = m_infoQueue->GetNumStoredMessages();
+    for (UINT64 i = 0; i < count; ++i) {
+        SIZE_T size = 0;
+        m_infoQueue->GetMessage(i, nullptr, &size);
+        if (size == 0) continue;
+        std::vector<uint8_t> buffer(size);
+        auto* msg = reinterpret_cast<D3D12_MESSAGE*>(buffer.data());
+        if (SUCCEEDED(m_infoQueue->GetMessage(i, msg, &size))) {
+            // pDescription 末尾含 '\0'，DescriptionByteLength 含该字节
+            const char* desc = msg->pDescription ? msg->pDescription : "";
+            std::fprintf(stderr, "[D3D12] %s%s",
+                         desc,
+                         (desc[0] && desc[std::strlen(desc) - 1] != '\n') ? "\n" : "");
+        }
+    }
+    // 清空已读消息，避免重复打印
+    m_infoQueue->ClearStoredMessages();
 }
 
 void DX12Device::createFactory() {
@@ -123,6 +165,13 @@ Mat4 DX12Device::clipSpaceCorrectionMatrix() const {
 // ============================================================
 
 ResourcePtr<Buffer> DX12Device::createBuffer(const BufferDesc& desc) {
+    HRESULT reason = m_device->GetDeviceRemovedReason();
+    if (FAILED(reason)) {
+        std::fprintf(stderr, "[DX12 ERROR] createBuffer: device already removed! Reason=0x%08lX\n",
+                     static_cast<unsigned long>(reason));
+        dumpInfoQueueMessages();
+    }
+
     auto* buf = new DX12Buffer(desc, m_device.Get());
 
     // 上传初始数据
@@ -143,6 +192,13 @@ ResourcePtr<Shader> DX12Device::createShader(const ShaderDesc& desc) {
 }
 
 ResourcePtr<PipelineState> DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
+    HRESULT reason = m_device->GetDeviceRemovedReason();
+    if (FAILED(reason)) {
+        std::fprintf(stderr, "[DX12 ERROR] createPipelineState('%.*s'): device already removed! Reason=0x%08lX\n",
+                     static_cast<int>(desc.name.size()), desc.name.data(),
+                     static_cast<unsigned long>(reason));
+        dumpInfoQueueMessages();
+    }
     return ResourcePtr<PipelineState>(new DX12PipelineState(desc, m_device.Get()), DeviceResourceDeleter{shared_from_this()});
 }
 

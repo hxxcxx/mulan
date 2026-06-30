@@ -35,16 +35,12 @@ DX12SwapChain::DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device,
     scDesc.Flags              = desc.vsync ? 0 : DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
     HWND hwnd = reinterpret_cast<HWND>(window.win32.hWnd);
-    DX12_LOG("[DX12] CreateSwapChainForHwnd hwnd=%p size=%ux%u buffers=%u format=%u vsync=%d\n",
-             hwnd, desc.width, desc.height, desc.bufferCount,
-             static_cast<unsigned>(scDesc.Format), desc.vsync ? 1 : 0);
     ComPtr<IDXGISwapChain1> swapChain1;
     HRESULT hr = factory->CreateSwapChainForHwnd(
         queue, hwnd, &scDesc, nullptr, nullptr, &swapChain1);
     DX12_CHECK(hr);
     hr = swapChain1.As(&m_swapChain);
     DX12_CHECK(hr);
-    DX12_LOG("[DX12] SwapChain created successfully\n");
     createRTVHeap();
     createBackBuffers();
 }
@@ -70,7 +66,6 @@ void DX12SwapChain::createBackBuffers() {
     for (uint32_t i = 0; i < m_desc.bufferCount; ++i) {
         HRESULT hr = m_swapChain->GetBuffer(i, IID_PPV_ARGS(&m_backBuffers[i]));
         DX12_CHECK(hr);
-        DX12_LOG("[DX12] BackBuffer[%u] resource=%p\n", i, m_backBuffers[i].Get());
         auto rtvDesc = m_rtvHeap->allocate();
         m_device->CreateRenderTargetView(m_backBuffers[i].Get(), nullptr, rtvDesc.cpu);
 
@@ -81,10 +76,13 @@ void DX12SwapChain::createBackBuffers() {
         m_backBufferTextures[i]->setRTV(rtvDesc.cpu);
     }
 
-    // Depth stencil
+    // Depth stencil —— 纯 DSV 用途，不带 ShaderResource：
+    // 深度缓冲从不被 shader 采样，且带 SRV 会触发对 typed 深度格式
+    // 创建非法 SRV，导致 device removed。
+    auto depthDesc = TextureDesc::depthStencil(m_desc.width, m_desc.height);
+    depthDesc.usage = TextureUsageFlags::DepthStencil;  // 剥离 ShaderResource
     m_depthTexture = std::make_unique<DX12Texture>(
-        TextureDesc::depthStencil(m_desc.width, m_desc.height),
-        m_device, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+        depthDesc, m_device, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 
     auto dsvDesc = m_dsvHeap->allocate();
     m_device->CreateDepthStencilView(m_depthTexture->resource(), nullptr, dsvDesc.cpu);

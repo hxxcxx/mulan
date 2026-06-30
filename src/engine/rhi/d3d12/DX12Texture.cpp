@@ -39,7 +39,11 @@ DX12Texture::DX12Texture(const TextureDesc& desc, ID3D12Device* device,
     resDesc.Height             = desc.height;
     resDesc.DepthOrArraySize   = static_cast<UINT16>(desc.arraySize);
     resDesc.MipLevels          = static_cast<UINT16>(desc.mipLevels);
-    resDesc.Format             = toDXGIFormat(desc.format);
+    // 深度纹理同时需要 SRV 时，资源必须以 typeless 格式创建，
+    // 这样 DSV（typed）与 SRV（typed readable）都能绑定到同一资源。
+    resDesc.Format             = (isDepthFormat(desc.format) && (desc.usage & TextureUsageFlags::ShaderResource))
+                                    ? toTypelessFormat(desc.format)
+                                    : toDXGIFormat(desc.format);
     resDesc.SampleDesc.Count   = desc.sampleCount;
     resDesc.SampleDesc.Quality = 0;
     resDesc.Layout             = D3D12_TEXTURE_LAYOUT_UNKNOWN;
@@ -92,7 +96,11 @@ void DX12Texture::createSRVIfNeeded(ID3D12Device* device) {
     m_srv = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format                  = toDXGIFormat(m_desc.format);
+    // 深度纹理的 SRV 必须用可读 typed 格式（如 R24_UNORM_X8_TYPELESS），
+    // 而非深度格式 D24_UNORM_S8_UINT —— 后者会触发 RemoveDevice。
+    srvDesc.Format                  = isDepthFormat(m_desc.format)
+                                         ? toSRVFormat(m_desc.format)
+                                         : toDXGIFormat(m_desc.format);
     srvDesc.ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Texture2D.MipLevels     = m_desc.mipLevels;
     srvDesc.Texture2D.MostDetailedMip = 0;

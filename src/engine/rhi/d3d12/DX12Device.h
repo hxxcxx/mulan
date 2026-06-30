@@ -83,11 +83,14 @@ private:
     void createCommandQueue();
     void createFrameContexts();
     void enableDebugLayer();
+    void attachInfoQueue();
+    void dumpInfoQueueMessages() const;
 
     ComPtr<IDXGIFactory4>              m_factory;
     ComPtr<ID3D12Device>               m_device;
     ComPtr<ID3D12CommandQueue>         m_commandQueue;
     ComPtr<ID3D12Debug>                m_debugController;
+    ComPtr<ID3D12InfoQueue>            m_infoQueue;
 
     GPUDeviceCapabilities                 m_caps;
     RenderConfig                       m_renderConfig;

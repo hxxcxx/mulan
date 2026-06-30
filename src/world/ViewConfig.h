@@ -32,7 +32,7 @@ struct ViewConfig {
     bool     stencilBuffer = false;
 
     // --- 调试 ---
-    bool     enableValidation = true;
+    bool     enableValidation = true;  // 开启 D3D12 debug layer + InfoQueue 以定位 device removed
 
     // --- 背景色 ---
     float    clearColor[4] = { 97.0f/255, 101.0f/255, 118.0f/255, 1.0f };

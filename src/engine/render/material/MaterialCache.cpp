@@ -180,17 +180,23 @@ void MaterialCache::rebuildIndex() {
 
 void MaterialCache::setDevice(RHIDevice* device) {
     m_device = device;
-    if (m_device) {
-        m_materialUbo = m_device->createBuffer(
-            BufferDesc::uniform(kMaxMaterials * kMaterialSlotStride, "MaterialCacheUBO"));
-        // 上传当前所有材质
-        for (auto& mat : m_materials) {
-            m_dirtyMaterials.insert(mat->id());
-        }
+    // Buffer 延迟创建：等到第一次 uploadDirtyMaterials 或 materialGpuOffset 时再建
+    // 避免在 RHIDevice 内部组件完全就绪前调用 createBuffer
+}
+
+void MaterialCache::ensureUboCreated() {
+    if (m_materialUbo || !m_device) return;
+    m_materialUbo = m_device->createBuffer(
+        BufferDesc::uniform(kMaxMaterials * kMaterialSlotStride, "MaterialCacheUBO"));
+    // 标记所有已注册材质为脏
+    for (auto& mat : m_materials) {
+        m_dirtyMaterials.insert(mat->id());
     }
 }
 
 uint32_t MaterialCache::materialGpuOffset(uint32_t materialId) {
+    ensureUboCreated();
+
     // 0xFFFF = 默认材质，回退到 ID=1（DefaultPBR）
     if (materialId == 0xFFFF) {
         materialId = 1;
@@ -219,7 +225,9 @@ uint32_t MaterialCache::materialGpuOffset(uint32_t materialId) {
 }
 
 void MaterialCache::uploadDirtyMaterials() {
-    if (!m_materialUbo || m_dirtyMaterials.empty()) return;
+    if (m_dirtyMaterials.empty()) return;
+    ensureUboCreated();
+    if (!m_materialUbo) return;
 
     // 对每个脏材质，分配 UBO 偏移（若尚未分配）并上传
     uint32_t nextSlot = 0;

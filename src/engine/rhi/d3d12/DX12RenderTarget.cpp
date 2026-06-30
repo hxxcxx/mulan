@@ -37,8 +37,9 @@ void DX12RenderTarget::createResources() {
     m_colorTexture->setRTV(rtvDesc.cpu);
 
     if (m_desc.hasDepth) {
-        // Depth texture
+        // Depth texture —— 纯 DSV 用途，不带 ShaderResource（见 DX12SwapChain 同样注释）
         auto depthDesc = TextureDesc::depthStencil(m_desc.width, m_desc.height, m_desc.depthFormat);
+        depthDesc.usage = TextureUsageFlags::DepthStencil;  // 剥离 ShaderResource
         m_depthTexture = std::make_unique<DX12Texture>(
             depthDesc, m_device, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 

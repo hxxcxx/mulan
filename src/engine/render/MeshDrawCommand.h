@@ -56,8 +56,13 @@ struct MeshDrawCommand {
                  Buffer* objectUBO,
                  Buffer* materialUBO) const;
 
-    /// Object UBO 单条记录大小（与 shader cbuffer Object 对齐）
-    static constexpr uint32_t kObjectUboStride = 128;
+    /// Object UBO slot 步进（字节）。
+    /// 单条 ObjectUniforms 记录为 128 字节，但 D3D12 要求 root CBV 偏移
+    /// 256 字节对齐（D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT），
+    /// Vulkan 的 minUniformBufferOffsetAlignment 在 NVIDIA 上亦为 256。
+    /// 故 slot 步进取 256，尾随 128 字节 padding（shader 不读取），
+    /// 保证两个后端的多 object offset 都合法，避免 device removed。
+    static constexpr uint32_t kObjectUboStride = 256;
 };
 
 } // namespace mulan::engine

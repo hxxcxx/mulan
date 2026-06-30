@@ -137,6 +137,7 @@ private:
 
     uint32_t allocateId();
     void     rebuildIndex();
+    void     ensureUboCreated();
 
     std::vector<std::unique_ptr<MaterialAsset>>        m_materials;
     std::unordered_map<uint32_t, size_t>               m_idToIndex;

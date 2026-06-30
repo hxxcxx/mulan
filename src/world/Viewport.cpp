@@ -136,7 +136,7 @@ bool Viewport::initOffscreen(int width, int height) {
     ci.backend          = engine::GraphicsBackend::Vulkan;
     ci.window           = {};
     ci.renderConfig     = config;
-    ci.enableValidation = true;
+    ci.enableValidation = true;  // 开启 debug layer + InfoQueue 以定位 device removed
 
     m_ownedDevice = engine::RHIDevice::create(ci);
     if (!m_ownedDevice) return false;

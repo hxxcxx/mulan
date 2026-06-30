@@ -64,6 +64,36 @@ inline DXGI_FORMAT toSRVFormat(TextureFormat fmt) {
     }
 }
 
+/// 是否为深度/模板格式
+inline bool isDepthFormat(TextureFormat fmt) {
+    switch (fmt) {
+        case TextureFormat::D16_UNorm:
+        case TextureFormat::D24_UNorm_S8_UInt:
+        case TextureFormat::D32_Float:
+        case TextureFormat::D32_Float_S8X24_UInt:
+            return true;
+        default:
+            return false;
+    }
+}
+
+/// 获取 typeless 资源格式（深度纹理同时需要 SRV 时，资源必须以 typeless 创建）。
+/// DSV 既可以接受 typeless 也可以接受 typed 深度格式，所以统一用 typeless 是安全的。
+inline DXGI_FORMAT toTypelessFormat(TextureFormat fmt) {
+    switch (fmt) {
+        case TextureFormat::D16_UNorm:           return DXGI_FORMAT_R16_TYPELESS;
+        case TextureFormat::D24_UNorm_S8_UInt:   return DXGI_FORMAT_R24G8_TYPELESS;
+        case TextureFormat::D32_Float:           return DXGI_FORMAT_R32_TYPELESS;
+        case TextureFormat::D32_Float_S8X24_UInt:return DXGI_FORMAT_R32G8X24_TYPELESS;
+        case TextureFormat::RGBA8_UNorm:         return DXGI_FORMAT_R8G8B8A8_TYPELESS;
+        case TextureFormat::BGRA8_UNorm:         return DXGI_FORMAT_B8G8R8A8_TYPELESS;
+        case TextureFormat::RGBA16_Float:        return DXGI_FORMAT_R16G16B16A16_TYPELESS;
+        case TextureFormat::RGBA32_Float:        return DXGI_FORMAT_R32G32B32A32_TYPELESS;
+        case TextureFormat::R32_Float:           return DXGI_FORMAT_R32_TYPELESS;
+        default:                                 return toDXGIFormat(fmt);
+    }
+}
+
 // ============================================================
 // PrimitiveTopology → D3D12_PRIMITIVE_TOPOLOGY
 // ============================================================
