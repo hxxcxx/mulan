@@ -213,17 +213,23 @@ bool Viewport::initRendering(int width, int height) {
     m_height = height;
     m_camera.setViewport(width, height);
 
+    // 用实际渲染目标的格式创建 Pass，避免 PSO 的 RenderPass 与 SwapChain/RT 不兼容
+    engine::TextureFormat colorFmt = m_renderTarget
+        ? m_renderTarget->colorFormat()
+        : (m_swapchain ? m_swapchain->colorFormat() : engine::TextureFormat::RGBA8_UNorm);
+    engine::TextureFormat depthFmt = m_renderTarget
+        ? m_renderTarget->depthFormat()
+        : (m_swapchain ? m_swapchain->depthFormat() : engine::TextureFormat::D32_Float);
+
     auto fwd = std::make_unique<engine::ForwardPass>(
         *m_device, *m_gpu, m_camera, m_lightEnv);
-    if (!fwd->init(engine::TextureFormat::RGBA8_UNorm,
-                   engine::TextureFormat::D32_Float, true))
+    if (!fwd->init(colorFmt, depthFmt, true))
         return false;
     m_renderGraph.addPass(std::move(fwd));
 
     auto edge = std::make_unique<engine::EdgePass>(
         *m_device, *m_gpu, m_camera, m_lightEnv);
-    if (!edge->init(engine::TextureFormat::RGBA8_UNorm,
-                    engine::TextureFormat::D32_Float, true))
+    if (!edge->init(colorFmt, depthFmt, true))
         return false;
     m_renderGraph.addPass(std::move(edge));
 
@@ -278,21 +284,22 @@ void Viewport::renderFrame() {
     }
 
     // 2. RenderSystem 收集
+    // 先确保 RenderSystem 拿到 Pass 的 PSO（必须在 update 之前，否则 rebuild
+    // 用 nullptr PSO 构建 draw command，导致全部 draw 被守卫跳过）
+    auto* fwd  = m_renderGraph.pass<engine::ForwardPass>(0);
+    auto* edge = m_renderGraph.pass<engine::EdgePass>(1);
+    if (fwd && !m_renderSys->hasFacePso())
+        m_renderSys->setFacePso(fwd->pipelineState());
+    if (edge && !m_renderSys->hasEdgePso())
+        m_renderSys->setEdgePso(edge->pipelineState());
+
     m_renderSys->update(*m_world, 0);
 
     // 3. 传递 MeshDrawCommand 给 Pass（Phase 3 路径）
-    auto* fwd  = m_renderGraph.pass<engine::ForwardPass>(0);
-    auto* edge = m_renderGraph.pass<engine::EdgePass>(1);
-
     if (fwd) {
-        // 首次设置 PSO（RenderSystem 需要）
-        if (!m_renderSys->hasFacePso())
-            m_renderSys->setFacePso(fwd->pipelineState());
         fwd->setDrawCommands(m_renderSys->staticFaceCommands());
     }
     if (edge) {
-        if (!m_renderSys->hasEdgePso())
-            m_renderSys->setEdgePso(edge->pipelineState());
         edge->setDrawCommands(m_renderSys->staticEdgeCommands());
     }
 
@@ -305,6 +312,15 @@ void Viewport::renderFrame() {
         cmd->beginRenderPass(m_renderTarget->renderPassBeginInfo());
     else if (m_swapchain)
         cmd->beginRenderPass(m_swapchain->renderPassBeginInfo());
+
+    engine::Viewport vp;
+    vp.x        = 0.0f;
+    vp.y        = 0.0f;
+    vp.width    = static_cast<float>(m_width);
+    vp.height   = static_cast<float>(m_height);
+    vp.minDepth = 0.0f;
+    vp.maxDepth = 1.0f;
+    cmd->setViewport(vp);
 
     engine::ScissorRect sc;
     sc.x      = 0;

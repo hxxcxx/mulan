@@ -38,6 +38,24 @@ bool EdgePass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDept
     m_sceneUbo  = m_device.createBuffer(BufferDesc::uniform(256, "EdgeSceneUBO"));
     m_objectUbo = m_device.createBuffer(BufferDesc::uniform(
         MeshDrawCommand::kObjectUboStride * 4096, "EdgeObjUBO"));  // 4096 objects
+    m_materialUbo = m_device.createBuffer(BufferDesc::uniform(256, "EdgeMatUBO"));
+    // 填充默认材质（与 shader cbuffer Material 布局匹配，避免 descriptor 未更新）
+    {
+        struct DefaultMaterial {
+            float baseColor[3];   float metallic;
+            float emissive[3];    float roughness;
+            float specular[3];    float shininess;
+            float alpha;          float ao;
+            float emissiveStrength; float alphaCutoff;
+            uint32_t materialType; uint32_t alphaMode;
+            uint32_t textureFlags;  uint32_t doubleSided;
+        } dm{};
+        dm.baseColor[0] = dm.baseColor[1] = dm.baseColor[2] = 0.83f;
+        dm.alpha = 1.0f;
+        dm.roughness = 0.5f;
+        dm.doubleSided = 1;
+        m_materialUbo->update(0, sizeof(dm), &dm);
+    }
     m_initialized = true;
     return true;
 }
@@ -99,7 +117,9 @@ void EdgePass::createEdgePSO(TextureFormat colorFmt, TextureFormat depthFmt,
 // ─── Execute ───────────────────────────────────────────────────
 
 void EdgePass::uploadSceneUBO(const PassContext& ctx) {
-    Mat4 vp   = m_camera.projectionMatrix() * m_camera.viewMatrix();
+    // 应用 Vulkan clip space 修正（Z:[-1,1]→[0,1], Y 翻转）
+    Mat4 clip = m_device.clipSpaceCorrectionMatrix();
+    Mat4 vp   = clip * m_camera.projectionMatrix() * m_camera.viewMatrix();
     Vec3 eye  = m_camera.eyePosition();
     auto* dl  = m_lightEnv.primaryDirectional();
     Vec3 ldir = dl ? glm::normalize(dl->direction) : Vec3(-0.3, -1.0, -0.4);
@@ -127,7 +147,7 @@ void EdgePass::execute(const PassContext& ctx) {
 
     for (auto& cmd : m_commands) {
         if (!cmd.visible || cmd.instanceCount == 0) continue;
-        cmd.execute(*ctx.cmd, m_sceneUbo.get(), m_objectUbo.get(), nullptr);
+        cmd.execute(*ctx.cmd, m_sceneUbo.get(), m_objectUbo.get(), m_materialUbo.get());
     }
 }
 
