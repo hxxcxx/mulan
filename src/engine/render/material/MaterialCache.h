@@ -123,7 +123,7 @@ public:
     uint32_t materialGpuOffset(uint32_t materialId);
 
     /// 获取材质 UBO buffer（供 ForwardPass / EdgePass bind）
-    Buffer* materialUbo() const { return m_materialUbo.get(); }
+    Buffer* materialUbo();
 
     /// 上传所有脏材质到 GPU（每帧调用一次）
     void uploadDirtyMaterials();

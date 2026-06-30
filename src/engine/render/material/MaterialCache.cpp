@@ -194,6 +194,11 @@ void MaterialCache::ensureUboCreated() {
     }
 }
 
+Buffer* MaterialCache::materialUbo() {
+    ensureUboCreated();
+    return m_materialUbo.get();
+}
+
 uint32_t MaterialCache::materialGpuOffset(uint32_t materialId) {
     ensureUboCreated();
 
