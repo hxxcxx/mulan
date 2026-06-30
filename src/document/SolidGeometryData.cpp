@@ -106,6 +106,10 @@ engine::Mesh SolidGeometryData::triangulate() const {
         int nv = tri->NbNodes();
         int nt = tri->NbTriangles();
 
+        // 确保法线已计算（OCCT 7.x：Poly_Triangulation 可缓存法线）
+        bool hasNormals = tri->HasNormals();
+        if (!hasNormals) tri->ComputeNormals();
+
         // vertices
         for (int i = 1; i <= nv; ++i) {
             gp_Pnt p = tri->Node(i);
@@ -113,9 +117,17 @@ engine::Mesh SolidGeometryData::triangulate() const {
             verts.insert(verts.end(), {
                 static_cast<float>(p.X()), static_cast<float>(p.Y()), static_cast<float>(p.Z())});
 
-            // normals (face-level, approximate)
-            // TODO: 从解析曲面求精确法线（当前每顶点用零法线，solid shader 接受）
-            verts.insert(verts.end(), {0.f, 0.f, 0.f});
+            // 法线：优先用 OCCT 解析法线（已包含曲面法向），并应用 face 变换
+            gp_Dir n(0, 0, 1);
+            if (tri->HasNormals()) {
+                n = tri->Normal(i);
+            }
+            if (hasTransform) {
+                n.Transform(trsf);
+            }
+            // OCCT 面法线可能朝外或朝内，与三角形绕序一致性由 shader 双面光照兜底
+            verts.insert(verts.end(), {
+                static_cast<float>(n.X()), static_cast<float>(n.Y()), static_cast<float>(n.Z())});
 
             // texcoords (unused)
             verts.insert(verts.end(), {0.f, 0.f});

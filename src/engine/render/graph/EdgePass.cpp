@@ -56,7 +56,7 @@ bool EdgePass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDept
             uint32_t materialType; uint32_t alphaMode;
             uint32_t textureFlags;  uint32_t doubleSided;
         } dm{};
-        dm.baseColor[0] = dm.baseColor[1] = dm.baseColor[2] = 0.83f;
+        dm.baseColor[0] = dm.baseColor[1] = dm.baseColor[2] = 0.6f;
         dm.alpha = 1.0f;
         dm.roughness = 0.5f;
         dm.doubleSided = 1;
@@ -150,8 +150,8 @@ void EdgePass::uploadSceneUBO(const PassContext& ctx) {
     storeMat(ubo.viewProjection, vp);
     storeVec3(ubo.cameraPos,   eye);
     storeVec3(ubo.lightDir,    ldir);
-    storeVec3(ubo.lightColor,  Vec3(1.0));
-    storeVec3(ubo.ambientColor,Vec3(0.4));
+    storeVec3(ubo.lightColor,  Vec3(0.8));
+    storeVec3(ubo.ambientColor,Vec3(0.15));
     storeVec3(ubo.edgeColor,   Vec3(0.08, 0.08, 0.08));
     storeVec3(ubo.highlightColor, Vec3(1.0, 0.5, 0.0));
 
