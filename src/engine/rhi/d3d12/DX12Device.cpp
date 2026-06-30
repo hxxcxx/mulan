@@ -150,12 +150,12 @@ void DX12Device::createFrameContexts() {
 // ============================================================
 
 Mat4 DX12Device::clipSpaceCorrectionMatrix() const {
-    // D3D12 NDC: Y↓, z∈[0,1]
-    // 投影矩阵产出 z∈[-1,1]，需映射到 [0,1]: z' = 0.5*z + 0.5*w
-    // w 必须保持不变，否则透视除法会污染 x/y
+    // D3D12 NDC: Y↑ (same as OpenGL), z∈[0,1]
+    // Camera generates OpenGL-style (Y↑, z∈[-1,1])
+    // Only Z needs conversion: z' = 0.5*z + 0.5*w
+    // (Vulkan flips Y; D3D12 does NOT)
     Mat4 mat(1.0);
-    mat[1][1] = -1.0;   // Y 翻转
-    mat[2][2] =  0.5;   // z scale
+    mat[2][2] =  0.5;   // z scale: [-1,1] → [0,1]
     mat[3][2] =  0.5;   // z offset
     return mat;
 }
