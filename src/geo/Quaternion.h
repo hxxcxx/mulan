@@ -183,4 +183,11 @@ QuatT<T> slerp(const QuatT<T>& a, QuatT<T> b, T t) {
 using Quat  = QuatT<double>;
 using FQuat = QuatT<float>;
 
+/// 轴角构造四元数（glm angleAxis 等价，参数顺序：angle, axis）。
+/// 替换 glm::angleAxis 时直接用 geo::angleAxis。
+template<typename T>
+inline QuatT<T> angleAxis(T angle, const Vec3T<T>& axis) {
+    return QuatT<T>::fromAxisAngle(axis, angle);
+}
+
 } // namespace mulan::geo

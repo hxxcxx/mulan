@@ -34,6 +34,8 @@ struct Vec4T {
 
     T lengthSq() const { return x * x + y * y + z * z + w * w; }
     T length()   const { return std::sqrt(lengthSq()); }
+    /// 平方长度（glm length2 等价）
+    T length2()  const { return lengthSq(); }
 
     /// 点乘
     constexpr T dot(const Vec4T& o) const { return x * o.x + y * o.y + z * o.z + w * o.w; }

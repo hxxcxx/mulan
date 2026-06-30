@@ -33,6 +33,11 @@ struct Mat4T {
     Vec4T<T>&       operator[](int c)       { return cols[c]; }
     const Vec4T<T>& operator[](int c) const { return cols[c]; }
 
+    /// 连续存储访问（列主序 16 元素，可直接喂 GPU/OCCT）。
+    /// 依赖 Vec4T<T> 为紧凑 POD（4 个 T 连续无 padding）。
+    T*       data()       { return &cols[0].x; }
+    const T* data() const { return &cols[0].x; }
+
     static constexpr Mat4T identity() { return Mat4T{}; }
 
     // ---------- 仿射变换工厂 ----------
@@ -224,5 +229,18 @@ constexpr Mat4T<T> operator*(const Mat4T<T>& a, const Mat4T<T>& b) {
 // ---------- 别名 ----------
 using Mat4  = Mat4T<double>;
 using FMat4 = Mat4T<float>;
+
+// ---------- value_ptr（glm 等价的 raw 指针访问）----------
+
+/// 返回 Mat4 连续存储的 const 指针（列主序 16 元素）。
+/// 替换 glm::value_ptr 时直接用 geo::value_ptr。
+template<typename T>
+inline const T* value_ptr(const Mat4T<T>& m) { return m.data(); }
+template<typename T>
+inline T*       value_ptr(Mat4T<T>& m)       { return m.data(); }
+
+// 保证 Vec4T 紧凑、Mat4T 为 16 元素连续存储（GPU/OCCT 边界契约）
+static_assert(sizeof(FMat4) == 16 * sizeof(float),  "FMat4 must be 16 contiguous floats");
+static_assert(sizeof(Mat4)  == 16 * sizeof(double), "Mat4 must be 16 contiguous doubles");
 
 } // namespace mulan::geo

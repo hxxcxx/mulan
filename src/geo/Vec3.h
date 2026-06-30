@@ -41,6 +41,8 @@ struct Vec3T {
     // ---------- 几何查询 ----------
     T lengthSq() const { return x * x + y * y + z * z; }
     T length()   const { return std::sqrt(lengthSq()); }
+    /// 平方长度（glm length2 等价）
+    T length2()  const { return lengthSq(); }
 
     Vec3T normalized() const {
         T len = length();
@@ -63,6 +65,8 @@ struct Vec3T {
     }
     /// 到 o 的距离
     T distanceTo(const Vec3T& o) const { return (*this - o).length(); }
+    /// 到 o 的平方距离（glm distance2 等价）
+    T distanceSqTo(const Vec3T& o) const { return (*this - o).lengthSq(); }
 
     bool isZero(const Tolerance& tol = defaultTolerance()) const {
         return lengthSq() <= T(tol.lengthEps) * T(tol.lengthEps);
@@ -127,6 +131,12 @@ template<typename T>
 constexpr Vec3T<T> lerp(const Vec3T<T>& a, const Vec3T<T>& b, T t) { return a.lerp(b, t); }
 template<typename T>
 T distance(const Vec3T<T>& a, const Vec3T<T>& b) { return a.distanceTo(b); }
+/// 平方长度（glm length2 等价）
+template<typename T>
+constexpr T length2(const Vec3T<T>& v) { return v.lengthSq(); }
+/// 平方距离（glm distance2 等价）
+template<typename T>
+constexpr T distance2(const Vec3T<T>& a, const Vec3T<T>& b) { return a.distanceSqTo(b); }
 
 // ---------- 别名 ----------
 using Vec3  = Vec3T<double>;
