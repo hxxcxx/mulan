@@ -82,8 +82,12 @@ void ForwardPass::createSolidPSO(TextureFormat colorFmt, TextureFormat depthFmt,
     desc.descriptorBindings[1] = {
         .binding = 1, .count = 1,
         .type = DescriptorType::UniformBuffer,
-        .stages = PB::kStageVertex};
-    desc.descriptorBindingCount = 2;
+        .stages = PB::kStageVertex | PB::kStageFragment};
+    desc.descriptorBindings[2] = {
+        .binding = 2, .count = 1,
+        .type = DescriptorType::UniformBuffer,
+        .stages = PB::kStageFragment};
+    desc.descriptorBindingCount = 3;
 
     desc.colorFormats[0]    = colorFmt;
     desc.colorTargetCount   = 1;
