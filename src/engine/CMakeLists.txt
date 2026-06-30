@@ -17,6 +17,7 @@ add_library(Engine STATIC
     render/text/FontAtlas.cpp
     render/text/TextLayout.cpp
     render/text/TextRenderer.cpp
+    render/text/FontManager.cpp
     # ViewCube navigation
     render/viewcube/ViewCubeRenderer.cpp
     # Material system

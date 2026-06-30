@@ -6,6 +6,7 @@
 add_library(Document STATIC
     Document.cpp
     SolidGeometryData.cpp
+    TextGeometryData.cpp
 )
 
 # 构建时将头文件复制到 build/include/mulan/document/...

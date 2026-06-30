@@ -6,6 +6,7 @@
  */
 
 #include "TextLayout.h"
+#include "FontManager.h"
 
 #include <cmath>
 #include <cstdint>
@@ -174,6 +175,49 @@ float TextLayout::measureWidth(
     }
 
     return width;
+}
+
+// ============================================================
+// buildTextMesh — 公开 API
+// ============================================================
+
+Mesh TextLayout::buildTextMesh(std::string_view text,
+                                float fontSize,
+                                const float color[4]) {
+    Mesh mesh;
+    mesh.topology = PrimitiveTopology::TriangleList;
+
+    auto* font = FontManager::instance().defaultFont();
+    if (!font || !font->isLoaded()) return mesh;
+
+    // 排版得到 TextVertex 列表
+    float defaultColor[4] = {1, 1, 1, 1};
+    const float* c = color ? color : defaultColor;
+
+    std::vector<TextVertex> textVerts;
+    std::vector<uint32_t> textIndices;
+    layout(*font, text, 0, 0, fontSize, c, textVerts, textIndices);
+
+    if (textVerts.empty()) return mesh;
+
+    // 转换为标准 Mesh 顶点布局：pos(3f) + normal(3f) + uv(2f) = 8 floats
+    mesh.vertices.reserve(textVerts.size() * 8);
+    mesh.indices = std::move(textIndices);
+
+    for (auto& tv : textVerts) {
+        mesh.vertices.push_back(tv.x);           // pos.x
+        mesh.vertices.push_back(tv.y);           // pos.y
+        mesh.vertices.push_back(0.0f);           // pos.z (flat)
+        mesh.vertices.push_back(0.0f);           // normal.x
+        mesh.vertices.push_back(0.0f);           // normal.y
+        mesh.vertices.push_back(1.0f);           // normal.z
+        mesh.vertices.push_back(tv.u);           // texcoord.u
+        mesh.vertices.push_back(tv.v);           // texcoord.v
+    }
+
+    mesh.computeBounds();
+    mesh.name = std::string(text);
+    return mesh;
 }
 
 } // namespace mulan::engine
