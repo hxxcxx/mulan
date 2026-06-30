@@ -32,6 +32,19 @@ FontAtlas::~FontAtlas() = default;
 
 bool FontAtlas::load(const char* fontPath, float fontSize,
                      uint32_t atlasWidth, uint32_t atlasHeight) {
+    // 预检：文件是否存在
+    FILE* testFile = nullptr;
+#ifdef _WIN32
+    fopen_s(&testFile, fontPath, "rb");
+#else
+    testFile = fopen(fontPath, "rb");
+#endif
+    if (!testFile) {
+        std::fprintf(stderr, "[FontAtlas] Font file not found: %s\n", fontPath);
+        return false;
+    }
+    fclose(testFile);
+
     m_baseFontSize = fontSize;
     m_atlasWidth   = atlasWidth;
     m_atlasHeight  = atlasHeight;

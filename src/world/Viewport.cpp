@@ -13,7 +13,6 @@
 #include "mulan/engine/render/graph/ForwardPass.h"
 #include "mulan/engine/render/graph/EdgePass.h"
 #include "mulan/engine/render/material/MaterialCache.h"
-#include "mulan/engine/render/text/FontManager.h"
 
 #include <cstdio>
 #include <cstring>
@@ -228,18 +227,6 @@ bool Viewport::initRendering(int width, int height) {
 
     auto& matCache = engine::MaterialCache::instance();
     matCache.setDevice(m_device);
-
-    auto& fontMgr = engine::FontManager::instance();
-    fontMgr.setDevice(m_device);
-    // 尝试加载系统默认字体
-    const char* fontPaths[] = {
-        "C:/Windows/Fonts/consola.ttf",
-        "C:/Windows/Fonts/msyh.ttc",
-        "C:/Windows/Fonts/simhei.ttf",
-    };
-    for (auto* fp : fontPaths) {
-        if (fontMgr.loadFont("default", fp)) break;
-    }
 
     auto fwd = std::make_unique<engine::ForwardPass>(
         *m_device, *m_gpu, matCache, m_camera, m_lightEnv);
