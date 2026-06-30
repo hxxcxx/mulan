@@ -85,15 +85,15 @@ void logf(Level lvl, spdlog::format_string_t<Args...> fmt, Args&&... args,
     }
 }
 
-} // namespace mulan::core::Log
+} // namespace mulan::core::log
 
 // ============================================================
 // 便捷宏
 // ============================================================
 
-#define LOG_TRACE(...)    ::mulan::core::Log::logf(::mulan::core::Log::Level::Trace,    __VA_ARGS__)
-#define LOG_DEBUG(...)    ::mulan::core::Log::logf(::mulan::core::Log::Level::Debug,    __VA_ARGS__)
-#define LOG_INFO(...)     ::mulan::core::Log::logf(::mulan::core::Log::Level::Info,     __VA_ARGS__)
-#define LOG_WARN(...)     ::mulan::core::Log::logf(::mulan::core::Log::Level::Warn,     __VA_ARGS__)
-#define LOG_ERROR(...)    ::mulan::core::Log::logf(::mulan::core::Log::Level::Error,    __VA_ARGS__)
-#define LOG_CRITICAL(...) ::mulan::core::Log::logf(::mulan::core::Log::Level::Critical, __VA_ARGS__)
+#define LOG_TRACE(...)    ::mulan::core::log::logf(::mulan::core::log::Level::Trace,    __VA_ARGS__)
+#define LOG_DEBUG(...)    ::mulan::core::log::logf(::mulan::core::log::Level::Debug,    __VA_ARGS__)
+#define LOG_INFO(...)     ::mulan::core::log::logf(::mulan::core::log::Level::Info,     __VA_ARGS__)
+#define LOG_WARN(...)     ::mulan::core::log::logf(::mulan::core::log::Level::Warn,     __VA_ARGS__)
+#define LOG_ERROR(...)    ::mulan::core::log::logf(::mulan::core::log::Level::Error,    __VA_ARGS__)
+#define LOG_CRITICAL(...) ::mulan::core::log::logf(::mulan::core::log::Level::Critical, __VA_ARGS__)
