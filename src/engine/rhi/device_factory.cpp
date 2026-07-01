@@ -17,9 +17,7 @@ std::expected<std::shared_ptr<RHIDevice>, core::Error> RHIDevice::create(const D
             return std::make_shared<DX12Device>(ci);
 
         default:
-            return std::unexpected(
-                core::Error::make(core::ErrorCode::NotSupported,
-                                  "Graphics backend not implemented"));
+            return std::unexpected(makeError(EngineErrorCode::BackendNotSupported, "Graphics backend not implemented"));
         }
     } catch (const std::exception& e) {
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, e.what()));
