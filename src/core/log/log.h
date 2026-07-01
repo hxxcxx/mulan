@@ -82,6 +82,8 @@ void logf(Level lvl, spdlog::format_string_t<Args...> fmt, Args&&... args,
         spdlog::source_loc src{loc.file_name(), static_cast<int>(loc.line()),
                                loc.function_name()};
         lgr->log(src, toSpdlogLevel(lvl), fmt, std::forward<Args>(args)...);
+    } else {
+        assert(false && "log not initialized — call log::init() first");
     }
 }
 
