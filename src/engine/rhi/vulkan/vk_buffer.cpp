@@ -1,4 +1,5 @@
 #include "vk_buffer.h"
+#include "vk_debug_name.h"
 
 #include <stdexcept>
 

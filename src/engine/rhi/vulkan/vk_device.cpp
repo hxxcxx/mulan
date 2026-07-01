@@ -7,7 +7,10 @@
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 #include <algorithm>
+#include <cstdio>
+#include <string>
 #include <mulan/core/result/error.h>
+#include "vk_debug_name.h"
 
 
 namespace mulan::engine {
@@ -18,6 +21,9 @@ namespace mulan::engine {
 
 std::unique_ptr<Buffer> VKDevice::createBuffer(const BufferDesc& desc) {
     auto buf = std::make_unique<VKBuffer>(desc, allocator_);
+    setDebugName(device_, vk::ObjectType::eBuffer,
+                 reinterpret_cast<uint64_t>(VkBuffer(buf->vkBuffer())),
+                 desc.name.empty() ? "Buffer" : desc.name);
     if (buf->needsUpload()) {
         upload_context_->uploadBufferInit(buf.get());
     }
@@ -25,15 +31,30 @@ std::unique_ptr<Buffer> VKDevice::createBuffer(const BufferDesc& desc) {
 }
 
 std::unique_ptr<Texture> VKDevice::createTexture(const TextureDesc& desc) {
-    return std::make_unique<VKTexture>(desc, device_, allocator_);
+    auto tex = std::make_unique<VKTexture>(desc, device_, allocator_);
+    setDebugName(device_, vk::ObjectType::eImage,
+                 reinterpret_cast<uint64_t>(VkImage(tex->image())),
+                 desc.name.empty() ? "Texture" : desc.name);
+    setDebugName(device_, vk::ObjectType::eImageView,
+                 reinterpret_cast<uint64_t>(VkImageView(tex->view())),
+                 desc.name.empty() ? "TextureView" : (std::string(desc.name) + "/view").c_str());
+    return tex;
 }
 
 std::unique_ptr<Shader> VKDevice::createShader(const ShaderDesc& desc) {
-    return std::make_unique<VKShader>(desc, device_);
+    auto sh = std::make_unique<VKShader>(desc, device_);
+    setDebugName(device_, vk::ObjectType::eShaderModule,
+                 reinterpret_cast<uint64_t>(VkShaderModule(sh->module())),
+                 desc.name.empty() ? "Shader" : desc.name);
+    return sh;
 }
 
 std::unique_ptr<PipelineState> VKDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
-    return std::make_unique<VKPipelineState>(desc, device_, this);
+    auto pso = std::make_unique<VKPipelineState>(desc, device_, this);
+    setDebugName(device_, vk::ObjectType::ePipeline,
+                 reinterpret_cast<uint64_t>(VkPipeline(pso->pipeline())),
+                 desc.name.empty() ? "Pipeline" : desc.name);
+    return pso;
 }
 
 std::unique_ptr<CommandList> VKDevice::createCommandList() {
@@ -71,7 +92,12 @@ std::unique_ptr<SwapChain> VKDevice::createSwapChain(const SwapChainDesc& desc) 
 }
 
 std::unique_ptr<Fence> VKDevice::createFence(uint64_t initialValue) {
-    return std::make_unique<VKFence>(device_, initialValue);
+    auto f = std::make_unique<VKFence>(device_, initialValue);
+    char nm[64];
+    std::snprintf(nm, sizeof(nm), "Fence@%p", f.get());
+    setDebugName(device_, vk::ObjectType::eSemaphore,
+                 reinterpret_cast<uint64_t>(VkSemaphore(f->semaphore())), nm);
+    return f;
 }
 
 std::unique_ptr<RenderTarget> VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
@@ -79,11 +105,23 @@ std::unique_ptr<RenderTarget> VKDevice::createRenderTarget(const RenderTargetDes
     if (frame_contexts_.empty()) {
         initFrameContexts(frame_count_);
     }
-    return std::make_unique<VKRenderTarget>(desc, device_, allocator_);
+    auto rt = std::make_unique<VKRenderTarget>(desc, device_, allocator_);
+    char nm[64];
+    std::snprintf(nm, sizeof(nm), "RenderTarget@%p", rt.get());
+    setDebugName(device_, vk::ObjectType::eRenderPass,
+                 reinterpret_cast<uint64_t>(VkRenderPass(rt->renderPass())), nm);
+    setDebugName(device_, vk::ObjectType::eFramebuffer,
+                 reinterpret_cast<uint64_t>(VkFramebuffer(rt->framebuffer())), nm);
+    return rt;
 }
 
 std::unique_ptr<Sampler> VKDevice::createSampler(const SamplerDesc& desc) {
-    return std::make_unique<VKSampler>(desc, device_);
+    auto s = std::make_unique<VKSampler>(desc, device_);
+    char nm[64];
+    std::snprintf(nm, sizeof(nm), "Sampler@%p", s.get());
+    setDebugName(device_, vk::ObjectType::eSampler,
+                 reinterpret_cast<uint64_t>(VkSampler(s->handle())), nm);
+    return s;
 }
 
 // ============================================================
