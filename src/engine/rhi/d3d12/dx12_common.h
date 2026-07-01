@@ -24,28 +24,39 @@
 #include <cstdio>
 #include <cstdint>
 #include <cassert>
+#include <stdexcept>
 
-// D3D12 调试层检查
+// D3D12 检查：失败时抛异常，Debug 版附带系统错误消息
 #ifdef _DEBUG
 #define DX12_CHECK(hr)                                                                  \
     do {                                                                                \
         HRESULT _dx12_hr = (hr);                                                        \
         if (FAILED(_dx12_hr)) {                                                         \
-            char _dx12_msg[512] = {};                                                   \
+            char _msg[512] = {};                                                        \
             FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,  \
                            nullptr, static_cast<DWORD>(_dx12_hr),                       \
                            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),                   \
-                           _dx12_msg, static_cast<DWORD>(sizeof(_dx12_msg)), nullptr);  \
-            fprintf(stderr, "[DX12 ERROR] HRESULT=0x%08X at %s:%d %s\n",              \
-                    static_cast<unsigned>(_dx12_hr), __FILE__, __LINE__, _dx12_msg);    \
+                           _msg, static_cast<DWORD>(sizeof(_msg)), nullptr);            \
+            char _buf[640];                                                             \
+            snprintf(_buf, sizeof(_buf), "[DX12 ERROR] HRESULT=0x%08X at %s:%d %s",    \
+                     static_cast<unsigned>(_dx12_hr), __FILE__, __LINE__, _msg);        \
+            throw std::runtime_error(_buf);                                             \
         }                                                                               \
     } while (0)
-#define DX12_LOG(...)                                                                   \
-    do { fprintf(stderr, __VA_ARGS__); } while (0)
 #else
-#define DX12_CHECK(hr) (void)(hr)
-#define DX12_LOG(...) do {} while (0)
+#define DX12_CHECK(hr)                                                                  \
+    do {                                                                                \
+        HRESULT _dx12_hr = (hr);                                                        \
+        if (FAILED(_dx12_hr)) {                                                         \
+            char _buf[128];                                                             \
+            snprintf(_buf, sizeof(_buf), "[DX12 ERROR] HRESULT=0x%08X",                 \
+                     static_cast<unsigned>(_dx12_hr));                                  \
+            throw std::runtime_error(_buf);                                             \
+        }                                                                               \
+    } while (0)
 #endif
+
+#define DX12_LOG(...) do { fprintf(stderr, __VA_ARGS__); } while (0)
 
 namespace mulan::engine {
 

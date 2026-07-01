@@ -1,5 +1,7 @@
 #include "vk_buffer.h"
 
+#include <stdexcept>
+
 namespace mulan::engine {
 
 VKBuffer::VKBuffer(const BufferDesc& desc, VmaAllocator allocator)
@@ -43,7 +45,8 @@ VKBuffer::VKBuffer(const BufferDesc& desc, VmaAllocator allocator)
 
     VkResult res = vmaCreateBuffer(allocator, &ci, &allocInfo,
                                    &buffer, &allocation, &allocResult);
-    if (res != VK_SUCCESS) return;
+    if (res != VK_SUCCESS)
+        throw std::runtime_error("vmaCreateBuffer failed: VkResult=" + std::to_string(res));
 
     buffer_     = vk::Buffer(buffer);
     allocation_ = allocation;

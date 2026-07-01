@@ -49,6 +49,15 @@ void DX12Device::init(const DeviceCreateInfo& ci) {
         D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 1024);
 
     caps_.backend = GraphicsBackend::D3D12;
+
+    // D3D12 FL 12.0 所有基础特性均保证支持
+    caps_.depthClamp         = true;
+    caps_.geometryShader     = true;
+    caps_.tessellationShader = true;
+    caps_.computeShader      = true;
+    caps_.maxTextureSize     = D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION;   // 16384
+    caps_.maxTextureAniso    = D3D12_DEFAULT_MAX_ANISOTROPY;           // 16
+    // minUniformBufferOffsetAlignment 保持默认 256（D3D12 常量缓冲对齐）
 }
 
 void DX12Device::enableDebugLayer() {
@@ -111,11 +120,34 @@ void DX12Device::createFactory() {
 }
 
 void DX12Device::findAdapter() {
-    // DX12 设备创建时自动选适配器
+    ComPtr<IDXGIAdapter1> bestAdapter;
+    SIZE_T maxDedicatedVideoMemory = 0;
+
+    for (UINT i = 0; ; ++i) {
+        ComPtr<IDXGIAdapter1> adapter;
+        HRESULT hr = factory_->EnumAdapters1(i, &adapter);
+        if (hr == DXGI_ERROR_NOT_FOUND) break;
+        if (FAILED(hr)) continue;
+
+        DXGI_ADAPTER_DESC1 desc;
+        adapter->GetDesc1(&desc);
+
+        // 跳过软件适配器
+        if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) continue;
+
+        if (desc.DedicatedVideoMemory > maxDedicatedVideoMemory) {
+            maxDedicatedVideoMemory = desc.DedicatedVideoMemory;
+            bestAdapter = adapter;
+        }
+    }
+
+    if (bestAdapter) {
+        adapter_ = bestAdapter;
+    }
 }
 
 void DX12Device::createDevice() {
-    HRESULT hr = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_12_0,
+    HRESULT hr = D3D12CreateDevice(adapter_.Get(), D3D_FEATURE_LEVEL_12_0,
                                    IID_PPV_ARGS(&device_));
     DX12_CHECK(hr);
 }
@@ -159,67 +191,108 @@ Mat4 DX12Device::clipSpaceCorrectionMatrix() const {
 // ============================================================
 
 ResourcePtr<Buffer> DX12Device::createBuffer(const BufferDesc& desc) {
-    HRESULT reason = device_->GetDeviceRemovedReason();
-    if (FAILED(reason)) {
-        std::fprintf(stderr, "[DX12 ERROR] createBuffer: device already removed! Reason=0x%08lX\n",
-                     static_cast<unsigned long>(reason));
-        dumpInfoQueueMessages();
+    try {
+        HRESULT reason = device_->GetDeviceRemovedReason();
+        if (FAILED(reason)) {
+            std::fprintf(stderr, "[DX12 ERROR] createBuffer: device already removed! Reason=0x%08lX\n",
+                         static_cast<unsigned long>(reason));
+            dumpInfoQueueMessages();
+        }
+
+        auto* buf = new DX12Buffer(desc, device_.Get());
+
+        if (buf->needsUpload()) {
+            upload_context_->uploadBuffer(buf, buf->pendingData(), desc.size);
+            buf->markUploaded();
+        }
+
+        return ResourcePtr<Buffer>(buf, DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
     }
-
-    auto* buf = new DX12Buffer(desc, device_.Get());
-
-    // 上传初始数据
-    if (buf->needsUpload()) {
-        upload_context_->uploadBuffer(buf, buf->pendingData(), desc.size);
-        buf->markUploaded();
-    }
-
-    return ResourcePtr<Buffer>(buf, DeviceResourceDeleter{shared_from_this()});
 }
 
 ResourcePtr<Texture> DX12Device::createTexture(const TextureDesc& desc) {
-    return ResourcePtr<Texture>(new DX12Texture(desc, device_.Get()), DeviceResourceDeleter{shared_from_this()});
+    try {
+        return ResourcePtr<Texture>(new DX12Texture(desc, device_.Get()),
+                                    DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 ResourcePtr<Shader> DX12Device::createShader(const ShaderDesc& desc) {
-    return ResourcePtr<Shader>(new DX12Shader(desc), DeviceResourceDeleter{shared_from_this()});
+    try {
+        return ResourcePtr<Shader>(new DX12Shader(desc),
+                                   DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 ResourcePtr<PipelineState> DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
-    HRESULT reason = device_->GetDeviceRemovedReason();
-    if (FAILED(reason)) {
-        std::fprintf(stderr, "[DX12 ERROR] createPipelineState('%.*s'): device already removed! Reason=0x%08lX\n",
-                     static_cast<int>(desc.name.size()), desc.name.data(),
-                     static_cast<unsigned long>(reason));
-        dumpInfoQueueMessages();
+    try {
+        HRESULT reason = device_->GetDeviceRemovedReason();
+        if (FAILED(reason)) {
+            std::fprintf(stderr, "[DX12 ERROR] createPipelineState('%.*s'): device already removed! Reason=0x%08lX\n",
+                         static_cast<int>(desc.name.size()), desc.name.data(),
+                         static_cast<unsigned long>(reason));
+            dumpInfoQueueMessages();
+        }
+        return ResourcePtr<PipelineState>(new DX12PipelineState(desc, device_.Get()),
+                                          DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
     }
-    return ResourcePtr<PipelineState>(new DX12PipelineState(desc, device_.Get()), DeviceResourceDeleter{shared_from_this()});
 }
 
 ResourcePtr<CommandList> DX12Device::createCommandList() {
-    // 独立命令列表（非帧循环用）
-    auto allocator = ComPtr<ID3D12CommandAllocator>();
-    device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
-                                     IID_PPV_ARGS(&allocator));
-    return ResourcePtr<CommandList>(new DX12CommandList(device_.Get(), allocator.Get()), DeviceResourceDeleter{shared_from_this()});
+    try {
+        auto allocator = ComPtr<ID3D12CommandAllocator>();
+        device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                         IID_PPV_ARGS(&allocator));
+        return ResourcePtr<CommandList>(new DX12CommandList(device_.Get(), allocator.Get()),
+                                        DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 ResourcePtr<SwapChain> DX12Device::createSwapChain(const SwapChainDesc& desc) {
-    return ResourcePtr<SwapChain>(new DX12SwapChain(desc, device_.Get(), factory_.Get(),
-                             command_queue_.Get(), window_), DeviceResourceDeleter{shared_from_this()});
+    try {
+        return ResourcePtr<SwapChain>(new DX12SwapChain(desc, device_.Get(), factory_.Get(),
+                                         command_queue_.Get(), window_),
+                                      DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 ResourcePtr<RenderTarget> DX12Device::createRenderTarget(const RenderTargetDesc& desc) {
-    return ResourcePtr<RenderTarget>(new DX12RenderTarget(desc, device_.Get()), DeviceResourceDeleter{shared_from_this()});
+    try {
+        return ResourcePtr<RenderTarget>(new DX12RenderTarget(desc, device_.Get()),
+                                         DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 ResourcePtr<Sampler> DX12Device::createSampler(const SamplerDesc& desc) {
-    // DX12 sampler 需要描述符堆，这里用 nullptr 占位，后续接入主流程时传入 sampler heap
-    return ResourcePtr<Sampler>(new DX12Sampler(desc, device_.Get(), nullptr), DeviceResourceDeleter{shared_from_this()});
+    try {
+        return ResourcePtr<Sampler>(new DX12Sampler(desc, device_.Get(), nullptr),
+                                    DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 ResourcePtr<Fence> DX12Device::createFence(uint64_t initialValue) {
-    return ResourcePtr<Fence>(new DX12Fence(device_.Get(), initialValue), DeviceResourceDeleter{shared_from_this()});
+    try {
+        return ResourcePtr<Fence>(new DX12Fence(device_.Get(), initialValue),
+                                  DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 // ============================================================

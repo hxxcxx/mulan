@@ -127,9 +127,13 @@ void VKDevice::pickPhysicalDevice(const std::vector<vk::PhysicalDevice>& devices
 void VKDevice::createLogicalDevice(bool enableValidation) {
     // Queue families
     auto queueFamilies = physical_device_.getQueueFamilyProperties();
+    bool hasComputeQueue = false;
     for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
         if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) {
             graphics_queue_family_ = i;
+        }
+        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) {
+            hasComputeQueue = true;
         }
         if (surface_) {
             auto supported = physical_device_.getSurfaceSupportKHR(i, surface_);
@@ -138,6 +142,7 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
             }
         }
     }
+    caps_.computeShader = hasComputeQueue;
 
     float queuePriority = 1.0f;
     std::vector<vk::DeviceQueueCreateInfo> queueCIs;
@@ -339,12 +344,14 @@ void VKDevice::init(const CreateInfo& ci) {
     // --- Capabilities ---
     caps_.backend           = GraphicsBackend::Vulkan;
     auto props               = physical_device_.getProperties();
+    auto features             = physical_device_.getFeatures();
     caps_.maxTextureSize    = props.limits.maxImageDimension2D;
     caps_.maxTextureAniso   = static_cast<uint32_t>(props.limits.maxSamplerAnisotropy);
     caps_.minUniformBufferOffsetAlignment = props.limits.minUniformBufferOffsetAlignment;
-    caps_.depthClamp        = true;
-    caps_.geometryShader    = true;
-    caps_.computeShader     = true;
+    caps_.depthClamp        = features.depthClamp;
+    caps_.geometryShader    = features.geometryShader;
+    caps_.tessellationShader = features.tessellationShader;
+    caps_.computeShader     = false;  // 见下方 queue families 检查
 
     // --- 私有组件 ---
     upload_context_ = std::make_unique<VKUploadContext>(

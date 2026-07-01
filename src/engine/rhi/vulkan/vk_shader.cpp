@@ -1,5 +1,7 @@
 #include "vk_shader.h"
 
+#include <stdexcept>
+
 namespace mulan::engine {
 
 VKShader::VKShader(const ShaderDesc& desc, vk::Device device)
@@ -35,7 +37,8 @@ void VKShader::createFromSPIRV(const uint8_t* code, uint32_t size) {
 
 void VKShader::loadSPIRVFromFile(std::string_view path) {
     FILE* f = nullptr;
-    if (fopen_s(&f, std::string(path).c_str(), "rb") != 0 || !f) return;
+    if (fopen_s(&f, std::string(path).c_str(), "rb") != 0 || !f)
+        throw std::runtime_error("Failed to open SPIR-V file: " + std::string(path));
 
     fseek(f, 0, SEEK_END);
     long fileSize = ftell(f);
@@ -43,7 +46,7 @@ void VKShader::loadSPIRVFromFile(std::string_view path) {
 
     if (fileSize <= 0 || (fileSize % 4) != 0) {
         fclose(f);
-        return;
+        throw std::runtime_error("Invalid SPIR-V file size: " + std::string(path));
     }
 
     std::vector<uint32_t> code(fileSize / 4);

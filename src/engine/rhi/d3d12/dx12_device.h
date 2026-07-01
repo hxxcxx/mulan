@@ -87,6 +87,7 @@ private:
     void dumpInfoQueueMessages() const;
 
     ComPtr<IDXGIFactory4>              factory_;
+    ComPtr<IDXGIAdapter1>              adapter_;
     ComPtr<ID3D12Device>               device_;
     ComPtr<ID3D12CommandQueue>         command_queue_;
     ComPtr<ID3D12Debug>                debug_controller_;

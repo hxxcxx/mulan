@@ -1,5 +1,7 @@
 #include "vk_texture.h"
 
+#include <stdexcept>
+
 namespace mulan::engine {
 
 bool VKTexture::isDepthFormat(TextureFormat f) {
@@ -41,8 +43,10 @@ VKTexture::VKTexture(const TextureDesc& desc, vk::Device device, VmaAllocator al
     VkImage image;
     VmaAllocation allocation;
     VmaAllocationInfo allocInfo;
-    vmaCreateImage(allocator, reinterpret_cast<const VkImageCreateInfo*>(&ci),
-                   &allocCI, &image, &allocation, &allocInfo);
+    VkResult res = vmaCreateImage(allocator, reinterpret_cast<const VkImageCreateInfo*>(&ci),
+                                  &allocCI, &image, &allocation, &allocInfo);
+    if (res != VK_SUCCESS)
+        throw std::runtime_error("vmaCreateImage failed: VkResult=" + std::to_string(res));
 
     image_      = vk::Image(image);
     allocation_ = allocation;

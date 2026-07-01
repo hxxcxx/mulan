@@ -73,8 +73,12 @@ bool Viewport::init(const ViewConfig& cfg, int width, int height) {
     ci.renderConfig     = renderCfg;
     ci.enableValidation = cfg.enableValidation;
 
-    owned_device_ = engine::RHIDevice::create(ci);
-    if (!owned_device_) return false;
+    auto result = engine::RHIDevice::create(ci);
+    if (!result) {
+        fprintf(stderr, "[Viewport] Device create failed: %s\n", result.error().message.c_str());
+        return false;
+    }
+    owned_device_ = *result;
     device_ = owned_device_.get();
 
     // --- SwapChain ---
@@ -131,8 +135,12 @@ bool Viewport::initOffscreen(int width, int height) {
     ci.renderConfig     = config;
     ci.enableValidation = true;  // 开启 debug layer + InfoQueue 以定位 device removed
 
-    owned_device_ = engine::RHIDevice::create(ci);
-    if (!owned_device_) return false;
+    auto result = engine::RHIDevice::create(ci);
+    if (!result) {
+        fprintf(stderr, "[Viewport] Offscreen device create failed: %s\n", result.error().message.c_str());
+        return false;
+    }
+    owned_device_ = *result;
     device_ = owned_device_.get();
 
     // --- RenderTarget ---

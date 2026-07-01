@@ -7,6 +7,8 @@
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 #include <algorithm>
+#include <mulan/core/result/error.h>
+
 
 namespace mulan::engine {
 
@@ -15,79 +17,120 @@ namespace mulan::engine {
 // ============================================================
 
 ResourcePtr<Buffer> VKDevice::createBuffer(const BufferDesc& desc) {
-    auto* buf = new VKBuffer(desc, allocator_);
-    if (buf->needsUpload()) {
-        upload_context_->uploadBufferInit(buf);
+    try {
+        auto* buf = new VKBuffer(desc, allocator_);
+        if (buf->needsUpload()) {
+            upload_context_->uploadBufferInit(buf);
+        }
+        return ResourcePtr<Buffer>(buf, DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
     }
-    return ResourcePtr<Buffer>(buf, DeviceResourceDeleter{shared_from_this()});
 }
 
 ResourcePtr<Texture> VKDevice::createTexture(const TextureDesc& desc) {
-    return ResourcePtr<Texture>(new VKTexture(desc, device_, allocator_), DeviceResourceDeleter{shared_from_this()});
+    try {
+        return ResourcePtr<Texture>(new VKTexture(desc, device_, allocator_),
+                                    DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 ResourcePtr<Shader> VKDevice::createShader(const ShaderDesc& desc) {
-    return ResourcePtr<Shader>(new VKShader(desc, device_), DeviceResourceDeleter{shared_from_this()});
+    try {
+        return ResourcePtr<Shader>(new VKShader(desc, device_),
+                                   DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 ResourcePtr<PipelineState> VKDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
-    return ResourcePtr<PipelineState>(new VKPipelineState(desc, device_, this), DeviceResourceDeleter{shared_from_this()});
+    try {
+        return ResourcePtr<PipelineState>(new VKPipelineState(desc, device_, this),
+                                          DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 ResourcePtr<CommandList> VKDevice::createCommandList() {
-    // 独立命令列表需要独立的 descriptor allocator
-    auto* allocator = new VKDescriptorAllocator(device_);
-    standalone_allocators_.emplace_back(allocator);
-    auto* cmd = new VKCommandList(device_, graphics_queue_family_, allocator);
-    return ResourcePtr<CommandList>(cmd, DeviceResourceDeleter{shared_from_this()});
+    try {
+        // 独立命令列表需要独立的 descriptor allocator
+        auto* allocator = new VKDescriptorAllocator(device_);
+        standalone_allocators_.emplace_back(allocator);
+        auto* cmd = new VKCommandList(device_, graphics_queue_family_, allocator);
+        return ResourcePtr<CommandList>(cmd, DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 ResourcePtr<SwapChain> VKDevice::createSwapChain(const SwapChainDesc& desc) {
-    VKSwapChain::InitParams params;
-    params.instance            = instance_;
-    params.physicalDevice      = physical_device_;
-    params.device              = device_;
-    params.allocator           = allocator_;
-    params.graphicsQueueFamily = graphics_queue_family_;
-    params.presentQueueFamily  = present_queue_family_;
-    params.graphicsQueue       = graphics_queue_;
-    params.presentQueue        = present_queue_;
-    params.surface             = surface_;
-    params.ownerDevice         = this;
+    try {
+        VKSwapChain::InitParams params;
+        params.instance            = instance_;
+        params.physicalDevice      = physical_device_;
+        params.device              = device_;
+        params.allocator           = allocator_;
+        params.graphicsQueueFamily = graphics_queue_family_;
+        params.presentQueueFamily  = present_queue_family_;
+        params.graphicsQueue       = graphics_queue_;
+        params.presentQueue        = present_queue_;
+        params.surface             = surface_;
+        params.ownerDevice         = this;
 
-    auto* swapchain = new VKSwapChain(desc, params, render_config_);
-    swap_chains_.push_back(swapchain);
+        auto* swapchain = new VKSwapChain(desc, params, render_config_);
+        swap_chains_.push_back(swapchain);
 
-    // 为每个 swapchain image 创建独立的 renderFinished 信号量
-    for (uint32_t i = static_cast<uint32_t>(render_finished_semaphores_.size());
-         i < swapchain->imageCount(); ++i) {
-        render_finished_semaphores_.push_back(device_.createSemaphore({}));
+        // 为每个 swapchain image 创建独立的 renderFinished 信号量
+        for (uint32_t i = static_cast<uint32_t>(render_finished_semaphores_.size());
+             i < swapchain->imageCount(); ++i) {
+            render_finished_semaphores_.push_back(device_.createSemaphore({}));
+        }
+
+        if (frame_contexts_.empty()) {
+            initFrameContexts(frame_count_);
+        }
+
+        return ResourcePtr<SwapChain>(swapchain, DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
     }
-
-    if (frame_contexts_.empty()) {
-        initFrameContexts(frame_count_);
-    }
-
-    return ResourcePtr<SwapChain>(swapchain, DeviceResourceDeleter{shared_from_this()});
 }
 
 ResourcePtr<Fence> VKDevice::createFence(uint64_t initialValue) {
-    return ResourcePtr<Fence>(new VKFence(device_, initialValue), DeviceResourceDeleter{shared_from_this()});
+    try {
+        return ResourcePtr<Fence>(new VKFence(device_, initialValue),
+                                  DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 ResourcePtr<RenderTarget> VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
-    auto* rt = new VKRenderTarget(desc, device_, allocator_);
+    try {
+        auto* rt = new VKRenderTarget(desc, device_, allocator_);
 
-    // 如果 frame contexts 还未初始化（无 SwapChain 时），在此初始化
-    if (frame_contexts_.empty()) {
-        initFrameContexts(frame_count_);
+        // 如果 frame contexts 还未初始化（无 SwapChain 时），在此初始化
+        if (frame_contexts_.empty()) {
+            initFrameContexts(frame_count_);
+        }
+
+        return ResourcePtr<RenderTarget>(rt, DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
     }
-
-    return ResourcePtr<RenderTarget>(rt, DeviceResourceDeleter{shared_from_this()});
 }
 
 ResourcePtr<Sampler> VKDevice::createSampler(const SamplerDesc& desc) {
-    return ResourcePtr<Sampler>(new VKSampler(desc, device_), DeviceResourceDeleter{shared_from_this()});
+    try {
+        return ResourcePtr<Sampler>(new VKSampler(desc, device_),
+                                    DeviceResourceDeleter{shared_from_this()});
+    } catch (const std::exception& e) {
+        return nullptr;
+    }
 }
 
 // ============================================================

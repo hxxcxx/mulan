@@ -19,7 +19,10 @@
 #include "../math/math.h"
 #include "../window.h"
 
+#include <mulan/core/result/error.h>
+
 #include <cstdint>
+#include <expected>
 #include <memory>
 #include <string_view>
 #include <memory>
@@ -98,7 +101,7 @@ public:
     virtual ~RHIDevice() = default;
 
     // --- 工厂函数（根据 backend 创建具体实现）---
-    static std::shared_ptr<RHIDevice> create(const DeviceCreateInfo& ci);
+    static std::expected<std::shared_ptr<RHIDevice>, core::Error> create(const DeviceCreateInfo& ci);
 
     // --- 设备信息 ---
 
