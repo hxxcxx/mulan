@@ -301,7 +301,7 @@ ArchiveResult BinaryInputArchive::readRaw(void* out, size_t size) {
     if (hasError()) return {};
     if (!impl_->hasMore(size)) {
         setError("Unexpected end of binary data");
-        return tl::make_unexpected(
+        return std::unexpected(
             ArchiveError::corrupted("Unexpected end of binary data"));
     }
     std::memcpy(out, impl_->current(), size);
@@ -322,7 +322,7 @@ ArchiveResult BinaryInputArchive::expectTag(TypeTag expected) {
     auto result = readTag(actual);
     if (!result) return result;
     if (actual != expected) {
-        return tl::make_unexpected(
+        return std::unexpected(
             ArchiveError::corrupted("Expected tag " +
                                     std::to_string(static_cast<int>(expected)) +
                                     " but got " +
@@ -356,13 +356,13 @@ ArchiveResult BinaryInputArchive::key(std::string_view name) {
     if (len != name.size() || !impl_->hasMore(len)) {
         // key 不匹配，不回退——这是严格顺序格式
         if (impl_->hasMore(len)) impl_->advance(len);
-        return tl::make_unexpected(ArchiveError::missingKey(name));
+        return std::unexpected(ArchiveError::missingKey(name));
     }
 
     // 比较内容
     if (std::memcmp(impl_->current(), name.data(), len) != 0) {
         impl_->advance(len);
-        return tl::make_unexpected(ArchiveError::missingKey(name));
+        return std::unexpected(ArchiveError::missingKey(name));
     }
 
     impl_->advance(len);
@@ -418,7 +418,7 @@ ArchiveResult BinaryInputArchive::read(int32_t& out) {
 
     if (bulk_mode_) {
         if (bulk_remaining_ == 0) {
-            return tl::make_unexpected(ArchiveError::corrupted("Bulk array overrun"));
+            return std::unexpected(ArchiveError::corrupted("Bulk array overrun"));
         }
         auto result = readRaw(&out, sizeof(int32_t));
         if (!result) return result;
@@ -436,7 +436,7 @@ ArchiveResult BinaryInputArchive::read(int64_t& out) {
 
     if (bulk_mode_) {
         if (bulk_remaining_ == 0) {
-            return tl::make_unexpected(ArchiveError::corrupted("Bulk array overrun"));
+            return std::unexpected(ArchiveError::corrupted("Bulk array overrun"));
         }
         auto result = readRaw(&out, sizeof(int64_t));
         if (!result) return result;
@@ -454,7 +454,7 @@ ArchiveResult BinaryInputArchive::read(float& out) {
 
     if (bulk_mode_) {
         if (bulk_remaining_ == 0) {
-            return tl::make_unexpected(ArchiveError::corrupted("Bulk array overrun"));
+            return std::unexpected(ArchiveError::corrupted("Bulk array overrun"));
         }
         auto result = readRaw(&out, sizeof(float));
         if (!result) return result;
@@ -472,7 +472,7 @@ ArchiveResult BinaryInputArchive::read(double& out) {
 
     if (bulk_mode_) {
         if (bulk_remaining_ == 0) {
-            return tl::make_unexpected(ArchiveError::corrupted("Bulk array overrun"));
+            return std::unexpected(ArchiveError::corrupted("Bulk array overrun"));
         }
         auto result = readRaw(&out, sizeof(double));
         if (!result) return result;
@@ -490,7 +490,7 @@ ArchiveResult BinaryInputArchive::read(bool& out) {
 
     if (bulk_mode_) {
         if (bulk_remaining_ == 0) {
-            return tl::make_unexpected(ArchiveError::corrupted("Bulk array overrun"));
+            return std::unexpected(ArchiveError::corrupted("Bulk array overrun"));
         }
         uint8_t v = 0;
         auto result = readRaw(&v, sizeof(v));
@@ -514,7 +514,7 @@ ArchiveResult BinaryInputArchive::read(std::string& out) {
 
     if (bulk_mode_) {
         // bulk 模式下 string 无法按 stride 读取，报错
-        return tl::make_unexpected(
+        return std::unexpected(
             ArchiveError::corrupted("Cannot read string in bulk mode"));
     }
 
@@ -526,7 +526,7 @@ ArchiveResult BinaryInputArchive::read(std::string& out) {
     if (!result) return result;
 
     if (!impl_->hasMore(len)) {
-        return tl::make_unexpected(ArchiveError::corrupted("String data truncated"));
+        return std::unexpected(ArchiveError::corrupted("String data truncated"));
     }
 
     out.assign(reinterpret_cast<const char*>(impl_->current()), len);
@@ -545,7 +545,7 @@ ArchiveResult BinaryInputArchive::readBytes(std::vector<byte>& out) {
     if (!result) return result;
 
     if (!impl_->hasMore(len)) {
-        return tl::make_unexpected(ArchiveError::corrupted("Bytes data truncated"));
+        return std::unexpected(ArchiveError::corrupted("Bytes data truncated"));
     }
 
     out.assign(impl_->current(), impl_->current() + len);

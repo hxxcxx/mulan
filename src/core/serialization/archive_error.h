@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-#include <tl/expected.hpp>
+#include <expected>
 
 namespace mulan::core {
 
@@ -69,6 +69,6 @@ struct CORE_API ArchiveError {
 };
 
 // 序列化 read 操作的返回类型
-using ArchiveResult = tl::expected<void, ArchiveError>;
+using ArchiveResult = std::expected<void, ArchiveError>;
 
 } // namespace mulan::core

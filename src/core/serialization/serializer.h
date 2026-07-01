@@ -140,7 +140,7 @@ struct Serializer<std::vector<T>> {
         if (!result) return result;
 
         if (size > MULANGEO_MAX_ARRAY_SIZE) [[unlikely]] {
-            return tl::make_unexpected(ArchiveError::outOfMemory(size));
+            return std::unexpected(ArchiveError::outOfMemory(size));
         }
 
         out.resize(size);
@@ -318,7 +318,7 @@ void writeVariantHelper(OutputArchive& ar, const T& value) {
 template<typename Variant, size_t I = 0>
 ArchiveResult readVariantByIndex(InputArchive& ar, Variant& out, uint32_t targetIndex) {
     if constexpr (I >= std::variant_size_v<Variant>) {
-        return tl::make_unexpected(ArchiveError::corrupted("Variant index out of range"));
+        return std::unexpected(ArchiveError::corrupted("Variant index out of range"));
     } else {
         if (targetIndex == I) {
             using Alt = std::variant_alternative_t<I, Variant>;
@@ -347,7 +347,7 @@ struct Serializer<std::variant<Ts...>> {
         if (!result) return result;
 
         if (index >= sizeof...(Ts)) [[unlikely]] {
-            return tl::make_unexpected(
+            return std::unexpected(
                 ArchiveError::corrupted("Variant index " + std::to_string(index) +
                                         " exceeds type count " + std::to_string(sizeof...(Ts))));
         }

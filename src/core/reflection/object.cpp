@@ -71,14 +71,14 @@ ArchiveResult Serializer<std::unique_ptr<Object>>::read(InputArchive& ar,
 
     auto obj = ObjectFactory::instance().create(typeName);
     if (!obj) {
-        return tl::make_unexpected(
+        return std::unexpected(
             ArchiveError::make(ArchiveError::Code::MissingKey,
                                "Unknown object type: " + typeName));
     }
 
     obj->serialize(ar);  // 虚函数分发到具体类型的读方向
     if (ar.hasError()) {
-        return tl::make_unexpected(
+        return std::unexpected(
             ArchiveError::make(ArchiveError::Code::CorruptedData,
                                ar.errorMessage()));
     }
