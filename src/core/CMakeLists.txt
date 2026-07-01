@@ -7,7 +7,7 @@ add_library(Core SHARED
     image/stb_impl.cpp
     ini/config_file.cpp
     log/log.cpp
-    result/result.cpp
+    result/error.cpp
     serialization/archive.cpp
     serialization/binary_archive.cpp
     serialization/version_block.cpp
