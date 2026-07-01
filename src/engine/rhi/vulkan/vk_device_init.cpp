@@ -36,17 +36,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vkDebugCallback(
 // 构造 / 析构
 // ============================================================
 
-VKDevice::VKDevice(const CreateInfo& ci) {
-    init(ci);
-}
-
 VKDevice::VKDevice(const DeviceCreateInfo& ci) {
-    CreateInfo vkCI;
-    vkCI.enableValidation = ci.enableValidation;
-    vkCI.window           = ci.window;
-    vkCI.renderConfig     = ci.renderConfig;
-    vkCI.appName          = ci.appName;
-    init(vkCI);
+    init(ci);
 }
 
 VKDevice::~VKDevice() {
@@ -219,10 +210,10 @@ vk::SurfaceKHR VKDevice::createSurface(const NativeWindowHandle& window) {
 // 完整初始化流程
 // ============================================================
 
-void VKDevice::init(const CreateInfo& ci) {
+void VKDevice::init(const DeviceCreateInfo& ci) {
     native_window_ = ci.window;
     render_config_ = ci.renderConfig;
-    frame_count_   = ci.frameCount > 0 ? ci.frameCount : ci.renderConfig.bufferCount;
+    frame_count_   = ci.renderConfig.bufferCount > 0 ? ci.renderConfig.bufferCount : 2;
 
     // --- Dynamic dispatch loader ---
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;

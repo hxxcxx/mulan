@@ -35,15 +35,6 @@ namespace mulan::engine {
 
 class VKDevice : public RHIDevice {
 public:
-    struct CreateInfo {
-        bool               enableValidation = true;
-        NativeWindowHandle window;
-        RenderConfig       renderConfig;
-        uint32_t           frameCount       = 0;
-        const char*        appName          = "mulan";
-    };
-
-    explicit VKDevice(const CreateInfo& ci = {});
     explicit VKDevice(const DeviceCreateInfo& ci);
     ~VKDevice();
 
@@ -129,7 +120,7 @@ private:
 
     // --- Vulkan 核心 ---
     vk::Instance                instance_;
-    vk::DebugUtilsMessengerEXT  debug_messenger_;
+    vk::DebugUtilsMeDevicessengerEXT  debug_messenger_;
     vk::PhysicalDevice          physical_device_;
     vk::Device                  device_;
     vk::SurfaceKHR              surface_;
