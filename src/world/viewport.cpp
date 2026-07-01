@@ -1,4 +1,4 @@
-#include "viewport.h"
+﻿#include "viewport.h"
 #include "world.h"
 #include "system/render_system.h"
 #include "mulan/engine/rhi/device.h"
@@ -14,27 +14,6 @@ namespace mulan::world {
 
 // ============================================================
 // 旧构造（向后兼容）
-// ============================================================
-
-Viewport::Viewport(World& world, engine::RHIDevice& device)
-    : device_(&device)
-    , world_(&world)
-    , gpu_storage_(std::make_unique<engine::GpuResourceManager>(device))
-    , render_sys_storage_(std::make_unique<RenderSystem>(*gpu_storage_,
-        engine::MaterialCache::instance(), camera_))
-    , default_op_(std::make_unique<engine::CameraManipulator>())
-{
-    gpu_      = gpu_storage_.get();
-    render_sys_ = render_sys_storage_.get();
-    default_op_->setState(engine::Operator::State::Active);
-    default_op_->onActivate(camera_);
-    camera_.setOrthographic(true);
-    camera_.setOrthoSize(5.0);
-    camera_.setDistance(10.0);
-}
-
-// ============================================================
-// 新构造（延迟初始化）
 // ============================================================
 
 Viewport::Viewport()
@@ -73,13 +52,8 @@ bool Viewport::init(const ViewConfig& cfg, int width, int height) {
     ci.renderConfig     = renderCfg;
     ci.enableValidation = cfg.enableValidation;
 
-    auto result = engine::RHIDevice::create(ci);
-    if (!result) {
-        fprintf(stderr, "[Viewport] Device create failed: %s\n", result.error().message.c_str());
-        return false;
-    }
-    owned_device_ = *result;
-    device_ = owned_device_.get();
+    device_ = engine::RHIDevice::create(ci).value_or(nullptr);
+    if (!device_) return false;
 
     // --- SwapChain ---
     engine::SwapChainDesc scDesc;
@@ -135,13 +109,8 @@ bool Viewport::initOffscreen(int width, int height) {
     ci.renderConfig     = config;
     ci.enableValidation = true;  // 开启 debug layer + InfoQueue 以定位 device removed
 
-    auto result = engine::RHIDevice::create(ci);
-    if (!result) {
-        fprintf(stderr, "[Viewport] Offscreen device create failed: %s\n", result.error().message.c_str());
-        return false;
-    }
-    owned_device_ = *result;
-    device_ = owned_device_.get();
+    device_ = engine::RHIDevice::create(ci).value_or(nullptr);
+    if (!device_) return false;
 
     // --- RenderTarget ---
     engine::RenderTargetDesc rtDesc;
@@ -182,7 +151,7 @@ bool Viewport::initOffscreen(int width, int height) {
 // ============================================================
 
 void Viewport::shutdown() {
-    if (!initialized_ && !owned_device_) return;
+    if (!initialized_ && !device_) return;
     if (device_) device_->waitIdle();
 
     view_cube_renderer_.reset();
@@ -194,11 +163,9 @@ void Viewport::shutdown() {
 
     gpu_       = nullptr;
     render_sys_ = nullptr;
-    device_    = nullptr;
-    owned_device_.reset();
+    device_.reset();
 
     initialized_    = false;
-    rendering_inited_ = false;
 }
 
 // ============================================================
@@ -227,7 +194,7 @@ bool Viewport::initRendering(int width, int height) {
         : (swapchain_ ? swapchain_->depthFormat() : engine::TextureFormat::D32_Float);
 
     auto& matCache = engine::MaterialCache::instance();
-    matCache.setDevice(device_);
+    matCache.setDevice(device_.get());
 
     auto fwd = std::make_unique<engine::ForwardPass>(
         *device_, *gpu_, matCache, camera_, light_env_);
@@ -246,7 +213,6 @@ bool Viewport::initRendering(int width, int height) {
         std::fprintf(stderr, "[Viewport] ViewCube init failed (non-fatal)\n");
     }
 
-    rendering_inited_ = true;
     return true;
 }
 
@@ -258,7 +224,7 @@ bool Viewport::initSceneRenderer() {
         ? render_target_->depthFormat()
         : (swapchain_ ? swapchain_->depthFormat() : engine::TextureFormat::D32_Float);
 
-    view_cube_renderer_ = std::make_unique<engine::ViewCubeRenderer>(device_);
+    view_cube_renderer_ = std::make_unique<engine::ViewCubeRenderer>(device_.get());
     if (!view_cube_renderer_->init(colorFmt, depthFmt)) {
         view_cube_renderer_.reset();
         return false;
@@ -360,48 +326,6 @@ void Viewport::renderFrame() {
 
     // 5. 清脏
     onFrameEnd();
-}
-
-// ============================================================
-// render / renderPass（旧路径）
-// ============================================================
-
-void Viewport::render(float dt) {
-    if (!rendering_inited_ || !world_) return;
-
-    // 1. World 逻辑
-    if (!world_logic_updated_) {
-        world_->updateLogic(dt);
-        world_logic_updated_ = true;
-    }
-
-    // 2. RenderSystem：收集 + 上传 GPU + 产出 MeshDrawCommand
-    render_sys_->update(*world_, dt);
-
-    // 3. 把 MeshDrawCommand 交给两个 Pass
-    auto* fwd  = render_graph_.pass<engine::ForwardPass>(0);
-    auto* edge = render_graph_.pass<engine::EdgePass>(1);
-    if (fwd) {
-        if (!render_sys_->hasFacePso())
-            render_sys_->setFacePso(fwd->pipelineState());
-        fwd->setDrawCommands(render_sys_->staticFaceCommands());
-    }
-    if (edge) {
-        if (!render_sys_->hasEdgePso())
-            render_sys_->setEdgePso(edge->pipelineState());
-        edge->setDrawCommands(render_sys_->staticEdgeCommands());
-    }
-}
-
-void Viewport::renderPass(engine::CommandList* cmd) {
-    if (!rendering_inited_ || !cmd) return;
-
-    engine::PassContext ctx;
-    ctx.cmd    = cmd;
-    ctx.width  = width_;
-    ctx.height = height_;
-
-    render_graph_.execute(ctx);
 }
 
 void Viewport::onFrameEnd() {

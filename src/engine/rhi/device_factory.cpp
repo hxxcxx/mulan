@@ -6,8 +6,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::shared_ptr<RHIDevice>, core::Error>
-RHIDevice::create(const DeviceCreateInfo& ci) {
+std::expected<std::shared_ptr<RHIDevice>, core::Error> RHIDevice::create(const DeviceCreateInfo& ci) {
     try {
         switch (ci.backend) {
         case GraphicsBackend::Vulkan:

@@ -1,16 +1,11 @@
 /**
  * @file viewport.h
- * @brief Viewport — 吸收 EngineView 的完整视图层
+ * @brief Viewport — 完整的视图层
  *
  * 持有：RHIDevice + SwapChain/RenderTarget + Camera + GpuResourceManager
  *       + RenderSystem + RenderGraph + Operator
  *
- * 两种使用模式：
- *   旧：Viewport(world, device) → initRendering() → render()/renderPass()
- *   新：Viewport() → init() → setWorld() → renderFrame()
- *
- * @author hxxcxx
- * @date 2026-05-29 (原始) / 2026-06-01 (重构)
+ * 使用: Viewport() → init() → setWorld() → renderFrame()
  */
 
 #pragma once
@@ -40,10 +35,6 @@ class RenderSystem;
 
 class Viewport {
 public:
-    // ===== 旧构造（向后兼容）=====
-    Viewport(World& world, engine::RHIDevice& device);
-
-    // ===== 新构造（延迟初始化）=====
     Viewport();
     ~Viewport();
 
@@ -71,14 +62,7 @@ public:
     // ===== 渲染 =====
 
     /// 完整帧循环（逻辑 + 收集 + 绘制 + present）
-    /// 新路径使用，替代分别调用 render() + renderPass()
     void renderFrame();
-
-    /// 逻辑 + 渲染收集（旧路径，可在 beginFrame 之前调用）
-    void render(float dt);
-
-    /// 绘制到 CommandList（旧路径，外部管理 RenderPass）
-    void renderPass(engine::CommandList* cmd);
 
     void onFrameEnd();
     void resize(int width, int height);
@@ -133,9 +117,8 @@ private:
     bool initSceneRenderer();
     void cleanup();
 
-    // ===== Device（新路径拥有，旧路径借用）=====
-    std::shared_ptr<engine::RHIDevice> owned_device_;
-    engine::RHIDevice*                 device_ = nullptr;
+    // ===== Device =====
+    std::shared_ptr<engine::RHIDevice> device_;
 
     // ===== SwapChain / RenderTarget =====
     engine::ResourcePtr<engine::SwapChain>   swapchain_;
@@ -169,7 +152,6 @@ private:
     int  width_  = 800;
     int  height_ = 600;
     bool initialized_      = false;
-    bool rendering_inited_   = false;
     bool world_logic_updated_ = false;
 };
 

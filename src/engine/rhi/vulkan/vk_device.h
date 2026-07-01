@@ -111,7 +111,7 @@ public:
     void clearFramebufferCache();
 
 private:
-    void init(const CreateInfo& ci);
+    void init(const DeviceCreateInfo& ci);
     void shutdown();
     void pickPhysicalDevice(const std::vector<vk::PhysicalDevice>& devices);
     void createLogicalDevice(bool enableValidation);
@@ -120,7 +120,7 @@ private:
 
     // --- Vulkan 核心 ---
     vk::Instance                instance_;
-    vk::DebugUtilsMeDevicessengerEXT  debug_messenger_;
+    vk::DebugUtilsMessengerEXT  debug_messenger_;
     vk::PhysicalDevice          physical_device_;
     vk::Device                  device_;
     vk::SurfaceKHR              surface_;
