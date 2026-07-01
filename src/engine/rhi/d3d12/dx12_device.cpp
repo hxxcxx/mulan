@@ -1,5 +1,8 @@
 #include "dx12_device.h"
+#include "dx12_debug_name.h"
 
+#include <cstdio>
+#include <string>
 #include <vector>
 #include <cstring>
 
@@ -199,6 +202,7 @@ std::unique_ptr<Buffer> DX12Device::createBuffer(const BufferDesc& desc) {
     }
 
     auto buf = std::make_unique<DX12Buffer>(desc, device_.Get());
+    setDebugName(buf->resource(), desc.name.empty() ? "Buffer" : desc.name);
 
     if (buf->needsUpload()) {
         upload_context_->uploadBuffer(buf.get(), buf->pendingData(), desc.size);
@@ -209,10 +213,13 @@ std::unique_ptr<Buffer> DX12Device::createBuffer(const BufferDesc& desc) {
 }
 
 std::unique_ptr<Texture> DX12Device::createTexture(const TextureDesc& desc) {
-    return std::make_unique<DX12Texture>(desc, device_.Get());
+    auto tex = std::make_unique<DX12Texture>(desc, device_.Get());
+    setDebugName(tex->resource(), desc.name.empty() ? "Texture" : desc.name);
+    return tex;
 }
 
 std::unique_ptr<Shader> DX12Device::createShader(const ShaderDesc& desc) {
+    // DX12Shader 仅持有 DXIL 字节码（无 COM 对象），无需命名
     return std::make_unique<DX12Shader>(desc);
 }
 
@@ -224,14 +231,23 @@ std::unique_ptr<PipelineState> DX12Device::createPipelineState(const GraphicsPip
                      static_cast<unsigned long>(reason));
         dumpInfoQueueMessages();
     }
-    return std::make_unique<DX12PipelineState>(desc, device_.Get());
+    auto pso = std::make_unique<DX12PipelineState>(desc, device_.Get());
+    setDebugName(pso->pipeline(),
+                 desc.name.empty() ? "Pipeline" : desc.name);
+    setDebugName(pso->rootSignature(),
+                 desc.name.empty() ? "RootSignature" : (std::string(desc.name) + "/RootSig").c_str());
+    return pso;
 }
 
 std::unique_ptr<CommandList> DX12Device::createCommandList() {
     auto allocator = ComPtr<ID3D12CommandAllocator>();
     device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
                                      IID_PPV_ARGS(&allocator));
-    return std::make_unique<DX12CommandList>(device_.Get(), allocator.Get());
+    auto cmd = std::make_unique<DX12CommandList>(device_.Get(), allocator.Get());
+    char nm[64];
+    std::snprintf(nm, sizeof(nm), "CommandList@%p", cmd.get());
+    setDebugName(cmd->commandList(), nm);
+    return cmd;
 }
 
 std::unique_ptr<SwapChain> DX12Device::createSwapChain(const SwapChainDesc& desc) {
@@ -244,11 +260,16 @@ std::unique_ptr<RenderTarget> DX12Device::createRenderTarget(const RenderTargetD
 }
 
 std::unique_ptr<Sampler> DX12Device::createSampler(const SamplerDesc& desc) {
+    // Sampler 仅持有 descriptor handle（非 COM 对象），无需命名
     return std::make_unique<DX12Sampler>(desc, device_.Get(), nullptr);
 }
 
 std::unique_ptr<Fence> DX12Device::createFence(uint64_t initialValue) {
-    return std::make_unique<DX12Fence>(device_.Get(), initialValue);
+    auto f = std::make_unique<DX12Fence>(device_.Get(), initialValue);
+    char nm[64];
+    std::snprintf(nm, sizeof(nm), "Fence@%p", f.get());
+    setDebugName(f->fence(), nm);
+    return f;
 }
 
 // ============================================================
