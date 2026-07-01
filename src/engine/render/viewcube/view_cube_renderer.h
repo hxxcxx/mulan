@@ -143,25 +143,25 @@ private:
     RHIDevice*   device_;
 
     // --- PSO（复用主场景 solid/edge shader，独立 PSO 实例）---
-    ResourcePtr<Shader>         solid_vs_;
-    ResourcePtr<Shader>         solid_fs_;
-    ResourcePtr<PipelineState>  solid_pso_;
-    ResourcePtr<Shader>         edge_vs_;
-    ResourcePtr<Shader>         edge_fs_;
-    ResourcePtr<PipelineState>  edge_pso_;
+    std::unique_ptr<Shader>         solid_vs_;
+    std::unique_ptr<Shader>         solid_fs_;
+    std::unique_ptr<PipelineState>  solid_pso_;
+    std::unique_ptr<Shader>         edge_vs_;
+    std::unique_ptr<Shader>         edge_fs_;
+    std::unique_ptr<PipelineState>  edge_pso_;
 
     // --- 几何缓冲 ---
-    ResourcePtr<Buffer>         face_vb_;     // 面顶点
-    ResourcePtr<Buffer>         face_ib_;     // 面索引
+    std::unique_ptr<Buffer>         face_vb_;     // 面顶点
+    std::unique_ptr<Buffer>         face_ib_;     // 面索引
     uint32_t                    face_index_count_ = 0;
-    ResourcePtr<Buffer>         edge_vb_;     // 边顶点
-    ResourcePtr<Buffer>         edge_ib_;     // 边索引
+    std::unique_ptr<Buffer>         edge_vb_;     // 边顶点
+    std::unique_ptr<Buffer>         edge_ib_;     // 边索引
     uint32_t                    edge_index_count_ = 0;
 
     // --- UBO ---
-    ResourcePtr<Buffer>         scene_ubo_;   // b0
-    ResourcePtr<Buffer>         object_ubo_;  // b1
-    ResourcePtr<Buffer>         material_ubo_;// b2（6个面各一份）
+    std::unique_ptr<Buffer>         scene_ubo_;   // b0
+    std::unique_ptr<Buffer>         object_ubo_;  // b1
+    std::unique_ptr<Buffer>         material_ubo_;// b2（6个面各一份）
     static constexpr uint32_t   kFaceCount = 6;
 
     // --- 面材质数据 ---

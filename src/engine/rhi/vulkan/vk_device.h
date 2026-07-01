@@ -45,26 +45,15 @@ public:
     Mat4 clipSpaceCorrectionMatrix() const override;
 
     // --- 资源创建 ---
-    ResourcePtr<Buffer>        createBuffer(const BufferDesc& desc) override;
-    ResourcePtr<Texture>       createTexture(const TextureDesc& desc) override;
-    ResourcePtr<Shader>        createShader(const ShaderDesc& desc) override;
-    ResourcePtr<PipelineState> createPipelineState(const GraphicsPipelineDesc& desc) override;
-    ResourcePtr<CommandList>   createCommandList() override;
-    ResourcePtr<SwapChain>     createSwapChain(const SwapChainDesc& desc) override;
-    ResourcePtr<RenderTarget>  createRenderTarget(const RenderTargetDesc& desc) override;
-    ResourcePtr<Sampler>       createSampler(const SamplerDesc& desc) override;
-    ResourcePtr<Fence>         createFence(uint64_t initialValue = 0) override;
-
-    // --- 资源销毁 ---
-    void destroy(Buffer* resource) override;
-    void destroy(Texture* resource) override;
-    void destroy(Shader* resource) override;
-    void destroy(PipelineState* resource) override;
-    void destroy(CommandList* resource) override;
-    void destroy(SwapChain* resource) override;
-    void destroy(RenderTarget* resource) override;
-    void destroy(Sampler* resource) override;
-    void destroy(Fence* resource) override;
+    std::unique_ptr<Buffer>        createBuffer(const BufferDesc& desc) override;
+    std::unique_ptr<Texture>       createTexture(const TextureDesc& desc) override;
+    std::unique_ptr<Shader>        createShader(const ShaderDesc& desc) override;
+    std::unique_ptr<PipelineState> createPipelineState(const GraphicsPipelineDesc& desc) override;
+    std::unique_ptr<CommandList>   createCommandList() override;
+    std::unique_ptr<SwapChain>     createSwapChain(const SwapChainDesc& desc) override;
+    std::unique_ptr<RenderTarget>  createRenderTarget(const RenderTargetDesc& desc) override;
+    std::unique_ptr<Sampler>       createSampler(const SamplerDesc& desc) override;
+    std::unique_ptr<Fence>         createFence(uint64_t initialValue = 0) override;
 
     // --- 提交命令 ---
     void executeCommandLists(CommandList** cmdLists, uint32_t count,
@@ -72,7 +61,8 @@ public:
     void waitIdle() override;
 
     // --- 帧循环 ---
-    void beginFrame() override;
+    void beginFrame(SwapChain* swapchain = nullptr) override;
+    void clearCaches() override;
     CommandList* frameCommandList() override;
     void submitAndPresent(SwapChain* swapchain) override;
     void submit() override;
@@ -134,7 +124,6 @@ private:
     RenderConfig                render_config_;
 
     GPUDeviceCapabilities          caps_;
-    std::vector<VKSwapChain*>   swap_chains_;
 
     // --- 私有组件 ---
     std::unique_ptr<VKUploadContext>             upload_context_;

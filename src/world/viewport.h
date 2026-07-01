@@ -121,9 +121,9 @@ private:
     std::shared_ptr<engine::RHIDevice> device_;
 
     // ===== SwapChain / RenderTarget =====
-    engine::ResourcePtr<engine::SwapChain>   swapchain_;
-    engine::ResourcePtr<engine::RenderTarget> render_target_;
-    engine::ResourcePtr<engine::Buffer>      staging_buffer_; // 离屏回读
+    std::unique_ptr<engine::SwapChain>    swapchain_;
+    std::unique_ptr<engine::RenderTarget> render_target_;
+    std::unique_ptr<engine::Buffer>       staging_buffer_; // 离屏回读
 
     // ===== World =====
     World* world_ = nullptr;

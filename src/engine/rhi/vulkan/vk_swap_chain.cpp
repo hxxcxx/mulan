@@ -48,9 +48,6 @@ void VKSwapChain::present() {
 
 void VKSwapChain::resize(uint32_t width, uint32_t height) {
     params_.device.waitIdle();
-    if (params_.ownerDevice) {
-        params_.ownerDevice->clearFramebufferCache();
-    }
     cleanup();
     desc_.width  = width;
     desc_.height = height;

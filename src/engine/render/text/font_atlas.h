@@ -68,8 +68,8 @@ private:
     bool uploadAtlas(const std::vector<uint8_t>& rgbaData);
 
     RHIDevice*                             device_;
-    ResourcePtr<Texture>                   texture_;
-    ResourcePtr<Sampler>                   sampler_;
+    std::unique_ptr<Texture>                   texture_;
+    std::unique_ptr<Sampler>                   sampler_;
     std::unordered_map<uint32_t, GlyphInfo> glyphs_;
 
     float     base_font_size_ = 48.0f;

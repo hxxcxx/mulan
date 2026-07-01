@@ -38,6 +38,9 @@ public:
 
     size_t passCount() const { return passes_.size(); }
 
+    /// 清空所有 Pass（释放其持有的 GPU 资源，需在 device 析构前调用）
+    void clear() { passes_.clear(); }
+
 private:
     std::vector<std::unique_ptr<RenderPass>> passes_;
 };

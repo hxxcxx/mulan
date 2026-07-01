@@ -67,36 +67,19 @@ struct DeviceCreateInfo {
     const char*        appName          = "mulan";
 };
 
-// Forward declaration (needed for DeviceResourceDeleter)
-class RHIDevice;
-
-// ============================================================
-// RAII 资源指针 — 自动调用 device->destroy()
-// ============================================================
-
-struct DeviceResourceDeleter {
-    std::shared_ptr<RHIDevice> device;  // shared_ptr — 延长 Device 生命周期
-    template <typename T>
-    void operator()(T* ptr) const noexcept;
-};
-
-template <typename T>
-using ResourcePtr = std::unique_ptr<T, DeviceResourceDeleter>;
-
-/// 创建 RAII 资源指针
-template <typename T>
-ResourcePtr<T> makeResource(T* raw, std::shared_ptr<RHIDevice> device) {
-    return ResourcePtr<T>(raw, DeviceResourceDeleter{std::move(device)});
-}
-
 // ============================================================
 // RHI 设备基类
 //
 // 所有 GPU 资源的工厂 + 帧循环管理。
 // 后端实现继承此类，UI 层只依赖此接口。
+//
+// 资源所有权约定：
+//   createXxx() 返回 std::unique_ptr<X>，所有权转移给调用方。
+//   资源析构自行销毁后端句柄（VK/D3D12 资源类在析构里释放）。
+//   RHIDevice 必须在所有资源之后析构（由 owner 保证声明逆序）。
 // ============================================================
 
-class RHIDevice : public std::enable_shared_from_this<RHIDevice> {
+class RHIDevice {
 public:
     virtual ~RHIDevice() = default;
 
@@ -118,28 +101,15 @@ public:
     virtual Mat4 clipSpaceCorrectionMatrix() const = 0;
 
     // --- 资源创建 ---
-    virtual ResourcePtr<Buffer>        createBuffer(const BufferDesc& desc) = 0;
-    virtual ResourcePtr<Texture>       createTexture(const TextureDesc& desc) = 0;
-    virtual ResourcePtr<Shader>        createShader(const ShaderDesc& desc) = 0;
-    virtual ResourcePtr<PipelineState> createPipelineState(const GraphicsPipelineDesc& desc) = 0;
-    virtual ResourcePtr<CommandList>   createCommandList() = 0;
-    virtual ResourcePtr<SwapChain>     createSwapChain(const SwapChainDesc& desc) = 0;
-    virtual ResourcePtr<RenderTarget>  createRenderTarget(const RenderTargetDesc& desc) = 0;
-    virtual ResourcePtr<Sampler>       createSampler(const SamplerDesc& desc) = 0;
-    virtual ResourcePtr<Fence>         createFence(uint64_t initialValue = 0) = 0;
-
-
-    // --- 资源销毁 ---
-
-    virtual void destroy(Buffer* resource) = 0;
-    virtual void destroy(Texture* resource) = 0;
-    virtual void destroy(Shader* resource) = 0;
-    virtual void destroy(PipelineState* resource) = 0;
-    virtual void destroy(CommandList* resource) = 0;
-    virtual void destroy(SwapChain* resource) = 0;
-    virtual void destroy(RenderTarget* resource) = 0;
-    virtual void destroy(Sampler* resource) = 0;
-    virtual void destroy(Fence* resource) = 0;
+    virtual std::unique_ptr<Buffer>        createBuffer(const BufferDesc& desc) = 0;
+    virtual std::unique_ptr<Texture>       createTexture(const TextureDesc& desc) = 0;
+    virtual std::unique_ptr<Shader>        createShader(const ShaderDesc& desc) = 0;
+    virtual std::unique_ptr<PipelineState> createPipelineState(const GraphicsPipelineDesc& desc) = 0;
+    virtual std::unique_ptr<CommandList>   createCommandList() = 0;
+    virtual std::unique_ptr<SwapChain>     createSwapChain(const SwapChainDesc& desc) = 0;
+    virtual std::unique_ptr<RenderTarget>  createRenderTarget(const RenderTargetDesc& desc) = 0;
+    virtual std::unique_ptr<Sampler>       createSampler(const SamplerDesc& desc) = 0;
+    virtual std::unique_ptr<Fence>         createFence(uint64_t initialValue = 0) = 0;
 
     // --- 提交命令 ---
 
@@ -172,7 +142,11 @@ public:
     // ============================================================
 
     /// 每帧开头：等待上一轮完成、acquire next image、重置资源
-    virtual void beginFrame() = 0;
+    /// swapchain 为 nullptr 表示离屏模式（不做 acquire）
+    virtual void beginFrame(SwapChain* swapchain = nullptr) = 0;
+
+    /// 清空内部缓存（swapchain resize 时调用）
+    virtual void clearCaches() = 0;
 
     /// 获取当前帧的 CommandList（已 reset，可直接 begin）
     virtual CommandList* frameCommandList() = 0;
@@ -200,15 +174,6 @@ protected:
     RHIDevice(const RHIDevice&) = delete;
     RHIDevice& operator=(const RHIDevice&) = delete;
 };
-
-// ============================================================
-// DeviceResourceDeleter 模板实现（在 RHIDevice 定义之后）
-// ============================================================
-
-template <typename T>
-void DeviceResourceDeleter::operator()(T* ptr) const noexcept {
-    if (ptr && device) device->destroy(ptr);
-}
 
 // ============================================================
 } // namespace mulan::engine

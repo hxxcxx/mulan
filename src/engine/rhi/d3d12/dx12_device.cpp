@@ -190,124 +190,66 @@ Mat4 DX12Device::clipSpaceCorrectionMatrix() const {
 // 资源创建
 // ============================================================
 
-ResourcePtr<Buffer> DX12Device::createBuffer(const BufferDesc& desc) {
-    try {
-        HRESULT reason = device_->GetDeviceRemovedReason();
-        if (FAILED(reason)) {
-            std::fprintf(stderr, "[DX12 ERROR] createBuffer: device already removed! Reason=0x%08lX\n",
-                         static_cast<unsigned long>(reason));
-            dumpInfoQueueMessages();
-        }
-
-        auto* buf = new DX12Buffer(desc, device_.Get());
-
-        if (buf->needsUpload()) {
-            upload_context_->uploadBuffer(buf, buf->pendingData(), desc.size);
-            buf->markUploaded();
-        }
-
-        return ResourcePtr<Buffer>(buf, DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
+std::unique_ptr<Buffer> DX12Device::createBuffer(const BufferDesc& desc) {
+    HRESULT reason = device_->GetDeviceRemovedReason();
+    if (FAILED(reason)) {
+        std::fprintf(stderr, "[DX12 ERROR] createBuffer: device already removed! Reason=0x%08lX\n",
+                     static_cast<unsigned long>(reason));
+        dumpInfoQueueMessages();
     }
+
+    auto buf = std::make_unique<DX12Buffer>(desc, device_.Get());
+
+    if (buf->needsUpload()) {
+        upload_context_->uploadBuffer(buf.get(), buf->pendingData(), desc.size);
+        buf->markUploaded();
+    }
+
+    return buf;
 }
 
-ResourcePtr<Texture> DX12Device::createTexture(const TextureDesc& desc) {
-    try {
-        return ResourcePtr<Texture>(new DX12Texture(desc, device_.Get()),
-                                    DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
-    }
+std::unique_ptr<Texture> DX12Device::createTexture(const TextureDesc& desc) {
+    return std::make_unique<DX12Texture>(desc, device_.Get());
 }
 
-ResourcePtr<Shader> DX12Device::createShader(const ShaderDesc& desc) {
-    try {
-        return ResourcePtr<Shader>(new DX12Shader(desc),
-                                   DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
-    }
+std::unique_ptr<Shader> DX12Device::createShader(const ShaderDesc& desc) {
+    return std::make_unique<DX12Shader>(desc);
 }
 
-ResourcePtr<PipelineState> DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
-    try {
-        HRESULT reason = device_->GetDeviceRemovedReason();
-        if (FAILED(reason)) {
-            std::fprintf(stderr, "[DX12 ERROR] createPipelineState('%.*s'): device already removed! Reason=0x%08lX\n",
-                         static_cast<int>(desc.name.size()), desc.name.data(),
-                         static_cast<unsigned long>(reason));
-            dumpInfoQueueMessages();
-        }
-        return ResourcePtr<PipelineState>(new DX12PipelineState(desc, device_.Get()),
-                                          DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
+std::unique_ptr<PipelineState> DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
+    HRESULT reason = device_->GetDeviceRemovedReason();
+    if (FAILED(reason)) {
+        std::fprintf(stderr, "[DX12 ERROR] createPipelineState('%.*s'): device already removed! Reason=0x%08lX\n",
+                     static_cast<int>(desc.name.size()), desc.name.data(),
+                     static_cast<unsigned long>(reason));
+        dumpInfoQueueMessages();
     }
+    return std::make_unique<DX12PipelineState>(desc, device_.Get());
 }
 
-ResourcePtr<CommandList> DX12Device::createCommandList() {
-    try {
-        auto allocator = ComPtr<ID3D12CommandAllocator>();
-        device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
-                                         IID_PPV_ARGS(&allocator));
-        return ResourcePtr<CommandList>(new DX12CommandList(device_.Get(), allocator.Get()),
-                                        DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
-    }
+std::unique_ptr<CommandList> DX12Device::createCommandList() {
+    auto allocator = ComPtr<ID3D12CommandAllocator>();
+    device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                     IID_PPV_ARGS(&allocator));
+    return std::make_unique<DX12CommandList>(device_.Get(), allocator.Get());
 }
 
-ResourcePtr<SwapChain> DX12Device::createSwapChain(const SwapChainDesc& desc) {
-    try {
-        return ResourcePtr<SwapChain>(new DX12SwapChain(desc, device_.Get(), factory_.Get(),
-                                         command_queue_.Get(), window_),
-                                      DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
-    }
+std::unique_ptr<SwapChain> DX12Device::createSwapChain(const SwapChainDesc& desc) {
+    return std::make_unique<DX12SwapChain>(desc, device_.Get(), factory_.Get(),
+                                           command_queue_.Get(), window_);
 }
 
-ResourcePtr<RenderTarget> DX12Device::createRenderTarget(const RenderTargetDesc& desc) {
-    try {
-        return ResourcePtr<RenderTarget>(new DX12RenderTarget(desc, device_.Get()),
-                                         DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
-    }
+std::unique_ptr<RenderTarget> DX12Device::createRenderTarget(const RenderTargetDesc& desc) {
+    return std::make_unique<DX12RenderTarget>(desc, device_.Get());
 }
 
-ResourcePtr<Sampler> DX12Device::createSampler(const SamplerDesc& desc) {
-    try {
-        return ResourcePtr<Sampler>(new DX12Sampler(desc, device_.Get(), nullptr),
-                                    DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
-    }
+std::unique_ptr<Sampler> DX12Device::createSampler(const SamplerDesc& desc) {
+    return std::make_unique<DX12Sampler>(desc, device_.Get(), nullptr);
 }
 
-ResourcePtr<Fence> DX12Device::createFence(uint64_t initialValue) {
-    try {
-        return ResourcePtr<Fence>(new DX12Fence(device_.Get(), initialValue),
-                                  DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
-    }
+std::unique_ptr<Fence> DX12Device::createFence(uint64_t initialValue) {
+    return std::make_unique<DX12Fence>(device_.Get(), initialValue);
 }
-
-// ============================================================
-// 资源销毁
-// ============================================================
-
-void DX12Device::destroy(Buffer* r) { delete r; }
-void DX12Device::destroy(Texture* r) { delete r; }
-void DX12Device::destroy(Shader* r) { delete r; }
-void DX12Device::destroy(PipelineState* r) { delete r; }
-void DX12Device::destroy(CommandList* r) { delete r; }
-void DX12Device::destroy(SwapChain* r) { delete r; }
-void DX12Device::destroy(RenderTarget* r) { delete r; }
-void DX12Device::destroy(Sampler* r) { delete r; }
-void DX12Device::destroy(Fence* r) { delete r; }
 
 // ============================================================
 // 命令提交
@@ -342,7 +284,7 @@ void DX12Device::waitIdle() {
 // 帧循环
 // ============================================================
 
-void DX12Device::beginFrame() {
+void DX12Device::beginFrame(SwapChain* /*swapchain*/) {
     frame_index_ = (frame_index_ + 1) % frame_count_;
     auto& frame = frames_[frame_index_];
     frame->waitForFence();
@@ -350,6 +292,10 @@ void DX12Device::beginFrame() {
 
     // 重置 shader-visible 描述符堆
     shader_visible_heap_->reset();
+}
+
+void DX12Device::clearCaches() {
+    // D3D12 后端暂无内部缓存需要清理
 }
 
 CommandList* DX12Device::frameCommandList() {

@@ -8,7 +8,7 @@ namespace mulan::engine {
 // TextureAsset
 // ============================================================
 
-TextureAsset::TextureAsset(ResourcePtr<Texture> texture, std::string path)
+TextureAsset::TextureAsset(std::unique_ptr<Texture> texture, std::string path)
     : texture_(std::move(texture))
     , path_(std::move(path)) {
     if (texture_) {
@@ -120,7 +120,7 @@ std::vector<std::string> TextureCache::allNames() const {
     return names;
 }
 
-ResourcePtr<Texture> TextureCache::createRHITexture(const LoadedTexture& loaded,
+std::unique_ptr<Texture> TextureCache::createRHITexture(const LoadedTexture& loaded,
                                                      TextureUsageFlags usage,
                                                      bool generateMips) {
     TextureDesc desc;

@@ -25,7 +25,7 @@ namespace mulan::engine {
 class TextureAsset {
 public:
     TextureAsset() = default;
-    explicit TextureAsset(ResourcePtr<Texture> texture, std::string path = {});
+    explicit TextureAsset(std::unique_ptr<Texture> texture, std::string path = {});
 
     // 禁用拷贝，纹理独占
     TextureAsset(const TextureAsset&) = delete;
@@ -47,7 +47,7 @@ public:
     uint32_t height() const { return height_; }
 
 private:
-    ResourcePtr<Texture> texture_;
+    std::unique_ptr<Texture> texture_;
     std::string          path_;
     uint32_t             width_  = 0;
     uint32_t             height_ = 0;
@@ -100,7 +100,7 @@ private:
     ~TextureCache() = default;
 
     // 内部：从 LoadedTexture 创建 RHI Texture
-    ResourcePtr<Texture> createRHITexture(const LoadedTexture& loaded,
+    std::unique_ptr<Texture> createRHITexture(const LoadedTexture& loaded,
                                            TextureUsageFlags usage,
                                            bool generateMips);
 

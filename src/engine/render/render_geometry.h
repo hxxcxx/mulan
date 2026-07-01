@@ -48,8 +48,8 @@ struct RenderGeometry {
 // ============================================================
 
 struct GpuGeometry {
-    ResourcePtr<Buffer> vertexBuffer;
-    ResourcePtr<Buffer> indexBuffer;
+    std::unique_ptr<Buffer> vertexBuffer;
+    std::unique_ptr<Buffer> indexBuffer;
     uint32_t vertexCount  = 0;
     uint32_t indexCount   = 0;
     uint32_t vertexStride = 0;

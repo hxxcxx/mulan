@@ -160,6 +160,7 @@ void Viewport::shutdown() {
     staging_buffer_.reset();
     render_target_.reset();
     swapchain_.reset();
+    render_graph_.clear();   // Pass 持有 UBO 等 GPU 资源，必须在 device 析构前释放
 
     gpu_       = nullptr;
     render_sys_ = nullptr;
@@ -278,7 +279,7 @@ void Viewport::renderFrame() {
     }
 
     // 4. GPU 提交
-    device_->beginFrame();
+    device_->beginFrame(swapchain_ ? swapchain_.get() : nullptr);
     auto* cmd = device_->frameCommandList();
     cmd->begin();
 
@@ -354,6 +355,7 @@ void Viewport::resize(int width, int height) {
             staging_buffer_ = device_->createBuffer(
                 engine::BufferDesc::staging(pixelBytes, "ReadbackStaging"));
         } else if (swapchain_) {
+            device_->clearCaches();
             swapchain_->resize(width, height);
         }
     }

@@ -16,140 +16,74 @@ namespace mulan::engine {
 // 资源创建
 // ============================================================
 
-ResourcePtr<Buffer> VKDevice::createBuffer(const BufferDesc& desc) {
-    try {
-        auto* buf = new VKBuffer(desc, allocator_);
-        if (buf->needsUpload()) {
-            upload_context_->uploadBufferInit(buf);
-        }
-        return ResourcePtr<Buffer>(buf, DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
+std::unique_ptr<Buffer> VKDevice::createBuffer(const BufferDesc& desc) {
+    auto buf = std::make_unique<VKBuffer>(desc, allocator_);
+    if (buf->needsUpload()) {
+        upload_context_->uploadBufferInit(buf.get());
     }
+    return buf;
 }
 
-ResourcePtr<Texture> VKDevice::createTexture(const TextureDesc& desc) {
-    try {
-        return ResourcePtr<Texture>(new VKTexture(desc, device_, allocator_),
-                                    DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
-    }
+std::unique_ptr<Texture> VKDevice::createTexture(const TextureDesc& desc) {
+    return std::make_unique<VKTexture>(desc, device_, allocator_);
 }
 
-ResourcePtr<Shader> VKDevice::createShader(const ShaderDesc& desc) {
-    try {
-        return ResourcePtr<Shader>(new VKShader(desc, device_),
-                                   DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
-    }
+std::unique_ptr<Shader> VKDevice::createShader(const ShaderDesc& desc) {
+    return std::make_unique<VKShader>(desc, device_);
 }
 
-ResourcePtr<PipelineState> VKDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
-    try {
-        return ResourcePtr<PipelineState>(new VKPipelineState(desc, device_, this),
-                                          DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
-    }
+std::unique_ptr<PipelineState> VKDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
+    return std::make_unique<VKPipelineState>(desc, device_, this);
 }
 
-ResourcePtr<CommandList> VKDevice::createCommandList() {
-    try {
-        // 独立命令列表需要独立的 descriptor allocator
-        auto* allocator = new VKDescriptorAllocator(device_);
-        standalone_allocators_.emplace_back(allocator);
-        auto* cmd = new VKCommandList(device_, graphics_queue_family_, allocator);
-        return ResourcePtr<CommandList>(cmd, DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
-    }
+std::unique_ptr<CommandList> VKDevice::createCommandList() {
+    // 独立命令列表需要独立的 descriptor allocator
+    auto* allocator = new VKDescriptorAllocator(device_);
+    standalone_allocators_.emplace_back(allocator);
+    return std::make_unique<VKCommandList>(device_, graphics_queue_family_, allocator);
 }
 
-ResourcePtr<SwapChain> VKDevice::createSwapChain(const SwapChainDesc& desc) {
-    try {
-        VKSwapChain::InitParams params;
-        params.instance            = instance_;
-        params.physicalDevice      = physical_device_;
-        params.device              = device_;
-        params.allocator           = allocator_;
-        params.graphicsQueueFamily = graphics_queue_family_;
-        params.presentQueueFamily  = present_queue_family_;
-        params.graphicsQueue       = graphics_queue_;
-        params.presentQueue        = present_queue_;
-        params.surface             = surface_;
-        params.ownerDevice         = this;
+std::unique_ptr<SwapChain> VKDevice::createSwapChain(const SwapChainDesc& desc) {
+    VKSwapChain::InitParams params;
+    params.instance            = instance_;
+    params.physicalDevice      = physical_device_;
+    params.device              = device_;
+    params.allocator           = allocator_;
+    params.graphicsQueueFamily = graphics_queue_family_;
+    params.presentQueueFamily  = present_queue_family_;
+    params.graphicsQueue       = graphics_queue_;
+    params.presentQueue        = present_queue_;
+    params.surface             = surface_;
 
-        auto* swapchain = new VKSwapChain(desc, params, render_config_);
-        swap_chains_.push_back(swapchain);
+    auto swapchain = std::make_unique<VKSwapChain>(desc, params, render_config_);
 
-        // 为每个 swapchain image 创建独立的 renderFinished 信号量
-        for (uint32_t i = static_cast<uint32_t>(render_finished_semaphores_.size());
-             i < swapchain->imageCount(); ++i) {
-            render_finished_semaphores_.push_back(device_.createSemaphore({}));
-        }
-
-        if (frame_contexts_.empty()) {
-            initFrameContexts(frame_count_);
-        }
-
-        return ResourcePtr<SwapChain>(swapchain, DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
+    // 为每个 swapchain image 创建独立的 renderFinished 信号量
+    for (uint32_t i = static_cast<uint32_t>(render_finished_semaphores_.size());
+         i < swapchain->imageCount(); ++i) {
+        render_finished_semaphores_.push_back(device_.createSemaphore({}));
     }
+
+    if (frame_contexts_.empty()) {
+        initFrameContexts(frame_count_);
+    }
+
+    return swapchain;
 }
 
-ResourcePtr<Fence> VKDevice::createFence(uint64_t initialValue) {
-    try {
-        return ResourcePtr<Fence>(new VKFence(device_, initialValue),
-                                  DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
-    }
+std::unique_ptr<Fence> VKDevice::createFence(uint64_t initialValue) {
+    return std::make_unique<VKFence>(device_, initialValue);
 }
 
-ResourcePtr<RenderTarget> VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
-    try {
-        auto* rt = new VKRenderTarget(desc, device_, allocator_);
-
-        // 如果 frame contexts 还未初始化（无 SwapChain 时），在此初始化
-        if (frame_contexts_.empty()) {
-            initFrameContexts(frame_count_);
-        }
-
-        return ResourcePtr<RenderTarget>(rt, DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
+std::unique_ptr<RenderTarget> VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
+    // 如果 frame contexts 还未初始化（无 SwapChain 时），在此初始化
+    if (frame_contexts_.empty()) {
+        initFrameContexts(frame_count_);
     }
+    return std::make_unique<VKRenderTarget>(desc, device_, allocator_);
 }
 
-ResourcePtr<Sampler> VKDevice::createSampler(const SamplerDesc& desc) {
-    try {
-        return ResourcePtr<Sampler>(new VKSampler(desc, device_),
-                                    DeviceResourceDeleter{shared_from_this()});
-    } catch (const std::exception& e) {
-        return nullptr;
-    }
-}
-
-// ============================================================
-// 资源销毁
-// ============================================================
-
-void VKDevice::destroy(Buffer* resource)         { delete static_cast<VKBuffer*>(resource); }
-void VKDevice::destroy(Texture* resource)        { delete static_cast<VKTexture*>(resource); }
-void VKDevice::destroy(Shader* resource)         { delete static_cast<VKShader*>(resource); }
-void VKDevice::destroy(PipelineState* resource)  { delete static_cast<VKPipelineState*>(resource); }
-void VKDevice::destroy(CommandList* resource)    { delete static_cast<VKCommandList*>(resource); }
-void VKDevice::destroy(Fence* resource)          { delete static_cast<VKFence*>(resource); }
-void VKDevice::destroy(RenderTarget* resource)   { delete static_cast<VKRenderTarget*>(resource); }
-void VKDevice::destroy(Sampler* resource)        { delete static_cast<VKSampler*>(resource); }
-
-void VKDevice::destroy(SwapChain* resource) {
-    auto it = std::find(swap_chains_.begin(), swap_chains_.end(), resource);
-    if (it != swap_chains_.end()) swap_chains_.erase(it);
-    delete static_cast<VKSwapChain*>(resource);
+std::unique_ptr<Sampler> VKDevice::createSampler(const SamplerDesc& desc) {
+    return std::make_unique<VKSampler>(desc, device_);
 }
 
 // ============================================================
@@ -309,7 +243,7 @@ vk::RenderPass VKDevice::getOrCreateRenderPass(
 // 帧循环
 // ============================================================
 
-void VKDevice::beginFrame() {
+void VKDevice::beginFrame(SwapChain* swapchain) {
     auto& frame = currentFrameContext();
     frame.waitForFence();
     frame.resetFence();
@@ -326,11 +260,15 @@ void VKDevice::beginFrame() {
                                                     descriptor_allocators_[current_frame_].get());
     frame_cmd_list_->setOwnerDevice(this);
 
-    if (!swap_chains_.empty()) {
-        auto* sc = swap_chains_[0];
+    if (swapchain) {
+        auto* sc = static_cast<VKSwapChain*>(swapchain);
         sc->acquireNextImage(frame.imageAvailable());
         acquired_image_index_ = sc->currentImageIndex();
     }
+}
+
+void VKDevice::clearCaches() {
+    clearFramebufferCache();
 }
 
 CommandList* VKDevice::frameCommandList() {

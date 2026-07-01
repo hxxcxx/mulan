@@ -33,7 +33,7 @@ inline std::vector<uint8_t> readFile(const char* path) {
     return d;
 }
 
-inline ResourcePtr<Shader> loadShader(RHIDevice& device, ShaderType type, const char* name) {
+inline std::unique_ptr<Shader> loadShader(RHIDevice& device, ShaderType type, const char* name) {
 #ifdef SHADER_DIR
     std::string dir = SHADER_DIR;
 #else

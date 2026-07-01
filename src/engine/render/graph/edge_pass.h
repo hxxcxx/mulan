@@ -51,12 +51,12 @@ private:
     const Camera&           camera_;
     const LightEnvironment& light_env_;
 
-    ResourcePtr<Shader>        vs_;
-    ResourcePtr<Shader>        fs_;
-    ResourcePtr<PipelineState> pso_;
-    ResourcePtr<Buffer>        scene_ubo_;
-    ResourcePtr<Buffer>        object_ubo_;
-    ResourcePtr<Buffer>        material_ubo_;
+    std::unique_ptr<Shader>        vs_;
+    std::unique_ptr<Shader>        fs_;
+    std::unique_ptr<PipelineState> pso_;
+    std::unique_ptr<Buffer>        scene_ubo_;
+    std::unique_ptr<Buffer>        object_ubo_;
+    std::unique_ptr<Buffer>        material_ubo_;
 
     std::span<const MeshDrawCommand> commands_;
     bool initialized_ = false;
