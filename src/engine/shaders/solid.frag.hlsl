@@ -4,7 +4,7 @@
  * 参考 OCCT/FreeCAD 风格
  */
 
-#include "Common.hlsli"
+#include "common.hlsli"
 
 // ACES filmic tone mapping
 float3 acesTonemap(float3 x) {

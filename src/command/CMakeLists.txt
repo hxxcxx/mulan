@@ -3,7 +3,7 @@
 # 命令注册、执行、历史记录。
 # 依赖 IO（导入器）、World（数据模型），不依赖 Qt。
 add_library(Command STATIC
-    CommandManager.cpp
+    command_manager.cpp
 )
 
 # 构建时将头文件复制到 build/include/mulan/command/...
@@ -20,6 +20,8 @@ target_include_directories(Command PUBLIC
 )
 
 target_link_libraries(Command PUBLIC IO)
+
+set_target_properties(Command PROPERTIES OUTPUT_NAME mulan_command)
 
 target_compile_definitions(Command PRIVATE
     BUILDING_COMMAND

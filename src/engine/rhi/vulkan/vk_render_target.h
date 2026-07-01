@@ -1,0 +1,51 @@
+/**
+ * @file vk_render_target.h
+ * @brief Vulkan 离屏渲染目标实现
+ * @author hxxcxx
+ * @date 2026-04-17
+ */
+
+#pragma once
+
+#include "../render_target.h"
+#include "vk_convert.h"
+#include "vk_texture.h"
+#include "vk_command_list.h"
+
+#include <memory>
+
+namespace mulan::engine {
+
+class VKRenderTarget : public RenderTarget {
+public:
+    VKRenderTarget(const RenderTargetDesc& desc,
+                   vk::Device device, VmaAllocator allocator);
+    ~VKRenderTarget();
+
+    const RenderTargetDesc& desc() const override { return desc_; }
+
+    Texture* colorTexture() override { return color_texture_.get(); }
+    Texture* depthTexture() override { return depth_texture_.get(); }
+
+    void resize(uint32_t width, uint32_t height) override;
+
+    // --- Vulkan 特有 ---
+    vk::RenderPass  renderPass()  const { return render_pass_; }
+    vk::Framebuffer framebuffer() const { return framebuffer_; }
+
+private:
+    void createResources();
+    void cleanup();
+
+    RenderTargetDesc desc_;
+    vk::Device       device_;
+    VmaAllocator     allocator_;
+
+    std::unique_ptr<VKTexture> color_texture_;
+    std::unique_ptr<VKTexture> depth_texture_;
+
+    vk::RenderPass   render_pass_  = nullptr;
+    vk::Framebuffer  framebuffer_ = nullptr;
+};
+
+} // namespace mulan::engine

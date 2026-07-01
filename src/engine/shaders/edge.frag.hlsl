@@ -3,7 +3,7 @@
  * 根据 Selected 标记选择边线颜色
  */
 
-#include "Common.hlsli"
+#include "common.hlsli"
 
 float4 main(VS_OUTPUT_SIMPLE input) : SV_TARGET {
     float3 color = (Selected > 0) ? HighlightColor : EdgeColor;

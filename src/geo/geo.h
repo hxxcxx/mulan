@@ -18,34 +18,34 @@
 #pragma once
 
 // 基础
-#include "GeoExport.h"
-#include "GeoMath.h"
-#include "Tolerance.h"
-#include "Angle.h"
-#include "Interval.h"
+#include "geo_export.h"
+#include "geo_math.h"
+#include "tolerance.h"
+#include "angle.h"
+#include "interval.h"
 
 // 向量
-#include "Vec2.h"
-#include "Vec3.h"
-#include "Vec4.h"
+#include "vec2.h"
+#include "vec3.h"
+#include "vec4.h"
 
 // 矩阵
-#include "Mat2.h"
-#include "Mat3.h"
-#include "Mat4.h"
+#include "mat2.h"
+#include "mat3.h"
+#include "mat4.h"
 
 // 旋转
-#include "Quaternion.h"
+#include "quaternion.h"
 
 // 基础几何对象
-#include "Point.h"
-#include "AABB.h"
-#include "Sphere.h"
-#include "Line.h"
-#include "Plane.h"
-#include "Polygon.h"
-#include "Transform.h"
+#include "point.h"
+#include "aabb.h"
+#include "sphere.h"
+#include "line.h"
+#include "plane.h"
+#include "polygon.h"
+#include "transform.h"
 
 // 求交
-#include "Hit.h"
-#include "Intersect.h"
+#include "hit.h"
+#include "intersect.h"

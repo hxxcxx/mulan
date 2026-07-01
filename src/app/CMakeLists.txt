@@ -5,18 +5,18 @@ set(CMAKE_AUTORCC ON)
 add_executable(${PROJECT_NAME}
     main.cpp
     resource/icon.qrc
-    ui/UIDocument.h
-    ui/UIDocument.cpp
-    ui/DocumentArea.h
-    ui/DocumentArea.cpp
-    ui/MainWindow.h
-    ui/MainWindow.cpp
-    ui/DocWidget.h
-    ui/DocWidget.cpp
-    ui/EngineSettings.h
-    ui/EngineSettings.cpp
-    ui/EngineSettingsDialog.h
-    ui/EngineSettingsDialog.cpp
+    ui/ui_document.h
+    ui/ui_document.cpp
+    ui/document_area.h
+    ui/document_area.cpp
+    ui/main_window.h
+    ui/main_window.cpp
+    ui/doc_widget.h
+    ui/doc_widget.cpp
+    ui/engine_settings.h
+    ui/engine_settings.cpp
+    ui/engine_settings_dialog.h
+    ui/engine_settings_dialog.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

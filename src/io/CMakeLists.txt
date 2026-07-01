@@ -1,8 +1,8 @@
 # IO - 文件I/O + 导入器（静态库）
 add_library(IO STATIC
-    OCCTImporter.cpp
-    ImporterFactory.cpp
-    FileManager.cpp
+    occt_importer.cpp
+    importer_factory.cpp
+    file_manager.cpp
 )
 
 # 构建时将头文件复制到 build/include/mulan/io/...
@@ -35,6 +35,8 @@ foreach(lib ${OCCT_LIBS})
         message(WARNING "OCCT library not found for IO: ${lib}")
     endif()
 endforeach()
+
+set_target_properties(IO PROPERTIES OUTPUT_NAME mulan_io)
 
 target_compile_definitions(IO PRIVATE
     BUILDING_IO

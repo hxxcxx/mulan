@@ -3,16 +3,16 @@
 # 图片加载/保存、日志、文件 IO 等通用功能。
 # 所有模块均可引入。
 add_library(Core SHARED
-    image/Image.cpp
-    image/StbImpl.cpp
-    ini/ConfigFile.cpp
-    log/Log.cpp
-    result/Result.cpp
-    serialization/Archive.cpp
-    serialization/BinaryArchive.cpp
-    serialization/VersionBlock.cpp
-    reflection/Object.cpp
-    reflection/TypeRegistry.cpp
+    image/image.cpp
+    image/stb_impl.cpp
+    ini/config_file.cpp
+    log/log.cpp
+    result/result.cpp
+    serialization/archive.cpp
+    serialization/binary_archive.cpp
+    serialization/version_block.cpp
+    reflection/object.cpp
+    reflection/type_registry.cpp
 )
 
 # 构建时将头文件复制到 build/include/mulan/core/...
@@ -24,8 +24,8 @@ foreach(hdr ${CORE_HEADERS})
     configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/core/${rel}" COPYONLY)
 endforeach()
 
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/CoreExport.h"
-               "${CMAKE_BINARY_DIR}/include/mulan/core/CoreExport.h" COPYONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/core_export.h"
+               "${CMAKE_BINARY_DIR}/include/mulan/core/core_export.h" COPYONLY)
 
 
 target_include_directories(Core PUBLIC
@@ -62,6 +62,8 @@ target_compile_definitions(Core PRIVATE
     BUILDING_CORE=1
     $<$<CONFIG:Debug>:_DEBUG>
 )
+
+set_target_properties(Core PROPERTIES OUTPUT_NAME mulan_core)
 
 if(MSVC)
     target_compile_options(Core PRIVATE /FS)

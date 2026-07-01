@@ -1,0 +1,110 @@
+#include "engine_settings.h"
+#include <QColor>
+using namespace mulan::engine;
+
+EngineSettings& EngineSettings::instance() {
+    static EngineSettings s;
+    return s;
+}
+
+EngineSettings::EngineSettings() {
+    load();
+}
+
+// --- 后端 ---
+
+GraphicsBackend EngineSettings::backend() const { return backend_; }
+
+void EngineSettings::setBackend(GraphicsBackend b) {
+    if (backend_ != b) { backend_ = b; save(); }
+}
+
+// --- 抗锯齿 ---
+
+RenderConfig::MSAALevel EngineSettings::msaa() const { return msaa_; }
+
+void EngineSettings::setMsaa(RenderConfig::MSAALevel level) {
+    if (msaa_ != level) { msaa_ = level; save(); }
+}
+
+// --- VSync ---
+
+bool EngineSettings::vsync() const { return vsync_; }
+
+void EngineSettings::setVsync(bool v) {
+    if (vsync_ != v) { vsync_ = v; save(); }
+}
+
+// --- 背景色 ---
+
+QColor EngineSettings::backgroundColor() const { return bgcolor_; }
+void EngineSettings::setBackgroundColor(const QColor& color) {
+    if (bgcolor_ != color) { bgcolor_ = color; save(); }
+}
+
+// --- 批量应用 / 读取 ---
+
+void EngineSettings::applyTo(mulan::world::ViewConfig& cfg) const {
+    cfg.backend = backend_;
+    cfg.msaa    = msaa_;
+    cfg.vsync   = vsync_;
+    cfg.clearColor[0] = static_cast<float>(bgcolor_.redF());
+    cfg.clearColor[1] = static_cast<float>(bgcolor_.greenF());
+    cfg.clearColor[2] = static_cast<float>(bgcolor_.blueF());
+    cfg.clearColor[3] = static_cast<float>(bgcolor_.alphaF());
+}
+
+void EngineSettings::loadFrom(const mulan::world::ViewConfig& cfg) {
+    backend_ = cfg.backend;
+    msaa_    = cfg.msaa;
+    vsync_   = cfg.vsync;
+    bgcolor_ = QColor::fromRgbF(cfg.clearColor[0], cfg.clearColor[1], cfg.clearColor[2], cfg.clearColor[3]);
+    save();
+}
+
+// --- 持久化 ---
+
+static int backendToInt(GraphicsBackend b) {
+    return static_cast<int>(b);
+}
+static GraphicsBackend intToBackend(int v) {
+    switch (static_cast<GraphicsBackend>(v)) {
+    case GraphicsBackend::Vulkan: return GraphicsBackend::Vulkan;
+    case GraphicsBackend::D3D12:  return GraphicsBackend::D3D12;
+    // OpenGL / D3D11 后端已移除，旧配置回退到 Vulkan
+    case GraphicsBackend::OpenGL:
+    case GraphicsBackend::D3D11:
+    default: return GraphicsBackend::Vulkan;
+    }
+}
+
+static int msaaToInt(RenderConfig::MSAALevel l) {
+    return static_cast<int>(l);
+}
+static RenderConfig::MSAALevel intToMsaa(int v) {
+    switch (v) {
+    case 1:  return RenderConfig::MSAALevel::None;
+    case 2:  return RenderConfig::MSAALevel::x2;
+    case 4:  return RenderConfig::MSAALevel::x4;
+    case 8:  return RenderConfig::MSAALevel::x8;
+    default: return RenderConfig::MSAALevel::x4;
+    }
+}
+
+void EngineSettings::save() {
+    qsettings_.setValue("backend", backendToInt(backend_));
+    qsettings_.setValue("msaa", msaaToInt(msaa_));
+    qsettings_.setValue("vsync", vsync_);
+    qsettings_.setValue("backgroundColor", bgcolor_);
+}
+
+void EngineSettings::load() {
+    backend_ = intToBackend(qsettings_.value("backend", backendToInt(GraphicsBackend::Vulkan)).toInt());
+    msaa_ = intToMsaa(qsettings_.value("msaa", 4).toInt());
+    vsync_ = qsettings_.value("vsync", true).toBool();
+    RenderConfig defaults;
+    bgcolor_ = qsettings_.value(
+        "backgroundColor",
+        QColor::fromRgbF(defaults.clearColor[0], defaults.clearColor[1], defaults.clearColor[2], defaults.clearColor[3])
+    ).value<QColor>();
+}

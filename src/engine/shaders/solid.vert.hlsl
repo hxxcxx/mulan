@@ -3,7 +3,7 @@
  * 输入: pos + normal + uv → MVP 变换 + 世界空间法线
  */
 
-#include "Common.hlsli"
+#include "common.hlsli"
 
 VS_OUTPUT main(VS_INPUT input) {
     VS_OUTPUT output;

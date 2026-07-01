@@ -4,9 +4,9 @@
 # 是文件的"真理之源"表示：导入/编辑/保存的统一落点。
 # World 不感知 OCCT，OCCT 依赖只在本模块。
 add_library(Document STATIC
-    Document.cpp
-    SolidGeometryData.cpp
-    TextGeometryData.cpp
+    document.cpp
+    solid_geometry_data.cpp
+    text_geometry_data.cpp
 )
 
 # 构建时将头文件复制到 build/include/mulan/document/...
@@ -38,6 +38,8 @@ foreach(lib ${OCCT_LIBS})
         message(WARNING "OCCT library not found for Document: ${lib}")
     endif()
 endforeach()
+
+set_target_properties(Document PROPERTIES OUTPUT_NAME mulan_document)
 
 target_compile_definitions(Document PRIVATE
     BUILDING_DOCUMENT

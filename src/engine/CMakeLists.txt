@@ -1,58 +1,58 @@
 # Engine - 渲染后端与场景管理（静态库）
 add_library(Engine STATIC
-    platform/Win32Window.cpp
-    rhi/DeviceFactory.cpp
-    scene/Frustum.cpp
-    scene/camera/Camera.cpp
-    scene/camera/TurntableRotation.cpp
-    scene/camera/TrackballRotation.cpp
-    render/TextureLoader.cpp
-    render/TextureCache.cpp
-    render/GpuResourceManager.cpp
-    render/MeshDrawCommand.cpp
+    platform/win32_window.cpp
+    rhi/device_factory.cpp
+    scene/frustum.cpp
+    scene/camera/camera.cpp
+    scene/camera/turntable_rotation.cpp
+    scene/camera/trackball_rotation.cpp
+    render/texture_loader.cpp
+    render/texture_cache.cpp
+    render/gpu_resource_manager.cpp
+    render/mesh_draw_command.cpp
     # RenderGraph
-    render/graph/ForwardPass.cpp
-    render/graph/EdgePass.cpp
+    render/graph/forward_pass.cpp
+    render/graph/edge_pass.cpp
     # Text rendering (MSDF)
-    render/text/FontAtlas.cpp
-    render/text/TextLayout.cpp
-    render/text/FontManager.cpp
+    render/text/font_atlas.cpp
+    render/text/text_layout.cpp
+    render/text/font_manager.cpp
     # ViewCube navigation
-    render/viewcube/ViewCubeRenderer.cpp
+    render/viewcube/view_cube_renderer.cpp
     # Material system
-    render/material/MaterialCache.cpp
-    render/material/MaterialInstance.cpp
-    render/material/MaterialSerializer.cpp
-    render/material/MaterialLibrary.cpp
+    render/material/material_cache.cpp
+    render/material/material_instance.cpp
+    render/material/material_serializer.cpp
+    render/material/material_library.cpp
     # Vulkan backend
-    rhi/vulkan/VKBuffer.cpp
-    rhi/vulkan/VKTexture.cpp
-    rhi/vulkan/VKShader.cpp
-    rhi/vulkan/VKFence.cpp
-    rhi/vulkan/VKFrameContext.cpp
-    rhi/vulkan/VKCommandList.cpp
-    rhi/vulkan/VKPipelineState.cpp
-    rhi/vulkan/VKDescriptorAllocator.cpp
-    rhi/vulkan/VKUploadContext.cpp
-    rhi/vulkan/VKSwapChain.cpp
-    rhi/vulkan/VKRenderTarget.cpp
-    rhi/vulkan/VKDevice.cpp
-    rhi/vulkan/VKDeviceInit.cpp
-    rhi/vulkan/VKSampler.cpp
+    rhi/vulkan/vk_buffer.cpp
+    rhi/vulkan/vk_texture.cpp
+    rhi/vulkan/vk_shader.cpp
+    rhi/vulkan/vk_fence.cpp
+    rhi/vulkan/vk_frame_context.cpp
+    rhi/vulkan/vk_command_list.cpp
+    rhi/vulkan/vk_pipeline_state.cpp
+    rhi/vulkan/vk_descriptor_allocator.cpp
+    rhi/vulkan/vk_upload_context.cpp
+    rhi/vulkan/vk_swap_chain.cpp
+    rhi/vulkan/vk_render_target.cpp
+    rhi/vulkan/vk_device.cpp
+    rhi/vulkan/vk_device_init.cpp
+    rhi/vulkan/vk_sampler.cpp
     # D3D12 backend
-    rhi/d3d12/DX12Fence.cpp
-    rhi/d3d12/DX12DescriptorAllocator.cpp
-    rhi/d3d12/DX12Buffer.cpp
-    rhi/d3d12/DX12UploadContext.cpp
-    rhi/d3d12/DX12Texture.cpp
-    rhi/d3d12/DX12Shader.cpp
-    rhi/d3d12/DX12PipelineState.cpp
-    rhi/d3d12/DX12CommandList.cpp
-    rhi/d3d12/DX12SwapChain.cpp
-    rhi/d3d12/DX12RenderTarget.cpp
-    rhi/d3d12/DX12FrameContext.cpp
-    rhi/d3d12/DX12Device.cpp
-    rhi/d3d12/DX12Sampler.cpp
+    rhi/d3d12/dx12_fence.cpp
+    rhi/d3d12/dx12_descriptor_allocator.cpp
+    rhi/d3d12/dx12_buffer.cpp
+    rhi/d3d12/dx12_upload_context.cpp
+    rhi/d3d12/dx12_texture.cpp
+    rhi/d3d12/dx12_shader.cpp
+    rhi/d3d12/dx12_pipeline_state.cpp
+    rhi/d3d12/dx12_command_list.cpp
+    rhi/d3d12/dx12_swap_chain.cpp
+    rhi/d3d12/dx12_render_target.cpp
+    rhi/d3d12/dx12_frame_context.cpp
+    rhi/d3d12/dx12_device.cpp
+    rhi/d3d12/dx12_sampler.cpp
 )
 
 # 构建时将头文件复制到 build/include/mulan/engine/...
@@ -98,6 +98,8 @@ target_compile_definitions(Engine PRIVATE
 )
 
 # MSVC: 多文件并行编译写同一 PDB 需要 /FS
+set_target_properties(Engine PROPERTIES OUTPUT_NAME mulan_engine)
+
 if(MSVC)
     target_compile_options(Engine PRIVATE /FS)
 endif()
@@ -131,8 +133,8 @@ if(DXC_EXECUTABLE)
         text.frag.hlsl
     )
 
-    # Common.hlsli 作为依赖（不单独编译）
-    set(SHADER_COMMON "${SHADER_SOURCE_DIR}/Common.hlsli")
+    # common.hlsli 作为依赖（不单独编译）
+    set(SHADER_COMMON "${SHADER_SOURCE_DIR}/common.hlsli")
 
     # 确定每个 shader 文件的 stage 和入口点
     set(SOLID_VERT_STAGE    vs)

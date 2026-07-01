@@ -3,7 +3,7 @@
  * 将 pickId 编码为颜色输出（R = id, GBA = 0）
  */
 
-#include "Common.hlsli"
+#include "common.hlsli"
 
 struct PS_OUTPUT {
     float4 color : SV_TARGET;

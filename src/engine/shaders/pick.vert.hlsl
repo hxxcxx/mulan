@@ -3,7 +3,7 @@
  * 仅变换位置，输出 pickId 到 fragment
  */
 
-#include "Common.hlsli"
+#include "common.hlsli"
 
 VS_OUTPUT_SIMPLE main(VS_INPUT_POS input) {
     VS_OUTPUT_SIMPLE output;
