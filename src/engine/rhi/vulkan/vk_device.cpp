@@ -10,6 +10,7 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 #include <cstdio>
 #include <string>
 #include <mulan/core/result/error.h>
+#include "../../engine_error_code.h"
 #include "vk_debug_name.h"
 
 
@@ -19,52 +20,67 @@ namespace mulan::engine {
 // 资源创建
 // ============================================================
 
-std::unique_ptr<Buffer> VKDevice::createBuffer(const BufferDesc& desc) {
-    auto buf = std::make_unique<VKBuffer>(desc, allocator_);
+std::expected<std::unique_ptr<Buffer>, core::Error> VKDevice::createBuffer(const BufferDesc& desc) {
+    auto result = VKBuffer::create(desc, allocator_);
+    if (!result) return std::unexpected(result.error());
+    auto& buf = *result;
     setDebugName(device_, vk::ObjectType::eBuffer,
                  reinterpret_cast<uint64_t>(VkBuffer(buf->vkBuffer())),
                  desc.name.empty() ? "Buffer" : desc.name);
     if (buf->needsUpload()) {
         upload_context_->uploadBufferInit(buf.get());
     }
-    return buf;
+    return result;
 }
 
-std::unique_ptr<Texture> VKDevice::createTexture(const TextureDesc& desc) {
-    auto tex = std::make_unique<VKTexture>(desc, device_, allocator_);
+std::expected<std::unique_ptr<Texture>, core::Error> VKDevice::createTexture(const TextureDesc& desc) {
+    auto result = VKTexture::create(desc, device_, allocator_);
+    if (!result) return std::unexpected(result.error());
+    auto& tex = *result;
     setDebugName(device_, vk::ObjectType::eImage,
                  reinterpret_cast<uint64_t>(VkImage(tex->image())),
                  desc.name.empty() ? "Texture" : desc.name);
     setDebugName(device_, vk::ObjectType::eImageView,
                  reinterpret_cast<uint64_t>(VkImageView(tex->view())),
                  desc.name.empty() ? "TextureView" : (std::string(desc.name) + "/view").c_str());
-    return tex;
+    return result;
 }
 
-std::unique_ptr<Shader> VKDevice::createShader(const ShaderDesc& desc) {
-    auto sh = std::make_unique<VKShader>(desc, device_);
+std::expected<std::unique_ptr<Shader>, core::Error> VKDevice::createShader(const ShaderDesc& desc) {
+    auto result = VKShader::create(desc, device_);
+    if (!result) return std::unexpected(result.error());
+    auto& sh = *result;
     setDebugName(device_, vk::ObjectType::eShaderModule,
                  reinterpret_cast<uint64_t>(VkShaderModule(sh->module())),
                  desc.name.empty() ? "Shader" : desc.name);
-    return sh;
+    return result;
 }
 
-std::unique_ptr<PipelineState> VKDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
-    auto pso = std::make_unique<VKPipelineState>(desc, device_, this);
+std::expected<std::unique_ptr<PipelineState>, core::Error>
+VKDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
+    auto result = VKPipelineState::create(desc, device_, this);
+    if (!result) return std::unexpected(result.error());
+    auto& pso = *result;
     setDebugName(device_, vk::ObjectType::ePipeline,
                  reinterpret_cast<uint64_t>(VkPipeline(pso->pipeline())),
                  desc.name.empty() ? "Pipeline" : desc.name);
-    return pso;
+    return result;
 }
 
-std::unique_ptr<CommandList> VKDevice::createCommandList() {
+std::expected<std::unique_ptr<CommandList>, core::Error> VKDevice::createCommandList() {
     // 独立命令列表需要独立的 descriptor allocator
     auto* allocator = new VKDescriptorAllocator(device_);
+    auto result = VKCommandList::create(device_, graphics_queue_family_, allocator);
+    if (!result) {
+        delete allocator;
+        return std::unexpected(result.error());
+    }
     standalone_allocators_.emplace_back(allocator);
-    return std::make_unique<VKCommandList>(device_, graphics_queue_family_, allocator);
+    return result;
 }
 
-std::unique_ptr<SwapChain> VKDevice::createSwapChain(const SwapChainDesc& desc) {
+std::expected<std::unique_ptr<SwapChain>, core::Error>
+VKDevice::createSwapChain(const SwapChainDesc& desc) {
     VKSwapChain::InitParams params;
     params.instance            = instance_;
     params.physicalDevice      = physical_device_;
@@ -76,7 +92,9 @@ std::unique_ptr<SwapChain> VKDevice::createSwapChain(const SwapChainDesc& desc) 
     params.presentQueue        = present_queue_;
     params.surface             = surface_;
 
-    auto swapchain = std::make_unique<VKSwapChain>(desc, params, render_config_);
+    auto result = VKSwapChain::create(desc, params, render_config_);
+    if (!result) return std::unexpected(result.error());
+    auto& swapchain = *result;
 
     // 为每个 swapchain image 创建独立的 renderFinished 信号量
     for (uint32_t i = static_cast<uint32_t>(render_finished_semaphores_.size());
@@ -88,40 +106,49 @@ std::unique_ptr<SwapChain> VKDevice::createSwapChain(const SwapChainDesc& desc) 
         initFrameContexts(frame_count_);
     }
 
-    return swapchain;
+    return result;
 }
 
-std::unique_ptr<Fence> VKDevice::createFence(uint64_t initialValue) {
-    auto f = std::make_unique<VKFence>(device_, initialValue);
+std::expected<std::unique_ptr<Fence>, core::Error>
+VKDevice::createFence(uint64_t initialValue) {
+    auto result = VKFence::create(device_, initialValue);
+    if (!result) return std::unexpected(result.error());
+    auto& f = *result;
     char nm[64];
     std::snprintf(nm, sizeof(nm), "Fence@%p", f.get());
     setDebugName(device_, vk::ObjectType::eSemaphore,
                  reinterpret_cast<uint64_t>(VkSemaphore(f->semaphore())), nm);
-    return f;
+    return result;
 }
 
-std::unique_ptr<RenderTarget> VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
+std::expected<std::unique_ptr<RenderTarget>, core::Error>
+VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
     // 如果 frame contexts 还未初始化（无 SwapChain 时），在此初始化
     if (frame_contexts_.empty()) {
         initFrameContexts(frame_count_);
     }
-    auto rt = std::make_unique<VKRenderTarget>(desc, device_, allocator_);
+    auto result = VKRenderTarget::create(desc, device_, allocator_);
+    if (!result) return std::unexpected(result.error());
+    auto& rt = *result;
     char nm[64];
     std::snprintf(nm, sizeof(nm), "RenderTarget@%p", rt.get());
     setDebugName(device_, vk::ObjectType::eRenderPass,
                  reinterpret_cast<uint64_t>(VkRenderPass(rt->renderPass())), nm);
     setDebugName(device_, vk::ObjectType::eFramebuffer,
                  reinterpret_cast<uint64_t>(VkFramebuffer(rt->framebuffer())), nm);
-    return rt;
+    return result;
 }
 
-std::unique_ptr<Sampler> VKDevice::createSampler(const SamplerDesc& desc) {
-    auto s = std::make_unique<VKSampler>(desc, device_);
+std::expected<std::unique_ptr<Sampler>, core::Error>
+VKDevice::createSampler(const SamplerDesc& desc) {
+    auto result = VKSampler::create(desc, device_);
+    if (!result) return std::unexpected(result.error());
+    auto& s = *result;
     char nm[64];
     std::snprintf(nm, sizeof(nm), "Sampler@%p", s.get());
     setDebugName(device_, vk::ObjectType::eSampler,
                  reinterpret_cast<uint64_t>(VkSampler(s->handle())), nm);
-    return s;
+    return result;
 }
 
 // ============================================================

@@ -2,25 +2,35 @@
 #include "vk_device.h"
 #include "vk_shader.h"
 
+#include <mulan/core/result/error.h>
+#include "../../engine_error_code.h"
+
+#include <string>
+
 namespace mulan::engine {
 
-VKPipelineState::VKPipelineState(const GraphicsPipelineDesc& desc,
-                                 vk::Device device, VKDevice* ownerDevice)
-    : desc_(desc), device_(device)
-{
-    createRootSignature();
+std::expected<std::unique_ptr<VKPipelineState>, core::Error>
+VKPipelineState::create(const GraphicsPipelineDesc& desc,
+                        vk::Device device, VKDevice* ownerDevice) {
+    auto obj = std::unique_ptr<VKPipelineState>(new VKPipelineState(desc, device));
+
+    if (auto e = obj->createRootSignature(); e.code != 0)
+        return std::unexpected(e);
 
     // 从 desc 获取 RT 格式 → device RenderPass Cache → build
     std::array<TextureFormat, GraphicsPipelineDesc::kMaxRenderTargets> colorFmts;
-    for (uint8_t i = 0; i < desc_.colorTargetCount; ++i) {
-        colorFmts[i] = desc_.colorFormats[i];
+    for (uint8_t i = 0; i < desc.colorTargetCount; ++i) {
+        colorFmts[i] = desc.colorFormats[i];
     }
     vk::RenderPass renderPass = ownerDevice->getOrCreateRenderPass(
-        {colorFmts.data(), desc_.colorTargetCount},
-        desc_.depthStencilFormat,
-        desc_.depthEnable);
+        {colorFmts.data(), desc.colorTargetCount},
+        desc.depthStencilFormat,
+        desc.depthEnable);
 
-    build(renderPass);
+    if (auto e = obj->build(renderPass); e.code != 0)
+        return std::unexpected(e);
+
+    return obj;
 }
 
 VKPipelineState::~VKPipelineState() {
@@ -29,7 +39,7 @@ VKPipelineState::~VKPipelineState() {
     if (descriptor_set_layout_) device_.destroyDescriptorSetLayout(descriptor_set_layout_);
 }
 
-void VKPipelineState::createRootSignature() {
+core::Error VKPipelineState::createRootSignature() {
     // --- Descriptor Set Layout ---
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
 
@@ -58,16 +68,23 @@ void VKPipelineState::createRootSignature() {
     vk::DescriptorSetLayoutCreateInfo dslCI;
     dslCI.bindingCount = static_cast<uint32_t>(bindings.size());
     dslCI.pBindings    = bindings.data();
-    descriptor_set_layout_ = device_.createDescriptorSetLayout(dslCI);
 
     // --- Pipeline Layout ---
     vk::PipelineLayoutCreateInfo plCI;
     plCI.setLayoutCount = 1;
     plCI.pSetLayouts    = &descriptor_set_layout_;
-    layout_ = device_.createPipelineLayout(plCI);
+
+    try {
+        descriptor_set_layout_ = device_.createDescriptorSetLayout(dslCI);
+        layout_ = device_.createPipelineLayout(plCI);
+    } catch (const vk::Error& e) {
+        return makeError(EngineErrorCode::PipelineCreateFailed,
+            std::string("createRootSignature failed: ") + e.what());
+    }
+    return {};
 }
 
-void VKPipelineState::build(vk::RenderPass renderPass) {
+core::Error VKPipelineState::build(vk::RenderPass renderPass) {
     std::vector<vk::PipelineShaderStageCreateInfo> stages;
     auto* vkVs = static_cast<VKShader*>(desc_.vs);
     auto* vkPs = static_cast<VKShader*>(desc_.ps);
@@ -161,7 +178,13 @@ void VKPipelineState::build(vk::RenderPass renderPass) {
     gpCI.renderPass          = renderPass;
     gpCI.subpass             = 0;
 
-    pipeline_ = device_.createGraphicsPipeline(nullptr, gpCI).value;
+    try {
+        pipeline_ = device_.createGraphicsPipeline(nullptr, gpCI).value;
+    } catch (const vk::Error& e) {
+        return makeError(EngineErrorCode::PipelineCreateFailed,
+            std::string("createGraphicsPipeline failed: ") + e.what());
+    }
+    return {};
 }
 
 vk::PipelineVertexInputStateCreateInfo VKPipelineState::buildVertexInputState() {

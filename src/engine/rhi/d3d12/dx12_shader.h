@@ -9,13 +9,19 @@
 #include "../shader.h"
 #include "dx12_common.h"
 
+#include <mulan/core/result/error.h>
+
+#include <expected>
+#include <memory>
 #include <vector>
 
 namespace mulan::engine {
 
 class DX12Shader final : public Shader {
 public:
-    DX12Shader(const ShaderDesc& desc);
+    /// 创建 DX12Shader。文件读失败 → ShaderFileNotFound；无字节码 → ShaderCompileFailed。
+    static std::expected<std::unique_ptr<DX12Shader>, core::Error>
+        create(const ShaderDesc& desc);
     ~DX12Shader() = default;
 
     const ShaderDesc& desc() const override { return desc_; }
@@ -28,10 +34,12 @@ public:
     }
 
 private:
+    DX12Shader(const ShaderDesc& desc) : desc_(desc) {}
+
+    bool loadFromFile(std::string_view path);
+
     ShaderDesc              desc_;
     std::vector<uint8_t>    byte_code_;
-
-    void loadFromFile(std::string_view path);
 };
 
 } // namespace mulan::engine

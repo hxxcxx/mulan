@@ -10,11 +10,18 @@
 #include "../shader.h"
 #include "vk_convert.h"
 
+#include <mulan/core/result/error.h>
+
+#include <expected>
+#include <memory>
+
 namespace mulan::engine {
 
 class VKShader : public Shader {
 public:
-    VKShader(const ShaderDesc& desc, vk::Device device);
+    /// 创建 VKShader。文件读失败 → ShaderFileNotFound；编译失败 → ShaderCompileFailed。
+    static std::expected<std::unique_ptr<VKShader>, core::Error>
+        create(const ShaderDesc& desc, vk::Device device);
     ~VKShader();
 
     const ShaderDesc& desc() const override { return desc_; }
@@ -23,8 +30,9 @@ public:
     vk::PipelineShaderStageCreateInfo stageCreateInfo() const;
 
 private:
-    void createFromSPIRV(const uint8_t* code, uint32_t size);
-    void loadSPIRVFromFile(std::string_view path);
+    VKShader(const ShaderDesc& desc, vk::Device device)
+        : desc_(desc), device_(device) {}
+
     static vk::ShaderStageFlagBits toVkShaderStage(ShaderType type);
 
     ShaderDesc     desc_;

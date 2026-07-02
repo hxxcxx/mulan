@@ -3,32 +3,39 @@
 #include "vk_descriptor_allocator.h"
 #include "vk_device.h"
 
+#include <mulan/core/result/error.h>
+#include "../../engine_error_code.h"
+
+#include <string>
+
 namespace mulan::engine {
 
-VKCommandList::VKCommandList(vk::Device device, uint32_t queueFamilyIndex)
-    : device_(device)
-    , owns_pool_(true)
-{
+std::expected<std::unique_ptr<VKCommandList>, core::Error>
+VKCommandList::create(vk::Device device, uint32_t queueFamilyIndex,
+                      VKDescriptorAllocator* allocator) {
     vk::CommandPoolCreateInfo poolCI;
     poolCI.flags            = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
     poolCI.queueFamilyIndex = queueFamilyIndex;
 
-    pool_ = device_.createCommandPool(poolCI);
+    vk::CommandPool pool;
+    vk::CommandBuffer cmd;
+    try {
+        pool = device.createCommandPool(poolCI);
 
-    vk::CommandBufferAllocateInfo allocCI;
-    allocCI.commandPool        = pool_;
-    allocCI.level              = vk::CommandBufferLevel::ePrimary;
-    allocCI.commandBufferCount = 1;
+        vk::CommandBufferAllocateInfo allocCI;
+        allocCI.commandPool        = pool;
+        allocCI.level              = vk::CommandBufferLevel::ePrimary;
+        allocCI.commandBufferCount = 1;
+        auto cmdBuffers = device.allocateCommandBuffers(allocCI);
+        cmd = cmdBuffers[0];
+    } catch (const vk::Error& e) {
+        return std::unexpected(makeError(EngineErrorCode::CommandListCreateFailed,
+            std::string("VKCommandList create failed: ") + e.what()));
+    }
 
-    auto cmdBuffers = device_.allocateCommandBuffers(allocCI);
-    cmd_buffer_ = cmdBuffers[0];
-}
-
-VKCommandList::VKCommandList(vk::Device device, uint32_t queueFamilyIndex,
-                             VKDescriptorAllocator* allocator)
-    : VKCommandList(device, queueFamilyIndex)
-{
-    allocator_ = allocator;
+    auto obj = std::unique_ptr<VKCommandList>(new VKCommandList(device, pool, cmd));
+    obj->allocator_ = allocator;
+    return obj;
 }
 
 VKCommandList::VKCommandList(vk::Device device, vk::CommandBuffer externalCmd)

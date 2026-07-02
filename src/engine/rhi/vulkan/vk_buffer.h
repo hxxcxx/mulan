@@ -10,13 +10,19 @@
 #include "../buffer.h"
 #include "vk_convert.h"
 
+#include <mulan/core/result/error.h>
+
+#include <expected>
+#include <memory>
 #include <vector>
 
 namespace mulan::engine {
 
 class VKBuffer : public Buffer {
 public:
-    VKBuffer(const BufferDesc& desc, VmaAllocator allocator);
+    /// 创建 VKBuffer。失败返回 EngineErrorCode::BufferCreateFailed。
+    static std::expected<std::unique_ptr<VKBuffer>, core::Error>
+        create(const BufferDesc& desc, VmaAllocator allocator);
     ~VKBuffer();
 
     const BufferDesc& desc() const override { return desc_; }
@@ -33,6 +39,8 @@ public:
     bool readback(uint32_t offset, uint32_t size, void* outData) override;
 
 private:
+    explicit VKBuffer(const BufferDesc& desc) : desc_(desc) {}
+
     BufferDesc      desc_;
     VmaAllocator    allocator_ = nullptr;
     vk::Buffer      buffer_;

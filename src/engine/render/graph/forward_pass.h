@@ -42,7 +42,7 @@ public:
 
 private:
     bool loadSolidShaders();
-    void createSolidPSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
+    bool createSolidPSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
     void uploadSceneUBO(const PassContext& ctx);
 
     RHIDevice&              device_;

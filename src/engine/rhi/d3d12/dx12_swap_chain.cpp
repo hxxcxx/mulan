@@ -2,7 +2,26 @@
 #include "dx12_command_list.h"
 #include "dx12_convert.h"
 
+#include <mulan/core/result/error.h>
+#include "../../engine_error_code.h"
+#include <mulan/core/log/log.h>
+
+#include <string>
+
 namespace mulan::engine {
+
+std::expected<std::unique_ptr<DX12SwapChain>, core::Error>
+DX12SwapChain::create(const SwapChainDesc& desc, ID3D12Device* device,
+                      IDXGIFactory4* factory, ID3D12CommandQueue* queue,
+                      const NativeWindowHandle& window) {
+    try {
+        return std::unique_ptr<DX12SwapChain>(
+            new DX12SwapChain(desc, device, factory, queue, window));
+    } catch (const std::exception& e) {
+        return std::unexpected(makeError(EngineErrorCode::SwapChainCreateFailed,
+            std::string("DX12SwapChain create failed: ") + e.what()));
+    }
+}
 
 DX12SwapChain::DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device,
                              IDXGIFactory4* factory, ID3D12CommandQueue* queue,
@@ -75,8 +94,14 @@ void DX12SwapChain::createBackBuffers() {
     // 创建非法 SRV，导致 device removed。
     auto depthDesc = TextureDesc::depthStencil(desc_.width, desc_.height);
     depthDesc.usage = TextureUsageFlags::DepthStencil;  // 剥离 ShaderResource
-    depth_texture_ = std::make_unique<DX12Texture>(
+    auto depthResult = DX12Texture::create(
         depthDesc, device_, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+    if (!depthResult) {
+        // createBackBuffers 被 create()/resize() 共用；失败时抛异常，
+        // 由 create() 的 try/catch 转成 expected，或由 resize() 的 try/catch 消化。
+        throw std::runtime_error(depthResult.error().message);
+    }
+    depth_texture_ = std::move(*depthResult);
 
     auto dsvDesc = dsv_heap_->allocate();
     device_->CreateDepthStencilView(depth_texture_->resource(), nullptr, dsvDesc.cpu);
@@ -122,13 +147,17 @@ void DX12SwapChain::resize(uint32_t width, uint32_t height) {
     desc_.width  = width;
     desc_.height = height;
 
-    HRESULT hr = swap_chain_->ResizeBuffers(
-        desc_.bufferCount, width, height,
-        toDXGIFormat(desc_.format), 0);
-    DX12_CHECK(hr);
+    // resize 是基类 void 热路径契约，内部消化错误。
+    try {
+        HRESULT hr = swap_chain_->ResizeBuffers(
+            desc_.bufferCount, width, height,
+            toDXGIFormat(desc_.format), 0);
+        DX12_CHECK(hr);
 
-    createRTVHeap();
-    createBackBuffers();
+        createRTVHeap();
+        createBackBuffers();
+    } catch (const std::exception& e) {
+    }
 }
 
 } // namespace mulan::engine

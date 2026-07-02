@@ -101,15 +101,17 @@ public:
     virtual Mat4 clipSpaceCorrectionMatrix() const = 0;
 
     // --- 资源创建 ---
-    virtual std::unique_ptr<Buffer>        createBuffer(const BufferDesc& desc) = 0;
-    virtual std::unique_ptr<Texture>       createTexture(const TextureDesc& desc) = 0;
-    virtual std::unique_ptr<Shader>        createShader(const ShaderDesc& desc) = 0;
-    virtual std::unique_ptr<PipelineState> createPipelineState(const GraphicsPipelineDesc& desc) = 0;
-    virtual std::unique_ptr<CommandList>   createCommandList() = 0;
-    virtual std::unique_ptr<SwapChain>     createSwapChain(const SwapChainDesc& desc) = 0;
-    virtual std::unique_ptr<RenderTarget>  createRenderTarget(const RenderTargetDesc& desc) = 0;
-    virtual std::unique_ptr<Sampler>       createSampler(const SamplerDesc& desc) = 0;
-    virtual std::unique_ptr<Fence>         createFence(uint64_t initialValue = 0) = 0;
+    // 全部返回 std::expected<unique_ptr<T>, core::Error>：失败时调用方拿到
+    // 失败原因（含 EngineErrorCode），可据此决策。参见 core/result/error.h。
+    virtual std::expected<std::unique_ptr<Buffer>,        core::Error> createBuffer(const BufferDesc& desc) = 0;
+    virtual std::expected<std::unique_ptr<Texture>,       core::Error> createTexture(const TextureDesc& desc) = 0;
+    virtual std::expected<std::unique_ptr<Shader>,        core::Error> createShader(const ShaderDesc& desc) = 0;
+    virtual std::expected<std::unique_ptr<PipelineState>, core::Error> createPipelineState(const GraphicsPipelineDesc& desc) = 0;
+    virtual std::expected<std::unique_ptr<CommandList>,   core::Error> createCommandList() = 0;
+    virtual std::expected<std::unique_ptr<SwapChain>,     core::Error> createSwapChain(const SwapChainDesc& desc) = 0;
+    virtual std::expected<std::unique_ptr<RenderTarget>,  core::Error> createRenderTarget(const RenderTargetDesc& desc) = 0;
+    virtual std::expected<std::unique_ptr<Sampler>,       core::Error> createSampler(const SamplerDesc& desc) = 0;
+    virtual std::expected<std::unique_ptr<Fence>,         core::Error> createFence(uint64_t initialValue = 0) = 0;
 
     // --- 提交命令 ---
 

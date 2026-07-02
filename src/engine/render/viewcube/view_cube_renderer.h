@@ -135,9 +135,9 @@ private:
     static_assert(sizeof(MaterialUBO) == 80);
 
     // --- 内部方法 ---
-    void createGeometry();
-    void createFaceGeometry();
-    void createEdgeGeometry();
+    bool createGeometry();
+    bool createFaceGeometry();
+    bool createEdgeGeometry();
 
     // --- 设备 ---
     RHIDevice*   device_;

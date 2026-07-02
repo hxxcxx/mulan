@@ -85,10 +85,11 @@ TextureAsset* TextureCache::create(uint32_t width, uint32_t height,
     desc.dimension  = TextureDimension::Texture2D;
     desc.usage     = usage;
 
-    auto texture = device_->createTexture(desc);
-    if (!texture) {
+    auto result = device_->createTexture(desc);
+    if (!result) {
         return nullptr;
     }
+    auto texture = std::move(*result);
 
     auto key = name.empty() ? ("__unnamed_" + std::to_string(reinterpret_cast<uintptr_t>(texture.get()))) : name;
     auto [inserted, _] = textures_.emplace(key, TextureAsset{std::move(texture), key});
@@ -131,8 +132,8 @@ std::unique_ptr<Texture> TextureCache::createRHITexture(const LoadedTexture& loa
     desc.dimension = TextureDimension::Texture2D;
     desc.usage     = usage;
 
-    auto texture = device_->createTexture(desc);
-    if (!texture) {
+    auto result = device_->createTexture(desc);
+    if (!result) {
         return nullptr;
     }
 
@@ -141,7 +142,7 @@ std::unique_ptr<Texture> TextureCache::createRHITexture(const LoadedTexture& loa
     // TODO: 实现 proper 的 upload context
     (void)generateMips;
 
-    return texture;
+    return std::move(*result);
 }
 
 } // namespace mulan::engine

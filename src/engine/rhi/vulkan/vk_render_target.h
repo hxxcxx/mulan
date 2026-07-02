@@ -12,14 +12,19 @@
 #include "vk_texture.h"
 #include "vk_command_list.h"
 
+#include <mulan/core/result/error.h>
+
+#include <expected>
 #include <memory>
 
 namespace mulan::engine {
 
 class VKRenderTarget : public RenderTarget {
 public:
-    VKRenderTarget(const RenderTargetDesc& desc,
-                   vk::Device device, VmaAllocator allocator);
+    /// 创建 VKRenderTarget。失败返回 RenderTargetCreateFailed。
+    static std::expected<std::unique_ptr<VKRenderTarget>, core::Error>
+        create(const RenderTargetDesc& desc,
+               vk::Device device, VmaAllocator allocator);
     ~VKRenderTarget();
 
     const RenderTargetDesc& desc() const override { return desc_; }
@@ -34,7 +39,11 @@ public:
     vk::Framebuffer framebuffer() const { return framebuffer_; }
 
 private:
-    void createResources();
+    VKRenderTarget(const RenderTargetDesc& desc, vk::Device device, VmaAllocator allocator)
+        : desc_(desc), device_(device), allocator_(allocator) {}
+
+    /// 创建/重建资源。成功返回默认 Error(code=0)。
+    core::Error createResources();
     void cleanup();
 
     RenderTargetDesc desc_;

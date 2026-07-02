@@ -9,14 +9,21 @@
 #include "../command_list.h"
 #include "dx12_common.h"
 
+#include <mulan/core/result/error.h>
+
+#include <expected>
+#include <memory>
+
 namespace mulan::engine {
 
 class DX12Texture;  // forward declaration
 
 class DX12CommandList final : public CommandList {
 public:
-    /// 创建独立的 CommandList（拥有自己的 cmd allocator 和 cmd list）
-    DX12CommandList(ID3D12Device* device, ID3D12CommandAllocator* allocator);
+    /// 创建独立的 CommandList（拥有自己的 cmd allocator 和 cmd list）。
+    /// 失败返回 CommandListCreateFailed。
+    static std::expected<std::unique_ptr<DX12CommandList>, core::Error>
+        create(ID3D12Device* device, ID3D12CommandAllocator* allocator);
     /// 包装已有的 cmd list（帧循环用，不拥有）
     DX12CommandList(ID3D12GraphicsCommandList* existingCmdList);
     ~DX12CommandList();
@@ -78,6 +85,9 @@ public:
                            uint32_t descriptorSize);
 
 private:
+    /// 独立模式私有构造（create() 使用）
+    DX12CommandList(ID3D12Device* device, ID3D12CommandAllocator* allocator);
+
     ComPtr<ID3D12GraphicsCommandList> cmd_list_;
     bool owns_cmd_list_ = true;  // 是否在析构时释放
     uint32_t cached_stride_ = 0;  // 从 PSO vertexLayout 缓存的 stride

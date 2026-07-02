@@ -1,6 +1,11 @@
 #include "dx12_sampler.h"
 #include "dx12_descriptor_allocator.h"
+
+#include <mulan/core/result/error.h>
+#include "../../engine_error_code.h"
+
 #include <cstdio>
+#include <string>
 
 namespace mulan::engine {
 
@@ -60,6 +65,22 @@ static D3D12_COMPARISON_FUNC toDX12ComparisonFunc(CompareFunc f) {
 // ============================================================
 // DX12Sampler
 // ============================================================
+
+std::expected<std::unique_ptr<DX12Sampler>, core::Error>
+DX12Sampler::create(const SamplerDesc& desc, ID3D12Device* device,
+                    DX12DescriptorAllocator* samplerHeap) {
+    if (!samplerHeap) {
+        return std::unexpected(makeError(EngineErrorCode::SamplerCreateFailed,
+            "DX12Sampler requires a non-null sampler heap"));
+    }
+    try {
+        return std::unique_ptr<DX12Sampler>(
+            new DX12Sampler(desc, device, samplerHeap));
+    } catch (const std::exception& e) {
+        return std::unexpected(makeError(EngineErrorCode::SamplerCreateFailed,
+            std::string("DX12Sampler create failed: ") + e.what()));
+    }
+}
 
 DX12Sampler::DX12Sampler(const SamplerDesc& desc, ID3D12Device* device,
                           DX12DescriptorAllocator* samplerHeap)

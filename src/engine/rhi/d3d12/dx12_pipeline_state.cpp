@@ -1,5 +1,9 @@
 #include "dx12_pipeline_state.h"
 #include "dx12_shader.h"
+
+#include <mulan/core/result/error.h>
+#include "../../engine_error_code.h"
+
 #include <string>
 
 namespace {
@@ -25,6 +29,16 @@ D3D12_PRIMITIVE_TOPOLOGY_TYPE toDX12TopologyType(mulan::engine::PrimitiveTopolog
 } // namespace
 
 namespace mulan::engine {
+
+std::expected<std::unique_ptr<DX12PipelineState>, core::Error>
+DX12PipelineState::create(const GraphicsPipelineDesc& desc, ID3D12Device* device) {
+    try {
+        return std::unique_ptr<DX12PipelineState>(new DX12PipelineState(desc, device));
+    } catch (const std::exception& e) {
+        return std::unexpected(makeError(EngineErrorCode::PipelineCreateFailed,
+            std::string("DX12PipelineState create failed: ") + e.what()));
+    }
+}
 
 DX12PipelineState::DX12PipelineState(const GraphicsPipelineDesc& desc,
                                      ID3D12Device* device)

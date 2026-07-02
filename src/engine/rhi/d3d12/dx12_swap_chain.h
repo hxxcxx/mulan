@@ -13,17 +13,22 @@
 #include "dx12_descriptor_allocator.h"
 #include "../../window.h"
 
-#include <vector>
+#include <mulan/core/result/error.h>
+
+#include <expected>
 #include <memory>
+#include <vector>
 #include <array>
 
 namespace mulan::engine {
 
 class DX12SwapChain final : public SwapChain {
 public:
-    DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device,
-                  IDXGIFactory4* factory, ID3D12CommandQueue* queue,
-                  const NativeWindowHandle& window);
+    /// 创建 DX12SwapChain。失败返回 SwapChainCreateFailed。
+    static std::expected<std::unique_ptr<DX12SwapChain>, core::Error>
+        create(const SwapChainDesc& desc, ID3D12Device* device,
+               IDXGIFactory4* factory, ID3D12CommandQueue* queue,
+               const NativeWindowHandle& window);
     ~DX12SwapChain();
 
     const SwapChainDesc& desc() const override { return desc_; }
@@ -38,6 +43,10 @@ public:
     DXGI_FORMAT rtvFormat() const { return toDXGIFormat(desc_.format); }
 
 private:
+    DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device,
+                  IDXGIFactory4* factory, ID3D12CommandQueue* queue,
+                  const NativeWindowHandle& window);
+
     void createRTVHeap();
     void createBackBuffers();
     void releaseBackBuffers();

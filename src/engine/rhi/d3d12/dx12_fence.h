@@ -9,11 +9,21 @@
 #include "../fence.h"
 #include "dx12_common.h"
 
+#include <mulan/core/result/error.h>
+
+#include <expected>
+#include <memory>
+
 namespace mulan::engine {
 
 class DX12Fence final : public Fence {
 public:
+    /// 创建 DX12Fence。失败返回 FenceCreateFailed。
+    static std::expected<std::unique_ptr<DX12Fence>, core::Error>
+        create(ID3D12Device* device, uint64_t initialValue);
+
     DX12Fence(ID3D12Device* device, uint64_t initialValue);
+
     ~DX12Fence();
 
     void signal(uint64_t value) override;
@@ -24,6 +34,7 @@ public:
     HANDLE event() const { return event_; }
 
 private:
+
     ComPtr<ID3D12Fence> fence_;
     HANDLE event_ = nullptr;
 };

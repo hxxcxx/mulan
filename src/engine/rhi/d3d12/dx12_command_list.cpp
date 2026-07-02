@@ -4,7 +4,22 @@
 #include "dx12_pipeline_state.h"
 #include "dx12_convert.h"
 
+#include <mulan/core/result/error.h>
+#include "../../engine_error_code.h"
+
+#include <string>
+
 namespace mulan::engine {
+
+std::expected<std::unique_ptr<DX12CommandList>, core::Error>
+DX12CommandList::create(ID3D12Device* device, ID3D12CommandAllocator* allocator) {
+    try {
+        return std::unique_ptr<DX12CommandList>(new DX12CommandList(device, allocator));
+    } catch (const std::exception& e) {
+        return std::unexpected(makeError(EngineErrorCode::CommandListCreateFailed,
+            std::string("DX12CommandList create failed: ") + e.what()));
+    }
+}
 
 DX12CommandList::DX12CommandList(ID3D12Device* device,
                                  ID3D12CommandAllocator* allocator)

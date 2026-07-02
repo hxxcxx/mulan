@@ -10,13 +10,19 @@
 #include "dx12_common.h"
 #include "dx12_convert.h"
 
+#include <mulan/core/result/error.h>
+
+#include <expected>
+#include <memory>
 #include <vector>
 
 namespace mulan::engine {
 
 class DX12PipelineState final : public PipelineState {
 public:
-    DX12PipelineState(const GraphicsPipelineDesc& desc, ID3D12Device* device);
+    /// 创建 DX12PipelineState。失败返回 PipelineCreateFailed。
+    static std::expected<std::unique_ptr<DX12PipelineState>, core::Error>
+        create(const GraphicsPipelineDesc& desc, ID3D12Device* device);
     ~DX12PipelineState();
 
     const GraphicsPipelineDesc& desc() const override { return desc_; }
@@ -25,6 +31,8 @@ public:
     ID3D12RootSignature* rootSignature() const { return root_signature_.Get(); }
 
 private:
+    DX12PipelineState(const GraphicsPipelineDesc& desc, ID3D12Device* device);
+
     void build(DXGI_FORMAT rtFormat, DXGI_FORMAT dsFormat);
     void createRootSignature();
     D3D12_INPUT_LAYOUT_DESC buildInputLayout();

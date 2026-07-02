@@ -1,13 +1,18 @@
 #include "vk_buffer.h"
 #include "vk_debug_name.h"
 
-#include <stdexcept>
+#include <mulan/core/result/error.h>
+#include "../../engine_error_code.h"
+
+#include <cstring>
 
 namespace mulan::engine {
 
-VKBuffer::VKBuffer(const BufferDesc& desc, VmaAllocator allocator)
-    : desc_(desc), allocator_(allocator)
-{
+std::expected<std::unique_ptr<VKBuffer>, core::Error>
+VKBuffer::create(const BufferDesc& desc, VmaAllocator allocator) {
+    auto obj = std::unique_ptr<VKBuffer>(new VKBuffer(desc));
+    obj->allocator_ = allocator;
+
     VkBufferCreateInfo ci{};
     ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     ci.size  = desc.size;
@@ -46,23 +51,27 @@ VKBuffer::VKBuffer(const BufferDesc& desc, VmaAllocator allocator)
 
     VkResult res = vmaCreateBuffer(allocator, &ci, &allocInfo,
                                    &buffer, &allocation, &allocResult);
-    if (res != VK_SUCCESS)
-        throw std::runtime_error("vmaCreateBuffer failed: VkResult=" + std::to_string(res));
+    if (res != VK_SUCCESS) {
+        return std::unexpected(makeError(EngineErrorCode::BufferCreateFailed,
+            "vmaCreateBuffer failed: VkResult=" + std::to_string(res)));
+    }
 
-    buffer_     = vk::Buffer(buffer);
-    allocation_ = allocation;
-    mapped_data_ = allocResult.pMappedData;
+    obj->buffer_      = vk::Buffer(buffer);
+    obj->allocation_  = allocation;
+    obj->mapped_data_ = allocResult.pMappedData;
 
     // 上传初始数据
-    if (desc.initData && mapped_data_) {
-        memcpy(mapped_data_, desc.initData, desc.size);
-        vmaFlushAllocation(allocator, allocation_, 0, desc.size);
+    if (desc.initData && obj->mapped_data_) {
+        std::memcpy(obj->mapped_data_, desc.initData, desc.size);
+        vmaFlushAllocation(allocator, allocation, 0, desc.size);
     } else if (desc.initData) {
         // 不可映射的 immutable buffer 需要暂存缓冲区（后续由 VKDevice 处理）
         // 拷贝数据到自有存储，避免悬挂指针
-        pending_data_.resize(desc.size);
-        memcpy(pending_data_.data(), desc.initData, desc.size);
+        obj->pending_data_.resize(desc.size);
+        std::memcpy(obj->pending_data_.data(), desc.initData, desc.size);
     }
+
+    return obj;
 }
 
 VKBuffer::~VKBuffer() {

@@ -346,7 +346,7 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     caps_.depthClamp        = features.depthClamp;
     caps_.geometryShader    = features.geometryShader;
     caps_.tessellationShader = features.tessellationShader;
-    caps_.computeShader     = false;  // 见下方 queue families 检查
+    // caps_.computeShader 由上方 queue families 检查 (hasComputeQueue) 设置，这里不覆盖
 
     // --- 私有组件 ---
     upload_context_ = std::make_unique<VKUploadContext>(

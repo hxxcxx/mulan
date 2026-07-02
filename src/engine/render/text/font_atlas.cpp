@@ -167,7 +167,13 @@ bool FontAtlas::load(const char* fontPath, float fontSize,
         samplerDesc.addressU    = SamplerAddressMode::ClampToEdge;
         samplerDesc.addressV    = SamplerAddressMode::ClampToEdge;
         samplerDesc.debugName   = "MSDF_Atlas_Sampler";
-        sampler_ = device_->createSampler(samplerDesc);
+        auto sampler = device_->createSampler(samplerDesc);
+        if (!sampler) {
+            std::fprintf(stderr, "[FontAtlas] Failed to create atlas sampler: %s\n",
+                         sampler.error().message.c_str());
+        } else {
+            sampler_ = std::move(*sampler);
+        }
     }
 
     // --- 11. 清理 ---
@@ -202,11 +208,13 @@ bool FontAtlas::uploadAtlas(const std::vector<uint8_t>& rgbaData) {
     texDesc.mipLevels = 1;
     texDesc.arraySize = 1;
 
-    texture_ = device_->createTexture(texDesc);
-    if (!texture_) {
-        std::fprintf(stderr, "[FontAtlas] Failed to create atlas texture\n");
+    auto result = device_->createTexture(texDesc);
+    if (!result) {
+        std::fprintf(stderr, "[FontAtlas] Failed to create atlas texture: %s\n",
+                     result.error().message.c_str());
         return false;
     }
+    texture_ = std::move(*result);
 
     // TODO: 实际的纹理上传需要通过各后端的 UploadContext 完成
     // 当前引擎的 TextureDesc 没有 initData 字段，

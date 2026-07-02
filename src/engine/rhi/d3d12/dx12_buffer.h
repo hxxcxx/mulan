@@ -9,13 +9,19 @@
 #include "../buffer.h"
 #include "dx12_common.h"
 
+#include <mulan/core/result/error.h>
+
+#include <expected>
+#include <memory>
 #include <vector>
 
 namespace mulan::engine {
 
 class DX12Buffer final : public Buffer {
 public:
-    DX12Buffer(const BufferDesc& desc, ID3D12Device* device);
+    /// 创建 DX12Buffer。失败返回 BufferCreateFailed。
+    static std::expected<std::unique_ptr<DX12Buffer>, core::Error>
+        create(const BufferDesc& desc, ID3D12Device* device);
     ~DX12Buffer();
 
     const BufferDesc& desc() const override { return desc_; }
@@ -33,6 +39,8 @@ public:
     void markUploaded() { pending_data_.clear(); pending_data_.shrink_to_fit(); }
 
 private:
+    DX12Buffer(const BufferDesc& desc, ID3D12Device* device);
+
     BufferDesc           desc_;
     ComPtr<ID3D12Resource> resource_;
     void*                mapped_data_ = nullptr;

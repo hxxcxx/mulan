@@ -1,6 +1,11 @@
 #include "vk_sampler.h"
 #include "vk_convert.h"
+
+#include <mulan/core/result/error.h>
+#include "../../engine_error_code.h"
+
 #include <cstdio>
+#include <string>
 
 namespace mulan::engine {
 
@@ -37,10 +42,10 @@ static vk::SamplerAddressMode toVkAddressMode(SamplerAddressMode m) {
 
 // ============================================================
 
-VKSampler::VKSampler(const SamplerDesc& desc, vk::Device device)
-    : desc_(desc)
-    , device_(device)
-{
+std::expected<std::unique_ptr<VKSampler>, core::Error>
+VKSampler::create(const SamplerDesc& desc, vk::Device device) {
+    auto obj = std::unique_ptr<VKSampler>(new VKSampler(desc, device));
+
     vk::SamplerCreateInfo ci;
     ci.magFilter    = toVkFilter(desc.magFilter);
     ci.minFilter    = toVkFilter(desc.minFilter);
@@ -58,7 +63,14 @@ VKSampler::VKSampler(const SamplerDesc& desc, vk::Device device)
     ci.borderColor      = vk::BorderColor::eFloatTransparentBlack;
     ci.unnormalizedCoordinates = VK_FALSE;
 
-    sampler_ = device_.createSampler(ci);
+    try {
+        obj->sampler_ = device.createSampler(ci);
+    } catch (const vk::Error& e) {
+        return std::unexpected(makeError(EngineErrorCode::SamplerCreateFailed,
+            std::string("createSampler failed: ") + e.what()));
+    }
+
+    return obj;
 }
 
 VKSampler::~VKSampler() {

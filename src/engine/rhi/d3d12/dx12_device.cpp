@@ -193,7 +193,7 @@ Mat4 DX12Device::clipSpaceCorrectionMatrix() const {
 // 资源创建
 // ============================================================
 
-std::unique_ptr<Buffer> DX12Device::createBuffer(const BufferDesc& desc) {
+std::expected<std::unique_ptr<Buffer>, core::Error> DX12Device::createBuffer(const BufferDesc& desc) {
     HRESULT reason = device_->GetDeviceRemovedReason();
     if (FAILED(reason)) {
         std::fprintf(stderr, "[DX12 ERROR] createBuffer: device already removed! Reason=0x%08lX\n",
@@ -201,7 +201,9 @@ std::unique_ptr<Buffer> DX12Device::createBuffer(const BufferDesc& desc) {
         dumpInfoQueueMessages();
     }
 
-    auto buf = std::make_unique<DX12Buffer>(desc, device_.Get());
+    auto result = DX12Buffer::create(desc, device_.Get());
+    if (!result) return std::unexpected(result.error());
+    auto& buf = *result;
     setDebugName(buf->resource(), desc.name.empty() ? "Buffer" : desc.name);
 
     if (buf->needsUpload()) {
@@ -209,21 +211,26 @@ std::unique_ptr<Buffer> DX12Device::createBuffer(const BufferDesc& desc) {
         buf->markUploaded();
     }
 
-    return buf;
+    return result;
 }
 
-std::unique_ptr<Texture> DX12Device::createTexture(const TextureDesc& desc) {
-    auto tex = std::make_unique<DX12Texture>(desc, device_.Get());
+std::expected<std::unique_ptr<Texture>, core::Error> DX12Device::createTexture(const TextureDesc& desc) {
+    auto result = DX12Texture::create(desc, device_.Get());
+    if (!result) return std::unexpected(result.error());
+    auto& tex = *result;
     setDebugName(tex->resource(), desc.name.empty() ? "Texture" : desc.name);
-    return tex;
+    return result;
 }
 
-std::unique_ptr<Shader> DX12Device::createShader(const ShaderDesc& desc) {
+std::expected<std::unique_ptr<Shader>, core::Error> DX12Device::createShader(const ShaderDesc& desc) {
+    auto result = DX12Shader::create(desc);
+    if (!result) return std::unexpected(result.error());
     // DX12Shader 仅持有 DXIL 字节码（无 COM 对象），无需命名
-    return std::make_unique<DX12Shader>(desc);
+    return result;
 }
 
-std::unique_ptr<PipelineState> DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
+std::expected<std::unique_ptr<PipelineState>, core::Error>
+DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
     HRESULT reason = device_->GetDeviceRemovedReason();
     if (FAILED(reason)) {
         std::fprintf(stderr, "[DX12 ERROR] createPipelineState('%.*s'): device already removed! Reason=0x%08lX\n",
@@ -231,45 +238,56 @@ std::unique_ptr<PipelineState> DX12Device::createPipelineState(const GraphicsPip
                      static_cast<unsigned long>(reason));
         dumpInfoQueueMessages();
     }
-    auto pso = std::make_unique<DX12PipelineState>(desc, device_.Get());
+    auto result = DX12PipelineState::create(desc, device_.Get());
+    if (!result) return std::unexpected(result.error());
+    auto& pso = *result;
     setDebugName(pso->pipeline(),
                  desc.name.empty() ? "Pipeline" : desc.name);
     setDebugName(pso->rootSignature(),
                  desc.name.empty() ? "RootSignature" : (std::string(desc.name) + "/RootSig").c_str());
-    return pso;
+    return result;
 }
 
-std::unique_ptr<CommandList> DX12Device::createCommandList() {
+std::expected<std::unique_ptr<CommandList>, core::Error> DX12Device::createCommandList() {
     auto allocator = ComPtr<ID3D12CommandAllocator>();
     device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
                                      IID_PPV_ARGS(&allocator));
-    auto cmd = std::make_unique<DX12CommandList>(device_.Get(), allocator.Get());
+    auto result = DX12CommandList::create(device_.Get(), allocator.Get());
+    if (!result) return std::unexpected(result.error());
+    auto& cmd = *result;
     char nm[64];
     std::snprintf(nm, sizeof(nm), "CommandList@%p", cmd.get());
     setDebugName(cmd->commandList(), nm);
-    return cmd;
+    return result;
 }
 
-std::unique_ptr<SwapChain> DX12Device::createSwapChain(const SwapChainDesc& desc) {
-    return std::make_unique<DX12SwapChain>(desc, device_.Get(), factory_.Get(),
-                                           command_queue_.Get(), window_);
+std::expected<std::unique_ptr<SwapChain>, core::Error>
+DX12Device::createSwapChain(const SwapChainDesc& desc) {
+    return DX12SwapChain::create(desc, device_.Get(), factory_.Get(),
+                                 command_queue_.Get(), window_);
 }
 
-std::unique_ptr<RenderTarget> DX12Device::createRenderTarget(const RenderTargetDesc& desc) {
-    return std::make_unique<DX12RenderTarget>(desc, device_.Get());
+std::expected<std::unique_ptr<RenderTarget>, core::Error>
+DX12Device::createRenderTarget(const RenderTargetDesc& desc) {
+    return DX12RenderTarget::create(desc, device_.Get());
 }
 
-std::unique_ptr<Sampler> DX12Device::createSampler(const SamplerDesc& desc) {
-    // Sampler 仅持有 descriptor handle（非 COM 对象），无需命名
-    return std::make_unique<DX12Sampler>(desc, device_.Get(), nullptr);
+std::expected<std::unique_ptr<Sampler>, core::Error>
+DX12Device::createSampler(const SamplerDesc& desc) {
+    // Sampler 仅持有 descriptor handle（非 COM 对象），无需命名。
+    // 传 nullptr samplerHeap 会被 create() 拒绝并返回错误。
+    return DX12Sampler::create(desc, device_.Get(), nullptr);
 }
 
-std::unique_ptr<Fence> DX12Device::createFence(uint64_t initialValue) {
-    auto f = std::make_unique<DX12Fence>(device_.Get(), initialValue);
+std::expected<std::unique_ptr<Fence>, core::Error>
+DX12Device::createFence(uint64_t initialValue) {
+    auto result = DX12Fence::create(device_.Get(), initialValue);
+    if (!result) return std::unexpected(result.error());
+    auto& f = *result;
     char nm[64];
     std::snprintf(nm, sizeof(nm), "Fence@%p", f.get());
     setDebugName(f->fence(), nm);
-    return f;
+    return result;
 }
 
 // ============================================================

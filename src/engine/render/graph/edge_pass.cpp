@@ -4,6 +4,8 @@
 #include "../../rhi/render_types.h"
 #include "../material/material_cache.h"
 
+#include <mulan/core/log/log.h>
+
 #include <string>
 
 namespace mulan::engine {
@@ -35,12 +37,21 @@ EdgePass::EdgePass(RHIDevice& device, GpuResourceManager& gpu,
 
 bool EdgePass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
     if (!loadEdgeShaders()) return false;
-    createEdgePSO(colorFmt, depthFmt, hasDepth);
-    scene_ubo_  = device_.createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "EdgeSceneUBO"));
-    object_ubo_ = device_.createBuffer(BufferDesc::uniform(
+    if (!createEdgePSO(colorFmt, depthFmt, hasDepth)) return false;
+
+    auto sceneResult = device_.createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "EdgeSceneUBO"));
+    if (!sceneResult) { return false; }
+    scene_ubo_ = std::move(*sceneResult);
+
+    auto objResult = device_.createBuffer(BufferDesc::uniform(
         MeshDrawCommand::kObjectUboStride * 4096, "EdgeObjUBO"));  // 4096 objects
-    material_ubo_ = device_.createBuffer(BufferDesc::uniform(
+    if (!objResult) { return false; }
+    object_ubo_ = std::move(*objResult);
+
+    auto matResult = device_.createBuffer(BufferDesc::uniform(
         MaterialCache::kMaxMaterials * 256, "EdgeMatUBO"));
+    if (!matResult) { return false; }
+    material_ubo_ = std::move(*matResult);
 
     initialized_ = true;
     return true;
@@ -49,14 +60,18 @@ bool EdgePass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDept
 // ─── Shader ────────────────────────────────────────────────────
 
 bool EdgePass::loadEdgeShaders() {
-    vs_ = loadShader(device_, ShaderType::Vertex, "edge.vert");
-    fs_ = loadShader(device_, ShaderType::Pixel,  "edge.frag");
-    return vs_ && fs_;
+    auto vs = loadShader(device_, ShaderType::Vertex, "edge.vert");
+    auto fs = loadShader(device_, ShaderType::Pixel,  "edge.frag");
+    if (!vs) { return false; }
+    if (!fs) { return false; }
+    vs_ = std::move(*vs);
+    fs_ = std::move(*fs);
+    return true;
 }
 
 // ─── PSO ───────────────────────────────────────────────────────
 
-void EdgePass::createEdgePSO(TextureFormat colorFmt, TextureFormat depthFmt,
+bool EdgePass::createEdgePSO(TextureFormat colorFmt, TextureFormat depthFmt,
                               bool hasDepth) {
     VertexLayout vl;
     vl.begin()
@@ -97,7 +112,10 @@ void EdgePass::createEdgePSO(TextureFormat colorFmt, TextureFormat depthFmt,
     desc.depthStencilFormat = depthFmt;
     desc.depthEnable        = hasDepth;
 
-    pso_ = device_.createPipelineState(desc);
+    auto psoResult = device_.createPipelineState(desc);
+    if (!psoResult) { return false; }
+    pso_ = std::move(*psoResult);
+    return true;
 }
 
 // ─── Execute ───────────────────────────────────────────────────

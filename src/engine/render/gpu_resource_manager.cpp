@@ -2,6 +2,8 @@
 #include "../rhi/device.h"
 #include "../rhi/buffer.h"
 
+#include <mulan/core/log/log.h>
+
 namespace mulan::engine {
 
 GpuResourceManager::GpuResourceManager(RHIDevice& device)
@@ -9,11 +11,19 @@ GpuResourceManager::GpuResourceManager(RHIDevice& device)
 }
 
 void GpuResourceManager::uploadFaceMesh(uint64_t key, const Mesh& mesh) {
-    face_geos_[key] = createGpuBuffer(device_, mesh);
+    auto result = createGpuBuffer(device_, mesh);
+    if (!result) {
+        return;
+    }
+    face_geos_[key] = std::move(*result);
 }
 
 void GpuResourceManager::uploadEdgeMesh(uint64_t key, const Mesh& mesh) {
-    edge_geos_[key] = createGpuBuffer(device_, mesh);
+    auto result = createGpuBuffer(device_, mesh);
+    if (!result) {
+        return;
+    }
+    edge_geos_[key] = std::move(*result);
 }
 
 void GpuResourceManager::releaseResource(uint64_t key) {
@@ -43,7 +53,8 @@ void GpuResourceManager::clear() {
     edge_geos_.clear();
 }
 
-GpuGeometry GpuResourceManager::createGpuBuffer(RHIDevice& device, const Mesh& mesh) {
+std::expected<GpuGeometry, core::Error>
+GpuResourceManager::createGpuBuffer(RHIDevice& device, const Mesh& mesh) {
     GpuGeometry geo;
     if (mesh.empty()) return geo;
 
@@ -53,14 +64,18 @@ GpuGeometry GpuResourceManager::createGpuBuffer(RHIDevice& device, const Mesh& m
 
     if (geo.vertexCount > 0 && !mesh.vertices.empty()) {
         uint32_t size = static_cast<uint32_t>(mesh.vertices.size() * sizeof(float));
-        geo.vertexBuffer = device.createBuffer(
+        auto vb = device.createBuffer(
             BufferDesc::vertex(size, mesh.vertices.data(), "WorldVB"));
+        if (!vb) return std::unexpected(vb.error());
+        geo.vertexBuffer = std::move(*vb);
     }
 
     if (geo.indexCount > 0 && !mesh.indices.empty()) {
         uint32_t size = static_cast<uint32_t>(mesh.indices.size() * sizeof(uint32_t));
-        geo.indexBuffer = device.createBuffer(
+        auto ib = device.createBuffer(
             BufferDesc::index(size, mesh.indices.data(), "WorldIB"));
+        if (!ib) return std::unexpected(ib.error());
+        geo.indexBuffer = std::move(*ib);
     }
 
     geo.uploaded = true;

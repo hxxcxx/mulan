@@ -10,6 +10,10 @@
 #include "../pipeline_state.h"
 #include "vk_convert.h"
 
+#include <mulan/core/result/error.h>
+
+#include <expected>
+#include <memory>
 #include <unordered_map>
 
 namespace mulan::engine {
@@ -18,8 +22,10 @@ class VKDevice;
 
 class VKPipelineState : public PipelineState {
 public:
-    VKPipelineState(const GraphicsPipelineDesc& desc,
-                    vk::Device device, VKDevice* ownerDevice);
+    /// 创建 VKPipelineState。失败返回 PipelineCreateFailed。
+    static std::expected<std::unique_ptr<VKPipelineState>, core::Error>
+        create(const GraphicsPipelineDesc& desc,
+               vk::Device device, VKDevice* ownerDevice);
     ~VKPipelineState();
 
     const GraphicsPipelineDesc& desc() const override { return desc_; }
@@ -29,8 +35,11 @@ public:
     vk::DescriptorSetLayout descriptorSetLayout() const { return descriptor_set_layout_; }
 
 private:
-    void build(vk::RenderPass renderPass);
-    void createRootSignature();
+    VKPipelineState(const GraphicsPipelineDesc& desc, vk::Device device)
+        : desc_(desc), device_(device) {}
+
+    core::Error build(vk::RenderPass renderPass);
+    core::Error createRootSignature();
     vk::PipelineVertexInputStateCreateInfo buildVertexInputState();
 
     GraphicsPipelineDesc desc_;

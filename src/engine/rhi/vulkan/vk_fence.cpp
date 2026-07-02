@@ -1,10 +1,16 @@
 #include "vk_fence.h"
 
+#include <mulan/core/result/error.h>
+#include "../../engine_error_code.h"
+
+#include <string>
+
 namespace mulan::engine {
 
-VKFence::VKFence(vk::Device device, uint64_t initialValue)
-    : device_(device)
-{
+std::expected<std::unique_ptr<VKFence>, core::Error>
+VKFence::create(vk::Device device, uint64_t initialValue) {
+    auto obj = std::unique_ptr<VKFence>(new VKFence(device));
+
     vk::SemaphoreTypeCreateInfo timelineCI;
     timelineCI.semaphoreType = vk::SemaphoreType::eTimeline;
     timelineCI.initialValue  = initialValue;
@@ -12,7 +18,14 @@ VKFence::VKFence(vk::Device device, uint64_t initialValue)
     vk::SemaphoreCreateInfo ci;
     ci.pNext = &timelineCI;
 
-    semaphore_ = device_.createSemaphore(ci);
+    try {
+        obj->semaphore_ = device.createSemaphore(ci);
+    } catch (const vk::Error& e) {
+        return std::unexpected(makeError(EngineErrorCode::FenceCreateFailed,
+            std::string("createSemaphore(timeline) failed: ") + e.what()));
+    }
+
+    return obj;
 }
 
 VKFence::~VKFence() {

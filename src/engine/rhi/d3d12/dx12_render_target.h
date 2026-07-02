@@ -11,13 +11,18 @@
 #include "dx12_texture.h"
 #include "dx12_descriptor_allocator.h"
 
+#include <mulan/core/result/error.h>
+
+#include <expected>
 #include <memory>
 
 namespace mulan::engine {
 
 class DX12RenderTarget final : public RenderTarget {
 public:
-    DX12RenderTarget(const RenderTargetDesc& desc, ID3D12Device* device);
+    /// 创建 DX12RenderTarget。失败返回 RenderTargetCreateFailed。
+    static std::expected<std::unique_ptr<DX12RenderTarget>, core::Error>
+        create(const RenderTargetDesc& desc, ID3D12Device* device);
     ~DX12RenderTarget();
 
     const RenderTargetDesc& desc() const override { return desc_; }
@@ -27,6 +32,9 @@ public:
     void resize(uint32_t width, uint32_t height) override;
 
 private:
+    DX12RenderTarget(const RenderTargetDesc& desc, ID3D12Device* device)
+        : desc_(desc), device_(device) {}
+
     void createResources();
 
     RenderTargetDesc                       desc_;

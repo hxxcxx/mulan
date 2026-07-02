@@ -1,7 +1,24 @@
 #include "dx12_texture.h"
 #include "dx12_convert.h"
 
+#include <mulan/core/result/error.h>
+#include "../../engine_error_code.h"
+
+#include <string>
+
 namespace mulan::engine {
+
+std::expected<std::unique_ptr<DX12Texture>, core::Error>
+DX12Texture::create(const TextureDesc& desc, ID3D12Device* device,
+                    D3D12_RESOURCE_STATES initialState) {
+    try {
+        return std::unique_ptr<DX12Texture>(
+            new DX12Texture(desc, device, initialState));
+    } catch (const std::exception& e) {
+        return std::unexpected(makeError(EngineErrorCode::TextureCreateFailed,
+            std::string("DX12Texture create failed: ") + e.what()));
+    }
+}
 
 DX12Texture::DX12Texture(const TextureDesc& desc, ID3D12Device* device,
                          D3D12_RESOURCE_STATES initialState)

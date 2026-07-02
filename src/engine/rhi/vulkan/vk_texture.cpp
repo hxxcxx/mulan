@@ -1,6 +1,9 @@
 #include "vk_texture.h"
 
-#include <stdexcept>
+#include <mulan/core/result/error.h>
+#include "../../engine_error_code.h"
+
+#include <string>
 
 namespace mulan::engine {
 
@@ -11,9 +14,8 @@ bool VKTexture::isDepthFormat(TextureFormat f) {
         || f == TextureFormat::D32_Float_S8X24_UInt;
 }
 
-VKTexture::VKTexture(const TextureDesc& desc, vk::Device device, VmaAllocator allocator)
-    : desc_(desc), device_(device), allocator_(allocator)
-{
+std::expected<std::unique_ptr<VKTexture>, core::Error>
+VKTexture::create(const TextureDesc& desc, vk::Device device, VmaAllocator allocator) {
     // 创建 Image
     vk::ImageCreateInfo ci;
     ci.imageType     = desc.dimension == TextureDimension::Texture3D
@@ -45,15 +47,16 @@ VKTexture::VKTexture(const TextureDesc& desc, vk::Device device, VmaAllocator al
     VmaAllocationInfo allocInfo;
     VkResult res = vmaCreateImage(allocator, reinterpret_cast<const VkImageCreateInfo*>(&ci),
                                   &allocCI, &image, &allocation, &allocInfo);
-    if (res != VK_SUCCESS)
-        throw std::runtime_error("vmaCreateImage failed: VkResult=" + std::to_string(res));
+    if (res != VK_SUCCESS) {
+        return std::unexpected(makeError(EngineErrorCode::TextureCreateFailed,
+            "vmaCreateImage failed: VkResult=" + std::to_string(res)));
+    }
 
-    image_      = vk::Image(image);
-    allocation_ = allocation;
+    vk::Image vkImage(image);
 
     // 创建 ImageView
     vk::ImageViewCreateInfo viewCI;
-    viewCI.image            = image_;
+    viewCI.image            = vkImage;
     viewCI.viewType         = vk::ImageViewType::e2D;
     viewCI.format           = ci.format;
     viewCI.subresourceRange.aspectMask = isDepthFormat(desc.format)
@@ -62,7 +65,17 @@ VKTexture::VKTexture(const TextureDesc& desc, vk::Device device, VmaAllocator al
     viewCI.subresourceRange.levelCount     = desc.mipLevels;
     viewCI.subresourceRange.layerCount     = desc.arraySize;
 
-    view_ = device_.createImageView(viewCI);
+    vk::ImageView view;
+    try {
+        view = device.createImageView(viewCI);
+    } catch (const vk::Error& e) {
+        vmaDestroyImage(allocator, image, allocation);
+        return std::unexpected(makeError(EngineErrorCode::TextureCreateFailed,
+            std::string("createImageView failed: ") + e.what()));
+    }
+
+    return std::unique_ptr<VKTexture>(
+        new VKTexture(desc, device, allocator, vkImage, allocation, view));
 }
 
 /// Swapchain backbuffer wrapper (does NOT own image/view)

@@ -66,8 +66,9 @@ bool Viewport::init(const ViewConfig& cfg, int width, int height) {
     std::memcpy(scDesc.clearColor, renderCfg.clearColor, sizeof(scDesc.clearColor));
     scDesc.clearDepth  = renderCfg.clearDepth;
 
-    swapchain_ = device_->createSwapChain(scDesc);
-    if (!swapchain_) { cleanup(); return false; }
+    auto sc = device_->createSwapChain(scDesc);
+    if (!sc) { cleanup(); return false; }
+    swapchain_ = std::move(*sc);
 
     // --- GPU / RenderSystem ---
     gpu_storage_  = std::make_unique<engine::GpuResourceManager>(*device_);
@@ -120,13 +121,16 @@ bool Viewport::initOffscreen(int width, int height) {
     rtDesc.depthFormat = engine::TextureFormat::D24_UNorm_S8_UInt;
     rtDesc.hasDepth    = true;
 
-    render_target_ = device_->createRenderTarget(rtDesc);
-    if (!render_target_) { cleanup(); return false; }
+    auto rt = device_->createRenderTarget(rtDesc);
+    if (!rt) { cleanup(); return false; }
+    render_target_ = std::move(*rt);
 
     // --- Staging buffer ---
     uint32_t pixelBytes = static_cast<uint32_t>(width) * height * 4;
-    staging_buffer_ = device_->createBuffer(
+    auto sb = device_->createBuffer(
         engine::BufferDesc::staging(pixelBytes, "ReadbackStaging"));
+    if (!sb) { cleanup(); return false; }
+    staging_buffer_ = std::move(*sb);
 
     // --- GPU / RenderSystem ---
     gpu_storage_  = std::make_unique<engine::GpuResourceManager>(*device_);
@@ -352,8 +356,15 @@ void Viewport::resize(int width, int height) {
 
             staging_buffer_.reset();
             uint32_t pixelBytes = static_cast<uint32_t>(width) * height * 4;
-            staging_buffer_ = device_->createBuffer(
+            auto sb = device_->createBuffer(
                 engine::BufferDesc::staging(pixelBytes, "ReadbackStaging"));
+            if (!sb) {
+                std::fprintf(stderr, "[Viewport] resize staging buffer failed: %s\n",
+                             sb.error().message.c_str());
+                // staging_buffer_ 保持空，readbackPixels 前置判空会挡住
+            } else {
+                staging_buffer_ = std::move(*sb);
+            }
         } else if (swapchain_) {
             device_->clearCaches();
             swapchain_->resize(width, height);
@@ -430,7 +441,13 @@ bool Viewport::readbackPixels(std::vector<uint8_t>& pixels) {
 
     device_->waitIdle();
 
-    auto cmd = device_->createCommandList();
+    auto cmdResult = device_->createCommandList();
+    if (!cmdResult) {
+        std::fprintf(stderr, "[Viewport] readbackPixels createCommandList: %s\n",
+                     cmdResult.error().message.c_str());
+        return false;
+    }
+    auto cmd = std::move(*cmdResult);
     cmd->begin();
     cmd->transitionResource(render_target_->colorTexture(), engine::ResourceState::CopySrc);
     cmd->copyTextureToBuffer(render_target_->colorTexture(), staging_buffer_.get());

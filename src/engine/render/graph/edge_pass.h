@@ -42,7 +42,7 @@ public:
 
 private:
     bool loadEdgeShaders();
-    void createEdgePSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
+    bool createEdgePSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
     void uploadSceneUBO(const PassContext& ctx);
 
     RHIDevice&              device_;

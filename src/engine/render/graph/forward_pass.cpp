@@ -4,6 +4,8 @@
 #include "../../rhi/render_types.h"
 #include "../material/material_cache.h"
 
+#include <mulan/core/log/log.h>
+
 #include <string>
 
 namespace mulan::engine {
@@ -36,12 +38,21 @@ ForwardPass::ForwardPass(RHIDevice& device, GpuResourceManager& gpu,
 
 bool ForwardPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
     if (!loadSolidShaders()) return false;
-    createSolidPSO(colorFmt, depthFmt, hasDepth);
-    scene_ubo_   = device_.createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "FwdSceneUBO"));
-    object_ubo_  = device_.createBuffer(BufferDesc::uniform(
+    if (!createSolidPSO(colorFmt, depthFmt, hasDepth)) return false;
+
+    auto sceneResult = device_.createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "FwdSceneUBO"));
+    if (!sceneResult) { return false; }
+    scene_ubo_ = std::move(*sceneResult);
+
+    auto objResult = device_.createBuffer(BufferDesc::uniform(
         MeshDrawCommand::kObjectUboStride * 4096, "FwdObjUBO"));   // 4096 objects
-    material_ubo_ = device_.createBuffer(BufferDesc::uniform(
+    if (!objResult) { return false; }
+    object_ubo_ = std::move(*objResult);
+
+    auto matResult = device_.createBuffer(BufferDesc::uniform(
         MaterialCache::kMaxMaterials * 256, "FwdMatUBO"));  // MaterialCache统一尺寸
+    if (!matResult) { return false; }
+    material_ubo_ = std::move(*matResult);
 
     initialized_ = true;
     return true;
@@ -50,14 +61,18 @@ bool ForwardPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasD
 // ─── Shader ────────────────────────────────────────────────────
 
 bool ForwardPass::loadSolidShaders() {
-    vs_ = loadShader(device_, ShaderType::Vertex, "solid.vert");
-    fs_ = loadShader(device_, ShaderType::Pixel,  "solid.frag");
-    return vs_ && fs_;
+    auto vs = loadShader(device_, ShaderType::Vertex, "solid.vert");
+    auto fs = loadShader(device_, ShaderType::Pixel,  "solid.frag");
+    if (!vs) { return false; }
+    if (!fs) { return false; }
+    vs_ = std::move(*vs);
+    fs_ = std::move(*fs);
+    return true;
 }
 
 // ─── PSO ───────────────────────────────────────────────────────
 
-void ForwardPass::createSolidPSO(TextureFormat colorFmt, TextureFormat depthFmt,
+bool ForwardPass::createSolidPSO(TextureFormat colorFmt, TextureFormat depthFmt,
                                   bool hasDepth) {
     VertexLayout vl;
     vl.begin()
@@ -98,7 +113,10 @@ void ForwardPass::createSolidPSO(TextureFormat colorFmt, TextureFormat depthFmt,
     desc.depthStencilFormat = depthFmt;
     desc.depthEnable        = hasDepth;
 
-    pso_ = device_.createPipelineState(desc);
+    auto psoResult = device_.createPipelineState(desc);
+    if (!psoResult) { return false; }
+    pso_ = std::move(*psoResult);
+    return true;
 }
 
 // ─── Execute ───────────────────────────────────────────────────

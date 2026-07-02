@@ -17,7 +17,10 @@
 #include "../geometry/mesh.h"
 #include "../render/render_geometry.h"
 
+#include <mulan/core/result/error.h>
+
 #include <cstdint>
+#include <expected>
 #include <unordered_map>
 
 namespace mulan::engine {
@@ -41,7 +44,8 @@ public:
     void clear();
 
 private:
-    static GpuGeometry createGpuBuffer(RHIDevice& device, const Mesh& mesh);
+    static std::expected<GpuGeometry, core::Error>
+        createGpuBuffer(RHIDevice& device, const Mesh& mesh);
 
     RHIDevice& device_;
     std::unordered_map<uint64_t, GpuGeometry> face_geos_;

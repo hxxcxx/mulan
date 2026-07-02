@@ -9,8 +9,12 @@
 
 #include "../../rhi/device.h"
 #include "../../rhi/shader.h"
+#include "../../engine_error_code.h"
+
+#include <mulan/core/result/error.h>
 
 #include <cstdio>
+#include <expected>
 #include <string>
 #include <vector>
 
@@ -33,7 +37,8 @@ inline std::vector<uint8_t> readFile(const char* path) {
     return d;
 }
 
-inline std::unique_ptr<Shader> loadShader(RHIDevice& device, ShaderType type, const char* name) {
+inline std::expected<std::unique_ptr<Shader>, core::Error>
+loadShader(RHIDevice& device, ShaderType type, const char* name) {
 #ifdef SHADER_DIR
     std::string dir = SHADER_DIR;
 #else
@@ -44,7 +49,10 @@ inline std::unique_ptr<Shader> loadShader(RHIDevice& device, ShaderType type, co
 
     std::string path = dir + "/" + name + ext;
     auto data = readFile(path.c_str());
-    if (data.empty()) return nullptr;
+    if (data.empty()) {
+        return std::unexpected(makeError(EngineErrorCode::ShaderFileNotFound,
+            "Shader file not found or empty: " + path));
+    }
 
     ShaderDesc d;
     d.type         = type;

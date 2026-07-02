@@ -94,14 +94,18 @@ bool ViewCubeRenderer::init(TextureFormat colorFmt, TextureFormat depthFmt) {
         desc.type         = ShaderType::Vertex;
         desc.byteCode     = solidVsData.data();
         desc.byteCodeSize = static_cast<uint32_t>(solidVsData.size());
-        solid_vs_ = device_->createShader(desc);
+        auto r = device_->createShader(desc);
+        if (!r) { std::fprintf(stderr, "[ViewCube] createShader solid.vert: %s\n", r.error().message.c_str()); return false; }
+        solid_vs_ = std::move(*r);
     }
     {
         ShaderDesc desc;
         desc.type         = ShaderType::Pixel;
         desc.byteCode     = solidFsData.data();
         desc.byteCodeSize = static_cast<uint32_t>(solidFsData.size());
-        solid_fs_ = device_->createShader(desc);
+        auto r = device_->createShader(desc);
+        if (!r) { std::fprintf(stderr, "[ViewCube] createShader solid.frag: %s\n", r.error().message.c_str()); return false; }
+        solid_fs_ = std::move(*r);
     }
 
     if (!solid_vs_ || !solid_fs_) return false;
@@ -144,7 +148,9 @@ bool ViewCubeRenderer::init(TextureFormat colorFmt, TextureFormat depthFmt) {
         desc.depthStencilFormat   = depthFmt;
         desc.depthEnable          = true;
 
-        solid_pso_ = device_->createPipelineState(desc);
+        auto psoR = device_->createPipelineState(desc);
+        if (!psoR) { std::fprintf(stderr, "[ViewCube] createPSO solid: %s\n", psoR.error().message.c_str()); return false; }
+        solid_pso_ = std::move(*psoR);
     }
 
     // --- Edge PSO ---
@@ -157,14 +163,18 @@ bool ViewCubeRenderer::init(TextureFormat colorFmt, TextureFormat depthFmt) {
             desc.type         = ShaderType::Vertex;
             desc.byteCode     = edgeVsData.data();
             desc.byteCodeSize = static_cast<uint32_t>(edgeVsData.size());
-            edge_vs_ = device_->createShader(desc);
+            auto r = device_->createShader(desc);
+            if (r) edge_vs_ = std::move(*r);
+            else std::fprintf(stderr, "[ViewCube] createShader edge.vert: %s\n", r.error().message.c_str());
         }
         {
             ShaderDesc desc;
             desc.type         = ShaderType::Pixel;
             desc.byteCode     = edgeFsData.data();
             desc.byteCodeSize = static_cast<uint32_t>(edgeFsData.size());
-            edge_fs_ = device_->createShader(desc);
+            auto r = device_->createShader(desc);
+            if (r) edge_fs_ = std::move(*r);
+            else std::fprintf(stderr, "[ViewCube] createShader edge.frag: %s\n", r.error().message.c_str());
         }
 
         if (edge_vs_ && edge_fs_) {
@@ -204,7 +214,9 @@ bool ViewCubeRenderer::init(TextureFormat colorFmt, TextureFormat depthFmt) {
             desc.depthStencilFormat   = depthFmt;
             desc.depthEnable          = true;
 
-            edge_pso_ = device_->createPipelineState(desc);
+            auto psoR = device_->createPipelineState(desc);
+            if (psoR) edge_pso_ = std::move(*psoR);
+            else std::fprintf(stderr, "[ViewCube] createPSO edge: %s\n", psoR.error().message.c_str());
         }
     }
 
@@ -218,9 +230,21 @@ bool ViewCubeRenderer::init(TextureFormat colorFmt, TextureFormat depthFmt) {
     };
     material_stride_ = alignUp32(static_cast<uint32_t>(sizeof(MaterialUBO)), uboAlign);
 
-    scene_ubo_   = device_->createBuffer(BufferDesc::uniform(sizeof(SceneUBO),   "ViewCube_SceneUBO"));
-    object_ubo_  = device_->createBuffer(BufferDesc::uniform(sizeof(ObjectUBO),  "ViewCube_ObjectUBO"));
-    material_ubo_= device_->createBuffer(BufferDesc::uniform(material_stride_ * kFaceCount, "ViewCube_MaterialUBO"));
+    {
+        auto r = device_->createBuffer(BufferDesc::uniform(sizeof(SceneUBO),   "ViewCube_SceneUBO"));
+        if (!r) { std::fprintf(stderr, "[ViewCube] createBuffer SceneUBO: %s\n", r.error().message.c_str()); return false; }
+        scene_ubo_ = std::move(*r);
+    }
+    {
+        auto r = device_->createBuffer(BufferDesc::uniform(sizeof(ObjectUBO),  "ViewCube_ObjectUBO"));
+        if (!r) { std::fprintf(stderr, "[ViewCube] createBuffer ObjectUBO: %s\n", r.error().message.c_str()); return false; }
+        object_ubo_ = std::move(*r);
+    }
+    {
+        auto r = device_->createBuffer(BufferDesc::uniform(material_stride_ * kFaceCount, "ViewCube_MaterialUBO"));
+        if (!r) { std::fprintf(stderr, "[ViewCube] createBuffer MaterialUBO: %s\n", r.error().message.c_str()); return false; }
+        material_ubo_= std::move(*r);
+    }
 
     if (!scene_ubo_ || !object_ubo_ || !material_ubo_) return false;
 
@@ -243,7 +267,7 @@ bool ViewCubeRenderer::init(TextureFormat colorFmt, TextureFormat depthFmt) {
     }
 
     // --- 几何体 ---
-    createGeometry();
+    if (!createGeometry()) return false;
 
     initialized_ = true;
     return true;
@@ -270,12 +294,13 @@ void ViewCubeRenderer::cleanup() {
 // 几何体生成
 // ============================================================
 
-void ViewCubeRenderer::createGeometry() {
-    createFaceGeometry();
-    createEdgeGeometry();
+bool ViewCubeRenderer::createGeometry() {
+    if (!createFaceGeometry()) return false;
+    if (!createEdgeGeometry()) return false;
+    return true;
 }
 
-void ViewCubeRenderer::createFaceGeometry() {
+bool ViewCubeRenderer::createFaceGeometry() {
     // 每个面 4 个顶点，6 个面 = 24 个顶点
     // 每个面 6 个索引（2个三角形），6 个面 = 36 个索引
     std::array<CubeVertex, 24> verts;
@@ -331,13 +356,22 @@ void ViewCubeRenderer::createFaceGeometry() {
 
     face_index_count_ = 36;
 
-    face_vb_ = device_->createBuffer(
-        BufferDesc::vertex(sizeof(CubeVertex) * verts.size(), verts.data(), "ViewCube_FaceVB"));
-    face_ib_ = device_->createBuffer(
-        BufferDesc::index(sizeof(uint32_t) * indices.size(), indices.data(), "ViewCube_FaceIB"));
+    {
+        auto r = device_->createBuffer(
+            BufferDesc::vertex(sizeof(CubeVertex) * verts.size(), verts.data(), "ViewCube_FaceVB"));
+        if (!r) { std::fprintf(stderr, "[ViewCube] createBuffer FaceVB: %s\n", r.error().message.c_str()); return false; }
+        face_vb_ = std::move(*r);
+    }
+    {
+        auto r = device_->createBuffer(
+            BufferDesc::index(sizeof(uint32_t) * indices.size(), indices.data(), "ViewCube_FaceIB"));
+        if (!r) { std::fprintf(stderr, "[ViewCube] createBuffer FaceIB: %s\n", r.error().message.c_str()); return false; }
+        face_ib_ = std::move(*r);
+    }
+    return true;
 }
 
-void ViewCubeRenderer::createEdgeGeometry() {
+bool ViewCubeRenderer::createEdgeGeometry() {
     // 12 条边，每条边 2 个顶点 = 24 个顶点
     // 12 条边，每条边 2 个索引 = 24 个索引
     float h = kHalf;
@@ -372,10 +406,19 @@ void ViewCubeRenderer::createEdgeGeometry() {
 
     edge_index_count_ = 24;
 
-    edge_vb_ = device_->createBuffer(
-        BufferDesc::vertex(sizeof(CubeVertex) * verts.size(), verts.data(), "ViewCube_EdgeVB"));
-    edge_ib_ = device_->createBuffer(
-        BufferDesc::index(sizeof(uint32_t) * indices.size(), indices.data(), "ViewCube_EdgeIB"));
+    {
+        auto r = device_->createBuffer(
+            BufferDesc::vertex(sizeof(CubeVertex) * verts.size(), verts.data(), "ViewCube_EdgeVB"));
+        if (!r) { std::fprintf(stderr, "[ViewCube] createBuffer EdgeVB: %s\n", r.error().message.c_str()); return false; }
+        edge_vb_ = std::move(*r);
+    }
+    {
+        auto r = device_->createBuffer(
+            BufferDesc::index(sizeof(uint32_t) * indices.size(), indices.data(), "ViewCube_EdgeIB"));
+        if (!r) { std::fprintf(stderr, "[ViewCube] createBuffer EdgeIB: %s\n", r.error().message.c_str()); return false; }
+        edge_ib_ = std::move(*r);
+    }
+    return true;
 }
 
 // ============================================================

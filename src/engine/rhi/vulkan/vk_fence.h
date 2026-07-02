@@ -10,11 +10,18 @@
 #include "../fence.h"
 #include "vk_convert.h"
 
+#include <mulan/core/result/error.h>
+
+#include <expected>
+#include <memory>
+
 namespace mulan::engine {
 
 class VKFence : public Fence {
 public:
-    VKFence(vk::Device device, uint64_t initialValue);
+    /// 创建 VKFence（timeline semaphore）。失败返回 FenceCreateFailed。
+    static std::expected<std::unique_ptr<VKFence>, core::Error>
+        create(vk::Device device, uint64_t initialValue);
     ~VKFence();
 
     void signal(uint64_t value) override;
@@ -24,6 +31,8 @@ public:
     vk::Semaphore semaphore() const { return semaphore_; }
 
 private:
+    VKFence(vk::Device device) : device_(device) {}
+
     vk::Device    device_;
     vk::Semaphore semaphore_;
 };

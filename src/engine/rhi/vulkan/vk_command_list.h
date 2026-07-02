@@ -13,7 +13,11 @@
 #include "vk_pipeline_state.h"
 #include "vk_descriptor_set.h"
 
+#include <mulan/core/result/error.h>
+
 #include <array>
+#include <expected>
+#include <memory>
 
 namespace mulan::engine {
 
@@ -22,12 +26,11 @@ class VKDevice;
 
 class VKCommandList : public CommandList {
 public:
-    /// 独立模式：自己创建 command pool + buffer
-    VKCommandList(vk::Device device, uint32_t queueFamilyIndex);
-
-    /// 独立模式 + descriptor allocator（用于 bindResources）
-    VKCommandList(vk::Device device, uint32_t queueFamilyIndex,
-                  VKDescriptorAllocator* allocator);
+    /// 独立模式：自建 command pool + buffer（可选 descriptor allocator）。
+    /// 失败返回 CommandListCreateFailed。
+    static std::expected<std::unique_ptr<VKCommandList>, core::Error>
+        create(vk::Device device, uint32_t queueFamilyIndex,
+               VKDescriptorAllocator* allocator = nullptr);
 
     /// 外部 buffer 模式：引用 frameContext 的 command buffer
     VKCommandList(vk::Device device, vk::CommandBuffer externalCmd);
@@ -113,6 +116,10 @@ public:
                            uint32_t firstSet = 0);
 
 private:
+    // 独立模式私有构造（create() 使用）
+    VKCommandList(vk::Device device, vk::CommandPool pool, vk::CommandBuffer cmd)
+        : device_(device), pool_(pool), cmd_buffer_(cmd), owns_pool_(true) {}
+
     vk::Device              device_;
     vk::CommandPool         pool_;
     vk::CommandBuffer       cmd_buffer_;
