@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file view_runtime.h
  * @brief ViewRuntime 是消费 RenderScene 的视图运行时
  *

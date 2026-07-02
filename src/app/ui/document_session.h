@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file document_session.h
  * @brief 表示一个已打开文档在界面中的运行会话。
  * @author hxxcxx

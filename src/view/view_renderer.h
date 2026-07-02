@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file view_renderer.h
  * @brief ViewRenderer 将 RenderScene 转换为当前视图可提交的绘制命令。
  * @author hxxcxx

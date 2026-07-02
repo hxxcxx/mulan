@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file view_config.h
  * @brief ViewRuntime 初始化配置
  * @date 2026-06-01

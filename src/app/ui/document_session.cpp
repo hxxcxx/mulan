@@ -1,4 +1,4 @@
-﻿#include "document_session.h"
+#include "document_session.h"
 
 #include <mulan/view/view_runtime.h>
 

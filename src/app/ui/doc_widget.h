@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file doc_widget.h
  * @brief 承载文档视图运行时的 Qt 渲染控件。
  * @author hxxcxx

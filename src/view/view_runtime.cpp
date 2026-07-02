@@ -1,4 +1,4 @@
-﻿#include "view_runtime.h"
+#include "view_runtime.h"
 #include "mulan/engine/rhi/device.h"
 #include "mulan/engine/rhi/render_types.h"
 #include "mulan/engine/render/graph/forward_pass.h"
