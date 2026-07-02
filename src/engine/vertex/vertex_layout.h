@@ -136,7 +136,7 @@ enum class IndexType : uint8_t {
     UInt32 = 1,
 };
 
-consteval uint8_t indexTypeSize(IndexType t) {
+constexpr uint8_t indexTypeSize(IndexType t) {
     return t == IndexType::UInt16 ? 2 : 4;
 }
 
