@@ -10,7 +10,7 @@
 #include "render_state.h"
 #include "shader.h"
 #include "texture.h"
-#include "vertex_layout.h"
+#include "../vertex/vertex_layout.h"
 
 #include <cstdint>
 #include <string_view>

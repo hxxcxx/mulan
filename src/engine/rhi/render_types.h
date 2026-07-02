@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "vertex_layout.h"  // IndexType
+#include "../vertex/vertex_layout.h"  // IndexType
 
 #include <cstdint>
 

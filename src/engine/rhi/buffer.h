@@ -7,8 +7,6 @@
 
 #pragma once
 
-#include "vertex_layout.h"
-
 #include <cstdint>
 #include <string_view>
 

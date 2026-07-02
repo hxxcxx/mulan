@@ -1,6 +1,6 @@
 #include "view_cube_renderer.h"
 #include "../../rhi/command_list.h"
-#include "../../rhi/vertex_layout.h"
+#include "../../vertex/vertex_layout.h"
 #include "../../math/math.h"
 
 #include <cstdio>

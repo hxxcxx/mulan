@@ -9,6 +9,7 @@
 
 #include "vertex_layout.h"
 
+#include <cassert>
 #include <cstring>
 #include <vector>
 #include <cstdint>
@@ -79,18 +80,22 @@ public:
     }
 
     // 获取指定顶点属性的原始指针
-    constexpr const std::byte* attributeData(uint32_t vertexIndex,
-                                              VertexSemantic sem) const {
+    const std::byte* attributeData(uint32_t vertexIndex,
+                                   VertexSemantic sem) const {
         auto* attr = layout_.find(sem);
         if (!attr) return nullptr;
-        auto offset = vertexIndex * layout_.stride() + attr->offset;
+        assert(vertexIndex < vertexCount() && "vertexIndex out of range");
+        auto offset = static_cast<size_t>(vertexIndex) * layout_.stride() + attr->offset;
         if (offset + attr->size() > data_.size()) return nullptr;
         return data_.data() + offset;
     }
 
     // 类型化读取（返回值拷贝）
     template<typename T>
-    constexpr T read(uint32_t vertexIndex, VertexSemantic sem) const {
+    T read(uint32_t vertexIndex, VertexSemantic sem) const {
+        auto* attr = layout_.find(sem);
+        assert(attr && "semantic not present in layout");
+        assert(sizeof(T) <= attr->size() && "read type wider than attribute");
         auto* ptr = attributeData(vertexIndex, sem);
         if (!ptr) return T{};
         T result;
@@ -133,8 +138,11 @@ public:
     template<typename T>
     void write(uint32_t vertexIndex, VertexSemantic sem, const T& value) {
         auto* attr = layout_.find(sem);
-        if (!attr) return;
-        auto offset = vertexIndex * layout_.stride() + attr->offset;
+        assert(attr && "semantic not present in layout");
+        assert(vertexIndex < max_vertices_ && "vertexIndex out of range");
+        assert(sizeof(T) <= attr->size() && "write type wider than attribute");
+        if (!attr || vertexIndex >= max_vertices_ || sizeof(T) > attr->size()) return;
+        auto offset = static_cast<size_t>(vertexIndex) * layout_.stride() + attr->offset;
         std::memcpy(buffer_.data() + offset, &value, sizeof(T));
     }
 
