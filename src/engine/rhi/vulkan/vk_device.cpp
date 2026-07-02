@@ -157,6 +157,11 @@ VKDevice::createSampler(const SamplerDesc& desc) {
 
 void VKDevice::executeCommandLists(CommandList** cmdLists, uint32_t count,
                                    Fence* fence, uint64_t fenceValue) {
+    // vulkan-hpp 的 submit() 为异常版：验证层发现的录制错误（缺 sampler、
+    // layout 冲突等）会在这一步抛 vk::Error。公共签名是 void，异常若逃逸会
+    // 变成未捕获崩溃。这里接住并记日志，保持提交失败可见而非静默崩溃。
+    // 注意：真正的异步 GPU 执行错误（device lost）在此处查不到，需在
+    // waitIdle / 下一帧 fence 检查时发现。
     std::vector<vk::CommandBuffer> cmdBuffers(count);
     for (uint32_t i = 0; i < count; ++i) {
         cmdBuffers[i] = static_cast<VKCommandList*>(cmdLists[i])->cmdBuffer();
@@ -166,21 +171,27 @@ void VKDevice::executeCommandLists(CommandList** cmdLists, uint32_t count,
     submitInfo.commandBufferCount = count;
     submitInfo.pCommandBuffers    = cmdBuffers.data();
 
-    if (fence) {
-        auto* vkFence = static_cast<VKFence*>(fence);
-        vk::TimelineSemaphoreSubmitInfo timelineInfo;
-        timelineInfo.signalSemaphoreValueCount = 1;
-        uint64_t signalValue = fenceValue;
-        timelineInfo.pSignalSemaphoreValues = &signalValue;
+    try {
+        if (fence) {
+            auto* vkFence = static_cast<VKFence*>(fence);
+            vk::TimelineSemaphoreSubmitInfo timelineInfo;
+            timelineInfo.signalSemaphoreValueCount = 1;
+            uint64_t signalValue = fenceValue;
+            timelineInfo.pSignalSemaphoreValues = &signalValue;
 
-        vk::Semaphore semaphore = vkFence->semaphore();
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores    = &semaphore;
-        submitInfo.pNext                = &timelineInfo;
+            vk::Semaphore semaphore = vkFence->semaphore();
+            submitInfo.signalSemaphoreCount = 1;
+            submitInfo.pSignalSemaphores    = &semaphore;
+            submitInfo.pNext                = &timelineInfo;
 
-        graphics_queue_.submit(submitInfo);
-    } else {
-        graphics_queue_.submit(submitInfo);
+            graphics_queue_.submit(submitInfo);
+        } else {
+            graphics_queue_.submit(submitInfo);
+        }
+    } catch (const vk::Error& e) {
+        std::fprintf(stderr, "[VK ERROR] submit failed: %s\n", e.what());
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "[VK ERROR] submit failed (non-Vulkan): %s\n", e.what());
     }
 }
 
