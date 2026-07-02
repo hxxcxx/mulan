@@ -4,7 +4,9 @@
 #include "ui_document.h"
 #include "engine_settings_dialog.h"
 
+#include <mulan/document/document.h>
 #include <mulan/io/file_manager.h>
+#include <mulan/core/log/log.h>
 
 #include <QFileDialog>
 #include <QStatusBar>
@@ -15,6 +17,29 @@
 #include <QFileInfo>
 #include <QMenu>
 #include <QActionGroup>
+
+#include <sstream>
+
+namespace {
+
+void logSceneMirrorStats(const mulan::document::Document& doc) {
+    auto stats = doc.sceneMirrorStats();
+    std::ostringstream os;
+    os << "Document mirror "
+       << (stats.consistent() ? "ok" : "mismatch")
+       << ": world=" << stats.worldEntityCount
+       << ", scene=" << stats.sceneEntityCount
+       << ", assets=" << stats.assetCount
+       << ", brep=" << stats.brepAssetCount;
+
+    if (stats.consistent()) {
+        mulan::core::log::log(mulan::core::log::Level::Info, os.str());
+    } else {
+        mulan::core::log::log(mulan::core::log::Level::Warn, os.str());
+    }
+}
+
+} // namespace
 
 //===================================================
 // MainWindow
@@ -190,6 +215,7 @@ void MainWindow::onOpenFile() {
     }
 
     QString title = QString::fromStdString(doc->displayName());
+    logSceneMirrorStats(*doc);
     auto* uiDoc = new UIDocument(std::move(doc));
     doc_area_->addDocument(uiDoc, title);
 
@@ -220,6 +246,7 @@ void MainWindow::dropEvent(QDropEvent* e) {
     }
 
     QString title = QString::fromStdString(doc->displayName());
+    logSceneMirrorStats(*doc);
     auto* uiDoc = new UIDocument(std::move(doc));
     doc_area_->addDocument(uiDoc, title);
 

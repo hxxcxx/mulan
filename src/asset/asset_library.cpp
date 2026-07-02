@@ -28,4 +28,13 @@ void AssetLibrary::clear() {
     assets_.clear();
 }
 
+size_t AssetLibrary::count(AssetKind kind) const {
+    size_t result = 0;
+    for (const auto& [id, asset] : assets_) {
+        if (asset && asset->kind() == kind)
+            ++result;
+    }
+    return result;
+}
+
 } // namespace mulan::asset

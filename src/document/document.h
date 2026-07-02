@@ -22,6 +22,7 @@
 
 #include "document_export.h"
 
+#include <cstddef>
 #include <mulan/asset/asset_id.h>
 #include <mulan/scene/entity_id.h>
 
@@ -46,6 +47,18 @@ class AssetLibrary;
 }
 
 namespace mulan::document {
+
+struct DocumentSceneMirrorStats {
+    size_t worldEntityCount = 0;
+    size_t sceneEntityCount = 0;
+    size_t assetCount = 0;
+    size_t brepAssetCount = 0;
+
+    bool consistent() const {
+        return worldEntityCount == sceneEntityCount
+            && sceneEntityCount == brepAssetCount;
+    }
+};
 
 class DOCUMENT_API Document {
 public:
@@ -82,6 +95,10 @@ public:
     /// later phases.
     asset::AssetLibrary* assets() { return assets_.get(); }
     const asset::AssetLibrary* assets() const { return assets_.get(); }
+
+    /// 检查旧 world 与新 Scene/Asset 迁移镜像是否一致。
+    DocumentSceneMirrorStats sceneMirrorStats() const;
+    bool validateSceneMirror() const { return sceneMirrorStats().consistent(); }
 
     // ---------- 元数据 ----------
 

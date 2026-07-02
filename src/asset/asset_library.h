@@ -46,6 +46,7 @@ public:
     void clear();
 
     size_t count() const { return assets_.size(); }
+    size_t count(AssetKind kind) const;
 
 private:
     AssetId allocateId();
