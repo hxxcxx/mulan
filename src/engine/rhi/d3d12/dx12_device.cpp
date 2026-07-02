@@ -1,5 +1,6 @@
 #include "dx12_device.h"
 #include "dx12_debug_name.h"
+#include "dx12_texture.h"
 
 #include <cstdio>
 #include <string>
@@ -288,6 +289,13 @@ DX12Device::createFence(uint64_t initialValue) {
     std::snprintf(nm, sizeof(nm), "Fence@%p", f.get());
     setDebugName(f->fence(), nm);
     return result;
+}
+
+void DX12Device::uploadTextureData(Texture* dst, const void* data,
+                                   uint32_t width, uint32_t height,
+                                   TextureFormat format) {
+    upload_context_->uploadTexture(static_cast<DX12Texture*>(dst), data,
+                                   width, height, format);
 }
 
 // ============================================================

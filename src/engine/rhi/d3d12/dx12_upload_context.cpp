@@ -1,5 +1,7 @@
 #include "dx12_upload_context.h"
 #include "dx12_buffer.h"
+#include "dx12_texture.h"
+#include "dx12_convert.h"
 
 namespace mulan::engine {
 
@@ -120,6 +122,90 @@ void DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* data,
     WaitForSingleObject(fence_event_, INFINITE);
 
     dst->markUploaded();
+}
+
+void DX12UploadContext::uploadTexture(DX12Texture* dst, const void* data,
+                                      uint32_t width, uint32_t height,
+                                      TextureFormat format) {
+    const uint32_t bpp = textureFormatBytesPerPixel(format);
+    if (bpp == 0 || width == 0 || height == 0) return;
+
+    // 用 GetCopyableFootprints 计算对齐后的 row pitch 与总 staging 大小
+    D3D12_RESOURCE_DESC texDesc{};
+    texDesc.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    texDesc.Alignment        = 0;
+    texDesc.Width            = width;
+    texDesc.Height           = height;
+    texDesc.DepthOrArraySize = 1;
+    texDesc.MipLevels        = 1;
+    texDesc.Format           = toDXGIFormat(format);
+    texDesc.SampleDesc.Count = 1;
+    texDesc.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    texDesc.Flags            = D3D12_RESOURCE_FLAG_NONE;
+
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
+    UINT numRows = 0;
+    UINT64 rowSizeInBytes = 0;
+    UINT64 totalSize = 0;
+    device_->GetCopyableFootprints(&texDesc, 0, 1, 0, &footprint, &numRows,
+                                   &rowSizeInBytes, &totalSize);
+
+    // 分配 staging（按 256 对齐 slab.used）
+    auto& slab = getOrCreateSlab(static_cast<uint32_t>(totalSize));
+    const uint32_t slabOffset = slab.used;
+
+    // 逐行拷贝：源行距 = width*bpp，目标行距 = footprint.Footprint.RowPitch
+    const auto* src = static_cast<const uint8_t*>(data);
+    auto* dstPtr = static_cast<uint8_t*>(slab.mapped) + slabOffset;
+    const uint32_t srcRowSize = width * bpp;
+    for (UINT r = 0; r < numRows; ++r) {
+        memcpy(dstPtr + r * footprint.Footprint.RowPitch,
+               src + r * srcRowSize, srcRowSize);
+    }
+    slab.used += static_cast<uint32_t>(totalSize);
+    slab.used = (slab.used + 255u) & ~255u;
+
+    // 录制
+    cmd_allocator_->Reset();
+    cmd_list_->Reset(cmd_allocator_.Get(), nullptr);
+
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource   = dst->resource();
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    barrier.Transition.StateBefore = dst->state();
+    barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
+    cmd_list_->ResourceBarrier(1, &barrier);
+
+    D3D12_TEXTURE_COPY_LOCATION srcLoc{};
+    srcLoc.pResource        = slab.resource.Get();
+    srcLoc.Type             = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    srcLoc.PlacedFootprint  = footprint;
+    srcLoc.PlacedFootprint.Offset = slabOffset;
+
+    D3D12_TEXTURE_COPY_LOCATION dstLoc{};
+    dstLoc.pResource        = dst->resource();
+    dstLoc.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    dstLoc.SubresourceIndex = 0;
+
+    cmd_list_->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
+
+    // COPY_DEST → PIXEL_SHADER_RESOURCE
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+    barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    cmd_list_->ResourceBarrier(1, &barrier);
+
+    cmd_list_->Close();
+
+    ID3D12CommandList* lists[] = { cmd_list_.Get() };
+    queue_->ExecuteCommandLists(1, lists);
+
+    fence_value_++;
+    queue_->Signal(fence_.Get(), fence_value_);
+    fence_->SetEventOnCompletion(fence_value_, fence_event_);
+    WaitForSingleObject(fence_event_, INFINITE);
+
+    dst->setState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 }
 
 void DX12UploadContext::flush() {

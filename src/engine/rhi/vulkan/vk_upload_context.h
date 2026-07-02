@@ -9,6 +9,8 @@
 
 #include "vk_common.h"
 
+#include "../texture.h"
+
 #include <vector>
 #include <mutex>
 #include <functional>
@@ -16,6 +18,7 @@
 namespace mulan::engine {
 
 class VKBuffer;
+class VKTexture;
 
 struct StagingSlice {
     vk::Buffer      buffer     = {};
@@ -34,6 +37,11 @@ public:
     void uploadToBuffer(VKBuffer* dst, const void* data, uint32_t size,
                         uint32_t dstOffset = 0);
     void uploadBufferInit(VKBuffer* dst);
+
+    /// 上传像素数据到纹理：staging 拷贝 + layout 转换到 eShaderReadOnlyOptimal。
+    /// 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式。
+    void uploadTexture(VKTexture* dst, const void* data, uint32_t width, uint32_t height,
+                       TextureFormat format);
 
     StagingSlice allocStaging(uint32_t size);
     void resetSlabs();

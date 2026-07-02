@@ -1,5 +1,7 @@
 #include "vk_upload_context.h"
 #include "vk_buffer.h"
+#include "vk_texture.h"
+#include "vk_convert.h"
 
 namespace mulan::engine {
 
@@ -51,6 +53,87 @@ void VKUploadContext::uploadToBuffer(VKBuffer* dst, const void* data, uint32_t s
 void VKUploadContext::uploadBufferInit(VKBuffer* dst) {
     uploadToBuffer(dst, dst->pendingData(), dst->desc().size);
     dst->markUploaded();
+}
+
+void VKUploadContext::uploadTexture(VKTexture* dst, const void* data,
+                                    uint32_t width, uint32_t height,
+                                    TextureFormat format) {
+    const uint32_t bpp = textureFormatBytesPerPixel(format);
+    if (bpp == 0 || width == 0 || height == 0) return;
+
+    // Vulkan 要求 bufferRowLength 对齐到 4 字节；颜色格式 bpp 通常 ≥ 4，
+    // 但 R8 需显式对齐。staging 内的行距 = 对齐后的 bytesPerRow。
+    const uint32_t rowSize   = width * bpp;
+    const uint32_t rowAlign  = 4;
+    const uint32_t rowStride = (rowSize + rowAlign - 1) & ~(rowAlign - 1);
+    const uint32_t dataSize  = rowStride * height;
+
+    auto slice = allocStaging(dataSize);
+    if (rowStride == rowSize) {
+        memcpy(slice.mapped, data, dataSize);
+    } else {
+        // 行距 > 行实际大小时逐行拷贝
+        const auto* src = static_cast<const uint8_t*>(data);
+        auto* dstPtr = static_cast<uint8_t*>(slice.mapped);
+        for (uint32_t y = 0; y < height; ++y) {
+            memcpy(dstPtr + y * rowStride, src + y * rowSize, rowSize);
+        }
+    }
+    vmaFlushAllocation(allocator_, slice.allocation, slice.offset, dataSize);
+
+    vk::Image image = dst->image();
+
+    executeCopy(
+        [&](vk::CommandBuffer cmd) {
+            // eUndefined → eTransferDstOptimal
+            vk::ImageMemoryBarrier b1;
+            b1.srcAccessMask               = {};
+            b1.dstAccessMask               = vk::AccessFlagBits::eTransferWrite;
+            b1.oldLayout                   = vk::ImageLayout::eUndefined;
+            b1.newLayout                   = vk::ImageLayout::eTransferDstOptimal;
+            b1.srcQueueFamilyIndex         = VK_QUEUE_FAMILY_IGNORED;
+            b1.dstQueueFamilyIndex         = VK_QUEUE_FAMILY_IGNORED;
+            b1.image                       = image;
+            b1.subresourceRange.aspectMask = VKTexture::isDepthFormat(format)
+                ? vk::ImageAspectFlagBits::eDepth
+                : vk::ImageAspectFlagBits::eColor;
+            b1.subresourceRange.baseMipLevel   = 0;
+            b1.subresourceRange.levelCount     = 1;
+            b1.subresourceRange.baseArrayLayer = 0;
+            b1.subresourceRange.layerCount     = 1;
+            cmd.pipelineBarrier(
+                vk::PipelineStageFlagBits::eTopOfPipe,
+                vk::PipelineStageFlagBits::eTransfer,
+                {}, {}, nullptr, b1);
+
+            // buffer → image
+            vk::BufferImageCopy region;
+            region.bufferOffset      = slice.offset;
+            region.bufferRowLength   = rowStride / bpp;  // 以 texel 为单位
+            region.bufferImageHeight = height;
+            region.imageSubresource.aspectMask = b1.subresourceRange.aspectMask;
+            region.imageSubresource.mipLevel   = 0;
+            region.imageSubresource.baseArrayLayer = 0;
+            region.imageSubresource.layerCount     = 1;
+            region.imageOffset = vk::Offset3D(0, 0, 0);
+            region.imageExtent = vk::Extent3D(width, height, 1);
+            cmd.copyBufferToImage(slice.buffer, image,
+                                  vk::ImageLayout::eTransferDstOptimal, 1, &region);
+
+            // eTransferDstOptimal → eShaderReadOnlyOptimal
+            vk::ImageMemoryBarrier b2 = b1;
+            b2.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+            b2.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+            b2.oldLayout     = vk::ImageLayout::eTransferDstOptimal;
+            b2.newLayout     = vk::ImageLayout::eShaderReadOnlyOptimal;
+            cmd.pipelineBarrier(
+                vk::PipelineStageFlagBits::eTransfer,
+                vk::PipelineStageFlagBits::eFragmentShader,
+                {}, {}, nullptr, b2);
+        }
+    );
+
+    dst->setCurrentLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 }
 
 StagingSlice VKUploadContext::allocStaging(uint32_t size) {

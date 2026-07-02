@@ -137,9 +137,15 @@ std::unique_ptr<Texture> TextureCache::createRHITexture(const LoadedTexture& loa
         return nullptr;
     }
 
-    // 上传像素数据
-    // 注意：实际应该用 upload buffer，这里简化处理
-    // TODO: 实现 proper 的 upload context
+    // 上传像素数据到 GPU（内部含 layout/state 转换到 SHADER_READ）
+    if (!loaded.pixels.empty()) {
+        device_->uploadTextureData(result->get(), loaded.pixels.data(),
+                                   static_cast<uint32_t>(loaded.width),
+                                   static_cast<uint32_t>(loaded.height),
+                                   loaded.format);
+    }
+
+    // TODO(后续): generateMips 的 GPU mipmap 生成链（独立功能，本轮未实现）
     (void)generateMips;
 
     return std::move(*result);

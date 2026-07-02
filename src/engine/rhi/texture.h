@@ -84,6 +84,28 @@ constexpr bool operator&(TextureUsageFlags a, TextureUsageFlags b) {
 }
 
 // ============================================================
+// 纹理格式工具
+// ============================================================
+
+/// 返回每像素字节数（上传/staging 布局计算用）。未知格式返回 0。
+/// 仅覆盖可被 CPU 上传的颜色格式；深度/压缩格式返回 0。
+constexpr uint32_t textureFormatBytesPerPixel(TextureFormat fmt) {
+    switch (fmt) {
+    case TextureFormat::R8_UNorm:           return 1;
+    case TextureFormat::RGBA8_UNorm:
+    case TextureFormat::BGRA8_UNorm:
+    case TextureFormat::RGBA8_sRGB:
+    case TextureFormat::BGRA8_sRGB:         return 4;
+    case TextureFormat::RGBA16_Float:       return 8;
+    case TextureFormat::R16_Float:          return 2;
+    case TextureFormat::RGBA32_Float:       return 16;
+    case TextureFormat::R32_Float:          return 4;
+    case TextureFormat::RG32_Float:         return 8;
+    default:                                return 0;  // 深度/压缩不支持 CPU 直接上传
+    }
+}
+
+// ============================================================
 // 纹理描述结构体
 // ============================================================
 

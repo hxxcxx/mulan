@@ -8,11 +8,14 @@
 
 #include "dx12_common.h"
 
+#include "../texture.h"
+
 #include <vector>
 
 namespace mulan::engine {
 
 class DX12Buffer;
+class DX12Texture;
 
 class DX12UploadContext {
 public:
@@ -24,6 +27,11 @@ public:
     /// 上传 Immutable/Default buffer 的初始数据
     void uploadBuffer(DX12Buffer* dst, const void* data, uint32_t size,
                       uint32_t dstOffset = 0);
+
+    /// 上传像素数据到纹理：staging 拷贝 + 资源状态转到 PIXEL_SHADER_RESOURCE。
+    /// 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式。
+    void uploadTexture(DX12Texture* dst, const void* data, uint32_t width, uint32_t height,
+                       TextureFormat format);
 
     /// 提交并等待所有上传命令完成
     void flush();

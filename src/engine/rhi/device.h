@@ -113,6 +113,14 @@ public:
     virtual std::expected<std::unique_ptr<Sampler>,       core::Error> createSampler(const SamplerDesc& desc) = 0;
     virtual std::expected<std::unique_ptr<Fence>,         core::Error> createFence(uint64_t initialValue = 0) = 0;
 
+    // --- 资源上传 ---
+    // 把 CPU 端像素数据同步上传到 GPU 纹理，并在内部完成到 SHADER_READ 的状态转换。
+    // 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式（bpp 由公共工具统一计算）。
+    // 后端各自实现，经此接口避免向 render 层泄漏后端 UploadContext 类型。
+    virtual void uploadTextureData(Texture* dst, const void* data,
+                                   uint32_t width, uint32_t height,
+                                   TextureFormat format) = 0;
+
     // --- 提交命令 ---
 
     virtual void executeCommandLists(CommandList** cmdLists,

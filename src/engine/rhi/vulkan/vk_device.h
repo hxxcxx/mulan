@@ -55,6 +55,11 @@ public:
     std::expected<std::unique_ptr<Sampler>,       core::Error> createSampler(const SamplerDesc& desc) override;
     std::expected<std::unique_ptr<Fence>,         core::Error> createFence(uint64_t initialValue = 0) override;
 
+    // --- 资源上传 ---
+    void uploadTextureData(Texture* dst, const void* data,
+                           uint32_t width, uint32_t height,
+                           TextureFormat format) override;
+
     // --- 提交命令 ---
     void executeCommandLists(CommandList** cmdLists, uint32_t count,
                              Fence* fence = nullptr, uint64_t fenceValue = 0) override;

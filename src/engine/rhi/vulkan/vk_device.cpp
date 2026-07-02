@@ -121,6 +121,13 @@ VKDevice::createFence(uint64_t initialValue) {
     return result;
 }
 
+void VKDevice::uploadTextureData(Texture* dst, const void* data,
+                                 uint32_t width, uint32_t height,
+                                 TextureFormat format) {
+    upload_context_->uploadTexture(static_cast<VKTexture*>(dst), data,
+                                   width, height, format);
+}
+
 std::expected<std::unique_ptr<RenderTarget>, core::Error>
 VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
     // 如果 frame contexts 还未初始化（无 SwapChain 时），在此初始化
