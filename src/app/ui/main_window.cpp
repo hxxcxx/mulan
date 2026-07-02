@@ -40,29 +40,6 @@ void logDocumentStats(const mulan::document::Document& doc) {
     }
 }
 
-void logRenderSceneSyncStats(const mulan::document::Document& doc,
-                             const mulan::render_scene::RenderScene& renderScene) {
-    const auto& stats = renderScene.lastSyncStats();
-    const bool ok = stats.missingGeometryCount == 0
-        && doc.scene()
-        && stats.proxyCount == doc.scene()->entityCount();
-
-    std::ostringstream os;
-    os << "RenderScene sync "
-       << (ok ? "ok" : "mismatch")
-       << ": entities=" << stats.entityCount
-       << ", assets=" << stats.assetCount
-       << ", proxies=" << stats.proxyCount
-       << ", visible=" << stats.visibleProxyCount
-       << ", missingGeometry=" << stats.missingGeometryCount;
-
-    if (ok) {
-        mulan::core::log::log(mulan::core::log::Level::Info, os.str());
-    } else {
-        mulan::core::log::log(mulan::core::log::Level::Warn, os.str());
-    }
-}
-
 } // namespace
 
 //===================================================
@@ -241,7 +218,6 @@ void MainWindow::onOpenFile() {
     QString title = QString::fromStdString(doc->displayName());
     auto* session = new DocumentSession(std::move(doc));
     logDocumentStats(*session->document());
-    logRenderSceneSyncStats(*session->document(), session->renderScene());
     doc_area_->addDocument(session, title);
 
     statusBar()->showMessage(
@@ -273,7 +249,6 @@ void MainWindow::dropEvent(QDropEvent* e) {
     QString title = QString::fromStdString(doc->displayName());
     auto* session = new DocumentSession(std::move(doc));
     logDocumentStats(*session->document());
-    logRenderSceneSyncStats(*session->document(), session->renderScene());
     doc_area_->addDocument(session, title);
 
     statusBar()->showMessage(
