@@ -1,6 +1,7 @@
-# View - 消费 RenderScene 的视图运行时
+﻿# View - 消费 RenderScene 的视图运行时
 add_library(View STATIC
-    viewport.cpp
+    view_runtime.cpp
+    view_renderer.cpp
 )
 
 file(GLOB_RECURSE VIEW_HEADERS

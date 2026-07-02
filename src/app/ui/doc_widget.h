@@ -1,6 +1,6 @@
-/**
+﻿/**
  * @file doc_widget.h
- * @brief Qt 渲染控件 — Viewport 的薄壳封装
+ * @brief 承载文档视图运行时的 Qt 渲染控件。
  * @author hxxcxx
  * @date 2026-04-22 (原始) / 2026-06-01 (重构)
  */
@@ -8,10 +8,8 @@
 
 #include <QWidget>
 
-#include <mulan/view/viewport.h>
 #include <mulan/engine/interaction/input_event.h>
-
-#include <memory>
+#include <mulan/view/view_runtime.h>
 
 class DocumentSession;
 
@@ -22,26 +20,16 @@ public:
     explicit DocWidget(QWidget* parent = nullptr);
     ~DocWidget();
 
-    /// 设置当前 UI 文档（绑定场景到视图）
     void setDocumentSession(DocumentSession* session);
 
-    /// 设置引擎初始化配置（需在 init() 之前调用）
     void setViewConfig(const mulan::view::ViewConfig& cfg) { view_config_ = cfg; }
-
-    /// 获取可修改的引擎配置引用（需在 init() 之前调用）
     mulan::view::ViewConfig& viewConfig() { return view_config_; }
 
-    /// 初始化 Vulkan 设备与 SwapChain（需在 widget 显示后、渲染前调用）
     void init();
-
-    /// 请求渲染下一帧
     void requestFrame();
-
-    /// 适配相机到整个场景包围盒（Fit All）
     void fitAll();
 
-    /// 访问底层 Viewport
-    mulan::view::Viewport& viewport() { return viewport_; }
+    mulan::view::ViewRuntime& viewRuntime() { return view_runtime_; }
 
 protected:
     void resizeEvent(QResizeEvent* e) override;
@@ -62,7 +50,7 @@ private:
     static mulan::engine::KeyModifier translateModifiers(Qt::KeyboardModifiers mods);
     static mulan::engine::Key translateKey(int qtKey);
 
-    mulan::view::Viewport  viewport_;
+    mulan::view::ViewRuntime view_runtime_;
     mulan::view::ViewConfig view_config_;
-    DocumentSession*              session_ = nullptr;
+    DocumentSession* session_ = nullptr;
 };

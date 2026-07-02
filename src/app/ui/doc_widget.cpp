@@ -1,4 +1,4 @@
-#include "doc_widget.h"
+﻿#include "doc_widget.h"
 #include "document_session.h"
 #include "engine_settings.h"
 
@@ -26,12 +26,12 @@ DocWidget::DocWidget(QWidget* parent)
 DocWidget::~DocWidget() = default;
 
 void DocWidget::init() {
-    if (viewport_.isInitialized()) return;
+    if (view_runtime_.isInitialized()) return;
 
-    // 从全局设置读取后端 / MSAA / VSync 等配置
+    // 从全局设置读取后端 / MSAA / VSync 等配置。
     EngineSettings::instance().applyTo(view_config_);
 
-    // 填充平台原生窗口信息
+    // 填充平台原生窗口信息。
 #ifdef _WIN32
     view_config_.hInstance = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
     view_config_.hWnd      = reinterpret_cast<uintptr_t>(HWND(winId()));
@@ -40,26 +40,26 @@ void DocWidget::init() {
     const qreal dpr = devicePixelRatioF();
     const int pw = static_cast<int>(width()  * dpr);
     const int ph = static_cast<int>(height() * dpr);
-    if (!viewport_.init(view_config_, pw, ph)) return;
+    if (!view_runtime_.init(view_config_, pw, ph)) return;
 
     if (session_) {
-        session_->attachViewport(&viewport_);
+        session_->attachViewRuntime(&view_runtime_);
     }
 }
 
 void DocWidget::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);
-    if (viewport_.isInitialized()) {
+    if (view_runtime_.isInitialized()) {
         const qreal dpr = devicePixelRatioF();
         const int pw = static_cast<int>(width()  * dpr);
         const int ph = static_cast<int>(height() * dpr);
-        viewport_.resize(pw, ph);
+        view_runtime_.resize(pw, ph);
         requestFrame();
     }
 }
 
 void DocWidget::paintEvent(QPaintEvent*) {
-    if (viewport_.isInitialized()) requestFrame();
+    if (view_runtime_.isInitialized()) requestFrame();
 }
 
 void DocWidget::mousePressEvent(QMouseEvent* e) {
@@ -68,7 +68,7 @@ void DocWidget::mousePressEvent(QMouseEvent* e) {
         translateButton(e->button()),
         translateButtons(e->buttons()),
         translateModifiers(e->modifiers()));
-    viewport_.handleInput(ev);
+    view_runtime_.handleInput(ev);
     requestFrame();
 }
 
@@ -78,7 +78,7 @@ void DocWidget::mouseReleaseEvent(QMouseEvent* e) {
         translateButton(e->button()),
         translateButtons(e->buttons()),
         translateModifiers(e->modifiers()));
-    viewport_.handleInput(ev);
+    view_runtime_.handleInput(ev);
     requestFrame();
 }
 
@@ -87,7 +87,7 @@ void DocWidget::mouseMoveEvent(QMouseEvent* e) {
         e->pos().x(), e->pos().y(),
         translateButtons(e->buttons()),
         translateModifiers(e->modifiers()));
-    viewport_.handleInput(ev);
+    view_runtime_.handleInput(ev);
     requestFrame();
 }
 
@@ -99,7 +99,7 @@ void DocWidget::mouseDoubleClickEvent(QMouseEvent* e) {
     ev.button    = translateButton(e->button());
     ev.buttons   = translateButtons(e->buttons());
     ev.modifiers = translateModifiers(e->modifiers());
-    viewport_.handleInput(ev);
+    view_runtime_.handleInput(ev);
     requestFrame();
 }
 
@@ -110,7 +110,7 @@ void DocWidget::wheelEvent(QWheelEvent* e) {
         static_cast<int>(e->position().y()),
         delta,
         translateModifiers(e->modifiers()));
-    viewport_.handleInput(ev);
+    view_runtime_.handleInput(ev);
     requestFrame();
 }
 
@@ -118,7 +118,7 @@ void DocWidget::keyPressEvent(QKeyEvent* e) {
     auto ev = InputEvent::keyPress(
         translateKey(e->key()),
         translateModifiers(e->modifiers()));
-    viewport_.handleInput(ev);
+    view_runtime_.handleInput(ev);
     requestFrame();
 }
 
@@ -126,40 +126,39 @@ void DocWidget::keyReleaseEvent(QKeyEvent* e) {
     auto ev = InputEvent::keyRelease(
         translateKey(e->key()),
         translateModifiers(e->modifiers()));
-    viewport_.handleInput(ev);
+    view_runtime_.handleInput(ev);
     requestFrame();
 }
 
 void DocWidget::setDocumentSession(DocumentSession* session) {
-    if (session_) session_->detachViewport();
+    if (session_) session_->detachViewRuntime();
     session_ = session;
 
-    if (viewport_.isInitialized() && session_) {
-        session_->attachViewport(&viewport_);
+    if (view_runtime_.isInitialized() && session_) {
+        session_->attachViewRuntime(&view_runtime_);
         requestFrame();
     }
 }
 
 void DocWidget::requestFrame() {
-    if (viewport_.isInitialized() && isVisible()) {
-        viewport_.renderFrame();
+    if (view_runtime_.isInitialized() && isVisible()) {
+        view_runtime_.renderFrame();
     }
 }
 
 void DocWidget::fitAll() {
-    if (!viewport_.isInitialized()) return;
+    if (!view_runtime_.isInitialized()) return;
     if (!session_) return;
 
     if (session_) {
         const auto& sceneBounds = session_->renderScene().sceneBounds();
         if (!sceneBounds.isEmpty()) {
-            viewport_.camera().fitToBox(sceneBounds);
+            view_runtime_.camera().fitToBox(sceneBounds);
             requestFrame();
             return;
         }
     }
 
-    // 累加所有实体（世界空间）包围盒
     requestFrame();
 }
 

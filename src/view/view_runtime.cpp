@@ -1,25 +1,20 @@
-﻿#include "viewport.h"
+﻿#include "view_runtime.h"
 #include "mulan/engine/rhi/device.h"
 #include "mulan/engine/rhi/render_types.h"
 #include "mulan/engine/render/graph/forward_pass.h"
 #include "mulan/engine/render/graph/edge_pass.h"
 #include "mulan/engine/render/material/material_cache.h"
-#include "mulan/asset/asset_library.h"
-#include "mulan/asset/brep_asset.h"
-#include "mulan/asset/mesh_asset.h"
-#include "mulan/render_scene/render_scene.h"
-#include "mulan/render_scene/scene_proxy.h"
 
 #include <cstdio>
 #include <cstring>
 
 namespace mulan::view {
 
-// ============================================================
-// 旧构造（向后兼容）
-// ============================================================
 
-Viewport::Viewport()
+
+
+
+ViewRuntime::ViewRuntime()
     : default_op_(std::make_unique<engine::CameraManipulator>())
 {
     default_op_->setState(engine::Operator::State::Active);
@@ -29,21 +24,21 @@ Viewport::Viewport()
     camera_.setDistance(10.0);
 }
 
-Viewport::~Viewport() {
+ViewRuntime::~ViewRuntime() {
     shutdown();
 }
 
-// ============================================================
-// init（窗口模式）
-// ============================================================
 
-bool Viewport::init(const ViewConfig& cfg, int width, int height) {
+
+
+
+bool ViewRuntime::init(const ViewConfig& cfg, int width, int height) {
     if (initialized_) return true;
 
     width_  = width;
     height_ = height;
 
-    // --- 从 ViewConfig 构造 DeviceCreateInfo ---
+    
     engine::NativeWindowHandle window = cfg.toNativeWindowHandle();
     if (!window.valid()) return false;
 
@@ -58,7 +53,7 @@ bool Viewport::init(const ViewConfig& cfg, int width, int height) {
     device_ = engine::RHIDevice::create(ci).value_or(nullptr);
     if (!device_) return false;
 
-    // --- SwapChain ---
+    
     engine::SwapChainDesc scDesc;
     scDesc.width       = static_cast<uint32_t>(width);
     scDesc.height      = static_cast<uint32_t>(height);
@@ -73,14 +68,14 @@ bool Viewport::init(const ViewConfig& cfg, int width, int height) {
     if (!sc) { cleanup(); return false; }
     swapchain_ = std::move(*sc);
 
-    // --- GPU ---
+    
     gpu_storage_  = std::make_unique<engine::GpuResourceManager>(*device_);
     gpu_      = gpu_storage_.get();
 
-    // --- RenderGraph ---
+    
     if (!initRendering(width, height)) { cleanup(); return false; }
 
-    // --- Camera ---
+    
     camera_.setViewport(width, height);
     camera_.fitToBox(engine::AABB(engine::Vec3(-1, -1, -1), engine::Vec3(1, 1, 1)));
 
@@ -88,11 +83,11 @@ bool Viewport::init(const ViewConfig& cfg, int width, int height) {
     return true;
 }
 
-// ============================================================
-// initOffscreen（离屏模式）
-// ============================================================
 
-bool Viewport::initOffscreen(int width, int height) {
+
+
+
+bool ViewRuntime::initOffscreen(int width, int height) {
     if (initialized_) return true;
 
     width_  = width;
@@ -108,12 +103,12 @@ bool Viewport::initOffscreen(int width, int height) {
     ci.backend          = engine::GraphicsBackend::Vulkan;
     ci.window           = {};
     ci.renderConfig     = config;
-    ci.enableValidation = true;  // 开启 debug layer + InfoQueue 以定位 device removed
+    ci.enableValidation = true;  
 
     device_ = engine::RHIDevice::create(ci).value_or(nullptr);
     if (!device_) return false;
 
-    // --- RenderTarget ---
+    
     engine::RenderTargetDesc rtDesc;
     rtDesc.width       = static_cast<uint32_t>(width);
     rtDesc.height      = static_cast<uint32_t>(height);
@@ -125,21 +120,21 @@ bool Viewport::initOffscreen(int width, int height) {
     if (!rt) { cleanup(); return false; }
     render_target_ = std::move(*rt);
 
-    // --- Staging buffer ---
+    
     uint32_t pixelBytes = static_cast<uint32_t>(width) * height * 4;
     auto sb = device_->createBuffer(
         engine::BufferDesc::staging(pixelBytes, "ReadbackStaging"));
     if (!sb) { cleanup(); return false; }
     staging_buffer_ = std::move(*sb);
 
-    // --- GPU ---
+    
     gpu_storage_  = std::make_unique<engine::GpuResourceManager>(*device_);
     gpu_      = gpu_storage_.get();
 
-    // --- RenderGraph ---
+    
     if (!initRendering(width, height)) { cleanup(); return false; }
 
-    // --- Camera ---
+    
     camera_.setViewport(width, height);
     camera_.fitToBox(engine::AABB(engine::Vec3(-1, -1, -1), engine::Vec3(1, 1, 1)));
 
@@ -147,11 +142,11 @@ bool Viewport::initOffscreen(int width, int height) {
     return true;
 }
 
-// ============================================================
-// shutdown
-// ============================================================
 
-void Viewport::shutdown() {
+
+
+
+void ViewRuntime::shutdown() {
     if (!initialized_ && !device_) return;
     if (device_) device_->waitIdle();
 
@@ -160,7 +155,7 @@ void Viewport::shutdown() {
     staging_buffer_.reset();
     render_target_.reset();
     swapchain_.reset();
-    render_graph_.clear();   // Pass 持有 UBO 等 GPU 资源，必须在 device 析构前释放
+    render_graph_.clear();   
 
     gpu_       = nullptr;
     device_.reset();
@@ -168,26 +163,27 @@ void Viewport::shutdown() {
     initialized_    = false;
 }
 
-// ============================================================
-// World 绑定
-// ============================================================
 
-void Viewport::setRenderScene(const render_scene::RenderScene* scene,
+
+
+
+void ViewRuntime::setRenderScene(const render_scene::RenderScene* scene,
                               const asset::AssetLibrary* assets) {
     render_scene_ = scene;
     assets_ = assets;
+    renderer_.setScene(scene, assets);
 }
 
-// ============================================================
-// initRendering（旧路径 + 新路径共用）
-// ============================================================
 
-bool Viewport::initRendering(int width, int height) {
+
+
+
+bool ViewRuntime::initRendering(int width, int height) {
     width_  = width;
     height_ = height;
     camera_.setViewport(width, height);
 
-    // 用实际渲染目标的格式创建 Pass，避免 PSO 的 RenderPass 与 SwapChain/RT 不兼容
+    
     engine::TextureFormat colorFmt = render_target_
         ? render_target_->colorFormat()
         : (swapchain_ ? swapchain_->colorFormat() : engine::TextureFormat::RGBA8_UNorm);
@@ -210,15 +206,15 @@ bool Viewport::initRendering(int width, int height) {
         return false;
     render_graph_.addPass(std::move(edge));
 
-    // ViewCube
+    
     if (!initSceneRenderer()) {
-        std::fprintf(stderr, "[Viewport] ViewCube init failed (non-fatal)\n");
+        std::fprintf(stderr, "[ViewRuntime] ViewCube init failed (non-fatal)\n");
     }
 
     return true;
 }
 
-bool Viewport::initSceneRenderer() {
+bool ViewRuntime::initSceneRenderer() {
     engine::TextureFormat colorFmt = render_target_
         ? render_target_->colorFormat()
         : (swapchain_ ? swapchain_->colorFormat() : engine::TextureFormat::RGBA8_UNorm);
@@ -234,7 +230,7 @@ bool Viewport::initSceneRenderer() {
     return true;
 }
 
-void Viewport::cleanup() {
+void ViewRuntime::cleanup() {
     view_cube_renderer_.reset();
     render_graph_ = engine::RenderGraph();
     staging_buffer_.reset();
@@ -244,23 +240,26 @@ void Viewport::cleanup() {
     gpu_       = nullptr;
 }
 
-// ============================================================
-// renderFrame（新路径：完整帧循环）
-// ============================================================
 
-void Viewport::renderFrame() {
+
+
+
+void ViewRuntime::renderFrame() {
     if (!initialized_) return;
 
     auto* fwd  = render_graph_.pass<engine::ForwardPass>(0);
     auto* edge = render_graph_.pass<engine::EdgePass>(1);
 
-    rebuildDrawCommands();
+    if (gpu_)
+        renderer_.rebuild(*gpu_,
+                          fwd ? fwd->pipelineState() : nullptr,
+                          edge ? edge->pipelineState() : nullptr);
 
     if (fwd) {
-        fwd->setDrawCommands(face_cmds_);
+        fwd->setDrawCommands(renderer_.faceCommands());
     }
     if (edge) {
-        edge->setDrawCommands(edge_cmds_);
+        edge->setDrawCommands(renderer_.edgeCommands());
     }
 
     device_->beginFrame(swapchain_ ? swapchain_.get() : nullptr);
@@ -294,7 +293,7 @@ void Viewport::renderFrame() {
     ctx.height = height_;
     render_graph_.execute(ctx);
 
-    // ViewCube（叠加在右下角）
+    
     if (view_cube_renderer_) {
         view_cube_renderer_->render(cmd, camera_,
                                    static_cast<uint32_t>(width_),
@@ -312,84 +311,10 @@ void Viewport::renderFrame() {
     onFrameEnd();
 }
 
-void Viewport::rebuildDrawCommands() {
-    face_cmds_.clear();
-    edge_cmds_.clear();
-
-    if (!render_scene_ || !assets_ || !gpu_)
-        return;
-
-    auto* fwd  = render_graph_.pass<engine::ForwardPass>(0);
-    auto* edge = render_graph_.pass<engine::EdgePass>(1);
-    auto& matCache = engine::MaterialCache::instance();
-
-    uint32_t nextObjectOffset = 0;
-    render_scene_->forEachProxy([&](const render_scene::SceneProxy& proxy) {
-        if (!proxy.visible || !proxy.geometry)
-            return;
-
-        const auto* asset = assets_->asset(proxy.geometry);
-        const engine::Mesh* faceMesh = nullptr;
-        const engine::Mesh* edgeMesh = nullptr;
-
-        if (const auto* brep = dynamic_cast<const asset::BRepAsset*>(asset)) {
-            faceMesh = &brep->faceMesh();
-            edgeMesh = &brep->edgeMesh();
-        } else if (const auto* mesh = dynamic_cast<const asset::MeshAsset*>(asset)) {
-            faceMesh = &mesh->mesh();
-        }
-
-        const uint64_t key = proxy.geometry.value;
-        if (faceMesh && !faceMesh->empty()) {
-            if (!gpu_->faceGeometry(key))
-                gpu_->uploadFaceMesh(key, *faceMesh);
-
-            if (const auto* geo = gpu_->faceGeometry(key)) {
-                engine::MeshDrawCommand cmd;
-                cmd.pipelineState = fwd ? fwd->pipelineState() : nullptr;
-                cmd.vertexBuffer = geo->vertexBuffer.get();
-                cmd.indexBuffer = geo->indexBuffer.get();
-                cmd.indexCount = geo->indexCount;
-                cmd.instanceCount = 1;
-                cmd.topology = faceMesh->topology;
-                cmd.objectUboOffset = nextObjectOffset;
-                cmd.materialUboOffset = matCache.materialGpuOffset(0);
-                cmd.worldTransform = proxy.worldTransform;
-                cmd.pickId = proxy.entity.index();
-                cmd.selected = proxy.selected;
-                face_cmds_.push_back(std::move(cmd));
-                nextObjectOffset += engine::MeshDrawCommand::kObjectUboStride;
-            }
-        }
-
-        if (edgeMesh && !edgeMesh->empty()) {
-            if (!gpu_->edgeGeometry(key))
-                gpu_->uploadEdgeMesh(key, *edgeMesh);
-
-            if (const auto* geo = gpu_->edgeGeometry(key)) {
-                engine::MeshDrawCommand cmd;
-                cmd.pipelineState = edge ? edge->pipelineState() : nullptr;
-                cmd.vertexBuffer = geo->vertexBuffer.get();
-                cmd.indexBuffer = geo->indexBuffer.get();
-                cmd.indexCount = geo->indexCount;
-                cmd.instanceCount = 1;
-                cmd.topology = edgeMesh->topology;
-                cmd.objectUboOffset = nextObjectOffset;
-                cmd.worldTransform = proxy.worldTransform;
-                cmd.pickId = proxy.entity.index();
-                cmd.selected = proxy.selected;
-                cmd.isEdge = true;
-                edge_cmds_.push_back(std::move(cmd));
-                nextObjectOffset += engine::MeshDrawCommand::kObjectUboStride;
-            }
-        }
-    });
+void ViewRuntime::onFrameEnd() {
 }
 
-void Viewport::onFrameEnd() {
-}
-
-void Viewport::resize(int width, int height) {
+void ViewRuntime::resize(int width, int height) {
     width_  = width;
     height_ = height;
 
@@ -404,9 +329,9 @@ void Viewport::resize(int width, int height) {
             auto sb = device_->createBuffer(
                 engine::BufferDesc::staging(pixelBytes, "ReadbackStaging"));
             if (!sb) {
-                std::fprintf(stderr, "[Viewport] resize staging buffer failed: %s\n",
+                std::fprintf(stderr, "[ViewRuntime] resize staging buffer failed: %s\n",
                              sb.error().message.c_str());
-                // staging_buffer_ 保持空，readbackPixels 前置判空会挡住
+                
             } else {
                 staging_buffer_ = std::move(*sb);
             }
@@ -418,33 +343,33 @@ void Viewport::resize(int width, int height) {
     camera_.setViewport(width, height);
 }
 
-// ============================================================
-// 输入
-// ============================================================
 
-void Viewport::handleInput(const engine::InputEvent& event) {
+
+
+
+void ViewRuntime::handleInput(const engine::InputEvent& event) {
     engine::Operator* op = activeOperator();
     if (!op) return;
 
     op->handleEvent(event, camera_);
 
-    // 状态机检测：模态 Operator 调用 finish() 后，由 Viewport 在外部触发
-    // 回调并 pop（避免在 Operator 成员函数内析构自身的 UB）。
+    
+    
     if (op->isFinished() && !op_stack_.empty()) {
-        auto finishedHook = op->finishHook();  // 拷贝回调（pop 会析构 Operator）
+        auto finishedHook = op->finishHook();  
         if (finishedHook) finishedHook(*op);
         popOperator();
     }
 }
 
-// ============================================================
-// Operator（LIFO 栈）
-// ============================================================
 
-void Viewport::pushOperator(std::unique_ptr<engine::Operator> op) {
+
+
+
+void ViewRuntime::pushOperator(std::unique_ptr<engine::Operator> op) {
     if (!op) return;
 
-    // 挂起当前栈顶（若有）
+    
     if (auto* cur = activeOperator()) {
         cur->setState(engine::Operator::State::Inactive);
         cur->onDeactivate(camera_);
@@ -455,40 +380,40 @@ void Viewport::pushOperator(std::unique_ptr<engine::Operator> op) {
     op_stack_.push_back(std::move(op));
 }
 
-void Viewport::popOperator() {
+void ViewRuntime::popOperator() {
     if (op_stack_.empty()) return;
 
-    // 析构栈顶（先 deactivate）
+    
     auto top = std::move(op_stack_.back());
     op_stack_.pop_back();
     top->setState(engine::Operator::State::Inactive);
     top->onDeactivate(camera_);
-    top.reset();  // 析构
+    top.reset();  
 
-    // 恢复下层
+    
     if (auto* next = activeOperator()) {
         next->setState(engine::Operator::State::Active);
         next->onActivate(camera_);
     }
 }
 
-engine::Operator* Viewport::activeOperator() const {
+engine::Operator* ViewRuntime::activeOperator() const {
     if (!op_stack_.empty()) return op_stack_.back().get();
     return default_op_.get();
 }
 
-// ============================================================
-// 离屏回读
-// ============================================================
 
-bool Viewport::readbackPixels(std::vector<uint8_t>& pixels) {
+
+
+
+bool ViewRuntime::readbackPixels(std::vector<uint8_t>& pixels) {
     if (!render_target_ || !staging_buffer_ || !device_) return false;
 
     device_->waitIdle();
 
     auto cmdResult = device_->createCommandList();
     if (!cmdResult) {
-        std::fprintf(stderr, "[Viewport] readbackPixels createCommandList: %s\n",
+        std::fprintf(stderr, "[ViewRuntime] readbackPixels createCommandList: %s\n",
                      cmdResult.error().message.c_str());
         return false;
     }
@@ -506,4 +431,5 @@ bool Viewport::readbackPixels(std::vector<uint8_t>& pixels) {
     return staging_buffer_->readback(0, byteSize, pixels.data());
 }
 
-} // namespace mulan::view
+} 
+

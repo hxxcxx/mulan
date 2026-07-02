@@ -1,6 +1,6 @@
-/**
- * @file viewport.h
- * @brief Viewport 是消费 RenderScene 的视图运行时
+﻿/**
+ * @file view_runtime.h
+ * @brief ViewRuntime 是消费 RenderScene 的视图运行时
  *
  * 持有 RHIDevice、SwapChain/RenderTarget、Camera、GpuResourceManager、
  * RenderGraph 和交互 Operator。
@@ -9,6 +9,7 @@
 #pragma once
 
 #include "view_config.h"
+#include "view_renderer.h"
 
 #include "mulan/engine/interaction/camera_manipulator.h"
 #include "mulan/engine/interaction/input_event.h"
@@ -16,7 +17,6 @@
 #include "mulan/engine/render/gpu_resource_manager.h"
 #include "mulan/engine/render/graph/render_graph.h"
 #include "mulan/engine/render/light_environment.h"
-#include "mulan/engine/render/mesh_draw_command.h"
 #include "mulan/engine/render/viewcube/view_cube_renderer.h"
 #include "mulan/engine/rhi/buffer.h"
 #include "mulan/engine/rhi/device.h"
@@ -38,13 +38,13 @@ class RenderScene;
 
 namespace mulan::view {
 
-class Viewport {
+class ViewRuntime {
 public:
-    Viewport();
-    ~Viewport();
+    ViewRuntime();
+    ~ViewRuntime();
 
-    Viewport(const Viewport&) = delete;
-    Viewport& operator=(const Viewport&) = delete;
+    ViewRuntime(const ViewRuntime&) = delete;
+    ViewRuntime& operator=(const ViewRuntime&) = delete;
 
     bool init(const ViewConfig& config, int width, int height);
     bool initOffscreen(int width, int height);
@@ -86,7 +86,6 @@ private:
     bool initRendering(int width, int height);
     bool initSceneRenderer();
     void cleanup();
-    void rebuildDrawCommands();
 
     std::shared_ptr<engine::RHIDevice> device_;
 
@@ -96,6 +95,7 @@ private:
 
     const render_scene::RenderScene* render_scene_ = nullptr;
     const asset::AssetLibrary* assets_ = nullptr;
+    ViewRenderer renderer_;
 
     std::unique_ptr<engine::GpuResourceManager> gpu_storage_;
     engine::GpuResourceManager* gpu_ = nullptr;
@@ -108,8 +108,6 @@ private:
 
     engine::RenderGraph render_graph_;
     engine::LightEnvironment light_env_;
-    std::vector<engine::MeshDrawCommand> face_cmds_;
-    std::vector<engine::MeshDrawCommand> edge_cmds_;
 
     int width_ = 800;
     int height_ = 600;
