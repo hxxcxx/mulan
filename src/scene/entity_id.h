@@ -1,3 +1,10 @@
+/**
+ * @file entity_id.h
+ * @brief EntityId —— 带 generation 校验的场景实体标识
+ * @author hxxcxx
+ * @date 2026-07-02
+ */
+
 #pragma once
 
 #include <cstdint>
@@ -43,4 +50,3 @@ struct std::hash<mulan::scene::EntityId> {
         return std::hash<mulan::scene::EntityIdValue>{}(id.value);
     }
 };
-

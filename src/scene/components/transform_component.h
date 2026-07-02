@@ -1,3 +1,10 @@
+/**
+ * @file transform_component.h
+ * @brief TransformComponent —— 场景实体的局部与世界变换
+ * @author hxxcxx
+ * @date 2026-07-02
+ */
+
 #pragma once
 
 #include <mulan/engine/math/math.h>
@@ -10,4 +17,3 @@ struct TransformComponent {
 };
 
 } // namespace mulan::scene
-

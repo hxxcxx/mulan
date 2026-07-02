@@ -1,3 +1,10 @@
+/**
+ * @file asset_id.h
+ * @brief AssetId —— 文档资产库使用的稳定资产标识
+ * @author hxxcxx
+ * @date 2026-07-02
+ */
+
 #pragma once
 
 #include <cstdint>
@@ -32,4 +39,3 @@ struct std::hash<mulan::asset::AssetId> {
         return std::hash<mulan::asset::AssetIdValue>{}(id.value);
     }
 };
-

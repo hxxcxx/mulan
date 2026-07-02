@@ -1,3 +1,10 @@
+/**
+ * @file mesh_asset.h
+ * @brief MeshAsset —— 导入多边形网格数据的几何资产骨架
+ * @author hxxcxx
+ * @date 2026-07-02
+ */
+
 #pragma once
 
 #include "geometry_asset.h"

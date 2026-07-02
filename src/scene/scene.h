@@ -1,3 +1,10 @@
+/**
+ * @file scene.h
+ * @brief Scene —— 面向编辑器文档视图的组件化场景实例模型
+ * @author hxxcxx
+ * @date 2026-07-02
+ */
+
 #pragma once
 
 #include "components/bounds_component.h"
@@ -14,6 +21,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace mulan::scene {
@@ -34,26 +42,28 @@ public:
     bool setParent(EntityId child, EntityId parent);
     const std::vector<EntityId>& childrenOf(EntityId parent) const;
 
-    NameComponent* name(EntityId id);
     const NameComponent* name(EntityId id) const;
 
-    TransformComponent* transform(EntityId id);
     const TransformComponent* transform(EntityId id) const;
 
-    HierarchyComponent* hierarchy(EntityId id);
     const HierarchyComponent* hierarchy(EntityId id) const;
 
-    GeometryComponent* geometry(EntityId id);
     const GeometryComponent* geometry(EntityId id) const;
 
-    RenderComponent* render(EntityId id);
     const RenderComponent* render(EntityId id) const;
 
-    SelectionComponent* selection(EntityId id);
     const SelectionComponent* selection(EntityId id) const;
 
-    BoundsComponent* bounds(EntityId id);
     const BoundsComponent* bounds(EntityId id) const;
+
+    bool setName(EntityId id, std::string name);
+    bool setLocalTransform(EntityId id, const engine::Mat4& transform);
+    bool setWorldTransform(EntityId id, const engine::Mat4& transform);
+    bool setGeometry(EntityId id, asset::AssetId geometry);
+    bool setVisible(EntityId id, bool visible);
+    bool setMaterialSlots(EntityId id, std::vector<asset::AssetId> materials);
+    bool setSelected(EntityId id, bool selected);
+    bool setWorldBounds(EntityId id, const engine::AABB& bounds);
 
     void markDirty(EntityId id, EntityDirty dirty);
     uint64_t dirtyFlags(EntityId id) const;
@@ -84,6 +94,14 @@ private:
     uint32_t indexOf(EntityId id) const { return id.index(); }
     bool detectCycle(EntityId child, EntityId parent) const;
 
+    NameComponent* mutableName(EntityId id);
+    TransformComponent* mutableTransform(EntityId id);
+    HierarchyComponent* mutableHierarchy(EntityId id);
+    GeometryComponent* mutableGeometry(EntityId id);
+    RenderComponent* mutableRender(EntityId id);
+    SelectionComponent* mutableSelection(EntityId id);
+    BoundsComponent* mutableBounds(EntityId id);
+
     void addChild(EntityId parent, EntityId child);
     void removeChild(EntityId parent, EntityId child);
     void eraseComponents(EntityId id);
@@ -104,4 +122,3 @@ private:
 };
 
 } // namespace mulan::scene
-

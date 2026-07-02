@@ -43,14 +43,14 @@ void Scene::destroyEntity(EntityId id) {
         auto children = std::move(childIt->second);
         children_.erase(childIt);
         for (auto childId : children) {
-            if (auto* h = hierarchy(childId)) {
+            if (auto* h = mutableHierarchy(childId)) {
                 h->parent = EntityId::invalid();
                 markDirty(childId, EntityDirty::Hierarchy | EntityDirty::Transform);
             }
         }
     }
 
-    if (auto* h = hierarchy(id); h && h->parent) {
+    if (auto* h = mutableHierarchy(id); h && h->parent) {
         removeChild(h->parent, id);
     }
 
@@ -76,7 +76,7 @@ bool Scene::isValid(EntityId id) const {
 bool Scene::setParent(EntityId child, EntityId parent) {
     if (!isValid(child)) return false;
 
-    auto* h = hierarchy(child);
+    auto* h = mutableHierarchy(child);
     if (!h) return false;
 
     if (!parent) {
@@ -105,19 +105,9 @@ const std::vector<EntityId>& Scene::childrenOf(EntityId parent) const {
     return it != children_.end() ? it->second : empty;
 }
 
-NameComponent* Scene::name(EntityId id) {
-    auto it = names_.find(id);
-    return it != names_.end() ? &it->second : nullptr;
-}
-
 const NameComponent* Scene::name(EntityId id) const {
     auto it = names_.find(id);
     return it != names_.end() ? &it->second : nullptr;
-}
-
-TransformComponent* Scene::transform(EntityId id) {
-    auto it = transforms_.find(id);
-    return it != transforms_.end() ? &it->second : nullptr;
 }
 
 const TransformComponent* Scene::transform(EntityId id) const {
@@ -125,19 +115,9 @@ const TransformComponent* Scene::transform(EntityId id) const {
     return it != transforms_.end() ? &it->second : nullptr;
 }
 
-HierarchyComponent* Scene::hierarchy(EntityId id) {
-    auto it = hierarchies_.find(id);
-    return it != hierarchies_.end() ? &it->second : nullptr;
-}
-
 const HierarchyComponent* Scene::hierarchy(EntityId id) const {
     auto it = hierarchies_.find(id);
     return it != hierarchies_.end() ? &it->second : nullptr;
-}
-
-GeometryComponent* Scene::geometry(EntityId id) {
-    auto it = geometries_.find(id);
-    return it != geometries_.end() ? &it->second : nullptr;
 }
 
 const GeometryComponent* Scene::geometry(EntityId id) const {
@@ -145,19 +125,9 @@ const GeometryComponent* Scene::geometry(EntityId id) const {
     return it != geometries_.end() ? &it->second : nullptr;
 }
 
-RenderComponent* Scene::render(EntityId id) {
-    auto it = renders_.find(id);
-    return it != renders_.end() ? &it->second : nullptr;
-}
-
 const RenderComponent* Scene::render(EntityId id) const {
     auto it = renders_.find(id);
     return it != renders_.end() ? &it->second : nullptr;
-}
-
-SelectionComponent* Scene::selection(EntityId id) {
-    auto it = selections_.find(id);
-    return it != selections_.end() ? &it->second : nullptr;
 }
 
 const SelectionComponent* Scene::selection(EntityId id) const {
@@ -165,14 +135,86 @@ const SelectionComponent* Scene::selection(EntityId id) const {
     return it != selections_.end() ? &it->second : nullptr;
 }
 
-BoundsComponent* Scene::bounds(EntityId id) {
+const BoundsComponent* Scene::bounds(EntityId id) const {
     auto it = bounds_.find(id);
     return it != bounds_.end() ? &it->second : nullptr;
 }
 
-const BoundsComponent* Scene::bounds(EntityId id) const {
-    auto it = bounds_.find(id);
-    return it != bounds_.end() ? &it->second : nullptr;
+bool Scene::setName(EntityId id, std::string name) {
+    auto* c = mutableName(id);
+    if (!c) return false;
+    if (c->value == name) return true;
+
+    c->value = std::move(name);
+    markDirty(id, EntityDirty::Name);
+    return true;
+}
+
+bool Scene::setLocalTransform(EntityId id, const engine::Mat4& transform) {
+    auto* c = mutableTransform(id);
+    if (!c) return false;
+
+    c->local = transform;
+    markDirty(id, EntityDirty::Transform | EntityDirty::Bounds);
+    return true;
+}
+
+bool Scene::setWorldTransform(EntityId id, const engine::Mat4& transform) {
+    auto* c = mutableTransform(id);
+    if (!c) return false;
+
+    c->world = transform;
+    markDirty(id, EntityDirty::Transform | EntityDirty::Bounds);
+    return true;
+}
+
+bool Scene::setGeometry(EntityId id, asset::AssetId geometry) {
+    auto* c = mutableGeometry(id);
+    if (!c) return false;
+    if (c->geometry == geometry) return true;
+
+    c->geometry = geometry;
+    markDirty(id, EntityDirty::Geometry | EntityDirty::Bounds);
+    return true;
+}
+
+bool Scene::setVisible(EntityId id, bool visible) {
+    auto* c = mutableRender(id);
+    if (!c) return false;
+    if (c->visible == visible) return true;
+
+    c->visible = visible;
+    markDirty(id, EntityDirty::RenderState);
+    return true;
+}
+
+bool Scene::setMaterialSlots(EntityId id, std::vector<asset::AssetId> materials) {
+    auto* c = mutableRender(id);
+    if (!c) return false;
+    if (c->material_slots == materials) return true;
+
+    c->material_slots = std::move(materials);
+    markDirty(id, EntityDirty::Material);
+    return true;
+}
+
+bool Scene::setSelected(EntityId id, bool selected) {
+    auto* c = mutableSelection(id);
+    if (!c) return false;
+    if (c->selected == selected) return true;
+
+    c->selected = selected;
+    markDirty(id, EntityDirty::Selection);
+    return true;
+}
+
+bool Scene::setWorldBounds(EntityId id, const engine::AABB& bounds) {
+    auto* c = mutableBounds(id);
+    if (!c) return false;
+
+    c->world_bounds = bounds;
+    markDirty(id, EntityDirty::Bounds);
+    return true;
 }
 
 void Scene::markDirty(EntityId id, EntityDirty dirty) {
@@ -208,6 +250,41 @@ bool Scene::detectCycle(EntityId child, EntityId parent) const {
     return false;
 }
 
+NameComponent* Scene::mutableName(EntityId id) {
+    auto it = names_.find(id);
+    return it != names_.end() ? &it->second : nullptr;
+}
+
+TransformComponent* Scene::mutableTransform(EntityId id) {
+    auto it = transforms_.find(id);
+    return it != transforms_.end() ? &it->second : nullptr;
+}
+
+HierarchyComponent* Scene::mutableHierarchy(EntityId id) {
+    auto it = hierarchies_.find(id);
+    return it != hierarchies_.end() ? &it->second : nullptr;
+}
+
+GeometryComponent* Scene::mutableGeometry(EntityId id) {
+    auto it = geometries_.find(id);
+    return it != geometries_.end() ? &it->second : nullptr;
+}
+
+RenderComponent* Scene::mutableRender(EntityId id) {
+    auto it = renders_.find(id);
+    return it != renders_.end() ? &it->second : nullptr;
+}
+
+SelectionComponent* Scene::mutableSelection(EntityId id) {
+    auto it = selections_.find(id);
+    return it != selections_.end() ? &it->second : nullptr;
+}
+
+BoundsComponent* Scene::mutableBounds(EntityId id) {
+    auto it = bounds_.find(id);
+    return it != bounds_.end() ? &it->second : nullptr;
+}
+
 void Scene::addChild(EntityId parent, EntityId child) {
     children_[parent].push_back(child);
 }
@@ -233,4 +310,3 @@ void Scene::eraseComponents(EntityId id) {
 }
 
 } // namespace mulan::scene
-

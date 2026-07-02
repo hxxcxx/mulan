@@ -1,3 +1,10 @@
+/**
+ * @file texture_asset.h
+ * @brief TextureAsset —— 带源路径元数据的纹理资产骨架
+ * @author hxxcxx
+ * @date 2026-07-02
+ */
+
 #pragma once
 
 #include "asset.h"

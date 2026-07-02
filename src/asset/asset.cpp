@@ -10,4 +10,3 @@ Asset::Asset(AssetId id, AssetKind kind, std::string name)
     , name_(std::move(name)) {}
 
 } // namespace mulan::asset
-

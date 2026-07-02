@@ -1,3 +1,10 @@
+/**
+ * @file geometry_component.h
+ * @brief GeometryComponent —— 场景实体引用的几何资产
+ * @author hxxcxx
+ * @date 2026-07-02
+ */
+
 #pragma once
 
 #include <mulan/asset/asset_id.h>
@@ -9,4 +16,3 @@ struct GeometryComponent {
 };
 
 } // namespace mulan::scene
-

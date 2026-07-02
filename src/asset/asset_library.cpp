@@ -29,4 +29,3 @@ void AssetLibrary::clear() {
 }
 
 } // namespace mulan::asset
-

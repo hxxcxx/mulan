@@ -1,3 +1,10 @@
+/**
+ * @file asset_library.h
+ * @brief AssetLibrary —— 文档层资产容器，管理可复用几何、材质与纹理数据
+ * @author hxxcxx
+ * @date 2026-07-02
+ */
+
 #pragma once
 
 #include "asset.h"

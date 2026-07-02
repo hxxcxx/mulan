@@ -22,8 +22,12 @@
 
 #include "document_export.h"
 
+#include <mulan/asset/asset_id.h>
+#include <mulan/scene/entity_id.h>
+
 #include <memory>
 #include <string>
+#include <vector>
 
 // 前向声明，避免在头文件暴露 OCCT / World 细节
 class TopoDS_Shape;
@@ -56,6 +60,12 @@ public:
     /// 添加一个 Solid：存 TopoDS_Shape + 创建 Entity + 挂渲染几何。
     /// 由 OCCTImporter 调用。返回创建的 Entity（非拥有）。
     world::Entity* addSolid(const TopoDS_Shape& shape, std::string name);
+
+    /// 在新 Scene/Asset 架构中添加一个场景实例。
+    /// 当前仅作为迁移入口：旧 world 仍负责实际渲染。
+    scene::EntityId addSceneInstance(std::string name,
+                                     asset::AssetId geometry,
+                                     std::vector<asset::AssetId> materialSlots = {});
 
     // ---------- 渲染场景（拥有）----------
 

@@ -1,3 +1,10 @@
+/**
+ * @file asset.h
+ * @brief Asset —— 文档层可复用数据的资产基类
+ * @author hxxcxx
+ * @date 2026-07-02
+ */
+
 #pragma once
 
 #include "asset_id.h"

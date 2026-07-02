@@ -1,3 +1,10 @@
+/**
+ * @file material_asset.h
+ * @brief MaterialAsset —— 可编辑材质资产骨架
+ * @author hxxcxx
+ * @date 2026-07-02
+ */
+
 #pragma once
 
 #include "asset.h"

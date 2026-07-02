@@ -1,3 +1,10 @@
+/**
+ * @file render_component.h
+ * @brief RenderComponent —— 场景实体的渲染可见性与材质槽引用
+ * @author hxxcxx
+ * @date 2026-07-02
+ */
+
 #pragma once
 
 #include <mulan/asset/asset_id.h>
@@ -12,4 +19,3 @@ struct RenderComponent {
 };
 
 } // namespace mulan::scene
-

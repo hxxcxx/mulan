@@ -1,3 +1,10 @@
+/**
+ * @file entity_dirty.h
+ * @brief EntityDirty —— Scene 与 RenderScene 同步阶段消费的脏标记
+ * @author hxxcxx
+ * @date 2026-07-02
+ */
+
 #pragma once
 
 #include <cstdint>
