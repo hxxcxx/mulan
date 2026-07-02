@@ -1,6 +1,6 @@
 #include "document_area.h"
 #include "doc_widget.h"
-#include "ui_document.h"
+#include "document_session.h"
 
 #include <QLabel>
 #include <QTabBar>
@@ -51,10 +51,10 @@ DocumentArea::~DocumentArea() {
     docs_.clear();
 }
 
-DocWidget* DocumentArea::addDocument(UIDocument* uiDoc, const QString& title) {
+DocWidget* DocumentArea::addDocument(DocumentSession* session, const QString& title) {
     auto* docWidget = new DocWidget(this);
-    docs_[docWidget] = uiDoc;
-    docWidget->setUIDocument(uiDoc);
+    docs_[docWidget] = session;
+    docWidget->setDocumentSession(session);
 
     int idx = tab_widget_->addTab(docWidget, title);
     tab_widget_->setCurrentIndex(idx);

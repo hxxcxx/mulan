@@ -10,7 +10,7 @@
 #include <mulan/io/file_manager.h>
 
 class DocumentArea;
-class UIDocument;
+class DocumentSession;
 class EngineSettingsDialog;
 
 class MainWindow : public SARibbonMainWindow {

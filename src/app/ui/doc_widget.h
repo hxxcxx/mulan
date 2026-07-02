@@ -13,7 +13,7 @@
 
 #include <memory>
 
-class UIDocument;
+class DocumentSession;
 
 class DocWidget : public QWidget {
     Q_OBJECT
@@ -23,7 +23,7 @@ public:
     ~DocWidget();
 
     /// 设置当前 UI 文档（绑定场景到视图）
-    void setUIDocument(UIDocument* doc);
+    void setDocumentSession(DocumentSession* session);
 
     /// 设置引擎初始化配置（需在 init() 之前调用）
     void setViewConfig(const mulan::world::ViewConfig& cfg) { view_config_ = cfg; }
@@ -64,5 +64,5 @@ private:
 
     mulan::world::Viewport  viewport_;
     mulan::world::ViewConfig view_config_;
-    UIDocument*                   ui_doc_ = nullptr;
+    DocumentSession*              session_ = nullptr;
 };

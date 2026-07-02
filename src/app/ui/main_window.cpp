@@ -1,7 +1,7 @@
 #include "main_window.h"
 #include "document_area.h"
 #include "doc_widget.h"
-#include "ui_document.h"
+#include "document_session.h"
 #include "engine_settings_dialog.h"
 
 #include <mulan/document/document.h>
@@ -41,10 +41,8 @@ void logSceneMirrorStats(const mulan::document::Document& doc) {
     }
 }
 
-void logRenderSceneSyncStats(const mulan::document::Document& doc) {
-    if (!doc.scene() || !doc.assets())
-        return;
-
+void logRenderSceneSyncStats(const mulan::document::Document& doc,
+                             const mulan::render_scene::RenderScene& renderScene) {
     size_t worldGeometryCount = 0;
     if (const auto* world = doc.world()) {
         world->forEachEntity([&](const mulan::world::Entity* entity) {
@@ -52,9 +50,6 @@ void logRenderSceneSyncStats(const mulan::document::Document& doc) {
                 ++worldGeometryCount;
         });
     }
-
-    mulan::render_scene::RenderScene renderScene;
-    renderScene.sync(*doc.scene(), *doc.assets());
 
     const auto& stats = renderScene.lastSyncStats();
     const bool ok = stats.missingGeometryCount == 0
@@ -253,10 +248,10 @@ void MainWindow::onOpenFile() {
     }
 
     QString title = QString::fromStdString(doc->displayName());
-    logSceneMirrorStats(*doc);
-    logRenderSceneSyncStats(*doc);
-    auto* uiDoc = new UIDocument(std::move(doc));
-    doc_area_->addDocument(uiDoc, title);
+    auto* session = new DocumentSession(std::move(doc));
+    logSceneMirrorStats(*session->document());
+    logRenderSceneSyncStats(*session->document(), session->renderScene());
+    doc_area_->addDocument(session, title);
 
     statusBar()->showMessage(
         QString("Loaded: %1")
@@ -285,10 +280,10 @@ void MainWindow::dropEvent(QDropEvent* e) {
     }
 
     QString title = QString::fromStdString(doc->displayName());
-    logSceneMirrorStats(*doc);
-    logRenderSceneSyncStats(*doc);
-    auto* uiDoc = new UIDocument(std::move(doc));
-    doc_area_->addDocument(uiDoc, title);
+    auto* session = new DocumentSession(std::move(doc));
+    logSceneMirrorStats(*session->document());
+    logRenderSceneSyncStats(*session->document(), session->renderScene());
+    doc_area_->addDocument(session, title);
 
     statusBar()->showMessage(
         QString("Loaded: %1")

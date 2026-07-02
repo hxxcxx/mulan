@@ -82,7 +82,7 @@ public:
 
     // ---------- 渲染场景（拥有）----------
 
-    /// 拥有的 World（渲染场景）。Viewport / UIDocument 借用。
+    /// 旧显示链路使用的 World，当前由 Viewport / DocumentSession 过渡借用。
     world::World* world() { return world_.get(); }
     const world::World* world() const { return world_.get(); }
 

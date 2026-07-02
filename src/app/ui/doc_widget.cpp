@@ -1,5 +1,5 @@
 #include "doc_widget.h"
-#include "ui_document.h"
+#include "document_session.h"
 #include "engine_settings.h"
 
 #include <mulan/world/world.h>
@@ -45,8 +45,8 @@ void DocWidget::init() {
     const int ph = static_cast<int>(height() * dpr);
     if (!viewport_.init(view_config_, pw, ph)) return;
 
-    if (ui_doc_) {
-        ui_doc_->attachViewport(&viewport_);
+    if (session_) {
+        session_->attachViewport(&viewport_);
     }
 }
 
@@ -133,12 +133,12 @@ void DocWidget::keyReleaseEvent(QKeyEvent* e) {
     requestFrame();
 }
 
-void DocWidget::setUIDocument(UIDocument* doc) {
-    if (ui_doc_) ui_doc_->detachViewport();
-    ui_doc_ = doc;
+void DocWidget::setDocumentSession(DocumentSession* session) {
+    if (session_) session_->detachViewport();
+    session_ = session;
 
-    if (viewport_.isInitialized() && ui_doc_) {
-        ui_doc_->attachViewport(&viewport_);
+    if (viewport_.isInitialized() && session_) {
+        session_->attachViewport(&viewport_);
         requestFrame();
     }
 }

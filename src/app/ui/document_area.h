@@ -12,7 +12,7 @@
 
 class QLabel;
 class DocWidget;
-class UIDocument;
+class DocumentSession;
 
 class DocumentArea : public QWidget {
     Q_OBJECT
@@ -21,7 +21,7 @@ public:
     ~DocumentArea();
 
     /// 添加一个文档标签，返回对应的 DocWidget
-    DocWidget* addDocument(UIDocument* uiDoc, const QString& title);
+    DocWidget* addDocument(DocumentSession* session, const QString& title);
 
     /// 关闭当前激活的文档标签
     void closeCurrentDocument();
@@ -54,6 +54,6 @@ private:
     QTabWidget*     tab_widget_ = nullptr;
     QLabel*         welcome_page_ = nullptr;
 
-    // DocWidget → UIDocument 的映射，管理 UIDocument 生命周期
-    std::unordered_map<DocWidget*, UIDocument*> docs_;
+    // DocWidget 到 DocumentSession 的映射，管理会话生命周期。
+    std::unordered_map<DocWidget*, DocumentSession*> docs_;
 };

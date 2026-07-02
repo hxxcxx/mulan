@@ -1,11 +1,13 @@
-#include "ui_document.h"
+#include "document_session.h"
 
 #include <mulan/world/viewport.h>
 #include <mulan/world/world.h>
 
-UIDocument::UIDocument(std::unique_ptr<mulan::document::Document> doc)
+DocumentSession::DocumentSession(std::unique_ptr<mulan::document::Document> doc)
     : document_(std::move(doc))
 {
+    syncRenderScene();
+
     // 构建 pickId 映射（pickId = entity.index()）
     if (document_ && document_->world()) {
         document_->world()->forEachEntity([&](mulan::world::Entity* e) {
@@ -14,28 +16,37 @@ UIDocument::UIDocument(std::unique_ptr<mulan::document::Document> doc)
     }
 }
 
-UIDocument::~UIDocument() {
+DocumentSession::~DocumentSession() {
     detachViewport();
 }
 
-mulan::world::World* UIDocument::world() {
+mulan::world::World* DocumentSession::world() {
     return document_ ? document_->world() : nullptr;
 }
 
-const mulan::world::World* UIDocument::world() const {
+const mulan::world::World* DocumentSession::world() const {
     return document_ ? document_->world() : nullptr;
 }
 
-const std::string& UIDocument::displayName() const {
+const std::string& DocumentSession::displayName() const {
     static const std::string empty;
     return document_ ? document_->displayName() : empty;
+}
+
+void DocumentSession::syncRenderScene() {
+    if (!document_ || !document_->scene() || !document_->assets()) {
+        render_scene_.clear();
+        return;
+    }
+
+    render_scene_.sync(*document_->scene(), *document_->assets());
 }
 
 // ============================================================
 // 视图连接
 // ============================================================
 
-void UIDocument::attachViewport(mulan::world::Viewport* viewport) {
+void DocumentSession::attachViewport(mulan::world::Viewport* viewport) {
     if (viewport_) detachViewport();
     viewport_ = viewport;
 
@@ -60,14 +71,14 @@ void UIDocument::attachViewport(mulan::world::Viewport* viewport) {
     }
 }
 
-void UIDocument::detachViewport() {
+void DocumentSession::detachViewport() {
     if (viewport_) {
         viewport_->setWorld(nullptr);
         viewport_ = nullptr;
     }
 }
 
-mulan::world::Entity::Id UIDocument::resolvePickId(uint32_t pickId) const {
+mulan::world::Entity::Id DocumentSession::resolvePickId(uint32_t pickId) const {
     auto it = pick_id_map_.find(pickId);
     if (it != pick_id_map_.end()) return it->second;
     return mulan::world::Entity::INVALID_ID;

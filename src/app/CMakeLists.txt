@@ -5,8 +5,8 @@ set(CMAKE_AUTORCC ON)
 add_executable(${PROJECT_NAME}
     main.cpp
     resource/icon.qrc
-    ui/ui_document.h
-    ui/ui_document.cpp
+    ui/document_session.h
+    ui/document_session.cpp
     ui/document_area.h
     ui/document_area.cpp
     ui/main_window.h
