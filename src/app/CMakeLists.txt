@@ -22,6 +22,7 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE
     World
     Engine
+    RenderScene
     Command
     $<LINK_LIBRARY:WHOLE_ARCHIVE,IO>
     SARibbon

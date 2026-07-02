@@ -52,12 +52,21 @@ public:
     template<typename Func>
     void forEachDirty(EntityDirty mask, Func&& fn);
 
+    template<typename Func>
+    void forEachDirty(EntityDirty mask, Func&& fn) const;
+
     void clearDirty(EntityDirty mask);
 
     // 遍历
     template<typename Func>
     void forEachEntity(Func&& fn) {
         for (auto& [id, entity] : entities_)
+            fn(entity.get());
+    }
+
+    template<typename Func>
+    void forEachEntity(Func&& fn) const {
+        for (const auto& [id, entity] : entities_)
             fn(entity.get());
     }
 
@@ -90,6 +99,17 @@ void World::forEachDirty(EntityDirty mask, Func&& fn) {
     for (auto& [id, flags] : dirty_) {
         if (flags & maskValue) {
             Entity* e = entityById(id);
+            if (e) fn(e, flags);
+        }
+    }
+}
+
+template<typename Func>
+void World::forEachDirty(EntityDirty mask, Func&& fn) const {
+    uint64_t maskValue = dirtyValue(mask);
+    for (const auto& [id, flags] : dirty_) {
+        if (flags & maskValue) {
+            const Entity* e = entityById(id);
             if (e) fn(e, flags);
         }
     }

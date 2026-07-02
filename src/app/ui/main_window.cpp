@@ -7,6 +7,8 @@
 #include <mulan/document/document.h>
 #include <mulan/io/file_manager.h>
 #include <mulan/core/log/log.h>
+#include <mulan/render_scene/render_scene.h>
+#include <mulan/world/world.h>
 
 #include <QFileDialog>
 #include <QStatusBar>
@@ -33,6 +35,42 @@ void logSceneMirrorStats(const mulan::document::Document& doc) {
        << ", brep=" << stats.brepAssetCount;
 
     if (stats.consistent()) {
+        mulan::core::log::log(mulan::core::log::Level::Info, os.str());
+    } else {
+        mulan::core::log::log(mulan::core::log::Level::Warn, os.str());
+    }
+}
+
+void logRenderSceneSyncStats(const mulan::document::Document& doc) {
+    if (!doc.scene() || !doc.assets())
+        return;
+
+    size_t worldGeometryCount = 0;
+    if (const auto* world = doc.world()) {
+        world->forEachEntity([&](const mulan::world::Entity* entity) {
+            if (entity && entity->hasGeometry())
+                ++worldGeometryCount;
+        });
+    }
+
+    mulan::render_scene::RenderScene renderScene;
+    renderScene.sync(*doc.scene(), *doc.assets());
+
+    const auto& stats = renderScene.lastSyncStats();
+    const bool ok = stats.missingGeometryCount == 0
+        && worldGeometryCount == stats.proxyCount;
+
+    std::ostringstream os;
+    os << "RenderScene sync "
+       << (ok ? "ok" : "mismatch")
+       << ": entities=" << stats.entityCount
+       << ", assets=" << stats.assetCount
+       << ", worldGeometry=" << worldGeometryCount
+       << ", proxies=" << stats.proxyCount
+       << ", visible=" << stats.visibleProxyCount
+       << ", missingGeometry=" << stats.missingGeometryCount;
+
+    if (ok) {
         mulan::core::log::log(mulan::core::log::Level::Info, os.str());
     } else {
         mulan::core::log::log(mulan::core::log::Level::Warn, os.str());
@@ -216,6 +254,7 @@ void MainWindow::onOpenFile() {
 
     QString title = QString::fromStdString(doc->displayName());
     logSceneMirrorStats(*doc);
+    logRenderSceneSyncStats(*doc);
     auto* uiDoc = new UIDocument(std::move(doc));
     doc_area_->addDocument(uiDoc, title);
 
@@ -247,6 +286,7 @@ void MainWindow::dropEvent(QDropEvent* e) {
 
     QString title = QString::fromStdString(doc->displayName());
     logSceneMirrorStats(*doc);
+    logRenderSceneSyncStats(*doc);
     auto* uiDoc = new UIDocument(std::move(doc));
     doc_area_->addDocument(uiDoc, title);
 

@@ -76,9 +76,24 @@ public:
     }
 
     template<typename Func>
+    void forEachEntity(Func&& fn) const {
+        for (auto id : entities_)
+            fn(id);
+    }
+
+    template<typename Func>
     void forEachDirty(EntityDirty mask, Func&& fn) {
         uint64_t maskValue = dirtyValue(mask);
         for (auto& [id, flags] : dirty_) {
+            if (flags & maskValue)
+                fn(id, flags);
+        }
+    }
+
+    template<typename Func>
+    void forEachDirty(EntityDirty mask, Func&& fn) const {
+        uint64_t maskValue = dirtyValue(mask);
+        for (const auto& [id, flags] : dirty_) {
             if (flags & maskValue)
                 fn(id, flags);
         }
