@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file brep_asset.h
  * @brief BRepAsset 保存导入形体的当前可渲染网格缓存。
  * @author hxxcxx

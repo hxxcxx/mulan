@@ -1,4 +1,4 @@
-﻿#include "occt_importer.h"
+#include "occt_importer.h"
 #include "importer_factory.h"
 
 #include <mulan/document/document.h>

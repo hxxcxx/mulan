@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file document.h
  * @brief Document 是导入模型、资源库和场景实例的真实数据入口。
  * @author hxxcxx

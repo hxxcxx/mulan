@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file occt_importer.h
  * @brief OCCT 文件导入器，解析 STEP/IGES 后向 Document 添加形体。
  * @author hxxcxx
