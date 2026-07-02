@@ -58,12 +58,13 @@ GpuResourceManager::createGpuBuffer(RHIDevice& device, const Mesh& mesh) {
     GpuGeometry geo;
     if (mesh.empty()) return geo;
 
-    geo.vertexStride = mesh.vertexStride;
+    geo.layout       = mesh.layout;
+    geo.vertexStride = mesh.vertexStride();
     geo.vertexCount  = mesh.vertexCount();
     geo.indexCount   = mesh.indexCount();
 
     if (geo.vertexCount > 0 && !mesh.vertices.empty()) {
-        uint32_t size = static_cast<uint32_t>(mesh.vertices.size() * sizeof(float));
+        uint32_t size = static_cast<uint32_t>(mesh.vertices.size());
         auto vb = device.createBuffer(
             BufferDesc::vertex(size, mesh.vertices.data(), "WorldVB"));
         if (!vb) return std::unexpected(vb.error());
@@ -71,7 +72,7 @@ GpuResourceManager::createGpuBuffer(RHIDevice& device, const Mesh& mesh) {
     }
 
     if (geo.indexCount > 0 && !mesh.indices.empty()) {
-        uint32_t size = static_cast<uint32_t>(mesh.indices.size() * sizeof(uint32_t));
+        uint32_t size = static_cast<uint32_t>(mesh.indices.size());
         auto ib = device.createBuffer(
             BufferDesc::index(size, mesh.indices.data(), "WorldIB"));
         if (!ib) return std::unexpected(ib.error());

@@ -1,5 +1,6 @@
 #include "text_layout.h"
 #include "font_manager.h"
+#include "../../vertex/vertex_buffer.h"
 
 #include <cmath>
 #include <cstdint>
@@ -178,7 +179,9 @@ Mesh TextLayout::buildTextMesh(std::string_view text,
                                 float fontSize,
                                 const float color[4]) {
     Mesh mesh;
-    mesh.topology = PrimitiveTopology::TriangleList;
+    mesh.layout    = layouts::cadSolid();
+    mesh.topology  = PrimitiveTopology::TriangleList;
+    mesh.indexType = IndexType::UInt32;
 
     auto* font = FontManager::instance().defaultFont();
     if (!font || !font->isLoaded()) return mesh;
@@ -193,23 +196,23 @@ Mesh TextLayout::buildTextMesh(std::string_view text,
 
     if (textVerts.empty()) return mesh;
 
-    // 转换为标准 Mesh 顶点布局：pos(3f) + normal(3f) + uv(2f) = 8 floats
-    mesh.vertices.reserve(textVerts.size() * 8);
-    mesh.indices = std::move(textIndices);
-
-    for (auto& tv : textVerts) {
-        mesh.vertices.push_back(tv.x);           // pos.x
-        mesh.vertices.push_back(tv.y);           // pos.y
-        mesh.vertices.push_back(0.0f);           // pos.z (flat)
-        mesh.vertices.push_back(0.0f);           // normal.x
-        mesh.vertices.push_back(0.0f);           // normal.y
-        mesh.vertices.push_back(1.0f);           // normal.z
-        mesh.vertices.push_back(tv.u);           // texcoord.u
-        mesh.vertices.push_back(tv.v);           // texcoord.v
+    // 按 cadSolid 布局写入：pos(3f) + normal(3f) + uv(2f)
+    VertexBufferBuilder vb(mesh.layout, static_cast<uint32_t>(textVerts.size()));
+    for (uint32_t i = 0; i < textVerts.size(); ++i) {
+        const auto& tv = textVerts[i];
+        vb.setPosition(i, tv.x, tv.y, 0.0f);           // pos.z = 0 (flat)
+        vb.setNormal  (i, 0.0f, 0.0f, 1.0f);           // normal 朝 +Z
+        float uv[2] = {tv.u, tv.v};
+        vb.write(i, VertexSemantic::TexCoord0, uv);
     }
+    auto vertBytes = vb.data();
+    mesh.vertices.assign(vertBytes.begin(), vertBytes.end());
+
+    // 索引直接搬字节
+    const std::byte* ib = reinterpret_cast<const std::byte*>(textIndices.data());
+    mesh.indices.assign(ib, ib + textIndices.size() * sizeof(uint32_t));
 
     mesh.computeBounds();
-    mesh.name = std::string(text);
     return mesh;
 }
 

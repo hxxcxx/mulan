@@ -1,6 +1,6 @@
 /**
  * @file mesh.h
- * @brief CPU 侧网格数据，Engine 的通用几何表示
+ * @brief CPU 侧网格数据 —— 顶点+索引缓冲，按 VertexLayout 解释
  * @author hxxcxx
  * @date 2026-04-21
  */
@@ -10,43 +10,49 @@
 #include "../math/math.h"
 #include "../math/aabb.h"
 #include "../render/render_geometry.h"
+#include "../vertex/vertex_layout.h"
 
 #include <cstdint>
+#include <cstring>
 #include <span>
-#include <string>
 #include <vector>
 
 namespace mulan::engine {
 
 // ============================================================
-// 网格 — CPU 侧拥有顶点与索引数据
+// 网格 —— CPU 侧拥有的顶点与索引裸字节缓冲
 //
-// 交错顶点布局：position(3) + normal(3) + texCoord(2) = 8 floats
-// 所有来源（文件导入、参数化生成、程序化创建）统一输出此类型。
+// 顶点布局的唯一来源是 layout 字段：vertices 按裸字节存储，
+// 其含义由 layout 完整描述（semantic / format / offset / stride）。
+// 所有来源（文件导入、参数化生成、程序化创建）统一输出此类型，
+// 构造时必须给出 layout。
 // ============================================================
 
 struct Mesh {
-    std::vector<float>        vertices;       // 交错顶点数据
-    std::vector<uint32_t>     indices;        // 三角形索引
-    uint32_t                  vertexStride = sizeof(float) * 8;
-    PrimitiveTopology         topology     = PrimitiveTopology::TriangleList;
-    std::string               name;
+    VertexLayout              layout;     // 唯一布局来源
+    std::vector<std::byte>    vertices;   // 裸字节，按 layout.stride() 切分
+    std::vector<std::byte>    indices;    // 裸字节，宽度由 indexType 决定
+    IndexType                 indexType  = IndexType::UInt32;
+    PrimitiveTopology         topology   = PrimitiveTopology::TriangleList;
     AABB                      bounds;
 
     // --- 便捷访问 ---
 
+    uint32_t vertexStride() const { return layout.stride(); }
+
     uint32_t vertexCount() const {
-        return vertexStride > 0
-            ? static_cast<uint32_t>(vertices.size()) / (vertexStride / sizeof(float))
+        return layout.stride() > 0
+            ? static_cast<uint32_t>(vertices.size()) / layout.stride()
             : 0;
     }
 
     uint32_t indexCount() const {
-        return static_cast<uint32_t>(indices.size());
+        uint8_t isz = indexTypeSize(indexType);
+        return isz > 0 ? static_cast<uint32_t>(indices.size()) / isz : 0;
     }
 
     uint32_t triangleCount() const {
-        return static_cast<uint32_t>(indices.size()) / 3;
+        return static_cast<uint32_t>(indexCount()) / 3;
     }
 
     bool empty() const {
@@ -57,22 +63,28 @@ struct Mesh {
 
     RenderGeometry asRenderGeometry() const {
         RenderGeometry geo{};
-        geo.vertexBytes  = std::as_bytes(std::span{vertices});
-        geo.indexBytes   = std::as_bytes(std::span{indices});
-        geo.vertexCount  = vertexCount();
-        geo.indexCount   = indexCount();
-        geo.vertexStride = vertexStride;
-        geo.topology     = topology;
+        geo.layout        = layout;
+        geo.vertexBytes   = std::span<const std::byte>{vertices};
+        geo.indexBytes    = std::span<const std::byte>{indices};
+        geo.vertexCount   = vertexCount();
+        geo.indexCount    = indexCount();
+        geo.vertexStride  = layout.stride();
+        geo.topology      = topology;
         return geo;
     }
 
-    // --- 包围盒计算 ---
+    // --- 包围盒计算（按 layout 中 Position 的实际偏移读取）---
 
     void computeBounds() {
         bounds.reset();
-        uint32_t floatsPerVert = vertexStride / sizeof(float);
-        for (size_t i = 0; i + 2 < vertices.size(); i += floatsPerVert) {
-            bounds.expand(Vec3{vertices[i], vertices[i + 1], vertices[i + 2]});
+        const uint16_t off = layout.offsetOf(VertexSemantic::Position);
+        if (off == 0xFFFF) return;  // 布局无 Position，无法计算
+        const uint16_t stride = layout.stride();
+        if (stride == 0) return;
+        for (size_t p = off; p + sizeof(Vec3) <= vertices.size(); p += stride) {
+            Vec3 v;
+            std::memcpy(&v, &vertices[p], sizeof(Vec3));
+            bounds.expand(v);
         }
     }
 };

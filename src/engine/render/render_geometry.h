@@ -50,6 +50,7 @@ struct RenderGeometry {
 struct GpuGeometry {
     std::unique_ptr<Buffer> vertexBuffer;
     std::unique_ptr<Buffer> indexBuffer;
+    VertexLayout            layout;       ///< 顶点布局（从 Mesh 带过来，供 draw 时用）
     uint32_t vertexCount  = 0;
     uint32_t indexCount   = 0;
     uint32_t vertexStride = 0;

@@ -73,11 +73,7 @@ bool EdgePass::loadEdgeShaders() {
 
 bool EdgePass::createEdgePSO(TextureFormat colorFmt, TextureFormat depthFmt,
                               bool hasDepth) {
-    VertexLayout vl;
-    vl.begin()
-      .add(VertexSemantic::Position,  VertexFormat::Float3)
-      .add(VertexSemantic::Normal,    VertexFormat::Float3)
-      .add(VertexSemantic::TexCoord0, VertexFormat::Float2);
+    VertexLayout vl = layouts::cadSolid();
 
     GraphicsPipelineDesc desc{};
     desc.name             = "EdgeSolid";

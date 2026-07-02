@@ -294,6 +294,18 @@ consteval VertexLayout lightmap() {
     return l;
 }
 
+// 布局 M: CAD solid —— STEP/IGES 三角化面与文字网格的通用布局
+// position(f3) + normal(f3) + texcoord0(f2) = 32 bytes
+consteval VertexLayout cadSolid() {
+    VertexLayout l;
+    l.begin(1)
+        .add(VertexSemantic::Position,  VertexFormat::Float3)
+        .add(VertexSemantic::Normal,    VertexFormat::Float3)
+        .add(VertexSemantic::TexCoord0, VertexFormat::Float2)
+     .end();
+    return l;
+}
+
 } // namespace layouts
 
 // ============================================================
@@ -322,6 +334,7 @@ static_assert(validateLayout(layouts::solidMaterial()));
 static_assert(validateLayout(layouts::skinned()));
 static_assert(validateLayout(layouts::solidTextured()));
 static_assert(validateLayout(layouts::lightmap()));
+static_assert(validateLayout(layouts::cadSolid()));
 
 // 步长大小检查
 static_assert(layouts::wire().stride() == 16);
@@ -332,5 +345,6 @@ static_assert(layouts::solidMaterial().stride() == 32);
 static_assert(layouts::skinned().stride() == 68);
 static_assert(layouts::solidTextured().stride() == 40);
 static_assert(layouts::lightmap().stride() == 56);
+static_assert(layouts::cadSolid().stride() == 32);
 
 } // namespace mulan::engine
