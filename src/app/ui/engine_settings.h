@@ -7,7 +7,7 @@
 #pragma once
 
 #include <mulan/engine/window.h>
-#include <mulan/world/view_config.h>
+#include <mulan/view/view_config.h>
 #include <QColor>
 #include <QSettings>
 
@@ -27,11 +27,11 @@ public:
     bool vsync() const;
     void setVsync(bool v);
 
-    /// 填充 world::ViewConfig
-    void applyTo(mulan::world::ViewConfig& cfg) const;
+    /// 填充 ViewConfig
+    void applyTo(mulan::view::ViewConfig& cfg) const;
 
     /// 从 ViewConfig 读取
-    void loadFrom(const mulan::world::ViewConfig& cfg);
+    void loadFrom(const mulan::view::ViewConfig& cfg);
 
     /// 获取当前的背景色
     QColor backgroundColor() const;

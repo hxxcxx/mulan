@@ -1,6 +1,6 @@
 /**
  * @file brep_asset.h
- * @brief BRepAsset —— 面向未来编辑能力的 B-Rep 几何资产占位
+ * @brief BRepAsset 保存可编辑几何资源及其当前可渲染网格缓存
  * @author hxxcxx
  * @date 2026-07-02
  */
@@ -8,6 +8,8 @@
 #pragma once
 
 #include "geometry_asset.h"
+
+#include <mulan/engine/geometry/mesh.h>
 
 #include <utility>
 
@@ -18,7 +20,17 @@ public:
     explicit BRepAsset(AssetId id, std::string name)
         : GeometryAsset(id, AssetKind::BRep, std::move(name)) {}
 
-    // 预留给未来文档模型使用；当前阶段刻意避免在 asset 头文件中暴露 OCCT。
+    const engine::Mesh& faceMesh() const { return face_mesh_; }
+    const engine::Mesh& edgeMesh() const { return edge_mesh_; }
+
+    void setRenderMeshes(engine::Mesh faceMesh, engine::Mesh edgeMesh) {
+        face_mesh_ = std::move(faceMesh);
+        edge_mesh_ = std::move(edgeMesh);
+    }
+
+private:
+    engine::Mesh face_mesh_;
+    engine::Mesh edge_mesh_;
 };
 
 } // namespace mulan::asset

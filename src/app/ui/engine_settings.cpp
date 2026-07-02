@@ -44,7 +44,7 @@ void EngineSettings::setBackgroundColor(const QColor& color) {
 
 // --- 批量应用 / 读取 ---
 
-void EngineSettings::applyTo(mulan::world::ViewConfig& cfg) const {
+void EngineSettings::applyTo(mulan::view::ViewConfig& cfg) const {
     cfg.backend = backend_;
     cfg.msaa    = msaa_;
     cfg.vsync   = vsync_;
@@ -54,7 +54,7 @@ void EngineSettings::applyTo(mulan::world::ViewConfig& cfg) const {
     cfg.clearColor[3] = static_cast<float>(bgcolor_.alphaF());
 }
 
-void EngineSettings::loadFrom(const mulan::world::ViewConfig& cfg) {
+void EngineSettings::loadFrom(const mulan::view::ViewConfig& cfg) {
     backend_ = cfg.backend;
     msaa_    = cfg.msaa;
     vsync_   = cfg.vsync;

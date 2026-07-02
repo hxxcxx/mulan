@@ -20,10 +20,9 @@ add_executable(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    World
+    View
     Engine
     RenderScene
-    Command
     $<LINK_LIBRARY:WHOLE_ARCHIVE,IO>
     SARibbon
     Qt6::Core

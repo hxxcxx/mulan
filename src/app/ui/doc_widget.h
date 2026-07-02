@@ -8,7 +8,7 @@
 
 #include <QWidget>
 
-#include <mulan/world/viewport.h>
+#include <mulan/view/viewport.h>
 #include <mulan/engine/interaction/input_event.h>
 
 #include <memory>
@@ -26,10 +26,10 @@ public:
     void setDocumentSession(DocumentSession* session);
 
     /// 设置引擎初始化配置（需在 init() 之前调用）
-    void setViewConfig(const mulan::world::ViewConfig& cfg) { view_config_ = cfg; }
+    void setViewConfig(const mulan::view::ViewConfig& cfg) { view_config_ = cfg; }
 
     /// 获取可修改的引擎配置引用（需在 init() 之前调用）
-    mulan::world::ViewConfig& viewConfig() { return view_config_; }
+    mulan::view::ViewConfig& viewConfig() { return view_config_; }
 
     /// 初始化 Vulkan 设备与 SwapChain（需在 widget 显示后、渲染前调用）
     void init();
@@ -41,7 +41,7 @@ public:
     void fitAll();
 
     /// 访问底层 Viewport
-    mulan::world::Viewport& viewport() { return viewport_; }
+    mulan::view::Viewport& viewport() { return viewport_; }
 
 protected:
     void resizeEvent(QResizeEvent* e) override;
@@ -62,7 +62,7 @@ private:
     static mulan::engine::KeyModifier translateModifiers(Qt::KeyboardModifiers mods);
     static mulan::engine::Key translateKey(int qtKey);
 
-    mulan::world::Viewport  viewport_;
-    mulan::world::ViewConfig view_config_;
+    mulan::view::Viewport  viewport_;
+    mulan::view::ViewConfig view_config_;
     DocumentSession*              session_ = nullptr;
 };

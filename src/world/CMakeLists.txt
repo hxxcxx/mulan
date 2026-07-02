@@ -2,7 +2,6 @@
 add_library(World STATIC
     entity.cpp
     world.cpp
-    viewport.cpp
     scene_proxy.cpp
     static_draw_list.cpp
     dynamic_draw_list.cpp

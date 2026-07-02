@@ -1,38 +1,32 @@
 /**
  * @file solid_geometry_data.h
- * @brief OCCT Shape 几何数据 — BRepMesh 三角化 + 边线提取 + bounds
+ * @brief SolidGeometryData 将导入形体转换为可渲染网格和包围盒
  * @author hxxcxx
- * @date 2026-05-29 (原始) / 2026-06-30 (迁移到 document 层)
- *
- * 从 world 层迁移至 document 层：B-Rep (TopoDS_Shape) 是真实数据源，
- * 由 Document 层持有。本类作为 world::GeometryData 的子类，负责把
- * B-Rep 惰性三角化为渲染网格。World 层不感知 OCCT。
+ * @date 2026-07-03
  */
 
 #pragma once
 
-#include <mulan/world/geometry_data.h>
+#include <mulan/engine/geometry/mesh.h>
+#include <mulan/engine/math/aabb.h>
 
-// OCCT 前向声明
+#include <memory>
+
 class TopoDS_Shape;
 
 namespace mulan::document {
 
-class SolidGeometryData : public world::GeometryData {
+class SolidGeometryData {
 public:
     SolidGeometryData();
-    ~SolidGeometryData() override;
+    ~SolidGeometryData();
 
-    /// 从已有的 TopoDS_Shape 创建（移动语义）
     explicit SolidGeometryData(const TopoDS_Shape& shape);
 
-    Type type() const override { return Type::Solid; }
+    engine::Mesh faceMesh() const;
+    engine::Mesh edgeMesh() const;
+    engine::AABB bounds() const;
 
-    engine::Mesh faceMesh() const override;
-    engine::Mesh edgeMesh() const override;
-    engine::AABB bounds() const override;
-
-    /// 设置新的 shape → 缓存失效
     void setShape(const TopoDS_Shape& shape);
 
 private:

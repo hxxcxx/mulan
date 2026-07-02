@@ -1,30 +1,19 @@
 #include "document_session.h"
 
-#include <mulan/world/viewport.h>
-#include <mulan/world/world.h>
+#include <mulan/view/viewport.h>
 
 DocumentSession::DocumentSession(std::unique_ptr<mulan::document::Document> doc)
     : document_(std::move(doc))
 {
     syncRenderScene();
 
-    if (document_ && document_->world()) {
-        document_->world()->forEachEntity([&](mulan::world::Entity* e) {
-            pick_id_map_[e->index()] = e->id();
-        });
-    }
+    render_scene_.forEachProxy([&](const mulan::render_scene::SceneProxy& proxy) {
+        pick_id_map_[proxy.entity.index()] = proxy.entity;
+    });
 }
 
 DocumentSession::~DocumentSession() {
     detachViewport();
-}
-
-mulan::world::World* DocumentSession::world() {
-    return document_ ? document_->world() : nullptr;
-}
-
-const mulan::world::World* DocumentSession::world() const {
-    return document_ ? document_->world() : nullptr;
 }
 
 const std::string& DocumentSession::displayName() const {
@@ -41,14 +30,11 @@ void DocumentSession::syncRenderScene() {
     render_scene_.sync(*document_->scene(), *document_->assets());
 }
 
-void DocumentSession::attachViewport(mulan::world::Viewport* viewport) {
+void DocumentSession::attachViewport(mulan::view::Viewport* viewport) {
     if (viewport_) detachViewport();
     viewport_ = viewport;
 
-    mulan::world::World* w = world();
-    if (!w) return;
-
-    viewport->setWorld(w);
+    viewport->setRenderScene(&render_scene_, document_ ? document_->assets() : nullptr);
 
     const auto& bounds = render_scene_.sceneBounds();
     if (!bounds.isEmpty())
@@ -57,13 +43,13 @@ void DocumentSession::attachViewport(mulan::world::Viewport* viewport) {
 
 void DocumentSession::detachViewport() {
     if (viewport_) {
-        viewport_->setWorld(nullptr);
+        viewport_->setRenderScene(nullptr, nullptr);
         viewport_ = nullptr;
     }
 }
 
-mulan::world::Entity::Id DocumentSession::resolvePickId(uint32_t pickId) const {
+mulan::scene::EntityId DocumentSession::resolvePickId(uint32_t pickId) const {
     auto it = pick_id_map_.find(pickId);
     if (it != pick_id_map_.end()) return it->second;
-    return mulan::world::Entity::INVALID_ID;
+    return mulan::scene::EntityId::invalid();
 }

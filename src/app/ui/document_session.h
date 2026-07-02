@@ -10,15 +10,14 @@
 #include <mulan/engine/math/aabb.h>
 #include <mulan/engine/math/math.h>
 #include <mulan/render_scene/render_scene.h>
-#include <mulan/world/entity.h>
+#include <mulan/scene/entity_id.h>
 
 #include <memory>
 #include <string>
 #include <unordered_map>
 
-namespace mulan::world {
+namespace mulan::view {
 class Viewport;
-class World;
 }
 
 class DocumentSession {
@@ -30,10 +29,6 @@ public:
     mulan::document::Document* document() { return document_.get(); }
     const mulan::document::Document* document() const { return document_.get(); }
 
-    /// 旧显示链路仍临时使用的 World。
-    mulan::world::World* world();
-    const mulan::world::World* world() const;
-
     const std::string& displayName() const;
 
     /// 同步从 Document 派生出的渲染场景缓存。
@@ -44,21 +39,21 @@ public:
     const mulan::render_scene::RenderScene& renderScene() const { return render_scene_; }
 
     /// 绑定旧 Viewport，当前只作为兼容显示入口。
-    void attachViewport(mulan::world::Viewport* viewport);
+    void attachViewport(mulan::view::Viewport* viewport);
 
     /// 解除绑定。
     void detachViewport();
 
-    mulan::world::Viewport* viewport() const { return viewport_; }
+    mulan::view::Viewport* viewport() const { return viewport_; }
 
-    /// 通过 pickId 反查旧 Entity::Id。
-    mulan::world::Entity::Id resolvePickId(uint32_t pickId) const;
+    /// 通过 pickId 反查场景实体。
+    mulan::scene::EntityId resolvePickId(uint32_t pickId) const;
 
 private:
     std::unique_ptr<mulan::document::Document> document_;
     mulan::render_scene::RenderScene render_scene_;
-    mulan::world::Viewport* viewport_ = nullptr;
+    mulan::view::Viewport* viewport_ = nullptr;
 
-    /// pickId 到旧 Entity::Id 的映射，供当前拾取链路过渡使用。
-    std::unordered_map<uint32_t, mulan::world::Entity::Id> pick_id_map_;
+    /// pickId 到场景实体的映射。
+    std::unordered_map<uint32_t, mulan::scene::EntityId> pick_id_map_;
 };

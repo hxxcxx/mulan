@@ -1,16 +1,19 @@
 ﻿#include "viewport.h"
-#include "world.h"
-#include "system/render_system.h"
 #include "mulan/engine/rhi/device.h"
 #include "mulan/engine/rhi/render_types.h"
 #include "mulan/engine/render/graph/forward_pass.h"
 #include "mulan/engine/render/graph/edge_pass.h"
 #include "mulan/engine/render/material/material_cache.h"
+#include "mulan/asset/asset_library.h"
+#include "mulan/asset/brep_asset.h"
+#include "mulan/asset/mesh_asset.h"
+#include "mulan/render_scene/render_scene.h"
+#include "mulan/render_scene/scene_proxy.h"
 
 #include <cstdio>
 #include <cstring>
 
-namespace mulan::world {
+namespace mulan::view {
 
 // ============================================================
 // 旧构造（向后兼容）
@@ -70,12 +73,9 @@ bool Viewport::init(const ViewConfig& cfg, int width, int height) {
     if (!sc) { cleanup(); return false; }
     swapchain_ = std::move(*sc);
 
-    // --- GPU / RenderSystem ---
+    // --- GPU ---
     gpu_storage_  = std::make_unique<engine::GpuResourceManager>(*device_);
-    render_sys_storage_ = std::make_unique<RenderSystem>(*gpu_storage_,
-        engine::MaterialCache::instance(), camera_);
     gpu_      = gpu_storage_.get();
-    render_sys_ = render_sys_storage_.get();
 
     // --- RenderGraph ---
     if (!initRendering(width, height)) { cleanup(); return false; }
@@ -132,12 +132,9 @@ bool Viewport::initOffscreen(int width, int height) {
     if (!sb) { cleanup(); return false; }
     staging_buffer_ = std::move(*sb);
 
-    // --- GPU / RenderSystem ---
+    // --- GPU ---
     gpu_storage_  = std::make_unique<engine::GpuResourceManager>(*device_);
-    render_sys_storage_ = std::make_unique<RenderSystem>(*gpu_storage_,
-        engine::MaterialCache::instance(), camera_);
     gpu_      = gpu_storage_.get();
-    render_sys_ = render_sys_storage_.get();
 
     // --- RenderGraph ---
     if (!initRendering(width, height)) { cleanup(); return false; }
@@ -159,7 +156,6 @@ void Viewport::shutdown() {
     if (device_) device_->waitIdle();
 
     view_cube_renderer_.reset();
-    render_sys_storage_.reset();
     gpu_storage_.reset();
     staging_buffer_.reset();
     render_target_.reset();
@@ -167,7 +163,6 @@ void Viewport::shutdown() {
     render_graph_.clear();   // Pass 持有 UBO 等 GPU 资源，必须在 device 析构前释放
 
     gpu_       = nullptr;
-    render_sys_ = nullptr;
     device_.reset();
 
     initialized_    = false;
@@ -177,8 +172,10 @@ void Viewport::shutdown() {
 // World 绑定
 // ============================================================
 
-void Viewport::setWorld(World* world) {
-    world_ = world;
+void Viewport::setRenderScene(const render_scene::RenderScene* scene,
+                              const asset::AssetLibrary* assets) {
+    render_scene_ = scene;
+    assets_ = assets;
 }
 
 // ============================================================
@@ -243,10 +240,8 @@ void Viewport::cleanup() {
     staging_buffer_.reset();
     render_target_.reset();
     swapchain_.reset();
-    render_sys_storage_.reset();
     gpu_storage_.reset();
     gpu_       = nullptr;
-    render_sys_ = nullptr;
 }
 
 // ============================================================
@@ -254,35 +249,20 @@ void Viewport::cleanup() {
 // ============================================================
 
 void Viewport::renderFrame() {
-    if (!initialized_ || !world_) return;
+    if (!initialized_) return;
 
-    // 1. World 逻辑
-    if (!world_logic_updated_) {
-        world_->updateLogic(0);
-        world_logic_updated_ = true;
-    }
-
-    // 2. RenderSystem 收集
-    // 先确保 RenderSystem 拿到 Pass 的 PSO（必须在 update 之前，否则 rebuild
-    // 用 nullptr PSO 构建 draw command，导致全部 draw 被守卫跳过）
     auto* fwd  = render_graph_.pass<engine::ForwardPass>(0);
     auto* edge = render_graph_.pass<engine::EdgePass>(1);
-    if (fwd && !render_sys_->hasFacePso())
-        render_sys_->setFacePso(fwd->pipelineState());
-    if (edge && !render_sys_->hasEdgePso())
-        render_sys_->setEdgePso(edge->pipelineState());
 
-    render_sys_->update(*world_, 0);
+    rebuildDrawCommands();
 
-    // 3. 传递 MeshDrawCommand 给 Pass（Phase 3 路径）
     if (fwd) {
-        fwd->setDrawCommands(render_sys_->staticFaceCommands());
+        fwd->setDrawCommands(face_cmds_);
     }
     if (edge) {
-        edge->setDrawCommands(render_sys_->staticEdgeCommands());
+        edge->setDrawCommands(edge_cmds_);
     }
 
-    // 4. GPU 提交
     device_->beginFrame(swapchain_ ? swapchain_.get() : nullptr);
     auto* cmd = device_->frameCommandList();
     cmd->begin();
@@ -329,19 +309,84 @@ void Viewport::renderFrame() {
     else
         device_->submitAndPresent(swapchain_.get());
 
-    // 5. 清脏
     onFrameEnd();
 }
 
+void Viewport::rebuildDrawCommands() {
+    face_cmds_.clear();
+    edge_cmds_.clear();
+
+    if (!render_scene_ || !assets_ || !gpu_)
+        return;
+
+    auto* fwd  = render_graph_.pass<engine::ForwardPass>(0);
+    auto* edge = render_graph_.pass<engine::EdgePass>(1);
+    auto& matCache = engine::MaterialCache::instance();
+
+    uint32_t nextObjectOffset = 0;
+    render_scene_->forEachProxy([&](const render_scene::SceneProxy& proxy) {
+        if (!proxy.visible || !proxy.geometry)
+            return;
+
+        const auto* asset = assets_->asset(proxy.geometry);
+        const engine::Mesh* faceMesh = nullptr;
+        const engine::Mesh* edgeMesh = nullptr;
+
+        if (const auto* brep = dynamic_cast<const asset::BRepAsset*>(asset)) {
+            faceMesh = &brep->faceMesh();
+            edgeMesh = &brep->edgeMesh();
+        } else if (const auto* mesh = dynamic_cast<const asset::MeshAsset*>(asset)) {
+            faceMesh = &mesh->mesh();
+        }
+
+        const uint64_t key = proxy.geometry.value;
+        if (faceMesh && !faceMesh->empty()) {
+            if (!gpu_->faceGeometry(key))
+                gpu_->uploadFaceMesh(key, *faceMesh);
+
+            if (const auto* geo = gpu_->faceGeometry(key)) {
+                engine::MeshDrawCommand cmd;
+                cmd.pipelineState = fwd ? fwd->pipelineState() : nullptr;
+                cmd.vertexBuffer = geo->vertexBuffer.get();
+                cmd.indexBuffer = geo->indexBuffer.get();
+                cmd.indexCount = geo->indexCount;
+                cmd.instanceCount = 1;
+                cmd.topology = faceMesh->topology;
+                cmd.objectUboOffset = nextObjectOffset;
+                cmd.materialUboOffset = matCache.materialGpuOffset(0);
+                cmd.worldTransform = proxy.worldTransform;
+                cmd.pickId = proxy.entity.index();
+                cmd.selected = proxy.selected;
+                face_cmds_.push_back(std::move(cmd));
+                nextObjectOffset += engine::MeshDrawCommand::kObjectUboStride;
+            }
+        }
+
+        if (edgeMesh && !edgeMesh->empty()) {
+            if (!gpu_->edgeGeometry(key))
+                gpu_->uploadEdgeMesh(key, *edgeMesh);
+
+            if (const auto* geo = gpu_->edgeGeometry(key)) {
+                engine::MeshDrawCommand cmd;
+                cmd.pipelineState = edge ? edge->pipelineState() : nullptr;
+                cmd.vertexBuffer = geo->vertexBuffer.get();
+                cmd.indexBuffer = geo->indexBuffer.get();
+                cmd.indexCount = geo->indexCount;
+                cmd.instanceCount = 1;
+                cmd.topology = edgeMesh->topology;
+                cmd.objectUboOffset = nextObjectOffset;
+                cmd.worldTransform = proxy.worldTransform;
+                cmd.pickId = proxy.entity.index();
+                cmd.selected = proxy.selected;
+                cmd.isEdge = true;
+                edge_cmds_.push_back(std::move(cmd));
+                nextObjectOffset += engine::MeshDrawCommand::kObjectUboStride;
+            }
+        }
+    });
+}
+
 void Viewport::onFrameEnd() {
-    if (world_) {
-        // 清除 RenderSystem 已消费的所有脏标记
-        using ED = EntityDirty;
-        world_->clearDirty(ED::Created | ED::Destroyed | ED::Transform
-                          | ED::Geometry | ED::Visibility | ED::Material
-                          | ED::Selection | ED::Parent);
-    }
-    world_logic_updated_ = false;
 }
 
 void Viewport::resize(int width, int height) {
@@ -461,4 +506,4 @@ bool Viewport::readbackPixels(std::vector<uint8_t>& pixels) {
     return staging_buffer_->readback(0, byteSize, pixels.data());
 }
 
-} // namespace mulan::world
+} // namespace mulan::view

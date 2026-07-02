@@ -14,7 +14,7 @@
 
 #include <cstdint>
 
-namespace mulan::world {
+namespace mulan::view {
 
 struct ViewConfig {
     // --- 渲染后端 ---
@@ -70,4 +70,4 @@ struct ViewConfig {
     }
 };
 
-} // namespace mulan::world
+} // namespace mulan::view

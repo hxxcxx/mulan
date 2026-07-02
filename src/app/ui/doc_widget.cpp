@@ -2,9 +2,6 @@
 #include "document_session.h"
 #include "engine_settings.h"
 
-#include <mulan/world/world.h>
-#include <mulan/world/entity.h>
-
 #include <QShowEvent>
 #include <QResizeEvent>
 #include <QMouseEvent>
@@ -151,6 +148,7 @@ void DocWidget::requestFrame() {
 
 void DocWidget::fitAll() {
     if (!viewport_.isInitialized()) return;
+    if (!session_) return;
 
     if (session_) {
         const auto& sceneBounds = session_->renderScene().sceneBounds();
@@ -161,22 +159,7 @@ void DocWidget::fitAll() {
         }
     }
 
-    mulan::world::World* world = viewport_.world();
-    if (!world) return;
-
     // 累加所有实体（世界空间）包围盒
-    mulan::engine::AABB sceneBounds;
-    world->forEachEntity([&](mulan::world::Entity* e) {
-        if (e->geometry()) {
-            auto worldBox = e->geometry()->bounds().transformed(e->worldTransform());
-            sceneBounds.expand(worldBox.min);
-            sceneBounds.expand(worldBox.max);
-        }
-    });
-
-    if (!sceneBounds.isEmpty()) {
-        viewport_.camera().fitToBox(sceneBounds);
-    }
     requestFrame();
 }
 
