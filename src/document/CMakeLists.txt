@@ -23,7 +23,7 @@ target_include_directories(Document PUBLIC
 )
 
 # 依赖 World（拥有 + GeometryData 多态基类）— PUBLIC：下游访问 world() 需要
-target_link_libraries(Document PUBLIC World)
+target_link_libraries(Document PUBLIC World Scene Asset)
 
 # OCCT 头文件和库（仅 SolidGeometryData 编译期需要，PRIVATE 不外泄）
 target_include_directories(Document PRIVATE

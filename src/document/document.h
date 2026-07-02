@@ -33,6 +33,14 @@ class World;
 class Entity;
 }
 
+namespace mulan::scene {
+class Scene;
+}
+
+namespace mulan::asset {
+class AssetLibrary;
+}
+
 namespace mulan::document {
 
 class DOCUMENT_API Document {
@@ -55,6 +63,16 @@ public:
     world::World* world() { return world_.get(); }
     const world::World* world() const { return world_.get(); }
 
+    /// New editor-ready scene model. It is introduced beside the legacy World
+    /// and is not wired into rendering yet.
+    scene::Scene* scene() { return scene_.get(); }
+    const scene::Scene* scene() const { return scene_.get(); }
+
+    /// Reusable document assets. Serialization and editing are reserved for
+    /// later phases.
+    asset::AssetLibrary* assets() { return assets_.get(); }
+    const asset::AssetLibrary* assets() const { return assets_.get(); }
+
     // ---------- 元数据 ----------
 
     const std::string& displayName() const { return display_name_; }
@@ -67,6 +85,8 @@ public:
 
 private:
     std::unique_ptr<world::World> world_;
+    std::unique_ptr<scene::Scene> scene_;
+    std::unique_ptr<asset::AssetLibrary> assets_;
     // B-Rep 源目前由各 Entity 的 SolidGeometryData 持有（内含 TopoDS_Shape）。
     // 未来如需集中管理 B-Rep 源（脱离 Entity，支持显式拓扑查询/编辑），
     // 可在此增加 brep_sources_ 等成员。
