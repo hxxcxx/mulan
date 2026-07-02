@@ -1,10 +1,9 @@
-/**
+﻿/**
  * @file document.h
- * @brief Document 是导入模型、资源库和场景实例的真实数据入口
+ * @brief Document 是导入模型、资源库和场景实例的真实数据入口。
  * @author hxxcxx
  * @date 2026-07-03
  */
-
 #pragma once
 
 #include "document_export.h"
@@ -47,10 +46,8 @@ public:
     Document(const Document&) = delete;
     Document& operator=(const Document&) = delete;
 
-    /// 添加一个形体资源，并创建对应的场景实例。
-    scene::EntityId addSolid(const TopoDS_Shape& shape, std::string name);
+    scene::EntityId addShape(const TopoDS_Shape& shape, std::string name);
 
-    /// 在 Scene/Asset 结构中添加一个场景实例。
     scene::EntityId addSceneInstance(std::string name,
                                      asset::AssetId geometry,
                                      std::vector<asset::AssetId> materialSlots = {});

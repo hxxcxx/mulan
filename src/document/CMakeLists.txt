@@ -1,7 +1,7 @@
-# Document - 导入模型、资源库和场景实例的数据入口
+﻿# Document - 导入模型、资源库和场景实例的数据入口
 add_library(Document STATIC
     document.cpp
-    solid_geometry_data.cpp
+    shape_render_geometry.cpp
 )
 
 file(GLOB_RECURSE DOCUMENT_HEADERS

@@ -1,10 +1,9 @@
-/**
+﻿/**
  * @file brep_asset.h
- * @brief BRepAsset 保存可编辑几何资源及其当前可渲染网格缓存
+ * @brief BRepAsset 保存导入形体的当前可渲染网格缓存。
  * @author hxxcxx
  * @date 2026-07-02
  */
-
 #pragma once
 
 #include "geometry_asset.h"

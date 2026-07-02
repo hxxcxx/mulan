@@ -1,4 +1,4 @@
-#include "occt_importer.h"
+﻿#include "occt_importer.h"
 #include "importer_factory.h"
 
 #include <mulan/document/document.h>
@@ -69,24 +69,24 @@ void populateDocument(const TopoDS_Shape& shape, mulan::document::Document& doc)
             hasSolids = true;
             ++partIndex;
             std::string name = "Part_" + std::to_string(partIndex);
-            doc.addSolid(exp.Current(), std::move(name));
+            doc.addShape(exp.Current(), std::move(name));
         }
 
         if (!hasSolids) {
             for (TopExp_Explorer exp(shape, TopAbs_SHELL); exp.More(); exp.Next()) {
                 ++partIndex;
                 std::string name = "Shell_" + std::to_string(partIndex);
-                doc.addSolid(exp.Current(), std::move(name));
+                doc.addShape(exp.Current(), std::move(name));
             }
 
             if (partIndex == 0) {
                 ++partIndex;
-                doc.addSolid(shape, "Shape_1");
+                doc.addShape(shape, "Shape_1");
             }
         }
     } else {
         ++partIndex;
-        doc.addSolid(shape, "Shape_1");
+        doc.addShape(shape, "Shape_1");
     }
 }
 
@@ -115,7 +115,6 @@ std::string OCCTImporter::name() const {
     return "OCCT Importer";
 }
 
-// --- 自动注册 ---
 static AutoRegisterImporter _reg_step("step", []() -> std::unique_ptr<IFileImporter> {
     return std::make_unique<OCCTImporter>();
 });
@@ -130,3 +129,4 @@ static AutoRegisterImporter _reg_igs("igs", []() -> std::unique_ptr<IFileImporte
 });
 
 } // namespace mulan::io
+

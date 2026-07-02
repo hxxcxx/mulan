@@ -1,6 +1,6 @@
 #include "document.h"
 
-#include "solid_geometry_data.h"
+#include "shape_render_geometry.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/brep_asset.h>
@@ -18,20 +18,17 @@ Document::Document(std::string displayName)
 
 Document::~Document() = default;
 
-scene::EntityId Document::addSolid(const TopoDS_Shape& shape, std::string name) {
-    std::string solidName = std::move(name);
+scene::EntityId Document::addShape(const TopoDS_Shape& shape, std::string name) {
+    std::string shapeName = std::move(name);
 
-    auto geometry = std::make_unique<SolidGeometryData>(shape);
-    auto faceMesh = geometry->faceMesh();
-    auto edgeMesh = geometry->edgeMesh();
-    const auto bounds = geometry->bounds();
+    auto geometry = buildShapeRenderGeometry(shape);
 
-    auto* brep = assets_->create<asset::BRepAsset>(solidName);
+    auto* brep = assets_->create<asset::BRepAsset>(shapeName);
     if (brep)
-        brep->setRenderMeshes(std::move(faceMesh), std::move(edgeMesh));
+        brep->setRenderMeshes(std::move(geometry.faceMesh), std::move(geometry.edgeMesh));
 
-    const auto sceneId = addSceneInstance(solidName, brep ? brep->id() : asset::AssetId::invalid());
-    scene_->setWorldBounds(sceneId, bounds);
+    const auto sceneId = addSceneInstance(shapeName, brep ? brep->id() : asset::AssetId::invalid());
+    scene_->setWorldBounds(sceneId, geometry.bounds);
     return sceneId;
 }
 
