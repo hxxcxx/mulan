@@ -1,12 +1,14 @@
 /**
- * @file view_renderer.h
- * @brief ViewRenderer 将 RenderScene 转换为当前视图可提交的绘制命令。
- * @author hxxcxx
+ * @file draw_command_builder.h
+ * @brief DrawCommandBuilder —— 将 RenderScene 转换为可提交的绘制命令
  * @date 2026-07-03
+ *
+ * 原 ViewRenderer，归入 Renderer 内部。改名避免与 Renderer 类名混淆。
  */
+
 #pragma once
 
-#include <mulan/engine/render/mesh_draw_command.h>
+#include "mulan/engine/render/mesh_draw_command.h"
 
 #include <span>
 #include <vector>
@@ -16,7 +18,7 @@ class AssetLibrary;
 }
 
 namespace mulan::engine {
-class GpuResourceManager;
+class RenderResourceCache;
 class PipelineState;
 }
 
@@ -26,12 +28,12 @@ class RenderScene;
 
 namespace mulan::view {
 
-class ViewRenderer {
+class DrawCommandBuilder {
 public:
     void setScene(const render_scene::RenderScene* scene,
                   const asset::AssetLibrary* assets);
 
-    void rebuild(engine::GpuResourceManager& gpu,
+    void rebuild(engine::RenderResourceCache& gpu,
                  engine::PipelineState* facePso,
                  engine::PipelineState* edgePso);
 

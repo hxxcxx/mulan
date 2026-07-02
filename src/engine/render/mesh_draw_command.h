@@ -25,7 +25,7 @@ struct MeshDrawCommand {
     // Pipeline
     PipelineState* pipelineState = nullptr;
 
-    // Geometry（来自 GpuResourceManager）
+    // Geometry（来自 RenderResourceCache）
     Buffer*  vertexBuffer  = nullptr;
     Buffer*  indexBuffer   = nullptr;
     uint32_t indexCount    = 0;

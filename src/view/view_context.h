@@ -1,27 +1,22 @@
 /**
- * @file view_runtime.h
- * @brief ViewRuntime 是消费 RenderScene 的视图运行时
+ * @file view_context.h
+ * @brief ViewContext 是消费 RenderScene 的视图运行时
  *
- * 持有 RHIDevice、SwapChain/RenderTarget、Camera、GpuResourceManager、
- * RenderGraph 和交互 Operator。
+ * 持有 RHIDevice、RenderSurface、Camera、Renderer 和交互 Operator。
+ * 渲染执行（RenderGraph / draw command / GPU 资源缓存）已下沉到 Renderer。
  */
 
 #pragma once
 
+#include "render_surface.h"
+#include "renderer.h"
 #include "view_config.h"
-#include "view_renderer.h"
 
 #include "mulan/engine/interaction/camera_manipulator.h"
 #include "mulan/engine/interaction/input_event.h"
 #include "mulan/engine/interaction/operator.h"
-#include "mulan/engine/render/gpu_resource_manager.h"
-#include "mulan/engine/render/graph/render_graph.h"
 #include "mulan/engine/render/light_environment.h"
-#include "mulan/engine/render/viewcube/view_cube_renderer.h"
-#include "mulan/engine/rhi/buffer.h"
 #include "mulan/engine/rhi/device.h"
-#include "mulan/engine/rhi/render_target.h"
-#include "mulan/engine/rhi/swap_chain.h"
 #include "mulan/engine/scene/camera/camera.h"
 
 #include <cstdint>
@@ -38,13 +33,13 @@ class RenderScene;
 
 namespace mulan::view {
 
-class ViewRuntime {
+class ViewContext {
 public:
-    ViewRuntime();
-    ~ViewRuntime();
+    ViewContext();
+    ~ViewContext();
 
-    ViewRuntime(const ViewRuntime&) = delete;
-    ViewRuntime& operator=(const ViewRuntime&) = delete;
+    ViewContext(const ViewContext&) = delete;
+    ViewContext& operator=(const ViewContext&) = delete;
 
     bool init(const ViewConfig& config, int width, int height);
     bool initOffscreen(int width, int height);
@@ -72,41 +67,30 @@ public:
     engine::Camera& camera() { return camera_; }
     const engine::Camera& camera() const { return camera_; }
 
-    engine::GpuResourceManager& gpu() { return *gpu_; }
-    const engine::GpuResourceManager& gpu() const { return *gpu_; }
-
-    engine::RenderGraph& renderGraph() { return render_graph_; }
-
     engine::LightEnvironment& lightEnvironment() { return light_env_; }
     const engine::LightEnvironment& lightEnvironment() const { return light_env_; }
 
-    engine::RenderTarget* renderTarget() const { return render_target_.get(); }
+    RenderSurface& surface() { return surface_; }
+    const RenderSurface& surface() const { return surface_; }
+
+    Renderer& renderer() { return renderer_; }
 
 private:
-    bool initRendering(int width, int height);
-    bool initSceneRenderer();
+    bool initRendering();
     void cleanup();
 
     std::shared_ptr<engine::RHIDevice> device_;
-
-    std::unique_ptr<engine::SwapChain> swapchain_;
-    std::unique_ptr<engine::RenderTarget> render_target_;
-    std::unique_ptr<engine::Buffer> staging_buffer_;
+    RenderSurface surface_;
+    Renderer renderer_;
 
     const render_scene::RenderScene* render_scene_ = nullptr;
     const asset::AssetLibrary* assets_ = nullptr;
-    ViewRenderer renderer_;
-
-    std::unique_ptr<engine::GpuResourceManager> gpu_storage_;
-    engine::GpuResourceManager* gpu_ = nullptr;
 
     engine::Camera camera_{engine::CameraMode::Trackball};
 
     std::unique_ptr<engine::Operator> default_op_;
     std::vector<std::unique_ptr<engine::Operator>> op_stack_;
-    std::unique_ptr<engine::ViewCubeRenderer> view_cube_renderer_;
 
-    engine::RenderGraph render_graph_;
     engine::LightEnvironment light_env_;
 
     int width_ = 800;

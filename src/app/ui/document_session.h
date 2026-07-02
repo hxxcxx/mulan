@@ -15,7 +15,7 @@
 #include <unordered_map>
 
 namespace mulan::view {
-class ViewRuntime;
+class ViewContext;
 }
 
 class DocumentSession {
@@ -36,16 +36,16 @@ public:
     mulan::render_scene::RenderScene& renderScene() { return render_scene_; }
     const mulan::render_scene::RenderScene& renderScene() const { return render_scene_; }
 
-    void attachViewRuntime(mulan::view::ViewRuntime* runtime);
-    void detachViewRuntime();
+    void attachViewContext(mulan::view::ViewContext* runtime);
+    void detachViewContext();
 
-    mulan::view::ViewRuntime* viewRuntime() const { return view_runtime_; }
+    mulan::view::ViewContext* viewContext() const { return view_context_; }
 
     mulan::scene::EntityId resolvePickId(uint32_t pickId) const;
 
 private:
     std::unique_ptr<mulan::document::Document> document_;
     mulan::render_scene::RenderScene render_scene_;
-    mulan::view::ViewRuntime* view_runtime_ = nullptr;
+    mulan::view::ViewContext* view_context_ = nullptr;
     std::unordered_map<uint32_t, mulan::scene::EntityId> pick_id_map_;
 };

@@ -8,13 +8,23 @@
 #pragma once
 
 #include "../../rhi/command_list.h"
+#include "../../math/math.h"
 
 namespace mulan::engine {
+
+/// 一帧的相机派生数据（view/proj 矩阵 + 视点位置），由上层 ViewState 填充。
+/// passes 从 PassContext 读取，不再反向访问活 Camera 对象。
+struct CameraView {
+    Mat4 viewMatrix       = Mat4(1.0);
+    Mat4 projectionMatrix = Mat4(1.0);
+    Vec3 eyePosition      = Vec3(0.0f);
+};
 
 struct PassContext {
     CommandList* cmd       = nullptr;
     int          width     = 0;
     int          height    = 0;
+    CameraView   camera;     // 当帧相机快照
 };
 
 class RenderPass {

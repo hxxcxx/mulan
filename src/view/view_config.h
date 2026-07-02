@@ -1,10 +1,10 @@
 /**
  * @file view_config.h
- * @brief ViewRuntime 初始化配置
+ * @brief ViewContext 初始化配置
  * @date 2026-06-01
  *
  * ViewConfig 是 UI 端可控制的引擎初始化参数。
- * 由 DocWidget 等上层填充，传入 ViewRuntime::init()。
+ * 由 DocWidget 等上层填充，传入 ViewContext::init()。
  */
 
 #pragma once

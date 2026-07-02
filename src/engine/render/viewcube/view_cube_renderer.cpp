@@ -425,7 +425,7 @@ bool ViewCubeRenderer::createEdgeGeometry() {
 // 渲染
 // ============================================================
 
-void ViewCubeRenderer::render(CommandList* cmd, const Camera& mainCamera,
+void ViewCubeRenderer::render(CommandList* cmd, const Mat4& mainViewMatrix,
                                uint32_t vpWidth, uint32_t vpHeight) {
     if (!initialized_ || !cmd || !solid_pso_) return;
 
@@ -448,7 +448,7 @@ void ViewCubeRenderer::render(CommandList* cmd, const Camera& mainCamera,
 
     // --- 3. 构造 ViewCube 的 view/proj 矩阵 ---
     // 从主相机提取纯旋转（去除平移）
-    auto mainView = mainCamera.viewMatrix();
+    const Mat4& mainView = mainViewMatrix;
     Mat3 rotOnly = Mat3(mainView);  // 提取左上 3x3 旋转
 
     // 构造 ViewCube view：纯旋转 + 固定距离后退

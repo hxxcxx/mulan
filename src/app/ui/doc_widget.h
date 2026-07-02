@@ -9,7 +9,7 @@
 #include <QWidget>
 
 #include <mulan/engine/interaction/input_event.h>
-#include <mulan/view/view_runtime.h>
+#include <mulan/view/view_context.h>
 
 class DocumentSession;
 
@@ -29,7 +29,7 @@ public:
     void requestFrame();
     void fitAll();
 
-    mulan::view::ViewRuntime& viewRuntime() { return view_runtime_; }
+    mulan::view::ViewContext& viewContext() { return view_context_; }
 
 protected:
     void resizeEvent(QResizeEvent* e) override;
@@ -50,7 +50,7 @@ private:
     static mulan::engine::KeyModifier translateModifiers(Qt::KeyboardModifiers mods);
     static mulan::engine::Key translateKey(int qtKey);
 
-    mulan::view::ViewRuntime view_runtime_;
+    mulan::view::ViewContext view_context_;
     mulan::view::ViewConfig view_config_;
     DocumentSession* session_ = nullptr;
 };

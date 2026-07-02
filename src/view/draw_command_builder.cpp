@@ -1,24 +1,24 @@
-#include "view_renderer.h"
+#include "draw_command_builder.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/brep_asset.h>
 #include <mulan/asset/mesh_asset.h>
-#include <mulan/engine/render/gpu_resource_manager.h>
+#include <mulan/engine/render/render_resource_cache.h>
 #include <mulan/engine/render/material/material_cache.h>
 #include <mulan/render_scene/render_scene.h>
 #include <mulan/render_scene/scene_proxy.h>
 
 namespace mulan::view {
 
-void ViewRenderer::setScene(const render_scene::RenderScene* scene,
-                            const asset::AssetLibrary* assets) {
+void DrawCommandBuilder::setScene(const render_scene::RenderScene* scene,
+                                  const asset::AssetLibrary* assets) {
     scene_ = scene;
     assets_ = assets;
 }
 
-void ViewRenderer::rebuild(engine::GpuResourceManager& gpu,
-                           engine::PipelineState* facePso,
-                           engine::PipelineState* edgePso) {
+void DrawCommandBuilder::rebuild(engine::RenderResourceCache& gpu,
+                                 engine::PipelineState* facePso,
+                                 engine::PipelineState* edgePso) {
     clear();
 
     if (!scene_ || !assets_)
@@ -89,7 +89,7 @@ void ViewRenderer::rebuild(engine::GpuResourceManager& gpu,
     });
 }
 
-void ViewRenderer::clear() {
+void DrawCommandBuilder::clear() {
     face_cmds_.clear();
     edge_cmds_.clear();
 }

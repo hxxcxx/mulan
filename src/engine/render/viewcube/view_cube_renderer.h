@@ -53,12 +53,12 @@ public:
     /// 释放资源
     void cleanup();
 
-    /// 渲染 ViewCube（在 SceneRenderer::render() 末尾调用）
-    /// @param cmd         命令列表
-    /// @param mainCamera  主相机（提取旋转）
-    /// @param vpWidth     视口总宽度
-    /// @param vpHeight    视口总高度
-    void render(CommandList* cmd, const Camera& mainCamera,
+    /// 渲染 ViewCube（在 Renderer::render() 末尾调用）
+    /// @param cmd            命令列表
+    /// @param mainViewMatrix 主相机 view 矩阵（提取旋转）
+    /// @param vpWidth        视口总宽度
+    /// @param vpHeight       视口总高度
+    void render(CommandList* cmd, const Mat4& mainViewMatrix,
                 uint32_t vpWidth, uint32_t vpHeight);
 
     /// 设置 ViewCube 显示大小（像素）

@@ -8,7 +8,7 @@
 #pragma once
 
 #include "render_pass.h"
-#include "../gpu_resource_manager.h"
+#include "../render_resource_cache.h"
 #include "../mesh_draw_command.h"
 #include "../light_environment.h"
 #include "../../rhi/device.h"
@@ -16,7 +16,6 @@
 #include "../../rhi/pipeline_state.h"
 #include "../../rhi/shader.h"
 #include "../../math/math.h"
-#include "../../scene/camera/camera.h"
 
 #include <cstdint>
 #include <span>
@@ -27,9 +26,9 @@ class MaterialCache;
 
 class ForwardPass : public RenderPass {
 public:
-    ForwardPass(RHIDevice& device, GpuResourceManager& gpu,
+    ForwardPass(RHIDevice& device, RenderResourceCache& gpu,
                 MaterialCache& matCache,
-                const Camera& camera, const LightEnvironment& lightEnv);
+                const LightEnvironment& lightEnv);
 
     const char* name() const override { return "ForwardPass"; }
 
@@ -46,9 +45,8 @@ private:
     void uploadSceneUBO(const PassContext& ctx);
 
     RHIDevice&              device_;
-    GpuResourceManager&     gpu_;
+    RenderResourceCache&     gpu_;
     MaterialCache&          mat_cache_;
-    const Camera&           camera_;
     const LightEnvironment& light_env_;
 
     std::unique_ptr<Shader>        vs_;

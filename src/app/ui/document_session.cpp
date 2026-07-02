@@ -1,6 +1,6 @@
 #include "document_session.h"
 
-#include <mulan/view/view_runtime.h>
+#include <mulan/view/view_context.h>
 
 DocumentSession::DocumentSession(std::unique_ptr<mulan::document::Document> doc)
     : document_(std::move(doc))
@@ -13,7 +13,7 @@ DocumentSession::DocumentSession(std::unique_ptr<mulan::document::Document> doc)
 }
 
 DocumentSession::~DocumentSession() {
-    detachViewRuntime();
+    detachViewContext();
 }
 
 const std::string& DocumentSession::displayName() const {
@@ -30,9 +30,9 @@ void DocumentSession::syncRenderScene() {
     render_scene_.sync(*document_->scene(), *document_->assets());
 }
 
-void DocumentSession::attachViewRuntime(mulan::view::ViewRuntime* runtime) {
-    if (view_runtime_) detachViewRuntime();
-    view_runtime_ = runtime;
+void DocumentSession::attachViewContext(mulan::view::ViewContext* runtime) {
+    if (view_context_) detachViewContext();
+    view_context_ = runtime;
 
     runtime->setRenderScene(&render_scene_, document_ ? document_->assets() : nullptr);
 
@@ -41,10 +41,10 @@ void DocumentSession::attachViewRuntime(mulan::view::ViewRuntime* runtime) {
         runtime->camera().fitToBox(bounds);
 }
 
-void DocumentSession::detachViewRuntime() {
-    if (view_runtime_) {
-        view_runtime_->setRenderScene(nullptr, nullptr);
-        view_runtime_ = nullptr;
+void DocumentSession::detachViewContext() {
+    if (view_context_) {
+        view_context_->setRenderScene(nullptr, nullptr);
+        view_context_ = nullptr;
     }
 }
 

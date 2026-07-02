@@ -1,4 +1,4 @@
-#include "gpu_resource_manager.h"
+#include "render_resource_cache.h"
 #include "../rhi/device.h"
 #include "../rhi/buffer.h"
 
@@ -6,11 +6,11 @@
 
 namespace mulan::engine {
 
-GpuResourceManager::GpuResourceManager(RHIDevice& device)
+RenderResourceCache::RenderResourceCache(RHIDevice& device)
     : device_(device) {
 }
 
-void GpuResourceManager::uploadFaceMesh(uint64_t key, const Mesh& mesh) {
+void RenderResourceCache::uploadFaceMesh(uint64_t key, const Mesh& mesh) {
     auto result = createGpuBuffer(device_, mesh);
     if (!result) {
         return;
@@ -18,7 +18,7 @@ void GpuResourceManager::uploadFaceMesh(uint64_t key, const Mesh& mesh) {
     face_geos_[key] = std::move(*result);
 }
 
-void GpuResourceManager::uploadEdgeMesh(uint64_t key, const Mesh& mesh) {
+void RenderResourceCache::uploadEdgeMesh(uint64_t key, const Mesh& mesh) {
     auto result = createGpuBuffer(device_, mesh);
     if (!result) {
         return;
@@ -26,35 +26,35 @@ void GpuResourceManager::uploadEdgeMesh(uint64_t key, const Mesh& mesh) {
     edge_geos_[key] = std::move(*result);
 }
 
-void GpuResourceManager::releaseResource(uint64_t key) {
+void RenderResourceCache::releaseResource(uint64_t key) {
     face_geos_.erase(key);
     edge_geos_.erase(key);
 }
 
-bool GpuResourceManager::hasResource(uint64_t key) const {
+bool RenderResourceCache::hasResource(uint64_t key) const {
     auto it = face_geos_.find(key);
     if (it != face_geos_.end() && it->second.isValid()) return true;
     auto eit = edge_geos_.find(key);
     return eit != edge_geos_.end() && eit->second.isValid();
 }
 
-const GpuGeometry* GpuResourceManager::faceGeometry(uint64_t key) const {
+const GpuGeometry* RenderResourceCache::faceGeometry(uint64_t key) const {
     auto it = face_geos_.find(key);
     return it != face_geos_.end() && it->second.isValid() ? &it->second : nullptr;
 }
 
-const GpuGeometry* GpuResourceManager::edgeGeometry(uint64_t key) const {
+const GpuGeometry* RenderResourceCache::edgeGeometry(uint64_t key) const {
     auto it = edge_geos_.find(key);
     return it != edge_geos_.end() && it->second.isValid() ? &it->second : nullptr;
 }
 
-void GpuResourceManager::clear() {
+void RenderResourceCache::clear() {
     face_geos_.clear();
     edge_geos_.clear();
 }
 
 std::expected<GpuGeometry, core::Error>
-GpuResourceManager::createGpuBuffer(RHIDevice& device, const Mesh& mesh) {
+RenderResourceCache::createGpuBuffer(RHIDevice& device, const Mesh& mesh) {
     GpuGeometry geo;
     if (mesh.empty()) return geo;
 

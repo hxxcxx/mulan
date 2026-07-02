@@ -8,7 +8,7 @@ add_library(Engine STATIC
     scene/camera/trackball_rotation.cpp
     render/texture_loader.cpp
     render/texture_cache.cpp
-    render/gpu_resource_manager.cpp
+    render/render_resource_cache.cpp
     render/mesh_draw_command.cpp
     # RenderGraph
     render/graph/forward_pass.cpp

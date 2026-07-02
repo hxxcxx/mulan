@@ -1,11 +1,11 @@
 /**
- * @file gpu_resource_manager.h
- * @brief GPU 资源管理器 — 集中管理 GpuGeometry，按 uint64_t key 索引
+ * @file render_resource_cache.h
+ * @brief RenderResourceCache —— 渲染资源缓存，按 uint64_t key 索引 GpuGeometry
  *
  * 设计原则：
- * - 通用接口，不知道 Entity 或 world/ 领域概念
- * - key 为 uint64_t（对应 world::Entity::Id，但此处不作假设）
- * - 管理三角面 mesh / 边线 mesh 两种 GPU 资源
+ * - 缓存 CPU 侧 Mesh 对应的 GPU buffer（face / edge 两类几何）
+ * - 不叫 Manager，不变成全局单例，不拥有文档资产
+ * - key 为 uint64_t（对应 entity id，但此处不作领域假设）
  * - 构造函数传入 RHIDevice，Buffer 创建时自动上传
  *
  * @author hxxcxx
@@ -27,9 +27,9 @@ namespace mulan::engine {
 
 class RHIDevice;
 
-class GpuResourceManager {
+class RenderResourceCache {
 public:
-    explicit GpuResourceManager(RHIDevice& device);
+    explicit RenderResourceCache(RHIDevice& device);
 
     void uploadFaceMesh(uint64_t key, const Mesh& mesh);
     void uploadEdgeMesh(uint64_t key, const Mesh& mesh);

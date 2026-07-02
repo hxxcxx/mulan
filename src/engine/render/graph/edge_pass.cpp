@@ -29,10 +29,10 @@ static_assert(sizeof(SceneUniforms) == 288);
 
 // ─── 构造 / init ───────────────────────────────────────────────
 
-EdgePass::EdgePass(RHIDevice& device, GpuResourceManager& gpu,
+EdgePass::EdgePass(RHIDevice& device, RenderResourceCache& gpu,
                    MaterialCache& matCache,
-                   const Camera& camera, const LightEnvironment& lightEnv)
-    : device_(device), gpu_(gpu), mat_cache_(matCache), camera_(camera), light_env_(lightEnv) {
+                   const LightEnvironment& lightEnv)
+    : device_(device), gpu_(gpu), mat_cache_(matCache), light_env_(lightEnv) {
 }
 
 bool EdgePass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
@@ -119,10 +119,10 @@ bool EdgePass::createEdgePSO(TextureFormat colorFmt, TextureFormat depthFmt,
 void EdgePass::uploadSceneUBO(const PassContext& ctx) {
     // 应用 Vulkan clip space 修正（Z:[-1,1]→[0,1], Y 翻转）
     Mat4 clip = device_.clipSpaceCorrectionMatrix();
-    Mat4 view = camera_.viewMatrix();
-    Mat4 proj = camera_.projectionMatrix();
+    Mat4 view = ctx.camera.viewMatrix;
+    Mat4 proj = ctx.camera.projectionMatrix;
     Mat4 vp   = clip * proj * view;
-    Vec3 eye  = camera_.eyePosition();
+    Vec3 eye  = ctx.camera.eyePosition;
     auto* dl  = light_env_.primaryDirectional();
     Vec3 ldir = dl ? glm::normalize(dl->direction) : Vec3(-0.3, -1.0, -0.4);
 
