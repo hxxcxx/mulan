@@ -25,11 +25,13 @@ world::Entity* Document::addSolid(const TopoDS_Shape& shape, std::string name) {
 
     auto* entity = world_->createEntity(solidName);
     auto geo = std::make_unique<SolidGeometryData>(shape);
+    const auto worldBounds = geo->bounds().transformed(entity->worldTransform());
     entity->setGeometry(std::move(geo));
 
     // 迁移镜像：旧 world 继续负责当前渲染，同时在 AssetLibrary + Scene 中建立未来数据形态。
     auto* brep = assets_->create<asset::BRepAsset>(solidName);
-    addSceneInstance(solidName, brep ? brep->id() : asset::AssetId::invalid());
+    const auto sceneId = addSceneInstance(solidName, brep ? brep->id() : asset::AssetId::invalid());
+    scene_->setWorldBounds(sceneId, worldBounds);
 
     return entity;
 }

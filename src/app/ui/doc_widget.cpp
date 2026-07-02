@@ -152,6 +152,15 @@ void DocWidget::requestFrame() {
 void DocWidget::fitAll() {
     if (!viewport_.isInitialized()) return;
 
+    if (session_) {
+        const auto& sceneBounds = session_->renderScene().sceneBounds();
+        if (!sceneBounds.isEmpty()) {
+            viewport_.camera().fitToBox(sceneBounds);
+            requestFrame();
+            return;
+        }
+    }
+
     mulan::world::World* world = viewport_.world();
     if (!world) return;
 

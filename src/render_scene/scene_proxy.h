@@ -9,8 +9,11 @@
 
 #include <mulan/asset/asset.h>
 #include <mulan/asset/asset_id.h>
+#include <mulan/engine/math/aabb.h>
 #include <mulan/engine/math/math.h>
 #include <mulan/scene/entity_id.h>
+
+#include <vector>
 
 namespace mulan::render_scene {
 
@@ -18,7 +21,9 @@ struct SceneProxy {
     scene::EntityId entity;
     asset::AssetId geometry;
     asset::AssetKind geometryKind = asset::AssetKind::Unknown;
+    std::vector<asset::AssetId> materialSlots;
     engine::Mat4 worldTransform{1.0};
+    engine::AABB worldBounds;
     bool visible = true;
     bool selected = false;
 };

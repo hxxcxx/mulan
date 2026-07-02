@@ -1,6 +1,7 @@
 #include "render_scene.h"
 
 #include <mulan/asset/asset_library.h>
+#include <mulan/scene/components/bounds_component.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/components/render_component.h>
 #include <mulan/scene/components/selection_component.h>
@@ -12,6 +13,7 @@ namespace mulan::render_scene {
 void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& assets) {
     proxies_.clear();
     last_sync_stats_ = {};
+    scene_bounds_.reset();
     last_sync_stats_.entityCount = scene.entityCount();
     last_sync_stats_.assetCount = assets.count();
 
@@ -36,12 +38,17 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         proxy.entity = id;
         proxy.geometry = geometry->geometry;
         proxy.geometryKind = asset->kind();
+        proxy.materialSlots = render ? render->material_slots : std::vector<asset::AssetId>{};
         proxy.visible = render ? render->visible : true;
         proxy.selected = selection ? selection->selected : false;
         proxy.worldTransform = transform ? transform->world : engine::Mat4{1.0};
+        if (const auto* bounds = scene.bounds(id))
+            proxy.worldBounds = bounds->world_bounds;
 
-        if (proxy.visible)
+        if (proxy.visible) {
             ++last_sync_stats_.visibleProxyCount;
+            scene_bounds_.expand(proxy.worldBounds);
+        }
 
         proxies_[id] = proxy;
     });
@@ -51,6 +58,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
 
 void RenderScene::clear() {
     last_sync_stats_ = {};
+    scene_bounds_.reset();
     proxies_.clear();
 }
 
