@@ -15,8 +15,8 @@ class AssetLibrary;
 }
 
 namespace mulan::engine {
-class RenderResourceCache;
 class PipelineState;
+class RenderResourceCache;
 }
 
 namespace mulan::render_scene {

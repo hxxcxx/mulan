@@ -1,63 +1,16 @@
 #include "draw_command_builder.h"
+#include "render_material_resolver.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/brep_asset.h>
-#include <mulan/asset/material_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/engine/render/render_resource_cache.h>
-#include <mulan/engine/render/material/material.h>
 #include <mulan/engine/render/material/material_cache.h>
 #include <mulan/render_scene/render_scene.h>
 #include <mulan/render_scene/scene_proxy.h>
 
-#include <string>
-
 namespace mulan::view {
 namespace {
-
-constexpr uint32_t kDefaultMaterialId = 0xFFFF;
-
-engine::AlphaMode toEngineAlphaMode(asset::AlphaMode mode) {
-    switch (mode) {
-    case asset::AlphaMode::Mask:
-        return engine::AlphaMode::Mask;
-    case asset::AlphaMode::Blend:
-        return engine::AlphaMode::Blend;
-    case asset::AlphaMode::Opaque:
-    default:
-        return engine::AlphaMode::Opaque;
-    }
-}
-
-engine::Material toEngineMaterial(const asset::MaterialAsset& asset) {
-    engine::Material material = engine::Material::defaultPBR();
-    material.name = asset.name();
-    const auto& color = asset.baseColorFactor();
-    material.baseColor = {color.x, color.y, color.z};
-    material.alpha = color.w;
-    material.metallic = asset.metallic();
-    material.roughness = asset.roughness();
-    material.alphaMode = toEngineAlphaMode(asset.alphaMode());
-    material.doubleSided = asset.doubleSided();
-    return material;
-}
-
-uint32_t resolveMaterialOffset(const asset::AssetLibrary& assets,
-                               asset::AssetId materialId,
-                               engine::MaterialCache& cache) {
-    if (!materialId) {
-        return cache.materialGpuOffset(kDefaultMaterialId);
-    }
-
-    const auto* materialAsset = dynamic_cast<const asset::MaterialAsset*>(assets.asset(materialId));
-    if (!materialAsset) {
-        return cache.materialGpuOffset(kDefaultMaterialId);
-    }
-
-    const std::string cacheName = "asset:" + std::to_string(materialId.value);
-    const uint32_t engineMaterialId = cache.registerMaterial(cacheName, toEngineMaterial(*materialAsset));
-    return cache.materialGpuOffset(engineMaterialId);
-}
 
 uint64_t primitiveGeometryKey(asset::AssetId geometry, size_t primitiveIndex) {
     return geometry.value ^ ((static_cast<uint64_t>(primitiveIndex) + 1u) << 32u);
@@ -80,6 +33,7 @@ void DrawCommandBuilder::rebuild(engine::RenderResourceCache& resources,
         return;
 
     auto& matCache = engine::MaterialCache::instance();
+    RenderMaterialResolver materialResolver(*assets_);
     uint32_t nextObjectOffset = 0;
 
     scene_->forEachProxy([&](const render_scene::SceneProxy& proxy) {
@@ -108,7 +62,7 @@ void DrawCommandBuilder::rebuild(engine::RenderResourceCache& resources,
                     cmd.instanceCount = 1;
                     cmd.topology = faceMesh->topology;
                     cmd.objectUboOffset = nextObjectOffset;
-                    cmd.materialUboOffset = matCache.materialGpuOffset(kDefaultMaterialId);
+                    cmd.materialUboOffset = materialResolver.materialOffset(asset::AssetId::invalid(), matCache);
                     cmd.worldTransform = proxy.worldTransform;
                     cmd.pickId = proxy.entity.index();
                     cmd.selected = proxy.selected;
@@ -160,7 +114,7 @@ void DrawCommandBuilder::rebuild(engine::RenderResourceCache& resources,
                     cmd.instanceCount = 1;
                     cmd.topology = mesh.topology;
                     cmd.objectUboOffset = nextObjectOffset;
-                    cmd.materialUboOffset = resolveMaterialOffset(*assets_, primitive.material, matCache);
+                    cmd.materialUboOffset = materialResolver.materialOffset(primitive.material, matCache);
                     cmd.worldTransform = proxy.worldTransform;
                     cmd.pickId = proxy.entity.index();
                     cmd.selected = proxy.selected;

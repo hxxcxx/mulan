@@ -4,6 +4,7 @@
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/brep_asset.h>
+#include <mulan/asset/mesh_asset.h>
 #include <mulan/scene/scene.h>
 
 #include <TopoDS_Shape.hxx>
@@ -29,6 +30,30 @@ scene::EntityId Document::addShape(const TopoDS_Shape& shape, std::string name) 
 
     const auto sceneId = addSceneInstance(shapeName, brep ? brep->id() : asset::AssetId::invalid());
     scene_->setWorldBounds(sceneId, geometry.bounds);
+    return sceneId;
+}
+
+scene::EntityId Document::addMesh(std::string name, std::vector<asset::MeshPrimitive> primitives) {
+    std::string meshName = std::move(name);
+
+    auto* mesh = assets_->create<asset::MeshAsset>(meshName);
+    if (!mesh) return scene::EntityId::invalid();
+
+    engine::AABB bounds = engine::AABB::empty();
+    std::vector<asset::AssetId> materialSlots;
+    materialSlots.reserve(primitives.size());
+
+    for (auto& primitive : primitives) {
+        primitive.mesh.computeBounds();
+        if (!primitive.mesh.bounds.isEmpty()) {
+            bounds.expand(primitive.mesh.bounds);
+        }
+        materialSlots.push_back(primitive.material);
+        mesh->addPrimitive(std::move(primitive.mesh), primitive.material, std::move(primitive.name));
+    }
+
+    const auto sceneId = addSceneInstance(meshName, mesh->id(), std::move(materialSlots));
+    scene_->setWorldBounds(sceneId, bounds);
     return sceneId;
 }
 

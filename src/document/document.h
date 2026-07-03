@@ -1,6 +1,6 @@
 /**
  * @file document.h
- * @brief Document 是导入模型、资源库和场景实例的真实数据入口。
+ * @brief Document 是导入模型、资源库和场景实例的数据入口。
  * @author hxxcxx
  * @date 2026-07-03
  */
@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <mulan/asset/asset_id.h>
+#include <mulan/asset/mesh_asset.h>
 #include <mulan/scene/entity_id.h>
 
 #include <memory>
@@ -47,6 +48,7 @@ public:
     Document& operator=(const Document&) = delete;
 
     scene::EntityId addShape(const TopoDS_Shape& shape, std::string name);
+    scene::EntityId addMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
 
     scene::EntityId addSceneInstance(std::string name,
                                      asset::AssetId geometry,
