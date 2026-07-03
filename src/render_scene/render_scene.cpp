@@ -41,7 +41,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         proxy.materialSlots = render ? render->material_slots : std::vector<asset::AssetId>{};
         proxy.visible = render ? render->visible : true;
         proxy.selected = selection ? selection->selected : false;
-        proxy.worldTransform = transform ? transform->world : engine::Mat4{1.0};
+        proxy.worldTransform = transform ? transform->world : math::Mat4{1.0};
         if (const auto* bounds = scene.bounds(id))
             proxy.worldBounds = bounds->world_bounds;
 

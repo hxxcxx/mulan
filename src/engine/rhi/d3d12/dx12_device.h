@@ -37,7 +37,7 @@ public:
     GraphicsBackend backend() const override { return GraphicsBackend::D3D12; }
     const GPUDeviceCapabilities& capabilities() const override { return caps_; }
     const RenderConfig& renderConfig() const override { return render_config_; }
-    Mat4 clipSpaceCorrectionMatrix() const override;
+    math::Mat4 clipSpaceCorrectionMatrix() const override;
 
     // --- 资源创建 ---
     std::expected<std::unique_ptr<Buffer>,        core::Error> createBuffer(const BufferDesc& desc) override;

@@ -87,11 +87,11 @@ const RenderConfig& VKDevice::renderConfig() const {
     return render_config_;
 }
 
-Mat4 VKDevice::clipSpaceCorrectionMatrix() const {
+math::Mat4 VKDevice::clipSpaceCorrectionMatrix() const {
     // Vulkan NDC: Y 朝下, z∈[0,1]
     // 标准右手(OpenGL): Y 朝上, z∈[-1,1]
     // 修正: 翻转 Y, 将 z 从 [-1,1] 映射到 [0,1]
-    Mat4 c(1.0);
+    math::Mat4 c(1.0);
     c[1][1] = -1.0;   // Y 翻转
     c[2][2] =  0.5;   // z scale
     c[3][2] =  0.5;   // z offset

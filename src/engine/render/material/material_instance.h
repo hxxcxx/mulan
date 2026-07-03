@@ -85,14 +85,14 @@ public:
 
     // --- 基础参数修改 ---
 
-    void setBaseColor(const Vec3& color);
+    void setBaseColor(const math::Vec3& color);
     void setMetallic(double metallic);
     void setRoughness(double roughness);
     void setAlpha(double alpha);
-    void setEmissive(const Vec3& color, double strength = 1.0);
+    void setEmissive(const math::Vec3& color, double strength = 1.0);
     void setDoubleSided(bool doubleSided);
     void setAlphaCutoff(double cutoff);
-    void setSpecular(const Vec3& color);
+    void setSpecular(const math::Vec3& color);
     void setShininess(double shininess);
     void setAO(double ao);
 
@@ -114,10 +114,10 @@ public:
 
     // --- 便捷参数 ---
 
-    void setColor(const Vec3& color) { setBaseColor(color); }
+    void setColor(const math::Vec3& color) { setBaseColor(color); }
 
     /// 应用高亮色（用于选中状态）
-    void setHighlight(const Vec3& highlightColor);
+    void setHighlight(const math::Vec3& highlightColor);
 
     /// 清除高亮，恢复覆盖前的状态
     void clearHighlight();

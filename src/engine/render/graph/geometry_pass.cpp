@@ -126,20 +126,20 @@ bool GeometryPass::createPSO(TextureFormat colorFmt, TextureFormat depthFmt,
 
 void GeometryPass::uploadSceneUBO(const PassContext& ctx) {
     // 应用 Vulkan clip space 修正（Z:[-1,1]→[0,1], Y 翻转）
-    Mat4 clip = device_.clipSpaceCorrectionMatrix();
-    Mat4 view = ctx.camera.viewMatrix;
-    Mat4 proj = ctx.camera.projectionMatrix;
-    Mat4 vp   = clip * proj * view;
-    Vec3 eye  = ctx.camera.eyePosition;
+    math::Mat4 clip = device_.clipSpaceCorrectionMatrix();
+    math::Mat4 view = ctx.camera.viewMatrix;
+    math::Mat4 proj = ctx.camera.projectionMatrix;
+    math::Mat4 vp   = clip * proj * view;
+    math::Vec3 eye  = ctx.camera.eyePosition;
     auto* dl  = light_env_.primaryDirectional();
-    Vec3 ldir = dl ? dl->direction.normalized() : Vec3(-0.3, -1.0, -0.4);
+    math::Vec3 ldir = dl ? dl->direction.normalized() : math::Vec3(-0.3, -1.0, -0.4);
 
-    auto storeMat = [](float* dst, const Mat4& m) {
+    auto storeMat = [](float* dst, const math::Mat4& m) {
         for (int c = 0; c < 4; ++c)
             for (int r = 0; r < 4; ++r)
                 dst[c * 4 + r] = static_cast<float>(m[c][r]);
     };
-    auto storeVec3 = [](float* dst, const Vec3& v) {
+    auto storeVec3 = [](float* dst, const math::Vec3& v) {
         dst[0] = static_cast<float>(v.x);
         dst[1] = static_cast<float>(v.y);
         dst[2] = static_cast<float>(v.z);
@@ -152,10 +152,10 @@ void GeometryPass::uploadSceneUBO(const PassContext& ctx) {
     storeMat(ubo.viewProjection, vp);
     storeVec3(ubo.cameraPos,   eye);
     storeVec3(ubo.lightDir,    ldir);
-    storeVec3(ubo.lightColor,  Vec3(0.8));    // 主光稍弱
-    storeVec3(ubo.ambientColor,Vec3(0.15));   // 环境光弱，避免 ×3.5 后过曝
-    storeVec3(ubo.edgeColor,   Vec3(0.08, 0.08, 0.08));
-    storeVec3(ubo.highlightColor, Vec3(1.0, 0.5, 0.0));
+    storeVec3(ubo.lightColor,  math::Vec3(0.8));    // 主光稍弱
+    storeVec3(ubo.ambientColor,math::Vec3(0.15));   // 环境光弱，避免 ×3.5 后过曝
+    storeVec3(ubo.edgeColor,   math::Vec3(0.08, 0.08, 0.08));
+    storeVec3(ubo.highlightColor, math::Vec3(1.0, 0.5, 0.0));
 
     ctx.cmd->updateBuffer(scene_ubo_.get(), 0, sizeof(ubo), &ubo);
 }

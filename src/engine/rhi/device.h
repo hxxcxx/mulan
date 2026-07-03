@@ -94,11 +94,11 @@ public:
 
     // --- 裁剪空间修正 ---
     // 各后端 NDC 约定不同（Vulkan: Y↓ z∈[0,1]，OpenGL: Y↑ z∈[-1,1]）。
-    // Camera / Mat4 统一生成标准右手坐标（Y↑ z∈[-1,1]），
+    // Camera / math::Mat4 统一生成标准右手坐标（Y↑ z∈[-1,1]），
     // 由后端提供修正矩阵：finalProj = clipCorrection * projection。
     // 上层无需关心后端差异。
 
-    virtual Mat4 clipSpaceCorrectionMatrix() const = 0;
+    virtual math::Mat4 clipSpaceCorrectionMatrix() const = 0;
 
     // --- 资源创建 ---
     // 全部返回 std::expected<unique_ptr<T>, core::Error>：失败时调用方拿到

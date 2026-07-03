@@ -215,10 +215,10 @@ int main() {
     testFrustum();
 
     if (g_failures != 0) {
-        std::cerr << g_failures << " geo test failure(s)\n";
+        std::cerr << g_failures << " math test failure(s)\n";
         return EXIT_FAILURE;
     }
 
-    std::cout << "Geo tests passed\n";
+    std::cout << "Math tests passed\n";
     return EXIT_SUCCESS;
 }

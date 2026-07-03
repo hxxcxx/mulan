@@ -425,7 +425,7 @@ bool ViewCubeRenderer::createEdgeGeometry() {
 // 渲染
 // ============================================================
 
-void ViewCubeRenderer::render(CommandList* cmd, const Mat4& mainViewMatrix,
+void ViewCubeRenderer::render(CommandList* cmd, const math::Mat4& mainViewMatrix,
                                uint32_t vpWidth, uint32_t vpHeight) {
     if (!initialized_ || !cmd || !solid_pso_) return;
 
@@ -448,30 +448,30 @@ void ViewCubeRenderer::render(CommandList* cmd, const Mat4& mainViewMatrix,
 
     // --- 3. 构造 ViewCube 的 view/proj 矩阵 ---
     // 从主相机提取纯旋转（去除平移）
-    const Mat4& mainView = mainViewMatrix;
-    Mat3 rotOnly = Mat3(mainView);  // 提取左上 3x3 旋转
+    const math::Mat4& mainView = mainViewMatrix;
+    math::Mat3 rotOnly = math::Mat3(mainView);  // 提取左上 3x3 旋转
 
     // 构造 ViewCube view：纯旋转 + 固定距离后退
-    Mat4 cubeView = Mat4(rotOnly);
+    math::Mat4 cubeView = math::Mat4(rotOnly);
     // 设置平移：沿 Z 后退固定距离
-    cubeView[3] = Vec4(0, 0, -3.5, 1);
+    cubeView[3] = math::Vec4(0, 0, -3.5, 1);
 
     // 正交投影：不受距离影响
     double orthoSize = 1.2;
-    Mat4 cubeProj = ortho(-orthoSize, orthoSize,
+    math::Mat4 cubeProj = math::Mat4::ortho(-orthoSize, orthoSize,
                           -orthoSize, orthoSize,
                           0.1, 10.0);
 
     // 应用 clip space 修正
     auto clip = device_->clipSpaceCorrectionMatrix();
-    Mat4 corrProj = clip * cubeProj;
-    Mat4 cubeVP_mat = corrProj * cubeView;
+    math::Mat4 corrProj = clip * cubeProj;
+    math::Mat4 cubeVP_mat = corrProj * cubeView;
 
     // --- 4. 上传 SceneUBO ---
     SceneUBO sceneUbo{};
     std::memset(&sceneUbo, 0, sizeof(sceneUbo));
 
-    auto storeMat4 = [](float* dst, const Mat4& src) {
+    auto storeMat4 = [](float* dst, const math::Mat4& src) {
         const double* p = src.data();
         for (int i = 0; i < 16; ++i)
             dst[i] = static_cast<float>(p[i]);

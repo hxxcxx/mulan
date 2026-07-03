@@ -42,14 +42,14 @@ enum class LightType : uint8_t {
 struct Light {
     LightType type = LightType::Directional;
 
-    Vec3   color     = {1.0, 1.0, 1.0};
+    math::Vec3   color     = {1.0, 1.0, 1.0};
     double intensity = 1.0;
 
     // Directional: 光照方向（从光源指向场景）
-    Vec3   direction = Vec3{-0.3, -1.0, -0.4}.normalized();
+    math::Vec3   direction = math::Vec3{-0.3, -1.0, -0.4}.normalized();
 
     // Point / Spot: 光源位置
-    Vec3   position  = Vec3(0.0);
+    math::Vec3   position  = math::Vec3(0.0);
 
     // Point / Spot: 衰减范围
     double range     = 10.0;
@@ -62,7 +62,7 @@ struct Light {
 
     // --- 便捷工厂 ---
 
-    static Light directional(const Vec3& dir, const Vec3& color = {1,1,1}, double intensity = 1.0) {
+    static Light directional(const math::Vec3& dir, const math::Vec3& color = {1,1,1}, double intensity = 1.0) {
         Light l;
         l.type = LightType::Directional;
         l.direction = dir.normalized();
@@ -71,7 +71,7 @@ struct Light {
         return l;
     }
 
-    static Light point(const Vec3& pos, double range, const Vec3& color = {1,1,1}, double intensity = 1.0) {
+    static Light point(const math::Vec3& pos, double range, const math::Vec3& color = {1,1,1}, double intensity = 1.0) {
         Light l;
         l.type = LightType::Point;
         l.position = pos;
@@ -93,7 +93,7 @@ struct LightEnvironment {
     uint32_t lightCount = 0;
 
     // --- 环境光 ---
-    Vec3   ambientColor    = {0.15, 0.15, 0.18};
+    math::Vec3   ambientColor    = {0.15, 0.15, 0.18};
     double ambientIntensity = 1.0;
 
     // --- 天空 (IBL 相关预留) ---

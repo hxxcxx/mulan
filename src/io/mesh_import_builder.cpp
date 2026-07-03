@@ -34,14 +34,14 @@ engine::Mesh buildStandardMesh(const StandardMeshSource& source) {
     engine::VertexBufferBuilder vertices(mesh.layout,
                                          static_cast<uint32_t>(source.positions.size()));
     for (uint32_t i = 0; i < source.positions.size(); ++i) {
-        const engine::FVec3& position = source.positions[i];
+        const math::FVec3& position = source.positions[i];
         vertices.setPosition(i, position.x, position.y, position.z);
 
-        const engine::FVec3 normal =
-            i < source.normals.size() ? source.normals[i] : engine::FVec3(0.0f, 0.0f, 1.0f);
+        const math::FVec3 normal =
+            i < source.normals.size() ? source.normals[i] : math::FVec3(0.0f, 0.0f, 1.0f);
         vertices.setNormal(i, normal.x, normal.y, normal.z);
 
-        const engine::FVec2 uv = i < source.texcoords.size() ? source.texcoords[i] : engine::FVec2(0.0f);
+        const math::FVec2 uv = i < source.texcoords.size() ? source.texcoords[i] : math::FVec2(0.0f);
         float uvData[2] = {uv.x, uv.y};
         vertices.write(i, engine::VertexSemantic::TexCoord0, uvData);
     }
@@ -136,7 +136,7 @@ std::expected<ImportedMeshAsset, core::Error> MeshImportBuilder::commitAsset(std
 
     ImportedMeshAsset result;
     result.geometry = mesh->id();
-    result.bounds = engine::AABB::empty();
+    result.bounds = math::AABB3::empty();
     result.materialSlots.reserve(primitives_.size());
 
     for (auto& primitive : primitives_) {

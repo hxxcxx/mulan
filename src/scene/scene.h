@@ -57,13 +57,13 @@ public:
     const BoundsComponent* bounds(EntityId id) const;
 
     bool setName(EntityId id, std::string name);
-    bool setLocalTransform(EntityId id, const engine::Mat4& transform);
-    bool setWorldTransform(EntityId id, const engine::Mat4& transform);
+    bool setLocalTransform(EntityId id, const math::Mat4& transform);
+    bool setWorldTransform(EntityId id, const math::Mat4& transform);
     bool setGeometry(EntityId id, asset::AssetId geometry);
     bool setVisible(EntityId id, bool visible);
     bool setMaterialSlots(EntityId id, std::vector<asset::AssetId> materials);
     bool setSelected(EntityId id, bool selected);
-    bool setWorldBounds(EntityId id, const engine::AABB& bounds);
+    bool setWorldBounds(EntityId id, const math::AABB3& bounds);
 
     void markDirty(EntityId id, EntityDirty dirty);
     uint64_t dirtyFlags(EntityId id) const;

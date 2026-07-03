@@ -39,8 +39,8 @@ double Camera::yaw() const { return active_->yaw(); }
 double Camera::pitch() const { return active_->pitch(); }
 void Camera::setYawPitch(double yaw, double pitch) { active_->setYawPitch(yaw, pitch); }
 
-Quat Camera::rotation() const { return active_->rotation(); }
-void Camera::setRotation(const Quat& q) { active_->setRotation(q); }
+math::Quat Camera::rotation() const { return active_->rotation(); }
+void Camera::setRotation(const math::Quat& q) { active_->setRotation(q); }
 
 // ============================================================
 // 交互
@@ -63,8 +63,8 @@ void Camera::endOrbit() {
 }
 
 void Camera::pan(double dx, double dy) {
-    Vec3 r = right();
-    Vec3 u = up();
+    math::Vec3 r = right();
+    math::Vec3 u = up();
     double scale = (ortho_ ? ortho_size_ : distance_) * pan_speed_;
     target_ = target_ - r * (dx * scale) + u * (dy * scale);
 }
@@ -79,7 +79,7 @@ void Camera::zoom(double delta) {
     }
 }
 
-void Camera::fitToBox(const AABB& box, double padding) {
+void Camera::fitToBox(const math::AABB3& box, double padding) {
     target_ = box.center();
     double radius = (box.max - box.min).length() * 0.5;
 
@@ -113,17 +113,17 @@ double Camera::orbitSpeed() const {
 // 矩阵计算
 // ============================================================
 
-Vec3 Camera::eyePosition() const {
+math::Vec3 Camera::eyePosition() const {
     return target_ - active_->forward() * distance_;
 }
 
-Mat4 Camera::viewMatrix() const {
-    Vec3 r   = active_->right();
-    Vec3 u   = active_->up();
-    Vec3 fwd = active_->forward();
-    Vec3 eye = target_ - fwd * distance_;
+math::Mat4 Camera::viewMatrix() const {
+    math::Vec3 r   = active_->right();
+    math::Vec3 u   = active_->up();
+    math::Vec3 fwd = active_->forward();
+    math::Vec3 eye = target_ - fwd * distance_;
 
-    Mat4 v(1.0);
+    math::Mat4 v(1.0);
     v[0][0] = r.x;    v[1][0] = r.y;    v[2][0] = r.z;    v[3][0] = -r.dot(eye);
     v[0][1] = u.x;    v[1][1] = u.y;    v[2][1] = u.z;    v[3][1] = -u.dot(eye);
     v[0][2] = -fwd.x; v[1][2] = -fwd.y; v[2][2] = -fwd.z; v[3][2] = fwd.dot(eye);
@@ -131,25 +131,25 @@ Mat4 Camera::viewMatrix() const {
     return v;
 }
 
-Mat4 Camera::projectionMatrix() const {
+math::Mat4 Camera::projectionMatrix() const {
     if (ortho_) {
         double h = ortho_size_;
         double w = h * aspect();
-        return ortho(-w, w, -h, h, near_z_, far_z_);
+        return math::Mat4::ortho(-w, w, -h, h, near_z_, far_z_);
     }
-    return perspective(fov_y_, aspect(), near_z_, far_z_);
+    return math::Mat4::perspective(fov_y_, aspect(), near_z_, far_z_);
 }
 
-Mat4 Camera::viewProjectionMatrix() const {
+math::Mat4 Camera::viewProjectionMatrix() const {
     return projectionMatrix() * viewMatrix();
 }
 
-Mat4 Camera::rotationMatrix() const {
-    Vec3 r   = active_->right();
-    Vec3 u   = active_->up();
-    Vec3 fwd = active_->forward();
+math::Mat4 Camera::rotationMatrix() const {
+    math::Vec3 r   = active_->right();
+    math::Vec3 u   = active_->up();
+    math::Vec3 fwd = active_->forward();
 
-    Mat4 rm(1.0);
+    math::Mat4 rm(1.0);
     rm[0][0] = r.x;    rm[1][0] = r.y;    rm[2][0] = r.z;    rm[3][0] = 0;
     rm[0][1] = u.x;    rm[1][1] = u.y;    rm[2][1] = u.z;    rm[3][1] = 0;
     rm[0][2] = -fwd.x; rm[1][2] = -fwd.y; rm[2][2] = -fwd.z; rm[3][2] = 0;
@@ -157,12 +157,12 @@ Mat4 Camera::rotationMatrix() const {
     return rm;
 }
 
-Frustum Camera::frustum() const {
-    return Frustum::fromViewProjection(viewProjectionMatrix());
+math::Frustum3 Camera::frustum() const {
+    return math::Frustum3::fromViewProjection(viewProjectionMatrix());
 }
 
-Vec3 Camera::forward() const { return active_->forward(); }
-Vec3 Camera::right()   const { return active_->right(); }
-Vec3 Camera::up()      const { return active_->up(); }
+math::Vec3 Camera::forward() const { return active_->forward(); }
+math::Vec3 Camera::right()   const { return active_->right(); }
+math::Vec3 Camera::up()      const { return active_->up(); }
 
 } // namespace mulan::engine

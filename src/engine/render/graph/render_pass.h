@@ -15,9 +15,9 @@ namespace mulan::engine {
 /// 一帧的相机派生数据（view/proj 矩阵 + 视点位置），由上层 ViewState 填充。
 /// passes 从 PassContext 读取，不再反向访问活 Camera 对象。
 struct CameraView {
-    Mat4 viewMatrix       = Mat4(1.0);
-    Mat4 projectionMatrix = Mat4(1.0);
-    Vec3 eyePosition      = Vec3(0.0f);
+    math::Mat4 viewMatrix       = math::Mat4(1.0);
+    math::Mat4 projectionMatrix = math::Mat4(1.0);
+    math::Vec3 eyePosition      = math::Vec3(0.0f);
 };
 
 struct PassContext {

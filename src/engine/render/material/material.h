@@ -114,7 +114,7 @@ struct Material {
     AlphaMode       alphaMode   = AlphaMode::Opaque;
 
     // --- 基础颜色 (sRGB 空间) ---
-    Vec3            baseColor   = {0.8, 0.8, 0.8};
+    math::Vec3            baseColor   = {0.8, 0.8, 0.8};
     double          alpha       = 1.0;
 
     // --- PBR 参数 ---
@@ -123,11 +123,11 @@ struct Material {
     double          ao          = 1.0;    ///< 环境光遮蔽 [0, 1]
 
     // --- Blinn-Phong 参数 ---
-    Vec3            specular    = {0.5, 0.5, 0.5};
+    math::Vec3            specular    = {0.5, 0.5, 0.5};
     double          shininess   = 32.0;
 
     // --- Emissive ---
-    Vec3            emissive    = Vec3(0.0);
+    math::Vec3            emissive    = math::Vec3(0.0);
     double          emissiveStrength = 1.0;
 
     // --- Alpha Mask ---
@@ -183,7 +183,7 @@ struct Material {
         return m;
     }
 
-    static Material unlit(const Vec3& color) {
+    static Material unlit(const math::Vec3& color) {
         Material m;
         m.type = MaterialType::Unlit;
         m.baseColor = color;
@@ -191,7 +191,7 @@ struct Material {
         return m;
     }
 
-    static Material transparent(const Vec3& color, double a) {
+    static Material transparent(const math::Vec3& color, double a) {
         Material m;
         m.type = MaterialType::PBR;
         m.alphaMode = AlphaMode::Blend;

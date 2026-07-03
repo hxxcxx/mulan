@@ -36,8 +36,8 @@ void MeshDrawCommand::execute(CommandList& cmd,
         // 取 world 左上 3x3，求逆再转置，得到正确的法线变换矩阵。
         // 对于正交变换（纯旋转 + 均匀缩放）退化为 upper3x3 本身，
         // 与之前的简化实现一致；对非均匀缩放/剪切给出正确的法线。
-        Mat3 upper(worldTransform);
-        Mat3 normalMat = upper.inverse().transposed();
+        math::Mat3 upper(worldTransform);
+        math::Mat3 normalMat = upper.inverse().transposed();
         // 列主序存储，与上方 World 同约定
         for (int c = 0; c < 3; ++c)
             for (int r = 0; r < 3; ++r)

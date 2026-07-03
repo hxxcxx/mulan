@@ -38,7 +38,7 @@ struct ImportedTextureDesc {
 
 struct ImportedMaterialDesc {
     std::string name;
-    engine::Vec4 baseColorFactor{0.8, 0.8, 0.8, 1.0};
+    math::Vec4 baseColorFactor{0.8, 0.8, 0.8, 1.0};
     double roughness = 0.5;
     double metallic = 0.0;
     asset::AssetId baseColorTexture = asset::AssetId::invalid();
@@ -49,9 +49,9 @@ struct ImportedMaterialDesc {
 };
 
 struct StandardMeshSource {
-    std::span<const engine::FVec3> positions;
-    std::span<const engine::FVec3> normals;
-    std::span<const engine::FVec2> texcoords;
+    std::span<const math::FVec3> positions;
+    std::span<const math::FVec3> normals;
+    std::span<const math::FVec2> texcoords;
     std::span<const uint32_t> indices;
     engine::PrimitiveTopology topology = engine::PrimitiveTopology::TriangleList;
     bool force32BitIndices = false;
@@ -62,7 +62,7 @@ engine::Mesh buildStandardMesh(const StandardMeshSource& source);
 struct ImportedMeshAsset {
     asset::AssetId geometry = asset::AssetId::invalid();
     std::vector<asset::AssetId> materialSlots;
-    engine::AABB bounds;
+    math::AABB3 bounds;
 };
 
 class MeshImportBuilder {

@@ -32,20 +32,20 @@ constexpr std::array<const char*, 14> kSupportedExtensions = {
     "blend", "x", "ase", "lwo", "off", "dxf"
 };
 
-engine::FVec3 toFVec3(const aiVector3D& value) {
+math::FVec3 toFVec3(const aiVector3D& value) {
     return {value.x, value.y, value.z};
 }
 
-engine::FVec2 toTexcoord(const aiVector3D& value) {
+math::FVec2 toTexcoord(const aiVector3D& value) {
     return {value.x, value.y};
 }
 
-engine::Vec4 toColor(const aiColor4D& value) {
+math::Vec4 toColor(const aiColor4D& value) {
     return {value.r, value.g, value.b, value.a};
 }
 
-engine::Mat4 toMat4(const aiMatrix4x4& value) {
-    engine::Mat4 result{1.0};
+math::Mat4 toMat4(const aiMatrix4x4& value) {
+    math::Mat4 result{1.0};
     result[0][0] = value.a1; result[1][0] = value.a2; result[2][0] = value.a3; result[3][0] = value.a4;
     result[0][1] = value.b1; result[1][1] = value.b2; result[2][1] = value.b3; result[3][1] = value.b4;
     result[0][2] = value.c1; result[1][2] = value.c2; result[2][2] = value.c3; result[3][2] = value.c4;
@@ -53,19 +53,19 @@ engine::Mat4 toMat4(const aiMatrix4x4& value) {
     return result;
 }
 
-engine::AABB transformBounds(const engine::AABB& bounds, const engine::Mat4& transform) {
-    if (bounds.isEmpty()) return engine::AABB::empty();
+math::AABB3 transformBounds(const math::AABB3& bounds, const math::Mat4& transform) {
+    if (bounds.isEmpty()) return math::AABB3::empty();
 
-    engine::AABB result = engine::AABB::empty();
+    math::AABB3 result = math::AABB3::empty();
     for (int x = 0; x < 2; ++x) {
         for (int y = 0; y < 2; ++y) {
             for (int z = 0; z < 2; ++z) {
-                const engine::Vec3 corner{
+                const math::Vec3 corner{
                     x == 0 ? bounds.min.x : bounds.max.x,
                     y == 0 ? bounds.min.y : bounds.max.y,
                     z == 0 ? bounds.min.z : bounds.max.z
                 };
-                result.expand(engine::Vec3(transform * engine::Vec4(corner, 1.0)));
+                result.expand(math::Vec3(transform * math::Vec4(corner, 1.0)));
             }
         }
     }
@@ -179,9 +179,9 @@ std::vector<asset::AssetId> importMaterials(const aiScene& scene,
 }
 
 engine::Mesh buildMesh(const aiMesh& source) {
-    std::vector<engine::FVec3> positions;
-    std::vector<engine::FVec3> normals;
-    std::vector<engine::FVec2> texcoords;
+    std::vector<math::FVec3> positions;
+    std::vector<math::FVec3> normals;
+    std::vector<math::FVec2> texcoords;
     std::vector<uint32_t> indices;
 
     positions.reserve(source.mNumVertices);
@@ -192,10 +192,10 @@ engine::Mesh buildMesh(const aiMesh& source) {
         positions.push_back(toFVec3(source.mVertices[i]));
         normals.push_back(source.HasNormals()
             ? toFVec3(source.mNormals[i])
-            : engine::FVec3(0.0f, 0.0f, 1.0f));
+            : math::FVec3(0.0f, 0.0f, 1.0f));
         texcoords.push_back(source.HasTextureCoords(0)
             ? toTexcoord(source.mTextureCoords[0][i])
-            : engine::FVec2(0.0f));
+            : math::FVec2(0.0f));
     }
 
     indices.reserve(static_cast<size_t>(source.mNumFaces) * 3);
@@ -210,9 +210,9 @@ engine::Mesh buildMesh(const aiMesh& source) {
     if (indices.empty()) return {};
 
     return buildStandardMesh(StandardMeshSource{
-        .positions = std::span<const engine::FVec3>{positions},
-        .normals = std::span<const engine::FVec3>{normals},
-        .texcoords = std::span<const engine::FVec2>{texcoords},
+        .positions = std::span<const math::FVec3>{positions},
+        .normals = std::span<const math::FVec3>{normals},
+        .texcoords = std::span<const math::FVec2>{texcoords},
         .indices = std::span<const uint32_t>{indices},
         .topology = engine::PrimitiveTopology::TriangleList,
     });
@@ -269,8 +269,8 @@ std::vector<std::optional<ImportedMeshRecord>> importMeshAssets(
 scene::EntityId createNodeEntity(document::Document& doc,
                                  const std::string& name,
                                  scene::EntityId parent,
-                                 const engine::Mat4& local,
-                                 const engine::Mat4& world,
+                                 const math::Mat4& local,
+                                 const math::Mat4& world,
                                  ImportResult& result) {
     auto* scene = doc.scene();
     if (!scene) return scene::EntityId::invalid();
@@ -286,7 +286,7 @@ scene::EntityId createNodeEntity(document::Document& doc,
 void applyMeshToEntity(document::Document& doc,
                        scene::EntityId entity,
                        const ImportedMeshRecord& mesh,
-                       const engine::Mat4& world) {
+                       const math::Mat4& world) {
     auto* scene = doc.scene();
     if (!scene || !entity) return;
 
@@ -299,11 +299,11 @@ void importNodeRecursive(const aiNode& node,
                          document::Document& doc,
                          std::span<const std::optional<ImportedMeshRecord>> meshes,
                          scene::EntityId parent,
-                         const engine::Mat4& parentWorld,
+                         const math::Mat4& parentWorld,
                          ImportResult& result) {
     const std::string nodeName = node.mName.length > 0 ? node.mName.C_Str() : "Node";
-    const engine::Mat4 local = toMat4(node.mTransformation);
-    const engine::Mat4 world = parentWorld * local;
+    const math::Mat4 local = toMat4(node.mTransformation);
+    const math::Mat4 world = parentWorld * local;
 
     scene::EntityId nodeEntity = createNodeEntity(doc, nodeName, parent, local, world, result);
 
@@ -326,7 +326,7 @@ void importNodeRecursive(const aiNode& node,
             scene::EntityId meshEntity = createNodeEntity(doc,
                                                           mesh.name,
                                                           nodeEntity,
-                                                          engine::Mat4{1.0},
+                                                          math::Mat4{1.0},
                                                           world,
                                                           result);
             applyMeshToEntity(doc, meshEntity, mesh, world);
@@ -388,8 +388,8 @@ AssimpImporter::import(const std::string& path,
         importReport.warnings.push_back("Invalid import unit scale; using 1.0");
     }
 
-    const engine::Mat4 rootWorld =
-        engine::scale(engine::Mat4{1.0}, engine::Vec3(unitScale));
+    const math::Mat4 rootWorld =
+        math::scale(math::Mat4{1.0}, math::Vec3(unitScale));
     importNodeRecursive(*scene->mRootNode, doc, meshes, scene::EntityId::invalid(), rootWorld, result);
     auto nodeWarnings = std::move(result.report.warnings);
 

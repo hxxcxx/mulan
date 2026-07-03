@@ -3,7 +3,7 @@
  * @brief Object 多态基类 + ObjectFactory 全局单例工厂
  *
  * Object 是所有需要按基类指针进行多态序列化的实体类型的统一基础。
- * 值类型（EntityId、Mat4 等）不继承 Object，而是通过 Serializer<T> 特化接入。
+ * 值类型（EntityId、math::Mat4 等）不继承 Object，而是通过 Serializer<T> 特化接入。
  */
 #pragma once
 

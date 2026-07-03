@@ -21,9 +21,9 @@ class TurntableRotation : public RotationMode {
 public:
     TurntableRotation();
 
-    Vec3 forward() const override;
-    Vec3 right()   const override;
-    Vec3 up()      const override;
+    math::Vec3 forward() const override;
+    math::Vec3 right()   const override;
+    math::Vec3 up()      const override;
 
     void orbitDelta(double dx, double dy) override;
 

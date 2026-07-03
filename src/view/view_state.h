@@ -18,9 +18,9 @@ enum class RenderMode {
 };
 
 struct ViewState {
-    engine::Mat4 viewMatrix = engine::Mat4(1.0);
-    engine::Mat4 projectionMatrix = engine::Mat4(1.0);
-    engine::Vec3 cameraPosition = engine::Vec3(0.0f);
+    math::Mat4 viewMatrix = math::Mat4(1.0);
+    math::Mat4 projectionMatrix = math::Mat4(1.0);
+    math::Vec3 cameraPosition = math::Vec3(0.0f);
 
     int width = 0;
     int height = 0;

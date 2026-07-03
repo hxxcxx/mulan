@@ -39,7 +39,7 @@ scene::EntityId Document::addMesh(std::string name, std::vector<asset::MeshPrimi
     auto* mesh = assets_->create<asset::MeshAsset>(meshName);
     if (!mesh) return scene::EntityId::invalid();
 
-    engine::AABB bounds = engine::AABB::empty();
+    math::AABB3 bounds = math::AABB3::empty();
     std::vector<asset::AssetId> materialSlots;
     materialSlots.reserve(primitives.size());
 

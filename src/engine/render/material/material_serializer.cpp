@@ -63,13 +63,13 @@ SerializeResult MaterialSerializer::fromJson(const std::string& jsonStr, Materia
         if (j.contains("doubleSided"))      m.doubleSided      = j["doubleSided"].get<bool>();
 
         if (j.contains("baseColor") && j["baseColor"].is_array() && j["baseColor"].size() >= 3)
-            m.baseColor = Vec3(j["baseColor"][0], j["baseColor"][1], j["baseColor"][2]);
+            m.baseColor = math::Vec3(j["baseColor"][0], j["baseColor"][1], j["baseColor"][2]);
 
         if (j.contains("specular") && j["specular"].is_array() && j["specular"].size() >= 3)
-            m.specular = Vec3(j["specular"][0], j["specular"][1], j["specular"][2]);
+            m.specular = math::Vec3(j["specular"][0], j["specular"][1], j["specular"][2]);
 
         if (j.contains("emissive") && j["emissive"].is_array() && j["emissive"].size() >= 3)
-            m.emissive = Vec3(j["emissive"][0], j["emissive"][1], j["emissive"][2]);
+            m.emissive = math::Vec3(j["emissive"][0], j["emissive"][1], j["emissive"][2]);
 
         if (j.contains("textures") && j["textures"].is_object()) {
             for (auto& [key, val] : j["textures"].items()) {

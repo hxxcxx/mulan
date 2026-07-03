@@ -40,7 +40,7 @@ struct MeshDrawCommand {
     uint32_t materialUboOffset = 0;
 
     // Per-object data（Pass::execute 时写入 objectUBO）
-    Mat4 worldTransform{1.0f};
+    math::Mat4 worldTransform{1.0f};
 
     // Sort / Meta
     uint64_t sortKey     = 0;

@@ -150,7 +150,7 @@ bool Scene::setName(EntityId id, std::string name) {
     return true;
 }
 
-bool Scene::setLocalTransform(EntityId id, const engine::Mat4& transform) {
+bool Scene::setLocalTransform(EntityId id, const math::Mat4& transform) {
     auto* c = mutableTransform(id);
     if (!c) return false;
 
@@ -159,7 +159,7 @@ bool Scene::setLocalTransform(EntityId id, const engine::Mat4& transform) {
     return true;
 }
 
-bool Scene::setWorldTransform(EntityId id, const engine::Mat4& transform) {
+bool Scene::setWorldTransform(EntityId id, const math::Mat4& transform) {
     auto* c = mutableTransform(id);
     if (!c) return false;
 
@@ -208,7 +208,7 @@ bool Scene::setSelected(EntityId id, bool selected) {
     return true;
 }
 
-bool Scene::setWorldBounds(EntityId id, const engine::AABB& bounds) {
+bool Scene::setWorldBounds(EntityId id, const math::AABB3& bounds) {
     auto* c = mutableBounds(id);
     if (!c) return false;
 

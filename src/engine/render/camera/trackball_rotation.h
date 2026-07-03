@@ -22,9 +22,9 @@ class TrackballRotation : public RotationMode {
 public:
     TrackballRotation();
 
-    Vec3 forward() const override;
-    Vec3 right()   const override;
-    Vec3 up()      const override;
+    math::Vec3 forward() const override;
+    math::Vec3 right()   const override;
+    math::Vec3 up()      const override;
 
     void orbitDelta(double dx, double dy) override;
 
@@ -35,14 +35,14 @@ public:
     void setOrbitSpeed(double s) override { arcball_speed_ = s; }
     double orbitSpeed() const override { return arcball_speed_; }
 
-    Quat rotation() const override { return rotation_; }
-    void setRotation(const Quat& q) override { rotation_ = q.normalized(); }
+    math::Quat rotation() const override { return rotation_; }
+    void setRotation(const math::Quat& q) override { rotation_ = q.normalized(); }
 
 private:
-    Vec3 arcballProject(int x, int y, int viewW, int viewH) const;
+    math::Vec3 arcballProject(int x, int y, int viewW, int viewH) const;
 
-    Quat   rotation_;
-    Vec3   arcball_prev_   = {0, 0, 0};
+    math::Quat   rotation_;
+    math::Vec3   arcball_prev_   = {0, 0, 0};
     bool   arcball_active_ = false;
     double arcball_speed_  = 1.75;
 };

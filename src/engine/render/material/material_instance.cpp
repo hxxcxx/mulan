@@ -23,7 +23,7 @@ MaterialInstance::MaterialInstance(Material material)
 
 // --- 基础参数修改 ---
 
-void MaterialInstance::setBaseColor(const Vec3& color) {
+void MaterialInstance::setBaseColor(const math::Vec3& color) {
     material_.baseColor = color;
     overrides_.baseColor = color;
     setFlag(override_flags_, MaterialOverrideFlags::BaseColor);
@@ -51,7 +51,7 @@ void MaterialInstance::setAlpha(double alpha) {
     dirty_ = true;
 }
 
-void MaterialInstance::setEmissive(const Vec3& color, double strength) {
+void MaterialInstance::setEmissive(const math::Vec3& color, double strength) {
     material_.emissive = color;
     material_.emissiveStrength = strength;
     overrides_.emissive = color;
@@ -75,7 +75,7 @@ void MaterialInstance::setAlphaCutoff(double cutoff) {
     dirty_ = true;
 }
 
-void MaterialInstance::setSpecular(const Vec3& color) {
+void MaterialInstance::setSpecular(const math::Vec3& color) {
     material_.specular = color;
     overrides_.specular = color;
     setFlag(override_flags_, MaterialOverrideFlags::Specular);
@@ -163,7 +163,7 @@ void MaterialInstance::setTexturePath(TextureSlot slot, const std::string& path)
 
 // --- 便捷方法 ---
 
-void MaterialInstance::setHighlight(const Vec3& highlightColor) {
+void MaterialInstance::setHighlight(const math::Vec3& highlightColor) {
     if (!highlighted_) {
         saved_material_ = material_;
         highlighted_ = true;

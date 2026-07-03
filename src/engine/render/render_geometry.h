@@ -66,7 +66,7 @@ struct GpuGeometry {
 struct RenderItem {
     const RenderGeometry* geometry       = nullptr;
     GpuGeometry*          gpu            = nullptr;   ///< 由 GeometryNode 持有
-    Mat4                  worldTransform = Mat4(1.0);
+    math::Mat4                  worldTransform = math::Mat4(1.0);
     uint32_t              pickId         = 0;
     uint16_t              materialIndex  = 0xFFFF;  ///< 材质索引 (0xFFFF = 默认)
     uint8_t               renderPass     = 0;       ///< 0=Opaque, 1=Transparent
@@ -77,15 +77,15 @@ struct RenderItem {
     uint64_t              sortKey        = 0;
 
     /// 计算不透明排序键（相同材质分组以减少状态切换，材质内按距离从近到远）
-    void computeOpaqueSortKey(const Vec3& cameraPos) {
-        double distSq = (Vec3(worldTransform * Vec4(0,0,0,1)) - cameraPos).lengthSq();
+    void computeOpaqueSortKey(const math::Vec3& cameraPos) {
+        double distSq = (math::Vec3(worldTransform * math::Vec4(0,0,0,1)) - cameraPos).lengthSq();
         uint32_t distBits = static_cast<uint32_t>(distSq);       // 粗略距离桶
         sortKey = (static_cast<uint64_t>(materialIndex) << 32) | distBits;
     }
 
     /// 计算透明排序键（从远到近排序，保证正确的半透明混合）
-    void computeTransparentSortKey(const Vec3& cameraPos) {
-        double distSq = (Vec3(worldTransform * Vec4(0,0,0,1)) - cameraPos).lengthSq();
+    void computeTransparentSortKey(const math::Vec3& cameraPos) {
+        double distSq = (math::Vec3(worldTransform * math::Vec4(0,0,0,1)) - cameraPos).lengthSq();
         uint32_t distBits = static_cast<uint32_t>(distSq);
         sortKey = (static_cast<uint64_t>(0xFFFF - materialIndex) << 32)
                 | (0xFFFFFFFFu - distBits);  // 翻转使远距优先
@@ -118,7 +118,7 @@ public:
     // --- 排序 ---
 
     /// 分桶 + 排序（在每帧 collect 完成后、渲染前调用）
-    void sort(const Vec3& cameraPos) {
+    void sort(const math::Vec3& cameraPos) {
         // 1. 分区：不透明在前，边线中间，半透明在后
         auto mid1 = std::stable_partition(items_.begin(), items_.end(),
             [](const RenderItem& a) { return a.renderPass == 0 && !a.isEdge; });

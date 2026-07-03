@@ -24,23 +24,23 @@
 namespace mulan::document {
 namespace {
 
-engine::AABB buildBounds(const TopoDS_Shape& shape) {
-    if (shape.IsNull()) return engine::AABB::empty();
+math::AABB3 buildBounds(const TopoDS_Shape& shape) {
+    if (shape.IsNull()) return math::AABB3::empty();
 
     Bnd_Box box;
     BRepBndLib::Add(shape, box);
-    if (box.IsVoid()) return engine::AABB::empty();
+    if (box.IsVoid()) return math::AABB3::empty();
 
     double xmin, ymin, zmin, xmax, ymax, zmax;
     box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
 
-    engine::AABB result;
+    math::AABB3 result;
     result.min = {xmin, ymin, zmin};
     result.max = {xmax, ymax, zmax};
     return result;
 }
 
-engine::Mesh buildFaceMesh(const TopoDS_Shape& shape, const engine::AABB& bounds) {
+engine::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bounds) {
     if (shape.IsNull() || bounds.isEmpty()) return {};
 
     const double dx = bounds.max.x - bounds.min.x;

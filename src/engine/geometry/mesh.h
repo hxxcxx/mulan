@@ -34,7 +34,7 @@ struct Mesh {
     std::vector<std::byte>    indices;    // 裸字节，宽度由 indexType 决定
     IndexType                 indexType  = IndexType::UInt32;
     PrimitiveTopology         topology   = PrimitiveTopology::TriangleList;
-    AABB                      bounds;
+    math::AABB3                      bounds;
 
     // --- 便捷访问 ---
 
@@ -85,15 +85,15 @@ struct Mesh {
         if (!position) return;
 
         for (size_t p = off; p + position->size() <= vertices.size(); p += stride) {
-            Vec3 v{};
+            math::Vec3 v{};
             if (position->format == VertexFormat::Float3) {
                 float f[3]{};
                 std::memcpy(f, &vertices[p], sizeof(f));
-                v = Vec3(f[0], f[1], f[2]);
+                v = math::Vec3(f[0], f[1], f[2]);
             } else if (position->format == VertexFormat::Float4) {
                 float f[4]{};
                 std::memcpy(f, &vertices[p], sizeof(f));
-                v = Vec3(f[0], f[1], f[2]);
+                v = math::Vec3(f[0], f[1], f[2]);
             } else {
                 continue;
             }

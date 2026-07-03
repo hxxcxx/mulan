@@ -16,7 +16,7 @@ namespace mulan::document {
 struct ShapeRenderGeometry {
     engine::Mesh solidMesh;
     engine::Mesh wireMesh;
-    engine::AABB bounds = engine::AABB::empty();
+    math::AABB3 bounds = math::AABB3::empty();
 };
 
 ShapeRenderGeometry buildShapeRenderGeometry(const TopoDS_Shape& shape);

@@ -58,7 +58,7 @@ public:
     /// @param mainViewMatrix 主相机 view 矩阵（提取旋转）
     /// @param vpWidth        视口总宽度
     /// @param vpHeight       视口总高度
-    void render(CommandList* cmd, const Mat4& mainViewMatrix,
+    void render(CommandList* cmd, const math::Mat4& mainViewMatrix,
                 uint32_t vpWidth, uint32_t vpHeight);
 
     /// 设置 ViewCube 显示大小（像素）

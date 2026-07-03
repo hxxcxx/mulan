@@ -262,14 +262,6 @@ template<typename T>
 inline Mat4T<T> scale(const Mat4T<T>& m, const Vec3T<T>& s) {
     return m * Mat4T<T>::scale(s);
 }
-template<typename T>
-inline Mat4T<T> perspective(T fovY, T aspect, T zNear, T zFar) {
-    return Mat4T<T>::perspective(fovY, aspect, zNear, zFar);
-}
-template<typename T>
-inline Mat4T<T> ortho(T left, T right, T bottom, T top, T zNear, T zFar) {
-    return Mat4T<T>::ortho(left, right, bottom, top, zNear, zFar);
-}
 
 // 保证 Vec4T 紧凑、Mat4T 为 16 元素连续存储（GPU/OCCT 边界契约）
 static_assert(sizeof(FMat4) == 16 * sizeof(float),  "FMat4 must be 16 contiguous floats");

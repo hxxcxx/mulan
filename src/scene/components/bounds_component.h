@@ -12,7 +12,7 @@
 namespace mulan::scene {
 
 struct BoundsComponent {
-    engine::AABB world_bounds;
+    math::AABB3 world_bounds;
 };
 
 } // namespace mulan::scene

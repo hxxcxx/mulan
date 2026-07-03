@@ -68,8 +68,8 @@ public:
 
     // ==================== 轨道参数 ====================
 
-    void setTarget(const Vec3& target) { target_ = target; }
-    const Vec3& target() const { return target_; }
+    void setTarget(const math::Vec3& target) { target_ = target; }
+    const math::Vec3& target() const { return target_; }
 
     void setDistance(double dist) { distance_ = dist; }
     double distance() const { return distance_; }
@@ -87,9 +87,9 @@ public:
     void setYawPitch(double yaw, double pitch);
 
     /// Trackball 专用：四元数旋转（仅在 Trackball 模式下有意义）
-    Quat rotation() const;
+    math::Quat rotation() const;
     /// Trackball 专用：设置四元数旋转
-    void setRotation(const Quat& q);
+    void setRotation(const math::Quat& q);
 
     // ==================== 交互 ====================
 
@@ -108,7 +108,7 @@ public:
 
     void pan(double dx, double dy);
     void zoom(double delta);
-    void fitToBox(const AABB& box, double padding = 1.2);
+    void fitToBox(const math::AABB3& box, double padding = 1.2);
 
     // ==================== 速度参数 ====================
 
@@ -123,25 +123,25 @@ public:
 
     // ==================== 矩阵计算 ====================
 
-    Vec3 eyePosition() const;
-    Mat4 viewMatrix() const;
-    Mat4 projectionMatrix() const;
-    Mat4 viewProjectionMatrix() const;
-    Mat4 rotationMatrix() const;
-    Frustum frustum() const;
+    math::Vec3 eyePosition() const;
+    math::Mat4 viewMatrix() const;
+    math::Mat4 projectionMatrix() const;
+    math::Mat4 viewProjectionMatrix() const;
+    math::Mat4 rotationMatrix() const;
+    math::Frustum3 frustum() const;
 
     // ==================== 方向向量 ====================
 
-    Vec3 forward() const;
-    Vec3 right() const;
-    Vec3 up() const;
+    math::Vec3 forward() const;
+    math::Vec3 right() const;
+    math::Vec3 up() const;
 
     // ==================== 3D 拾取 ====================
 
     /// 射线（起点 + 方向）
     struct Ray {
-        Vec3 origin;
-        Vec3 direction;  // 单位向量
+        math::Vec3 origin;
+        math::Vec3 direction;  // 单位向量
     };
 
     /// 从屏幕像素坐标生成世界空间射线
@@ -153,26 +153,26 @@ public:
         double ndcY = -(2.0 * screenY) / height_ + 1.0;
 
         // NDC 近/远裁剪面点
-        Vec4 nearPt(ndcX, ndcY, -1.0, 1.0);
-        Vec4 farPt (ndcX, ndcY,  1.0, 1.0);
+        math::Vec4 nearPt(ndcX, ndcY, -1.0, 1.0);
+        math::Vec4 farPt (ndcX, ndcY,  1.0, 1.0);
 
         // 逆 VP 变换到世界空间
-        Mat4 invVP = viewProjectionMatrix().inverse();
+        math::Mat4 invVP = viewProjectionMatrix().inverse();
 
-        Vec4 nearWorld = invVP * nearPt;
+        math::Vec4 nearWorld = invVP * nearPt;
         nearWorld /= nearWorld.w;
-        Vec4 farWorld = invVP * farPt;
+        math::Vec4 farWorld = invVP * farPt;
         farWorld /= farWorld.w;
 
-        Vec3 origin = Vec3(nearWorld);
-        Vec3 dir = (Vec3(farWorld) - origin).normalized();
+        math::Vec3 origin = math::Vec3(nearWorld);
+        math::Vec3 dir = (math::Vec3(farWorld) - origin).normalized();
         return Ray{origin, dir};
     }
 
     /// 射线与平面求交（平面方程: dot(normal, point) = distance）
     /// @return 交点世界坐标，无交点返回 std::nullopt
-    static std::optional<Vec3> rayPlaneIntersect(const Ray& ray,
-                                                  const Vec3& planeNormal,
+    static std::optional<math::Vec3> rayPlaneIntersect(const Ray& ray,
+                                                  const math::Vec3& planeNormal,
                                                   double planeDistance)
     {
         double denom = planeNormal.dot(ray.direction);
@@ -182,8 +182,8 @@ public:
         return ray.origin + t * ray.direction;
     }
 
-    /// 射线与 AABB 求交（slab 方法）
-    static std::optional<double> rayAABBIntersect(const Ray& ray, const AABB& box) {
+    /// 射线与 math::AABB3 求交（slab 方法）
+    static std::optional<double> rayAABBIntersect(const Ray& ray, const math::AABB3& box) {
         double tMin = 0.0, tMax = 1e30;
         for (int i = 0; i < 3; ++i) {
             if (std::abs(ray.direction[i]) < 1e-10) {
@@ -210,7 +210,7 @@ private:
 
     std::unique_ptr<RotationMode> active_;
 
-    Vec3   target_   = {0, 0, 0};
+    math::Vec3   target_   = {0, 0, 0};
     double distance_ = 10.0;
 
     // 投影参数

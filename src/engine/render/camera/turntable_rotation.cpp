@@ -10,19 +10,19 @@ TurntableRotation::TurntableRotation()
     , pitch_(kPi * 0.33)
 {}
 
-Vec3 TurntableRotation::forward() const {
+math::Vec3 TurntableRotation::forward() const {
     double cp = std::cos(pitch_);
-    return Vec3{cp * std::cos(yaw_), cp * std::sin(yaw_), std::sin(pitch_)};
+    return math::Vec3{cp * std::cos(yaw_), cp * std::sin(yaw_), std::sin(pitch_)};
 }
 
-Vec3 TurntableRotation::right() const {
-    Vec3 fwd = forward();
-    return fwd.cross(Vec3{0, 0, 1}).normalized();
+math::Vec3 TurntableRotation::right() const {
+    math::Vec3 fwd = forward();
+    return fwd.cross(math::Vec3{0, 0, 1}).normalized();
 }
 
-Vec3 TurntableRotation::up() const {
-    Vec3 fwd = forward();
-    Vec3 r   = fwd.cross(Vec3{0, 0, 1}).normalized();
+math::Vec3 TurntableRotation::up() const {
+    math::Vec3 fwd = forward();
+    math::Vec3 r   = fwd.cross(math::Vec3{0, 0, 1}).normalized();
     return r.cross(fwd).normalized();
 }
 

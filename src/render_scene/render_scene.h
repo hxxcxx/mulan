@@ -43,7 +43,7 @@ public:
     const SyncStats& lastSyncStats() const { return last_sync_stats_; }
     size_t proxyCount() const { return proxies_.size(); }
     const SceneProxy* proxy(scene::EntityId id) const;
-    const engine::AABB& sceneBounds() const { return scene_bounds_; }
+    const math::AABB3& sceneBounds() const { return scene_bounds_; }
 
     template<typename Func>
     void forEachProxy(Func&& fn) const {
@@ -53,7 +53,7 @@ public:
 
 private:
     SyncStats last_sync_stats_;
-    engine::AABB scene_bounds_;
+    math::AABB3 scene_bounds_;
     std::unordered_map<scene::EntityId, SceneProxy> proxies_;
 };
 
