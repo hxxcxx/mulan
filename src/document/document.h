@@ -29,16 +29,6 @@ class AssetLibrary;
 
 namespace mulan::document {
 
-struct DocumentSceneMirrorStats {
-    size_t sceneEntityCount = 0;
-    size_t assetCount = 0;
-    size_t brepAssetCount = 0;
-
-    bool consistent() const {
-        return sceneEntityCount == brepAssetCount;
-    }
-};
-
 class DOCUMENT_API Document {
 public:
     explicit Document(std::string displayName);
@@ -59,9 +49,6 @@ public:
 
     asset::AssetLibrary* assets() { return assets_.get(); }
     const asset::AssetLibrary* assets() const { return assets_.get(); }
-
-    DocumentSceneMirrorStats sceneMirrorStats() const;
-    bool validateSceneMirror() const { return sceneMirrorStats().consistent(); }
 
     const std::string& displayName() const { return display_name_; }
     const std::string& filePath() const { return file_path_; }

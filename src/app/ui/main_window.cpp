@@ -4,8 +4,8 @@
 #include "document_session.h"
 #include "engine_settings_dialog.h"
 
-#include <mulan/document/document.h>
 #include <mulan/io/file_manager.h>
+#include <mulan/io/import_result.h>
 #include <mulan/core/log/log.h>
 #include <mulan/render_scene/render_scene.h>
 #include <mulan/scene/scene.h>
@@ -24,19 +24,19 @@
 
 namespace {
 
-void logDocumentStats(const mulan::document::Document& doc) {
-    auto stats = doc.sceneMirrorStats();
+void logImportReport(const mulan::io::ImportReport& report) {
     std::ostringstream os;
-    os << "Document "
-       << (stats.consistent() ? "ok" : "mismatch")
-       << ": scene=" << stats.sceneEntityCount
-       << ", assets=" << stats.assetCount
-       << ", brep=" << stats.brepAssetCount;
+    os << "Import ok"
+       << ": entities=" << report.entityCount
+       << ", mesh=" << report.meshAssetCount
+       << ", brep=" << report.brepAssetCount
+       << ", primitives=" << report.primitiveCount
+       << ", materials=" << report.materialCount
+       << ", textures=" << report.textureCount;
+    mulan::core::log::log(mulan::core::log::Level::Info, os.str());
 
-    if (stats.consistent()) {
-        mulan::core::log::log(mulan::core::log::Level::Info, os.str());
-    } else {
-        mulan::core::log::log(mulan::core::log::Level::Warn, os.str());
+    for (const auto& warning : report.warnings) {
+        mulan::core::log::log(mulan::core::log::Level::Warn, warning);
     }
 }
 
@@ -108,7 +108,7 @@ void MainWindow::buildRibbonHomeCategory() {
     auto* actionAbout = new QAction(QIcon(":/app/bright/icon/about.svg"), tr("About"), this);
     connect(actionAbout, &QAction::triggered, this, [this]() {
         QMessageBox::about(this, tr("About mulan"),
-            tr("mulan v1.0\nA CAD geometry viewer."));
+            tr("mulan v1.0\nA model geometry viewer."));
     });
     panel_setting_->addLargeAction(actionAbout);
 
@@ -196,13 +196,13 @@ void MainWindow::onEngineSettings() {
 
 void MainWindow::onOpenFile() {
     auto exts = doc_manager_.supportedExtensions();
-    QString filter = "CAD Files (";
+    QString filter = "Model Files (";
     for (const auto& ext : exts) {
         filter += QString(" *.%1").arg(QString::fromStdString(ext));
     }
     filter += " )";
 
-    QString filePath = QFileDialog::getOpenFileName(this, "Open CAD File", {}, filter);
+    QString filePath = QFileDialog::getOpenFileName(this, "Open Model File", {}, filter);
     if (filePath.isEmpty()) return;
 
     statusBar()->showMessage("Loading: " + filePath);
@@ -215,10 +215,10 @@ void MainWindow::onOpenFile() {
         return;
     }
 
+    logImportReport(opened->import.report);
     auto doc = std::move(opened->document);
     QString title = QString::fromStdString(doc->displayName());
     auto* session = new DocumentSession(std::move(doc));
-    logDocumentStats(*session->document());
     doc_area_->addDocument(session, title);
 
     statusBar()->showMessage(
@@ -247,10 +247,10 @@ void MainWindow::dropEvent(QDropEvent* e) {
         return;
     }
 
+    logImportReport(opened->import.report);
     auto doc = std::move(opened->document);
     QString title = QString::fromStdString(doc->displayName());
     auto* session = new DocumentSession(std::move(doc));
-    logDocumentStats(*session->document());
     doc_area_->addDocument(session, title);
 
     statusBar()->showMessage(

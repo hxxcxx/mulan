@@ -68,12 +68,4 @@ scene::EntityId Document::addSceneInstance(std::string name,
     return id;
 }
 
-DocumentSceneMirrorStats Document::sceneMirrorStats() const {
-    DocumentSceneMirrorStats stats;
-    stats.sceneEntityCount = scene_ ? scene_->entityCount() : 0;
-    stats.assetCount = assets_ ? assets_->count() : 0;
-    stats.brepAssetCount = assets_ ? assets_->count(asset::AssetKind::BRep) : 0;
-    return stats;
-}
-
 } // namespace mulan::document
