@@ -6,6 +6,7 @@
 #include <mulan/document/document.h>
 
 #include <assimp/Importer.hpp>
+#include <assimp/GltfMaterial.h>
 #include <assimp/material.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
@@ -49,12 +50,16 @@ std::string materialName(const aiMaterial& material, size_t index) {
 }
 
 asset::AlphaMode alphaModeFromAssimp(const aiMaterial& material) {
+#ifdef AI_MATKEY_GLTF_ALPHAMODE
     aiString blendMode;
     if (material.Get(AI_MATKEY_GLTF_ALPHAMODE, blendMode) == AI_SUCCESS) {
         const std::string value = blendMode.C_Str();
         if (value == "BLEND") return asset::AlphaMode::Blend;
         if (value == "MASK") return asset::AlphaMode::Mask;
     }
+#else
+    (void)material;
+#endif
     return asset::AlphaMode::Opaque;
 }
 
