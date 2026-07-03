@@ -46,6 +46,7 @@ struct Point3 {
     double z{};
 
     constexpr Point3() = default;
+    explicit constexpr Point3(double v) : x(v), y(v), z(v) {}
     constexpr Point3(double x_, double y_, double z_) : x(x_), y(y_), z(z_) {}
 
     // ---------- 显式与 Vec 互转 ----------
@@ -124,6 +125,7 @@ struct Point2 {
     double y{};
 
     constexpr Point2() = default;
+    explicit constexpr Point2(double v) : x(v), y(v) {}
     constexpr Point2(double x_, double y_) : x(x_), y(y_) {}
 
     explicit constexpr Point2(const Vec2& v) : x(v.x), y(v.y) {}

@@ -169,39 +169,6 @@ public:
         return Ray{origin, dir};
     }
 
-    /// 射线与平面求交（平面方程: dot(normal, point) = distance）
-    /// @return 交点世界坐标，无交点返回 std::nullopt
-    static std::optional<math::Vec3> rayPlaneIntersect(const Ray& ray,
-                                                  const math::Vec3& planeNormal,
-                                                  double planeDistance)
-    {
-        double denom = planeNormal.dot(ray.direction);
-        if (std::abs(denom) < 1e-8) return std::nullopt;
-        double t = (planeDistance - planeNormal.dot(ray.origin)) / denom;
-        if (t < 0) return std::nullopt;
-        return ray.origin + t * ray.direction;
-    }
-
-    /// 射线与 math::AABB3 求交（slab 方法）
-    static std::optional<double> rayAABBIntersect(const Ray& ray, const math::AABB3& box) {
-        double tMin = 0.0, tMax = 1e30;
-        for (int i = 0; i < 3; ++i) {
-            if (std::abs(ray.direction[i]) < 1e-10) {
-                if (ray.origin[i] < box.min[i] || ray.origin[i] > box.max[i])
-                    return std::nullopt;
-            } else {
-                double invD = 1.0 / ray.direction[i];
-                double t0 = (box.min[i] - ray.origin[i]) * invD;
-                double t1 = (box.max[i] - ray.origin[i]) * invD;
-                if (invD < 0.0) std::swap(t0, t1);
-                tMin = std::max(tMin, t0);
-                tMax = std::min(tMax, t1);
-                if (tMin > tMax) return std::nullopt;
-            }
-        }
-        return tMin;
-    }
-
 private:
     /// 根据模式创建对应的 RotationMode 实例
     void createRotation(CameraMode mode);

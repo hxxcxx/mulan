@@ -17,6 +17,7 @@
 
 #include "../linalg/vec2.h"
 #include "../linalg/vec3.h"
+#include "../geom/point.h"
 #include "../geom/aabb.h"
 #include "../geom/sphere.h"
 #include "../geom/plane.h"
@@ -92,13 +93,13 @@ inline Hit3 intersect(const Ray3& ray, const Plane3& plane,
                       const Tolerance& tol = defaultTolerance()) {
     double denom = plane.normal.dot(ray.direction);
     if (std::abs(denom) < 1e-15) return Hit3::miss();   // 平行
-    double t = (plane.d - plane.normal.dot(ray.origin)) / denom;
+    double t = (plane.d - plane.normal.dot(ray.origin.asVec())) / denom;
     if (t < -tol.lengthEps) return Hit3::miss();
     return Hit3::make(ray.pointAt(t), t);
 }
 
 /// 射线 - 三角形（Möller–Trumbore），返回重心坐标于 bc
-inline Hit3 intersect(const Ray3& ray, const Vec3& v0, const Vec3& v1, const Vec3& v2,
+inline Hit3 intersect(const Ray3& ray, const Point3& v0, const Point3& v1, const Point3& v2,
                       Vec3* bc = nullptr,
                       const Tolerance& tol = defaultTolerance()) {
     Vec3 e1 = v1 - v0;
@@ -129,7 +130,7 @@ inline Hit3 intersect(const Segment3& seg, const Plane3& plane,
     Vec3 dir = seg.direction();
     double denom = plane.normal.dot(dir);
     if (std::abs(denom) < 1e-15) return Hit3::miss();   // 平行
-    double t = (plane.d - plane.normal.dot(seg.start)) / denom;
+    double t = (plane.d - plane.normal.dot(seg.start.asVec())) / denom;
     if (t < -tol.lengthEps || t > 1.0 + tol.lengthEps) return Hit3::miss();
     return Hit3::make(seg.pointAt(t), t);
 }
@@ -141,12 +142,10 @@ inline bool intersect(const Segment2& a, const Segment2& b,
     Vec2 d2 = b.direction();
     double denom = d1.cross(d2);
     if (std::abs(denom) < 1e-15) return false;   // 平行/共线
-    Vec3 diff3(a.start.x - b.start.x, a.start.y - b.start.y, 0.0);
-    // 求解 sa, sb
-    Vec3 d13(d1.x, d1.y, 0.0);
-    Vec3 d23(d2.x, d2.y, 0.0);
-    double s = Vec3(b.start.x - a.start.x, b.start.y - a.start.y, 0.0).cross(d23).z / denom;
-    double t = Vec3(b.start.x - a.start.x, b.start.y - a.start.y, 0.0).cross(d13).z / denom;
+    // 求解 sa, sb（2D 叉乘标量形式：(b.start-a.start) × d_k / denom）
+    Vec2 ab(b.start.x - a.start.x, b.start.y - a.start.y);
+    double s = ab.cross(d2) / denom;
+    double t = ab.cross(d1) / denom;
     if (s < 0.0 || s > 1.0 || t < 0.0 || t > 1.0) return false;
     if (sa) *sa = s;
     if (sb) *sb = t;
@@ -168,8 +167,8 @@ inline Hit3 intersect(const Line3& la, const Line3& lb,
     if (std::abs(denom) < 1e-15) return Hit3::miss();   // 平行
     double sc = (b * e - c * d) / denom;
     // 最近距离检测：若两直线异面，则不算相交
-    Vec3 pA = la.pointAt(sc);
-    Vec3 pB = lb.pointAt((a * e - b * d) / denom);
+    Point3 pA = la.pointAt(sc);
+    Point3 pB = lb.pointAt((a * e - b * d) / denom);
     if ((pA - pB).lengthSq() > tol.lengthEps * tol.lengthEps)
         return Hit3::miss();   // 异面
     return Hit3::make(pA, sc);
@@ -180,7 +179,7 @@ inline Hit3 intersect(const Line3& line, const Plane3& plane,
                       const Tolerance& tol = defaultTolerance()) {
     double denom = plane.normal.dot(line.direction);
     if (std::abs(denom) < 1e-15) return Hit3::miss();
-    double t = (plane.d - plane.normal.dot(line.origin)) / denom;
+    double t = (plane.d - plane.normal.dot(line.origin.asVec())) / denom;
     return Hit3::make(line.pointAt(t), t);
 }
 
@@ -196,7 +195,7 @@ inline Hit3 intersect(const Line3& line, const Plane3& plane,
 // ============================================================
 
 /// 点到线段最近点（返回线段参数 t∈[0,1]）
-inline double closestParam(const Vec3& p, const Segment3& seg) {
+inline double closestParam(const Point3& p, const Segment3& seg) {
     Vec3 dir = seg.direction();
     double lenSq = dir.lengthSq();
     if (lenSq < 1e-15) return 0.0;
@@ -204,24 +203,24 @@ inline double closestParam(const Vec3& p, const Segment3& seg) {
     return clamp(t, 0.0, 1.0);
 }
 
-inline Vec3 closestPoint(const Vec3& p, const Segment3& seg) {
+inline Point3 closestPoint(const Point3& p, const Segment3& seg) {
     return seg.pointAt(closestParam(p, seg));
 }
 
-inline double distance(const Vec3& p, const Segment3& seg) {
-    return p.distanceTo(closestPoint(p, seg));
+inline double distance(const Point3& p, const Segment3& seg) {
+    return p.distance(closestPoint(p, seg));
 }
 
 /// 点到平面距离（绝对值）
-inline double distance(const Vec3& p, const Plane3& plane) {
+inline double distance(const Point3& p, const Plane3& plane) {
     return std::abs(plane.signedDistance(p));
 }
 
 /// 点到直线距离
-inline double distance(const Vec3& p, const Line3& line) {
+inline double distance(const Point3& p, const Line3& line) {
     return line.direction.cross(p - line.origin).length();   // |dir| 应为 1
 }
-inline double distance(const Vec3& p, const Ray3& ray) {
+inline double distance(const Point3& p, const Ray3& ray) {
     Vec3 w = p - ray.origin;
     double proj = w.dot(ray.direction);
     if (proj <= 0.0) return w.length();          // 在射线反方向

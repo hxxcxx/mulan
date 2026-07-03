@@ -46,7 +46,7 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
     if (!initRendering()) { cleanup(); return false; }
 
     camera_.setViewport(width, height);
-    camera_.fitToBox(math::AABB3(math::Vec3(-1, -1, -1), math::Vec3(1, 1, 1)));
+    camera_.fitToBox(math::AABB3(math::Point3(-1, -1, -1), math::Point3(1, 1, 1)));
 
     initialized_ = true;
     return true;
@@ -81,7 +81,7 @@ bool ViewContext::initOffscreen(int width, int height) {
     if (!initRendering()) { cleanup(); return false; }
 
     camera_.setViewport(width, height);
-    camera_.fitToBox(math::AABB3(math::Vec3(-1, -1, -1), math::Vec3(1, 1, 1)));
+    camera_.fitToBox(math::AABB3(math::Point3(-1, -1, -1), math::Point3(1, 1, 1)));
 
     initialized_ = true;
     return true;

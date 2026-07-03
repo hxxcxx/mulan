@@ -97,7 +97,7 @@ struct Mesh {
             } else {
                 continue;
             }
-            bounds.expand(v);
+            bounds.expand(math::Point3(v));
         }
     }
 };

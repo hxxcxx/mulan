@@ -64,7 +64,7 @@ struct Frustum3 {
         return f;
     }
 
-    bool contains(const Vec3& point, const Tolerance& tol = defaultTolerance()) const {
+    bool contains(const Point3& point, const Tolerance& tol = defaultTolerance()) const {
         for (const Plane3& plane : planes) {
             if (plane.signedDistance(point) < -tol.lengthEps) {
                 return false;
@@ -77,7 +77,7 @@ struct Frustum3 {
         if (box.isEmpty(tol)) return false;
 
         for (const Plane3& plane : planes) {
-            Vec3 p = box.min;
+            Point3 p = box.min;
             if (plane.normal.x >= 0.0) p.x = box.max.x;
             if (plane.normal.y >= 0.0) p.y = box.max.y;
             if (plane.normal.z >= 0.0) p.z = box.max.z;

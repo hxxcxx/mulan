@@ -9,6 +9,7 @@
 #pragma once
 
 #include "../linalg/vec3.h"
+#include "point.h"
 #include "../linalg/mat4.h"
 #include "aabb.h"
 #include "../scalar/tolerance.h"
@@ -19,27 +20,27 @@
 namespace mulan::math {
 
 struct Sphere3 {
-    Vec3   center{};
+    Point3 center{};
     double radius = -1.0;   // 负值表示无效
 
     constexpr Sphere3() = default;
-    constexpr Sphere3(const Vec3& c, double r) : center(c), radius(r) {}
+    constexpr Sphere3(const Point3& c, double r) : center(c), radius(r) {}
 
     static Sphere3 invalid() { return Sphere3{}; }
-    static Sphere3 fromCenterRadius(const Vec3& c, double r) { return Sphere3(c, r); }
+    static Sphere3 fromCenterRadius(const Point3& c, double r) { return Sphere3(c, r); }
 
     static Sphere3 fromAABB(const AABB3& box) {
         if (box.isEmpty()) return invalid();
-        Vec3 c = box.center();
-        return Sphere3(c, c.distanceTo(box.max));
+        Point3 c = box.center();
+        return Sphere3(c, (box.max - c).length());
     }
 
     // ---------- 状态 ----------
     bool isValid() const { return radius >= 0.0; }
-    void reset() { center = Vec3::zero(); radius = -1.0; }
+    void reset() { center = Point3::origin(); radius = -1.0; }
 
     // ---------- 扩展 ----------
-    void expand(const Vec3& p) {
+    void expand(const Point3& p) {
         if (!isValid()) { center = p; radius = 0.0; return; }
         Vec3 d = p - center;
         double dist = d.length();
@@ -68,7 +69,7 @@ struct Sphere3 {
     }
 
     // ---------- 查询 ----------
-    bool contains(const Vec3& p, const Tolerance& tol = defaultTolerance()) const {
+    bool contains(const Point3& p, const Tolerance& tol = defaultTolerance()) const {
         if (!isValid()) return false;
         double r = radius + tol.lengthEps;
         return (p - center).lengthSq() <= r * r;
@@ -83,16 +84,16 @@ struct Sphere3 {
     bool intersects(const AABB3& box) const {
         if (!isValid() || box.isEmpty()) return false;
         // 求 box 上离 center 最近的点
-        Vec3 closest(math::max(box.min.x, math::min(box.max.x, center.x)),
-                     math::max(box.min.y, math::min(box.max.y, center.y)),
-                     math::max(box.min.z, math::min(box.max.z, center.z)));
+        Point3 closest(math::max(box.min.x, math::min(box.max.x, center.x)),
+                        math::max(box.min.y, math::min(box.max.y, center.y)),
+                        math::max(box.min.z, math::min(box.max.z, center.z)));
         return (closest - center).lengthSq() <= radius * radius;
     }
 
     // ---------- 变换 ----------
     Sphere3 transformed(const Mat4& m) const {
         if (!isValid()) return invalid();
-        Vec3 newC = transformPoint(m, center);
+        Point3 newC = center.transformedBy(m);
         // 取矩阵列向量长度为缩放因子
         double sx = Vec3(m[0].x, m[0].y, m[0].z).length();
         double sy = Vec3(m[1].x, m[1].y, m[1].z).length();

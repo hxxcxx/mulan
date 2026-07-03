@@ -60,12 +60,12 @@ math::AABB3 transformBounds(const math::AABB3& bounds, const math::Mat4& transfo
     for (int x = 0; x < 2; ++x) {
         for (int y = 0; y < 2; ++y) {
             for (int z = 0; z < 2; ++z) {
-                const math::Vec3 corner{
+                const math::Point3 corner{
                     x == 0 ? bounds.min.x : bounds.max.x,
                     y == 0 ? bounds.min.y : bounds.max.y,
                     z == 0 ? bounds.min.z : bounds.max.z
                 };
-                result.expand(math::Vec3(transform * math::Vec4(corner, 1.0)));
+                result.expand(corner.transformedBy(transform));
             }
         }
     }

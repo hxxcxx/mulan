@@ -94,19 +94,19 @@ void testMatrices() {
     checkVec4Near(identity * Vec4(1.0, 2.0, 3.0, 1.0), Vec4(1.0, 2.0, 3.0, 1.0));
 
     Mat4 translated = Mat4::translate(Vec3(3.0, -2.0, 5.0));
-    checkVec3Near(transformPoint(translated, Vec3(1.0, 2.0, 3.0)), Vec3(4.0, 0.0, 8.0));
-    checkVec3Near(transformDir(translated, Vec3(1.0, 2.0, 3.0)), Vec3(1.0, 2.0, 3.0));
+    checkVec3Near(Point3(1.0, 2.0, 3.0).transformedBy(translated).asVec(), Vec3(4.0, 0.0, 8.0));
+    checkVec3Near(Vec3(1.0, 2.0, 3.0).transformedAsDir(translated), Vec3(1.0, 2.0, 3.0));
 
     Mat4 scaled = Mat4::scale(Vec3(2.0, 3.0, 4.0));
-    checkVec3Near(transformPoint(scaled, Vec3(1.0, 2.0, 3.0)), Vec3(2.0, 6.0, 12.0));
+    checkVec3Near(Point3(1.0, 2.0, 3.0).transformedBy(scaled).asVec(), Vec3(2.0, 6.0, 12.0));
 
     Mat4 combined = translated * scaled;
     Mat4 inv = combined.inverse();
-    checkVec3Near(transformPoint(inv, transformPoint(combined, Vec3(2.0, 4.0, 6.0))), Vec3(2.0, 4.0, 6.0));
+    checkVec3Near(Point3(2.0, 4.0, 6.0).transformedBy(combined).transformedBy(inv).asVec(), Vec3(2.0, 4.0, 6.0));
 
     Mat3 upper(combined);
     Mat4 lifted(upper);
-    checkVec3Near(transformDir(lifted, Vec3(1.0, 1.0, 1.0)), Vec3(2.0, 3.0, 4.0));
+    checkVec3Near(Vec3(1.0, 1.0, 1.0).transformedAsDir(lifted), Vec3(2.0, 3.0, 4.0));
     CHECK(combined.data() != nullptr);
 }
 
@@ -123,7 +123,7 @@ void testQuaternionsAndTransforms() {
     Mat4 m = t.toMatrix();
     Mat4 inv = t.toInverseMatrix();
     Vec3 p(1.0, 2.0, 3.0);
-    checkVec3Near(transformPoint(inv, transformPoint(m, p)), p);
+    checkVec3Near(Point3(p).transformedBy(m).transformedBy(inv).asVec(), p);
 
     Transform3 parent(Vec3(1.0, 0.0, 0.0), Quat::identity(), Vec3(2.0, 2.0, 2.0));
     Transform3 child(Vec3(0.0, 3.0, 0.0), Quat::identity(), Vec3(1.0, 1.0, 1.0));
@@ -134,74 +134,74 @@ void testQuaternionsAndTransforms() {
 void testBoundsAndPlanes() {
     AABB3 box = AABB3::empty();
     CHECK(box.isEmpty());
-    box.expand(Vec3(-1.0, -2.0, -3.0));
-    box.expand(Vec3(3.0, 2.0, 1.0));
+    box.expand(Point3(-1.0, -2.0, -3.0));
+    box.expand(Point3(3.0, 2.0, 1.0));
     CHECK(!box.isEmpty());
-    checkVec3Near(box.center(), Vec3(1.0, 0.0, -1.0));
+    checkVec3Near(box.center().asVec(), Vec3(1.0, 0.0, -1.0));
     checkVec3Near(box.extents(), Vec3(2.0, 2.0, 2.0));
-    CHECK(box.contains(Vec3(0.0, 0.0, 0.0)));
-    CHECK(!box.contains(Vec3(4.0, 0.0, 0.0)));
+    CHECK(box.contains(Point3(0.0, 0.0, 0.0)));
+    CHECK(!box.contains(Point3(4.0, 0.0, 0.0)));
 
     AABB3 moved = box.transformed(Mat4::translate(Vec3(10.0, 0.0, 0.0)));
-    CHECK(moved.contains(Vec3(10.0, 0.0, 0.0)));
-    CHECK(!moved.contains(Vec3(0.0, 0.0, 0.0)));
+    CHECK(moved.contains(Point3(10.0, 0.0, 0.0)));
+    CHECK(!moved.contains(Point3(0.0, 0.0, 0.0)));
 
-    Sphere3 sphere = Sphere3::fromAABB(AABB3::fromCenterExtents(Vec3(0.0), Vec3(1.0)));
+    Sphere3 sphere = Sphere3::fromAABB(AABB3::fromCenterExtents(Point3(0.0), Vec3(1.0)));
     CHECK(sphere.isValid());
-    CHECK(sphere.contains(Vec3(1.0, 0.0, 0.0)));
-    CHECK(sphere.intersects(AABB3::fromCenterExtents(Vec3(1.9, 0.0, 0.0), Vec3(0.25))));
+    CHECK(sphere.contains(Point3(1.0, 0.0, 0.0)));
+    CHECK(sphere.intersects(AABB3::fromCenterExtents(Point3(1.9, 0.0, 0.0), Vec3(0.25))));
 
-    Plane3 plane = Plane3::fromPointNormal(Vec3(0.0, 0.0, 2.0), Vec3(0.0, 0.0, 10.0));
-    CHECK_NEAR(plane.signedDistance(Vec3(0.0, 0.0, 5.0)), 3.0, 1e-12);
-    checkVec3Near(plane.project(Vec3(1.0, 2.0, 5.0)), Vec3(1.0, 2.0, 2.0));
+    Plane3 plane = Plane3::fromPointNormal(Point3(0.0, 0.0, 2.0), Vec3(0.0, 0.0, 10.0));
+    CHECK_NEAR(plane.signedDistance(Point3(0.0, 0.0, 5.0)), 3.0, 1e-12);
+    checkVec3Near(plane.project(Point3(1.0, 2.0, 5.0)).asVec(), Vec3(1.0, 2.0, 2.0));
 }
 
 void testIntersections() {
-    AABB3 box = AABB3::fromCenterExtents(Vec3(0.0), Vec3(1.0));
-    Ray3 ray(Vec3(-3.0, 0.0, 0.0), Vec3::unitX());
+    AABB3 box = AABB3::fromCenterExtents(Point3(0.0), Vec3(1.0));
+    Ray3 ray(Point3(-3.0, 0.0, 0.0), Vec3::unitX());
     Hit3 hit = intersect(ray, box);
     CHECK(hit.hit);
     CHECK_NEAR(hit.t, 2.0, 1e-12);
-    checkVec3Near(hit.point, Vec3(-1.0, 0.0, 0.0));
+    checkVec3Near(hit.point.asVec(), Vec3(-1.0, 0.0, 0.0));
 
-    Sphere3 sphere(Vec3(0.0), 1.0);
+    Sphere3 sphere(Point3(0.0), 1.0);
     hit = intersect(ray, sphere);
     CHECK(hit.hit);
     CHECK_NEAR(hit.t, 2.0, 1e-12);
 
-    Plane3 plane = Plane3::fromPointNormal(Vec3(0.0), Vec3::unitX());
+    Plane3 plane = Plane3::fromPointNormal(Point3(0.0), Vec3::unitX());
     hit = intersect(ray, plane);
     CHECK(hit.hit);
     CHECK_NEAR(hit.t, 3.0, 1e-12);
 
     Vec3 bary;
-    hit = intersect(Ray3(Vec3(0.25, 0.25, -1.0), Vec3::unitZ()),
-                    Vec3(0.0, 0.0, 0.0),
-                    Vec3(1.0, 0.0, 0.0),
-                    Vec3(0.0, 1.0, 0.0),
+    hit = intersect(Ray3(Point3(0.25, 0.25, -1.0), Vec3::unitZ()),
+                    Point3(0.0, 0.0, 0.0),
+                    Point3(1.0, 0.0, 0.0),
+                    Point3(0.0, 1.0, 0.0),
                     &bary);
     CHECK(hit.hit);
     checkVec3Near(bary, Vec3(0.5, 0.25, 0.25));
 
     double sa = -1.0;
     double sb = -1.0;
-    CHECK(intersect(Segment2(Vec2(0.0, 0.0), Vec2(1.0, 1.0)),
-                    Segment2(Vec2(0.0, 1.0), Vec2(1.0, 0.0)),
+    CHECK(intersect(Segment2(Point2(0.0, 0.0), Point2(1.0, 1.0)),
+                    Segment2(Point2(0.0, 1.0), Point2(1.0, 0.0)),
                     &sa, &sb));
     CHECK_NEAR(sa, 0.5, 1e-12);
     CHECK_NEAR(sb, 0.5, 1e-12);
 
-    CHECK_NEAR(distance(Vec3(2.0, 0.0, 0.0), Segment3(Vec3(0.0), Vec3(1.0, 0.0, 0.0))), 1.0, 1e-12);
+    CHECK_NEAR(distance(Point3(2.0, 0.0, 0.0), Segment3(Point3(0.0), Point3(1.0, 0.0, 0.0))), 1.0, 1e-12);
 }
 
 void testFrustum() {
     Frustum3 clip = Frustum3::fromViewProjection(Mat4(1.0));
-    CHECK(clip.contains(Vec3(0.0)));
-    CHECK(!clip.contains(Vec3(2.0, 0.0, 0.0)));
-    CHECK(clip.intersects(AABB3::fromCenterExtents(Vec3(0.0), Vec3(0.5))));
-    CHECK(!clip.intersects(AABB3::fromCenterExtents(Vec3(3.0, 0.0, 0.0), Vec3(0.5))));
-    CHECK(clip.intersects(Sphere3(Vec3(0.0), 0.5)));
-    CHECK(!clip.intersects(Sphere3(Vec3(3.0, 0.0, 0.0), 0.5)));
+    CHECK(clip.contains(Point3(0.0)));
+    CHECK(!clip.contains(Point3(2.0, 0.0, 0.0)));
+    CHECK(clip.intersects(AABB3::fromCenterExtents(Point3(0.0), Vec3(0.5))));
+    CHECK(!clip.intersects(AABB3::fromCenterExtents(Point3(3.0, 0.0, 0.0), Vec3(0.5))));
+    CHECK(clip.intersects(Sphere3(Point3(0.0), 0.5)));
+    CHECK(!clip.intersects(Sphere3(Point3(3.0, 0.0, 0.0), 0.5)));
 }
 
 } // namespace

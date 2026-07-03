@@ -222,20 +222,6 @@ constexpr Vec4T<T> operator*(const Mat4T<T>& m, const Vec4T<T>& v) {
         m[0].w * v.x + m[1].w * v.y + m[2].w * v.z + m[3].w * v.w);
 }
 
-/// 仿射变换点（w=1），返回 Vec3
-template<typename T>
-Vec3T<T> transformPoint(const Mat4T<T>& m, const Vec3T<T>& p) {
-    Vec4T<T> r = m * Vec4T<T>(p.x, p.y, p.z, T(1));
-    return Vec3T<T>(r.x, r.y, r.z);
-}
-
-/// 仿射变换方向（w=0，不受平移影响），返回 Vec3
-template<typename T>
-Vec3T<T> transformDir(const Mat4T<T>& m, const Vec3T<T>& d) {
-    Vec4T<T> r = m * Vec4T<T>(d.x, d.y, d.z, T(0));
-    return Vec3T<T>(r.x, r.y, r.z);
-}
-
 template<typename T>
 constexpr Mat4T<T> operator*(const Mat4T<T>& a, const Mat4T<T>& b) {
     Mat4T<T> r;

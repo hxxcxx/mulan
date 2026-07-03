@@ -80,7 +80,7 @@ void Camera::zoom(double delta) {
 }
 
 void Camera::fitToBox(const math::AABB3& box, double padding) {
-    target_ = box.center();
+    target_ = box.center().asVec();
     double radius = (box.max - box.min).length() * 0.5;
 
     if (ortho_) {

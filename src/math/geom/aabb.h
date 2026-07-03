@@ -10,6 +10,7 @@
 
 #include "../linalg/vec2.h"
 #include "../linalg/vec3.h"
+#include "point.h"
 #include "../linalg/mat3.h"
 #include "../linalg/mat4.h"
 #include "../scalar/tolerance.h"
@@ -23,19 +24,19 @@ namespace mulan::math {
 // ============================================================
 
 struct AABB3 {
-    Vec3 min{ std::numeric_limits<double>::max(),
-              std::numeric_limits<double>::max(),
-              std::numeric_limits<double>::max()};
-    Vec3 max{-std::numeric_limits<double>::max(),
-             -std::numeric_limits<double>::max(),
-             -std::numeric_limits<double>::max()};
+    Point3 min{ std::numeric_limits<double>::max(),
+                std::numeric_limits<double>::max(),
+                std::numeric_limits<double>::max()};
+    Point3 max{-std::numeric_limits<double>::max(),
+               -std::numeric_limits<double>::max(),
+               -std::numeric_limits<double>::max()};
 
     constexpr AABB3() = default;
-    constexpr AABB3(const Vec3& min_, const Vec3& max_) : min(min_), max(max_) {}
+    constexpr AABB3(const Point3& min_, const Point3& max_) : min(min_), max(max_) {}
 
     static AABB3 empty() { return AABB3{}; }
 
-    static AABB3 fromCenterExtents(const Vec3& center, const Vec3& extents) {
+    static AABB3 fromCenterExtents(const Point3& center, const Vec3& extents) {
         return AABB3(center - extents, center + extents);
     }
 
@@ -49,7 +50,7 @@ struct AABB3 {
     void reset() { *this = empty(); }
 
     // ---------- 扩展 ----------
-    void expand(const Vec3& p) {
+    void expand(const Point3& p) {
         min.x = math::min(min.x, p.x); max.x = math::max(max.x, p.x);
         min.y = math::min(min.y, p.y); max.y = math::max(max.y, p.y);
         min.z = math::min(min.z, p.z); max.z = math::max(max.z, p.z);
@@ -62,11 +63,11 @@ struct AABB3 {
     }
 
     // ---------- 查询 ----------
-    Vec3 center() const { return (min + max) * 0.5; }
-    Vec3 extents() const { return (max - min) * 0.5; }
-    Vec3 size() const { return max - min; }
+    Point3 center() const { return Point3((min.asVec() + max.asVec()) * 0.5); }
+    Vec3   extents() const { return (max - min) * 0.5; }
+    Vec3   size() const { return max - min; }
 
-    bool contains(const Vec3& p, const Tolerance& tol = defaultTolerance()) const {
+    bool contains(const Point3& p, const Tolerance& tol = defaultTolerance()) const {
         return p.x >= min.x - tol.lengthEps && p.x <= max.x + tol.lengthEps
             && p.y >= min.y - tol.lengthEps && p.y <= max.y + tol.lengthEps
             && p.z >= min.z - tol.lengthEps && p.z <= max.z + tol.lengthEps;
@@ -83,10 +84,10 @@ struct AABB3 {
         if (isEmpty()) return empty();
         AABB3 r;
         for (int i = 0; i < 8; ++i) {
-            Vec3 corner((i & 1) ? max.x : min.x,
-                        (i & 2) ? max.y : min.y,
-                        (i & 4) ? max.z : min.z);
-            r.expand(transformPoint(m, corner));
+            Point3 corner((i & 1) ? max.x : min.x,
+                          (i & 2) ? max.y : min.y,
+                          (i & 4) ? max.z : min.z);
+            r.expand(corner.transformedBy(m));
         }
         return r;
     }
@@ -97,13 +98,13 @@ struct AABB3 {
 // ============================================================
 
 struct AABB2 {
-    Vec2 min{ std::numeric_limits<double>::max(),
-              std::numeric_limits<double>::max()};
-    Vec2 max{-std::numeric_limits<double>::max(),
-             -std::numeric_limits<double>::max()};
+    Point2 min{ std::numeric_limits<double>::max(),
+                std::numeric_limits<double>::max()};
+    Point2 max{-std::numeric_limits<double>::max(),
+               -std::numeric_limits<double>::max()};
 
     constexpr AABB2() = default;
-    constexpr AABB2(const Vec2& min_, const Vec2& max_) : min(min_), max(max_) {}
+    constexpr AABB2(const Point2& min_, const Point2& max_) : min(min_), max(max_) {}
 
     static AABB2 empty() { return AABB2{}; }
 
@@ -112,7 +113,7 @@ struct AABB2 {
     }
     void reset() { *this = empty(); }
 
-    void expand(const Vec2& p) {
+    void expand(const Point2& p) {
         min.x = math::min(min.x, p.x); max.x = math::max(max.x, p.x);
         min.y = math::min(min.y, p.y); max.y = math::max(max.y, p.y);
     }
@@ -122,10 +123,10 @@ struct AABB2 {
         min.y = math::min(min.y, b.min.y); max.y = math::max(max.y, b.max.y);
     }
 
-    Vec2 center() const { return (min + max) * 0.5; }
-    Vec2 size() const { return max - min; }
+    Point2 center() const { return Point2((min.asVec() + max.asVec()) * 0.5); }
+    Vec2   size() const { return max - min; }
 
-    bool contains(const Vec2& p, const Tolerance& tol = defaultTolerance()) const {
+    bool contains(const Point2& p, const Tolerance& tol = defaultTolerance()) const {
         return p.x >= min.x - tol.lengthEps && p.x <= max.x + tol.lengthEps
             && p.y >= min.y - tol.lengthEps && p.y <= max.y + tol.lengthEps;
     }
@@ -138,11 +139,11 @@ struct AABB2 {
     AABB2 transformed(const Mat3& m) const {
         if (isEmpty()) return empty();
         AABB2 r;
-        Vec2 corners[4] = { {min.x, min.y}, {max.x, min.y},
-                            {max.x, max.y}, {min.x, max.y} };
-        for (const Vec2& c : corners) {
+        Point2 corners[4] = { {min.x, min.y}, {max.x, min.y},
+                              {max.x, max.y}, {min.x, max.y} };
+        for (const Point2& c : corners) {
             Vec3 ct = m * Vec3(c.x, c.y, 1.0);
-            r.expand(Vec2(ct.x, ct.y));
+            r.expand(Point2(ct.x, ct.y));
         }
         return r;
     }
