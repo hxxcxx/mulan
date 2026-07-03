@@ -9,7 +9,7 @@ add_library(Engine STATIC
     render/texture_cache.cpp
     render/render_resource_cache.cpp
     render/mesh_draw_command.cpp
-    # RenderGraph
+    # Render passes
     render/graph/forward_pass.cpp
     render/graph/edge_pass.cpp
     # Text rendering (MSDF)

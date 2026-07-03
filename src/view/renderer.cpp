@@ -38,17 +38,15 @@ bool Renderer::init(engine::RHIDevice& device,
     auto& matCache = engine::MaterialCache::instance();
     matCache.setDevice(&device);
 
-    auto fwd = std::make_unique<engine::ForwardPass>(
+    forward_pass_ = std::make_unique<engine::ForwardPass>(
         device, *resources_, matCache, lightEnv);
-    if (!fwd->init(colorFmt, depthFmt, true))
+    if (!forward_pass_->init(colorFmt, depthFmt, true))
         return false;
-    render_graph_.addPass(std::move(fwd));
 
-    auto edge = std::make_unique<engine::EdgePass>(
+    edge_pass_ = std::make_unique<engine::EdgePass>(
         device, *resources_, matCache, lightEnv);
-    if (!edge->init(colorFmt, depthFmt, true))
+    if (!edge_pass_->init(colorFmt, depthFmt, true))
         return false;
-    render_graph_.addPass(std::move(edge));
 
     if (!initViewCube(&device, colorFmt, depthFmt)) {
         std::fprintf(stderr, "[Renderer] ViewCube init failed (non-fatal)\n");
@@ -62,7 +60,8 @@ void Renderer::shutdown(engine::RHIDevice& device) {
     if (!initialized_) return;
     device.waitIdle();
     view_cube_renderer_.reset();
-    render_graph_.clear();
+    edge_pass_.reset();
+    forward_pass_.reset();
     resources_.reset();
     initialized_ = false;
 }
@@ -77,19 +76,16 @@ void Renderer::render(engine::RHIDevice& device,
                       const ViewState& viewState) {
     if (!initialized_) return;
 
-    auto* fwd  = render_graph_.pass<engine::ForwardPass>(0);
-    auto* edge = render_graph_.pass<engine::EdgePass>(1);
-
     if (resources_)
         builder_.rebuild(*resources_,
-                         fwd ? fwd->pipelineState() : nullptr,
-                         edge ? edge->pipelineState() : nullptr);
+                         forward_pass_ ? forward_pass_->pipelineState() : nullptr,
+                         edge_pass_     ? edge_pass_->pipelineState()     : nullptr);
 
     const std::span<const engine::MeshDrawCommand> emptyCommands;
-    if (fwd)
-        fwd->setDrawCommands(viewState.showFaces ? builder_.faceCommands() : emptyCommands);
-    if (edge)
-        edge->setDrawCommands(viewState.showEdges ? builder_.edgeCommands() : emptyCommands);
+    if (forward_pass_)
+        forward_pass_->setDrawCommands(viewState.showFaces ? builder_.faceCommands() : emptyCommands);
+    if (edge_pass_)
+        edge_pass_->setDrawCommands(viewState.showEdges ? builder_.edgeCommands() : emptyCommands);
 
     auto* sc = surface.swapChain();
     auto* rt = surface.renderTarget();
@@ -125,7 +121,8 @@ void Renderer::render(engine::RHIDevice& device,
     ctx.camera.viewMatrix       = viewState.viewMatrix;
     ctx.camera.projectionMatrix = viewState.projectionMatrix;
     ctx.camera.eyePosition      = viewState.cameraPosition;
-    render_graph_.execute(ctx);
+    if (forward_pass_) forward_pass_->execute(ctx);
+    if (edge_pass_)     edge_pass_->execute(ctx);
 
     if (viewState.showViewCube && view_cube_renderer_) {
         view_cube_renderer_->render(cmd, viewState.viewMatrix,
