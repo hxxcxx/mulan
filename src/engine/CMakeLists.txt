@@ -10,8 +10,7 @@ add_library(Engine STATIC
     render/render_resource_cache.cpp
     render/mesh_draw_command.cpp
     # Render passes
-    render/graph/forward_pass.cpp
-    render/graph/edge_pass.cpp
+    render/graph/geometry_pass.cpp
     # Text rendering (MSDF)
     render/text/font_atlas.cpp
     render/text/text_layout.cpp

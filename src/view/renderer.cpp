@@ -11,8 +11,6 @@
 #include "mulan/engine/rhi/render_target.h"
 #include "mulan/engine/rhi/render_types.h"
 #include "mulan/engine/rhi/swap_chain.h"
-#include "mulan/engine/render/graph/forward_pass.h"
-#include "mulan/engine/render/graph/edge_pass.h"
 #include "mulan/engine/render/material/material_cache.h"
 #include "mulan/engine/render/viewcube/view_cube_renderer.h"
 
@@ -38,13 +36,17 @@ bool Renderer::init(engine::RHIDevice& device,
     auto& matCache = engine::MaterialCache::instance();
     matCache.setDevice(&device);
 
-    forward_pass_ = std::make_unique<engine::ForwardPass>(
-        device, *resources_, matCache, lightEnv);
-    if (!forward_pass_->init(colorFmt, depthFmt, true))
+    face_pass_ = std::make_unique<engine::GeometryPass>(
+        device, *resources_, matCache, lightEnv,
+        engine::GeometryPassConfig{
+            "solid", engine::PrimitiveTopology::TriangleList, /*depthWrite=*/true, "Forward"});
+    if (!face_pass_->init(colorFmt, depthFmt, true))
         return false;
 
-    edge_pass_ = std::make_unique<engine::EdgePass>(
-        device, *resources_, matCache, lightEnv);
+    edge_pass_ = std::make_unique<engine::GeometryPass>(
+        device, *resources_, matCache, lightEnv,
+        engine::GeometryPassConfig{
+            "edge", engine::PrimitiveTopology::LineList, /*depthWrite=*/false, "Edge"});
     if (!edge_pass_->init(colorFmt, depthFmt, true))
         return false;
 
@@ -61,7 +63,7 @@ void Renderer::shutdown(engine::RHIDevice& device) {
     device.waitIdle();
     view_cube_renderer_.reset();
     edge_pass_.reset();
-    forward_pass_.reset();
+    face_pass_.reset();
     resources_.reset();
     initialized_ = false;
 }
@@ -78,12 +80,12 @@ void Renderer::render(engine::RHIDevice& device,
 
     if (resources_)
         builder_.rebuild(*resources_,
-                         forward_pass_ ? forward_pass_->pipelineState() : nullptr,
-                         edge_pass_     ? edge_pass_->pipelineState()     : nullptr);
+                         face_pass_ ? face_pass_->pipelineState() : nullptr,
+                         edge_pass_ ? edge_pass_->pipelineState() : nullptr);
 
     const std::span<const engine::MeshDrawCommand> emptyCommands;
-    if (forward_pass_)
-        forward_pass_->setDrawCommands(viewState.showFaces ? builder_.faceCommands() : emptyCommands);
+    if (face_pass_)
+        face_pass_->setDrawCommands(viewState.showFaces ? builder_.faceCommands() : emptyCommands);
     if (edge_pass_)
         edge_pass_->setDrawCommands(viewState.showEdges ? builder_.edgeCommands() : emptyCommands);
 
@@ -121,11 +123,11 @@ void Renderer::render(engine::RHIDevice& device,
     ctx.camera.viewMatrix       = viewState.viewMatrix;
     ctx.camera.projectionMatrix = viewState.projectionMatrix;
     ctx.camera.eyePosition      = viewState.cameraPosition;
-    if (forward_pass_) forward_pass_->execute(ctx);
-    if (edge_pass_)     edge_pass_->execute(ctx);
+    if (face_pass_) face_pass_->execute(ctx);
+    if (edge_pass_) edge_pass_->execute(ctx);
     // 两个 pass 各持有独立的 material UBO，uploadDirtyMaterials 不再自行清空脏集合，
     // 故在此处（所有 pass 都上传完毕后）统一清空，避免下帧重复全量上传。
-    if (forward_pass_ || edge_pass_)
+    if (face_pass_ || edge_pass_)
         engine::MaterialCache::instance().clearDirtyMaterials();
 
     if (viewState.showViewCube && view_cube_renderer_) {

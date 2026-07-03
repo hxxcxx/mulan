@@ -1,4 +1,4 @@
-#include "edge_pass.h"
+#include "geometry_pass.h"
 #include "shader_util.h"
 #include "../../rhi/bind_group.h"
 #include "../../rhi/render_types.h"
@@ -6,6 +6,7 @@
 
 #include <mulan/core/log/log.h>
 
+#include <cstdio>
 #include <string>
 
 namespace mulan::engine {
@@ -14,42 +15,45 @@ namespace mulan::engine {
 
 #pragma pack(push, 1)
 struct alignas(16) SceneUniforms {
-    float view[16];
-    float projection[16];
-    float viewProjection[16];
-    float cameraPos[4];
-    float lightDir[4];
-    float lightColor[4];
-    float ambientColor[4];
-    float edgeColor[4];
-    float highlightColor[4];
+    float view[16];           // offset 0
+    float projection[16];     // offset 64
+    float viewProjection[16]; // offset 128
+    float cameraPos[4];       // offset 192 (xyz + pad)
+    float lightDir[4];        // offset 208
+    float lightColor[4];      // offset 224
+    float ambientColor[4];    // offset 240
+    float edgeColor[4];       // offset 256
+    float highlightColor[4];  // offset 272
 };
 #pragma pack(pop)
 static_assert(sizeof(SceneUniforms) == 288);
 
 // ─── 构造 / init ───────────────────────────────────────────────
 
-EdgePass::EdgePass(RHIDevice& device, RenderResourceCache& gpu,
-                   MaterialCache& matCache,
-                   const LightEnvironment& lightEnv)
-    : device_(device), gpu_(gpu), mat_cache_(matCache), light_env_(lightEnv) {
+GeometryPass::GeometryPass(RHIDevice& device, RenderResourceCache& gpu,
+                           MaterialCache& matCache,
+                           const LightEnvironment& lightEnv,
+                           GeometryPassConfig cfg)
+    : device_(device), gpu_(gpu), mat_cache_(matCache), light_env_(lightEnv),
+      cfg_(cfg) {
 }
 
-bool EdgePass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
-    if (!loadEdgeShaders()) return false;
-    if (!createEdgePSO(colorFmt, depthFmt, hasDepth)) return false;
 
-    auto sceneResult = device_.createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "EdgeSceneUBO"));
+bool GeometryPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
+    if (!loadShaders()) return false;
+    if (!createPSO(colorFmt, depthFmt, hasDepth)) return false;
+
+    auto sceneResult = device_.createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "SceneUBO"));
     if (!sceneResult) { return false; }
     scene_ubo_ = std::move(*sceneResult);
 
     auto objResult = device_.createBuffer(BufferDesc::uniform(
-        MeshDrawCommand::kObjectUboStride * 4096, "EdgeObjUBO"));  // 4096 objects
+        MeshDrawCommand::kObjectUboStride * 4096, "ObjUBO"));   // 4096 objects
     if (!objResult) { return false; }
     object_ubo_ = std::move(*objResult);
 
     auto matResult = device_.createBuffer(BufferDesc::uniform(
-        MaterialCache::kMaxMaterials * 256, "EdgeMatUBO"));
+        MaterialCache::kMaxMaterials * 256, "MatUBO"));  // MaterialCache统一尺寸
     if (!matResult) { return false; }
     material_ubo_ = std::move(*matResult);
 
@@ -59,9 +63,13 @@ bool EdgePass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDept
 
 // ─── Shader ────────────────────────────────────────────────────
 
-bool EdgePass::loadEdgeShaders() {
-    auto vs = loadShader(device_, ShaderType::Vertex, "edge.vert");
-    auto fs = loadShader(device_, ShaderType::Pixel,  "edge.frag");
+bool GeometryPass::loadShaders() {
+    // 按 cfg_.shaderBase 拼 "<base>.vert" / "<base>.frag"
+    const std::string vertName = std::string(cfg_.shaderBase) + ".vert";
+    const std::string fragName = std::string(cfg_.shaderBase) + ".frag";
+
+    auto vs = loadShader(device_, ShaderType::Vertex, vertName.c_str());
+    auto fs = loadShader(device_, ShaderType::Pixel,  fragName.c_str());
     if (!vs) { return false; }
     if (!fs) { return false; }
     vs_ = std::move(*vs);
@@ -71,21 +79,21 @@ bool EdgePass::loadEdgeShaders() {
 
 // ─── PSO ───────────────────────────────────────────────────────
 
-bool EdgePass::createEdgePSO(TextureFormat colorFmt, TextureFormat depthFmt,
+bool GeometryPass::createPSO(TextureFormat colorFmt, TextureFormat depthFmt,
                               bool hasDepth) {
     VertexLayout vl = layouts::surface();
 
     GraphicsPipelineDesc desc{};
-    desc.name             = "EdgeSolid";
+    desc.name             = cfg_.passName;
     desc.vs               = vs_.get();
     desc.ps               = fs_.get();
     desc.vertexLayout     = vl;
-    desc.topology         = PrimitiveTopology::LineList;
+    desc.topology         = cfg_.topology;
     desc.cullMode         = CullMode::None;
     desc.frontFace        = FrontFace::CounterClockwise;
     desc.fillMode         = FillMode::Solid;
     desc.depthStencil.depthEnable = true;
-    desc.depthStencil.depthWrite  = false;
+    desc.depthStencil.depthWrite  = cfg_.depthWrite;
     desc.depthStencil.depthFunc   = CompareFunc::LessEqual;
 
     using PB = PipelineBinding;
@@ -116,7 +124,7 @@ bool EdgePass::createEdgePSO(TextureFormat colorFmt, TextureFormat depthFmt,
 
 // ─── Execute ───────────────────────────────────────────────────
 
-void EdgePass::uploadSceneUBO(const PassContext& ctx) {
+void GeometryPass::uploadSceneUBO(const PassContext& ctx) {
     // 应用 Vulkan clip space 修正（Z:[-1,1]→[0,1], Y 翻转）
     Mat4 clip = device_.clipSpaceCorrectionMatrix();
     Mat4 view = ctx.camera.viewMatrix;
@@ -144,15 +152,15 @@ void EdgePass::uploadSceneUBO(const PassContext& ctx) {
     storeMat(ubo.viewProjection, vp);
     storeVec3(ubo.cameraPos,   eye);
     storeVec3(ubo.lightDir,    ldir);
-    storeVec3(ubo.lightColor,  Vec3(0.8));
-    storeVec3(ubo.ambientColor,Vec3(0.15));
+    storeVec3(ubo.lightColor,  Vec3(0.8));    // 主光稍弱
+    storeVec3(ubo.ambientColor,Vec3(0.15));   // 环境光弱，避免 ×3.5 后过曝
     storeVec3(ubo.edgeColor,   Vec3(0.08, 0.08, 0.08));
     storeVec3(ubo.highlightColor, Vec3(1.0, 0.5, 0.0));
 
     ctx.cmd->updateBuffer(scene_ubo_.get(), 0, sizeof(ubo), &ubo);
 }
 
-void EdgePass::execute(const PassContext& ctx) {
+void GeometryPass::execute(const PassContext& ctx) {
     if (!initialized_ || !pso_ || !ctx.cmd) return;
 
     uploadSceneUBO(ctx);
