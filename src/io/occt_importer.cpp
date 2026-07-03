@@ -1,6 +1,7 @@
 #include "occt_importer.h"
 #include "importer_factory.h"
 
+#include <mulan/core/result/error.h>
 #include <mulan/document/document.h>
 
 #include <STEPControl_Reader.hxx>
@@ -11,12 +12,37 @@
 #include <TopoDS_Shape.hxx>
 
 #include <algorithm>
+#include <cctype>
 #include <clocale>
+#include <expected>
 #include <filesystem>
+#include <stdexcept>
+#include <string>
 
 namespace mulan::io {
 
 namespace {
+
+class NumericLocaleGuard {
+public:
+    NumericLocaleGuard()
+        : old_(std::setlocale(LC_NUMERIC, nullptr) ? std::setlocale(LC_NUMERIC, nullptr) : "")
+    {
+        std::setlocale(LC_NUMERIC, "C");
+    }
+
+    ~NumericLocaleGuard() {
+        if (!old_.empty()) {
+            std::setlocale(LC_NUMERIC, old_.c_str());
+        }
+    }
+
+    NumericLocaleGuard(const NumericLocaleGuard&) = delete;
+    NumericLocaleGuard& operator=(const NumericLocaleGuard&) = delete;
+
+private:
+    std::string old_;
+};
 
 TopoDS_Shape readSTEP(const std::string& path) {
     STEPControl_Reader reader;
@@ -60,7 +86,8 @@ TopoDS_Shape readFile(const std::string& path) {
     throw std::runtime_error("Unsupported format: " + ext);
 }
 
-void populateDocument(const TopoDS_Shape& shape, mulan::document::Document& doc) {
+ImportResult populateDocument(const TopoDS_Shape& shape, mulan::document::Document& doc) {
+    ImportResult result;
     int partIndex = 0;
 
     if (shape.ShapeType() == TopAbs_COMPOUND || shape.ShapeType() == TopAbs_COMPSOLID) {
@@ -69,41 +96,46 @@ void populateDocument(const TopoDS_Shape& shape, mulan::document::Document& doc)
             hasSolids = true;
             ++partIndex;
             std::string name = "Part_" + std::to_string(partIndex);
-            doc.addShape(exp.Current(), std::move(name));
+            result.entities.push_back(doc.addShape(exp.Current(), std::move(name)));
         }
 
         if (!hasSolids) {
             for (TopExp_Explorer exp(shape, TopAbs_SHELL); exp.More(); exp.Next()) {
                 ++partIndex;
                 std::string name = "Shell_" + std::to_string(partIndex);
-                doc.addShape(exp.Current(), std::move(name));
+                result.entities.push_back(doc.addShape(exp.Current(), std::move(name)));
             }
 
             if (partIndex == 0) {
                 ++partIndex;
-                doc.addShape(shape, "Shape_1");
+                result.entities.push_back(doc.addShape(shape, "Shape_1"));
             }
         }
     } else {
         ++partIndex;
-        doc.addShape(shape, "Shape_1");
+        result.entities.push_back(doc.addShape(shape, "Shape_1"));
     }
+
+    result.report.entityCount = result.entities.size();
+    result.report.brepAssetCount = result.entities.size();
+    return result;
 }
 
 } // anonymous namespace
 
-bool OCCTImporter::import(const std::string& path, mulan::document::Document& doc) {
+std::expected<ImportResult, core::Error>
+OCCTImporter::import(const std::string& path,
+                     mulan::document::Document& doc,
+                     const ImportOptions& /*options*/) {
     try {
-        auto* oldLocale = std::setlocale(LC_NUMERIC, "C");
+        NumericLocaleGuard locale;
 
         TopoDS_Shape shape = readFile(path);
-        populateDocument(shape, doc);
+        auto result = populateDocument(shape, doc);
 
-        if (oldLocale) std::setlocale(LC_NUMERIC, oldLocale);
-        return true;
+        return result;
     } catch (const std::exception& e) {
-        last_error_ = e.what();
-        return false;
+        return std::unexpected(core::Error::make(core::ErrorCode::Io, e.what()));
     }
 }
 

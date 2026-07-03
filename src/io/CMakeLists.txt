@@ -1,4 +1,4 @@
-# IO - 文件I/O + 导入器（静态库）
+# IO - 文件 I/O 与导入器
 add_library(IO STATIC
     occt_importer.cpp
     importer_factory.cpp
@@ -18,8 +18,8 @@ target_include_directories(IO PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
 )
 
-# 依赖 Engine（Math 类型、Mesh、AABB）+ Document（Importer 填充 Document）
-target_link_libraries(IO PUBLIC Engine Document)
+# 依赖 Core（expected error）、Engine（Math/Mesh/AABB）和 Document。
+target_link_libraries(IO PUBLIC Core Engine Document)
 
 # OCCT 头文件路径（仅编译期需要）
 target_include_directories(IO PRIVATE

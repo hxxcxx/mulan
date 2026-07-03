@@ -207,14 +207,15 @@ void MainWindow::onOpenFile() {
 
     statusBar()->showMessage("Loading: " + filePath);
 
-    auto doc = doc_manager_.openFile(filePath.toStdString());
-    if (!doc) {
+    auto opened = doc_manager_.openFile(filePath.toStdString());
+    if (!opened) {
         QMessageBox::warning(this, "Import Error",
-            QString::fromStdString(doc_manager_.lastError()));
+            QString::fromStdString(opened.error().message));
         statusBar()->showMessage("Ready");
         return;
     }
 
+    auto doc = std::move(opened->document);
     QString title = QString::fromStdString(doc->displayName());
     auto* session = new DocumentSession(std::move(doc));
     logDocumentStats(*session->document());
@@ -238,14 +239,15 @@ void MainWindow::dropEvent(QDropEvent* e) {
 
     statusBar()->showMessage("Loading: " + filePath);
 
-    auto doc = doc_manager_.openFile(filePath.toStdString());
-    if (!doc) {
+    auto opened = doc_manager_.openFile(filePath.toStdString());
+    if (!opened) {
         QMessageBox::warning(this, "Import Error",
-            QString::fromStdString(doc_manager_.lastError()));
+            QString::fromStdString(opened.error().message));
         statusBar()->showMessage("Ready");
         return;
     }
 
+    auto doc = std::move(opened->document);
     QString title = QString::fromStdString(doc->displayName());
     auto* session = new DocumentSession(std::move(doc));
     logDocumentStats(*session->document());

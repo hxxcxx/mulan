@@ -1,15 +1,17 @@
 /**
  * @file file_manager.h
- * @brief 文件管理器 — 打开文件返回 Document
+ * @brief 文件管理器，按文件类型选择 importer 并返回 Document。
  * @author hxxcxx
  * @date 2026-04-22
- *
- * 唯一入口：openFile() → 选 Importer → 创建 Document → 填充 → 返回所有权。
  */
 #pragma once
 
+#include "import_result.h"
 #include "io_export.h"
 
+#include <mulan/core/result/error.h>
+
+#include <expected>
 #include <memory>
 #include <string>
 #include <vector>
@@ -20,6 +22,11 @@ class Document;
 
 namespace mulan::io {
 
+struct OpenDocumentResult {
+    std::unique_ptr<mulan::document::Document> document;
+    ImportResult import;
+};
+
 class IO_API FileManager {
 public:
     FileManager() = default;
@@ -28,17 +35,10 @@ public:
     FileManager(const FileManager&) = delete;
     FileManager& operator=(const FileManager&) = delete;
 
-    /// 打开文件 → 自动匹配 Importer → 填充 Document → 返回所有权
-    std::unique_ptr<mulan::document::Document> openFile(const std::string& path);
+    std::expected<OpenDocumentResult, core::Error>
+    openFile(const std::string& path, const ImportOptions& options = {});
 
-    /// 获取最近一次 openFile 的错误信息
-    const std::string& lastError() const { return last_error_; }
-
-    /// 所有支持的文件扩展名
     std::vector<std::string> supportedExtensions() const;
-
-private:
-    std::string last_error_;
 };
 
 } // namespace mulan::io
