@@ -1,6 +1,7 @@
 # IO - 文件 I/O 与导入器
 add_library(IO STATIC
     occt_importer.cpp
+    assimp_importer.cpp
     importer_factory.cpp
     file_manager.cpp
     mesh_import_builder.cpp
@@ -19,8 +20,10 @@ target_include_directories(IO PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
 )
 
+find_package(assimp CONFIG REQUIRED)
+
 # 依赖 Core（expected error）、Engine（Math/Mesh/AABB）和 Document。
-target_link_libraries(IO PUBLIC Core Engine Document)
+target_link_libraries(IO PUBLIC Core Engine Document PRIVATE assimp::assimp)
 
 # OCCT 头文件路径（仅编译期需要）
 target_include_directories(IO PRIVATE

@@ -12,6 +12,7 @@
             "features": ["gl-api-46", "wgl", "loader"]
         },
         "nlohmann-json",
+        "assimp",
         "spdlog",
         "freetype",
         "tinyxml2",
