@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include(CTest)
+
 # MSVC: 源文件为 UTF-8，避免 C4819 编码警告
 if(MSVC)
     add_compile_options(/utf-8)
@@ -84,3 +86,7 @@ add_subdirectory(src/view)
 add_subdirectory(src/document)
 add_subdirectory(src/io)
 add_subdirectory(src/app)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
