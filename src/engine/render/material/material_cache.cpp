@@ -42,8 +42,10 @@ uint32_t MaterialCache::registerMaterial(Material material) {
     }
     materials_.push_back(std::move(asset));
 
-    // 为新材质分配 UBO 偏移
-    material_offsets_[id] = 0xFFFFFFFF; // 触发首次分配
+    // offset 在注册时一次性确定（注册顺序即 slot 索引），永不改变。
+    // 这是 offset 的唯一来源，draw command 与 upload 读同一个值，避免两套分配算法打架。
+    material_offsets_[id] = static_cast<uint32_t>(
+        (materials_.size() - 1) * kMaterialSlotStride);
     dirty_materials_.insert(id);
 
     return id;
@@ -53,7 +55,7 @@ uint32_t MaterialCache::registerMaterial(const std::string& name, Material mater
     // 检查是否已存在
     auto it = name_to_index_.find(name);
     if (it != name_to_index_.end()) {
-        // 覆盖已有材质
+        // 覆盖已有材质（offset 不变，仅标记脏以重新上传）
         size_t idx = it->second;
         uint32_t existingId = materials_[idx]->id();
         material.name = name;
@@ -71,7 +73,8 @@ uint32_t MaterialCache::registerMaterial(const std::string& name, Material mater
     id_to_index_[id] = materials_.size();
     materials_.push_back(std::move(asset));
 
-    material_offsets_[id] = 0xFFFFFFFF;
+    material_offsets_[id] = static_cast<uint32_t>(
+        (materials_.size() - 1) * kMaterialSlotStride);
     dirty_materials_.insert(id);
 
     return id;
@@ -181,48 +184,29 @@ uint32_t MaterialCache::materialGpuOffset(uint32_t materialId) {
         materialId = 1;
     }
 
-    // 已分配 → 直接返回
+    // offset 在注册时已确定（见 registerMaterial），此处只读查询。
     auto it = material_offsets_.find(materialId);
-    if (it != material_offsets_.end() && it->second != 0xFFFFFFFF) {
+    if (it != material_offsets_.end()) {
         return it->second;
     }
 
-    // 未分配 → 当场分配（首次查询时自动分配下一个可用 slot）
-    uint32_t nextSlot = 0;
-    for (auto& [id, offset] : material_offsets_) {
-        if (offset != 0xFFFFFFFF) {
-            uint32_t slotEnd = offset + kMaterialSlotStride;
-            if (slotEnd > nextSlot) nextSlot = slotEnd;
-        }
-    }
-    // 对齐到 kMaterialSlotStride
-    nextSlot = ((nextSlot + kMaterialSlotStride - 1) / kMaterialSlotStride) * kMaterialSlotStride;
-
-    material_offsets_[materialId] = nextSlot;
-    dirty_materials_.insert(materialId);
-    return nextSlot;
+    // 未注册的 id → 回退到默认材质（id=1）的 offset，保证总有合法数据
+    auto def = material_offsets_.find(1);
+    return def != material_offsets_.end() ? def->second : 0;
 }
 
 void MaterialCache::uploadDirtyMaterials(Buffer* materialUbo) {
     if (!materialUbo || dirty_materials_.empty()) return;
 
-    // 对每个脏材质，分配 UBO 偏移（若尚未分配）并上传
-    uint32_t nextSlot = 0;
-    for (auto& asset : materials_) {
-        uint32_t id = asset->id();
-        if (material_offsets_[id] == 0xFFFFFFFF) {
-            material_offsets_[id] = nextSlot * kMaterialSlotStride;
-            ++nextSlot;
-        }
-    }
-
+    // offset 在注册时已确定（见 registerMaterial），此处只负责上传脏材质的数据。
     for (uint32_t id : dirty_materials_) {
-        uint32_t offset = material_offsets_[id];
+        auto it = material_offsets_.find(id);
+        if (it == material_offsets_.end()) continue;
         auto* asset = findById(id);
         if (!asset) continue;
 
         MaterialGPU gpu = asset->toGPU();
-        materialUbo->update(offset, static_cast<uint32_t>(MaterialGPU::kSize), &gpu);
+        materialUbo->update(it->second, static_cast<uint32_t>(MaterialGPU::kSize), &gpu);
     }
 }
 
