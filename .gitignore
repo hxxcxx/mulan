@@ -44,3 +44,5 @@ Thumbs.db
 other/
 docs/
 truck/
+.backup_changes/
+.codex
