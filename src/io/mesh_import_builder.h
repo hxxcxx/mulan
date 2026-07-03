@@ -13,6 +13,7 @@
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/core/result/error.h>
 #include <mulan/engine/geometry/mesh.h>
+#include <mulan/engine/math/aabb.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -58,6 +59,12 @@ struct StandardMeshSource {
 
 engine::Mesh buildStandardMesh(const StandardMeshSource& source);
 
+struct ImportedMeshAsset {
+    asset::AssetId geometry = asset::AssetId::invalid();
+    std::vector<asset::AssetId> materialSlots;
+    engine::AABB bounds;
+};
+
 class MeshImportBuilder {
 public:
     explicit MeshImportBuilder(document::Document& document);
@@ -73,6 +80,7 @@ public:
     bool empty() const { return primitives_.empty(); }
     size_t primitiveCount() const { return primitives_.size(); }
 
+    std::expected<ImportedMeshAsset, core::Error> commitAsset(std::string name);
     std::expected<scene::EntityId, core::Error> commit(std::string name);
 
     const ImportReport& report() const { return report_; }

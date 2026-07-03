@@ -4,6 +4,7 @@
 
 #include <mulan/core/result/error.h>
 #include <mulan/document/document.h>
+#include <mulan/scene/scene.h>
 
 #include <assimp/Importer.hpp>
 #include <assimp/GltfMaterial.h>
@@ -11,11 +12,13 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <expected>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -39,6 +42,34 @@ glm::vec2 toTexcoord(const aiVector3D& value) {
 
 engine::Vec4 toColor(const aiColor4D& value) {
     return {value.r, value.g, value.b, value.a};
+}
+
+engine::Mat4 toMat4(const aiMatrix4x4& value) {
+    engine::Mat4 result{1.0};
+    result[0][0] = value.a1; result[1][0] = value.a2; result[2][0] = value.a3; result[3][0] = value.a4;
+    result[0][1] = value.b1; result[1][1] = value.b2; result[2][1] = value.b3; result[3][1] = value.b4;
+    result[0][2] = value.c1; result[1][2] = value.c2; result[2][2] = value.c3; result[3][2] = value.c4;
+    result[0][3] = value.d1; result[1][3] = value.d2; result[2][3] = value.d3; result[3][3] = value.d4;
+    return result;
+}
+
+engine::AABB transformBounds(const engine::AABB& bounds, const engine::Mat4& transform) {
+    if (bounds.isEmpty()) return engine::AABB::empty();
+
+    engine::AABB result = engine::AABB::empty();
+    for (int x = 0; x < 2; ++x) {
+        for (int y = 0; y < 2; ++y) {
+            for (int z = 0; z < 2; ++z) {
+                const engine::Vec3 corner{
+                    x == 0 ? bounds.min.x : bounds.max.x,
+                    y == 0 ? bounds.min.y : bounds.max.y,
+                    z == 0 ? bounds.min.z : bounds.max.z
+                };
+                result.expand(engine::Vec3(transform * engine::Vec4(corner, 1.0)));
+            }
+        }
+    }
+    return result;
 }
 
 std::string materialName(const aiMaterial& material, size_t index) {
@@ -77,10 +108,16 @@ asset::AssetId importTexture(aiMaterial& material,
 
     ImportedTextureDesc desc;
     std::filesystem::path texturePath(path.C_Str());
-    desc.name = texturePath.filename().string();
-    desc.sourcePath = texturePath.is_relative()
-        ? (baseDirectory / texturePath).string()
-        : texturePath.string();
+    const std::string texturePathString = texturePath.string();
+    if (!texturePathString.empty() && texturePathString.front() == '*') {
+        desc.name = "EmbeddedTexture_" + texturePathString.substr(1);
+        desc.sourcePath = texturePathString;
+    } else {
+        desc.name = texturePath.filename().string();
+        desc.sourcePath = texturePath.is_relative()
+            ? (baseDirectory / texturePath).string()
+            : texturePath.string();
+    }
     desc.srgb = srgb;
     return builder.createTexture(desc);
 }
@@ -181,10 +218,18 @@ engine::Mesh buildMesh(const aiMesh& source) {
     });
 }
 
-void appendSceneMeshes(const aiScene& scene,
-                       MeshImportBuilder& builder,
-                       std::span<const asset::AssetId> materials,
-                       ImportReport& report) {
+struct ImportedMeshRecord {
+    ImportedMeshAsset asset;
+    std::string name;
+};
+
+std::vector<std::optional<ImportedMeshRecord>> importMeshAssets(
+    const aiScene& scene,
+    MeshImportBuilder& builder,
+    std::span<const asset::AssetId> materials,
+    ImportReport& report) {
+    std::vector<std::optional<ImportedMeshRecord>> records(scene.mNumMeshes);
+
     for (size_t i = 0; i < scene.mNumMeshes; ++i) {
         const aiMesh* source = scene.mMeshes[i];
         if (!source || !source->HasPositions()) continue;
@@ -204,6 +249,94 @@ void appendSceneMeshes(const aiScene& scene,
             ? source->mName.C_Str()
             : "Mesh_" + std::to_string(i);
         builder.addPrimitive(std::move(mesh), material, std::move(name));
+
+        auto asset = builder.commitAsset(source->mName.length > 0
+            ? source->mName.C_Str()
+            : "MeshAsset_" + std::to_string(i));
+        if (!asset) {
+            report.warnings.push_back("Failed to create imported mesh asset: " + std::to_string(i));
+            continue;
+        }
+
+        records[i] = ImportedMeshRecord{std::move(*asset), source->mName.length > 0
+            ? source->mName.C_Str()
+            : "Mesh_" + std::to_string(i)};
+    }
+
+    return records;
+}
+
+scene::EntityId createNodeEntity(document::Document& doc,
+                                 const std::string& name,
+                                 scene::EntityId parent,
+                                 const engine::Mat4& local,
+                                 const engine::Mat4& world,
+                                 ImportResult& result) {
+    auto* scene = doc.scene();
+    if (!scene) return scene::EntityId::invalid();
+
+    scene::EntityId entity = scene->createEntity(name);
+    if (parent) scene->setParent(entity, parent);
+    scene->setLocalTransform(entity, local);
+    scene->setWorldTransform(entity, world);
+    result.entities.push_back(entity);
+    return entity;
+}
+
+void applyMeshToEntity(document::Document& doc,
+                       scene::EntityId entity,
+                       const ImportedMeshRecord& mesh,
+                       const engine::Mat4& world) {
+    auto* scene = doc.scene();
+    if (!scene || !entity) return;
+
+    scene->setGeometry(entity, mesh.asset.geometry);
+    scene->setMaterialSlots(entity, mesh.asset.materialSlots);
+    scene->setWorldBounds(entity, transformBounds(mesh.asset.bounds, world));
+}
+
+void importNodeRecursive(const aiNode& node,
+                         document::Document& doc,
+                         std::span<const std::optional<ImportedMeshRecord>> meshes,
+                         scene::EntityId parent,
+                         const engine::Mat4& parentWorld,
+                         ImportResult& result) {
+    const std::string nodeName = node.mName.length > 0 ? node.mName.C_Str() : "Node";
+    const engine::Mat4 local = toMat4(node.mTransformation);
+    const engine::Mat4 world = parentWorld * local;
+
+    scene::EntityId nodeEntity = createNodeEntity(doc, nodeName, parent, local, world, result);
+
+    if (node.mNumMeshes == 1) {
+        const unsigned int meshIndex = node.mMeshes[0];
+        if (meshIndex < meshes.size() && meshes[meshIndex]) {
+            applyMeshToEntity(doc, nodeEntity, *meshes[meshIndex], world);
+        } else {
+            result.report.warnings.push_back("Node references missing mesh: " + nodeName);
+        }
+    } else {
+        for (size_t i = 0; i < node.mNumMeshes; ++i) {
+            const unsigned int meshIndex = node.mMeshes[i];
+            if (meshIndex >= meshes.size() || !meshes[meshIndex]) {
+                result.report.warnings.push_back("Node references missing mesh: " + nodeName);
+                continue;
+            }
+
+            const ImportedMeshRecord& mesh = *meshes[meshIndex];
+            scene::EntityId meshEntity = createNodeEntity(doc,
+                                                          mesh.name,
+                                                          nodeEntity,
+                                                          engine::Mat4{1.0},
+                                                          world,
+                                                          result);
+            applyMeshToEntity(doc, meshEntity, mesh, world);
+        }
+    }
+
+    for (size_t i = 0; i < node.mNumChildren; ++i) {
+        if (node.mChildren[i]) {
+            importNodeRecursive(*node.mChildren[i], doc, meshes, nodeEntity, world, result);
+        }
     }
 }
 
@@ -233,23 +366,41 @@ AssimpImporter::import(const std::string& path,
     }
 
     MeshImportBuilder builder(doc);
-    ImportReport report;
     const std::filesystem::path baseDirectory = std::filesystem::path(path).parent_path();
     std::vector<asset::AssetId> materials = importMaterials(*scene, builder, baseDirectory, options);
-    appendSceneMeshes(*scene, builder, materials, report);
-
-    const std::string modelName = std::filesystem::path(path).stem().string();
-    auto entity = builder.commit(modelName.empty() ? "Imported Model" : modelName);
-    if (!entity) {
-        return std::unexpected(entity.error());
-    }
 
     ImportResult result;
-    result.entities.push_back(*entity);
+    ImportReport importReport;
+    auto meshes = importMeshAssets(*scene, builder, materials, importReport);
+    const bool hasMeshAsset = std::any_of(meshes.begin(), meshes.end(),
+                                          [](const auto& mesh) { return mesh.has_value(); });
+    if (!hasMeshAsset) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg,
+                                                "Imported model contains no renderable meshes"));
+    }
+
+    if (options.flattenNodeHierarchy) {
+        importReport.warnings.push_back("Assimp import currently preserves node hierarchy; flattening is not applied");
+    }
+
+    const double unitScale = options.unitScale > 0.0 ? options.unitScale : 1.0;
+    if (options.unitScale <= 0.0) {
+        importReport.warnings.push_back("Invalid import unit scale; using 1.0");
+    }
+
+    const engine::Mat4 rootWorld =
+        glm::scale(engine::Mat4{1.0}, engine::Vec3(unitScale));
+    importNodeRecursive(*scene->mRootNode, doc, meshes, scene::EntityId::invalid(), rootWorld, result);
+    auto nodeWarnings = std::move(result.report.warnings);
+
     result.report = builder.report();
+    result.report.entityCount = result.entities.size();
     result.report.warnings.insert(result.report.warnings.end(),
-                                  report.warnings.begin(),
-                                  report.warnings.end());
+                                  importReport.warnings.begin(),
+                                  importReport.warnings.end());
+    result.report.warnings.insert(result.report.warnings.end(),
+                                  nodeWarnings.begin(),
+                                  nodeWarnings.end());
     return result;
 }
 

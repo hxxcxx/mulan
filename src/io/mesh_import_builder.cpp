@@ -4,6 +4,7 @@
 #include <mulan/asset/texture_asset.h>
 #include <mulan/document/document.h>
 #include <mulan/engine/vertex/vertex_buffer.h>
+#include <mulan/scene/scene.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -115,20 +116,62 @@ void MeshImportBuilder::addPrimitive(engine::Mesh mesh, asset::AssetId material,
     addPrimitive(asset::MeshPrimitive{std::move(mesh), material, std::move(name)});
 }
 
-std::expected<scene::EntityId, core::Error> MeshImportBuilder::commit(std::string name) {
+std::expected<ImportedMeshAsset, core::Error> MeshImportBuilder::commitAsset(std::string name) {
     if (primitives_.empty()) {
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg,
                                                 "Mesh import contains no primitives"));
     }
 
-    auto entity = document_.addMesh(std::move(name), std::move(primitives_));
+    auto* library = document_.assets();
+    if (!library) {
+        return std::unexpected(core::Error::make(core::ErrorCode::Internal,
+                                                "Document has no asset library"));
+    }
+
+    auto* mesh = library->create<asset::MeshAsset>(std::move(name));
+    if (!mesh) {
+        return std::unexpected(core::Error::make(core::ErrorCode::Internal,
+                                                "Failed to create mesh asset"));
+    }
+
+    ImportedMeshAsset result;
+    result.geometry = mesh->id();
+    result.bounds = engine::AABB::empty();
+    result.materialSlots.reserve(primitives_.size());
+
+    for (auto& primitive : primitives_) {
+        primitive.mesh.computeBounds();
+        if (!primitive.mesh.bounds.isEmpty()) {
+            result.bounds.expand(primitive.mesh.bounds);
+        }
+        result.materialSlots.push_back(primitive.material);
+        mesh->addPrimitive(std::move(primitive.mesh), primitive.material, std::move(primitive.name));
+    }
+
+    report_.meshAssetCount += 1;
+    primitives_.clear();
+    return result;
+}
+
+std::expected<scene::EntityId, core::Error> MeshImportBuilder::commit(std::string name) {
+    auto asset = commitAsset(name);
+    if (!asset) {
+        return std::unexpected(asset.error());
+    }
+
+    auto entity = document_.addSceneInstance(std::move(name),
+                                             asset->geometry,
+                                             std::move(asset->materialSlots));
     if (!entity.valid()) {
         return std::unexpected(core::Error::make(core::ErrorCode::Internal,
                                                 "Failed to create mesh document entity"));
     }
 
+    if (auto* scene = document_.scene()) {
+        scene->setWorldBounds(entity, asset->bounds);
+    }
+
     report_.entityCount += 1;
-    report_.meshAssetCount += 1;
     return entity;
 }
 

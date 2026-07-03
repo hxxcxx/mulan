@@ -15,11 +15,12 @@
 namespace mulan::io {
 
 struct ImportOptions {
-    bool flattenNodeHierarchy = true;
+    bool flattenNodeHierarchy = false;
     bool generateMissingNormals = true;
     bool generateMissingTangents = false;
     bool importMaterials = true;
     bool importTextures = true;
+    double unitScale = 1.0;
 };
 
 struct ImportReport {
