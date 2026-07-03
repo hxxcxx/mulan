@@ -15,6 +15,7 @@ namespace mulan::geo {
 
 // 前向声明（用于变换成员方法声明；定义见 Point.h，那里能见到完整 Mat4T）
 template<typename T> struct Mat4T;
+template<typename T> struct Vec4T;
 
 template<typename T>
 struct Vec3T {
@@ -24,7 +25,15 @@ struct Vec3T {
 
     // ---------- 构造 ----------
     constexpr Vec3T() = default;
+    explicit constexpr Vec3T(T v) : x(v), y(v), z(v) {}
     constexpr Vec3T(T x_, T y_, T z_) : x(x_), y(y_), z(z_) {}
+
+    template<typename U>
+    explicit constexpr Vec3T(const Vec3T<U>& v)
+        : x(static_cast<T>(v.x)), y(static_cast<T>(v.y)), z(static_cast<T>(v.z)) {}
+
+    template<typename U>
+    explicit constexpr Vec3T(const Vec4T<U>& v);
 
     // ---------- 下标 ----------
     T&       operator[](int i)       { return data()[i]; }
@@ -47,6 +56,11 @@ struct Vec3T {
     Vec3T normalized() const {
         T len = length();
         return (len > T(0)) ? Vec3T(x / len, y / len, z / len) : Vec3T{};
+    }
+
+    Vec3T normalizedOr(const Vec3T& fallback) const {
+        T len = length();
+        return (len > T(0)) ? Vec3T(x / len, y / len, z / len) : fallback;
     }
 
     /// 点乘
@@ -131,12 +145,30 @@ template<typename T>
 constexpr Vec3T<T> lerp(const Vec3T<T>& a, const Vec3T<T>& b, T t) { return a.lerp(b, t); }
 template<typename T>
 T distance(const Vec3T<T>& a, const Vec3T<T>& b) { return a.distanceTo(b); }
+template<typename T>
+T length(const Vec3T<T>& v) { return v.length(); }
 /// 平方长度（glm length2 等价）
 template<typename T>
 constexpr T length2(const Vec3T<T>& v) { return v.lengthSq(); }
 /// 平方距离（glm distance2 等价）
 template<typename T>
 constexpr T distance2(const Vec3T<T>& a, const Vec3T<T>& b) { return a.distanceSqTo(b); }
+template<typename T>
+Vec3T<T> normalize(const Vec3T<T>& v) { return v.normalized(); }
+template<typename T>
+constexpr Vec3T<T> min(const Vec3T<T>& a, const Vec3T<T>& b) {
+    return Vec3T<T>(geo::min(a.x, b.x), geo::min(a.y, b.y), geo::min(a.z, b.z));
+}
+template<typename T>
+constexpr Vec3T<T> max(const Vec3T<T>& a, const Vec3T<T>& b) {
+    return Vec3T<T>(geo::max(a.x, b.x), geo::max(a.y, b.y), geo::max(a.z, b.z));
+}
+template<typename T>
+constexpr Vec3T<T> clamp(const Vec3T<T>& v, const Vec3T<T>& lo, const Vec3T<T>& hi) {
+    return Vec3T<T>(geo::clamp(v.x, lo.x, hi.x),
+                    geo::clamp(v.y, lo.y, hi.y),
+                    geo::clamp(v.z, lo.z, hi.z));
+}
 
 // ---------- 别名 ----------
 using Vec3  = Vec3T<double>;

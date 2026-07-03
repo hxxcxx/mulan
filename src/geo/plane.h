@@ -10,6 +10,7 @@
 
 #include "vec3.h"
 #include "mat4.h"
+#include "point.h"
 #include "tolerance.h"
 
 #include <cmath>

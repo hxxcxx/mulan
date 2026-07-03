@@ -43,6 +43,7 @@
 #include "sphere.h"
 #include "line.h"
 #include "plane.h"
+#include "frustum.h"
 #include "polygon.h"
 #include "transform.h"
 

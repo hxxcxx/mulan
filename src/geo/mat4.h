@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include "mat3.h"
 #include "vec3.h"
 #include "vec4.h"
 
@@ -26,9 +27,24 @@ struct Mat4T {
     };
 
     constexpr Mat4T() = default;
+    explicit constexpr Mat4T(T diagonal)
+        : cols{Vec4T<T>(diagonal, T(0), T(0), T(0)),
+               Vec4T<T>(T(0), diagonal, T(0), T(0)),
+               Vec4T<T>(T(0), T(0), diagonal, T(0)),
+               Vec4T<T>(T(0), T(0), T(0), diagonal)} {}
     constexpr Mat4T(const Vec4T<T>& c0, const Vec4T<T>& c1,
                     const Vec4T<T>& c2, const Vec4T<T>& c3)
         : cols{c0, c1, c2, c3} {}
+
+    explicit constexpr Mat4T(const Mat3T<T>& m)
+        : cols{Vec4T<T>(m[0], T(0)),
+               Vec4T<T>(m[1], T(0)),
+               Vec4T<T>(m[2], T(0)),
+               Vec4T<T>(T(0), T(0), T(0), T(1))} {}
+
+    template<typename U>
+    explicit constexpr Mat4T(const Mat4T<U>& m)
+        : cols{Vec4T<T>(m[0]), Vec4T<T>(m[1]), Vec4T<T>(m[2]), Vec4T<T>(m[3])} {}
 
     Vec4T<T>&       operator[](int c)       { return cols[c]; }
     const Vec4T<T>& operator[](int c) const { return cols[c]; }
@@ -52,7 +68,8 @@ struct Mat4T {
     /// 绕单位轴 axis 旋转 rad 弧度
     static Mat4T rotation(const Vec3T<T>& axis, T rad) {
         T c = std::cos(rad), s = std::sin(rad), t = T(1) - c;
-        T x = axis.x, y = axis.y, z = axis.z;
+        Vec3T<T> n = axis.normalizedOr(Vec3T<T>::unitZ());
+        T x = n.x, y = n.y, z = n.z;
         return Mat4T(
             Vec4T<T>(t*x*x + c,   t*x*y + s*z, t*x*z - s*y, T(0)),
             Vec4T<T>(t*x*y - s*z, t*y*y + c,   t*y*z + s*x, T(0)),
@@ -229,6 +246,34 @@ constexpr Mat4T<T> operator*(const Mat4T<T>& a, const Mat4T<T>& b) {
 // ---------- 别名 ----------
 using Mat4  = Mat4T<double>;
 using FMat4 = Mat4T<float>;
+
+template<typename T>
+template<typename U>
+constexpr Mat3T<T>::Mat3T(const Mat4T<U>& m)
+    : cols{Vec3T<T>(m[0].x, m[0].y, m[0].z),
+           Vec3T<T>(m[1].x, m[1].y, m[1].z),
+           Vec3T<T>(m[2].x, m[2].y, m[2].z)} {}
+
+template<typename T>
+inline Mat4T<T> transpose(const Mat4T<T>& m) { return m.transposed(); }
+template<typename T>
+inline Mat4T<T> inverse(const Mat4T<T>& m) { return m.inverse(); }
+template<typename T>
+inline Mat4T<T> translate(const Mat4T<T>& m, const Vec3T<T>& t) {
+    return m * Mat4T<T>::translate(t);
+}
+template<typename T>
+inline Mat4T<T> scale(const Mat4T<T>& m, const Vec3T<T>& s) {
+    return m * Mat4T<T>::scale(s);
+}
+template<typename T>
+inline Mat4T<T> perspective(T fovY, T aspect, T zNear, T zFar) {
+    return Mat4T<T>::perspective(fovY, aspect, zNear, zFar);
+}
+template<typename T>
+inline Mat4T<T> ortho(T left, T right, T bottom, T top, T zNear, T zFar) {
+    return Mat4T<T>::ortho(left, right, bottom, top, zNear, zFar);
+}
 
 // ---------- value_ptr（glm 等价的 raw 指针访问）----------
 

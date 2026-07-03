@@ -7,6 +7,8 @@
 #pragma once
 
 #include "geo_math.h"
+#include "vec2.h"
+#include "vec3.h"
 
 #include <cmath>
 
@@ -20,7 +22,15 @@ struct Vec4T {
     T w{};
 
     constexpr Vec4T() = default;
+    explicit constexpr Vec4T(T v) : x(v), y(v), z(v), w(v) {}
     constexpr Vec4T(T x_, T y_, T z_, T w_) : x(x_), y(y_), z(z_), w(w_) {}
+    constexpr Vec4T(const Vec2T<T>& xy, T z_, T w_) : x(xy.x), y(xy.y), z(z_), w(w_) {}
+    constexpr Vec4T(const Vec3T<T>& xyz, T w_) : x(xyz.x), y(xyz.y), z(xyz.z), w(w_) {}
+
+    template<typename U>
+    explicit constexpr Vec4T(const Vec4T<U>& v)
+        : x(static_cast<T>(v.x)), y(static_cast<T>(v.y)),
+          z(static_cast<T>(v.z)), w(static_cast<T>(v.w)) {}
 
     T&       operator[](int i)       { return data()[i]; }
     const T& operator[](int i) const { return data()[i]; }
@@ -39,6 +49,8 @@ struct Vec4T {
 
     /// 点乘
     constexpr T dot(const Vec4T& o) const { return x * o.x + y * o.y + z * o.z + w * o.w; }
+
+    constexpr Vec3T<T> xyz() const { return Vec3T<T>(x, y, z); }
 
 private:
     T*       data()       { return &x; }
@@ -77,6 +89,20 @@ constexpr bool operator!=(const Vec4T<T>& a, const Vec4T<T>& b) { return !(a == 
 
 template<typename T>
 constexpr T dot(const Vec4T<T>& a, const Vec4T<T>& b) { return a.dot(b); }
+template<typename T>
+T length(const Vec4T<T>& v) { return v.length(); }
+template<typename T>
+constexpr T length2(const Vec4T<T>& v) { return v.lengthSq(); }
+template<typename T>
+Vec4T<T> normalize(const Vec4T<T>& v) {
+    T len = v.length();
+    return (len > T(0)) ? v / len : Vec4T<T>{};
+}
+
+template<typename T>
+template<typename U>
+constexpr Vec3T<T>::Vec3T(const Vec4T<U>& v)
+    : x(static_cast<T>(v.x)), y(static_cast<T>(v.y)), z(static_cast<T>(v.z)) {}
 
 // ---------- 别名 ----------
 using Vec4  = Vec4T<double>;

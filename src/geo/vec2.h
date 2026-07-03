@@ -20,7 +20,12 @@ struct Vec2T {
 
     // ---------- 构造 ----------
     constexpr Vec2T() = default;
+    explicit constexpr Vec2T(T v) : x(v), y(v) {}
     constexpr Vec2T(T x_, T y_) : x(x_), y(y_) {}
+
+    template<typename U>
+    explicit constexpr Vec2T(const Vec2T<U>& v)
+        : x(static_cast<T>(v.x)), y(static_cast<T>(v.y)) {}
 
     // ---------- 下标 ----------
     T&       operator[](int i)       { return (i == 0) ? x : y; }
@@ -43,6 +48,11 @@ struct Vec2T {
     Vec2T normalized() const {
         T len = length();
         return (len > T(0)) ? Vec2T(x / len, y / len) : Vec2T{};
+    }
+
+    Vec2T normalizedOr(const Vec2T& fallback) const {
+        T len = length();
+        return (len > T(0)) ? Vec2T(x / len, y / len) : fallback;
     }
 
     /// 点乘
@@ -104,12 +114,28 @@ constexpr Vec2T<T> lerp(const Vec2T<T>& a, const Vec2T<T>& b, T t) { return a.le
 
 template<typename T>
 T distance(const Vec2T<T>& a, const Vec2T<T>& b) { return a.distanceTo(b); }
+template<typename T>
+T length(const Vec2T<T>& v) { return v.length(); }
 /// 平方长度（glm length2 等价）
 template<typename T>
 constexpr T length2(const Vec2T<T>& v) { return v.lengthSq(); }
 /// 平方距离（glm distance2 等价）
 template<typename T>
 constexpr T distance2(const Vec2T<T>& a, const Vec2T<T>& b) { return a.distanceSqTo(b); }
+template<typename T>
+Vec2T<T> normalize(const Vec2T<T>& v) { return v.normalized(); }
+template<typename T>
+constexpr Vec2T<T> min(const Vec2T<T>& a, const Vec2T<T>& b) {
+    return Vec2T<T>(geo::min(a.x, b.x), geo::min(a.y, b.y));
+}
+template<typename T>
+constexpr Vec2T<T> max(const Vec2T<T>& a, const Vec2T<T>& b) {
+    return Vec2T<T>(geo::max(a.x, b.x), geo::max(a.y, b.y));
+}
+template<typename T>
+constexpr Vec2T<T> clamp(const Vec2T<T>& v, const Vec2T<T>& lo, const Vec2T<T>& hi) {
+    return Vec2T<T>(geo::clamp(v.x, lo.x, hi.x), geo::clamp(v.y, lo.y, hi.y));
+}
 
 // ---------- 别名 ----------
 using Vec2  = Vec2T<double>;

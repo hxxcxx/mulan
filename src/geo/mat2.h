@@ -20,6 +20,8 @@ struct Mat2T {
     Vec2T<T> cols[2]{ Vec2T<T>(T(1), T(0)), Vec2T<T>(T(0), T(1)) };
 
     constexpr Mat2T() = default;
+    explicit constexpr Mat2T(T diagonal)
+        : cols{Vec2T<T>(diagonal, T(0)), Vec2T<T>(T(0), diagonal)} {}
     constexpr Mat2T(const Vec2T<T>& c0, const Vec2T<T>& c1) : cols{c0, c1} {}
 
     Vec2T<T>&       operator[](int c)       { return cols[c]; }
@@ -78,5 +80,10 @@ constexpr Mat2T<T> operator*(const Mat2T<T>& a, const Mat2T<T>& b) {
 // ---------- 别名 ----------
 using Mat2  = Mat2T<double>;
 using FMat2 = Mat2T<float>;
+
+template<typename T>
+inline Mat2T<T> transpose(const Mat2T<T>& m) { return m.transposed(); }
+template<typename T>
+inline Mat2T<T> inverse(const Mat2T<T>& m) { return m.inverse(); }
 
 } // namespace mulan::geo

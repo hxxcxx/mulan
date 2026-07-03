@@ -14,6 +14,8 @@
 
 namespace mulan::geo {
 
+template<typename T> struct Mat4T;
+
 template<typename T>
 struct Mat3T {
     Vec3T<T> cols[3]{
@@ -23,8 +25,19 @@ struct Mat3T {
     };
 
     constexpr Mat3T() = default;
+    explicit constexpr Mat3T(T diagonal)
+        : cols{Vec3T<T>(diagonal, T(0), T(0)),
+               Vec3T<T>(T(0), diagonal, T(0)),
+               Vec3T<T>(T(0), T(0), diagonal)} {}
     constexpr Mat3T(const Vec3T<T>& c0, const Vec3T<T>& c1, const Vec3T<T>& c2)
         : cols{c0, c1, c2} {}
+
+    template<typename U>
+    explicit constexpr Mat3T(const Mat3T<U>& m)
+        : cols{Vec3T<T>(m[0]), Vec3T<T>(m[1]), Vec3T<T>(m[2])} {}
+
+    template<typename U>
+    explicit constexpr Mat3T(const Mat4T<U>& m);
 
     Vec3T<T>&       operator[](int c)       { return cols[c]; }
     const Vec3T<T>& operator[](int c) const { return cols[c]; }
@@ -34,7 +47,8 @@ struct Mat3T {
     /// 绕 axis（单位向量）旋转 rad 弧度（罗德里格斯公式）
     static Mat3T rotation(const Vec3T<T>& axis, T rad) {
         T c = std::cos(rad), s = std::sin(rad), t = T(1) - c;
-        T x = axis.x, y = axis.y, z = axis.z;
+        Vec3T<T> n = axis.normalizedOr(Vec3T<T>::unitZ());
+        T x = n.x, y = n.y, z = n.z;
         // 列主序
         return Mat3T(
             Vec3T<T>(t*x*x + c,   t*x*y + s*z, t*x*z - s*y),
@@ -104,5 +118,10 @@ constexpr Mat3T<T> operator*(const Mat3T<T>& a, const Mat3T<T>& b) {
 // ---------- 别名 ----------
 using Mat3  = Mat3T<double>;
 using FMat3 = Mat3T<float>;
+
+template<typename T>
+inline Mat3T<T> transpose(const Mat3T<T>& m) { return m.transposed(); }
+template<typename T>
+inline Mat3T<T> inverse(const Mat3T<T>& m) { return m.inverse(); }
 
 } // namespace mulan::geo

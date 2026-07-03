@@ -10,6 +10,7 @@
 
 #include "vec3.h"
 #include "mat3.h"
+#include "mat4.h"
 #include "geo_math.h"
 
 #include <cmath>
@@ -81,14 +82,19 @@ struct QuatT {
         return (n > T(0)) ? QuatT(w/n, x/n, y/n, z/n) : identity();
     }
 
+    QuatT normalizedOr(const QuatT& fallback) const {
+        T n = norm();
+        return (n > T(0)) ? QuatT(w/n, x/n, y/n, z/n) : fallback;
+    }
+
     // ---------- 旋转操作 ----------
 
     /// 旋转一个点/向量
     Vec3T<T> operator*(const Vec3T<T>& v) const {
         // v' = q * (0,v) * q^-1，优化版
         Vec3T<T> qv(x, y, z);
-        Vec3T<T> t = cross(qv, v) * (T(2) * w);
-        return v + cross(qv, t) + t * T(2);
+        Vec3T<T> t = cross(qv, v) * T(2);
+        return v + t * w + cross(qv, t);
     }
 
     /// 提取旋转轴与角度
@@ -189,5 +195,11 @@ template<typename T>
 inline QuatT<T> angleAxis(T angle, const Vec3T<T>& axis) {
     return QuatT<T>::fromAxisAngle(axis, angle);
 }
+template<typename T>
+inline QuatT<T> normalize(const QuatT<T>& q) { return q.normalized(); }
+template<typename T>
+inline Mat3T<T> mat3_cast(const QuatT<T>& q) { return q.toMat3(); }
+template<typename T>
+inline Mat4T<T> mat4_cast(const QuatT<T>& q) { return q.toMat4(); }
 
 } // namespace mulan::geo
