@@ -4,6 +4,7 @@
 #include <mulan/core/result/error.h>
 #include "../../engine_error_code.h"
 
+#include <deque>
 #include <string>
 
 namespace {
@@ -75,9 +76,10 @@ void DX12PipelineState::createRootSignature() {
             ++texBindingCount;
     }
 
-    // 为每个描述符表预分配 range（堆上分配以避免悬垂指针）
-    std::vector<D3D12_DESCRIPTOR_RANGE> texRanges;
-    texRanges.reserve(texBindingCount);
+    // 用 deque 持有 descriptor range：deque 的 push_back 不会搬迁既有元素，
+    // 因此 &texRanges.back() 指针在后续 push_back 后仍然有效。
+    // （vector 会因扩容整体搬迁内存，使之前记录的 pDescriptorRanges 失效。）
+    std::deque<D3D12_DESCRIPTOR_RANGE> texRanges;
 
     std::vector<D3D12_ROOT_PARAMETER> rootParams;
     rootParams.reserve(desc_.descriptorBindingCount);
@@ -113,7 +115,7 @@ void DX12PipelineState::createRootSignature() {
 
             param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
             param.DescriptorTable.NumDescriptorRanges = 1;
-            // 指针在 push_back 后仍然有效，因为 texRanges 在此函数作用域内
+            // texRanges 是 deque，back() 指针在后续 push_back 后仍有效（见上方说明）
             param.DescriptorTable.pDescriptorRanges = &texRanges.back();
             param.ShaderVisibility = visibility;
             break;

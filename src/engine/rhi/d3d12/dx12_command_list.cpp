@@ -130,12 +130,10 @@ void DX12CommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
 
 void DX12CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset,
                                     uint32_t drawCount, uint32_t /*stride*/) {
-    auto* dx12Buf = static_cast<DX12Buffer*>(argsBuffer);
-    // CommandSignature 需要预创建（按 PSO index 格式），暂时用 nullptr
-    // TODO: 在 DX12Device 中维护 CommandSignature cache
-    cmd_list_->ExecuteIndirect(nullptr, drawCount,
-                               dx12Buf->resource(), offset,
-                               nullptr, 0);
+    // 未实现：需要一个预创建的 ID3D12CommandSignature（按 DrawIndexed 的参数格式）。
+    // 当前调用方均为零，此处诚实暴露而非静默 device removed。
+    (void)argsBuffer; (void)offset; (void)drawCount;
+    assert(false && "drawIndirect not implemented on D3D12 backend");
 }
 
 void DX12CommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY,
@@ -144,10 +142,9 @@ void DX12CommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY,
 }
 
 void DX12CommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
-    auto* dx12Buf = static_cast<DX12Buffer*>(argsBuffer);
-    cmd_list_->ExecuteIndirect(nullptr, 1,
-                               dx12Buf->resource(), offset,
-                               nullptr, 0);
+    // 未实现：需要一个预创建的 ID3D12CommandSignature（按 Dispatch 的参数格式）。
+    (void)argsBuffer; (void)offset;
+    assert(false && "dispatchIndirect not implemented on D3D12 backend");
 }
 
 void DX12CommandList::setPushConstants(uint32_t offset, uint32_t size,
@@ -213,14 +210,12 @@ void DX12CommandList::setDescriptorHeap(ID3D12DescriptorHeap* heap,
 }
 
 void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState) {
-    auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource   = dx12Buf->resource();
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_GENERIC_READ;  // 简化
-    barrier.Transition.StateAfter  = toDX12ResourceStates(newState);
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmd_list_->ResourceBarrier(1, &barrier);
+    // 未实现：buffer 资源状态当前未跟踪（DX12Buffer 无 state_ 字段，与 Texture 不同）。
+    // 之前的实现把 StateBefore 写死 GENERIC_READ，对 staging/COPY_DEST 等是错的。
+    // 当前无调用方；要正确实现需先给 DX12Buffer 加状态跟踪。
+    (void)buffer; (void)newState;
+    assert(false && "transitionResource(Buffer*) not implemented: "
+                    "DX12Buffer lacks per-resource state tracking");
 }
 
 void DX12CommandList::transitionResource(Texture* texture, ResourceState newState) {
@@ -239,31 +234,71 @@ void DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     auto* dx12Tex = static_cast<DX12Texture*>(src);
     auto* dx12Buf = static_cast<DX12Buffer*>(dst);
 
-    D3D12_RESOURCE_BARRIER barriers[2] = {};
-    barriers[0].Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barriers[0].Transition.pResource   = dx12Tex->resource();
-    barriers[0].Transition.StateBefore = dx12Tex->state();
-    barriers[0].Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    barriers[0].Transition.Subresource = 0;
-    cmd_list_->ResourceBarrier(1, &barriers[0]);
+    // 取 device 用于 GetCopyableFootprints（与 bindResources 同模式）
+    ID3D12Device* device = nullptr;
+    cmd_list_->GetDevice(IID_PPV_ARGS(&device));
+    if (!device) return;
+
+    // 构建与纹理一致的 resource desc，用于计算可拷贝的 footprint
+    const auto& td = dx12Tex->desc();
+    D3D12_RESOURCE_DESC texDesc = {};
+    texDesc.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    texDesc.Alignment        = 0;
+    texDesc.Width            = td.width;
+    texDesc.Height           = td.height;
+    texDesc.DepthOrArraySize = 1;
+    texDesc.MipLevels        = 1;
+    texDesc.Format           = toDXGIFormat(td.format);
+    texDesc.SampleDesc.Count = 1;
+    texDesc.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    texDesc.Flags            = D3D12_RESOURCE_FLAG_NONE;
+
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
+    UINT numRows = 0;
+    UINT64 rowSizeInBytes = 0;
+    UINT64 totalSize = 0;
+    device->GetCopyableFootprints(&texDesc, 0, 1, 0, &footprint,
+                                  &numRows, &rowSizeInBytes, &totalSize);
+    device->Release();
+
+    // src texture: COMMON/COPY_DEST → COPY_SOURCE
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource   = dx12Tex->resource();
+    barrier.Transition.StateBefore = dx12Tex->state();
+    barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_SOURCE;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    cmd_list_->ResourceBarrier(1, &barrier);
+
+    // dst buffer: GENERIC_READ → COPY_DEST
+    D3D12_RESOURCE_BARRIER bufBarrier = {};
+    bufBarrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    bufBarrier.Transition.pResource   = dx12Buf->resource();
+    bufBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
+    bufBarrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
+    bufBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    cmd_list_->ResourceBarrier(1, &bufBarrier);
 
     D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
-    srcLoc.Type            = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    srcLoc.pResource       = dx12Tex->resource();
+    srcLoc.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    srcLoc.pResource        = dx12Tex->resource();
     srcLoc.SubresourceIndex = 0;
 
     D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
-    dstLoc.Type          = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-    dstLoc.pResource     = dx12Buf->resource();
-    // 需要设备来 GetCopyableFootprints — 简化处理
-    // 实际实现中需要计算 footprint
+    dstLoc.Type            = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    dstLoc.pResource       = dx12Buf->resource();
+    dstLoc.PlacedFootprint = footprint;
 
-    // 简化：使用 buffer 到 buffer 拷贝
-    cmd_list_->CopyResource(dx12Buf->resource(), dx12Tex->resource());
+    cmd_list_->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
 
-    barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    barriers[0].Transition.StateAfter  = dx12Tex->state();
-    cmd_list_->ResourceBarrier(1, &barriers[0]);
+    // 还原状态
+    bufBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+    bufBarrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COMMON;
+    cmd_list_->ResourceBarrier(1, &bufBarrier);
+
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+    barrier.Transition.StateAfter  = dx12Tex->state();
+    cmd_list_->ResourceBarrier(1, &barrier);
 }
 
 void DX12CommandList::clearColor(float r, float g, float b, float a) {

@@ -30,6 +30,18 @@ void DocumentSession::syncRenderScene() {
     render_scene_.sync(*document_->scene(), *document_->assets());
 }
 
+void DocumentSession::requestRefresh() {
+    syncRenderScene();
+
+    // 重新把派生出的 RenderScene 注入视图（指针值不变，内容已更新），
+    // 然后渲染一帧。若视图未 attach（如离屏尚未初始化），仅同步、不重绘。
+    if (view_context_) {
+        if (document_)
+            view_context_->setRenderScene(&render_scene_, document_->assets());
+        view_context_->renderFrame();
+    }
+}
+
 void DocumentSession::attachViewContext(mulan::view::ViewContext* runtime) {
     if (view_context_) detachViewContext();
     view_context_ = runtime;

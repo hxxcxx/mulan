@@ -33,6 +33,12 @@ public:
 
     void syncRenderScene();
 
+    /// 把 Scene 的变更传播到 RenderScene 并触发一帧重绘。
+    /// 在任何修改 Document 内容（如 scene()->setVisible/setGeometry/...）之后调用。
+    /// 这是接通"文档变更 → 视图更新"链路的标准入口：Scene 的 EntityDirty 标记
+    /// 在此被消费（当前为全量 resync，未来可改为增量）。
+    void requestRefresh();
+
     mulan::render_scene::RenderScene& renderScene() { return render_scene_; }
     const mulan::render_scene::RenderScene& renderScene() const { return render_scene_; }
 
