@@ -125,14 +125,7 @@ void ViewContext::cleanup() {
 void ViewContext::renderFrame() {
     if (!initialized_) return;
 
-    ViewState viewState;
-    viewState.viewMatrix       = camera_.viewMatrix();
-    viewState.projectionMatrix = camera_.projectionMatrix();
-    viewState.cameraPosition   = camera_.eyePosition();
-    viewState.width            = width_;
-    viewState.height           = height_;
-
-    renderer_.render(*device_, surface_, viewState);
+    renderer_.render(*device_, surface_, buildViewState());
     onFrameEnd();
 }
 
@@ -197,6 +190,20 @@ engine::Operator* ViewContext::activeOperator() const {
 bool ViewContext::readbackPixels(std::vector<uint8_t>& pixels) {
     if (!device_) return false;
     return surface_.readbackPixels(*device_, pixels);
+}
+
+ViewState ViewContext::buildViewState() const {
+    ViewState state;
+    state.viewMatrix = camera_.viewMatrix();
+    state.projectionMatrix = camera_.projectionMatrix();
+    state.cameraPosition = camera_.eyePosition();
+    state.width = width_;
+    state.height = height_;
+    state.renderMode = render_mode_;
+    state.showFaces = render_mode_ != RenderMode::Wireframe;
+    state.showEdges = render_mode_ != RenderMode::Shaded;
+    state.showViewCube = show_view_cube_;
+    return state;
 }
 
 } // namespace mulan::view

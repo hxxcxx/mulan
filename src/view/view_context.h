@@ -1,16 +1,13 @@
 /**
  * @file view_context.h
- * @brief ViewContext 是消费 RenderScene 的视图运行时
- *
- * 持有 RHIDevice、RenderSurface、Camera、Renderer 和交互 Operator。
- * 渲染执行（RenderGraph / draw command / GPU 资源缓存）已下沉到 Renderer。
+ * @brief ViewContext 管理视图状态、相机和交互，并生成 ViewState。
  */
-
 #pragma once
 
 #include "render_surface.h"
 #include "renderer.h"
 #include "view_config.h"
+#include "view_state.h"
 
 #include "mulan/engine/interaction/camera_manipulator.h"
 #include "mulan/engine/interaction/input_event.h"
@@ -70,6 +67,12 @@ public:
     engine::LightEnvironment& lightEnvironment() { return light_env_; }
     const engine::LightEnvironment& lightEnvironment() const { return light_env_; }
 
+    RenderMode renderMode() const { return render_mode_; }
+    void setRenderMode(RenderMode mode) { render_mode_ = mode; }
+
+    bool showViewCube() const { return show_view_cube_; }
+    void setShowViewCube(bool show) { show_view_cube_ = show; }
+
     RenderSurface& surface() { return surface_; }
     const RenderSurface& surface() const { return surface_; }
 
@@ -77,6 +80,7 @@ public:
 
 private:
     bool initRendering();
+    ViewState buildViewState() const;
     void cleanup();
 
     std::shared_ptr<engine::RHIDevice> device_;
@@ -92,6 +96,8 @@ private:
     std::vector<std::unique_ptr<engine::Operator>> op_stack_;
 
     engine::LightEnvironment light_env_;
+    RenderMode render_mode_ = RenderMode::ShadedWithEdges;
+    bool show_view_cube_ = true;
 
     int width_ = 800;
     int height_ = 600;

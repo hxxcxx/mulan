@@ -10,7 +10,7 @@ RenderResourceCache::RenderResourceCache(RHIDevice& device)
     : device_(device) {
 }
 
-void RenderResourceCache::uploadFaceMesh(uint64_t key, const Mesh& mesh) {
+void RenderResourceCache::uploadFaceGeometry(uint64_t key, const Mesh& mesh) {
     auto result = createGpuBuffer(device_, mesh);
     if (!result) {
         return;
@@ -18,7 +18,7 @@ void RenderResourceCache::uploadFaceMesh(uint64_t key, const Mesh& mesh) {
     face_geos_[key] = std::move(*result);
 }
 
-void RenderResourceCache::uploadEdgeMesh(uint64_t key, const Mesh& mesh) {
+void RenderResourceCache::uploadEdgeGeometry(uint64_t key, const Mesh& mesh) {
     auto result = createGpuBuffer(device_, mesh);
     if (!result) {
         return;
@@ -66,7 +66,7 @@ RenderResourceCache::createGpuBuffer(RHIDevice& device, const Mesh& mesh) {
     if (geo.vertexCount > 0 && !mesh.vertices.empty()) {
         uint32_t size = static_cast<uint32_t>(mesh.vertices.size());
         auto vb = device.createBuffer(
-            BufferDesc::vertex(size, mesh.vertices.data(), "WorldVB"));
+            BufferDesc::vertex(size, mesh.vertices.data(), "RenderGeometryVB"));
         if (!vb) return std::unexpected(vb.error());
         geo.vertexBuffer = std::move(*vb);
     }
@@ -74,7 +74,7 @@ RenderResourceCache::createGpuBuffer(RHIDevice& device, const Mesh& mesh) {
     if (geo.indexCount > 0 && !mesh.indices.empty()) {
         uint32_t size = static_cast<uint32_t>(mesh.indices.size());
         auto ib = device.createBuffer(
-            BufferDesc::index(size, mesh.indices.data(), "WorldIB"));
+            BufferDesc::index(size, mesh.indices.data(), "RenderGeometryIB"));
         if (!ib) return std::unexpected(ib.error());
         geo.indexBuffer = std::move(*ib);
     }

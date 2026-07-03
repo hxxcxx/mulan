@@ -1,17 +1,9 @@
 /**
  * @file render_resource_cache.h
- * @brief RenderResourceCache —— 渲染资源缓存，按 uint64_t key 索引 GpuGeometry
- *
- * 设计原则：
- * - 缓存 CPU 侧 Mesh 对应的 GPU buffer（face / edge 两类几何）
- * - 不叫 Manager，不变成全局单例，不拥有文档资产
- * - key 为 uint64_t（对应 entity id，但此处不作领域假设）
- * - 构造函数传入 RHIDevice，Buffer 创建时自动上传
- *
+ * @brief RenderResourceCache 按资源 key 缓存渲染用 GPU 几何资源。
  * @author hxxcxx
  * @date 2026-05-29
  */
-
 #pragma once
 
 #include "../geometry/mesh.h"
@@ -31,8 +23,8 @@ class RenderResourceCache {
 public:
     explicit RenderResourceCache(RHIDevice& device);
 
-    void uploadFaceMesh(uint64_t key, const Mesh& mesh);
-    void uploadEdgeMesh(uint64_t key, const Mesh& mesh);
+    void uploadFaceGeometry(uint64_t key, const Mesh& mesh);
+    void uploadEdgeGeometry(uint64_t key, const Mesh& mesh);
     void releaseResource(uint64_t key);
 
     bool hasResource(uint64_t key) const;

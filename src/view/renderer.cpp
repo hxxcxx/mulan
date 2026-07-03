@@ -17,6 +17,7 @@
 #include "mulan/engine/render/viewcube/view_cube_renderer.h"
 
 #include <cstdio>
+#include <span>
 
 namespace mulan::view {
 
@@ -84,8 +85,11 @@ void Renderer::render(engine::RHIDevice& device,
                          fwd ? fwd->pipelineState() : nullptr,
                          edge ? edge->pipelineState() : nullptr);
 
-    if (fwd)  fwd->setDrawCommands(builder_.faceCommands());
-    if (edge) edge->setDrawCommands(builder_.edgeCommands());
+    const std::span<const engine::MeshDrawCommand> emptyCommands;
+    if (fwd)
+        fwd->setDrawCommands(viewState.showFaces ? builder_.faceCommands() : emptyCommands);
+    if (edge)
+        edge->setDrawCommands(viewState.showEdges ? builder_.edgeCommands() : emptyCommands);
 
     auto* sc = surface.swapChain();
     auto* rt = surface.renderTarget();
@@ -123,7 +127,7 @@ void Renderer::render(engine::RHIDevice& device,
     ctx.camera.eyePosition      = viewState.cameraPosition;
     render_graph_.execute(ctx);
 
-    if (view_cube_renderer_) {
+    if (viewState.showViewCube && view_cube_renderer_) {
         view_cube_renderer_->render(cmd, viewState.viewMatrix,
                                     static_cast<uint32_t>(viewState.width),
                                     static_cast<uint32_t>(viewState.height));

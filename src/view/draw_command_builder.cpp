@@ -16,7 +16,7 @@ void DrawCommandBuilder::setScene(const render_scene::RenderScene* scene,
     assets_ = assets;
 }
 
-void DrawCommandBuilder::rebuild(engine::RenderResourceCache& gpu,
+void DrawCommandBuilder::rebuild(engine::RenderResourceCache& resources,
                                  engine::PipelineState* facePso,
                                  engine::PipelineState* edgePso) {
     clear();
@@ -44,10 +44,10 @@ void DrawCommandBuilder::rebuild(engine::RenderResourceCache& gpu,
 
         const uint64_t key = proxy.geometry.value;
         if (faceMesh && !faceMesh->empty()) {
-            if (!gpu.faceGeometry(key))
-                gpu.uploadFaceMesh(key, *faceMesh);
+            if (!resources.faceGeometry(key))
+                resources.uploadFaceGeometry(key, *faceMesh);
 
-            if (const auto* geo = gpu.faceGeometry(key)) {
+            if (const auto* geo = resources.faceGeometry(key)) {
                 engine::MeshDrawCommand cmd;
                 cmd.pipelineState = facePso;
                 cmd.vertexBuffer = geo->vertexBuffer.get();
@@ -66,10 +66,10 @@ void DrawCommandBuilder::rebuild(engine::RenderResourceCache& gpu,
         }
 
         if (edgeMesh && !edgeMesh->empty()) {
-            if (!gpu.edgeGeometry(key))
-                gpu.uploadEdgeMesh(key, *edgeMesh);
+            if (!resources.edgeGeometry(key))
+                resources.uploadEdgeGeometry(key, *edgeMesh);
 
-            if (const auto* geo = gpu.edgeGeometry(key)) {
+            if (const auto* geo = resources.edgeGeometry(key)) {
                 engine::MeshDrawCommand cmd;
                 cmd.pipelineState = edgePso;
                 cmd.vertexBuffer = geo->vertexBuffer.get();
