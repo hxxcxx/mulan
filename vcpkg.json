@@ -6,11 +6,6 @@
         "vulkan",
         "vulkan-memory-allocator",
         "stb",
-        "glm",
-        {
-            "name": "glad",
-            "features": ["gl-api-46", "wgl", "loader"]
-        },
         "nlohmann-json",
         "assimp",
         "spdlog",

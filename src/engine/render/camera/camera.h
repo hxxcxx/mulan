@@ -157,7 +157,7 @@ public:
         Vec4 farPt (ndcX, ndcY,  1.0, 1.0);
 
         // 逆 VP 变换到世界空间
-        Mat4 invVP = glm::inverse(viewProjectionMatrix());
+        Mat4 invVP = inverse(viewProjectionMatrix());
 
         Vec4 nearWorld = invVP * nearPt;
         nearWorld /= nearWorld.w;
@@ -165,7 +165,7 @@ public:
         farWorld /= farWorld.w;
 
         Vec3 origin = Vec3(nearWorld);
-        Vec3 dir = glm::normalize(Vec3(farWorld) - origin);
+        Vec3 dir = normalize(Vec3(farWorld) - origin);
         return Ray{origin, dir};
     }
 
@@ -175,9 +175,9 @@ public:
                                                   const Vec3& planeNormal,
                                                   double planeDistance)
     {
-        double denom = glm::dot(planeNormal, ray.direction);
+        double denom = dot(planeNormal, ray.direction);
         if (std::abs(denom) < 1e-8) return std::nullopt;
-        double t = (planeDistance - glm::dot(planeNormal, ray.origin)) / denom;
+        double t = (planeDistance - dot(planeNormal, ray.origin)) / denom;
         if (t < 0) return std::nullopt;
         return ray.origin + t * ray.direction;
     }

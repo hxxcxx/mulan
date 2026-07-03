@@ -66,9 +66,6 @@ target_include_directories(Engine PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
 )
 
-# --- GLM (header-only math library) ---
-find_package(glm CONFIG REQUIRED)
-
 # --- Vulkan ---
 find_package(Vulkan REQUIRED)
 
@@ -80,7 +77,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 target_link_libraries(Engine PUBLIC
     Core
-    glm::glm
+    Geo
     Vulkan::Vulkan
     GPUOpen::VulkanMemoryAllocator
     nlohmann_json::nlohmann_json

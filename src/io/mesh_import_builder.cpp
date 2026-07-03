@@ -41,7 +41,7 @@ engine::Mesh buildStandardMesh(const StandardMeshSource& source) {
             i < source.normals.size() ? source.normals[i] : engine::FVec3(0.0f, 0.0f, 1.0f);
         vertices.setNormal(i, normal.x, normal.y, normal.z);
 
-        const glm::vec2 uv = i < source.texcoords.size() ? source.texcoords[i] : glm::vec2(0.0f);
+        const engine::FVec2 uv = i < source.texcoords.size() ? source.texcoords[i] : engine::FVec2(0.0f);
         float uvData[2] = {uv.x, uv.y};
         vertices.write(i, engine::VertexSemantic::TexCoord0, uvData);
     }

@@ -81,7 +81,7 @@ void Camera::zoom(double delta) {
 
 void Camera::fitToBox(const AABB& box, double padding) {
     target_ = box.center();
-    double radius = glm::length(box.max - box.min) * 0.5;
+    double radius = length(box.max - box.min) * 0.5;
 
     if (ortho_) {
         ortho_size_ = radius * padding;
@@ -124,9 +124,9 @@ Mat4 Camera::viewMatrix() const {
     Vec3 eye = target_ - fwd * distance_;
 
     Mat4 v(1.0);
-    v[0][0] = r.x;    v[1][0] = r.y;    v[2][0] = r.z;    v[3][0] = -glm::dot(r, eye);
-    v[0][1] = u.x;    v[1][1] = u.y;    v[2][1] = u.z;    v[3][1] = -glm::dot(u, eye);
-    v[0][2] = -fwd.x; v[1][2] = -fwd.y; v[2][2] = -fwd.z; v[3][2] = glm::dot(fwd, eye);
+    v[0][0] = r.x;    v[1][0] = r.y;    v[2][0] = r.z;    v[3][0] = -dot(r, eye);
+    v[0][1] = u.x;    v[1][1] = u.y;    v[2][1] = u.z;    v[3][1] = -dot(u, eye);
+    v[0][2] = -fwd.x; v[1][2] = -fwd.y; v[2][2] = -fwd.z; v[3][2] = dot(fwd, eye);
     v[0][3] = 0;      v[1][3] = 0;      v[2][3] = 0;      v[3][3] = 1;
     return v;
 }
@@ -135,9 +135,9 @@ Mat4 Camera::projectionMatrix() const {
     if (ortho_) {
         double h = ortho_size_;
         double w = h * aspect();
-        return glm::ortho(-w, w, -h, h, near_z_, far_z_);
+        return ortho(-w, w, -h, h, near_z_, far_z_);
     }
-    return glm::perspective(fov_y_, aspect(), near_z_, far_z_);
+    return perspective(fov_y_, aspect(), near_z_, far_z_);
 }
 
 Mat4 Camera::viewProjectionMatrix() const {

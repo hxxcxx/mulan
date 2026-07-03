@@ -1,45 +1,57 @@
 /**
  * @file math.h
- * @brief GLM 集成 — 统一数学类型别名与常用函数
+ * @brief Engine math facade backed by mulan::geo.
  *
- * 场景/应用层使用 double 精度 (dvec3/dmat4/dquat)
- * 渲染层上传 GPU 时转换为 float (glm::mat4)
- *
- * @author hxxcxx
- * @date 2026-04-20
+ * Keep engine::Vec3/Mat4/etc. as the stable public names while the underlying
+ * implementation moves from GLM to the project-owned geo module.
  */
-
 #pragma once
 
-// GLM 配置
-#define GLM_FORCE_CTOR_INIT           // 确保默认构造零初始化
-#define GLM_ENABLE_EXPERIMENTAL       // 启用 GTX 扩展
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/matrix_inverse.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtc/type_ptr.hpp>       // value_ptr
-#include <glm/gtx/norm.hpp>           // length2, distance2
-#include <glm/gtx/quaternion.hpp>     // angleAxis, quat casting
+#include <mulan/geo/geo.h>
 
 namespace mulan::engine {
 
-// ============================================================
-// 场景层类型别名 — double 精度
-// ============================================================
-using Vec3 = glm::dvec3;
-using Vec4 = glm::dvec4;
-using Mat3 = glm::dmat3;
-using Mat4 = glm::dmat4;
-using Quat = glm::dquat;
+using Vec2 = geo::Vec2;
+using Vec3 = geo::Vec3;
+using Vec4 = geo::Vec4;
+using Mat2 = geo::Mat2;
+using Mat3 = geo::Mat3;
+using Mat4 = geo::Mat4;
+using Quat = geo::Quat;
 
-// ============================================================
-// 渲染层类型别名 — float 精度（GPU 友好）
-// ============================================================
-using FVec3 = glm::vec3;
-using FVec4 = glm::vec4;
-using FMat4 = glm::mat4;
-using FQuat = glm::quat;
+using FVec2 = geo::FVec2;
+using FVec3 = geo::FVec3;
+using FVec4 = geo::FVec4;
+using FMat2 = geo::FMat2;
+using FMat3 = geo::FMat3;
+using FMat4 = geo::FMat4;
+using FQuat = geo::FQuat;
+
+using geo::angleAxis;
+using geo::clamp;
+using geo::cross;
+using geo::degrees;
+using geo::distance;
+using geo::distance2;
+using geo::dot;
+using geo::inverse;
+using geo::kHalfPi;
+using geo::kPi;
+using geo::kPi2;
+using geo::length;
+using geo::length2;
+using geo::lerp;
+using geo::mat3_cast;
+using geo::mat4_cast;
+using geo::max;
+using geo::min;
+using geo::normalize;
+using geo::ortho;
+using geo::perspective;
+using geo::radians;
+using geo::scale;
+using geo::translate;
+using geo::transpose;
+using geo::value_ptr;
 
 } // namespace mulan::engine

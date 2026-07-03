@@ -132,7 +132,7 @@ void GeometryPass::uploadSceneUBO(const PassContext& ctx) {
     Mat4 vp   = clip * proj * view;
     Vec3 eye  = ctx.camera.eyePosition;
     auto* dl  = light_env_.primaryDirectional();
-    Vec3 ldir = dl ? glm::normalize(dl->direction) : Vec3(-0.3, -1.0, -0.4);
+    Vec3 ldir = dl ? normalize(dl->direction) : Vec3(-0.3, -1.0, -0.4);
 
     auto storeMat = [](float* dst, const Mat4& m) {
         for (int c = 0; c < 4; ++c)

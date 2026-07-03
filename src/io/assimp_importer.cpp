@@ -36,7 +36,7 @@ engine::FVec3 toFVec3(const aiVector3D& value) {
     return {value.x, value.y, value.z};
 }
 
-glm::vec2 toTexcoord(const aiVector3D& value) {
+engine::FVec2 toTexcoord(const aiVector3D& value) {
     return {value.x, value.y};
 }
 
@@ -181,7 +181,7 @@ std::vector<asset::AssetId> importMaterials(const aiScene& scene,
 engine::Mesh buildMesh(const aiMesh& source) {
     std::vector<engine::FVec3> positions;
     std::vector<engine::FVec3> normals;
-    std::vector<glm::vec2> texcoords;
+    std::vector<engine::FVec2> texcoords;
     std::vector<uint32_t> indices;
 
     positions.reserve(source.mNumVertices);
@@ -195,7 +195,7 @@ engine::Mesh buildMesh(const aiMesh& source) {
             : engine::FVec3(0.0f, 0.0f, 1.0f));
         texcoords.push_back(source.HasTextureCoords(0)
             ? toTexcoord(source.mTextureCoords[0][i])
-            : glm::vec2(0.0f));
+            : engine::FVec2(0.0f));
     }
 
     indices.reserve(static_cast<size_t>(source.mNumFaces) * 3);
@@ -212,7 +212,7 @@ engine::Mesh buildMesh(const aiMesh& source) {
     return buildStandardMesh(StandardMeshSource{
         .positions = std::span<const engine::FVec3>{positions},
         .normals = std::span<const engine::FVec3>{normals},
-        .texcoords = std::span<const glm::vec2>{texcoords},
+        .texcoords = std::span<const engine::FVec2>{texcoords},
         .indices = std::span<const uint32_t>{indices},
         .topology = engine::PrimitiveTopology::TriangleList,
     });
@@ -389,7 +389,7 @@ AssimpImporter::import(const std::string& path,
     }
 
     const engine::Mat4 rootWorld =
-        glm::scale(engine::Mat4{1.0}, engine::Vec3(unitScale));
+        engine::scale(engine::Mat4{1.0}, engine::Vec3(unitScale));
     importNodeRecursive(*scene->mRootNode, doc, meshes, scene::EntityId::invalid(), rootWorld, result);
     auto nodeWarnings = std::move(result.report.warnings);
 

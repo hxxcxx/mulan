@@ -17,13 +17,13 @@ Vec3 TurntableRotation::forward() const {
 
 Vec3 TurntableRotation::right() const {
     Vec3 fwd = forward();
-    return glm::normalize(glm::cross(fwd, Vec3{0, 0, 1}));
+    return normalize(cross(fwd, Vec3{0, 0, 1}));
 }
 
 Vec3 TurntableRotation::up() const {
     Vec3 fwd = forward();
-    Vec3 r   = glm::normalize(glm::cross(fwd, Vec3{0, 0, 1}));
-    return glm::normalize(glm::cross(r, fwd));
+    Vec3 r   = normalize(cross(fwd, Vec3{0, 0, 1}));
+    return normalize(cross(r, fwd));
 }
 
 void TurntableRotation::orbitDelta(double dx, double dy) {

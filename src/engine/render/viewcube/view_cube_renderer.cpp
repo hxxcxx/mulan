@@ -458,9 +458,9 @@ void ViewCubeRenderer::render(CommandList* cmd, const Mat4& mainViewMatrix,
 
     // 正交投影：不受距离影响
     double orthoSize = 1.2;
-    Mat4 cubeProj = glm::ortho(-orthoSize, orthoSize,
-                                -orthoSize, orthoSize,
-                                0.1, 10.0);
+    Mat4 cubeProj = ortho(-orthoSize, orthoSize,
+                          -orthoSize, orthoSize,
+                          0.1, 10.0);
 
     // 应用 clip space 修正
     auto clip = device_->clipSpaceCorrectionMatrix();
@@ -472,7 +472,7 @@ void ViewCubeRenderer::render(CommandList* cmd, const Mat4& mainViewMatrix,
     std::memset(&sceneUbo, 0, sizeof(sceneUbo));
 
     auto storeMat4 = [](float* dst, const Mat4& src) {
-        const double* p = glm::value_ptr(src);
+        const double* p = value_ptr(src);
         for (int i = 0; i < 16; ++i)
             dst[i] = static_cast<float>(p[i]);
     };

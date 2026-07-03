@@ -51,7 +51,7 @@ struct ImportedMaterialDesc {
 struct StandardMeshSource {
     std::span<const engine::FVec3> positions;
     std::span<const engine::FVec3> normals;
-    std::span<const glm::vec2> texcoords;
+    std::span<const engine::FVec2> texcoords;
     std::span<const uint32_t> indices;
     engine::PrimitiveTopology topology = engine::PrimitiveTopology::TriangleList;
     bool force32BitIndices = false;
