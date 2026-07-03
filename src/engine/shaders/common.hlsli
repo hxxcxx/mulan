@@ -51,7 +51,7 @@ cbuffer Material : register(b2) {
 // 顶点输入 / 输出结构体
 // ============================================================
 
-// CAD 标准顶点: pos(3f) + normal(3f) + uv(2f) = 32 bytes
+// 标准表面顶点: pos(3f) + normal(3f) + uv(2f) = 32 bytes
 struct VS_INPUT {
     float3 position : POSITION;
     float3 normal   : NORMAL;

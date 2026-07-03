@@ -1,7 +1,7 @@
 /*
  * Solid 渲染 — 像素着色器
  * 双面 Lambertian + 环境光 + gamma 矫正
- * 参考 OCCT/FreeCAD 风格
+ * 参考中性实体视图风格
  */
 
 #include "common.hlsli"

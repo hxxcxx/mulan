@@ -74,7 +74,7 @@ bool ForwardPass::loadSolidShaders() {
 
 bool ForwardPass::createSolidPSO(TextureFormat colorFmt, TextureFormat depthFmt,
                                   bool hasDepth) {
-    VertexLayout vl = layouts::cadSolid();
+    VertexLayout vl = layouts::surface();
 
     GraphicsPipelineDesc desc{};
     desc.name             = "ForwardSolid";

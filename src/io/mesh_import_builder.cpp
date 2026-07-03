@@ -14,16 +14,6 @@
 namespace mulan::io {
 namespace {
 
-engine::VertexLayout standardMeshLayout() {
-    engine::VertexLayout layout;
-    layout.begin(1)
-        .add(engine::VertexSemantic::Position, engine::VertexFormat::Float3)
-        .add(engine::VertexSemantic::Normal, engine::VertexFormat::Float3)
-        .add(engine::VertexSemantic::TexCoord0, engine::VertexFormat::Float2)
-        .end();
-    return layout;
-}
-
 template<typename T>
 void appendValue(std::vector<std::byte>& bytes, const T& value) {
     const auto oldSize = bytes.size();
@@ -37,7 +27,7 @@ engine::Mesh buildStandardMesh(const StandardMeshSource& source) {
     if (source.positions.empty()) return {};
 
     engine::Mesh mesh;
-    mesh.layout = standardMeshLayout();
+    mesh.layout = engine::layouts::surface();
     mesh.topology = source.topology;
 
     engine::VertexBufferBuilder vertices(mesh.layout,

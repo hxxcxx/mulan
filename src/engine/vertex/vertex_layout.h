@@ -141,10 +141,10 @@ constexpr uint8_t indexTypeSize(IndexType t) {
 }
 
 // ============================================================
-// 预定义 CAD 顶点布局
+// 预定义顶点布局
 //
-// CAD 查看器所需的全部布局。
-// 其他格式（STEP、glTF、DWG、IFC 等）在网格适配层
+// 查看、导入与渲染路径共享的常用布局。
+// 外部格式在网格适配层
 // 转换为以下布局之一。
 // ============================================================
 
@@ -219,8 +219,8 @@ consteval VertexLayout pointCloud() {
     return l;
 }
 
-// 布局 G: BIM/IFC，含 object 元数据
-consteval VertexLayout bim() {
+// 布局 G: Object metadata
+consteval VertexLayout objectMetadata() {
     VertexLayout l;
     l.begin(1)
         .add(VertexSemantic::Position,   VertexFormat::Float3)
@@ -294,9 +294,9 @@ consteval VertexLayout lightmap() {
     return l;
 }
 
-// 布局 M: CAD solid —— STEP/IGES 三角化面与文字网格的通用布局
+// 布局 M: Surface mesh
 // position(f3) + normal(f3) + texcoord0(f2) = 32 bytes
-consteval VertexLayout cadSolid() {
+consteval VertexLayout surface() {
     VertexLayout l;
     l.begin(1)
         .add(VertexSemantic::Position,  VertexFormat::Float3)
@@ -327,14 +327,14 @@ static_assert(validateLayout(layouts::solid()));
 static_assert(validateLayout(layouts::pick()));
 static_assert(validateLayout(layouts::pbr()));
 static_assert(validateLayout(layouts::pointCloud()));
-static_assert(validateLayout(layouts::bim()));
+static_assert(validateLayout(layouts::objectMetadata()));
 static_assert(validateLayout(layouts::overlay2D()));
 static_assert(validateLayout(layouts::soaSolid()));
 static_assert(validateLayout(layouts::solidMaterial()));
 static_assert(validateLayout(layouts::skinned()));
 static_assert(validateLayout(layouts::solidTextured()));
 static_assert(validateLayout(layouts::lightmap()));
-static_assert(validateLayout(layouts::cadSolid()));
+static_assert(validateLayout(layouts::surface()));
 
 // 步长大小检查
 static_assert(layouts::wire().stride() == 16);
@@ -345,6 +345,6 @@ static_assert(layouts::solidMaterial().stride() == 32);
 static_assert(layouts::skinned().stride() == 68);
 static_assert(layouts::solidTextured().stride() == 40);
 static_assert(layouts::lightmap().stride() == 56);
-static_assert(layouts::cadSolid().stride() == 32);
+static_assert(layouts::surface().stride() == 32);
 
 } // namespace mulan::engine

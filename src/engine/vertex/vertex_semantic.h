@@ -30,7 +30,7 @@ enum class VertexSemantic : uint8_t {
     Weight      = 11,  // float4  - bone 权重
     InstanceId  = 12,  // uint    - 系统 instance ID
     PickId      = 13,  // uint    - picking 用对象 ID
-    LayerId     = 14,  // uint    - CAD 图层 ID
+    LayerId     = 14,  // uint    - layer ID
     ObjectId    = 15,  // uint    - 场景对象 ID
     MaterialId  = 16,  // uint    - material 索引
     User0       = 17,  // float4  - 自定义

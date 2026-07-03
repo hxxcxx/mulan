@@ -68,7 +68,7 @@ engine::Mesh buildFaceMesh(const TopoDS_Shape& shape, const engine::AABB& bounds
     if (totalVerts == 0) return {};
 
     engine::Mesh mesh;
-    mesh.layout    = engine::layouts::cadSolid();
+    mesh.layout    = engine::layouts::surface();
     mesh.topology  = engine::PrimitiveTopology::TriangleList;
     mesh.indexType = engine::IndexType::UInt32;
 
@@ -147,7 +147,7 @@ engine::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
     if (totalVerts == 0) return {};
 
     engine::Mesh mesh;
-    mesh.layout    = engine::layouts::cadSolid();
+    mesh.layout    = engine::layouts::surface();
     mesh.topology  = engine::PrimitiveTopology::LineList;
     mesh.indexType = engine::IndexType::UInt32;
 

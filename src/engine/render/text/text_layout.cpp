@@ -179,7 +179,7 @@ Mesh TextLayout::buildTextMesh(std::string_view text,
                                 float fontSize,
                                 const float color[4]) {
     Mesh mesh;
-    mesh.layout    = layouts::cadSolid();
+    mesh.layout    = layouts::surface();
     mesh.topology  = PrimitiveTopology::TriangleList;
     mesh.indexType = IndexType::UInt32;
 
@@ -196,7 +196,7 @@ Mesh TextLayout::buildTextMesh(std::string_view text,
 
     if (textVerts.empty()) return mesh;
 
-    // 按 cadSolid 布局写入：pos(3f) + normal(3f) + uv(2f)
+    // 按 surface 布局写入：pos(3f) + normal(3f) + uv(2f)
     VertexBufferBuilder vb(mesh.layout, static_cast<uint32_t>(textVerts.size()));
     for (uint32_t i = 0; i < textVerts.size(); ++i) {
         const auto& tv = textVerts[i];

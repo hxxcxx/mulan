@@ -20,7 +20,7 @@ DocumentArea::DocumentArea(QWidget* parent) : QWidget(parent) {
     // Page 0: 欢迎页
     welcome_page_ = new QLabel(
         "<h2 style='color:#888;'>mulan</h2>"
-        "<p style='color:#aaa;'>Open a CAD file to begin: File → Open, or drag & drop</p>",
+        "<p style='color:#aaa;'>Open a model file to begin: File → Open, or drag & drop</p>",
         this);
     welcome_page_->setAlignment(Qt::AlignCenter);
     welcome_page_->setStyleSheet("background-color: #373a45;");
