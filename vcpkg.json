@@ -10,8 +10,6 @@
         "assimp",
         "spdlog",
         "freetype",
-        "tinyxml2",
-        "libpng",
         "tomlplusplus"
     ]
 }
