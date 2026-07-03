@@ -100,30 +100,6 @@ constexpr bool operator==(const Vec2T<T>& a, const Vec2T<T>& b) { return a.x == 
 template<typename T>
 constexpr bool operator!=(const Vec2T<T>& a, const Vec2T<T>& b) { return !(a == b); }
 
-// ---------- 自由函数（转发到成员方法，便于对称调用）----------
-
-template<typename T>
-constexpr T dot(const Vec2T<T>& a, const Vec2T<T>& b) { return a.dot(b); }
-
-/// 2D 叉乘，返回标量（z 分量）
-template<typename T>
-constexpr T cross(const Vec2T<T>& a, const Vec2T<T>& b) { return a.cross(b); }
-
-template<typename T>
-constexpr Vec2T<T> lerp(const Vec2T<T>& a, const Vec2T<T>& b, T t) { return a.lerp(b, t); }
-
-template<typename T>
-T distance(const Vec2T<T>& a, const Vec2T<T>& b) { return a.distanceTo(b); }
-template<typename T>
-T length(const Vec2T<T>& v) { return v.length(); }
-/// 平方长度（glm length2 等价）
-template<typename T>
-constexpr T length2(const Vec2T<T>& v) { return v.lengthSq(); }
-/// 平方距离（glm distance2 等价）
-template<typename T>
-constexpr T distance2(const Vec2T<T>& a, const Vec2T<T>& b) { return a.distanceSqTo(b); }
-template<typename T>
-Vec2T<T> normalize(const Vec2T<T>& v) { return v.normalized(); }
 template<typename T>
 constexpr Vec2T<T> min(const Vec2T<T>& a, const Vec2T<T>& b) {
     return Vec2T<T>(geo::min(a.x, b.x), geo::min(a.y, b.y));

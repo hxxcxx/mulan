@@ -36,7 +36,7 @@ public:
     double orbitSpeed() const override { return arcball_speed_; }
 
     Quat rotation() const override { return rotation_; }
-    void setRotation(const Quat& q) override { rotation_ = normalize(q); }
+    void setRotation(const Quat& q) override { rotation_ = q.normalized(); }
 
 private:
     Vec3 arcballProject(int x, int y, int viewW, int viewH) const;

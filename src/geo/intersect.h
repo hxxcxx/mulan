@@ -75,9 +75,9 @@ inline Hit3 intersect(const Ray3& ray, const AABB3& box,
 inline Hit3 intersect(const Ray3& ray, const Sphere3& s) {
     if (!s.isValid()) return Hit3::miss();
     Vec3 oc = ray.origin - s.center;
-    double a = dot(ray.direction, ray.direction);
-    double b = 2.0 * dot(oc, ray.direction);
-    double c = dot(oc, oc) - s.radius * s.radius;
+    double a = ray.direction.dot(ray.direction);
+    double b = 2.0 * oc.dot(ray.direction);
+    double c = oc.dot(oc) - s.radius * s.radius;
     double disc = b * b - 4.0 * a * c;
     if (disc < 0.0) return Hit3::miss();
     double sq = std::sqrt(disc);
@@ -90,9 +90,9 @@ inline Hit3 intersect(const Ray3& ray, const Sphere3& s) {
 /// 射线 - 平面
 inline Hit3 intersect(const Ray3& ray, const Plane3& plane,
                       const Tolerance& tol = defaultTolerance()) {
-    double denom = dot(plane.normal, ray.direction);
+    double denom = plane.normal.dot(ray.direction);
     if (std::abs(denom) < 1e-15) return Hit3::miss();   // 平行
-    double t = (plane.d - dot(plane.normal, ray.origin)) / denom;
+    double t = (plane.d - plane.normal.dot(ray.origin)) / denom;
     if (t < -tol.lengthEps) return Hit3::miss();
     return Hit3::make(ray.pointAt(t), t);
 }
@@ -103,17 +103,17 @@ inline Hit3 intersect(const Ray3& ray, const Vec3& v0, const Vec3& v1, const Vec
                       const Tolerance& tol = defaultTolerance()) {
     Vec3 e1 = v1 - v0;
     Vec3 e2 = v2 - v0;
-    Vec3 p = cross(ray.direction, e2);
-    double det = dot(e1, p);
+    Vec3 p = ray.direction.cross(e2);
+    double det = e1.dot(p);
     if (std::abs(det) < 1e-15) return Hit3::miss();
     double inv = 1.0 / det;
     Vec3 tv = ray.origin - v0;
-    double u = dot(tv, p) * inv;
+    double u = tv.dot(p) * inv;
     if (u < -tol.lengthEps || u > 1.0 + tol.lengthEps) return Hit3::miss();
-    Vec3 q = cross(tv, e1);
-    double v = dot(ray.direction, q) * inv;
+    Vec3 q = tv.cross(e1);
+    double v = ray.direction.dot(q) * inv;
     if (v < -tol.lengthEps || u + v > 1.0 + tol.lengthEps) return Hit3::miss();
-    double t = dot(e2, q) * inv;
+    double t = e2.dot(q) * inv;
     if (t < -tol.lengthEps) return Hit3::miss();
     if (bc) *bc = Vec3(1.0 - u - v, u, v);
     return Hit3::make(ray.pointAt(t), t);
@@ -127,9 +127,9 @@ inline Hit3 intersect(const Ray3& ray, const Vec3& v0, const Vec3& v1, const Vec
 inline Hit3 intersect(const Segment3& seg, const Plane3& plane,
                       const Tolerance& tol = defaultTolerance()) {
     Vec3 dir = seg.direction();
-    double denom = dot(plane.normal, dir);
+    double denom = plane.normal.dot(dir);
     if (std::abs(denom) < 1e-15) return Hit3::miss();   // 平行
-    double t = (plane.d - dot(plane.normal, seg.start)) / denom;
+    double t = (plane.d - plane.normal.dot(seg.start)) / denom;
     if (t < -tol.lengthEps || t > 1.0 + tol.lengthEps) return Hit3::miss();
     return Hit3::make(seg.pointAt(t), t);
 }
@@ -139,14 +139,14 @@ inline bool intersect(const Segment2& a, const Segment2& b,
                       double* sa = nullptr, double* sb = nullptr) {
     Vec2 d1 = a.direction();
     Vec2 d2 = b.direction();
-    double denom = cross(d1, d2);
+    double denom = d1.cross(d2);
     if (std::abs(denom) < 1e-15) return false;   // 平行/共线
     Vec3 diff3(a.start.x - b.start.x, a.start.y - b.start.y, 0.0);
     // 求解 sa, sb
     Vec3 d13(d1.x, d1.y, 0.0);
     Vec3 d23(d2.x, d2.y, 0.0);
-    double s = cross(Vec3(b.start.x - a.start.x, b.start.y - a.start.y, 0.0), d23).z / denom;
-    double t = cross(Vec3(b.start.x - a.start.x, b.start.y - a.start.y, 0.0), d13).z / denom;
+    double s = Vec3(b.start.x - a.start.x, b.start.y - a.start.y, 0.0).cross(d23).z / denom;
+    double t = Vec3(b.start.x - a.start.x, b.start.y - a.start.y, 0.0).cross(d13).z / denom;
     if (s < 0.0 || s > 1.0 || t < 0.0 || t > 1.0) return false;
     if (sa) *sa = s;
     if (sb) *sb = t;
@@ -159,11 +159,11 @@ inline Hit3 intersect(const Line3& la, const Line3& lb,
     Vec3 u = la.direction;
     Vec3 v = lb.direction;
     Vec3 w = la.origin - lb.origin;
-    double a = dot(u, u);
-    double b = dot(u, v);
-    double c = dot(v, v);
-    double d = dot(u, w);
-    double e = dot(v, w);
+    double a = u.dot(u);
+    double b = u.dot(v);
+    double c = v.dot(v);
+    double d = u.dot(w);
+    double e = v.dot(w);
     double denom = a * c - b * b;
     if (std::abs(denom) < 1e-15) return Hit3::miss();   // 平行
     double sc = (b * e - c * d) / denom;
@@ -178,9 +178,9 @@ inline Hit3 intersect(const Line3& la, const Line3& lb,
 /// 直线 - 平面
 inline Hit3 intersect(const Line3& line, const Plane3& plane,
                       const Tolerance& tol = defaultTolerance()) {
-    double denom = dot(plane.normal, line.direction);
+    double denom = plane.normal.dot(line.direction);
     if (std::abs(denom) < 1e-15) return Hit3::miss();
-    double t = (plane.d - dot(plane.normal, line.origin)) / denom;
+    double t = (plane.d - plane.normal.dot(line.origin)) / denom;
     return Hit3::make(line.pointAt(t), t);
 }
 
@@ -200,7 +200,7 @@ inline double closestParam(const Vec3& p, const Segment3& seg) {
     Vec3 dir = seg.direction();
     double lenSq = dir.lengthSq();
     if (lenSq < 1e-15) return 0.0;
-    double t = dot(p - seg.start, dir) / lenSq;
+    double t = (p - seg.start).dot(dir) / lenSq;
     return clamp(t, 0.0, 1.0);
 }
 
@@ -209,7 +209,7 @@ inline Vec3 closestPoint(const Vec3& p, const Segment3& seg) {
 }
 
 inline double distance(const Vec3& p, const Segment3& seg) {
-    return distance(p, closestPoint(p, seg));
+    return p.distanceTo(closestPoint(p, seg));
 }
 
 /// 点到平面距离（绝对值）
@@ -219,13 +219,13 @@ inline double distance(const Vec3& p, const Plane3& plane) {
 
 /// 点到直线距离
 inline double distance(const Vec3& p, const Line3& line) {
-    return cross(line.direction, p - line.origin).length();   // |dir| 应为 1
+    return line.direction.cross(p - line.origin).length();   // |dir| 应为 1
 }
 inline double distance(const Vec3& p, const Ray3& ray) {
     Vec3 w = p - ray.origin;
-    double proj = dot(w, ray.direction);
+    double proj = w.dot(ray.direction);
     if (proj <= 0.0) return w.length();          // 在射线反方向
-    return cross(ray.direction, w).length();      // |dir| 应为 1
+    return ray.direction.cross(w).length();      // |dir| 应为 1
 }
 
 } // namespace mulan::geo

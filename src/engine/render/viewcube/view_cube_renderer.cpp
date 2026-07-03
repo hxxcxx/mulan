@@ -472,7 +472,7 @@ void ViewCubeRenderer::render(CommandList* cmd, const Mat4& mainViewMatrix,
     std::memset(&sceneUbo, 0, sizeof(sceneUbo));
 
     auto storeMat4 = [](float* dst, const Mat4& src) {
-        const double* p = value_ptr(src);
+        const double* p = src.data();
         for (int i = 0; i < 16; ++i)
             dst[i] = static_cast<float>(p[i]);
     };

@@ -85,20 +85,6 @@ constexpr bool operator==(const Vec4T<T>& a, const Vec4T<T>& b) {
 template<typename T>
 constexpr bool operator!=(const Vec4T<T>& a, const Vec4T<T>& b) { return !(a == b); }
 
-// ---------- 自由函数（转发到成员方法）----------
-
-template<typename T>
-constexpr T dot(const Vec4T<T>& a, const Vec4T<T>& b) { return a.dot(b); }
-template<typename T>
-T length(const Vec4T<T>& v) { return v.length(); }
-template<typename T>
-constexpr T length2(const Vec4T<T>& v) { return v.lengthSq(); }
-template<typename T>
-Vec4T<T> normalize(const Vec4T<T>& v) {
-    T len = v.length();
-    return (len > T(0)) ? v / len : Vec4T<T>{};
-}
-
 template<typename T>
 template<typename U>
 constexpr Vec3T<T>::Vec3T(const Vec4T<U>& v)

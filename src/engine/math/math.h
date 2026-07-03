@@ -27,31 +27,17 @@ using FMat3 = geo::FMat3;
 using FMat4 = geo::FMat4;
 using FQuat = geo::FQuat;
 
-using geo::angleAxis;
 using geo::clamp;
-using geo::cross;
 using geo::degrees;
-using geo::distance;
-using geo::distance2;
-using geo::dot;
-using geo::inverse;
 using geo::kHalfPi;
 using geo::kPi;
 using geo::kPi2;
-using geo::length;
-using geo::length2;
-using geo::lerp;
-using geo::mat3_cast;
-using geo::mat4_cast;
 using geo::max;
 using geo::min;
-using geo::normalize;
 using geo::ortho;
 using geo::perspective;
 using geo::radians;
 using geo::scale;
 using geo::translate;
-using geo::transpose;
-using geo::value_ptr;
 
 } // namespace mulan::engine

@@ -60,17 +60,17 @@ void testVectors() {
     CHECK_NEAR(v2.length(), 5.0, 1e-12);
     checkVec2Near(v2.normalized(), Vec2(0.6, 0.8));
     checkVec2Near(Vec2::zero().normalizedOr(Vec2::unitX()), Vec2::unitX());
-    CHECK_NEAR(dot(Vec2(1.0, 2.0), Vec2(3.0, 4.0)), 11.0, 1e-12);
-    CHECK_NEAR(cross(Vec2(1.0, 0.0), Vec2(0.0, 1.0)), 1.0, 1e-12);
+    CHECK_NEAR(Vec2(1.0, 2.0).dot(Vec2(3.0, 4.0)), 11.0, 1e-12);
+    CHECK_NEAR(Vec2(1.0, 0.0).cross(Vec2(0.0, 1.0)), 1.0, 1e-12);
     checkVec2Near(min(Vec2(1.0, 5.0), Vec2(2.0, 3.0)), Vec2(1.0, 3.0));
     checkVec2Near(max(Vec2(1.0, 5.0), Vec2(2.0, 3.0)), Vec2(2.0, 5.0));
     checkVec2Near(clamp(Vec2(-1.0, 5.0), Vec2(0.0), Vec2(2.0)), Vec2(0.0, 2.0));
 
     Vec3 v3(1.0, 2.0, 3.0);
     CHECK_NEAR(v3.lengthSq(), 14.0, 1e-12);
-    checkVec3Near(cross(Vec3::unitX(), Vec3::unitY()), Vec3::unitZ());
-    CHECK_NEAR(dot(v3, Vec3(4.0, 5.0, 6.0)), 32.0, 1e-12);
-    checkVec3Near(lerp(Vec3(0.0), Vec3(10.0), 0.25), Vec3(2.5));
+    checkVec3Near(Vec3::unitX().cross(Vec3::unitY()), Vec3::unitZ());
+    CHECK_NEAR(v3.dot(Vec3(4.0, 5.0, 6.0)), 32.0, 1e-12);
+    checkVec3Near(Vec3(0.0).lerp(Vec3(10.0), 0.25), Vec3(2.5));
     checkVec3Near(Vec3::zero().normalizedOr(Vec3::unitY()), Vec3::unitY());
 
     FVec3 fv(1.0f, 2.0f, 3.0f);
@@ -101,20 +101,20 @@ void testMatrices() {
     checkVec3Near(transformPoint(scaled, Vec3(1.0, 2.0, 3.0)), Vec3(2.0, 6.0, 12.0));
 
     Mat4 combined = translated * scaled;
-    Mat4 inv = inverse(combined);
+    Mat4 inv = combined.inverse();
     checkVec3Near(transformPoint(inv, transformPoint(combined, Vec3(2.0, 4.0, 6.0))), Vec3(2.0, 4.0, 6.0));
 
     Mat3 upper(combined);
     Mat4 lifted(upper);
     checkVec3Near(transformDir(lifted, Vec3(1.0, 1.0, 1.0)), Vec3(2.0, 3.0, 4.0));
-    CHECK(value_ptr(combined) != nullptr);
+    CHECK(combined.data() != nullptr);
 }
 
 void testQuaternionsAndTransforms() {
-    Quat q = angleAxis(kHalfPi, Vec3::unitZ());
+    Quat q = Quat::fromAxisAngle(Vec3::unitZ(), kHalfPi);
     checkVec3Near(q * Vec3::unitX(), Vec3::unitY());
-    checkVec3Near(normalize(q).toMat3() * Vec3::unitX(), Vec3::unitY());
-    checkVec3Near((mat4_cast(q) * Vec4(Vec3::unitX(), 0.0)).xyz(), Vec3::unitY());
+    checkVec3Near(q.normalized().toMat3() * Vec3::unitX(), Vec3::unitY());
+    checkVec3Near((q.toMat4() * Vec4(Vec3::unitX(), 0.0)).xyz(), Vec3::unitY());
 
     Quat fromTo = Quat::fromTwoVectors(Vec3::unitX(), Vec3::unitY());
     checkVec3Near(fromTo * Vec3::unitX(), Vec3::unitY());

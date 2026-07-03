@@ -78,14 +78,14 @@ struct RenderItem {
 
     /// 计算不透明排序键（相同材质分组以减少状态切换，材质内按距离从近到远）
     void computeOpaqueSortKey(const Vec3& cameraPos) {
-        double distSq = length2(Vec3(worldTransform * Vec4(0,0,0,1)) - cameraPos);
+        double distSq = (Vec3(worldTransform * Vec4(0,0,0,1)) - cameraPos).lengthSq();
         uint32_t distBits = static_cast<uint32_t>(distSq);       // 粗略距离桶
         sortKey = (static_cast<uint64_t>(materialIndex) << 32) | distBits;
     }
 
     /// 计算透明排序键（从远到近排序，保证正确的半透明混合）
     void computeTransparentSortKey(const Vec3& cameraPos) {
-        double distSq = length2(Vec3(worldTransform * Vec4(0,0,0,1)) - cameraPos);
+        double distSq = (Vec3(worldTransform * Vec4(0,0,0,1)) - cameraPos).lengthSq();
         uint32_t distBits = static_cast<uint32_t>(distSq);
         sortKey = (static_cast<uint64_t>(0xFFFF - materialIndex) << 32)
                 | (0xFFFFFFFFu - distBits);  // 翻转使远距优先

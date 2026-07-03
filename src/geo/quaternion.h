@@ -41,15 +41,15 @@ struct QuatT {
     static QuatT fromTwoVectors(Vec3T<T> from, Vec3T<T> to) {
         from = from.normalized();
         to   = to.normalized();
-        T d = dot(from, to);
+        T d = from.dot(to);
         if (d >= T(1)) return identity();             // 平行
         if (d <= T(-1)) {                              // 反向，任选正交轴
             Vec3T<T> axis = std::abs(from.x) < T(0.9)
-                ? cross(Vec3T<T>::unitX(), from)
-                : cross(Vec3T<T>::unitY(), from);
+                ? Vec3T<T>::unitX().cross(from)
+                : Vec3T<T>::unitY().cross(from);
             return fromAxisAngle(axis.normalized(), kPi);
         }
-        Vec3T<T> axis = cross(from, to);
+        Vec3T<T> axis = from.cross(to);
         T s = std::sqrt((T(1) + d) * T(2));
         T inv = T(1) / s;
         return QuatT(s * T(0.5), axis.x * inv, axis.y * inv, axis.z * inv).normalized();
@@ -93,8 +93,8 @@ struct QuatT {
     Vec3T<T> operator*(const Vec3T<T>& v) const {
         // v' = q * (0,v) * q^-1，优化版
         Vec3T<T> qv(x, y, z);
-        Vec3T<T> t = cross(qv, v) * T(2);
-        return v + t * w + cross(qv, t);
+        Vec3T<T> t = qv.cross(v) * T(2);
+        return v + t * w + qv.cross(t);
     }
 
     /// 提取旋转轴与角度
@@ -188,18 +188,5 @@ QuatT<T> slerp(const QuatT<T>& a, QuatT<T> b, T t) {
 // ---------- 别名 ----------
 using Quat  = QuatT<double>;
 using FQuat = QuatT<float>;
-
-/// 轴角构造四元数（glm angleAxis 等价，参数顺序：angle, axis）。
-/// 替换 glm::angleAxis 时直接用 geo::angleAxis。
-template<typename T>
-inline QuatT<T> angleAxis(T angle, const Vec3T<T>& axis) {
-    return QuatT<T>::fromAxisAngle(axis, angle);
-}
-template<typename T>
-inline QuatT<T> normalize(const QuatT<T>& q) { return q.normalized(); }
-template<typename T>
-inline Mat3T<T> mat3_cast(const QuatT<T>& q) { return q.toMat3(); }
-template<typename T>
-inline Mat4T<T> mat4_cast(const QuatT<T>& q) { return q.toMat4(); }
 
 } // namespace mulan::geo

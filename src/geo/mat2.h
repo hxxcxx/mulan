@@ -81,9 +81,4 @@ constexpr Mat2T<T> operator*(const Mat2T<T>& a, const Mat2T<T>& b) {
 using Mat2  = Mat2T<double>;
 using FMat2 = Mat2T<float>;
 
-template<typename T>
-inline Mat2T<T> transpose(const Mat2T<T>& m) { return m.transposed(); }
-template<typename T>
-inline Mat2T<T> inverse(const Mat2T<T>& m) { return m.inverse(); }
-
 } // namespace mulan::geo

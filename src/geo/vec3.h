@@ -135,26 +135,6 @@ constexpr bool operator==(const Vec3T<T>& a, const Vec3T<T>& b) {
 template<typename T>
 constexpr bool operator!=(const Vec3T<T>& a, const Vec3T<T>& b) { return !(a == b); }
 
-// ---------- 自由函数（转发到成员方法，便于对称调用）----------
-
-template<typename T>
-constexpr T dot(const Vec3T<T>& a, const Vec3T<T>& b) { return a.dot(b); }
-template<typename T>
-constexpr Vec3T<T> cross(const Vec3T<T>& a, const Vec3T<T>& b) { return a.cross(b); }
-template<typename T>
-constexpr Vec3T<T> lerp(const Vec3T<T>& a, const Vec3T<T>& b, T t) { return a.lerp(b, t); }
-template<typename T>
-T distance(const Vec3T<T>& a, const Vec3T<T>& b) { return a.distanceTo(b); }
-template<typename T>
-T length(const Vec3T<T>& v) { return v.length(); }
-/// 平方长度（glm length2 等价）
-template<typename T>
-constexpr T length2(const Vec3T<T>& v) { return v.lengthSq(); }
-/// 平方距离（glm distance2 等价）
-template<typename T>
-constexpr T distance2(const Vec3T<T>& a, const Vec3T<T>& b) { return a.distanceSqTo(b); }
-template<typename T>
-Vec3T<T> normalize(const Vec3T<T>& v) { return v.normalized(); }
 template<typename T>
 constexpr Vec3T<T> min(const Vec3T<T>& a, const Vec3T<T>& b) {
     return Vec3T<T>(geo::min(a.x, b.x), geo::min(a.y, b.y), geo::min(a.z, b.z));

@@ -31,7 +31,7 @@ struct Sphere3 {
     static Sphere3 fromAABB(const AABB3& box) {
         if (box.isEmpty()) return invalid();
         Vec3 c = box.center();
-        return Sphere3(c, distance(c, box.max));
+        return Sphere3(c, c.distanceTo(box.max));
     }
 
     // ---------- 状态 ----------

@@ -108,9 +108,4 @@ private:
 using Radian = Angle;
 using Degree = Angle;   // 语义标签；构造仍须用 Angle::fromDeg/fromRad
 
-// 标量 sin/cos 直接接收 Angle
-inline double sin(Angle a) { return a.sin(); }
-inline double cos(Angle a) { return a.cos(); }
-inline double tan(Angle a) { return a.tan(); }
-
 } // namespace mulan::geo

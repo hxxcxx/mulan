@@ -27,19 +27,19 @@ struct Plane3 {
     /// 从一点 + 法向构造（法向会被归一化）
     static Plane3 fromPointNormal(const Vec3& point, const Vec3& n) {
         Vec3 unit = n.normalized();
-        return Plane3(unit, dot(unit, point));
+        return Plane3(unit, unit.dot(point));
     }
 
     /// 从三个点构造（逆时针给出，法向由右手定则确定）
     static Plane3 fromTriangle(const Vec3& a, const Vec3& b, const Vec3& c) {
-        return fromPointNormal(a, cross(b - a, c - a));
+        return fromPointNormal(a, (b - a).cross(c - a));
     }
 
     // ---------- 查询 ----------
 
     /// 有符号距离：>0 法向侧，<0 反向侧，=0 在平面上
     double signedDistance(const Vec3& p) const {
-        return dot(normal, p) - d;
+        return normal.dot(p) - d;
     }
 
     bool contains(const Vec3& p, const Tolerance& tol = defaultTolerance()) const {
@@ -57,7 +57,7 @@ struct Plane3 {
         // 平面上一点 = normal * d，经点变换
         Vec3 pointOnPlane = normal * d;
         Vec3 newPoint = transformPoint(m, pointOnPlane);
-        return Plane3(newNormal, dot(newNormal, newPoint));
+        return Plane3(newNormal, newNormal.dot(newPoint));
     }
 };
 

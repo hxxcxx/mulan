@@ -8,24 +8,24 @@ namespace mulan::engine {
 TrackballRotation::TrackballRotation() {
     // 默认朝向与 Turntable 一致：yaw=45°, pitch=59.4°
     // 使得两种模式的初始视角相同
-    Quat qYaw   = angleAxis(-kPi * 0.25, Vec3{0, 0, 1});
-    Quat qPitch = angleAxis(kPi * 0.33,  Vec3{1, 0, 0});
-    rotation_ = normalize(qYaw * qPitch);
+    Quat qYaw   = Quat::fromAxisAngle(Vec3{0, 0, 1}, -kPi * 0.25);
+    Quat qPitch = Quat::fromAxisAngle(Vec3{1, 0, 0}, kPi * 0.33);
+    rotation_ = (qYaw * qPitch).normalized();
 }
 
 Vec3 TrackballRotation::forward() const {
     Vec3 fwd = rotation_ * Vec3{0, 1, 0};
-    return normalize(fwd);
+    return fwd.normalized();
 }
 
 Vec3 TrackballRotation::right() const {
     Vec3 r = rotation_ * Vec3{1, 0, 0};
-    return normalize(r);
+    return r.normalized();
 }
 
 Vec3 TrackballRotation::up() const {
     Vec3 u = rotation_ * Vec3{0, 0, 1};
-    return normalize(u);
+    return u.normalized();
 }
 
 void TrackballRotation::orbitDelta(double dx, double dy) {
@@ -33,12 +33,12 @@ void TrackballRotation::orbitDelta(double dx, double dy) {
     if (angle < 1e-10) return;
 
     Vec3 axis = right() * dy - up() * dx;
-    double len = length(axis);
+    double len = axis.length();
     if (len < 1e-10) return;
     axis = axis / len;
 
-    Quat deltaQ = angleAxis(angle, axis);
-    rotation_ = normalize(deltaQ * rotation_);
+    Quat deltaQ = Quat::fromAxisAngle(axis, angle);
+    rotation_ = (deltaQ * rotation_).normalized();
 }
 
 // ============================================================
@@ -72,20 +72,20 @@ void TrackballRotation::orbitToPoint(int x, int y, int viewW, int viewH) {
 
     Vec3 curr = arcballProject(x, y, viewW, viewH);
 
-    Vec3 axis = cross(curr, arcball_prev_);
-    double axisLen = length(axis);
+    Vec3 axis = curr.cross(arcball_prev_);
+    double axisLen = axis.length();
 
     if (axisLen < 1e-10) return;
 
-    double dotValue = dot(curr, arcball_prev_);
+    double dotValue = curr.dot(arcball_prev_);
     double angle = std::atan2(axisLen, dotValue) * arcball_speed_;
 
     Vec3 ndcAxis = axis / axisLen;
     Vec3 worldAxis = right() * ndcAxis.x + up() * ndcAxis.y + forward() * ndcAxis.z;
-    worldAxis = normalize(worldAxis);
+    worldAxis = worldAxis.normalized();
 
-    Quat deltaQ = angleAxis(angle, worldAxis);
-    rotation_ = normalize(deltaQ * rotation_);
+    Quat deltaQ = Quat::fromAxisAngle(worldAxis, angle);
+    rotation_ = (deltaQ * rotation_).normalized();
 
     arcball_prev_ = curr;
 }

@@ -136,13 +136,13 @@ struct Mat4T {
     /// 视图矩阵（右手系，相机看向 -Z）
     static Mat4T lookAt(const Vec3T<T>& eye, const Vec3T<T>& center, const Vec3T<T>& up) {
         Vec3T<T> f = (center - eye).normalized();
-        Vec3T<T> s = cross(f, up).normalized();
-        Vec3T<T> u = cross(s, f);
+        Vec3T<T> s = f.cross(up).normalized();
+        Vec3T<T> u = s.cross(f);
         return Mat4T(
             Vec4T<T>(s.x,  u.x,  -f.x, T(0)),
             Vec4T<T>(s.y,  u.y,  -f.y, T(0)),
             Vec4T<T>(s.z,  u.z,  -f.z, T(0)),
-            Vec4T<T>(-dot(s, eye), -dot(u, eye), dot(f, eye), T(1)));
+            Vec4T<T>(-s.dot(eye), -u.dot(eye), f.dot(eye), T(1)));
     }
 
     // ---------- 基本运算 ----------
@@ -255,10 +255,6 @@ constexpr Mat3T<T>::Mat3T(const Mat4T<U>& m)
            Vec3T<T>(m[2].x, m[2].y, m[2].z)} {}
 
 template<typename T>
-inline Mat4T<T> transpose(const Mat4T<T>& m) { return m.transposed(); }
-template<typename T>
-inline Mat4T<T> inverse(const Mat4T<T>& m) { return m.inverse(); }
-template<typename T>
 inline Mat4T<T> translate(const Mat4T<T>& m, const Vec3T<T>& t) {
     return m * Mat4T<T>::translate(t);
 }
@@ -274,15 +270,6 @@ template<typename T>
 inline Mat4T<T> ortho(T left, T right, T bottom, T top, T zNear, T zFar) {
     return Mat4T<T>::ortho(left, right, bottom, top, zNear, zFar);
 }
-
-// ---------- value_ptr（glm 等价的 raw 指针访问）----------
-
-/// 返回 Mat4 连续存储的 const 指针（列主序 16 元素）。
-/// 替换 glm::value_ptr 时直接用 geo::value_ptr。
-template<typename T>
-inline const T* value_ptr(const Mat4T<T>& m) { return m.data(); }
-template<typename T>
-inline T*       value_ptr(Mat4T<T>& m)       { return m.data(); }
 
 // 保证 Vec4T 紧凑、Mat4T 为 16 元素连续存储（GPU/OCCT 边界契约）
 static_assert(sizeof(FMat4) == 16 * sizeof(float),  "FMat4 must be 16 contiguous floats");
