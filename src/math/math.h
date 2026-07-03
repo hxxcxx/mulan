@@ -44,7 +44,6 @@
 #include "geom/line.h"
 #include "geom/plane.h"
 #include "geom/frustum.h"
-#include "geom/polygon.h"
 #include "linalg/transform.h"
 
 // 求交
