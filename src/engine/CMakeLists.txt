@@ -2,7 +2,6 @@
 add_library(Engine STATIC
     platform/win32_window.cpp
     rhi/device_factory.cpp
-    scene/frustum.cpp
     scene/camera/camera.cpp
     scene/camera/turntable_rotation.cpp
     scene/camera/trackball_rotation.cpp

@@ -23,7 +23,7 @@
 
 #include "../../math/math.h"
 #include "../../math/aabb.h"
-#include "../frustum.h"
+#include "../../math/frustum.h"
 #include "rotation_mode.h"
 
 namespace mulan::engine {
