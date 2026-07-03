@@ -175,14 +175,6 @@ void MaterialCache::rebuildIndex() {
 // GPU UBO 管理
 // ============================================================
 
-void MaterialCache::setDevice(RHIDevice* device) {
-    device_ = device;
-    // 新 device 的 buffer 是空的，标记所有材质为脏强制上传
-    for (auto& mat : materials_) {
-        dirty_materials_.insert(mat->id());
-    }
-}
-
 uint32_t MaterialCache::materialGpuOffset(uint32_t materialId) {
     // 0xFFFF = 默认材质，回退到 ID=1（DefaultPBR）
     if (materialId == 0xFFFF) {

@@ -115,9 +115,6 @@ public:
 
     // --- GPU UBO 管理 ---
 
-    /// 设置 RHIDevice 引用（用于材质数据写入时的 device 引用）
-    void setDevice(RHIDevice* device);
-
     /// 材质 ID → UBO 偏移（字节），供 MeshDrawCommand 使用
     uint32_t materialGpuOffset(uint32_t materialId);
 
@@ -151,7 +148,6 @@ private:
     uint32_t                                           next_id_ = 1;
 
     // GPU UBO 管理（不持有 buffer，由调用方提供）
-    RHIDevice*                                          device_ = nullptr;
     std::unordered_map<uint32_t, uint32_t>              material_offsets_; // id → offset
     std::set<uint32_t>                                  dirty_materials_;
 };

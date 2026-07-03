@@ -10,47 +10,47 @@ RenderResourceCache::RenderResourceCache(RHIDevice& device)
     : device_(device) {
 }
 
-void RenderResourceCache::uploadFaceGeometry(uint64_t key, const Mesh& mesh) {
+void RenderResourceCache::uploadSolidGeometry(uint64_t key, const Mesh& mesh) {
     auto result = createGpuBuffer(device_, mesh);
     if (!result) {
         return;
     }
-    face_geos_[key] = std::move(*result);
+    solid_geos_[key] = std::move(*result);
 }
 
-void RenderResourceCache::uploadEdgeGeometry(uint64_t key, const Mesh& mesh) {
+void RenderResourceCache::uploadWireGeometry(uint64_t key, const Mesh& mesh) {
     auto result = createGpuBuffer(device_, mesh);
     if (!result) {
         return;
     }
-    edge_geos_[key] = std::move(*result);
+    wire_geos_[key] = std::move(*result);
 }
 
 void RenderResourceCache::releaseResource(uint64_t key) {
-    face_geos_.erase(key);
-    edge_geos_.erase(key);
+    solid_geos_.erase(key);
+    wire_geos_.erase(key);
 }
 
 bool RenderResourceCache::hasResource(uint64_t key) const {
-    auto it = face_geos_.find(key);
-    if (it != face_geos_.end() && it->second.isValid()) return true;
-    auto eit = edge_geos_.find(key);
-    return eit != edge_geos_.end() && eit->second.isValid();
+    auto it = solid_geos_.find(key);
+    if (it != solid_geos_.end() && it->second.isValid()) return true;
+    auto eit = wire_geos_.find(key);
+    return eit != wire_geos_.end() && eit->second.isValid();
 }
 
-const GpuGeometry* RenderResourceCache::faceGeometry(uint64_t key) const {
-    auto it = face_geos_.find(key);
-    return it != face_geos_.end() && it->second.isValid() ? &it->second : nullptr;
+const GpuGeometry* RenderResourceCache::solidGeometry(uint64_t key) const {
+    auto it = solid_geos_.find(key);
+    return it != solid_geos_.end() && it->second.isValid() ? &it->second : nullptr;
 }
 
-const GpuGeometry* RenderResourceCache::edgeGeometry(uint64_t key) const {
-    auto it = edge_geos_.find(key);
-    return it != edge_geos_.end() && it->second.isValid() ? &it->second : nullptr;
+const GpuGeometry* RenderResourceCache::wireGeometry(uint64_t key) const {
+    auto it = wire_geos_.find(key);
+    return it != wire_geos_.end() && it->second.isValid() ? &it->second : nullptr;
 }
 
 void RenderResourceCache::clear() {
-    face_geos_.clear();
-    edge_geos_.clear();
+    solid_geos_.clear();
+    wire_geos_.clear();
 }
 
 std::expected<GpuGeometry, core::Error>

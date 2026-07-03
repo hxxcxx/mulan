@@ -76,8 +76,8 @@ private:
     std::unique_ptr<engine::RenderResourceCache> resources_;
 
     DrawCommandBuilder builder_;
-    std::unique_ptr<engine::GeometryPass> face_pass_;   // solid / 三角 / 写深度
-    std::unique_ptr<engine::GeometryPass> edge_pass_;   // edge  / 线   / 不写深度
+    std::unique_ptr<engine::GeometryPass> solid_pass_;   // solid / 三角 / 写深度
+    std::unique_ptr<engine::GeometryPass> wire_pass_;    // edge  / 线   / 不写深度
     std::unique_ptr<engine::ViewCubeRenderer> view_cube_renderer_;
 
     bool initialized_ = false;

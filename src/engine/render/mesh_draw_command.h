@@ -47,7 +47,7 @@ struct MeshDrawCommand {
     uint32_t pickId      = 0;
     bool     selected    = false;
     bool     visible     = true;
-    bool     isEdge      = false;
+    bool     isWire      = false;
     bool     translucent = false;
 
     /// 提交到 CommandList

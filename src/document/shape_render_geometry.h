@@ -14,8 +14,8 @@ class TopoDS_Shape;
 namespace mulan::document {
 
 struct ShapeRenderGeometry {
-    engine::Mesh faceMesh;
-    engine::Mesh edgeMesh;
+    engine::Mesh solidMesh;
+    engine::Mesh wireMesh;
     engine::AABB bounds = engine::AABB::empty();
 };
 

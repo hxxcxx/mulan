@@ -1,6 +1,11 @@
 /**
- * @file brep_asset.h
- * @brief BRepAsset 保存导入形体的当前可渲染网格缓存。
+ * @file tessellated_asset.h
+ * @brief TessellatedAsset 保存 CAD 形体经网格化（tessellation）后的可渲染网格缓存。
+ *
+ * 注意：本类**不持有** B-Rep 拓扑（face/edge/vertex 的参数化表示），仅保存
+ * 导入时一次性生成的实体填充网格（三角）+ 线框网格（线段）。因此不可参数化编辑；
+ * 若将来需要参数化编辑，应另建一个持有真正 B-Rep 拓扑的资产类，二者并存。
+ *
  * @author hxxcxx
  * @date 2026-07-02
  */
@@ -14,22 +19,31 @@
 
 namespace mulan::asset {
 
-class BRepAsset : public GeometryAsset {
+/// 来自 CAD 形体（STEP/IGES）经网格化后的显示资产：固定含面网格 + 边网格。
+class TessellatedAsset : public GeometryAsset {
 public:
-    explicit BRepAsset(AssetId id, std::string name)
-        : GeometryAsset(id, AssetKind::BRep, std::move(name)) {}
+    explicit TessellatedAsset(AssetId id, std::string name)
+        : GeometryAsset(id, AssetKind::Tessellated, std::move(name)) {}
 
-    const engine::Mesh& faceMesh() const { return face_mesh_; }
-    const engine::Mesh& edgeMesh() const { return edge_mesh_; }
+    const engine::Mesh& solidMesh() const { return solid_mesh_; }
+    const engine::Mesh& wireMesh() const { return wire_mesh_; }
 
-    void setRenderMeshes(engine::Mesh faceMesh, engine::Mesh edgeMesh) {
-        face_mesh_ = std::move(faceMesh);
-        edge_mesh_ = std::move(edgeMesh);
+    void setRenderMeshes(engine::Mesh solidMesh, engine::Mesh wireMesh) {
+        solid_mesh_ = std::move(solidMesh);
+        wire_mesh_ = std::move(wireMesh);
+    }
+
+    /// 产出两段：实体填充网格（Solid）+ 线框网格（Wire），均无专属材质。
+    void collectDrawables(std::vector<Drawable>& out) const override {
+        if (!solid_mesh_.empty())
+            out.push_back({&solid_mesh_, AssetId::invalid(), DrawableRole::Solid});
+        if (!wire_mesh_.empty())
+            out.push_back({&wire_mesh_, AssetId::invalid(), DrawableRole::Wire});
     }
 
 private:
-    engine::Mesh face_mesh_;
-    engine::Mesh edge_mesh_;
+    engine::Mesh solid_mesh_;
+    engine::Mesh wire_mesh_;
 };
 
 } // namespace mulan::asset

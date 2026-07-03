@@ -36,15 +36,15 @@ public:
 
     void clear();
 
-    std::span<const engine::MeshDrawCommand> faceCommands() const { return face_cmds_; }
-    std::span<const engine::MeshDrawCommand> edgeCommands() const { return edge_cmds_; }
+    std::span<const engine::MeshDrawCommand> solidCommands() const { return solid_cmds_; }
+    std::span<const engine::MeshDrawCommand> wireCommands() const { return wire_cmds_; }
 
 private:
     const render_scene::RenderScene* scene_ = nullptr;
     const asset::AssetLibrary* assets_ = nullptr;
 
-    std::vector<engine::MeshDrawCommand> face_cmds_;
-    std::vector<engine::MeshDrawCommand> edge_cmds_;
+    std::vector<engine::MeshDrawCommand> solid_cmds_;
+    std::vector<engine::MeshDrawCommand> wire_cmds_;
 };
 
 } // namespace mulan::view

@@ -23,15 +23,15 @@ class RenderResourceCache {
 public:
     explicit RenderResourceCache(RHIDevice& device);
 
-    void uploadFaceGeometry(uint64_t key, const Mesh& mesh);
-    void uploadEdgeGeometry(uint64_t key, const Mesh& mesh);
+    void uploadSolidGeometry(uint64_t key, const Mesh& mesh);
+    void uploadWireGeometry(uint64_t key, const Mesh& mesh);
     void releaseResource(uint64_t key);
 
     bool hasResource(uint64_t key) const;
-    size_t resourceCount() const { return face_geos_.size() + edge_geos_.size(); }
+    size_t resourceCount() const { return solid_geos_.size() + wire_geos_.size(); }
 
-    const GpuGeometry* faceGeometry(uint64_t key) const;
-    const GpuGeometry* edgeGeometry(uint64_t key) const;
+    const GpuGeometry* solidGeometry(uint64_t key) const;
+    const GpuGeometry* wireGeometry(uint64_t key) const;
 
     void clear();
 
@@ -40,8 +40,8 @@ private:
         createGpuBuffer(RHIDevice& device, const Mesh& mesh);
 
     RHIDevice& device_;
-    std::unordered_map<uint64_t, GpuGeometry> face_geos_;
-    std::unordered_map<uint64_t, GpuGeometry> edge_geos_;
+    std::unordered_map<uint64_t, GpuGeometry> solid_geos_;
+    std::unordered_map<uint64_t, GpuGeometry> wire_geos_;
 };
 
 } // namespace mulan::engine

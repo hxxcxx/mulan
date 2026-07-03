@@ -19,7 +19,7 @@ enum class AssetKind : uint8_t {
     Unknown = 0,
     Geometry,
     Mesh,
-    BRep,
+    Tessellated,
     Material,
     Texture,
 };

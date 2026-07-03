@@ -3,7 +3,7 @@
 #include "shape_render_geometry.h"
 
 #include <mulan/asset/asset_library.h>
-#include <mulan/asset/brep_asset.h>
+#include <mulan/asset/tessellated_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/scene/scene.h>
 
@@ -24,11 +24,11 @@ scene::EntityId Document::addShape(const TopoDS_Shape& shape, std::string name) 
 
     auto geometry = buildShapeRenderGeometry(shape);
 
-    auto* brep = assets_->create<asset::BRepAsset>(shapeName);
-    if (brep)
-        brep->setRenderMeshes(std::move(geometry.faceMesh), std::move(geometry.edgeMesh));
+    auto* tess = assets_->create<asset::TessellatedAsset>(shapeName);
+    if (tess)
+        tess->setRenderMeshes(std::move(geometry.solidMesh), std::move(geometry.wireMesh));
 
-    const auto sceneId = addSceneInstance(shapeName, brep ? brep->id() : asset::AssetId::invalid());
+    const auto sceneId = addSceneInstance(shapeName, tess ? tess->id() : asset::AssetId::invalid());
     scene_->setWorldBounds(sceneId, geometry.bounds);
     return sceneId;
 }

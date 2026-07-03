@@ -38,6 +38,14 @@ public:
     bool empty() const { return primitives_.empty(); }
     size_t primitiveCount() const { return primitives_.size(); }
 
+    /// 每个 primitive 产出一段实体填充网格，使用 primitive 各自的材质。
+    void collectDrawables(std::vector<Drawable>& out) const override {
+        for (const auto& p : primitives_) {
+            if (!p.mesh.empty())
+                out.push_back({&p.mesh, p.material, DrawableRole::Solid});
+        }
+    }
+
     MeshPrimitive& addPrimitive(engine::Mesh mesh,
                                 AssetId material = AssetId::invalid(),
                                 std::string name = {}) {

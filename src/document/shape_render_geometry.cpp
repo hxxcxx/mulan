@@ -195,8 +195,8 @@ engine::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
 ShapeRenderGeometry buildShapeRenderGeometry(const TopoDS_Shape& shape) {
     ShapeRenderGeometry result;
     result.bounds = buildBounds(shape);
-    result.faceMesh = buildFaceMesh(shape, result.bounds);
-    result.edgeMesh = buildEdgeMesh(shape);
+    result.solidMesh = buildFaceMesh(shape, result.bounds);
+    result.wireMesh = buildEdgeMesh(shape);
     return result;
 }
 
