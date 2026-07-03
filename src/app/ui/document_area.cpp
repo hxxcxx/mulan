@@ -78,7 +78,16 @@ void DocumentArea::closeDocument(int index) {
     auto* docWidget = qobject_cast<DocWidget*>(w);
     if (!docWidget) return;
 
-    docs_.erase(docWidget);
+    // DocumentArea 拥有 DocumentSession（裸指针，见 docs_）。必须在 erase 映射
+    // 前 delete session，否则指针丢失导致 Document/Scene/AssetLibrary/RenderScene
+    // 全部泄漏。~DocumentSession 会 detachViewContext，把视图的 RenderScene 置空，
+    // 保证此后 DocWidget 的异步析构（deleteLater）不再访问已释放的 render_scene。
+    auto it = docs_.find(docWidget);
+    if (it != docs_.end()) {
+        delete it->second;
+        docs_.erase(it);
+    }
+
     tab_widget_->removeTab(index);
     docWidget->deleteLater();
 

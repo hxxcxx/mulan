@@ -121,9 +121,15 @@ public:
     /// 材质 ID → UBO 偏移（字节），供 MeshDrawCommand 使用
     uint32_t materialGpuOffset(uint32_t materialId);
 
-    /// 上传所有脏材质到 GPU（每帧调用一次）
+    /// 上传所有脏材质到 GPU（每帧调用一次）。
+    /// 注意：本函数不清空脏集合，以便同一帧内多个持有独立 material UBO 的
+    /// pass（如 ForwardPass 与 EdgePass）都能完整上传。调用方应在一帧内所有
+    /// pass 都执行完毕后调用 clearDirtyMaterials()。
     /// @param materialUbo 由调用方（ForwardPass/EdgePass）持有和管理的 UBO
     void uploadDirtyMaterials(Buffer* materialUbo);
+
+    /// 清空脏材质集合（一帧内所有 pass 上传完毕后调用）。
+    void clearDirtyMaterials();
 
     /// 材质 UBO 尺寸常量
     static constexpr uint32_t kMaxMaterials = 256;

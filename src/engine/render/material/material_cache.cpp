@@ -118,6 +118,7 @@ bool MaterialCache::updateMaterial(uint32_t id, const Material& material) {
     }
     size_t idx = it->second;
     materials_[idx] = std::make_unique<MaterialAsset>(material, id);
+    dirty_materials_.insert(id);
     return true;
 }
 
@@ -129,6 +130,7 @@ bool MaterialCache::updateMaterial(const std::string& name, const Material& mate
     size_t idx = it->second;
     auto id = materials_[idx]->id();
     materials_[idx] = std::make_unique<MaterialAsset>(material, id);
+    dirty_materials_.insert(id);
     return true;
 }
 
@@ -230,7 +232,9 @@ void MaterialCache::uploadDirtyMaterials(Buffer* materialUbo) {
         MaterialGPU gpu = asset->toGPU();
         materialUbo->update(offset, static_cast<uint32_t>(MaterialGPU::kSize), &gpu);
     }
+}
 
+void MaterialCache::clearDirtyMaterials() {
     dirty_materials_.clear();
 }
 

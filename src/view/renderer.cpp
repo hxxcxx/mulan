@@ -123,6 +123,10 @@ void Renderer::render(engine::RHIDevice& device,
     ctx.camera.eyePosition      = viewState.cameraPosition;
     if (forward_pass_) forward_pass_->execute(ctx);
     if (edge_pass_)     edge_pass_->execute(ctx);
+    // 两个 pass 各持有独立的 material UBO，uploadDirtyMaterials 不再自行清空脏集合，
+    // 故在此处（所有 pass 都上传完毕后）统一清空，避免下帧重复全量上传。
+    if (forward_pass_ || edge_pass_)
+        engine::MaterialCache::instance().clearDirtyMaterials();
 
     if (viewState.showViewCube && view_cube_renderer_) {
         view_cube_renderer_->render(cmd, viewState.viewMatrix,
