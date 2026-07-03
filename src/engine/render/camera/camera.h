@@ -138,16 +138,10 @@ public:
 
     // ==================== 3D 拾取 ====================
 
-    /// 射线（起点 + 方向）
-    struct Ray {
-        math::Vec3 origin;
-        math::Vec3 direction;  // 单位向量
-    };
-
     /// 从屏幕像素坐标生成世界空间射线
     /// @param screenX  像素 X（左上角为原点）
     /// @param screenY  像素 Y（左上角为原点）
-    Ray screenRay(int screenX, int screenY) const {
+    math::Ray3 screenRay(int screenX, int screenY) const {
         // 屏幕 → NDC
         double ndcX =  (2.0 * screenX) / width_  - 1.0;
         double ndcY = -(2.0 * screenY) / height_ + 1.0;
@@ -164,9 +158,9 @@ public:
         math::Vec4 farWorld = invVP * farPt;
         farWorld /= farWorld.w;
 
-        math::Vec3 origin = math::Vec3(nearWorld);
-        math::Vec3 dir = (math::Vec3(farWorld) - origin).normalized();
-        return Ray{origin, dir};
+        math::Point3 origin(nearWorld.x, nearWorld.y, nearWorld.z);
+        math::Vec3 dir = (math::Vec3(farWorld) - origin.asVec()).normalized();
+        return math::Ray3(origin, dir);
     }
 
 private:
