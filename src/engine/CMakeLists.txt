@@ -2,9 +2,9 @@
 add_library(Engine STATIC
     platform/win32_window.cpp
     rhi/device_factory.cpp
-    scene/camera/camera.cpp
-    scene/camera/turntable_rotation.cpp
-    scene/camera/trackball_rotation.cpp
+    render/camera/camera.cpp
+    render/camera/turntable_rotation.cpp
+    render/camera/trackball_rotation.cpp
     render/texture_loader.cpp
     render/texture_cache.cpp
     render/render_resource_cache.cpp

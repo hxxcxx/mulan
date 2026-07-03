@@ -14,7 +14,7 @@
 #include "mulan/engine/interaction/operator.h"
 #include "mulan/engine/render/light_environment.h"
 #include "mulan/engine/rhi/device.h"
-#include "mulan/engine/scene/camera/camera.h"
+#include "mulan/engine/render/camera/camera.h"
 
 #include <cstdint>
 #include <memory>

@@ -17,7 +17,7 @@
 #include "../../rhi/pipeline_state.h"
 #include "../../rhi/buffer.h"
 #include "../../rhi/shader.h"
-#include "../../scene/camera/camera.h"
+#include "../camera/camera.h"
 
 #include <cstdint>
 #include <memory>
