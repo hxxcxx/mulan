@@ -81,9 +81,22 @@ struct Mesh {
         if (off == 0xFFFF) return;  // 布局无 Position，无法计算
         const uint16_t stride = layout.stride();
         if (stride == 0) return;
-        for (size_t p = off; p + sizeof(Vec3) <= vertices.size(); p += stride) {
-            Vec3 v;
-            std::memcpy(&v, &vertices[p], sizeof(Vec3));
+        const auto* position = layout.find(VertexSemantic::Position);
+        if (!position) return;
+
+        for (size_t p = off; p + position->size() <= vertices.size(); p += stride) {
+            Vec3 v{};
+            if (position->format == VertexFormat::Float3) {
+                float f[3]{};
+                std::memcpy(f, &vertices[p], sizeof(f));
+                v = Vec3(f[0], f[1], f[2]);
+            } else if (position->format == VertexFormat::Float4) {
+                float f[4]{};
+                std::memcpy(f, &vertices[p], sizeof(f));
+                v = Vec3(f[0], f[1], f[2]);
+            } else {
+                continue;
+            }
             bounds.expand(v);
         }
     }

@@ -3,6 +3,7 @@ add_library(IO STATIC
     occt_importer.cpp
     importer_factory.cpp
     file_manager.cpp
+    mesh_import_builder.cpp
 )
 
 # 构建时将头文件复制到 build/include/mulan/io/...
