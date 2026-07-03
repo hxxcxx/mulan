@@ -6,8 +6,8 @@
  */
 #pragma once
 
-#include "scalar/scalar.h"
-#include "scalar/tolerance.h"
+#include "../scalar/scalar.h"
+#include "../scalar/tolerance.h"
 
 #include <cmath>
 

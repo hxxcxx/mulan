@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include "linalg/vec3.h"
+#include "../linalg/vec3.h"
 
 namespace mulan::math {
 

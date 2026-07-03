@@ -9,9 +9,9 @@
  */
 #pragma once
 
-#include "linalg/mat3.h"
-#include "linalg/vec3.h"
-#include "linalg/vec4.h"
+#include "mat3.h"
+#include "vec3.h"
+#include "vec4.h"
 
 #include <cmath>
 
@@ -253,15 +253,6 @@ constexpr Mat3T<T>::Mat3T(const Mat4T<U>& m)
     : cols{Vec3T<T>(m[0].x, m[0].y, m[0].z),
            Vec3T<T>(m[1].x, m[1].y, m[1].z),
            Vec3T<T>(m[2].x, m[2].y, m[2].z)} {}
-
-template<typename T>
-inline Mat4T<T> translate(const Mat4T<T>& m, const Vec3T<T>& t) {
-    return m * Mat4T<T>::translate(t);
-}
-template<typename T>
-inline Mat4T<T> scale(const Mat4T<T>& m, const Vec3T<T>& s) {
-    return m * Mat4T<T>::scale(s);
-}
 
 // 保证 Vec4T 紧凑、Mat4T 为 16 元素连续存储（GPU/OCCT 边界契约）
 static_assert(sizeof(FMat4) == 16 * sizeof(float),  "FMat4 must be 16 contiguous floats");

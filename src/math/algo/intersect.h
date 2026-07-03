@@ -15,14 +15,14 @@
  */
 #pragma once
 
-#include "linalg/vec2.h"
-#include "linalg/vec3.h"
-#include "geom/aabb.h"
-#include "geom/sphere.h"
-#include "geom/plane.h"
-#include "geom/line.h"
-#include "algo/hit.h"
-#include "scalar/tolerance.h"
+#include "../linalg/vec2.h"
+#include "../linalg/vec3.h"
+#include "../geom/aabb.h"
+#include "../geom/sphere.h"
+#include "../geom/plane.h"
+#include "../geom/line.h"
+#include "hit.h"
+#include "../scalar/tolerance.h"
 
 #include <algorithm>
 #include <cmath>

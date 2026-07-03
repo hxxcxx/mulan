@@ -14,7 +14,7 @@
  */
 #pragma once
 
-#include "scalar/scalar.h"
+#include "scalar.h"
 
 #include <cmath>
 

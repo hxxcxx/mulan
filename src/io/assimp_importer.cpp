@@ -389,7 +389,7 @@ AssimpImporter::import(const std::string& path,
     }
 
     const math::Mat4 rootWorld =
-        math::scale(math::Mat4{1.0}, math::Vec3(unitScale));
+        math::Mat4::scale(math::Vec3(unitScale));
     importNodeRecursive(*scene->mRootNode, doc, meshes, scene::EntityId::invalid(), rootWorld, result);
     auto nodeWarnings = std::move(result.report.warnings);
 

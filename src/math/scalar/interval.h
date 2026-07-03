@@ -11,8 +11,8 @@
  */
 #pragma once
 
-#include "scalar/scalar.h"
-#include "scalar/tolerance.h"
+#include "scalar.h"
+#include "tolerance.h"
 
 #include <algorithm>
 #include <limits>

@@ -10,12 +10,12 @@
  */
 #pragma once
 
-#include "linalg/vec2.h"
-#include "linalg/vec3.h"
-#include "linalg/mat2.h"
-#include "linalg/mat3.h"
-#include "linalg/mat4.h"
-#include "linalg/quaternion.h"
+#include "vec2.h"
+#include "vec3.h"
+#include "mat2.h"
+#include "mat3.h"
+#include "mat4.h"
+#include "quaternion.h"
 
 namespace mulan::math {
 

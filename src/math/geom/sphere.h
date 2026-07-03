@@ -8,10 +8,10 @@
  */
 #pragma once
 
-#include "linalg/vec3.h"
-#include "linalg/mat4.h"
-#include "geom/aabb.h"
-#include "scalar/tolerance.h"
+#include "../linalg/vec3.h"
+#include "../linalg/mat4.h"
+#include "aabb.h"
+#include "../scalar/tolerance.h"
 
 #include <algorithm>
 #include <cmath>

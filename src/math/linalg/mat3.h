@@ -8,7 +8,7 @@
  */
 #pragma once
 
-#include "linalg/vec3.h"
+#include "vec3.h"
 
 #include <cmath>
 

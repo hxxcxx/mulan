@@ -8,11 +8,11 @@
  */
 #pragma once
 
-#include "linalg/vec2.h"
-#include "linalg/vec3.h"
-#include "linalg/mat3.h"
-#include "linalg/mat4.h"
-#include "scalar/tolerance.h"
+#include "../linalg/vec2.h"
+#include "../linalg/vec3.h"
+#include "../linalg/mat3.h"
+#include "../linalg/mat4.h"
+#include "../scalar/tolerance.h"
 
 #include <limits>
 

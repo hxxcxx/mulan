@@ -6,9 +6,9 @@
  */
 #pragma once
 
-#include "scalar/scalar.h"
-#include "linalg/vec2.h"
-#include "linalg/vec3.h"
+#include "../scalar/scalar.h"
+#include "vec2.h"
+#include "vec3.h"
 
 #include <cmath>
 

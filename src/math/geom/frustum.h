@@ -7,11 +7,11 @@
  */
 #pragma once
 
-#include "geom/aabb.h"
-#include "linalg/mat4.h"
-#include "geom/plane.h"
-#include "geom/sphere.h"
-#include "linalg/vec4.h"
+#include "aabb.h"
+#include "../linalg/mat4.h"
+#include "plane.h"
+#include "sphere.h"
+#include "../linalg/vec4.h"
 
 #include <cmath>
 
