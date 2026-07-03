@@ -77,7 +77,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 target_link_libraries(Engine PUBLIC
     Core
-    Geo
+    Math
     Vulkan::Vulkan
     GPUOpen::VulkanMemoryAllocator
     nlohmann_json::nlohmann_json

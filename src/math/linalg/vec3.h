@@ -6,12 +6,12 @@
  */
 #pragma once
 
-#include "geo_math.h"
-#include "tolerance.h"
+#include "scalar/scalar.h"
+#include "scalar/tolerance.h"
 
 #include <cmath>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 // 前向声明（用于变换成员方法声明；定义见 Point.h，那里能见到完整 Mat4T）
 template<typename T> struct Mat4T;
@@ -137,21 +137,21 @@ constexpr bool operator!=(const Vec3T<T>& a, const Vec3T<T>& b) { return !(a == 
 
 template<typename T>
 constexpr Vec3T<T> min(const Vec3T<T>& a, const Vec3T<T>& b) {
-    return Vec3T<T>(geo::min(a.x, b.x), geo::min(a.y, b.y), geo::min(a.z, b.z));
+    return Vec3T<T>(math::min(a.x, b.x), math::min(a.y, b.y), math::min(a.z, b.z));
 }
 template<typename T>
 constexpr Vec3T<T> max(const Vec3T<T>& a, const Vec3T<T>& b) {
-    return Vec3T<T>(geo::max(a.x, b.x), geo::max(a.y, b.y), geo::max(a.z, b.z));
+    return Vec3T<T>(math::max(a.x, b.x), math::max(a.y, b.y), math::max(a.z, b.z));
 }
 template<typename T>
 constexpr Vec3T<T> clamp(const Vec3T<T>& v, const Vec3T<T>& lo, const Vec3T<T>& hi) {
-    return Vec3T<T>(geo::clamp(v.x, lo.x, hi.x),
-                    geo::clamp(v.y, lo.y, hi.y),
-                    geo::clamp(v.z, lo.z, hi.z));
+    return Vec3T<T>(math::clamp(v.x, lo.x, hi.x),
+                    math::clamp(v.y, lo.y, hi.y),
+                    math::clamp(v.z, lo.z, hi.z));
 }
 
 // ---------- 别名 ----------
 using Vec3  = Vec3T<double>;
 using FVec3 = Vec3T<float>;
 
-} // namespace mulan::geo
+} // namespace mulan::math

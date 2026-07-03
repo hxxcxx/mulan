@@ -9,13 +9,13 @@
  */
 #pragma once
 
-#include "mat3.h"
-#include "vec3.h"
-#include "vec4.h"
+#include "linalg/mat3.h"
+#include "linalg/vec3.h"
+#include "linalg/vec4.h"
 
 #include <cmath>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 template<typename T>
 struct Mat4T {
@@ -275,4 +275,4 @@ inline Mat4T<T> ortho(T left, T right, T bottom, T top, T zNear, T zFar) {
 static_assert(sizeof(FMat4) == 16 * sizeof(float),  "FMat4 must be 16 contiguous floats");
 static_assert(sizeof(Mat4)  == 16 * sizeof(double), "Mat4 must be 16 contiguous doubles");
 
-} // namespace mulan::geo
+} // namespace mulan::math

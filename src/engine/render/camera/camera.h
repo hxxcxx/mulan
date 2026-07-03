@@ -21,9 +21,9 @@
 #include <memory>
 #include <optional>
 
-#include "../../math/math.h"
-#include "../../math/aabb.h"
-#include "../../math/frustum.h"
+#include <mulan/math/math.h>
+#include <mulan/math/math.h>
+#include <mulan/math/math.h>
 #include "rotation_mode.h"
 
 namespace mulan::engine {

@@ -7,7 +7,7 @@
 #pragma once
 
 #include <mulan/engine/geometry/mesh.h>
-#include <mulan/engine/math/aabb.h>
+#include <mulan/math/math.h>
 
 class TopoDS_Shape;
 

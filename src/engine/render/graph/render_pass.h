@@ -8,7 +8,7 @@
 #pragma once
 
 #include "../../rhi/command_list.h"
-#include "../../math/math.h"
+#include <mulan/math/math.h>
 
 namespace mulan::engine {
 

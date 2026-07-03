@@ -11,13 +11,13 @@
  */
 #pragma once
 
-#include "geo_math.h"
-#include "tolerance.h"
+#include "scalar/scalar.h"
+#include "scalar/tolerance.h"
 
 #include <algorithm>
 #include <limits>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 // ============================================================
 // Interval — 1D 闭区间 [min, max]
@@ -64,7 +64,7 @@ struct Interval {
     }
 
     /// 将 v 钳制到 [min,max]
-    double clamp(double v) const { return geo::clamp(v, min, max); }
+    double clamp(double v) const { return math::clamp(v, min, max); }
 
     /// 把 v 从本区间线性映射到 [0,1]（归一化参数）
     double toNormalized(double v) const {
@@ -127,4 +127,4 @@ struct Interval2 {
     }
 };
 
-} // namespace mulan::geo
+} // namespace mulan::math

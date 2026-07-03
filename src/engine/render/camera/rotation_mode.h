@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "../../math/math.h"
+#include <mulan/math/math.h>
 
 namespace mulan::engine {
 

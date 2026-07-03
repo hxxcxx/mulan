@@ -15,7 +15,7 @@
 #include "../rhi/buffer.h"
 #include "../rhi/render_types.h"
 #include "../rhi/command_list.h"
-#include "../math/math.h"
+#include <mulan/math/math.h>
 
 #include <cstdint>
 

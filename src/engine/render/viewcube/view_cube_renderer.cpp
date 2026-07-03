@@ -1,7 +1,7 @@
 #include "view_cube_renderer.h"
 #include "../../rhi/command_list.h"
 #include "../../vertex/vertex_layout.h"
-#include "../../math/math.h"
+#include <mulan/math/math.h>
 
 #include <cstdio>
 #include <cstring>

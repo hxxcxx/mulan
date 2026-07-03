@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "../math/math.h"
+#include <mulan/math/math.h>
 #include "../vertex/vertex_layout.h"
 #include "../rhi/pipeline_state.h"
 #include "../rhi/device.h"

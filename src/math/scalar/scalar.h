@@ -1,17 +1,17 @@
 /**
- * @file geo_math.h
+ * @file scalar.h
  * @brief 标量数学函数 — 基于 <cmath>/<algorithm>
  * @author hxxcxx
  * @date 2026-06-29
  *
- * 供 geo 模块所有类型及外部共用。
+ * 供 math 模块所有类型及外部共用。
  */
 #pragma once
 
 #include <algorithm>
 #include <cmath>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 // ============================================================
 // 角度转换
@@ -58,4 +58,4 @@ inline double sqrt(double v)  { return std::sqrt(v); }
 inline float  sqrt(float v)   { return std::sqrt(v); }
 inline double pow(double b, double e) { return std::pow(b, e); }
 
-} // namespace mulan::geo
+} // namespace mulan::math

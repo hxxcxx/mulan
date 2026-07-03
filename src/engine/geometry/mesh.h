@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "../math/math.h"
-#include "../math/aabb.h"
+#include <mulan/math/math.h>
+#include <mulan/math/math.h>
 #include "../render/render_geometry.h"
 #include "../vertex/vertex_layout.h"
 

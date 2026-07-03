@@ -13,7 +13,7 @@
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/core/result/error.h>
 #include <mulan/engine/geometry/mesh.h>
-#include <mulan/engine/math/aabb.h>
+#include <mulan/math/math.h>
 
 #include <cstddef>
 #include <cstdint>

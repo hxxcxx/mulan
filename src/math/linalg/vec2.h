@@ -6,12 +6,12 @@
  */
 #pragma once
 
-#include "geo_math.h"
-#include "tolerance.h"
+#include "scalar/scalar.h"
+#include "scalar/tolerance.h"
 
 #include <cmath>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 template<typename T>
 struct Vec2T {
@@ -102,19 +102,19 @@ constexpr bool operator!=(const Vec2T<T>& a, const Vec2T<T>& b) { return !(a == 
 
 template<typename T>
 constexpr Vec2T<T> min(const Vec2T<T>& a, const Vec2T<T>& b) {
-    return Vec2T<T>(geo::min(a.x, b.x), geo::min(a.y, b.y));
+    return Vec2T<T>(math::min(a.x, b.x), math::min(a.y, b.y));
 }
 template<typename T>
 constexpr Vec2T<T> max(const Vec2T<T>& a, const Vec2T<T>& b) {
-    return Vec2T<T>(geo::max(a.x, b.x), geo::max(a.y, b.y));
+    return Vec2T<T>(math::max(a.x, b.x), math::max(a.y, b.y));
 }
 template<typename T>
 constexpr Vec2T<T> clamp(const Vec2T<T>& v, const Vec2T<T>& lo, const Vec2T<T>& hi) {
-    return Vec2T<T>(geo::clamp(v.x, lo.x, hi.x), geo::clamp(v.y, lo.y, hi.y));
+    return Vec2T<T>(math::clamp(v.x, lo.x, hi.x), math::clamp(v.y, lo.y, hi.y));
 }
 
 // ---------- 别名 ----------
 using Vec2  = Vec2T<double>;
 using FVec2 = Vec2T<float>;
 
-} // namespace mulan::geo
+} // namespace mulan::math

@@ -9,7 +9,7 @@
 
 #include "text_types.h"
 #include "font_atlas.h"
-#include "../../math/math.h"
+#include <mulan/math/math.h>
 #include "../../geometry/mesh.h"
 
 #include <string_view>

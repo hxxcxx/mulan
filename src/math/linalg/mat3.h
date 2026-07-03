@@ -8,11 +8,11 @@
  */
 #pragma once
 
-#include "vec3.h"
+#include "linalg/vec3.h"
 
 #include <cmath>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 template<typename T> struct Mat4T;
 
@@ -119,4 +119,4 @@ constexpr Mat3T<T> operator*(const Mat3T<T>& a, const Mat3T<T>& b) {
 using Mat3  = Mat3T<double>;
 using FMat3 = Mat3T<float>;
 
-} // namespace mulan::geo
+} // namespace mulan::math

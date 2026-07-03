@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <mulan/engine/math/math.h>
+#include <mulan/math/math.h>
 
 namespace mulan::scene {
 

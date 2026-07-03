@@ -8,15 +8,15 @@
  */
 #pragma once
 
-#include "vec2.h"
-#include "vec3.h"
-#include "mat3.h"
-#include "mat4.h"
-#include "tolerance.h"
+#include "linalg/vec2.h"
+#include "linalg/vec3.h"
+#include "linalg/mat3.h"
+#include "linalg/mat4.h"
+#include "scalar/tolerance.h"
 
 #include <limits>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 // ============================================================
 // AABB3
@@ -50,15 +50,15 @@ struct AABB3 {
 
     // ---------- 扩展 ----------
     void expand(const Vec3& p) {
-        min.x = geo::min(min.x, p.x); max.x = geo::max(max.x, p.x);
-        min.y = geo::min(min.y, p.y); max.y = geo::max(max.y, p.y);
-        min.z = geo::min(min.z, p.z); max.z = geo::max(max.z, p.z);
+        min.x = math::min(min.x, p.x); max.x = math::max(max.x, p.x);
+        min.y = math::min(min.y, p.y); max.y = math::max(max.y, p.y);
+        min.z = math::min(min.z, p.z); max.z = math::max(max.z, p.z);
     }
     void expand(const AABB3& b) {
         if (b.isEmpty()) return;
-        min.x = geo::min(min.x, b.min.x); max.x = geo::max(max.x, b.max.x);
-        min.y = geo::min(min.y, b.min.y); max.y = geo::max(max.y, b.max.y);
-        min.z = geo::min(min.z, b.min.z); max.z = geo::max(max.z, b.max.z);
+        min.x = math::min(min.x, b.min.x); max.x = math::max(max.x, b.max.x);
+        min.y = math::min(min.y, b.min.y); max.y = math::max(max.y, b.max.y);
+        min.z = math::min(min.z, b.min.z); max.z = math::max(max.z, b.max.z);
     }
 
     // ---------- 查询 ----------
@@ -113,13 +113,13 @@ struct AABB2 {
     void reset() { *this = empty(); }
 
     void expand(const Vec2& p) {
-        min.x = geo::min(min.x, p.x); max.x = geo::max(max.x, p.x);
-        min.y = geo::min(min.y, p.y); max.y = geo::max(max.y, p.y);
+        min.x = math::min(min.x, p.x); max.x = math::max(max.x, p.x);
+        min.y = math::min(min.y, p.y); max.y = math::max(max.y, p.y);
     }
     void expand(const AABB2& b) {
         if (b.isEmpty()) return;
-        min.x = geo::min(min.x, b.min.x); max.x = geo::max(max.x, b.max.x);
-        min.y = geo::min(min.y, b.min.y); max.y = geo::max(max.y, b.max.y);
+        min.x = math::min(min.x, b.min.x); max.x = math::max(max.x, b.max.x);
+        min.y = math::min(min.y, b.min.y); max.y = math::max(max.y, b.max.y);
     }
 
     Vec2 center() const { return (min + max) * 0.5; }
@@ -148,4 +148,4 @@ struct AABB2 {
     }
 };
 
-} // namespace mulan::geo
+} // namespace mulan::math

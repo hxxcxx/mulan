@@ -16,7 +16,7 @@
 #include "shader.h"
 #include "swap_chain.h"
 #include "texture.h"
-#include "../math/math.h"
+#include <mulan/math/math.h>
 #include "../window.h"
 
 #include <mulan/core/result/error.h>

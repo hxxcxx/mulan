@@ -8,14 +8,14 @@
  */
 #pragma once
 
-#include "vec3.h"
-#include "mat3.h"
-#include "mat4.h"
-#include "geo_math.h"
+#include "linalg/vec3.h"
+#include "linalg/mat3.h"
+#include "linalg/mat4.h"
+#include "scalar/scalar.h"
 
 #include <cmath>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 template<typename T>
 struct QuatT {
@@ -189,4 +189,4 @@ QuatT<T> slerp(const QuatT<T>& a, QuatT<T> b, T t) {
 using Quat  = QuatT<double>;
 using FQuat = QuatT<float>;
 
-} // namespace mulan::geo
+} // namespace mulan::math

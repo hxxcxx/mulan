@@ -8,14 +8,14 @@
  */
 #pragma once
 
-#include "vec3.h"
-#include "mat4.h"
-#include "point.h"
-#include "tolerance.h"
+#include "linalg/vec3.h"
+#include "linalg/mat4.h"
+#include "geom/point.h"
+#include "scalar/tolerance.h"
 
 #include <cmath>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 struct Plane3 {
     Vec3   normal{};   // 应为单位向量
@@ -61,4 +61,4 @@ struct Plane3 {
     }
 };
 
-} // namespace mulan::geo
+} // namespace mulan::math

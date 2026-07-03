@@ -1,4 +1,4 @@
-#include <mulan/geo/geo.h>
+#include <mulan/math/math.h>
 
 #include <cmath>
 #include <cstdlib>
@@ -7,7 +7,7 @@
 
 namespace {
 
-using namespace mulan::geo;
+using namespace mulan::math;
 
 int g_failures = 0;
 

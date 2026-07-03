@@ -11,9 +11,9 @@
  */
 #pragma once
 
-#include "vec3.h"
+#include "linalg/vec3.h"
 
-namespace mulan::geo {
+namespace mulan::math {
 
 /// 3D 求交结果
 struct Hit3 {
@@ -35,4 +35,4 @@ struct Hit2 {
     static Hit2 make(const Vec2& p, double t_) { return Hit2{true, p, t_}; }
 };
 
-} // namespace mulan::geo
+} // namespace mulan::math

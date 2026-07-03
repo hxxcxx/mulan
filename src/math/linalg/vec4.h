@@ -6,13 +6,13 @@
  */
 #pragma once
 
-#include "geo_math.h"
-#include "vec2.h"
-#include "vec3.h"
+#include "scalar/scalar.h"
+#include "linalg/vec2.h"
+#include "linalg/vec3.h"
 
 #include <cmath>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 template<typename T>
 struct Vec4T {
@@ -94,4 +94,4 @@ constexpr Vec3T<T>::Vec3T(const Vec4T<U>& v)
 using Vec4  = Vec4T<double>;
 using FVec4 = Vec4T<float>;
 
-} // namespace mulan::geo
+} // namespace mulan::math

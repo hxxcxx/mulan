@@ -23,7 +23,7 @@
 #include "../../rhi/pipeline_state.h"
 #include "../../rhi/render_types.h"
 #include "../../rhi/shader.h"
-#include "../../math/math.h"
+#include <mulan/math/math.h>
 
 #include <cstdint>
 #include <span>

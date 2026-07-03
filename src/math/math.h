@@ -1,52 +1,52 @@
 /**
- * @file geo.h
- * @brief mulan::geo 自有几何数学库 — 汇总头
+ * @file math.h
+ * @brief mulan::math 自有数学库 — 汇总头
  * @author hxxcxx
  * @date 2026-06-29
  *
- * 自有几何数学库（header-only，零外部依赖）。
+ * 自有数学库（header-only，零外部依赖）。
  * 设计要点见各子文件头注释。
  *
- * 命名空间：mulan::geo
+ * 命名空间：mulan::math
  * 精度：Vec3 = double，FVec3 = float
  *
  * 范围说明：
- *  本模块覆盖基础解析几何（向量/矩阵/四元数/直线/平面/球/AABB/多边形）
- *  与基础求交（闭式解）。参数曲线（NURBS/Bezier/圆弧）及其数值求交
- *  见后续独立的 curve 模块，不在此处。
+ *  本模块覆盖基础数值（标量/容差/角度）、线性代数（向量/矩阵/四元数/变换）、
+ *  基础解析几何（直线/平面/球/AABB/多边形）与基础求交（闭式解）。
+ *  参数曲线（NURBS/Bezier/圆弧）及其数值求交见 curve 子目录或独立模块。
  */
 #pragma once
 
 // 基础
-#include "geo_export.h"
-#include "geo_math.h"
-#include "tolerance.h"
-#include "angle.h"
-#include "interval.h"
+#include "math_export.h"
+#include "scalar/scalar.h"
+#include "scalar/tolerance.h"
+#include "scalar/angle.h"
+#include "scalar/interval.h"
 
 // 向量
-#include "vec2.h"
-#include "vec3.h"
-#include "vec4.h"
+#include "linalg/vec2.h"
+#include "linalg/vec3.h"
+#include "linalg/vec4.h"
 
 // 矩阵
-#include "mat2.h"
-#include "mat3.h"
-#include "mat4.h"
+#include "linalg/mat2.h"
+#include "linalg/mat3.h"
+#include "linalg/mat4.h"
 
 // 旋转
-#include "quaternion.h"
+#include "linalg/quaternion.h"
 
 // 基础几何对象
-#include "point.h"
-#include "aabb.h"
-#include "sphere.h"
-#include "line.h"
-#include "plane.h"
-#include "frustum.h"
-#include "polygon.h"
-#include "transform.h"
+#include "geom/point.h"
+#include "geom/aabb.h"
+#include "geom/sphere.h"
+#include "geom/line.h"
+#include "geom/plane.h"
+#include "geom/frustum.h"
+#include "geom/polygon.h"
+#include "linalg/transform.h"
 
 // 求交
-#include "hit.h"
-#include "intersect.h"
+#include "algo/hit.h"
+#include "algo/intersect.h"

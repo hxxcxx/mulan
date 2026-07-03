@@ -14,11 +14,11 @@
  */
 #pragma once
 
-#include "geo_math.h"
+#include "scalar/scalar.h"
 
 #include <cmath>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 class Angle {
 public:
@@ -108,4 +108,4 @@ private:
 using Radian = Angle;
 using Degree = Angle;   // 语义标签；构造仍须用 Angle::fromDeg/fromRad
 
-} // namespace mulan::geo
+} // namespace mulan::math

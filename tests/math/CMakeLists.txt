@@ -1,7 +1,7 @@
-add_executable(GeoTests
-    geo_tests.cpp
+add_executable(MathTests
+    math_tests.cpp
 )
 
-target_link_libraries(GeoTests PRIVATE Geo)
+target_link_libraries(MathTests PRIVATE Math)
 
-add_test(NAME GeoTests COMMAND GeoTests)
+add_test(NAME MathTests COMMAND MathTests)

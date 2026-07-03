@@ -9,15 +9,15 @@
  */
 #pragma once
 
-#include "vec2.h"
-#include "vec3.h"
-#include "mat3.h"
-#include "mat4.h"
-#include "tolerance.h"
+#include "linalg/vec2.h"
+#include "linalg/vec3.h"
+#include "linalg/mat3.h"
+#include "linalg/mat4.h"
+#include "scalar/tolerance.h"
 
 #include <vector>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 // ============================================================
 // Poly2 — 2D 多边形
@@ -130,4 +130,4 @@ struct Poly3 {
     }
 };
 
-} // namespace mulan::geo
+} // namespace mulan::math

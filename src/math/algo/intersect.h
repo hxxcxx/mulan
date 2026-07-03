@@ -15,20 +15,20 @@
  */
 #pragma once
 
-#include "vec2.h"
-#include "vec3.h"
-#include "aabb.h"
-#include "sphere.h"
-#include "plane.h"
-#include "line.h"
-#include "hit.h"
-#include "tolerance.h"
+#include "linalg/vec2.h"
+#include "linalg/vec3.h"
+#include "geom/aabb.h"
+#include "geom/sphere.h"
+#include "geom/plane.h"
+#include "geom/line.h"
+#include "algo/hit.h"
+#include "scalar/tolerance.h"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 // 注：Ray3 定义于 Line.h，此处直接引用。
 
@@ -228,4 +228,4 @@ inline double distance(const Vec3& p, const Ray3& ray) {
     return ray.direction.cross(w).length();      // |dir| 应为 1
 }
 
-} // namespace mulan::geo
+} // namespace mulan::math

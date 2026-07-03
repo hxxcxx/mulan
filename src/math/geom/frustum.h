@@ -7,15 +7,15 @@
  */
 #pragma once
 
-#include "aabb.h"
-#include "mat4.h"
-#include "plane.h"
-#include "sphere.h"
-#include "vec4.h"
+#include "geom/aabb.h"
+#include "linalg/mat4.h"
+#include "geom/plane.h"
+#include "geom/sphere.h"
+#include "linalg/vec4.h"
 
 #include <cmath>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 enum class FrustumPlane : int {
     Left = 0,
@@ -103,4 +103,4 @@ struct Frustum3 {
 
 using Frustum = Frustum3;
 
-} // namespace mulan::geo
+} // namespace mulan::math

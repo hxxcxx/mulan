@@ -8,15 +8,15 @@
  */
 #pragma once
 
-#include "vec3.h"
-#include "mat4.h"
-#include "aabb.h"
-#include "tolerance.h"
+#include "linalg/vec3.h"
+#include "linalg/mat4.h"
+#include "geom/aabb.h"
+#include "scalar/tolerance.h"
 
 #include <algorithm>
 #include <cmath>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 struct Sphere3 {
     Vec3   center{};
@@ -83,9 +83,9 @@ struct Sphere3 {
     bool intersects(const AABB3& box) const {
         if (!isValid() || box.isEmpty()) return false;
         // 求 box 上离 center 最近的点
-        Vec3 closest(geo::max(box.min.x, geo::min(box.max.x, center.x)),
-                     geo::max(box.min.y, geo::min(box.max.y, center.y)),
-                     geo::max(box.min.z, geo::min(box.max.z, center.z)));
+        Vec3 closest(math::max(box.min.x, math::min(box.max.x, center.x)),
+                     math::max(box.min.y, math::min(box.max.y, center.y)),
+                     math::max(box.min.z, math::min(box.max.z, center.z)));
         return (closest - center).lengthSq() <= radius * radius;
     }
 
@@ -102,4 +102,4 @@ struct Sphere3 {
     }
 };
 
-} // namespace mulan::geo
+} // namespace mulan::math

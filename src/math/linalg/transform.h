@@ -10,14 +10,14 @@
  */
 #pragma once
 
-#include "vec2.h"
-#include "vec3.h"
-#include "mat2.h"
-#include "mat3.h"
-#include "mat4.h"
-#include "quaternion.h"
+#include "linalg/vec2.h"
+#include "linalg/vec3.h"
+#include "linalg/mat2.h"
+#include "linalg/mat3.h"
+#include "linalg/mat4.h"
+#include "linalg/quaternion.h"
 
-namespace mulan::geo {
+namespace mulan::math {
 
 // ============================================================
 // Transform3 — 3D 组合变换
@@ -83,4 +83,4 @@ struct Transform2 {
     }
 };
 
-} // namespace mulan::geo
+} // namespace mulan::math

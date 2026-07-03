@@ -17,7 +17,7 @@
 
 #include <cmath>
 
-namespace mulan::geo {
+namespace mulan::math {
 
 /// 容差配置
 struct Tolerance {
@@ -64,4 +64,4 @@ inline const Tolerance& defaultTolerance() {
     return Tolerance::defaultValue();
 }
 
-} // namespace mulan::geo
+} // namespace mulan::math

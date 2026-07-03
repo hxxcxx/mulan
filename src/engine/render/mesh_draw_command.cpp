@@ -2,7 +2,7 @@
 #include "../rhi/bind_group.h"
 #include "../rhi/command_list.h"
 #include "../rhi/buffer.h"
-#include "../math/math.h"
+#include <mulan/math/math.h>
 
 namespace mulan::engine {
 
