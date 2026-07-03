@@ -32,20 +32,19 @@ bool Renderer::init(engine::RHIDevice& device,
                     engine::TextureFormat depthFmt) {
     if (initialized_) return true;
 
-    gpu_storage_ = std::make_unique<engine::RenderResourceCache>(device);
-    gpu_         = gpu_storage_.get();
+    resources_ = std::make_unique<engine::RenderResourceCache>(device);
 
     auto& matCache = engine::MaterialCache::instance();
     matCache.setDevice(&device);
 
     auto fwd = std::make_unique<engine::ForwardPass>(
-        device, *gpu_, matCache, lightEnv);
+        device, *resources_, matCache, lightEnv);
     if (!fwd->init(colorFmt, depthFmt, true))
         return false;
     render_graph_.addPass(std::move(fwd));
 
     auto edge = std::make_unique<engine::EdgePass>(
-        device, *gpu_, matCache, lightEnv);
+        device, *resources_, matCache, lightEnv);
     if (!edge->init(colorFmt, depthFmt, true))
         return false;
     render_graph_.addPass(std::move(edge));
@@ -63,8 +62,7 @@ void Renderer::shutdown(engine::RHIDevice& device) {
     device.waitIdle();
     view_cube_renderer_.reset();
     render_graph_.clear();
-    gpu_storage_.reset();
-    gpu_ = nullptr;
+    resources_.reset();
     initialized_ = false;
 }
 
@@ -81,8 +79,8 @@ void Renderer::render(engine::RHIDevice& device,
     auto* fwd  = render_graph_.pass<engine::ForwardPass>(0);
     auto* edge = render_graph_.pass<engine::EdgePass>(1);
 
-    if (gpu_)
-        builder_.rebuild(*gpu_,
+    if (resources_)
+        builder_.rebuild(*resources_,
                          fwd ? fwd->pipelineState() : nullptr,
                          edge ? edge->pipelineState() : nullptr);
 

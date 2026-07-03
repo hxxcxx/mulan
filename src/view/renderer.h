@@ -64,7 +64,7 @@ public:
                 RenderSurface& surface,
                 const ViewState& viewState);
 
-    engine::RenderResourceCache& resources() { return *gpu_; }
+    engine::RenderResourceCache& resources() { return *resources_; }
     engine::RenderGraph& renderGraph() { return render_graph_; }
 
     bool isInitialized() const { return initialized_; }
@@ -74,8 +74,7 @@ private:
                       engine::TextureFormat colorFmt,
                       engine::TextureFormat depthFmt);
 
-    std::unique_ptr<engine::RenderResourceCache> gpu_storage_;
-    engine::RenderResourceCache* gpu_ = nullptr;
+    std::unique_ptr<engine::RenderResourceCache> resources_;
 
     DrawCommandBuilder builder_;
     engine::RenderGraph render_graph_;
