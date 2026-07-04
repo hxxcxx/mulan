@@ -37,7 +37,14 @@ public:
     RenderScene(const RenderScene&) = delete;
     RenderScene& operator=(const RenderScene&) = delete;
 
-    void sync(const scene::Scene& scene, const asset::AssetLibrary& assets);
+    /// 同步 Scene 变更到渲染缓存。
+    /// 首次调用做全量重建；之后只消费 Scene 的 EntityDirty 增量更新
+    /// （并 clearDirty 已消费的脏位）。可通过 resetSync() 强制下次全量。
+    void sync(scene::Scene& scene, const asset::AssetLibrary& assets);
+
+    /// 强制下次 sync() 走全量重建（如资产库整体替换后）。
+    void resetSync() { initialized_ = false; }
+
     void clear();
 
     const SyncStats& lastSyncStats() const { return last_sync_stats_; }
@@ -55,6 +62,7 @@ private:
     SyncStats last_sync_stats_;
     math::AABB3 scene_bounds_;
     std::unordered_map<scene::EntityId, SceneProxy> proxies_;
+    bool initialized_ = false;  // 首次 sync 全量，之后增量
 };
 
 } // namespace mulan::render_scene
