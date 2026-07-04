@@ -41,6 +41,14 @@ public:
             out.push_back({&wire_mesh_, AssetId::invalid(), DrawableRole::Wire});
     }
 
+    /// 本地包围盒 = solid + wire 网格顶点的并集（mesh.bounds 在导入时已算好）。
+    math::AABB3 localBounds() const override {
+        math::AABB3 b = math::AABB3::empty();
+        if (!solid_mesh_.bounds.isEmpty()) b.expand(solid_mesh_.bounds);
+        if (!wire_mesh_.bounds.isEmpty())  b.expand(wire_mesh_.bounds);
+        return b;
+    }
+
 private:
     engine::Mesh solid_mesh_;
     engine::Mesh wire_mesh_;

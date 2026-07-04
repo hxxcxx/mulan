@@ -83,7 +83,8 @@ bool Scene::setParent(EntityId child, EntityId parent) {
         if (h->parent)
             removeChild(h->parent, child);
         h->parent = EntityId::invalid();
-        markDirty(child, EntityDirty::Hierarchy | EntityDirty::Transform);
+        // 脱离父级后 world = local（按根节点重算子树）
+        updateWorldRecursive(child);
         return true;
     }
 
@@ -95,7 +96,8 @@ bool Scene::setParent(EntityId child, EntityId parent) {
 
     h->parent = parent;
     addChild(parent, child);
-    markDirty(child, EntityDirty::Hierarchy | EntityDirty::Transform);
+    // parent 变化后，该子树的 world 矩阵需按新父级重算
+    updateWorldRecursive(child);
     return true;
 }
 
@@ -155,7 +157,7 @@ bool Scene::setLocalTransform(EntityId id, const math::Mat4& transform) {
     if (!c) return false;
 
     c->local = transform;
-    markDirty(id, EntityDirty::Transform | EntityDirty::Bounds);
+    updateWorldRecursive(id);
     return true;
 }
 
@@ -164,7 +166,16 @@ bool Scene::setWorldTransform(EntityId id, const math::Mat4& transform) {
     if (!c) return false;
 
     c->world = transform;
-    markDirty(id, EntityDirty::Transform | EntityDirty::Bounds);
+    // 由 world 反推 local：local = parent.world⁻¹ * world（根节点 local = world）
+    auto* h = mutableHierarchy(id);
+    if (h && h->parent) {
+        const auto* pt = this->transform(h->parent);
+        c->local = pt ? pt->world.inverse() * transform : transform;
+    } else {
+        c->local = transform;
+    }
+    // world 已直接给定，子树仍需级联（本节点 world 是权威，子节点重算）
+    updateWorldRecursive(id, /*selfWorldFixed=*/true);
     return true;
 }
 
@@ -219,6 +230,33 @@ bool Scene::setWorldBounds(EntityId id, const math::AABB3& bounds) {
 
 void Scene::markDirty(EntityId id, EntityDirty dirty) {
     dirty_[id] |= dirtyValue(dirty);
+}
+
+void Scene::updateWorldRecursive(EntityId id, bool selfWorldFixed) {
+    if (!isValid(id)) return;
+    auto* c = mutableTransform(id);
+    if (!c) return;
+
+    // 本节点 world = parent.world * local（selfWorldFixed 时本节点 world 已是权威）
+    if (!selfWorldFixed) {
+        auto* h = mutableHierarchy(id);
+        if (h && h->parent) {
+            const auto* pt = transform(h->parent);
+            c->world = pt ? pt->world * c->local : c->local;
+        } else {
+            c->world = c->local;
+        }
+    }
+    markDirty(id, EntityDirty::Transform | EntityDirty::Bounds);
+
+    // 递归子节点：它们的 world 依赖本节点 world
+    auto childIt = children_.find(id);
+    if (childIt != children_.end()) {
+        // 拷贝一份，递归过程中 children_ 不会被改动（仅读）
+        for (auto childId : childIt->second) {
+            updateWorldRecursive(childId, false);
+        }
+    }
 }
 
 uint64_t Scene::dirtyFlags(EntityId id) const {

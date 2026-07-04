@@ -15,6 +15,8 @@ namespace {
 
 /// 从 Scene 单个 entity 的组件派生一份 SceneProxy（不参与 bounds 累加）。
 /// geometry 缺失时返回 std::nullopt（该 entity 不可渲染）。
+/// worldBounds 由 asset 的 localBounds 经 world 矩阵变换重算 —— 这样 transform
+/// 变化时 bounds 自动跟随（Scene 层只管 world 矩阵传播，不知 asset）。
 std::optional<SceneProxy> buildProxy(const scene::Scene& scene,
                                      const asset::AssetLibrary& assets,
                                      scene::EntityId id) {
@@ -23,6 +25,10 @@ std::optional<SceneProxy> buildProxy(const scene::Scene& scene,
 
     const asset::Asset* asset = assets.asset(geometry->geometry);
     if (!asset) return std::nullopt;
+
+    // localBounds 仅 GeometryAsset 提供（其他资产类型 dynamic_cast 返回 nullptr）
+    const auto* geomAsset = dynamic_cast<const asset::GeometryAsset*>(asset);
+    if (!geomAsset) return std::nullopt;
 
     const auto* render = scene.render(id);
     const auto* selection = scene.selection(id);
@@ -36,8 +42,8 @@ std::optional<SceneProxy> buildProxy(const scene::Scene& scene,
     proxy.visible = render ? render->visible : true;
     proxy.selected = selection ? selection->selected : false;
     proxy.worldTransform = transform ? transform->world : math::Mat4{1.0};
-    if (const auto* bounds = scene.bounds(id))
-        proxy.worldBounds = bounds->world_bounds;
+    // worldBounds = localBounds(资产空间) × world 矩阵
+    proxy.worldBounds = geomAsset->localBounds().transformed(proxy.worldTransform);
     return proxy;
 }
 

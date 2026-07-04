@@ -14,6 +14,8 @@
 #include "asset.h"
 #include "asset_id.h"
 
+#include <mulan/math/math.h>
+
 #include <cstdint>
 #include <utility>
 #include <vector>
@@ -48,6 +50,12 @@ public:
     /// 把自身展开为可绘制网格段，追加到 out。
     /// 子类按自身结构实现：TessellatedAsset 产出 face + edge，Mesh 产出每个 primitive。
     virtual void collectDrawables(std::vector<Drawable>& out) const = 0;
+
+    /// 几何资产的本地空间包围盒（不含实体 transform）。
+    /// RenderScene 据此与 world 矩阵重算 worldBounds。
+    /// 子类按自身网格顶点返回（MeshAsset 取所有 primitive 的并集，
+    /// TessellatedAsset 取 solid + wire 的并集）。
+    virtual math::AABB3 localBounds() const = 0;
 };
 
 } // namespace mulan::asset

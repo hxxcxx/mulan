@@ -52,6 +52,15 @@ public:
         }
     }
 
+    /// 本地包围盒 = 所有 primitive 网格 bounds 的并集（mesh.bounds 在导入时已算好）。
+    math::AABB3 localBounds() const override {
+        math::AABB3 b = math::AABB3::empty();
+        for (const auto& p : primitives_) {
+            if (!p.mesh.bounds.isEmpty()) b.expand(p.mesh.bounds);
+        }
+        return b;
+    }
+
     MeshPrimitive& addPrimitive(engine::Mesh mesh,
                                 AssetId material = AssetId::invalid(),
                                 std::string name = {}) {

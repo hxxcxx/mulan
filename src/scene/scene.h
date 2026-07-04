@@ -109,6 +109,12 @@ private:
     uint32_t indexOf(EntityId id) const { return id.index(); }
     bool detectCycle(EntityId child, EntityId parent) const;
 
+    /// 自 id 起重算 world 矩阵并递归到整个子树。
+    /// world = parent.world * local；selfWorldFixed=true 时本节点 world 已由调用方
+    /// 设定（如 setWorldTransform），跳过本节点重算只级联子节点。
+    /// 每次 world 变更都 markDirty(Transform|Bounds)，供 RenderScene 增量同步消费。
+    void updateWorldRecursive(EntityId id, bool selfWorldFixed = false);
+
     NameComponent* mutableName(EntityId id);
     TransformComponent* mutableTransform(EntityId id);
     HierarchyComponent* mutableHierarchy(EntityId id);
