@@ -73,6 +73,9 @@ public:
     /// 全局默认线性 sampler。仅 sampleTextures=true 时非 null。
     Sampler* defaultSampler() const { return default_sampler_.get(); }
 
+    /// 设置 IBL 环境贴图（nullptr = 退化到 defaultWhite，无 IBL 效果）
+    void setEnvironmentMap(Texture* envMap) { env_map_ = envMap; }
+
 private:
     bool loadShaders();
     bool createPSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
@@ -95,6 +98,7 @@ private:
     // 仅 sampleTextures=true 时持有：默认 sampler + 1×1 白纹理（本 pass 独占所有权）
     std::unique_ptr<Sampler>       default_sampler_;
     std::unique_ptr<Texture>       default_white_tex_;
+    Texture*                       env_map_ = nullptr;  // 借用自 Renderer 的 EnvironmentMap
 
     std::span<const MeshDrawCommand> commands_;
     bool initialized_ = false;

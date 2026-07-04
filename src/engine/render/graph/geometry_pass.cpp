@@ -140,6 +140,10 @@ bool GeometryPass::createPSO(TextureFormat colorFmt, TextureFormat depthFmt,
             .binding = 8, .count = 1,
             .type = DescriptorType::Sampler,
             .stages = PB::kStageFragment};
+        desc.descriptorBindings[bindingCount++] = {
+            .binding = 9, .count = 1,
+            .type = DescriptorType::TextureSRV,
+            .stages = PB::kStageFragment};
     }
     desc.descriptorBindingCount = bindingCount;
 
@@ -231,7 +235,8 @@ void GeometryPass::execute(const PassContext& ctx) {
     for (auto& cmd : commands_) {
         if (!cmd.visible || cmd.instanceCount == 0) continue;
         cmd.execute(*ctx.cmd, scene_ubo_.get(), object_ubo_.get(),
-                    material_ubo_.get(), default_white_tex_.get(), default_sampler_.get());
+                    material_ubo_.get(), default_white_tex_.get(),
+                    default_sampler_.get(), env_map_);
     }
 }
 

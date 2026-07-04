@@ -14,6 +14,7 @@
 #include "mulan/engine/render/material/material_cache.h"
 #include "mulan/engine/render/texture_cache.h"
 #include "mulan/engine/render/viewcube/view_cube_renderer.h"
+#include "mulan/engine/render/environment_map.h"
 
 #include <cstdio>
 #include <span>
@@ -48,6 +49,12 @@ bool Renderer::init(engine::RHIDevice& device,
     if (!solid_pass_->init(colorFmt, depthFmt, true))
         return false;
 
+    // 尝试加载 HDR 环境贴图（可选，加载失败则退化到无 IBL）
+    env_map_ = std::make_unique<engine::EnvironmentMap>();
+    if (env_map_->load(device, "assets/envmap.hdr")) {
+        solid_pass_->setEnvironmentMap(env_map_->texture());
+    }
+
     wire_pass_ = std::make_unique<engine::GeometryPass>(
         device, *resources_, matCache, lightEnv,
         engine::GeometryPassConfig{
@@ -72,6 +79,7 @@ void Renderer::shutdown(engine::RHIDevice& device) {
     resources_.reset();
     material_cache_.reset();
     texture_cache_.reset();
+    env_map_.reset();
     initialized_ = false;
 }
 

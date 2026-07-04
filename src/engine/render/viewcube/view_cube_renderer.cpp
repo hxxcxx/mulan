@@ -306,6 +306,7 @@ void ViewCubeRenderer::render(CommandList* cmd,
               .addTexture(6, defaultWhite)
               .addTexture(7, defaultWhite);
             if (defaultSampler) bg.addSampler(8, defaultSampler);
+            bg.addTexture(9, defaultWhite);  // envMap (no IBL for viewcube)
         }
         cmd->bindResources(bg);
 

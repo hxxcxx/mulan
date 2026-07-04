@@ -21,6 +21,7 @@
 #include "mulan/engine/render/light_environment.h"
 #include "mulan/engine/render/texture_cache.h"
 #include "mulan/engine/render/material/material_cache.h"
+#include "mulan/engine/render/environment_map.h"
 
 #include <memory>
 
@@ -79,6 +80,7 @@ private:
     // 此时 passes/resources 已释放，但 device 仍活，GPU 纹理可安全销毁）
     std::unique_ptr<engine::TextureCache>  texture_cache_;
     std::unique_ptr<engine::MaterialCache> material_cache_;
+    std::unique_ptr<engine::EnvironmentMap> env_map_;
 
     std::unique_ptr<engine::RenderResourceCache> resources_;
 

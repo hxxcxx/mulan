@@ -23,7 +23,8 @@ void MeshDrawCommand::execute(CommandList& cmd,
                                Buffer* objectUBO,
                                Buffer* materialUBO,
                                Texture* defaultWhite,
-                               Sampler* defaultSampler) const {
+                               Sampler* defaultSampler,
+                               Texture* defaultEnvMap) const {
     if (instanceCount == 0 || !pipelineState || !vertexBuffer) return;
 
     // 上传 per-object UBO
@@ -68,6 +69,7 @@ void MeshDrawCommand::execute(CommandList& cmd,
         bg.addTexture(6, emissiveTex ? emissiveTex : defaultWhite);
         bg.addTexture(7, aoTex     ? aoTex     : defaultWhite);
         bg.addSampler(8, sampler ? sampler : defaultSampler);
+        bg.addTexture(9, envMap    ? envMap    : (defaultEnvMap ? defaultEnvMap : defaultWhite));
     }
 
     cmd.bindResources(bg);

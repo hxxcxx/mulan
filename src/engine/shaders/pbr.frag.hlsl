@@ -8,7 +8,9 @@
  *   binding 5 = MetallicRoughness(t5) — B=metal, G=roughness
  *   binding 6 = Emissive (t6)    — HDR emissive
  *   binding 7 = AO (t7)          — ambient occlusion
+ *   binding 7 = AO (t7)          — ambient occlusion
  *   binding 8 = Sampler (s4)     — shared linear-repeat sampler
+ *   binding 9 = EnvMap (t9)      — equirect HDR environment map (IBL)
  *
  * TextureFlags bitmask (来自 Material cbuffer):
  *   bit0 = albedo, bit1 = normal, bit2 = mr, bit3 = emissive, bit4 = ao
@@ -22,6 +24,7 @@
 [[vk::binding(6, 0)]] Texture2D    EmissiveTex  : register(t6);
 [[vk::binding(7, 0)]] Texture2D    AOTex        : register(t7);
 [[vk::binding(8, 0)]] SamplerState PbrSampler   : register(s4);
+[[vk::binding(9, 0)]] Texture2D    EnvMap       : register(t9);
 
 #define TF_ALBEDO   0x01u
 #define TF_NORMAL   0x02u
@@ -58,6 +61,19 @@ float3 perturbNormal(float3 N, float3 V, float2 uv, float3 tangent, float3 bitan
     float3 T = normalize(tangent - N * dot(tangent, N));
     float3 B = cross(N, T);
     return normalize(tn.x * T + tn.y * B + tn.z * N);
+}
+
+// ─── IBL: equirect UV from direction ─────────────────────────
+
+float2 directionToEquirectUV(float3 dir) {
+    float phi   = atan2(dir.z, dir.x);
+    float theta = acos(dir.y);
+    return float2(0.5 + phi / (2.0 * PI), 1.0 - theta / PI);
+}
+
+float3 sampleEnvMap(float3 dir, float lod) {
+    float2 uv = directionToEquirectUV(dir);
+    return EnvMap.SampleLevel(PbrSampler, uv, lod).rgb;
 }
 
 // ─── ACES tonemap ─────────────────────────────────────────────
@@ -122,7 +138,20 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
     float3 diffuse = kD * albedo / PI;
 
     float3 directLight = (diffuse + specular) * LightColor * NdotL;
-    float3 ambient = albedo * AmbientColor * ao * 3.5;
+
+    // ── IBL 环境光照 ──
+    float3 R = reflect(-V, N);
+
+    // Diffuse IBL: 法线方向采样（低 LOD ≈ 模糊预过滤）
+    float3 irradiance = sampleEnvMap(N, 4.0);
+    float3 diffuseIBL = irradiance * kD * albedo * ao;
+
+    // Specular IBL: 反射方向采样（LOD 按 roughness）
+    float specLod = roughness * 4.0;
+    float3 specularIBL = sampleEnvMap(R, specLod) * F * ao;
+
+    float3 iblScale = AmbientColor * 3.5; // 保持与之前环境光强度兼容
+    float3 ambient = (diffuseIBL + specularIBL) * iblScale;
 
     float3 color = ambient + directLight + emissive;
 
