@@ -26,6 +26,7 @@
 #include <map>
 #include <span>
 #include <string>
+#include <variant>
 
 namespace mulan::io {
 namespace {
@@ -166,29 +167,64 @@ struct PrimitiveGeomData {
     std::vector<uint32_t> indices;
 };
 
+/// 检查 accessor 是否可安全读取：
+/// - accessorIndex 有效
+/// - 类型/分量类型符合预期
+/// - 指向的 bufferView / buffer 存在且 buffer 已实际加载数据（非空 / 非 Fallback / 非 monostate）
+bool isAccessorReadable(const Asset& gltf, size_t accessorIndex,
+                        AccessorType expectedType,
+                        ComponentType expectedCompType = ComponentType::Invalid) {
+    if (accessorIndex >= gltf.accessors.size()) return false;
+    const auto& acc = gltf.accessors[accessorIndex];
+    if (acc.type != expectedType) return false;
+    if (expectedCompType != ComponentType::Invalid && acc.componentType != expectedCompType)
+        return false;
+    if (acc.count == 0) return false;
+
+    // bufferView 可缺省（全 0 accessor），此时 iterateAccessor 会用 ElementType{} 填充，是安全的。
+    if (!acc.bufferViewIndex.has_value()) return true;
+    if (*acc.bufferViewIndex >= gltf.bufferViews.size()) return false;
+
+    const auto& view = gltf.bufferViews[*acc.bufferViewIndex];
+    if (view.bufferIndex >= gltf.buffers.size()) return false;
+
+    const auto& buf = gltf.buffers[view.bufferIndex].data;
+    // 已加载的数据源：Array / Vector / ByteView；其余（monostate / Fallback 等）说明数据缺失。
+    return std::holds_alternative<sources::Array>(buf) ||
+           std::holds_alternative<sources::Vector>(buf) ||
+           std::holds_alternative<sources::ByteView>(buf);
+}
+
 PrimitiveGeomData extractPrimitiveData(const Asset& gltf, const Primitive& prim) {
     PrimitiveGeomData geom;
 
     auto* posAttr = prim.findAttribute("POSITION");
-    if (posAttr) {
+    if (posAttr &&
+        isAccessorReadable(gltf, posAttr->accessorIndex, AccessorType::Vec3,
+                           ComponentType::Float)) {
         auto& acc = gltf.accessors[posAttr->accessorIndex];
         geom.positions = readPositions(gltf, acc);
     }
 
     auto* nrmAttr = prim.findAttribute("NORMAL");
-    if (nrmAttr) {
+    if (nrmAttr &&
+        isAccessorReadable(gltf, nrmAttr->accessorIndex, AccessorType::Vec3,
+                           ComponentType::Float)) {
         auto& acc = gltf.accessors[nrmAttr->accessorIndex];
         geom.normals = readPositions(gltf, acc); // NORMAL 也是 fvec3
     }
 
     auto* uvAttr = prim.findAttribute("TEXCOORD_0");
-    if (uvAttr) {
+    if (uvAttr &&
+        isAccessorReadable(gltf, uvAttr->accessorIndex, AccessorType::Vec2,
+                           ComponentType::Float)) {
         auto& acc = gltf.accessors[uvAttr->accessorIndex];
         geom.texcoords = readTexcoords(gltf, acc);
     }
 
-    if (prim.indicesAccessor.has_value()) {
-        auto& acc = gltf.accessors[prim.indicesAccessor.value()];
+    if (prim.indicesAccessor.has_value() &&
+        isAccessorReadable(gltf, *prim.indicesAccessor, AccessorType::Scalar)) {
+        auto& acc = gltf.accessors[*prim.indicesAccessor];
         geom.indices = readIndices(gltf, acc);
     }
 
@@ -256,6 +292,9 @@ GltfImporter::import(const std::string& path,
 
             if (geomData.normals.empty())
                 geomData.normals.resize(geomData.positions.size(), math::FVec3(0.0f, 0.0f, 1.0f));
+
+            if (geomData.texcoords.empty())
+                geomData.texcoords.resize(geomData.positions.size(), math::FVec2(0.0f, 0.0f));
 
             StandardMeshSource src;
             src.positions = std::span(geomData.positions);
