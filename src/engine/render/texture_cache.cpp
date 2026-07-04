@@ -21,15 +21,6 @@ TextureAsset::TextureAsset(std::unique_ptr<Texture> texture, std::string path)
 // TextureCache
 // ============================================================
 
-TextureCache& TextureCache::instance() {
-    static TextureCache inst;
-    return inst;
-}
-
-void TextureCache::init(RHIDevice* device) {
-    device_ = device;
-}
-
 TextureAsset* TextureCache::load(const std::string& path,
                                  const TextureLoadOptions& options,
                                  bool /*async*/) {

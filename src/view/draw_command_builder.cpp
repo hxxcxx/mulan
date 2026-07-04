@@ -23,7 +23,8 @@ uint64_t drawableGeometryKey(asset::AssetId geometry, size_t drawableIndex) {
 /// 解析文档材质的 baseColor 纹理 → engine Texture*（用于 draw command 的 albedoTex）。
 /// 无纹理或加载失败时返回 nullptr（由 MeshDrawCommand 退化到默认白纹理）。
 engine::Texture* resolveAlbedoTexture(const asset::AssetLibrary& assets,
-                                      asset::AssetId materialId) {
+                                      asset::AssetId materialId,
+                                      engine::TextureCache& textureCache) {
     if (!materialId) return nullptr;
 
     const auto* materialAsset =
@@ -37,7 +38,7 @@ engine::Texture* resolveAlbedoTexture(const asset::AssetLibrary& assets,
         dynamic_cast<const asset::TextureAsset*>(assets.asset(texId));
     if (!texAsset || texAsset->sourcePath().empty()) return nullptr;
 
-    auto* loaded = engine::TextureCache::instance().load(texAsset->sourcePath());
+    auto* loaded = textureCache.load(texAsset->sourcePath());
     return loaded ? loaded->get() : nullptr;
 }
 
@@ -51,13 +52,14 @@ void DrawCommandBuilder::setScene(const render_scene::RenderScene* scene,
 
 void DrawCommandBuilder::rebuild(engine::RenderResourceCache& resources,
                                  engine::PipelineState* solidPso,
-                                 engine::PipelineState* wirePso) {
+                                 engine::PipelineState* wirePso,
+                                 engine::TextureCache& textureCache,
+                                 engine::MaterialCache& matCache) {
     clear();
 
     if (!scene_ || !assets_)
         return;
 
-    auto& matCache = engine::MaterialCache::instance();
     RenderMaterialResolver materialResolver(*assets_);
     uint32_t nextObjectOffset = 0;
 
@@ -114,7 +116,7 @@ void DrawCommandBuilder::rebuild(engine::RenderResourceCache& resources,
 
             // albedo 纹理（仅实体面；wire/edge 不采样纹理）
             if (!isWire) {
-                cmd.albedoTex = resolveAlbedoTexture(*assets_, d.material);
+                cmd.albedoTex = resolveAlbedoTexture(*assets_, d.material, textureCache);
             }
 
             if (isWire)

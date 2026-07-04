@@ -18,6 +18,7 @@
 #include "../../rhi/buffer.h"
 #include "../../rhi/shader.h"
 #include "../camera/camera.h"
+#include "../material/material.h"  // MaterialGPU
 
 #include <cstdint>
 #include <memory>
@@ -123,16 +124,7 @@ private:
     };
     static_assert(sizeof(ObjectUBO) == 128);
 
-    struct alignas(16) MaterialUBO {
-        float baseColor[3];    float metallic;
-        float emissive[3];     float roughness;
-        float specular[3];     float shininess;
-        float alpha;           float ao;
-        float emissiveStr;     float alphaCutoff;
-        uint32_t materialType; uint32_t alphaMode;
-        uint32_t textureFlags; uint32_t doubleSided;
-    };
-    static_assert(sizeof(MaterialUBO) == 80);
+    // MaterialUBO 直接复用 engine::MaterialGPU（80 字节，与 shader cbuffer 1:1）
 
     // --- 内部方法 ---
     bool createGeometry();
@@ -165,8 +157,8 @@ private:
     static constexpr uint32_t   kFaceCount = 6;
 
     // --- 面材质数据 ---
-    MaterialUBO                 face_materials_[kFaceCount];
-    uint32_t                    material_stride_ = sizeof(MaterialUBO);
+    MaterialGPU                 face_materials_[kFaceCount];
+    uint32_t                    material_stride_ = sizeof(MaterialGPU);
 
     // --- 配置 ---
     uint32_t                    cube_size_ = 128;

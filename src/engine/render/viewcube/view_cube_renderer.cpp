@@ -228,7 +228,7 @@ bool ViewCubeRenderer::init(TextureFormat colorFmt, TextureFormat depthFmt) {
         uint32_t mask = alignment - 1;
         return (value + mask) & ~mask;
     };
-    material_stride_ = alignUp32(static_cast<uint32_t>(sizeof(MaterialUBO)), uboAlign);
+    material_stride_ = alignUp32(static_cast<uint32_t>(sizeof(MaterialGPU)), uboAlign);
 
     {
         auto r = device_->createBuffer(BufferDesc::uniform(sizeof(SceneUBO),   "ViewCube_SceneUBO"));
@@ -263,7 +263,7 @@ bool ViewCubeRenderer::init(TextureFormat colorFmt, TextureFormat depthFmt) {
 
     // 逐面上传材质 UBO（使用对齐偏移）
     for (int i = 0; i < kFaceCount; ++i) {
-        material_ubo_->update(i * material_stride_, sizeof(MaterialUBO), &face_materials_[i]);
+        material_ubo_->update(i * material_stride_, sizeof(MaterialGPU), &face_materials_[i]);
     }
 
     // --- 几何体 ---
@@ -520,7 +520,7 @@ void ViewCubeRenderer::render(CommandList* cmd, const math::Mat4& mainViewMatrix
         BindGroup bg;
         bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUBO))
           .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUBO))
-          .addUBO(2, material_ubo_.get(), matOffset, sizeof(MaterialUBO));
+          .addUBO(2, material_ubo_.get(), matOffset, sizeof(MaterialGPU));
         cmd->bindResources(bg);
 
         cmd->setVertexBuffer(0, face_vb_.get());
@@ -541,7 +541,7 @@ void ViewCubeRenderer::render(CommandList* cmd, const math::Mat4& mainViewMatrix
         BindGroup bg;
         bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUBO))
           .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUBO))
-          .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialUBO));  // 材质不影响边线
+          .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));  // 材质不影响边线
         cmd->bindResources(bg);
 
         cmd->setVertexBuffer(0, edge_vb_.get());

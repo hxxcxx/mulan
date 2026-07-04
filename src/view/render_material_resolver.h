@@ -26,8 +26,6 @@ public:
 
     uint32_t materialOffset(asset::AssetId materialId, engine::MaterialCache& cache) const;
 
-    static constexpr uint32_t kDefaultMaterialId = 0xFFFF;
-
 private:
     const asset::AssetLibrary& assets_;
 };

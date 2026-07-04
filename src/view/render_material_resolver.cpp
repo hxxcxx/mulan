@@ -10,18 +10,6 @@
 namespace mulan::view {
 namespace {
 
-engine::AlphaMode toEngineAlphaMode(asset::AlphaMode mode) {
-    switch (mode) {
-    case asset::AlphaMode::Mask:
-        return engine::AlphaMode::Mask;
-    case asset::AlphaMode::Blend:
-        return engine::AlphaMode::Blend;
-    case asset::AlphaMode::Opaque:
-    default:
-        return engine::AlphaMode::Opaque;
-    }
-}
-
 engine::Material toEngineMaterial(const asset::MaterialAsset& asset) {
     engine::Material material = engine::Material::defaultPBR();
     material.name = asset.name();
@@ -30,7 +18,7 @@ engine::Material toEngineMaterial(const asset::MaterialAsset& asset) {
     material.alpha = color.w;
     material.metallic = asset.metallic();
     material.roughness = asset.roughness();
-    material.alphaMode = toEngineAlphaMode(asset.alphaMode());
+    material.alphaMode = asset.alphaMode();
     material.doubleSided = asset.doubleSided();
     return material;
 }
@@ -40,17 +28,17 @@ engine::Material toEngineMaterial(const asset::MaterialAsset& asset) {
 uint32_t RenderMaterialResolver::materialOffset(asset::AssetId materialId,
                                                 engine::MaterialCache& cache) const {
     if (!materialId) {
-        return cache.materialGpuOffset(kDefaultMaterialId);
+        return cache.materialGpuOffset(0);  // 默认材质 index 0
     }
 
     const auto* materialAsset = dynamic_cast<const asset::MaterialAsset*>(assets_.asset(materialId));
     if (!materialAsset) {
-        return cache.materialGpuOffset(kDefaultMaterialId);
+        return cache.materialGpuOffset(0);
     }
 
     const std::string cacheName = "asset:" + std::to_string(materialId.value);
-    const uint32_t engineMaterialId = cache.registerMaterial(cacheName, toEngineMaterial(*materialAsset));
-    return cache.materialGpuOffset(engineMaterialId);
+    const auto handle = cache.registerMaterial(cacheName, toEngineMaterial(*materialAsset));
+    return cache.materialGpuOffset(handle);
 }
 
 } // namespace mulan::view

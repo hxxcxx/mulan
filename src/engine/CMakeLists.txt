@@ -19,9 +19,6 @@ add_library(Engine STATIC
     render/viewcube/view_cube_renderer.cpp
     # Material system
     render/material/material_cache.cpp
-    render/material/material_instance.cpp
-    render/material/material_serializer.cpp
-    render/material/material_library.cpp
     # Vulkan backend
     rhi/vulkan/vk_buffer.cpp
     rhi/vulkan/vk_texture.cpp

@@ -1,8 +1,13 @@
 /**
  * @file material_cache.h
- * @brief 材质资产管理器
+ * @brief 材质缓存 — 管理 engine::Material 实例 + GPU UBO 偏移映射
  * @author hxxcxx
  * @date 2026-04-23
+ *
+ * 重构后设计：
+ *  - 直接存储 vector<Material>，无额外包装类（删掉了旧的 MaterialAsset 包装）
+ *  - 用 vector index 作为材质句柄，offset = index × kMaterialSlotStride
+ *  - 去单例化，由 Renderer 持有并通过引用注入
  */
 
 #pragma once
@@ -10,7 +15,7 @@
 #include "material.h"
 #include "../../rhi/device.h"
 
-#include <memory>
+#include <cstddef>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -20,81 +25,52 @@
 namespace mulan::engine {
 
 // ============================================================
-// 材质资产 — 持有材质模板（不可变）
+// 材质句柄 — vector index，0 = 默认材质(DefaultPBR)
 // ============================================================
-
-class MaterialAsset {
-public:
-    MaterialAsset() = default;
-    explicit MaterialAsset(Material material, uint32_t id = 0);
-
-    const Material& get() const { return material_; }
-    Material&       get()       { return material_; }
-
-    uint32_t           id()   const { return id_; }
-    const std::string& name() const { return material_.name; }
-
-    /// 转换为 GPU 可用的常量结构
-    MaterialGPU toGPU() const { return MaterialGPU::fromMaterial(material_); }
-
-private:
-    Material material_;
-    uint32_t id_ = 0;
-};
+using MaterialHandle = size_t;
+static constexpr MaterialHandle kInvalidMaterialHandle = static_cast<size_t>(-1);
 
 // ============================================================
-// 材质缓存 — 单例，管理所有材质资产
-//
-// 改进：
-//  - 使用 unique_ptr 管理生命周期，无内存泄漏
-//  - 支持按标签/类别查找
-//  - 支持遍历回调
-//  - 线程安全的修改标记
+// 材质缓存 — 非单例，由 Renderer 持有
 // ============================================================
 
 class MaterialCache {
 public:
-    /// 获取全局实例
-    static MaterialCache& instance();
+    /// 构造时注册默认材质(DefaultPBR/DefaultPhong/Wireframe)
+    MaterialCache();
+    ~MaterialCache() = default;
 
-    /// 初始化（注册默认材质）
-    void init();
+    MaterialCache(const MaterialCache&) = delete;
+    MaterialCache& operator=(const MaterialCache&) = delete;
 
     // --- 材质注册 ---
 
-    /// 注册一个新材质，返回材质 ID
-    uint32_t registerMaterial(Material material);
+    /// 注册一个新材质，返回句柄（vector index）
+    MaterialHandle registerMaterial(Material material);
 
-    /// 注册材质并指定名称（可覆盖同名材质）
-    uint32_t registerMaterial(const std::string& name, Material material);
-
-    /// 获取默认 PBR 材质
-    MaterialAsset* defaultPBR();
-
-    /// 获取默认 Phong 材质
-    MaterialAsset* defaultPhong();
-
-    /// 获取线框材质
-    MaterialAsset* wireframe();
+    /// 注册材质并指定名称（同名覆盖，句柄不变）
+    MaterialHandle registerMaterial(const std::string& name, Material material);
 
     // --- 材质查找 ---
 
-    /// 按 ID 查找
-    MaterialAsset* findById(uint32_t id);
+    /// 按句柄查找
+    const Material* find(MaterialHandle handle) const;
+    Material*       find(MaterialHandle handle);
 
     /// 按名称查找
-    MaterialAsset* findByName(const std::string& name);
+    const Material* findByName(const std::string& name) const;
+    Material*       findByName(const std::string& name);
 
     /// 获取所有材质（只读）
-    const std::vector<std::unique_ptr<MaterialAsset>>& all() const { return materials_; }
+    const std::vector<Material>& all() const { return materials_; }
 
     /// 遍历所有材质
-    void forEach(const std::function<void(const MaterialAsset&)>& fn) const;
+    void forEach(const std::function<void(const Material&)>& fn) const;
 
     // --- 材质修改 ---
 
-    /// 修改材质参数（按 ID），返回是否成功
-    bool updateMaterial(uint32_t id, const Material& material);
+    /// 修改材质参数（按句柄），返回是否成功
+    bool updateMaterial(MaterialHandle handle, const Material& material);
 
     /// 修改材质参数（按名称），返回是否成功
     bool updateMaterial(const std::string& name, const Material& material);
@@ -102,7 +78,7 @@ public:
     // --- 生命周期 ---
 
     /// 移除材质，返回是否成功
-    bool remove(uint32_t id);
+    bool remove(MaterialHandle handle);
 
     /// 清空所有材质（保留默认材质）
     void clear();
@@ -115,8 +91,9 @@ public:
 
     // --- GPU UBO 管理 ---
 
-    /// 材质 ID → UBO 偏移（字节），供 MeshDrawCommand 使用
-    uint32_t materialGpuOffset(uint32_t materialId);
+    /// 材质句柄 → UBO 偏移（字节），供 MeshDrawCommand 使用。
+    /// 无效句柄回退到 index 0(DefaultPBR)。
+    uint32_t materialGpuOffset(MaterialHandle handle) const;
 
     /// 上传所有脏材质到 GPU（每帧调用一次）。
     /// 注意：本函数不清空脏集合，以便同一帧内多个持有独立 material UBO 的
@@ -133,23 +110,11 @@ public:
     static constexpr uint32_t kMaterialSlotStride = 256;
 
 private:
-    MaterialCache();
-    ~MaterialCache() = default;
+    void rebuildNameIndex();
 
-    MaterialCache(const MaterialCache&) = delete;
-    MaterialCache& operator=(const MaterialCache&) = delete;
-
-    uint32_t allocateId();
-    void     rebuildIndex();
-
-    std::vector<std::unique_ptr<MaterialAsset>>        materials_;
-    std::unordered_map<uint32_t, size_t>               id_to_index_;
+    std::vector<Material>                               materials_;
     std::unordered_map<std::string, size_t>            name_to_index_;
-    uint32_t                                           next_id_ = 1;
-
-    // GPU UBO 管理（不持有 buffer，由调用方提供）
-    std::unordered_map<uint32_t, uint32_t>              material_offsets_; // id → offset
-    std::set<uint32_t>                                  dirty_materials_;
+    std::set<size_t>                                   dirty_materials_;
 };
 
 } // namespace mulan::engine

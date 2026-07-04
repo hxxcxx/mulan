@@ -32,12 +32,13 @@ bool Renderer::init(engine::RHIDevice& device,
                     engine::TextureFormat depthFmt) {
     if (initialized_) return true;
 
-    // TextureCache 是单例，需在创建纹理资产前注入 device
-    engine::TextureCache::instance().init(&device);
+    // 纹理缓存 + 材质缓存（去单例化，由 Renderer 持有）
+    texture_cache_  = std::make_unique<engine::TextureCache>(&device);
+    material_cache_ = std::make_unique<engine::MaterialCache>();
 
     resources_ = std::make_unique<engine::RenderResourceCache>(device);
 
-    auto& matCache = engine::MaterialCache::instance();
+    auto& matCache = *material_cache_;
 
     solid_pass_ = std::make_unique<engine::GeometryPass>(
         device, *resources_, matCache, lightEnv,
@@ -69,6 +70,8 @@ void Renderer::shutdown(engine::RHIDevice& device) {
     wire_pass_.reset();
     solid_pass_.reset();
     resources_.reset();
+    material_cache_.reset();
+    texture_cache_.reset();
     initialized_ = false;
 }
 
@@ -85,7 +88,9 @@ void Renderer::render(engine::RHIDevice& device,
     if (resources_)
         builder_.rebuild(*resources_,
                          solid_pass_ ? solid_pass_->pipelineState() : nullptr,
-                         wire_pass_ ? wire_pass_->pipelineState() : nullptr);
+                         wire_pass_ ? wire_pass_->pipelineState() : nullptr,
+                         *texture_cache_,
+                         *material_cache_);
 
     const std::span<const engine::MeshDrawCommand> emptyCommands;
     if (solid_pass_)
@@ -132,7 +137,7 @@ void Renderer::render(engine::RHIDevice& device,
     // 两个 pass 各持有独立的 material UBO，uploadDirtyMaterials 不再自行清空脏集合，
     // 故在此处（所有 pass 都上传完毕后）统一清空，避免下帧重复全量上传。
     if (solid_pass_ || wire_pass_)
-        engine::MaterialCache::instance().clearDirtyMaterials();
+        material_cache_->clearDirtyMaterials();
 
     if (viewState.showViewCube && view_cube_renderer_) {
         view_cube_renderer_->render(cmd, viewState.viewMatrix,

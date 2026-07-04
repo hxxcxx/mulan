@@ -15,8 +15,10 @@ class AssetLibrary;
 }
 
 namespace mulan::engine {
+class MaterialCache;
 class PipelineState;
 class RenderResourceCache;
+class TextureCache;
 }
 
 namespace mulan::render_scene {
@@ -32,7 +34,9 @@ public:
 
     void rebuild(engine::RenderResourceCache& resources,
                  engine::PipelineState* facePso,
-                 engine::PipelineState* edgePso);
+                 engine::PipelineState* edgePso,
+                 engine::TextureCache& textureCache,
+                 engine::MaterialCache& matCache);
 
     void clear();
 

@@ -59,11 +59,12 @@ private:
 
 class TextureCache {
 public:
-    /// 获取全局实例
-    static TextureCache& instance();
+    /// 构造时注入 RHI device（非单例，由 Renderer 持有）
+    explicit TextureCache(RHIDevice* device) : device_(device) {}
+    ~TextureCache() = default;
 
-    /// 初始化（需要 RHIDevice）
-    void init(RHIDevice* device);
+    TextureCache(const TextureCache&) = delete;
+    TextureCache& operator=(const TextureCache&) = delete;
 
     /// 从文件加载纹理（带缓存）
     /// 如果已加载过，直接返回已有 asset
@@ -96,9 +97,6 @@ public:
     bool empty() const { return textures_.empty(); }
 
 private:
-    TextureCache()  = default;
-    ~TextureCache() = default;
-
     // 内部：从 LoadedTexture 创建 RHI Texture
     std::unique_ptr<Texture> createRHITexture(const LoadedTexture& loaded,
                                            TextureUsageFlags usage,

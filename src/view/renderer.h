@@ -19,6 +19,8 @@
 #include "mulan/engine/render/render_resource_cache.h"
 #include "mulan/engine/render/graph/geometry_pass.h"
 #include "mulan/engine/render/light_environment.h"
+#include "mulan/engine/render/texture_cache.h"
+#include "mulan/engine/render/material/material_cache.h"
 
 #include <memory>
 
@@ -72,6 +74,11 @@ private:
     bool initViewCube(engine::RHIDevice* device,
                       engine::TextureFormat colorFmt,
                       engine::TextureFormat depthFmt);
+
+    // cache 在最前声明（C++ 按声明逆序析构 → cache 最后析构，
+    // 此时 passes/resources 已释放，但 device 仍活，GPU 纹理可安全销毁）
+    std::unique_ptr<engine::TextureCache>  texture_cache_;
+    std::unique_ptr<engine::MaterialCache> material_cache_;
 
     std::unique_ptr<engine::RenderResourceCache> resources_;
 
