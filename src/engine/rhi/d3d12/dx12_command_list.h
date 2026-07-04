@@ -35,7 +35,8 @@ public:
     void setViewport(const Viewport& vp) override;
     void setScissorRect(const ScissorRect& rect) override;
 
-    void bindResources(const BindGroup& group) override;
+    void bindGroup(BindGroup& group) override;
+    void bindResources(const BindGroupDesc& desc) override;
 
     void setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset = 0) override;
     void setVertexBuffers(uint32_t startSlot, uint32_t count,

@@ -12,6 +12,7 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 #include <mulan/core/result/error.h>
 #include "../../engine_error_code.h"
 #include "vk_debug_name.h"
+#include "vk_bind_group.h"
 
 
 namespace mulan::engine {
@@ -119,6 +120,12 @@ VKDevice::createFence(uint64_t initialValue) {
     setDebugName(device_, vk::ObjectType::eSemaphore,
                  reinterpret_cast<uint64_t>(VkSemaphore(f->semaphore())), nm);
     return result;
+}
+
+std::expected<std::unique_ptr<BindGroup>, core::Error>
+VKDevice::createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) {
+    return std::unique_ptr<BindGroup>(
+        std::make_unique<VKBindGroup>(layout, desc.entries, desc.count));
 }
 
 void VKDevice::uploadTextureData(Texture* dst, const void* data,

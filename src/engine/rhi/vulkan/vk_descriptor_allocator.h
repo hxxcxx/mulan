@@ -36,6 +36,8 @@ public:
 
     static PoolSizes defaultPoolSizes();
 
+    vk::Device device() const { return device_; }
+
 private:
     vk::DescriptorPool getOrCreatePool();
     vk::DescriptorPool createPool();

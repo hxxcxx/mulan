@@ -51,7 +51,8 @@ public:
     void setPipelineState(PipelineState* pso) override;
 
     // --- 资源绑定 ---
-    void bindResources(const BindGroup& group) override;
+    void bindGroup(BindGroup& group) override;
+    void bindResources(const BindGroupDesc& desc) override;
 
     // --- 视口 / 裁剪 ---
     void setViewport(const Viewport& vp) override;

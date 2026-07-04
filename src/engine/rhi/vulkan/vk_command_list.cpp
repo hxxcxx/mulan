@@ -3,6 +3,7 @@
 #include "vk_sampler.h"
 #include "vk_descriptor_allocator.h"
 #include "vk_device.h"
+#include "vk_bind_group.h"
 
 #include <mulan/core/result/error.h>
 #include "../../engine_error_code.h"
@@ -287,16 +288,56 @@ void VKCommandList::beginVkRenderPass(vk::RenderPass renderPass, vk::Framebuffer
     cmd_buffer_.beginRenderPass(rpBegin, vk::SubpassContents::eInline);
 }
 
-void VKCommandList::bindResources(const BindGroup& group) {
-    if (group.count == 0 || !allocator_) return;
+void VKCommandList::bindGroup(BindGroup& group) {
+    auto* vkGroup = static_cast<VKBindGroup*>(&group);
+    if (vkGroup->entryCount() == 0 || !allocator_) return;
+    if (!current_desc_set_layout_) return;
 
-    assert(current_desc_set_layout_ && "bindResources called before setPipelineState");
+    // --- 尝试复用缓存的 descriptor set ---
+    if (!vkGroup->dirty() && vkGroup->cachedSet()) {
+        auto dset = vkGroup->cachedSet();
+        cmd_buffer_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                                       current_layout_, 0, 1, &dset, 0, nullptr);
+        return;
+    }
+
+    // --- 分配或复用 descriptor set ---
+    vk::DescriptorSet dset = vkGroup->cachedSet();
+    if (!dset) {
+        VKDescriptorSet newSet = allocator_->allocate(current_desc_set_layout_);
+        dset = newSet.vkSet();
+        vkGroup->setCachedSet(dset);
+    }
+
+    VKDescriptorSet wrapper(allocator_->device(), dset);
+
+    for (uint8_t i = 0; i < vkGroup->entryCount(); ++i) {
+        const auto& e = vkGroup->entries()[i];
+        if (e.buffer) {
+            auto* vkBuf = static_cast<VKBuffer*>(e.buffer);
+            wrapper.writeUBO(e.binding, vkBuf->vkBuffer(), e.offset, e.size);
+        } else if (e.texture) {
+            auto* vkTex = static_cast<VKTexture*>(e.texture);
+            wrapper.writeSampledImage(e.binding, vkTex->view());
+        } else if (e.sampler) {
+            auto* vkSm = static_cast<VKSampler*>(e.sampler);
+            wrapper.writeSampler(e.binding, vkSm->handle());
+        }
+    }
+
+    wrapper.flush();
+    wrapper.bind(cmd_buffer_, current_layout_);
+    vkGroup->markClean();
+}
+
+void VKCommandList::bindResources(const BindGroupDesc& desc) {
+    if (desc.count == 0 || !allocator_) return;
     if (!current_desc_set_layout_) return;
 
     VKDescriptorSet set = allocator_->allocate(current_desc_set_layout_);
 
-    for (uint8_t i = 0; i < group.count; ++i) {
-        const auto& e = group.entries[i];
+    for (uint8_t i = 0; i < desc.count; ++i) {
+        const auto& e = desc.entries[i];
         if (e.buffer) {
             auto* vkBuf = static_cast<VKBuffer*>(e.buffer);
             set.writeUBO(e.binding, vkBuf->vkBuffer(), e.offset, e.size);

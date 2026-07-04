@@ -3,6 +3,7 @@
 #include "dx12_texture.h"
 #include "dx12_pipeline_state.h"
 #include "dx12_convert.h"
+#include "dx12_bind_group.h"
 
 #include <mulan/core/result/error.h>
 #include "../../engine_error_code.h"
@@ -164,26 +165,77 @@ void DX12CommandList::updateBuffer(Buffer* buffer, uint32_t offset,
     dx12Buf->update(offset, size, data);
 }
 
-void DX12CommandList::bindResources(const BindGroup& group) {
-    for (uint8_t i = 0; i < group.count; ++i) {
-        const auto& e = group.entries[i];
+void DX12CommandList::bindGroup(BindGroup& group) {
+    auto* dx12Group = static_cast<DX12BindGroup*>(&group);
+    if (dx12Group->entryCount() == 0 || !desc_heap_) return;
+
+    // --- 尝试复用缓存 ---
+    if (!dx12Group->dirty() && dx12Group->cachedGpuHandle().ptr) {
+        auto cachedGpu = dx12Group->cachedGpuHandle();
+        for (uint8_t i = 0; i < dx12Group->entryCount(); ++i) {
+            const auto& e = dx12Group->entries()[i];
+            if (e.buffer) {
+                auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
+                cmd_list_->SetGraphicsRootConstantBufferView(
+                    e.binding, dx12Buf->gpuAddress() + e.offset);
+            } else if (e.texture) {
+                cmd_list_->SetGraphicsRootDescriptorTable(e.binding, cachedGpu);
+            }
+        }
+        return;
+    }
+
+    // --- 分配或复用 ---
+    D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = dx12Group->cachedGpuHandle();
+    D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle;
+    if (gpuHandle.ptr) {
+        cpuHandle.ptr = desc_cpu_base_.ptr + (gpuHandle.ptr - desc_gpu_base_.ptr);
+    } else {
+        cpuHandle.ptr = desc_cpu_base_.ptr + desc_alloc_count_ * desc_size_;
+        gpuHandle.ptr = desc_gpu_base_.ptr + desc_alloc_count_ * desc_size_;
+        ++desc_alloc_count_;
+        dx12Group->setCachedGpuHandle(gpuHandle);
+    }
+
+    ID3D12Device* device = nullptr;
+    cmd_list_->GetDevice(IID_PPV_ARGS(&device));
+
+    for (uint8_t i = 0; i < dx12Group->entryCount(); ++i) {
+        const auto& e = dx12Group->entries()[i];
+        if (e.buffer) {
+            auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
+            cmd_list_->SetGraphicsRootConstantBufferView(
+                e.binding, dx12Buf->gpuAddress() + e.offset);
+        } else if (e.texture && device) {
+            auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
+            if (!dx12Tex->srv().ptr) continue;
+            device->CopyDescriptorsSimple(1, cpuHandle, dx12Tex->srv(),
+                                          D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+            cmd_list_->SetGraphicsRootDescriptorTable(e.binding, gpuHandle);
+        }
+    }
+
+    if (device) device->Release();
+    dx12Group->markClean();
+}
+
+void DX12CommandList::bindResources(const BindGroupDesc& desc) {
+    for (uint8_t i = 0; i < desc.count; ++i) {
+        const auto& e = desc.entries[i];
         if (e.buffer) {
             auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
             cmd_list_->SetGraphicsRootConstantBufferView(
                 e.binding, dx12Buf->gpuAddress() + e.offset);
         } else if (e.texture && desc_heap_) {
-            // 纹理绑定：从 shader-visible heap 分配句柄，copy SRV，设置描述符表
             auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
             if (!dx12Tex->srv().ptr) continue;
 
-            // 分配描述符
             D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = desc_cpu_base_;
             cpuHandle.ptr += desc_alloc_count_ * desc_size_;
             D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = desc_gpu_base_;
             gpuHandle.ptr += desc_alloc_count_ * desc_size_;
             ++desc_alloc_count_;
 
-            // 复制 SRV 到分配的位置
             ID3D12Device* device = nullptr;
             cmd_list_->GetDevice(IID_PPV_ARGS(&device));
             if (device) {
@@ -191,8 +243,6 @@ void DX12CommandList::bindResources(const BindGroup& group) {
                                               D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
                 device->Release();
             }
-
-            // 绑定描述符表
             cmd_list_->SetGraphicsRootDescriptorTable(e.binding, gpuHandle);
         }
     }

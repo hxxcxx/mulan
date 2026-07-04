@@ -49,6 +49,7 @@ public:
     std::expected<std::unique_ptr<RenderTarget>,  core::Error> createRenderTarget(const RenderTargetDesc& desc) override;
     std::expected<std::unique_ptr<Sampler>,       core::Error> createSampler(const SamplerDesc& desc) override;
     std::expected<std::unique_ptr<Fence>,         core::Error> createFence(uint64_t initialValue = 0) override;
+    std::expected<std::unique_ptr<BindGroup>,     core::Error> createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) override;
 
     // --- 资源上传 ---
     void uploadTextureData(Texture* dst, const void* data,

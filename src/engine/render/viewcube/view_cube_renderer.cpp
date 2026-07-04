@@ -517,7 +517,7 @@ void ViewCubeRenderer::render(CommandList* cmd, const math::Mat4& mainViewMatrix
     for (int f = 0; f < kFaceCount; ++f) {
         uint32_t matOffset = f * material_stride_;
 
-        BindGroup bg;
+        BindGroupDesc bg;
         bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUBO))
           .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUBO))
           .addUBO(2, material_ubo_.get(), matOffset, sizeof(MaterialGPU));
@@ -538,7 +538,7 @@ void ViewCubeRenderer::render(CommandList* cmd, const math::Mat4& mainViewMatrix
     if (edge_pso_ && edge_vb_ && edge_ib_) {
         cmd->setPipelineState(edge_pso_.get());
 
-        BindGroup bg;
+        BindGroupDesc bg;
         bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUBO))
           .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUBO))
           .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));  // 材质不影响边线

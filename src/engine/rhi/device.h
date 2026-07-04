@@ -16,6 +16,7 @@
 #include "shader.h"
 #include "swap_chain.h"
 #include "texture.h"
+#include "bind_group.h"
 #include <mulan/math/math.h>
 #include "../window.h"
 
@@ -112,6 +113,11 @@ public:
     virtual std::expected<std::unique_ptr<RenderTarget>,  core::Error> createRenderTarget(const RenderTargetDesc& desc) = 0;
     virtual std::expected<std::unique_ptr<Sampler>,       core::Error> createSampler(const SamplerDesc& desc) = 0;
     virtual std::expected<std::unique_ptr<Fence>,         core::Error> createFence(uint64_t initialValue = 0) = 0;
+
+    /// 创建 BindGroup 对象（从 layout + desc，缓存后端 descriptor 句柄）。
+    /// layout 从 PipelineState::bindGroupLayout() 获取。
+    virtual std::expected<std::unique_ptr<BindGroup>, core::Error>
+        createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) = 0;
 
     // --- 资源上传 ---
     // 把 CPU 端像素数据同步上传到 GPU 纹理，并在内部完成到 SHADER_READ 的状态转换。

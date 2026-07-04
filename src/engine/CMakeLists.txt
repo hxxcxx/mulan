@@ -2,6 +2,7 @@
 add_library(Engine STATIC
     platform/win32_window.cpp
     rhi/device_factory.cpp
+    rhi/bind_group_layout.cpp
     render/camera/camera.cpp
     render/camera/turntable_rotation.cpp
     render/camera/trackball_rotation.cpp
@@ -21,6 +22,7 @@ add_library(Engine STATIC
     render/material/material_cache.cpp
     # Vulkan backend
     rhi/vulkan/vk_buffer.cpp
+    rhi/vulkan/vk_bind_group.cpp
     rhi/vulkan/vk_texture.cpp
     rhi/vulkan/vk_shader.cpp
     rhi/vulkan/vk_fence.cpp
@@ -36,6 +38,7 @@ add_library(Engine STATIC
     rhi/vulkan/vk_sampler.cpp
     # D3D12 backend
     rhi/d3d12/dx12_fence.cpp
+    rhi/d3d12/dx12_bind_group.cpp
     rhi/d3d12/dx12_descriptor_allocator.cpp
     rhi/d3d12/dx12_buffer.cpp
     rhi/d3d12/dx12_upload_context.cpp

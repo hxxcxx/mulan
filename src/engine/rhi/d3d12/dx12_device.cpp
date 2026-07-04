@@ -1,6 +1,7 @@
 #include "dx12_device.h"
 #include "dx12_debug_name.h"
 #include "dx12_texture.h"
+#include "dx12_bind_group.h"
 
 #include <cstdio>
 #include <string>
@@ -289,6 +290,12 @@ DX12Device::createFence(uint64_t initialValue) {
     std::snprintf(nm, sizeof(nm), "Fence@%p", f.get());
     setDebugName(f->fence(), nm);
     return result;
+}
+
+std::expected<std::unique_ptr<BindGroup>, core::Error>
+DX12Device::createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) {
+    return std::unique_ptr<BindGroup>(
+        std::make_unique<DX12BindGroup>(layout, desc.entries, desc.count));
 }
 
 void DX12Device::uploadTextureData(Texture* dst, const void* data,

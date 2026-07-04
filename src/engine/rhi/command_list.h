@@ -42,8 +42,12 @@ public:
 
     // --- 资源绑定 ---
 
-    /// 绑定资源组（UBO / Texture / 未来 Sampler）
-    virtual void bindResources(const BindGroup& group) = 0;
+    /// 绑定对象化 BindGroup（后端缓存 descriptor 句柄，零分配）。
+    virtual void bindGroup(BindGroup& group) = 0;
+
+    /// 便捷路径：从 BindGroupDesc 临时构建并绑定（无缓存，每帧重新分配）。
+    /// 用于兼容旧代码或动态变化的绑定场景。
+    virtual void bindResources(const BindGroupDesc& desc) = 0;
 
     // --- 视口 / 裁剪 ---
 

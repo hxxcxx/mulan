@@ -53,8 +53,8 @@ void MeshDrawCommand::execute(CommandList& cmd,
 
     cmd.setPipelineState(pipelineState);
 
-    // Bind UBOs via BindGroup
-    BindGroup bg;
+    // Bind UBOs via BindGroupDesc
+    BindGroupDesc bg;
     if (sceneUBO)    bg.addUBO(0, sceneUBO,    0, 288);
     if (objectUBO)   bg.addUBO(1, objectUBO,   objectUboOffset, kObjectUboStride);
     if (materialUBO) bg.addUBO(2, materialUBO, materialUboOffset, 128);
