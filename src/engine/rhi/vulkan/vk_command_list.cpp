@@ -286,7 +286,8 @@ void VKCommandList::bindGroup(BindGroup& group) {
         vkGroup->markAllDirty();
     }
 
-    // --- 复用未变脏的缓存 descriptor set ---
+    // --- 完全复用：未变脏且已有缓存 set，直接 bind 缓存句柄，零分配零写入。
+    // 这覆盖"同帧内多次 bind 同一个未改动的 BindGroup"场景。
     if (!vkGroup->dirty() && vkGroup->cachedSet()) {
         auto dset = vkGroup->cachedSet();
         cmd_buffer_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
@@ -294,21 +295,15 @@ void VKCommandList::bindGroup(BindGroup& group) {
         return;
     }
 
-    // --- 分配或复用 descriptor set ---
-    vk::DescriptorSet dset = vkGroup->cachedSet();
-    if (!dset) {
-        VKDescriptorSet newSet = allocator_->allocate(current_desc_set_layout_);
-        dset = newSet.vkSet();
-        vkGroup->setCachedSet(dset);
-    }
+    // --- 脏路径：分配全新的 descriptor set 并写入全部 binding。
+    // Vulkan 规范禁止更新已 bind 到命令缓冲区的 descriptor set（除非 pool 带
+    // UPDATE_AFTER_BIND，本引擎的 per-frame pool 不带该 flag）。因此脏时必须
+    // 分配新 set，把所有 binding 完整写入，再 bind 新 set。
+    vk::DescriptorSet dset = allocator_->allocate(current_desc_set_layout_).vkSet();
+    vkGroup->setCachedSet(dset);
 
     VKDescriptorSet wrapper(allocator_->device(), dset);
-
-    // 仅重写脏 binding（局部更新）；非脏 binding 复用上一轮已写入的 descriptor
-    const uint16_t mask = vkGroup->dirtyMask();
-    uint16_t written = 0;
     for (uint8_t i = 0; i < vkGroup->entryCount(); ++i) {
-        if (((mask >> i) & 1u) == 0) continue;
         const auto& e = vkGroup->entries()[i];
         if (e.buffer) {
             auto* vkBuf = static_cast<VKBuffer*>(e.buffer);
@@ -320,12 +315,11 @@ void VKCommandList::bindGroup(BindGroup& group) {
             auto* vkSm = static_cast<VKSampler*>(e.sampler);
             wrapper.writeSampler(e.binding, vkSm->handle());
         }
-        written |= (uint16_t(1) << i);
     }
 
     wrapper.flush();
     wrapper.bind(cmd_buffer_, current_layout_);
-    vkGroup->clearDirty(written);
+    vkGroup->markClean();
 }
 
 void VKCommandList::bindResources(const BindGroupDesc& desc) {
