@@ -32,6 +32,12 @@ public:
         }
     }
 
+    MeshAsset(AssetId id, std::string name, std::vector<MeshPrimitive> primitives)
+        : GeometryAsset(id, AssetKind::Mesh, std::move(name))
+        , primitives_(std::move(primitives))
+    {
+    }
+
     const std::vector<MeshPrimitive>& primitives() const { return primitives_; }
     std::vector<MeshPrimitive>& primitives() { return primitives_; }
 
