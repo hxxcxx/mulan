@@ -118,6 +118,8 @@ if(DXC_EXECUTABLE)
     set(SHADER_SOURCES
         solid.vert.hlsl
         solid.frag.hlsl
+        albedo.vert.hlsl
+        albedo.frag.hlsl
         wireframe.vert.hlsl
         wireframe.frag.hlsl
         pick.vert.hlsl
@@ -136,6 +138,10 @@ if(DXC_EXECUTABLE)
     set(SOLID_VERT_ENTRY    main)
     set(SOLID_FRAG_STAGE    ps)
     set(SOLID_FRAG_ENTRY    main)
+    set(ALBEDO_VERT_STAGE   vs)
+    set(ALBEDO_VERT_ENTRY   main)
+    set(ALBEDO_FRAG_STAGE   ps)
+    set(ALBEDO_FRAG_ENTRY   main)
     set(WIREFRAME_VERT_STAGE vs)
     set(WIREFRAME_VERT_ENTRY main)
     set(WIREFRAME_FRAG_STAGE ps)

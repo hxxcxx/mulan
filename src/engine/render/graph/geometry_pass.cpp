@@ -2,9 +2,9 @@
 #include "shader_util.h"
 #include "../../rhi/bind_group.h"
 #include "../../rhi/render_types.h"
+#include "../../rhi/render_state.h"
 #include "../material/material_cache.h"
-
-#include <mulan/core/log/log.h>
+#include "../texture_cache.h"
 
 #include <cstdio>
 #include <string>
@@ -42,6 +42,10 @@ GeometryPass::GeometryPass(RHIDevice& device, RenderResourceCache& gpu,
 bool GeometryPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
     if (!loadShaders()) return false;
     if (!createPSO(colorFmt, depthFmt, hasDepth)) return false;
+
+    if (cfg_.sampleTextures) {
+        if (!createDefaultResources()) return false;
+    }
 
     auto sceneResult = device_.createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "SceneUBO"));
     if (!sceneResult) { return false; }
@@ -109,7 +113,20 @@ bool GeometryPass::createPSO(TextureFormat colorFmt, TextureFormat depthFmt,
         .binding = 2, .count = 1,
         .type = DescriptorType::UniformBuffer,
         .stages = PB::kStageFragment};
-    desc.descriptorBindingCount = 3;
+    uint8_t bindingCount = 3;
+
+    // 纹理 + sampler（仅 sampleTextures=true 的 pass 声明）
+    if (cfg_.sampleTextures) {
+        desc.descriptorBindings[bindingCount++] = {
+            .binding = 3, .count = 1,
+            .type = DescriptorType::TextureSRV,
+            .stages = PB::kStageFragment};
+        desc.descriptorBindings[bindingCount++] = {
+            .binding = 4, .count = 1,
+            .type = DescriptorType::Sampler,
+            .stages = PB::kStageFragment};
+    }
+    desc.descriptorBindingCount = bindingCount;
 
     desc.colorFormats[0]    = colorFmt;
     desc.colorTargetCount   = 1;
@@ -123,6 +140,33 @@ bool GeometryPass::createPSO(TextureFormat colorFmt, TextureFormat depthFmt,
 }
 
 // ─── Execute ───────────────────────────────────────────────────
+
+bool GeometryPass::createDefaultResources() {
+    // 默认线性 sampler（Linear 过滤 + Repeat 寻址）
+    auto samplerResult = device_.createSampler(SamplerDesc::linear());
+    if (!samplerResult) {
+        std::fprintf(stderr, "[GeometryPass] createSampler failed\n");
+        return false;
+    }
+    default_sampler_ = std::move(*samplerResult);
+
+    // 1×1 RGBA(255,255,255,255) 白纹理 — 无材质模型退化用。
+    // 存入 TextureCache（单例持有所有权），本 pass 仅借用裸指针。
+    auto& texCache = TextureCache::instance();
+    auto* whiteAsset = texCache.find("__default_white");
+    if (!whiteAsset) {
+        whiteAsset = texCache.create(1, 1, TextureFormat::RGBA8_UNorm,
+            TextureUsageFlags::ShaderResource, "__default_white");
+        if (!whiteAsset) {
+            std::fprintf(stderr, "[GeometryPass] create default white texture failed\n");
+            return false;
+        }
+        const uint8_t white[4] = {255, 255, 255, 255};
+        device_.uploadTextureData(whiteAsset->get(), white, 1, 1, TextureFormat::RGBA8_UNorm);
+    }
+    default_white_tex_ = whiteAsset->get();
+    return true;
+}
 
 void GeometryPass::uploadSceneUBO(const PassContext& ctx) {
     // 应用 Vulkan clip space 修正（Z:[-1,1]→[0,1], Y 翻转）
@@ -168,7 +212,8 @@ void GeometryPass::execute(const PassContext& ctx) {
 
     for (auto& cmd : commands_) {
         if (!cmd.visible || cmd.instanceCount == 0) continue;
-        cmd.execute(*ctx.cmd, scene_ubo_.get(), object_ubo_.get(), material_ubo_.get());
+        cmd.execute(*ctx.cmd, scene_ubo_.get(), object_ubo_.get(),
+                    material_ubo_.get(), default_white_tex_, default_sampler_.get());
     }
 }
 

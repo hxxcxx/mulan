@@ -1,5 +1,6 @@
 #include "vk_command_list.h"
 #include "vk_texture.h"
+#include "vk_sampler.h"
 #include "vk_descriptor_allocator.h"
 #include "vk_device.h"
 
@@ -302,6 +303,9 @@ void VKCommandList::bindResources(const BindGroup& group) {
         } else if (e.texture) {
             auto* vkTex = static_cast<VKTexture*>(e.texture);
             set.writeSampledImage(e.binding, vkTex->view());
+        } else if (e.sampler) {
+            auto* vkSm = static_cast<VKSampler*>(e.sampler);
+            set.writeSampler(e.binding, vkSm->handle());
         }
     }
 

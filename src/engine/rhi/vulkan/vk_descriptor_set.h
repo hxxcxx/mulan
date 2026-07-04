@@ -46,6 +46,16 @@ public:
         ++write_count_;
     }
 
+    void writeSampler(uint32_t binding, vk::Sampler sampler) {
+        auto idx = write_count_;
+        img_infos_[idx] = vk::DescriptorImageInfo(sampler, nullptr, vk::ImageLayout::eUndefined);
+        writes_[idx] = vk::WriteDescriptorSet(
+            set_, binding, 0, 1,
+            vk::DescriptorType::eSampler,
+            &img_infos_[idx], nullptr, nullptr);
+        ++write_count_;
+    }
+
     /// 批量提交所有收集的写入操作
     void flush() {
         if (write_count_ > 0) {

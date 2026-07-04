@@ -90,7 +90,8 @@ vk::DescriptorPool VKDescriptorAllocator::createPool() {
 VKDescriptorAllocator::PoolSizes VKDescriptorAllocator::defaultPoolSizes() {
     return {{
         { vk::DescriptorType::eUniformBuffer,         64 },
-        { vk::DescriptorType::eCombinedImageSampler,  32 },
+        { vk::DescriptorType::eSampledImage,          32 },
+        { vk::DescriptorType::eSampler,               16 },
         { vk::DescriptorType::eStorageBuffer,         16 },
         { vk::DescriptorType::eUniformBufferDynamic,   8 },
     }};

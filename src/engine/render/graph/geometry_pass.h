@@ -23,6 +23,8 @@
 #include "../../rhi/pipeline_state.h"
 #include "../../rhi/render_types.h"
 #include "../../rhi/shader.h"
+#include "../../rhi/sampler.h"
+#include "../../rhi/texture.h"
 #include <mulan/math/math.h>
 
 #include <cstdint>
@@ -44,6 +46,10 @@ struct GeometryPassConfig {
     bool depthWrite = true;
     /// Pass 名（调试 / 日志用）
     const char* passName = "Geometry";
+    /// 是否声明纹理/sampler binding 并采样 albedo 纹理。
+    /// true  → PSO 声明 binding=3(TextureSRV)/4(Sampler)，draw 命令绑定纹理
+    /// false → 仅 3 个 UBO，纯色快速路径（edge/pick/wireframe）
+    bool sampleTextures = false;
 };
 
 class GeometryPass : public RenderPass {
@@ -61,9 +67,16 @@ public:
 
     PipelineState* pipelineState() const { return pso_.get(); }
 
+    /// 全局默认白纹理（无材质模型退化用，1×1 RGBA=(255,255,255,255)）。
+    /// 仅 sampleTextures=true 时非 null。
+    Texture* defaultWhiteTexture() const { return default_white_tex_; }
+    /// 全局默认线性 sampler。仅 sampleTextures=true 时非 null。
+    Sampler* defaultSampler() const { return default_sampler_.get(); }
+
 private:
     bool loadShaders();
     bool createPSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
+    bool createDefaultResources();
     void uploadSceneUBO(const PassContext& ctx);
 
     RHIDevice&              device_;
@@ -78,6 +91,10 @@ private:
     std::unique_ptr<Buffer>        scene_ubo_;    // set=0, binding=0
     std::unique_ptr<Buffer>        object_ubo_;   // set=0, binding=1
     std::unique_ptr<Buffer>        material_ubo_; // set=0, binding=2
+
+    // 仅 sampleTextures=true 时持有：默认 sampler + 1×1 白纹理
+    std::unique_ptr<Sampler>       default_sampler_;
+    Texture*                       default_white_tex_ = nullptr;  // 借用 TextureCache 中的资产
 
     std::span<const MeshDrawCommand> commands_;
     bool initialized_ = false;

@@ -21,7 +21,9 @@ static_assert(sizeof(ObjectUniforms) == 128);
 void MeshDrawCommand::execute(CommandList& cmd,
                                Buffer* sceneUBO,
                                Buffer* objectUBO,
-                               Buffer* materialUBO) const {
+                               Buffer* materialUBO,
+                               Texture* defaultWhite,
+                               Sampler* defaultSampler) const {
     if (instanceCount == 0 || !pipelineState || !vertexBuffer) return;
 
     // 上传 per-object UBO
@@ -56,6 +58,18 @@ void MeshDrawCommand::execute(CommandList& cmd,
     if (sceneUBO)    bg.addUBO(0, sceneUBO,    0, 288);
     if (objectUBO)   bg.addUBO(1, objectUBO,   objectUboOffset, kObjectUboStride);
     if (materialUBO) bg.addUBO(2, materialUBO, materialUboOffset, 128);
+
+    // 纹理 + sampler：仅当 defaultWhite 非 null（即该 pass 的 PSO 声明了
+    // binding=3/4 纹理 binding）时才绑定，避免对纯色 pass（edge/pick）写入
+    // layout 中不存在的 binding 导致 VK validation / 崩溃。
+    // albedoTex 为空 → 退化到默认白纹理（数学等价纯色）。
+    if (defaultWhite) {
+        Texture* tex = albedoTex ? albedoTex : defaultWhite;
+        bg.addTexture(3, tex);
+        Sampler* sm = sampler ? sampler : defaultSampler;
+        bg.addSampler(4, sm);
+    }
+
     cmd.bindResources(bg);
 
     cmd.setVertexBuffer(0, vertexBuffer);

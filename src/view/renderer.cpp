@@ -38,7 +38,8 @@ bool Renderer::init(engine::RHIDevice& device,
     solid_pass_ = std::make_unique<engine::GeometryPass>(
         device, *resources_, matCache, lightEnv,
         engine::GeometryPassConfig{
-            "solid", engine::PrimitiveTopology::TriangleList, /*depthWrite=*/true, "Forward"});
+            "albedo", engine::PrimitiveTopology::TriangleList,
+            /*depthWrite=*/true, "Forward", /*sampleTextures=*/true});
     if (!solid_pass_->init(colorFmt, depthFmt, true))
         return false;
 

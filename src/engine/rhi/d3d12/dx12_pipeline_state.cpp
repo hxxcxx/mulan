@@ -6,6 +6,7 @@
 
 #include <deque>
 #include <string>
+#include <vector>
 
 namespace {
 D3D12_PRIMITIVE_TOPOLOGY_TYPE toDX12TopologyType(mulan::engine::PrimitiveTopology topology) {
@@ -84,6 +85,10 @@ void DX12PipelineState::createRootSignature() {
     std::vector<D3D12_ROOT_PARAMETER> rootParams;
     rootParams.reserve(desc_.descriptorBindingCount);
 
+    // Static samplers（每个 Sampler binding 一个，Linear + Repeat）
+    std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplers;
+    staticSamplers.reserve(desc_.descriptorBindingCount);
+
     for (uint8_t i = 0; i < desc_.descriptorBindingCount; ++i) {
         const auto& db = desc_.descriptorBindings[i];
         if (db.count == 0) continue;
@@ -121,9 +126,26 @@ void DX12PipelineState::createRootSignature() {
             break;
         }
 
-        case DescriptorType::Sampler:
-            // 未来：static sampler 或 descriptor table
-            continue;
+        case DescriptorType::Sampler: {
+            // 收集为 StaticSampler（Linear 过滤 + Repeat 寻址）
+            // shader register 与 binding 编号一致，space=0
+            D3D12_STATIC_SAMPLER_DESC ss = {};
+            ss.Filter           = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+            ss.AddressU         = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+            ss.AddressV         = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+            ss.AddressW         = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+            ss.MipLODBias       = 0.0f;
+            ss.MaxAnisotropy    = 1;
+            ss.ComparisonFunc   = D3D12_COMPARISON_FUNC_NEVER;
+            ss.BorderColor      = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
+            ss.MinLOD           = -D3D12_FLOAT32_MAX;
+            ss.MaxLOD           = D3D12_FLOAT32_MAX;
+            ss.ShaderRegister   = db.binding;
+            ss.RegisterSpace    = 0;
+            ss.ShaderVisibility = visibility;
+            staticSamplers.push_back(ss);
+            continue;  // static sampler 不占 root parameter
+        }
         }
 
         rootParams.push_back(param);
@@ -132,7 +154,8 @@ void DX12PipelineState::createRootSignature() {
     D3D12_ROOT_SIGNATURE_DESC rsDesc = {};
     rsDesc.NumParameters = static_cast<UINT>(rootParams.size());
     rsDesc.pParameters   = rootParams.data();
-    rsDesc.NumStaticSamplers = 0;
+    rsDesc.NumStaticSamplers = static_cast<UINT>(staticSamplers.size());
+    rsDesc.pStaticSamplers   = staticSamplers.data();
     rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
     ComPtr<ID3DBlob> signature;

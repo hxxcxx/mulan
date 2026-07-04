@@ -15,6 +15,8 @@
 #include "../rhi/buffer.h"
 #include "../rhi/render_types.h"
 #include "../rhi/command_list.h"
+#include "../rhi/texture.h"
+#include "../rhi/sampler.h"
 #include <mulan/math/math.h>
 
 #include <cstdint>
@@ -39,6 +41,11 @@ struct MeshDrawCommand {
     uint32_t objectUboOffset   = 0;
     uint32_t materialUboOffset = 0;
 
+    // 纹理（binding=3 albedo / binding=4 sampler）。
+    // 由 DrawCommandBuilder 解析材质填充。albedoTex 为空时由 execute 用 defaultWhite 退化。
+    Texture* albedoTex = nullptr;
+    Sampler* sampler   = nullptr;
+
     // Per-object data（Pass::execute 时写入 objectUBO）
     math::Mat4 worldTransform{1.0f};
 
@@ -50,11 +57,15 @@ struct MeshDrawCommand {
     bool     isWire      = false;
     bool     translucent = false;
 
-    /// 提交到 CommandList
+    /// 提交到 CommandList。
+    /// defaultWhite / defaultSampler：仅对声明了纹理 binding 的 PSO 有效；
+    /// 若 albedoTex/sampler 为空，则用这俩默认值退化（保证无材质模型视觉不变）。
     void execute(CommandList& cmd,
                  Buffer* sceneUBO,
                  Buffer* objectUBO,
-                 Buffer* materialUBO) const;
+                 Buffer* materialUBO,
+                 Texture* defaultWhite = nullptr,
+                 Sampler* defaultSampler = nullptr) const;
 
     /// Object UBO slot 步进（字节）。
     /// 单条 ObjectUniforms 记录为 128 字节，但 D3D12 要求 root CBV 偏移
