@@ -342,8 +342,11 @@ void VKDevice::beginFrame(SwapChain* swapchain) {
 
     descriptor_allocators_[current_frame_]->resetPools();
 
-    // 回收上一轮独立 CommandList 的 descriptor allocator
-    // 这些 allocator 对应的 CommandList 应已在上一帧完成使用
+    // 延迟回收：上一帧的 standalone allocator 现在安全（其 cmd list 已通过
+    // readbackPixels 的 fence wait 确认完成，或有足够时间让 GPU 执行完）。
+    standalone_allocators_prev_.clear();
+    // 当前帧的 allocator 挪到上一帧，下一帧回收
+    standalone_allocators_prev_ = std::move(standalone_allocators_);
     standalone_allocators_.clear();
 
     frame_cmd_list_ = std::make_unique<VKCommandList>(device_, frame.cmdBuffer(),

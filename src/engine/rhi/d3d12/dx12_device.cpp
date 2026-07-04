@@ -257,6 +257,7 @@ std::expected<std::unique_ptr<CommandList>, core::Error> DX12Device::createComma
     auto result = DX12CommandList::create(device_.Get(), allocator.Get());
     if (!result) return std::unexpected(result.error());
     auto& cmd = *result;
+    cmd->setIndirectSignatures(drawIndirectSignature(), dispatchIndirectSignature());
     char nm[64];
     std::snprintf(nm, sizeof(nm), "CommandList@%p", cmd.get());
     setDebugName(cmd->commandList(), nm);
@@ -303,6 +304,40 @@ void DX12Device::uploadTextureData(Texture* dst, const void* data,
                                    TextureFormat format) {
     upload_context_->uploadTexture(static_cast<DX12Texture*>(dst), data,
                                    width, height, format);
+}
+
+ID3D12CommandSignature* DX12Device::drawIndirectSignature() {
+    if (!draw_indirect_sig_) {
+        D3D12_INDIRECT_ARGUMENT_DESC argDesc{};
+        argDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+
+        D3D12_COMMAND_SIGNATURE_DESC sigDesc{};
+        sigDesc.ByteStride          = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
+        sigDesc.NumArgumentDescs    = 1;
+        sigDesc.pArgumentDescs      = &argDesc;
+        sigDesc.NodeMask            = 0;
+
+        device_->CreateCommandSignature(&sigDesc, nullptr,
+                                        IID_PPV_ARGS(&draw_indirect_sig_));
+    }
+    return draw_indirect_sig_.Get();
+}
+
+ID3D12CommandSignature* DX12Device::dispatchIndirectSignature() {
+    if (!dispatch_indirect_sig_) {
+        D3D12_INDIRECT_ARGUMENT_DESC argDesc{};
+        argDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+
+        D3D12_COMMAND_SIGNATURE_DESC sigDesc{};
+        sigDesc.ByteStride          = sizeof(D3D12_DISPATCH_ARGUMENTS);
+        sigDesc.NumArgumentDescs    = 1;
+        sigDesc.pArgumentDescs      = &argDesc;
+        sigDesc.NodeMask            = 0;
+
+        device_->CreateCommandSignature(&sigDesc, nullptr,
+                                        IID_PPV_ARGS(&dispatch_indirect_sig_));
+    }
+    return dispatch_indirect_sig_.Get();
 }
 
 // ============================================================

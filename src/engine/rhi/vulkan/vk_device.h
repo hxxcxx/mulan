@@ -135,7 +135,8 @@ private:
     std::unique_ptr<VKUploadContext>             upload_context_;
     std::vector<std::unique_ptr<VKFrameContext>> frame_contexts_;
     std::vector<std::unique_ptr<VKDescriptorAllocator>> descriptor_allocators_; // per-frame
-    std::vector<std::unique_ptr<VKDescriptorAllocator>> standalone_allocators_; // 独立 cmd list
+    std::vector<std::unique_ptr<VKDescriptorAllocator>> standalone_allocators_;       // 当前帧的独立 cmd list
+    std::vector<std::unique_ptr<VKDescriptorAllocator>> standalone_allocators_prev_;  // 上一帧的（安全回收）
     std::unique_ptr<VKCommandList>               frame_cmd_list_;
 
     uint32_t                    frame_count_   = 2;

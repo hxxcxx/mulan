@@ -71,6 +71,10 @@ public:
     void present(SwapChain* swapchain) override;
     void submitOffscreen() override;
 
+    /// 惰性创建间接绘制 CommandSignature
+    ID3D12CommandSignature* drawIndirectSignature();
+    ID3D12CommandSignature* dispatchIndirectSignature();
+
 private:
     void init(const DeviceCreateInfo& ci);
     void createFactory();
@@ -88,6 +92,8 @@ private:
     ComPtr<ID3D12CommandQueue>         command_queue_;
     ComPtr<ID3D12Debug>                debug_controller_;
     ComPtr<ID3D12InfoQueue>            info_queue_;
+    ComPtr<ID3D12CommandSignature>     draw_indirect_sig_;
+    ComPtr<ID3D12CommandSignature>     dispatch_indirect_sig_;
 
     GPUDeviceCapabilities                 caps_;
     RenderConfig                       render_config_;

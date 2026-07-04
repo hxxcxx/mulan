@@ -79,6 +79,13 @@ public:
     /// 设置内部命令列表（帧循环中使用外部 cmd list）
     void setCommandList(ID3D12GraphicsCommandList* cmdList);
 
+    /// 设置间接绘制 CommandSignature（由 DX12Device 注入）
+    void setIndirectSignatures(ID3D12CommandSignature* drawSig,
+                               ID3D12CommandSignature* dispatchSig) {
+        draw_indirect_sig_ = drawSig;
+        dispatch_indirect_sig_ = dispatchSig;
+    }
+
     /// 设置当前帧的描述符堆（纹理绑定时分配 SRV 句柄）
     void setDescriptorHeap(ID3D12DescriptorHeap* heap,
                            D3D12_CPU_DESCRIPTOR_HANDLE cpuBase,
@@ -101,6 +108,9 @@ private:
     D3D12_GPU_DESCRIPTOR_HANDLE desc_gpu_base_ = {};
     uint32_t                desc_size_ = 0;
     uint32_t                desc_alloc_count_ = 0;  // 当前帧已分配数
+
+    ID3D12CommandSignature* draw_indirect_sig_ = nullptr;
+    ID3D12CommandSignature* dispatch_indirect_sig_ = nullptr;
 };
 
 } // namespace mulan::engine

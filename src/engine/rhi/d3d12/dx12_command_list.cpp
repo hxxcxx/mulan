@@ -131,10 +131,10 @@ void DX12CommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
 
 void DX12CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset,
                                     uint32_t drawCount, uint32_t /*stride*/) {
-    // 未实现：需要一个预创建的 ID3D12CommandSignature（按 DrawIndexed 的参数格式）。
-    // 当前调用方均为零，此处诚实暴露而非静默 device removed。
-    (void)argsBuffer; (void)offset; (void)drawCount;
-    assert(false && "drawIndirect not implemented on D3D12 backend");
+    if (!draw_indirect_sig_) return;
+    auto* dx12Buf = static_cast<DX12Buffer*>(argsBuffer);
+    cmd_list_->ExecuteIndirect(draw_indirect_sig_, drawCount,
+                               dx12Buf->resource(), offset, nullptr, 0);
 }
 
 void DX12CommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY,
@@ -143,9 +143,10 @@ void DX12CommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY,
 }
 
 void DX12CommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
-    // 未实现：需要一个预创建的 ID3D12CommandSignature（按 Dispatch 的参数格式）。
-    (void)argsBuffer; (void)offset;
-    assert(false && "dispatchIndirect not implemented on D3D12 backend");
+    if (!dispatch_indirect_sig_) return;
+    auto* dx12Buf = static_cast<DX12Buffer*>(argsBuffer);
+    cmd_list_->ExecuteIndirect(dispatch_indirect_sig_, 1,
+                               dx12Buf->resource(), offset, nullptr, 0);
 }
 
 void DX12CommandList::setPushConstants(uint32_t offset, uint32_t size,
