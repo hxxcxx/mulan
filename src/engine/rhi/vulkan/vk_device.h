@@ -126,6 +126,7 @@ private:
 
     uint32_t                    frame_count_   = 2;
     uint32_t                    current_frame_ = 0;
+    uint64_t                    frame_token_   = 0;  // 单调递增，BindGroup 句柄版本化用
 
     // per-swapchain-image 的信号量，替代 per-frame 的 renderFinished
     // 按 acquired image index 索引，解决 present 异步持有信号量的问题

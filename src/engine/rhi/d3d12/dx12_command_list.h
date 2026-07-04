@@ -92,6 +92,10 @@ public:
                            D3D12_GPU_DESCRIPTOR_HANDLE gpuBase,
                            uint32_t descriptorSize);
 
+    // 注入当前帧的 frame token（由 DX12Device::frameCommandList 设置）。
+    // bindGroup 据此判断 BindGroup 缓存的 GPU descriptor handle 是否跨帧失效。
+    void setFrameToken(uint64_t token) { frame_token_ = token; }
+
 private:
     /// 独立模式私有构造（create() 使用）
     DX12CommandList(ID3D12Device* device, ID3D12CommandAllocator* allocator);
@@ -108,6 +112,8 @@ private:
     D3D12_GPU_DESCRIPTOR_HANDLE desc_gpu_base_ = {};
     uint32_t                desc_size_ = 0;
     uint32_t                desc_alloc_count_ = 0;  // 当前帧已分配数
+
+    uint64_t                frame_token_ = 0;  // 当前帧 token，0=独立/未注入
 
     ID3D12CommandSignature* draw_indirect_sig_ = nullptr;
     ID3D12CommandSignature* dispatch_indirect_sig_ = nullptr;

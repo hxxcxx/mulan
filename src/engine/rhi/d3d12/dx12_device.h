@@ -103,6 +103,7 @@ private:
     NativeWindowHandle                 window_;
     uint32_t                           frame_count_ = 2;
     uint32_t                           frame_index_ = 0;
+    uint64_t                           frame_token_ = 0;  // 单调递增，BindGroup 句柄版本化用
 
     std::vector<std::unique_ptr<DX12FrameContext>> frames_;
     std::unique_ptr<DX12UploadContext>             upload_context_;

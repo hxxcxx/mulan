@@ -104,6 +104,11 @@ public:
 
     vk::PipelineLayout currentLayout() const { return current_layout_; }
 
+    // 注入当前帧的 frame token（由 VKDevice::frameCommandList 设置）。
+    // bindGroup 据此判断 BindGroup 缓存句柄是否跨帧失效。独立 cmd list 不调用，
+    // token 保持 0，BindGroup token 也初始为 0 → 视为同帧，不会误失效。
+    void setFrameToken(uint64_t token) { frame_token_ = token; }
+
 private:
     // 独立模式私有构造（create() 使用）
     VKCommandList(vk::Device device, vk::CommandPool pool, vk::CommandBuffer cmd)
@@ -118,6 +123,7 @@ private:
     bool                    rp_present_source_ = false;
     std::optional<vk::Image> swapchain_color_image_; // endRenderPass 时转 PRESENT_SRC_KHR
     bool                    owns_pool_;
+    uint64_t                frame_token_ = 0;  // 当前帧 token，0=独立/未注入
 };
 
 } // namespace mulan::engine

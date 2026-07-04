@@ -278,6 +278,14 @@ void VKCommandList::bindGroup(BindGroup& group) {
     if (vkGroup->entryCount() == 0 || !allocator_) return;
     if (!current_desc_set_layout_) return;
 
+    // --- 跨帧失效：per-frame pool reset 已销毁上一帧的 descriptor set，
+    // 若 BindGroup 缓存句柄不属于当前帧则丢弃并强制本帧完整重写。
+    if (vkGroup->frameToken() != frame_token_) {
+        vkGroup->setCachedSet(nullptr);
+        vkGroup->setFrameToken(frame_token_);
+        vkGroup->markAllDirty();
+    }
+
     // --- 复用未变脏的缓存 descriptor set ---
     if (!vkGroup->dirty() && vkGroup->cachedSet()) {
         auto dset = vkGroup->cachedSet();

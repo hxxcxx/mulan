@@ -170,6 +170,14 @@ void DX12CommandList::bindGroup(BindGroup& group) {
     auto* dx12Group = static_cast<DX12BindGroup*>(&group);
     if (dx12Group->entryCount() == 0 || !desc_heap_) return;
 
+    // --- 跨帧失效：per-frame heap reset 已回收上一帧的 descriptor 区段，
+    // 若 BindGroup 缓存句柄不属于当前帧则丢弃并强制本帧完整重写。
+    if (dx12Group->frameToken() != frame_token_) {
+        dx12Group->setCachedGpuHandle({});
+        dx12Group->setFrameToken(frame_token_);
+        dx12Group->markAllDirty();
+    }
+
     // --- 复用未变脏的缓存（无脏 binding 时直接绑定，零分配）---
     if (!dx12Group->dirty() && dx12Group->cachedGpuHandle().ptr) {
         auto cachedGpu = dx12Group->cachedGpuHandle();

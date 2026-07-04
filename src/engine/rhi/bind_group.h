@@ -97,12 +97,24 @@ public:
     /// 标记所有 binding 脏（整体失效时调用，如首次 bind）。
     void markAllDirty() { dirty_mask_ = 0xFFFF; }
 
+    // ─── Frame token（descriptor 句柄版本化）────────────────────
+    // 缓存的 descriptor 句柄（VK VkDescriptorSet / DX12 GPU handle）所属的
+    // frame token。后端 per-frame 会 reset descriptor pool/heap，使旧句柄失效；
+    // 命令缓冲区 bindGroup 入口比对 token，跨帧即丢弃缓存句柄并 markAllDirty，
+    // 同帧内复用命中（commit "对象化 BindGroup" 的优化本意）。
+    // token 单调递增不复用；0 表示无效（未分配过句柄）。
+    static constexpr uint64_t kInvalidFrameToken = 0;
+
+    uint64_t frameToken() const { return frame_token_; }
+    void     setFrameToken(uint64_t token) { frame_token_ = token; }
+
 protected:
     BindGroup() = default;
     BindGroup(const BindGroup&) = delete;
     BindGroup& operator=(const BindGroup&) = delete;
 
-    uint16_t dirty_mask_ = 0xFFFF;  // 初次 bind 视为整体脏，确保首帧完整写入
+    uint16_t  dirty_mask_  = 0xFFFF;  // 初次 bind 视为整体脏，确保首帧完整写入
+    uint64_t  frame_token_ = kInvalidFrameToken;
 };
 
 } // namespace mulan::engine

@@ -233,6 +233,10 @@ void VKDevice::beginFrame(SwapChain* swapchain) {
 
     descriptor_allocators_[current_frame_]->resetPools();
 
+    // 单调递增 frame token：resetPools 已销毁上一帧的 descriptor set，
+    // 自增后 BindGroup 缓存句柄的旧 token 必然失配，触发跨帧失效。
+    ++frame_token_;
+
     // 延迟回收：上一帧的 standalone allocator 现在安全（其 cmd list 已通过
     // readbackPixels 的 fence wait 确认完成，或有足够时间让 GPU 执行完）。
     standalone_allocators_prev_.clear();
@@ -255,6 +259,10 @@ void VKDevice::clearCaches() {
 }
 
 CommandList* VKDevice::frameCommandList() {
+    // 注入当前帧 token，让 BindGroup 缓存的 descriptor 句柄跨帧自动失效
+    if (frame_cmd_list_) {
+        static_cast<VKCommandList*>(frame_cmd_list_.get())->setFrameToken(frame_token_);
+    }
     return frame_cmd_list_.get();
 }
 

@@ -387,6 +387,10 @@ void DX12Device::beginFrame(SwapChain* /*swapchain*/) {
 
     // 重置 shader-visible 描述符堆
     shader_visible_heap_->reset();
+
+    // 单调递增 frame token：heap reset 已回收上一帧的 descriptor 区段，
+    // 自增后 BindGroup 缓存句柄的旧 token 必然失配，触发跨帧失效。
+    ++frame_token_;
 }
 
 void DX12Device::clearCaches() {
@@ -396,6 +400,9 @@ void DX12Device::clearCaches() {
 CommandList* DX12Device::frameCommandList() {
     auto& frame = frames_[frame_index_];
     frame_cmd_wrapper_->setCommandList(frame->commandList());
+
+    // 注入当前帧 token，让 BindGroup 缓存的 descriptor 句柄跨帧自动失效
+    frame_cmd_wrapper_->setFrameToken(frame_token_);
 
     // 设置当前帧的描述符堆（bindResources 时分配 SRV 句柄用）
     auto* heap = shader_visible_heap_->heap();
