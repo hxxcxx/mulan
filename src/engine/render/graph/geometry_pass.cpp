@@ -4,7 +4,6 @@
 #include "../../rhi/render_types.h"
 #include "../../rhi/render_state.h"
 #include "../material/material_cache.h"
-#include "../texture_cache.h"
 
 #include <cstdio>
 #include <string>
@@ -150,21 +149,24 @@ bool GeometryPass::createDefaultResources() {
     }
     default_sampler_ = std::move(*samplerResult);
 
-    // 1×1 RGBA(255,255,255,255) 白纹理 — 无材质模型退化用。
-    // 存入 TextureCache（单例持有所有权），本 pass 仅借用裸指针。
-    auto& texCache = TextureCache::instance();
-    auto* whiteAsset = texCache.find("__default_white");
-    if (!whiteAsset) {
-        whiteAsset = texCache.create(1, 1, TextureFormat::RGBA8_UNorm,
-            TextureUsageFlags::ShaderResource, "__default_white");
-        if (!whiteAsset) {
-            std::fprintf(stderr, "[GeometryPass] create default white texture failed\n");
-            return false;
-        }
-        const uint8_t white[4] = {255, 255, 255, 255};
-        device_.uploadTextureData(whiteAsset->get(), white, 1, 1, TextureFormat::RGBA8_UNorm);
+    // 1×1 RGBA(255,255,255,255) 白纹理 — 无材质模型退化用。本 pass 独占所有权。
+    // usage 加 GenerateMips：该 flag 在 VK 后端映射为 eTransferSrc|eTransferDst，
+    // uploadTextureData 的 vkCmdCopyBufferToImage 需要 eTransferDst（见 vk_texture.cpp:39）。
+    TextureDesc texDesc;
+    texDesc.width     = 1;
+    texDesc.height    = 1;
+    texDesc.depth     = 1;
+    texDesc.format    = TextureFormat::RGBA8_UNorm;
+    texDesc.dimension = TextureDimension::Texture2D;
+    texDesc.usage     = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
+    auto texResult = device_.createTexture(texDesc);
+    if (!texResult) {
+        std::fprintf(stderr, "[GeometryPass] create default white texture failed\n");
+        return false;
     }
-    default_white_tex_ = whiteAsset->get();
+    default_white_tex_ = std::move(*texResult);
+    const uint8_t white[4] = {255, 255, 255, 255};
+    device_.uploadTextureData(default_white_tex_.get(), white, 1, 1, TextureFormat::RGBA8_UNorm);
     return true;
 }
 
@@ -213,7 +215,7 @@ void GeometryPass::execute(const PassContext& ctx) {
     for (auto& cmd : commands_) {
         if (!cmd.visible || cmd.instanceCount == 0) continue;
         cmd.execute(*ctx.cmd, scene_ubo_.get(), object_ubo_.get(),
-                    material_ubo_.get(), default_white_tex_, default_sampler_.get());
+                    material_ubo_.get(), default_white_tex_.get(), default_sampler_.get());
     }
 }
 

@@ -12,6 +12,7 @@
 #include "mulan/engine/rhi/render_types.h"
 #include "mulan/engine/rhi/swap_chain.h"
 #include "mulan/engine/render/material/material_cache.h"
+#include "mulan/engine/render/texture_cache.h"
 #include "mulan/engine/render/viewcube/view_cube_renderer.h"
 
 #include <cstdio>
@@ -30,6 +31,9 @@ bool Renderer::init(engine::RHIDevice& device,
                     engine::TextureFormat colorFmt,
                     engine::TextureFormat depthFmt) {
     if (initialized_) return true;
+
+    // TextureCache 是单例，需在创建纹理资产前注入 device
+    engine::TextureCache::instance().init(&device);
 
     resources_ = std::make_unique<engine::RenderResourceCache>(device);
 

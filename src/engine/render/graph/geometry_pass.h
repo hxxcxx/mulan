@@ -69,7 +69,7 @@ public:
 
     /// 全局默认白纹理（无材质模型退化用，1×1 RGBA=(255,255,255,255)）。
     /// 仅 sampleTextures=true 时非 null。
-    Texture* defaultWhiteTexture() const { return default_white_tex_; }
+    Texture* defaultWhiteTexture() const { return default_white_tex_.get(); }
     /// 全局默认线性 sampler。仅 sampleTextures=true 时非 null。
     Sampler* defaultSampler() const { return default_sampler_.get(); }
 
@@ -92,9 +92,9 @@ private:
     std::unique_ptr<Buffer>        object_ubo_;   // set=0, binding=1
     std::unique_ptr<Buffer>        material_ubo_; // set=0, binding=2
 
-    // 仅 sampleTextures=true 时持有：默认 sampler + 1×1 白纹理
+    // 仅 sampleTextures=true 时持有：默认 sampler + 1×1 白纹理（本 pass 独占所有权）
     std::unique_ptr<Sampler>       default_sampler_;
-    Texture*                       default_white_tex_ = nullptr;  // 借用 TextureCache 中的资产
+    std::unique_ptr<Texture>       default_white_tex_;
 
     std::span<const MeshDrawCommand> commands_;
     bool initialized_ = false;
