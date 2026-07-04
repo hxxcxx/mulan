@@ -103,6 +103,7 @@ void DrawCommandBuilder::rebuild(engine::RenderResourceCache& resources,
             cmd.vertexBuffer    = geo->vertexBuffer.get();
             cmd.indexBuffer     = geo->indexBuffer.get();
             cmd.indexCount      = geo->indexCount;
+            cmd.indexType       = geo->indexType;
             cmd.instanceCount   = 1;
             cmd.topology        = d.mesh->topology;
             cmd.objectUboOffset = nextObjectOffset;

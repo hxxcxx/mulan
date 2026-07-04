@@ -80,12 +80,13 @@ void MeshDrawCommand::execute(CommandList& cmd,
     cmd.setVertexBuffer(0, vertexBuffer);
 
     if (indexBuffer && indexCount > 0) {
-        cmd.setIndexBuffer(indexBuffer);
+        cmd.setIndexBuffer(indexBuffer, 0, indexType);
         DrawIndexedAttribs attrs;
         attrs.indexCount    = indexCount;
         attrs.instanceCount = instanceCount;
         attrs.startIndex    = firstIndex;
         attrs.baseVertex    = baseVertex;
+        attrs.indexType     = indexType;
         cmd.drawIndexed(attrs);
     } else if (vertexCount > 0) {
         DrawAttribs attrs;

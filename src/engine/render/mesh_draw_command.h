@@ -31,6 +31,7 @@ struct MeshDrawCommand {
     Buffer*  vertexBuffer  = nullptr;
     Buffer*  indexBuffer   = nullptr;
     uint32_t indexCount    = 0;
+    IndexType indexType    = IndexType::UInt32;  ///< 索引宽度（来自 Mesh，绑定 IB 与 drawIndexed 时用）
     uint32_t firstIndex    = 0;
     int32_t  baseVertex    = 0;
     uint32_t vertexCount   = 0;       // non-indexed draw 用

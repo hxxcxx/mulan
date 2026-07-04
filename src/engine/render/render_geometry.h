@@ -54,6 +54,7 @@ struct GpuGeometry {
     uint32_t vertexCount  = 0;
     uint32_t indexCount   = 0;
     uint32_t vertexStride = 0;
+    IndexType indexType   = IndexType::UInt32;  ///< 索引宽度（从 Mesh 带过来，供 setIndexBuffer 用）
     bool     uploaded     = false;  ///< 是否已上传到 GPU
 
     bool isValid() const { return uploaded && vertexBuffer; }

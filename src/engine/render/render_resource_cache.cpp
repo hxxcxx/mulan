@@ -62,6 +62,7 @@ RenderResourceCache::createGpuBuffer(RHIDevice& device, const Mesh& mesh) {
     geo.vertexStride = mesh.vertexStride();
     geo.vertexCount  = mesh.vertexCount();
     geo.indexCount   = mesh.indexCount();
+    geo.indexType    = mesh.indexType;
 
     if (geo.vertexCount > 0 && !mesh.vertices.empty()) {
         uint32_t size = static_cast<uint32_t>(mesh.vertices.size());
