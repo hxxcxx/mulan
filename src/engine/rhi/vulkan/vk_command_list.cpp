@@ -363,6 +363,8 @@ void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
         barrier.dstAccessMask       = vk::AccessFlagBits::eColorAttachmentWrite;
         barrier.subresourceRange    = vk::ImageSubresourceRange(
             vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+        barrier.srcQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
 
         cmd_buffer_.pipelineBarrier(
             vk::PipelineStageFlagBits::eTopOfPipe,
@@ -380,7 +382,10 @@ void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
         barrier.srcAccessMask       = {};
         barrier.dstAccessMask       = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
         barrier.subresourceRange    = vk::ImageSubresourceRange(
-            vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1);
+            vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil,
+            0, 1, 0, 1);
+        barrier.srcQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
 
         cmd_buffer_.pipelineBarrier(
             vk::PipelineStageFlagBits::eTopOfPipe,
@@ -437,6 +442,8 @@ void VKCommandList::endRenderPass() {
         barrier.dstAccessMask       = {};
         barrier.subresourceRange    = vk::ImageSubresourceRange(
             vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+        barrier.srcQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
 
         cmd_buffer_.pipelineBarrier(
             vk::PipelineStageFlagBits::eColorAttachmentOutput,
