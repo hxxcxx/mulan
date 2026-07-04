@@ -29,8 +29,7 @@ public:
     bool updateTexture(uint32_t binding, Texture* tex) override;
     bool updateSampler(uint32_t binding, Sampler* s) override;
 
-    bool dirty() const override { return dirty_; }
-    void markClean() override { dirty_ = false; }
+    // dirty()/markClean()/dirtyMask()/clearDirty() 由基类提供
 
     // 缓存（由 VKCommandList::bindGroup 管理）
     vk::DescriptorSet cachedSet() const { return cached_set_; }
@@ -40,7 +39,6 @@ private:
     const BindGroupLayout* layout_;
     std::array<BindGroupEntry, kMaxEntries> entries_{};
     uint8_t count_ = 0;
-    bool dirty_ = true;
     vk::DescriptorSet cached_set_ = nullptr;
 };
 

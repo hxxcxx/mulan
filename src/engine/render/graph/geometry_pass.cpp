@@ -60,6 +60,8 @@ bool GeometryPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool has
     if (!matResult) { return false; }
     material_ubo_ = std::move(*matResult);
 
+    if (!createFrameBindGroup(colorFmt, depthFmt, hasDepth)) return false;
+
     initialized_ = true;
     return true;
 }
@@ -190,6 +192,35 @@ bool GeometryPass::createDefaultResources() {
     return true;
 }
 
+bool GeometryPass::createFrameBindGroup(TextureFormat, TextureFormat, bool) {
+    // 构建初始 BindGroupDesc：静态 binding（scene=0）在此绑定；
+    // object=1 / material=2 offset 在每 draw 通过 updateUBO 刷新（首帧必脏）；
+    // 纹理槽先用 defaultWhite 占位，每 draw 由 MeshDrawCommand::execute 更新。
+    BindGroupDesc bg;
+    bg.addUBO(0, scene_ubo_.get(), 0, sizeof(SceneUniforms));
+    bg.addUBO(1, object_ubo_.get(), 0, MeshDrawCommand::kObjectUboStride);
+    bg.addUBO(2, material_ubo_.get(), 0, 128);
+
+    if (cfg_.sampleTextures && default_white_tex_ && default_sampler_) {
+        bg.addTexture(3, default_white_tex_.get());
+        bg.addTexture(4, default_white_tex_.get());
+        bg.addTexture(5, default_white_tex_.get());
+        bg.addTexture(6, default_white_tex_.get());
+        bg.addTexture(7, default_white_tex_.get());
+        bg.addSampler(8, default_sampler_.get());
+        bg.addTexture(9, default_white_tex_.get());
+    }
+
+    auto result = device_.createBindGroup(pso_->bindGroupLayout(), bg);
+    if (!result) {
+        std::fprintf(stderr, "[GeometryPass] createBindGroup failed: %s\n",
+                     result.error().message.c_str());
+        return false;
+    }
+    frame_bg_ = std::move(*result);
+    return true;
+}
+
 void GeometryPass::uploadSceneUBO(const PassContext& ctx) {
     // 应用 Vulkan clip space 修正（Z:[-1,1]→[0,1], Y 翻转）
     math::Mat4 clip = device_.clipSpaceCorrectionMatrix();
@@ -227,14 +258,21 @@ void GeometryPass::uploadSceneUBO(const PassContext& ctx) {
 }
 
 void GeometryPass::execute(const PassContext& ctx) {
-    if (!initialized_ || !pso_ || !ctx.cmd) return;
+    if (!initialized_ || !pso_ || !ctx.cmd || !frame_bg_) return;
 
     uploadSceneUBO(ctx);
     mat_cache_.uploadDirtyMaterials(material_ubo_.get());
 
+    // binding=0 (scene UBO) 内容每帧由 uploadSceneUBO 更新，但 binding 本身指向的
+    // buffer/offset/range 不变 → 无需 update，复用缓存 descriptor。
+    // binding=9 (env map) 可能在 init 后由 setEnvironmentMap 改变，每帧刷新一次确保生效。
+    if (cfg_.sampleTextures) {
+        frame_bg_->updateTexture(9, env_map_ ? env_map_ : default_white_tex_.get());
+    }
+
     for (auto& cmd : commands_) {
         if (!cmd.visible || cmd.instanceCount == 0) continue;
-        cmd.execute(*ctx.cmd, scene_ubo_.get(), object_ubo_.get(),
+        cmd.execute(*ctx.cmd, *frame_bg_, scene_ubo_.get(), object_ubo_.get(),
                     material_ubo_.get(), default_white_tex_.get(),
                     default_sampler_.get(), env_map_);
     }

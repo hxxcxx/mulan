@@ -16,6 +16,7 @@
 #include "../../rhi/device.h"
 #include "../../rhi/pipeline_state.h"
 #include "../../rhi/buffer.h"
+#include "../../rhi/bind_group.h"
 #include "../../rhi/shader.h"
 #include "../camera/camera.h"
 #include "../material/material.h"  // MaterialGPU
@@ -154,6 +155,12 @@ private:
     std::unique_ptr<Buffer>         object_ubo_;  // b1 — 单位矩阵
     std::unique_ptr<Buffer>         material_ubo_;// b2 — 6面各一份材质
     static constexpr uint32_t   kFaceCount = 6;
+
+    // --- per-frame BindGroup（按借用 PSO 的 layout 创建，缓存在 PSO 不变期间复用）---
+    std::unique_ptr<BindGroup>      face_bg_;     // solid PSO (10 binding)
+    std::unique_ptr<BindGroup>      edge_bg_;     // edge PSO (3 UBO)
+    uint64_t                        face_bg_layout_hash_ = 0;
+    uint64_t                        edge_bg_layout_hash_ = 0;
 
     // --- 面材质数据 ---
     MaterialGPU                 face_materials_[kFaceCount];

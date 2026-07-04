@@ -30,8 +30,7 @@ public:
     bool updateTexture(uint32_t binding, Texture* tex) override;
     bool updateSampler(uint32_t binding, Sampler* s) override;
 
-    bool dirty() const override { return dirty_; }
-    void markClean() override { dirty_ = false; }
+    // dirty()/markClean()/dirtyMask()/clearDirty() 由基类提供
 
     // 缓存 GPU descriptor handle（由 DX12CommandList::bindGroup 管理）
     D3D12_GPU_DESCRIPTOR_HANDLE cachedGpuHandle() const { return cached_gpu_handle_; }
@@ -41,7 +40,6 @@ private:
     const BindGroupLayout* layout_;
     std::array<BindGroupEntry, kMaxEntries> entries_{};
     uint8_t count_ = 0;
-    bool dirty_ = true;
     D3D12_GPU_DESCRIPTOR_HANDLE cached_gpu_handle_ = {};
 };
 

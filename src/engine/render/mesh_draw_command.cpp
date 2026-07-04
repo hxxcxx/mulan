@@ -19,6 +19,7 @@ struct alignas(16) ObjectUniforms {
 static_assert(sizeof(ObjectUniforms) == 128);
 
 void MeshDrawCommand::execute(CommandList& cmd,
+                               BindGroup& frameBg,
                                Buffer* sceneUBO,
                                Buffer* objectUBO,
                                Buffer* materialUBO,
@@ -54,25 +55,27 @@ void MeshDrawCommand::execute(CommandList& cmd,
 
     cmd.setPipelineState(pipelineState);
 
-    // Bind UBOs via BindGroupDesc
-    BindGroupDesc bg;
-    if (sceneUBO)    bg.addUBO(0, sceneUBO,    0, 288);
-    if (objectUBO)   bg.addUBO(1, objectUBO,   objectUboOffset, kObjectUboStride);
-    if (materialUBO) bg.addUBO(2, materialUBO, materialUboOffset, 128);
+    // 刷新每 draw 变化的 binding：
+    //   binding=1 (object UBO offset) / binding=2 (material UBO offset) 每 draw 必变；
+    //   binding=3..9 纹理可能变（按 draw 材质决定）。
+    // 其余 binding（scene=0）帧内不变，复用 frameBg 缓存 descriptor。
+    // 后端据 dirtyMask 走局部重写，未变化的 binding 零分配零写入。
+    frameBg.updateUBO(1, objectUBO, objectUboOffset, kObjectUboStride);
+    frameBg.updateUBO(2, materialUBO, materialUboOffset, 128);
 
     // 纹理 + sampler：仅当 defaultWhite 非 null（即该 pass 的 PSO 声明了纹理 binding）时才绑定。
-    // 空纹理退化到默认值：albedo→白, normal→(0,0,1)平面, mr→(1,1,0), emissive→黑, ao→白。
+    // 空纹理由 default* 退化：albedo→白, normal→(0,0,1)平面, mr→(1,1,0), emissive→黑, ao→白。
     if (defaultWhite) {
-        bg.addTexture(3, albedoTex ? albedoTex : defaultWhite);
-        bg.addTexture(4, normalTex ? normalTex : defaultWhite);
-        bg.addTexture(5, mrTex     ? mrTex     : defaultWhite);
-        bg.addTexture(6, emissiveTex ? emissiveTex : defaultWhite);
-        bg.addTexture(7, aoTex     ? aoTex     : defaultWhite);
-        bg.addSampler(8, sampler ? sampler : defaultSampler);
-        bg.addTexture(9, envMap    ? envMap    : (defaultEnvMap ? defaultEnvMap : defaultWhite));
+        frameBg.updateTexture(3, albedoTex ? albedoTex : defaultWhite);
+        frameBg.updateTexture(4, normalTex ? normalTex : defaultWhite);
+        frameBg.updateTexture(5, mrTex     ? mrTex     : defaultWhite);
+        frameBg.updateTexture(6, emissiveTex ? emissiveTex : defaultWhite);
+        frameBg.updateTexture(7, aoTex     ? aoTex     : defaultWhite);
+        frameBg.updateSampler(8, sampler ? sampler : defaultSampler);
+        frameBg.updateTexture(9, envMap    ? envMap    : (defaultEnvMap ? defaultEnvMap : defaultWhite));
     }
 
-    cmd.bindResources(bg);
+    cmd.bindGroup(frameBg);
 
     cmd.setVertexBuffer(0, vertexBuffer);
 

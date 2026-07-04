@@ -65,7 +65,12 @@ struct MeshDrawCommand {
     /// 提交到 CommandList。
     /// defaultWhite / defaultSampler：仅对声明了纹理 binding 的 PSO 有效；
     /// 若 albedoTex/sampler 为空，则用这俩默认值退化（保证无材质模型视觉不变）。
+    ///
+    /// frameBg：本 draw 复用的 per-frame BindGroup。该方法通过 updateUBO/updateTexture
+    /// 刷新 object UBO offset 与纹理槽，随后调用 cmd.bindGroup(frameBg)。
+    /// 后端据此走局部重写路径，非变化的 binding 复用缓存 descriptor。
     void execute(CommandList& cmd,
+                 BindGroup& frameBg,
                  Buffer* sceneUBO,
                  Buffer* objectUBO,
                  Buffer* materialUBO,

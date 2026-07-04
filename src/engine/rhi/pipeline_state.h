@@ -13,9 +13,12 @@
 #include "../vertex/vertex_layout.h"
 
 #include <cstdint>
+#include <memory>
 #include <string_view>
 
 namespace mulan::engine {
+
+class BindGroupLayout;
 
 // ============================================================
 // 输入布局元素（PSO 层定义 stride）
@@ -114,17 +117,25 @@ struct ComputePipelineDesc {
 
 class PipelineState {
 public:
-    virtual ~PipelineState() = default;
+    virtual ~PipelineState();
 
     virtual const GraphicsPipelineDesc& desc() const = 0;
 
     // 便捷查询
     PrimitiveTopology topology() const { return desc().topology; }
 
+    /// 此 PSO 的 BindGroup 契约（从 descriptorBindings 派生，惰性缓存）。
+    /// 后端无关、内容等价的 PSO 派生出的 layout 哈希一致，便于 BindGroup 跨 PSO 复用。
+    const BindGroupLayout& bindGroupLayout() const;
+
 protected:
-    PipelineState() = default;
+    PipelineState();
     PipelineState(const PipelineState&) = delete;
     PipelineState& operator=(const PipelineState&) = delete;
+
+private:
+    // bindGroupLayout() 惰性缓存（不可变 desc → 派生结果稳定，mutable 允许 const 计算）
+    mutable std::unique_ptr<BindGroupLayout> bg_layout_;
 };
 
 // ============================================================

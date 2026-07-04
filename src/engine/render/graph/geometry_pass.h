@@ -20,6 +20,7 @@
 #include "../light_environment.h"
 #include "../../rhi/device.h"
 #include "../../rhi/buffer.h"
+#include "../../rhi/bind_group.h"
 #include "../../rhi/pipeline_state.h"
 #include "../../rhi/render_types.h"
 #include "../../rhi/shader.h"
@@ -80,6 +81,7 @@ private:
     bool loadShaders();
     bool createPSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
     bool createDefaultResources();
+    bool createFrameBindGroup(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
     void uploadSceneUBO(const PassContext& ctx);
 
     RHIDevice&              device_;
@@ -94,6 +96,11 @@ private:
     std::unique_ptr<Buffer>        scene_ubo_;    // set=0, binding=0
     std::unique_ptr<Buffer>        object_ubo_;   // set=0, binding=1
     std::unique_ptr<Buffer>        material_ubo_; // set=0, binding=2
+
+    /// per-frame BindGroup（按 PSO layout 创建，binding=0/1/2 + 纹理槽）。
+    /// 帧内 scene/material/texture binding 不变，仅每 draw 通过 updateUBO(1,...)
+    /// 刷新 object UBO offset —— 后端走局部重写路径，descriptor set 复用。
+    std::unique_ptr<BindGroup>     frame_bg_;
 
     // 仅 sampleTextures=true 时持有：默认 sampler + 1×1 白纹理（本 pass 独占所有权）
     std::unique_ptr<Sampler>       default_sampler_;

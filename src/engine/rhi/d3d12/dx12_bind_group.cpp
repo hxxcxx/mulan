@@ -19,7 +19,7 @@ bool DX12BindGroup::updateUBO(uint32_t binding, Buffer* buf,
             entries_[i].buffer = buf;
             entries_[i].offset = offset;
             entries_[i].size   = size;
-            dirty_ = true;
+            dirty_mask_ |= (uint16_t(1) << i);
             return true;
         }
     }
@@ -30,7 +30,7 @@ bool DX12BindGroup::updateTexture(uint32_t binding, Texture* tex) {
     for (uint8_t i = 0; i < count_; ++i) {
         if (entries_[i].binding == binding) {
             entries_[i].texture = tex;
-            dirty_ = true;
+            dirty_mask_ |= (uint16_t(1) << i);
             return true;
         }
     }
@@ -41,7 +41,7 @@ bool DX12BindGroup::updateSampler(uint32_t binding, Sampler* s) {
     for (uint8_t i = 0; i < count_; ++i) {
         if (entries_[i].binding == binding) {
             entries_[i].sampler = s;
-            dirty_ = true;
+            dirty_mask_ |= (uint16_t(1) << i);
             return true;
         }
     }

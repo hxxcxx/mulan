@@ -170,7 +170,7 @@ void DX12CommandList::bindGroup(BindGroup& group) {
     auto* dx12Group = static_cast<DX12BindGroup*>(&group);
     if (dx12Group->entryCount() == 0 || !desc_heap_) return;
 
-    // --- 尝试复用缓存 ---
+    // --- 复用未变脏的缓存（无脏 binding 时直接绑定，零分配）---
     if (!dx12Group->dirty() && dx12Group->cachedGpuHandle().ptr) {
         auto cachedGpu = dx12Group->cachedGpuHandle();
         for (uint8_t i = 0; i < dx12Group->entryCount(); ++i) {
@@ -186,13 +186,10 @@ void DX12CommandList::bindGroup(BindGroup& group) {
         return;
     }
 
-    // --- 分配或复用 ---
+    // --- 分配或复用 descriptor heap 区段（texture 用）---
+    // 全脏（首帧）时分配整段 cached handle；局部脏时复用已分配区段，仅重写脏 texture 的槽。
     D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = dx12Group->cachedGpuHandle();
-    D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle;
-    if (gpuHandle.ptr) {
-        cpuHandle.ptr = desc_cpu_base_.ptr + (gpuHandle.ptr - desc_gpu_base_.ptr);
-    } else {
-        cpuHandle.ptr = desc_cpu_base_.ptr + desc_alloc_count_ * desc_size_;
+    if (!gpuHandle.ptr) {
         gpuHandle.ptr = desc_gpu_base_.ptr + desc_alloc_count_ * desc_size_;
         ++desc_alloc_count_;
         dx12Group->setCachedGpuHandle(gpuHandle);
@@ -201,23 +198,37 @@ void DX12CommandList::bindGroup(BindGroup& group) {
     ID3D12Device* device = nullptr;
     cmd_list_->GetDevice(IID_PPV_ARGS(&device));
 
+    const uint16_t mask = dx12Group->dirtyMask();
+    uint16_t written = 0;
+
     for (uint8_t i = 0; i < dx12Group->entryCount(); ++i) {
         const auto& e = dx12Group->entries()[i];
         if (e.buffer) {
+            // UBO：root CBV 每 draw 必须重设（offset 变化），不依赖脏位
             auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
             cmd_list_->SetGraphicsRootConstantBufferView(
                 e.binding, dx12Buf->gpuAddress() + e.offset);
-        } else if (e.texture && device) {
+        } else if (e.texture) {
+            // texture：仅脏时重写 descriptor 槽，非脏复用上一轮 CopyDescriptorsSimple 结果
+            if (((mask >> i) & 1u) == 0) {
+                cmd_list_->SetGraphicsRootDescriptorTable(e.binding, gpuHandle);
+                continue;
+            }
             auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
             if (!dx12Tex->srv().ptr) continue;
-            device->CopyDescriptorsSimple(1, cpuHandle, dx12Tex->srv(),
-                                          D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle;
+            cpuHandle.ptr = desc_cpu_base_.ptr + (gpuHandle.ptr - desc_gpu_base_.ptr);
+            if (device) {
+                device->CopyDescriptorsSimple(1, cpuHandle, dx12Tex->srv(),
+                                              D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+            }
             cmd_list_->SetGraphicsRootDescriptorTable(e.binding, gpuHandle);
+            written |= (uint16_t(1) << i);
         }
     }
 
     if (device) device->Release();
-    dx12Group->markClean();
+    dx12Group->clearDirty(written);
 }
 
 void DX12CommandList::bindResources(const BindGroupDesc& desc) {

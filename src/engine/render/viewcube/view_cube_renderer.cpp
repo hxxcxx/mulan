@@ -294,21 +294,37 @@ void ViewCubeRenderer::render(CommandList* cmd,
 
     // --- 5. 渲染面（每面独立材质）---
     cmd->setPipelineState(solidPso);
-    for (int f = 0; f < kFaceCount; ++f) {
-        BindGroupDesc bg;
-        bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUBO))
-          .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUBO))
-          .addUBO(2, material_ubo_.get(), f * material_stride_, sizeof(MaterialGPU));
-        if (defaultWhite) {
-            bg.addTexture(3, defaultWhite)
-              .addTexture(4, defaultWhite)
-              .addTexture(5, defaultWhite)
-              .addTexture(6, defaultWhite)
-              .addTexture(7, defaultWhite);
-            if (defaultSampler) bg.addSampler(8, defaultSampler);
-            bg.addTexture(9, defaultWhite);  // envMap (no IBL for viewcube)
+
+    // 确保 face_bg_ 与当前 PSO layout 一致（PSO 不变期间复用，descriptor set 缓存生效）
+    {
+        const uint64_t hash = solidPso->bindGroupLayout().hash();
+        if (!face_bg_ || face_bg_layout_hash_ != hash) {
+            BindGroupDesc bg;
+            bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUBO))
+              .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUBO))
+              .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
+            if (defaultWhite) {
+                bg.addTexture(3, defaultWhite)
+                  .addTexture(4, defaultWhite)
+                  .addTexture(5, defaultWhite)
+                  .addTexture(6, defaultWhite)
+                  .addTexture(7, defaultWhite);
+                if (defaultSampler) bg.addSampler(8, defaultSampler);
+                bg.addTexture(9, defaultWhite);
+            }
+            auto r = device_->createBindGroup(solidPso->bindGroupLayout(), bg);
+            if (r) {
+                face_bg_ = std::move(*r);
+                face_bg_layout_hash_ = hash;
+            }
         }
-        cmd->bindResources(bg);
+    }
+
+    for (int f = 0; f < kFaceCount; ++f) {
+        if (face_bg_)
+            face_bg_->updateUBO(2, material_ubo_.get(),
+                                f * material_stride_, sizeof(MaterialGPU));
+        if (face_bg_) cmd->bindGroup(*face_bg_);
 
         cmd->setVertexBuffer(0, face_vb_.get());
         cmd->setIndexBuffer(face_ib_.get());
@@ -318,11 +334,19 @@ void ViewCubeRenderer::render(CommandList* cmd,
     // --- 6. 渲染边线 ---
     if (edgePso && edge_vb_ && edge_ib_) {
         cmd->setPipelineState(edgePso);
-        BindGroupDesc bg;
-        bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUBO))
-          .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUBO))
-          .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
-        cmd->bindResources(bg);
+        const uint64_t hash = edgePso->bindGroupLayout().hash();
+        if (!edge_bg_ || edge_bg_layout_hash_ != hash) {
+            BindGroupDesc bg;
+            bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUBO))
+              .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUBO))
+              .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
+            auto r = device_->createBindGroup(edgePso->bindGroupLayout(), bg);
+            if (r) {
+                edge_bg_ = std::move(*r);
+                edge_bg_layout_hash_ = hash;
+            }
+        }
+        if (edge_bg_) cmd->bindGroup(*edge_bg_);
         cmd->setVertexBuffer(0, edge_vb_.get());
         cmd->setIndexBuffer(edge_ib_.get());
         cmd->drawIndexed(DrawIndexedAttribs{edge_index_count_});

@@ -65,4 +65,19 @@ const BindGroupLayout& BindGroupLayout::empty() {
     return s_empty;
 }
 
+// ============================================================
+// PipelineState::bindGroupLayout() 实现（需 BindGroupLayout 完整定义）
+// ============================================================
+
+PipelineState::PipelineState() = default;
+PipelineState::~PipelineState() = default;
+
+const BindGroupLayout& PipelineState::bindGroupLayout() const {
+    if (!bg_layout_) {
+        bg_layout_ = std::make_unique<BindGroupLayout>(
+            BindGroupLayout::fromPipelineDesc(desc()));
+    }
+    return *bg_layout_;
+}
+
 } // namespace mulan::engine

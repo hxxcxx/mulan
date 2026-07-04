@@ -86,13 +86,23 @@ public:
     virtual bool updateTexture(uint32_t binding, Texture* tex) { (void)binding; (void)tex; return false; }
     virtual bool updateSampler(uint32_t binding, Sampler* s) { (void)binding; (void)s; return false; }
 
-    virtual bool dirty() const = 0;
-    virtual void markClean() = 0;
+    /// 是否有任意 binding 处于脏状态。
+    bool dirty() const { return dirty_mask_ != 0; }
+    /// 全部清脏（整体重写后调用）。
+    void markClean() { dirty_mask_ = 0; }
+    /// 当前脏 binding 位掩码（位 i 对应 entries_[i]）。
+    uint16_t dirtyMask() const { return dirty_mask_; }
+    /// 清除指定位掩码对应的脏标记（局部重写后调用，只清已写入的位）。
+    void clearDirty(uint16_t mask) { dirty_mask_ &= ~mask; }
+    /// 标记所有 binding 脏（整体失效时调用，如首次 bind）。
+    void markAllDirty() { dirty_mask_ = 0xFFFF; }
 
 protected:
     BindGroup() = default;
     BindGroup(const BindGroup&) = delete;
     BindGroup& operator=(const BindGroup&) = delete;
+
+    uint16_t dirty_mask_ = 0xFFFF;  // 初次 bind 视为整体脏，确保首帧完整写入
 };
 
 } // namespace mulan::engine

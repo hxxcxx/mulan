@@ -278,7 +278,7 @@ void VKCommandList::bindGroup(BindGroup& group) {
     if (vkGroup->entryCount() == 0 || !allocator_) return;
     if (!current_desc_set_layout_) return;
 
-    // --- 尝试复用缓存的 descriptor set ---
+    // --- 复用未变脏的缓存 descriptor set ---
     if (!vkGroup->dirty() && vkGroup->cachedSet()) {
         auto dset = vkGroup->cachedSet();
         cmd_buffer_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
@@ -296,7 +296,11 @@ void VKCommandList::bindGroup(BindGroup& group) {
 
     VKDescriptorSet wrapper(allocator_->device(), dset);
 
+    // 仅重写脏 binding（局部更新）；非脏 binding 复用上一轮已写入的 descriptor
+    const uint16_t mask = vkGroup->dirtyMask();
+    uint16_t written = 0;
     for (uint8_t i = 0; i < vkGroup->entryCount(); ++i) {
+        if (((mask >> i) & 1u) == 0) continue;
         const auto& e = vkGroup->entries()[i];
         if (e.buffer) {
             auto* vkBuf = static_cast<VKBuffer*>(e.buffer);
@@ -308,11 +312,12 @@ void VKCommandList::bindGroup(BindGroup& group) {
             auto* vkSm = static_cast<VKSampler*>(e.sampler);
             wrapper.writeSampler(e.binding, vkSm->handle());
         }
+        written |= (uint16_t(1) << i);
     }
 
     wrapper.flush();
     wrapper.bind(cmd_buffer_, current_layout_);
-    vkGroup->markClean();
+    vkGroup->clearDirty(written);
 }
 
 void VKCommandList::bindResources(const BindGroupDesc& desc) {
