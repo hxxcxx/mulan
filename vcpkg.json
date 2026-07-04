@@ -7,6 +7,7 @@
         "vulkan-memory-allocator",
         "stb",
         "nlohmann-json",
+        "fastgltf",
         "assimp",
         "spdlog",
         "freetype",

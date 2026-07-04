@@ -412,47 +412,4 @@ std::string AssimpImporter::name() const {
     return "Assimp Importer";
 }
 
-static AutoRegisterImporter _reg_obj("obj", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-static AutoRegisterImporter _reg_fbx("fbx", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-static AutoRegisterImporter _reg_dae("dae", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-static AutoRegisterImporter _reg_3ds("3ds", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-static AutoRegisterImporter _reg_ply("ply", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-static AutoRegisterImporter _reg_stl("stl", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-static AutoRegisterImporter _reg_gltf("gltf", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-static AutoRegisterImporter _reg_glb("glb", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-static AutoRegisterImporter _reg_blend("blend", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-static AutoRegisterImporter _reg_x("x", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-static AutoRegisterImporter _reg_ase("ase", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-static AutoRegisterImporter _reg_lwo("lwo", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-static AutoRegisterImporter _reg_off("off", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-static AutoRegisterImporter _reg_dxf("dxf", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<AssimpImporter>();
-});
-
 } // namespace mulan::io

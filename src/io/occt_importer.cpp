@@ -147,18 +147,5 @@ std::string OCCTImporter::name() const {
     return "OCCT Importer";
 }
 
-static AutoRegisterImporter _reg_step("step", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<OCCTImporter>();
-});
-static AutoRegisterImporter _reg_stp("stp", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<OCCTImporter>();
-});
-static AutoRegisterImporter _reg_iges("iges", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<OCCTImporter>();
-});
-static AutoRegisterImporter _reg_igs("igs", []() -> std::unique_ptr<IFileImporter> {
-    return std::make_unique<OCCTImporter>();
-});
-
 } // namespace mulan::io
 

@@ -2,6 +2,8 @@
 add_library(IO STATIC
     occt_importer.cpp
     assimp_importer.cpp
+    gltf_importer.cpp
+    importer_registry.cpp
     importer_factory.cpp
     file_manager.cpp
     mesh_import_builder.cpp
@@ -20,10 +22,17 @@ target_include_directories(IO PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
 )
 
+# fastgltf header-only: vcpkg 的 include 路径
+target_include_directories(IO PRIVATE
+    ${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/include
+)
+
 find_package(assimp CONFIG REQUIRED)
+find_package(fastgltf CONFIG REQUIRED)
 
 # 依赖 Core（expected error）、Engine（Math/Mesh/AABB）和 Document。
-target_link_libraries(IO PUBLIC Core Engine Document PRIVATE assimp::assimp)
+target_link_libraries(IO PUBLIC Core Engine Document
+                      PRIVATE assimp::assimp fastgltf::fastgltf)
 
 # OCCT 头文件路径（仅编译期需要）
 target_include_directories(IO PRIVATE
@@ -44,5 +53,6 @@ set_target_properties(IO PROPERTIES OUTPUT_NAME mulan_io)
 
 target_compile_definitions(IO PRIVATE
     BUILDING_IO
+    FASTGLTF_USE_NLOHMANN_JSON
     $<$<CONFIG:Debug>:_DEBUG>
 )
