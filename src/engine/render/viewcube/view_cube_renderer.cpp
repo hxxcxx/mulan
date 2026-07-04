@@ -94,6 +94,7 @@ bool ViewCubeRenderer::init(TextureFormat /*colorFmt*/, TextureFormat /*depthFmt
         m.metallic     = 0.0f;
         m.roughness    = 0.8f;
         m.alpha        = 1.0f;
+        m.ao           = 1.0f;   // 无 AO 纹理时必须为 1，否则 PBR 的 IBL 环境光被乘 0 → 背光面纯黑
         m.materialType = 0;
     }
 
