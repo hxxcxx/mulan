@@ -1,7 +1,7 @@
 #include "texture_loader.h"
 
 #include <algorithm>
-#include <cmath>
+#include <cctype>
 #include <filesystem>
 
 namespace mulan::engine {
@@ -14,7 +14,13 @@ LoadedTexture TextureLoader::loadFromFile(const std::string& path,
                                            const TextureLoadOptions& options) const {
     auto image = core::Image::load(path);
     if (!image || !image->valid()) return {};
-    return loadFromImage(image, options);
+
+    // 调用方未显式指定 sRGB 时，按扩展名推断（jpg/jpeg 是颜色贴图 → sRGB；
+    // png 多为数据贴图如 normal/mr，默认 linear）。任一为真即用 sRGB 格式。
+    TextureLoadOptions effective = options;
+    if (!effective.sRGB && inferSrgb(path)) effective.sRGB = true;
+
+    return loadFromImage(image, effective);
 }
 
 LoadedTexture TextureLoader::loadFromImage(const std::shared_ptr<core::Image>& image,
@@ -35,11 +41,9 @@ LoadedTexture TextureLoader::loadFromImage(const std::shared_ptr<core::Image>& i
     }
 
     result.channels = 4;
-    result.format   = toRHITextureFormat(image->format(), false);
-
-    if (options.srgbToLinear) {
-        convertSRGBToLinear(result.pixels);
-    }
+    // sRGB 意图真正生效：RGBA8 → RGBA8_sRGB（硬件采样自动 sRGB→linear，
+    // shader 无需手动转换，避免双重转换导致的颜色偏差）。
+    result.format   = toRHITextureFormat(image->format(), options.sRGB);
 
     return result;
 }
@@ -55,45 +59,30 @@ bool TextureLoader::isSupportedFormat(const std::string& path) {
     return core::Image::isSupportedFile(path);
 }
 
-TextureFormat TextureLoader::guessFormat(const std::string& path,
-                                          core::PixelFormat pixelFmt) {
-    namespace fs = std::filesystem;
-    fs::path p(path);
-    auto ext = p.extension().string();
-    for (auto& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    bool isSrgb = (ext == ".jpg" || ext == ".jpeg");
-
-    if (pixelFmt == core::PixelFormat::R8) return TextureFormat::R8_UNorm;
-    return isSrgb ? TextureFormat::RGBA8_sRGB : TextureFormat::RGBA8_UNorm;
-}
-
 // ============================================================
 // 内部
 // ============================================================
 
-TextureFormat TextureLoader::toRHITextureFormat(core::PixelFormat pixelFmt, bool /*isSrgb*/) {
+TextureFormat TextureLoader::toRHITextureFormat(core::PixelFormat pixelFmt, bool sRGB) {
     switch (pixelFmt) {
-    case core::PixelFormat::R8:    return TextureFormat::R8_UNorm;
-    case core::PixelFormat::RG8:   return TextureFormat::RGBA8_UNorm;
-    case core::PixelFormat::RGB8:  return TextureFormat::RGBA8_UNorm;
-    case core::PixelFormat::RGBA8: return TextureFormat::RGBA8_UNorm;
-    default:                       return TextureFormat::RGBA8_UNorm;
+    case core::PixelFormat::R8:    return TextureFormat::R8_UNorm;          // 数据通道，不转 sRGB
+    case core::PixelFormat::RG8:   return TextureFormat::RGBA8_UNorm;       // RG 扩展为 RGBA，数据贴图
+    case core::PixelFormat::RGB8:
+    case core::PixelFormat::RGBA8:
+        // 颜色贴图按 sRGB 意图选择格式；硬件采样时自动解码到 linear
+        return sRGB ? TextureFormat::RGBA8_sRGB : TextureFormat::RGBA8_UNorm;
+    default:
+        return sRGB ? TextureFormat::RGBA8_sRGB : TextureFormat::RGBA8_UNorm;
     }
 }
 
-void TextureLoader::convertSRGBToLinear(std::vector<uint8_t>& pixels) {
-    auto srgb_to_linear = [](uint8_t srgb) -> float {
-        float v = srgb / 255.0f;
-        return (v <= 0.04045f) ? v / 12.92f
-                               : std::pow((v + 0.055f) / 1.055f, 2.4f);
-    };
-
-    for (size_t i = 0; i + 3 < pixels.size(); i += 4) {
-        pixels[i + 0] = static_cast<uint8_t>(srgb_to_linear(pixels[i + 0]) * 255);
-        pixels[i + 1] = static_cast<uint8_t>(srgb_to_linear(pixels[i + 1]) * 255);
-        pixels[i + 2] = static_cast<uint8_t>(srgb_to_linear(pixels[i + 2]) * 255);
-        // alpha 不转换
-    }
+bool TextureLoader::inferSrgb(const std::string& path) {
+    namespace fs = std::filesystem;
+    fs::path p(path);
+    auto ext = p.extension().string();
+    for (auto& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    // jpg/jpeg 摄影来源 → sRGB；png 多用于 normal/mr/ao 等数据贴图 → 默认 linear
+    return ext == ".jpg" || ext == ".jpeg";
 }
 
 } // namespace mulan::engine

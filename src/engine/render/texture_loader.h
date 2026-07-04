@@ -30,7 +30,10 @@ namespace mulan::engine {
 
 struct TextureLoadOptions {
     bool           generateMips  = true;
-    bool           srgbToLinear  = false;
+    /// 是否使用 sRGB 纹理格式（硬件采样时自动 sRGB→linear，shader 无需手动转换）。
+    /// 适用于 albedo/color 类贴图；normal/mr/ao 等数据贴图应设 false。
+    /// 不设置时由 loadFromImage 按文件扩展名推断（.jpg/.jpeg → sRGB）。
+    bool           sRGB          = false;
     TextureFormat  format        = TextureFormat::RGBA8_UNorm;
 };
 
@@ -73,15 +76,12 @@ public:
     /// 检查文件是否为支持的图片格式
     static bool isSupportedFormat(const std::string& path);
 
-    /// 从 PixelFormat + 文件扩展名 推测 RHI TextureFormat
-    static TextureFormat guessFormat(const std::string& path, core::PixelFormat pixelFmt);
-
 private:
-    /// core::PixelFormat → RHI TextureFormat
-    static TextureFormat toRHITextureFormat(core::PixelFormat pixelFmt, bool isSrgb);
+    /// core::PixelFormat + sRGB 意图 → RHI TextureFormat
+    static TextureFormat toRHITextureFormat(core::PixelFormat pixelFmt, bool sRGB);
 
-    /// sRGB → Linear 就地转换
-    static void convertSRGBToLinear(std::vector<uint8_t>& pixels);
+    /// 按文件扩展名推断是否应为 sRGB 格式（.jpg/.jpeg → true）
+    static bool inferSrgb(const std::string& path);
 };
 
 } // namespace mulan::engine
