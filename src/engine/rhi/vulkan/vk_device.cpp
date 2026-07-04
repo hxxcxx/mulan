@@ -13,6 +13,7 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 #include "../../engine_error_code.h"
 #include "vk_debug_name.h"
 #include "vk_bind_group.h"
+#include "vk_compute_pipeline.h"
 
 
 namespace mulan::engine {
@@ -66,6 +67,11 @@ VKDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
                  reinterpret_cast<uint64_t>(VkPipeline(pso->pipeline())),
                  desc.name.empty() ? "Pipeline" : desc.name);
     return result;
+}
+
+std::expected<std::unique_ptr<ComputePipelineState>, core::Error>
+VKDevice::createComputePipelineState(const ComputePipelineDesc& desc) {
+    return VKComputePipelineState::create(desc, device_);
 }
 
 std::expected<std::unique_ptr<CommandList>, core::Error> VKDevice::createCommandList() {

@@ -250,6 +250,12 @@ DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
     return result;
 }
 
+std::expected<std::unique_ptr<ComputePipelineState>, core::Error>
+DX12Device::createComputePipelineState(const ComputePipelineDesc& /*desc*/) {
+    return std::unexpected(core::Error::make(
+        core::ErrorCode::NotSupported, "DX12 compute pipeline not yet implemented"));
+}
+
 std::expected<std::unique_ptr<CommandList>, core::Error> DX12Device::createCommandList() {
     auto allocator = ComPtr<ID3D12CommandAllocator>();
     device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,

@@ -24,6 +24,7 @@ add_library(Engine STATIC
     # Vulkan backend
     rhi/vulkan/vk_buffer.cpp
     rhi/vulkan/vk_bind_group.cpp
+    rhi/vulkan/vk_compute_pipeline.cpp
     rhi/vulkan/vk_texture.cpp
     rhi/vulkan/vk_shader.cpp
     rhi/vulkan/vk_fence.cpp

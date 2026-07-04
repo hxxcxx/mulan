@@ -108,6 +108,7 @@ public:
     virtual std::expected<std::unique_ptr<Texture>,       core::Error> createTexture(const TextureDesc& desc) = 0;
     virtual std::expected<std::unique_ptr<Shader>,        core::Error> createShader(const ShaderDesc& desc) = 0;
     virtual std::expected<std::unique_ptr<PipelineState>, core::Error> createPipelineState(const GraphicsPipelineDesc& desc) = 0;
+    virtual std::expected<std::unique_ptr<ComputePipelineState>, core::Error> createComputePipelineState(const ComputePipelineDesc& desc) = 0;
     virtual std::expected<std::unique_ptr<CommandList>,   core::Error> createCommandList() = 0;
     virtual std::expected<std::unique_ptr<SwapChain>,     core::Error> createSwapChain(const SwapChainDesc& desc) = 0;
     virtual std::expected<std::unique_ptr<RenderTarget>,  core::Error> createRenderTarget(const RenderTargetDesc& desc) = 0;

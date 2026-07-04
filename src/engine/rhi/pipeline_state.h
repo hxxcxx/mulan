@@ -93,10 +93,23 @@ struct GraphicsPipelineDesc {
 };
 
 // ============================================================
+// Compute 管线描述 — 仅 cs + descriptor bindings + push constant
+// ============================================================
+
+struct ComputePipelineDesc {
+    std::string_view name;
+
+    Shader* cs = nullptr;
+
+    static constexpr uint8_t kMaxDescriptorBindings = 16;
+    PipelineBinding  descriptorBindings[kMaxDescriptorBindings] = {};
+    uint8_t          descriptorBindingCount = 0;
+
+    uint32_t       pushConstantSize = 0;
+};
+
+// ============================================================
 // 管线状态基类
-//
-// 涵盖一次绘制所需的全部粗粒度状态。
-// 由 Device::createPipelineState() 一步创建完成，无需 finalize。
 // ============================================================
 
 class PipelineState {
@@ -112,6 +125,22 @@ protected:
     PipelineState() = default;
     PipelineState(const PipelineState&) = delete;
     PipelineState& operator=(const PipelineState&) = delete;
+};
+
+// ============================================================
+// Compute 管线状态基类
+// ============================================================
+
+class ComputePipelineState {
+public:
+    virtual ~ComputePipelineState() = default;
+
+    virtual const ComputePipelineDesc& desc() const = 0;
+
+protected:
+    ComputePipelineState() = default;
+    ComputePipelineState(const ComputePipelineState&) = delete;
+    ComputePipelineState& operator=(const ComputePipelineState&) = delete;
 };
 
 } // namespace mulan::engine

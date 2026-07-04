@@ -49,6 +49,7 @@ public:
     std::expected<std::unique_ptr<Texture>,       core::Error> createTexture(const TextureDesc& desc) override;
     std::expected<std::unique_ptr<Shader>,        core::Error> createShader(const ShaderDesc& desc) override;
     std::expected<std::unique_ptr<PipelineState>, core::Error> createPipelineState(const GraphicsPipelineDesc& desc) override;
+    std::expected<std::unique_ptr<ComputePipelineState>, core::Error> createComputePipelineState(const ComputePipelineDesc& desc) override;
     std::expected<std::unique_ptr<CommandList>,   core::Error> createCommandList() override;
     std::expected<std::unique_ptr<SwapChain>,     core::Error> createSwapChain(const SwapChainDesc& desc) override;
     std::expected<std::unique_ptr<RenderTarget>,  core::Error> createRenderTarget(const RenderTargetDesc& desc) override;
