@@ -50,6 +50,12 @@ public:
     AssetId metallicRoughnessTexture() const { return metallic_roughness_texture_; }
     void setMetallicRoughnessTexture(AssetId texture) { metallic_roughness_texture_ = texture; }
 
+    AssetId emissiveTexture() const { return emissive_texture_; }
+    void setEmissiveTexture(AssetId texture) { emissive_texture_ = texture; }
+
+    AssetId occlusionTexture() const { return occlusion_texture_; }
+    void setOcclusionTexture(AssetId texture) { occlusion_texture_ = texture; }
+
     AlphaMode alphaMode() const { return alpha_mode_; }
     void setAlphaMode(AlphaMode mode) { alpha_mode_ = mode; }
 
@@ -63,6 +69,8 @@ private:
     AssetId base_color_texture_ = AssetId::invalid();
     AssetId normal_texture_ = AssetId::invalid();
     AssetId metallic_roughness_texture_ = AssetId::invalid();
+    AssetId emissive_texture_ = AssetId::invalid();
+    AssetId occlusion_texture_ = AssetId::invalid();
     AlphaMode alpha_mode_ = AlphaMode::Opaque;
     bool double_sided_ = false;
 };

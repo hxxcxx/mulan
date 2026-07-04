@@ -130,6 +130,12 @@ std::map<size_t, asset::AssetId> importMaterials(
             desc.metallicRoughnessTexture = mapTex(pbr.metallicRoughnessTexture->textureIndex);
         if (mat.normalTexture.has_value())
             desc.normalTexture = mapTex(mat.normalTexture->textureIndex);
+        if (mat.emissiveTexture.has_value())
+            desc.emissiveTexture = mapTex(mat.emissiveTexture->textureIndex);
+        if (mat.occlusionTexture.has_value())
+            desc.occlusionTexture = mapTex(mat.occlusionTexture->textureIndex);
+
+        desc.emissiveFactor = {mat.emissiveFactor[0], mat.emissiveFactor[1], mat.emissiveFactor[2]};
 
         desc.alphaMode   = static_cast<asset::AlphaMode>(mat.alphaMode);
         desc.doubleSided = mat.doubleSided;

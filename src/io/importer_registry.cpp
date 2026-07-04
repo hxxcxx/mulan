@@ -16,7 +16,7 @@ struct ImportRegistry {
     ImportRegistry() {
         auto& factory = mulan::io::ImporterFactory::instance();
 
-        // glTF (fastgltf — 优先于 Assimp)
+        // glTF (fastgltf)
         factory.registerImporter("gltf", []() -> std::unique_ptr<mulan::io::IFileImporter> {
             return std::make_unique<mulan::io::GltfImporter>();
         });
@@ -24,31 +24,19 @@ struct ImportRegistry {
             return std::make_unique<mulan::io::GltfImporter>();
         });
 
-        // Assimp (通用模型格式)
+        // Assimp
         auto assimp = []() -> std::unique_ptr<mulan::io::IFileImporter> {
             return std::make_unique<mulan::io::AssimpImporter>();
         };
-        factory.registerImporter("obj",   assimp);
-        factory.registerImporter("fbx",   assimp);
-        factory.registerImporter("dae",   assimp);
-        factory.registerImporter("3ds",   assimp);
-        factory.registerImporter("ply",   assimp);
-        factory.registerImporter("stl",   assimp);
-        factory.registerImporter("blend", assimp);
-        factory.registerImporter("x",     assimp);
-        factory.registerImporter("ase",   assimp);
-        factory.registerImporter("lwo",   assimp);
-        factory.registerImporter("off",   assimp);
-        factory.registerImporter("dxf",   assimp);
+        for (auto ext : {"obj","fbx","dae","3ds","ply","stl","blend","x","ase","lwo","off","dxf"})
+            factory.registerImporter(ext, assimp);
 
-        // OCCT (CAD 格式)
+        // OCCT
         auto occt = []() -> std::unique_ptr<mulan::io::IFileImporter> {
             return std::make_unique<mulan::io::OCCTImporter>();
         };
-        factory.registerImporter("step", occt);
-        factory.registerImporter("stp",  occt);
-        factory.registerImporter("iges", occt);
-        factory.registerImporter("igs",  occt);
+        for (auto ext : {"step","stp","iges","igs"})
+            factory.registerImporter(ext, occt);
     }
 };
 

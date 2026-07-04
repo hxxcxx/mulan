@@ -120,6 +120,8 @@ if(DXC_EXECUTABLE)
         solid.frag.hlsl
         albedo.vert.hlsl
         albedo.frag.hlsl
+        pbr.vert.hlsl
+        pbr.frag.hlsl
         wireframe.vert.hlsl
         wireframe.frag.hlsl
         pick.vert.hlsl
@@ -142,6 +144,10 @@ if(DXC_EXECUTABLE)
     set(ALBEDO_VERT_ENTRY   main)
     set(ALBEDO_FRAG_STAGE   ps)
     set(ALBEDO_FRAG_ENTRY   main)
+    set(PBR_VERT_STAGE      vs)
+    set(PBR_VERT_ENTRY      main)
+    set(PBR_FRAG_STAGE      ps)
+    set(PBR_FRAG_ENTRY      main)
     set(WIREFRAME_VERT_STAGE vs)
     set(WIREFRAME_VERT_ENTRY main)
     set(WIREFRAME_FRAG_STAGE ps)

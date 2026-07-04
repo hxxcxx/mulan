@@ -122,6 +122,22 @@ bool GeometryPass::createPSO(TextureFormat colorFmt, TextureFormat depthFmt,
             .stages = PB::kStageFragment};
         desc.descriptorBindings[bindingCount++] = {
             .binding = 4, .count = 1,
+            .type = DescriptorType::TextureSRV,
+            .stages = PB::kStageFragment};
+        desc.descriptorBindings[bindingCount++] = {
+            .binding = 5, .count = 1,
+            .type = DescriptorType::TextureSRV,
+            .stages = PB::kStageFragment};
+        desc.descriptorBindings[bindingCount++] = {
+            .binding = 6, .count = 1,
+            .type = DescriptorType::TextureSRV,
+            .stages = PB::kStageFragment};
+        desc.descriptorBindings[bindingCount++] = {
+            .binding = 7, .count = 1,
+            .type = DescriptorType::TextureSRV,
+            .stages = PB::kStageFragment};
+        desc.descriptorBindings[bindingCount++] = {
+            .binding = 8, .count = 1,
             .type = DescriptorType::Sampler,
             .stages = PB::kStageFragment};
     }

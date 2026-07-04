@@ -20,18 +20,18 @@ uint64_t drawableGeometryKey(asset::AssetId geometry, size_t drawableIndex) {
     return geometry.value ^ ((static_cast<uint64_t>(drawableIndex) + 1u) << 32u);
 }
 
-/// 解析文档材质的 baseColor 纹理 → engine Texture*（用于 draw command 的 albedoTex）。
-/// 无纹理或加载失败时返回 nullptr（由 MeshDrawCommand 退化到默认白纹理）。
-engine::Texture* resolveAlbedoTexture(const asset::AssetLibrary& assets,
-                                      asset::AssetId materialId,
-                                      engine::TextureCache& textureCache) {
+/// 解析材质中的单个纹理 → engine Texture*
+engine::Texture* resolveTexture(const asset::AssetLibrary& assets,
+                                asset::AssetId materialId,
+                                asset::AssetId (asset::MaterialAsset::*texGetter)() const,
+                                engine::TextureCache& textureCache) {
     if (!materialId) return nullptr;
 
     const auto* materialAsset =
         dynamic_cast<const asset::MaterialAsset*>(assets.asset(materialId));
     if (!materialAsset) return nullptr;
 
-    const asset::AssetId texId = materialAsset->baseColorTexture();
+    const asset::AssetId texId = (materialAsset->*texGetter)();
     if (!texId) return nullptr;
 
     const auto* texAsset =
@@ -114,9 +114,14 @@ void DrawCommandBuilder::rebuild(engine::RenderResourceCache& resources,
             cmd.selected        = proxy.selected;
             cmd.isWire          = isWire;
 
-            // albedo 纹理（仅实体面；wire/edge 不采样纹理）
+            // PBR 纹理（仅实体面；wire/edge 不采样）
             if (!isWire) {
-                cmd.albedoTex = resolveAlbedoTexture(*assets_, d.material, textureCache);
+                cmd.albedoTex   = resolveTexture(*assets_, d.material,
+                                                 &asset::MaterialAsset::baseColorTexture, textureCache);
+                cmd.normalTex   = resolveTexture(*assets_, d.material,
+                                                 &asset::MaterialAsset::normalTexture, textureCache);
+                cmd.mrTex       = resolveTexture(*assets_, d.material,
+                                                 &asset::MaterialAsset::metallicRoughnessTexture, textureCache);
             }
 
             if (isWire)

@@ -300,8 +300,12 @@ void ViewCubeRenderer::render(CommandList* cmd,
           .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUBO))
           .addUBO(2, material_ubo_.get(), f * material_stride_, sizeof(MaterialGPU));
         if (defaultWhite) {
-            bg.addTexture(3, defaultWhite);
-            if (defaultSampler) bg.addSampler(4, defaultSampler);
+            bg.addTexture(3, defaultWhite)
+              .addTexture(4, defaultWhite)
+              .addTexture(5, defaultWhite)
+              .addTexture(6, defaultWhite)
+              .addTexture(7, defaultWhite);
+            if (defaultSampler) bg.addSampler(8, defaultSampler);
         }
         cmd->bindResources(bg);
 

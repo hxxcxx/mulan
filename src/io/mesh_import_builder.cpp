@@ -100,6 +100,8 @@ asset::AssetId MeshImportBuilder::createMaterial(const ImportedMaterialDesc& des
     material->setBaseColorTexture(desc.baseColorTexture);
     material->setNormalTexture(desc.normalTexture);
     material->setMetallicRoughnessTexture(desc.metallicRoughnessTexture);
+    material->setEmissiveTexture(desc.emissiveTexture);
+    material->setOcclusionTexture(desc.occlusionTexture);
     material->setAlphaMode(desc.alphaMode);
     material->setDoubleSided(desc.doubleSided);
     ++report_.materialCount;

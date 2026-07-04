@@ -59,15 +59,15 @@ void MeshDrawCommand::execute(CommandList& cmd,
     if (objectUBO)   bg.addUBO(1, objectUBO,   objectUboOffset, kObjectUboStride);
     if (materialUBO) bg.addUBO(2, materialUBO, materialUboOffset, 128);
 
-    // 纹理 + sampler：仅当 defaultWhite 非 null（即该 pass 的 PSO 声明了
-    // binding=3/4 纹理 binding）时才绑定，避免对纯色 pass（edge/pick）写入
-    // layout 中不存在的 binding 导致 VK validation / 崩溃。
-    // albedoTex 为空 → 退化到默认白纹理（数学等价纯色）。
+    // 纹理 + sampler：仅当 defaultWhite 非 null（即该 pass 的 PSO 声明了纹理 binding）时才绑定。
+    // 空纹理退化到默认值：albedo→白, normal→(0,0,1)平面, mr→(1,1,0), emissive→黑, ao→白。
     if (defaultWhite) {
-        Texture* tex = albedoTex ? albedoTex : defaultWhite;
-        bg.addTexture(3, tex);
-        Sampler* sm = sampler ? sampler : defaultSampler;
-        bg.addSampler(4, sm);
+        bg.addTexture(3, albedoTex ? albedoTex : defaultWhite);
+        bg.addTexture(4, normalTex ? normalTex : defaultWhite);
+        bg.addTexture(5, mrTex     ? mrTex     : defaultWhite);
+        bg.addTexture(6, emissiveTex ? emissiveTex : defaultWhite);
+        bg.addTexture(7, aoTex     ? aoTex     : defaultWhite);
+        bg.addSampler(8, sampler ? sampler : defaultSampler);
     }
 
     cmd.bindResources(bg);

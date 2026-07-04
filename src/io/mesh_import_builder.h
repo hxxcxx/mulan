@@ -44,6 +44,9 @@ struct ImportedMaterialDesc {
     asset::AssetId baseColorTexture = asset::AssetId::invalid();
     asset::AssetId normalTexture = asset::AssetId::invalid();
     asset::AssetId metallicRoughnessTexture = asset::AssetId::invalid();
+    asset::AssetId emissiveTexture = asset::AssetId::invalid();
+    asset::AssetId occlusionTexture = asset::AssetId::invalid();
+    math::Vec3 emissiveFactor{0.0, 0.0, 0.0};
     asset::AlphaMode alphaMode = asset::AlphaMode::Opaque;
     bool doubleSided = false;
 };

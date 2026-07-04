@@ -41,10 +41,14 @@ struct MeshDrawCommand {
     uint32_t objectUboOffset   = 0;
     uint32_t materialUboOffset = 0;
 
-    // 纹理（binding=3 albedo / binding=4 sampler）。
-    // 由 DrawCommandBuilder 解析材质填充。albedoTex 为空时由 execute 用 defaultWhite 退化。
-    Texture* albedoTex = nullptr;
-    Sampler* sampler   = nullptr;
+    // 纹理（binding 3~7, binding 8=sampler）。
+    // 由 DrawCommandBuilder 解析材质填充。空纹理由 execute 用 default* 退化。
+    Texture* albedoTex = nullptr;    // binding 3
+    Texture* normalTex = nullptr;    // binding 4
+    Texture* mrTex     = nullptr;    // binding 5 (metallicRoughness)
+    Texture* emissiveTex = nullptr;  // binding 6
+    Texture* aoTex     = nullptr;    // binding 7
+    Sampler* sampler   = nullptr;    // binding 8
 
     // Per-object data（Pass::execute 时写入 objectUBO）
     math::Mat4 worldTransform{1.0f};
