@@ -140,9 +140,14 @@ void Renderer::render(engine::RHIDevice& device,
         material_cache_->clearDirtyMaterials();
 
     if (viewState.showViewCube && view_cube_renderer_) {
-        view_cube_renderer_->render(cmd, viewState.viewMatrix,
+        view_cube_renderer_->render(cmd,
+                                    solid_pass_ ? solid_pass_->pipelineState() : nullptr,
+                                    wire_pass_ ? wire_pass_->pipelineState() : nullptr,
+                                    viewState.viewMatrix,
                                     static_cast<uint32_t>(viewState.width),
-                                    static_cast<uint32_t>(viewState.height));
+                                    static_cast<uint32_t>(viewState.height),
+                                    solid_pass_ ? solid_pass_->defaultWhiteTexture() : nullptr,
+                                    solid_pass_ ? solid_pass_->defaultSampler() : nullptr);
     }
 
     cmd->endRenderPass();

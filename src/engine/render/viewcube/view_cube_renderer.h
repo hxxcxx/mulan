@@ -38,6 +38,10 @@ enum class ViewCubeFace : uint8_t {
 };
 
 /// 导航立方体渲染器
+///
+/// 不拥有 PSO / Shader —— 由 Renderer 注入 GeometryPass 的 PSO。
+/// 只拥有 CPU 几何体 + 面材质 + 小尺寸 UBO（与主场景布局不同）。
+/// render() 从主相机提取旋转、设置角落视口、借用 PSO + BindGroupDesc 录制命令。
 class ViewCubeRenderer {
 public:
     explicit ViewCubeRenderer(RHIDevice* device);
@@ -46,21 +50,24 @@ public:
     ViewCubeRenderer(const ViewCubeRenderer&) = delete;
     ViewCubeRenderer& operator=(const ViewCubeRenderer&) = delete;
 
-    /// 初始化：创建 PSO、UBO、几何缓冲
-    /// @param colorFmt 渲染目标颜色格式
-    /// @param depthFmt 深度缓冲格式
+    /// 初始化：创建几何缓冲 + UBO（PSO 由 Renderer 注入，此处仅传格式）
     bool init(TextureFormat colorFmt, TextureFormat depthFmt);
-
-    /// 释放资源
-    void cleanup();
 
     /// 渲染 ViewCube（在 Renderer::render() 末尾调用）
     /// @param cmd            命令列表
+    /// @param solidPso       实体面 PSO（借用自 GeometryPass）
+    /// @param edgePso        边线 PSO（借用自 GeometryPass）
     /// @param mainViewMatrix 主相机 view 矩阵（提取旋转）
     /// @param vpWidth        视口总宽度
     /// @param vpHeight       视口总高度
-    void render(CommandList* cmd, const math::Mat4& mainViewMatrix,
-                uint32_t vpWidth, uint32_t vpHeight);
+    /// @param defaultWhite   无纹理退化用 1×1 白纹理（PSO 声明了纹理 binding 时必填）
+    /// @param defaultSampler 默认线性采样器
+    void render(CommandList* cmd,
+                PipelineState* solidPso, PipelineState* edgePso,
+                const math::Mat4& mainViewMatrix,
+                uint32_t vpWidth, uint32_t vpHeight,
+                Texture* defaultWhite = nullptr,
+                Sampler* defaultSampler = nullptr);
 
     /// 设置 ViewCube 显示大小（像素）
     void setSize(uint32_t size) { cube_size_ = size; }
@@ -134,14 +141,6 @@ private:
     // --- 设备 ---
     RHIDevice*   device_;
 
-    // --- PSO（复用主场景 solid/edge shader，独立 PSO 实例）---
-    std::unique_ptr<Shader>         solid_vs_;
-    std::unique_ptr<Shader>         solid_fs_;
-    std::unique_ptr<PipelineState>  solid_pso_;
-    std::unique_ptr<Shader>         edge_vs_;
-    std::unique_ptr<Shader>         edge_fs_;
-    std::unique_ptr<PipelineState>  edge_pso_;
-
     // --- 几何缓冲 ---
     std::unique_ptr<Buffer>         face_vb_;     // 面顶点
     std::unique_ptr<Buffer>         face_ib_;     // 面索引
@@ -150,10 +149,10 @@ private:
     std::unique_ptr<Buffer>         edge_ib_;     // 边索引
     uint32_t                    edge_index_count_ = 0;
 
-    // --- UBO ---
-    std::unique_ptr<Buffer>         scene_ubo_;   // b0
-    std::unique_ptr<Buffer>         object_ubo_;  // b1
-    std::unique_ptr<Buffer>         material_ubo_;// b2（6个面各一份）
+    // --- UBO（ViewCube 的 Scene/Object UB 布局与主场景不同，独立持有）---
+    std::unique_ptr<Buffer>         scene_ubo_;   // b0 — 正交投影 + 提取旋转
+    std::unique_ptr<Buffer>         object_ubo_;  // b1 — 单位矩阵
+    std::unique_ptr<Buffer>         material_ubo_;// b2 — 6面各一份材质
     static constexpr uint32_t   kFaceCount = 6;
 
     // --- 面材质数据 ---
@@ -164,10 +163,6 @@ private:
     uint32_t                    cube_size_ = 128;
     uint32_t                    margin_   = 16;
     bool                        initialized_ = false;
-
-    // --- 暂存全屏视口用于恢复 ---
-    Viewport                    saved_viewport_;
-    ScissorRect                 saved_scissor_;
 };
 
 } // namespace mulan::engine
