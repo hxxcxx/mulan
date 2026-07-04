@@ -63,10 +63,14 @@ void Camera::endOrbit() {
 }
 
 void Camera::pan(double dx, double dy) {
-    math::Vec3 r = right();
-    math::Vec3 u = up();
+    // 平移作为"视图空间偏移"，不移动 target_（旋转中心）。
+    // 这样 orbit 始终绕模型中心，平移与旋转完全解耦。
+    // pan_offset_ 累积在视图空间（x=右,y=上），viewMatrix 直接叠加到平移列。
     double scale = (ortho_ ? ortho_size_ : distance_) * pan_speed_;
-    target_ = target_ - r * (dx * scale) + u * (dy * scale);
+    // "抓取场景"语义：鼠标右移(dx>0) → 场景跟随向右 → 视图空间 x 增大
+    //                鼠标下移(dy>0) → 场景跟随向下 → 视图空间 y 减小
+    pan_offset_.x += dx * scale;
+    pan_offset_.y -= dy * scale;
 }
 
 void Camera::zoom(double delta) {
@@ -81,6 +85,7 @@ void Camera::zoom(double delta) {
 
 void Camera::fitToBox(const math::AABB3& box, double padding) {
     target_ = box.center().asVec();
+    pan_offset_ = {0, 0, 0};   // 重新适配时清除平移偏移
     double radius = (box.max - box.min).length() * 0.5;
 
     if (ortho_) {
@@ -128,6 +133,12 @@ math::Mat4 Camera::viewMatrix() const {
     v[0][1] = u.x;    v[1][1] = u.y;    v[2][1] = u.z;    v[3][1] = -u.dot(eye);
     v[0][2] = -fwd.x; v[1][2] = -fwd.y; v[2][2] = -fwd.z; v[3][2] = fwd.dot(eye);
     v[0][3] = 0;      v[1][3] = 0;      v[2][3] = 0;      v[3][3] = 1;
+
+    // 叠加视图空间平移（pan）。在视图空间平移整个画面，
+    // 不影响 eye 的 3D 位置（旋转中心仍是 target_）。
+    v[3][0] += pan_offset_.x;
+    v[3][1] += pan_offset_.y;
+    v[3][2] += pan_offset_.z;
     return v;
 }
 

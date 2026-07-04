@@ -171,7 +171,8 @@ private:
 
     std::unique_ptr<RotationMode> active_;
 
-    math::Vec3   target_   = {0, 0, 0};
+    math::Vec3   target_   = {0, 0, 0};     ///< 轨道旋转中心（模型中心，pan 不改它）
+    math::Vec3   pan_offset_ = {0, 0, 0};   ///< 视图空间平移偏移（与旋转中心解耦）
     double distance_ = 10.0;
 
     // 投影参数
