@@ -2,7 +2,7 @@
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/texture_asset.h>
-#include <mulan/document/document.h>
+#include <mulan/io/document.h>
 #include <mulan/engine/vertex/vertex_buffer.h>
 #include <mulan/scene/scene.h>
 
@@ -70,7 +70,7 @@ engine::Mesh buildStandardMesh(const StandardMeshSource& source) {
     return mesh;
 }
 
-MeshImportBuilder::MeshImportBuilder(document::Document& document)
+MeshImportBuilder::MeshImportBuilder(Document& document)
     : document_(document)
 {}
 

@@ -7,6 +7,8 @@ add_library(IO STATIC
     importer_factory.cpp
     file_manager.cpp
     mesh_import_builder.cpp
+    document.cpp
+    shape_render_geometry.cpp
 )
 
 # 构建时将头文件复制到 build/include/mulan/io/...
@@ -30,8 +32,8 @@ target_include_directories(IO PRIVATE
 find_package(assimp CONFIG REQUIRED)
 find_package(fastgltf CONFIG REQUIRED)
 
-# 依赖 Core（expected error）、Engine（Math/Mesh/AABB）和 Document。
-target_link_libraries(IO PUBLIC Core Engine Document
+# 依赖 Core、Engine、Scene、Asset（Document 使用）
+target_link_libraries(IO PUBLIC Core Engine Scene Asset
                       PRIVATE assimp::assimp fastgltf::fastgltf)
 
 # OCCT 头文件路径（仅编译期需要）

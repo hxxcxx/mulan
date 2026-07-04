@@ -4,7 +4,7 @@
 #include <mulan/asset/material_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/asset/asset_library.h>
-#include <mulan/document/document.h>
+#include <mulan/io/document.h>
 #include <mulan/scene/scene.h>
 #include <mulan/math/linalg/transform.h>
 #include <mulan/engine/geometry/mesh.h>
@@ -203,7 +203,7 @@ PrimitiveGeomData extractPrimitiveData(const Asset& gltf, const Primitive& prim)
 
 std::expected<ImportResult, core::Error>
 GltfImporter::import(const std::string& path,
-                     mulan::document::Document& doc,
+                     mulan::io::Document& doc,
                      const ImportOptions& options) {
     ImportResult result{};
     const std::string sourceDir = fileDirectory(path);

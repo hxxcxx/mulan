@@ -9,7 +9,7 @@
 
 #include <TopoDS_Shape.hxx>
 
-namespace mulan::document {
+namespace mulan::io {
 
 Document::Document(std::string displayName)
     : scene_(std::make_unique<scene::Scene>())
@@ -68,4 +68,4 @@ scene::EntityId Document::addSceneInstance(std::string name,
     return id;
 }
 
-} // namespace mulan::document
+} // namespace mulan::io

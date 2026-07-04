@@ -11,7 +11,7 @@
 
 class TopoDS_Shape;
 
-namespace mulan::document {
+namespace mulan::io {
 
 struct ShapeRenderGeometry {
     engine::Mesh solidMesh;
@@ -21,4 +21,4 @@ struct ShapeRenderGeometry {
 
 ShapeRenderGeometry buildShapeRenderGeometry(const TopoDS_Shape& shape);
 
-} // namespace mulan::document
+} // namespace mulan::io

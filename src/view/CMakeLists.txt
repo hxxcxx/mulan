@@ -5,6 +5,7 @@ add_library(View STATIC
     renderer.cpp
     draw_command_builder.cpp
     render_material_resolver.cpp
+    render_scene.cpp
 )
 
 file(GLOB_RECURSE VIEW_HEADERS
@@ -22,7 +23,7 @@ target_include_directories(View PUBLIC
 target_link_libraries(View PUBLIC
     Engine
     Asset
-    RenderScene
+    Scene
 )
 
 set_target_properties(View PROPERTIES OUTPUT_NAME mulan_view)

@@ -8,7 +8,7 @@
 
 #include "file_importer.h"
 
-namespace mulan::document {
+namespace mulan::io {
 class Document;
 }
 
@@ -18,7 +18,7 @@ class IO_API GltfImporter : public IFileImporter {
 public:
     std::expected<ImportResult, core::Error>
     import(const std::string& path,
-           mulan::document::Document& doc,
+           mulan::io::Document& doc,
            const ImportOptions& options = {}) override;
 
     std::vector<std::string> supportedExtensions() const override;

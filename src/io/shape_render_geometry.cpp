@@ -21,7 +21,7 @@
 
 #include <algorithm>
 
-namespace mulan::document {
+namespace mulan::io {
 namespace {
 
 math::AABB3 buildBounds(const TopoDS_Shape& shape) {
@@ -53,7 +53,6 @@ engine::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bounds)
     BRepMesh_IncrementalMesh mesher(meshedShape, deflection, false, 0.5, true);
     mesher.Perform();
 
-    // 两遍：先累计顶点/索引数，再一次性建 buffer 写入。
     uint32_t totalVerts = 0;
     uint32_t totalTris  = 0;
     for (TopExp_Explorer ex(meshedShape, TopAbs_FACE); ex.More(); ex.Next()) {
@@ -102,7 +101,6 @@ engine::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bounds)
             const uint32_t v = baseVertex + static_cast<uint32_t>(i - 1);
             vb.setPosition(v, static_cast<float>(p.X()), static_cast<float>(p.Y()), static_cast<float>(p.Z()));
             vb.setNormal  (v, static_cast<float>(n.X()), static_cast<float>(n.Y()), static_cast<float>(n.Z()));
-            // TexCoord0 是 Float2，面网格无 UV，补 0
             float uv[2] = {0.f, 0.f};
             vb.write(v, engine::VertexSemantic::TexCoord0, uv);
         }
@@ -120,7 +118,6 @@ engine::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bounds)
 
     auto vertBytes = vb.data();
     mesh.vertices.assign(vertBytes.begin(), vertBytes.end());
-
     mesh.computeBounds();
     return mesh;
 }
@@ -128,7 +125,6 @@ engine::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bounds)
 engine::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
     if (shape.IsNull()) return {};
 
-    // 先累计顶点数与索引数。
     uint32_t totalVerts = 0;
     uint32_t totalIdx   = 0;
     for (TopExp_Explorer ex(shape, TopAbs_EDGE); ex.More(); ex.Next()) {
@@ -141,8 +137,7 @@ engine::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
             if (np < 2) continue;
             totalVerts += static_cast<uint32_t>(np);
             totalIdx   += static_cast<uint32_t>(np - 1) * 2;
-        } catch (...) {
-        }
+        } catch (...) {}
     }
     if (totalVerts == 0) return {};
 
@@ -160,7 +155,6 @@ engine::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
     for (TopExp_Explorer ex(shape, TopAbs_EDGE); ex.More(); ex.Next()) {
         TopoDS_Edge edge = TopoDS::Edge(ex.Current());
         BRepAdaptor_Curve curve(edge);
-
         try {
             GCPnts_TangentialDeflection discret(curve, curve.FirstParameter(),
                                                 curve.LastParameter(), 0.1, 0.1, 2);
@@ -179,13 +173,11 @@ engine::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
                 }
                 ++vi;
             }
-        } catch (...) {
-        }
+        } catch (...) {}
     }
 
     auto vertBytes = vb.data();
     mesh.vertices.assign(vertBytes.begin(), vertBytes.end());
-
     mesh.computeBounds();
     return mesh;
 }
@@ -200,4 +192,4 @@ ShapeRenderGeometry buildShapeRenderGeometry(const TopoDS_Shape& shape) {
     return result;
 }
 
-} // namespace mulan::document
+} // namespace mulan::io

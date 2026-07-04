@@ -6,8 +6,8 @@
  */
 #pragma once
 
-#include <mulan/document/document.h>
-#include <mulan/render_scene/render_scene.h>
+#include <mulan/io/document.h>
+#include <mulan/view/render_scene.h>
 #include <mulan/scene/entity_id.h>
 
 #include <memory>
@@ -20,14 +20,14 @@ class ViewContext;
 
 class DocumentSession {
 public:
-    explicit DocumentSession(std::unique_ptr<mulan::document::Document> doc);
+    explicit DocumentSession(std::unique_ptr<mulan::io::Document> doc);
     ~DocumentSession();
 
     DocumentSession(const DocumentSession&) = delete;
     DocumentSession& operator=(const DocumentSession&) = delete;
 
-    mulan::document::Document* document() { return document_.get(); }
-    const mulan::document::Document* document() const { return document_.get(); }
+    mulan::io::Document* document() { return document_.get(); }
+    const mulan::io::Document* document() const { return document_.get(); }
 
     const std::string& displayName() const;
 
@@ -50,7 +50,7 @@ public:
     mulan::scene::EntityId resolvePickId(uint32_t pickId) const;
 
 private:
-    std::unique_ptr<mulan::document::Document> document_;
+    std::unique_ptr<mulan::io::Document> document_;
     mulan::render_scene::RenderScene render_scene_;
     mulan::view::ViewContext* view_context_ = nullptr;
     std::unordered_map<uint32_t, mulan::scene::EntityId> pick_id_map_;

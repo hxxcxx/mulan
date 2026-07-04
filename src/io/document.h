@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "document_export.h"
+#include "io_export.h"
 
 #include <cstddef>
 #include <mulan/asset/asset_id.h>
@@ -27,9 +27,9 @@ namespace mulan::asset {
 class AssetLibrary;
 }
 
-namespace mulan::document {
+namespace mulan::io {
 
-class DOCUMENT_API Document {
+class IO_API Document {
 public:
     explicit Document(std::string displayName);
     ~Document();
@@ -66,4 +66,4 @@ private:
     bool dirty_ = false;
 };
 
-} // namespace mulan::document
+} // namespace mulan::io

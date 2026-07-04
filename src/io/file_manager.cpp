@@ -3,7 +3,7 @@
 #include "importer_factory.h"
 
 #include <mulan/core/result/error.h>
-#include <mulan/document/document.h>
+#include <mulan/io/document.h>
 
 #include <algorithm>
 #include <cctype>
@@ -27,7 +27,7 @@ FileManager::openFile(const std::string& path, const ImportOptions& options) {
     }
 
     std::string displayName = std::filesystem::path(path).filename().string();
-    auto doc = std::make_unique<mulan::document::Document>(std::move(displayName));
+    auto doc = std::make_unique<mulan::io::Document>(std::move(displayName));
     doc->setFilePath(path);
 
     auto importResult = importer->import(path, *doc, options);

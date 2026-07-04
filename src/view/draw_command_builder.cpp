@@ -8,8 +8,8 @@
 #include <mulan/engine/render/render_resource_cache.h>
 #include <mulan/engine/render/material/material_cache.h>
 #include <mulan/engine/render/texture_cache.h>
-#include <mulan/render_scene/render_scene.h>
-#include <mulan/render_scene/scene_proxy.h>
+#include <mulan/view/render_scene.h>
+#include <mulan/view/scene_proxy.h>
 
 namespace mulan::view {
 namespace {

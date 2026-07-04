@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace mulan::document {
+namespace mulan::io {
 class Document;
 }
 
@@ -27,7 +27,7 @@ public:
 
     virtual std::expected<ImportResult, core::Error>
     import(const std::string& path,
-           mulan::document::Document& doc,
+           Document& doc,
            const ImportOptions& options = {}) = 0;
 
     virtual std::vector<std::string> supportedExtensions() const = 0;

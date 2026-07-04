@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-namespace mulan::document {
+namespace mulan::io {
 class Document;
 }
 
@@ -70,7 +70,7 @@ struct ImportedMeshAsset {
 
 class MeshImportBuilder {
 public:
-    explicit MeshImportBuilder(document::Document& document);
+    explicit MeshImportBuilder(Document& document);
 
     asset::AssetId createTexture(const ImportedTextureDesc& desc);
     asset::AssetId createMaterial(const ImportedMaterialDesc& desc);
@@ -89,7 +89,7 @@ public:
     const ImportReport& report() const { return report_; }
 
 private:
-    document::Document& document_;
+    Document& document_;
     std::vector<asset::MeshPrimitive> primitives_;
     ImportReport report_;
 };

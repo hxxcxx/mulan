@@ -16,14 +16,14 @@
 #include <string>
 #include <vector>
 
-namespace mulan::document {
+namespace mulan::io {
 class Document;
 }
 
 namespace mulan::io {
 
 struct OpenDocumentResult {
-    std::unique_ptr<mulan::document::Document> document;
+    std::unique_ptr<mulan::io::Document> document;
     ImportResult import;
 };
 

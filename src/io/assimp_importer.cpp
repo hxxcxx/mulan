@@ -3,7 +3,7 @@
 #include "mesh_import_builder.h"
 
 #include <mulan/core/result/error.h>
-#include <mulan/document/document.h>
+#include <mulan/io/document.h>
 #include <mulan/scene/scene.h>
 
 #include <assimp/Importer.hpp>
@@ -266,7 +266,7 @@ std::vector<std::optional<ImportedMeshRecord>> importMeshAssets(
     return records;
 }
 
-scene::EntityId createNodeEntity(document::Document& doc,
+scene::EntityId createNodeEntity(io::Document& doc,
                                  const std::string& name,
                                  scene::EntityId parent,
                                  const math::Mat4& local,
@@ -283,7 +283,7 @@ scene::EntityId createNodeEntity(document::Document& doc,
     return entity;
 }
 
-void applyMeshToEntity(document::Document& doc,
+void applyMeshToEntity(io::Document& doc,
                        scene::EntityId entity,
                        const ImportedMeshRecord& mesh,
                        const math::Mat4& world) {
@@ -296,7 +296,7 @@ void applyMeshToEntity(document::Document& doc,
 }
 
 void importNodeRecursive(const aiNode& node,
-                         document::Document& doc,
+                         io::Document& doc,
                          std::span<const std::optional<ImportedMeshRecord>> meshes,
                          scene::EntityId parent,
                          const math::Mat4& parentWorld,
@@ -344,7 +344,7 @@ void importNodeRecursive(const aiNode& node,
 
 std::expected<ImportResult, core::Error>
 AssimpImporter::import(const std::string& path,
-                       mulan::document::Document& doc,
+                       mulan::io::Document& doc,
                        const ImportOptions& options) {
     Assimp::Importer importer;
     const unsigned int flags =

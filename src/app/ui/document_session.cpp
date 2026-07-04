@@ -2,7 +2,7 @@
 
 #include <mulan/view/view_context.h>
 
-DocumentSession::DocumentSession(std::unique_ptr<mulan::document::Document> doc)
+DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc)
     : document_(std::move(doc))
 {
     syncRenderScene();

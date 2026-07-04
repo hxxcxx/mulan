@@ -2,7 +2,7 @@
 #include "importer_factory.h"
 
 #include <mulan/core/result/error.h>
-#include <mulan/document/document.h>
+#include <mulan/io/document.h>
 
 #include <STEPControl_Reader.hxx>
 #include <IGESControl_Reader.hxx>
@@ -86,7 +86,7 @@ TopoDS_Shape readFile(const std::string& path) {
     throw std::runtime_error("Unsupported format: " + ext);
 }
 
-ImportResult populateDocument(const TopoDS_Shape& shape, mulan::document::Document& doc) {
+ImportResult populateDocument(const TopoDS_Shape& shape, mulan::io::Document& doc) {
     ImportResult result;
     int partIndex = 0;
 
@@ -125,7 +125,7 @@ ImportResult populateDocument(const TopoDS_Shape& shape, mulan::document::Docume
 
 std::expected<ImportResult, core::Error>
 OCCTImporter::import(const std::string& path,
-                     mulan::document::Document& doc,
+                     mulan::io::Document& doc,
                      const ImportOptions& /*options*/) {
     try {
         NumericLocaleGuard locale;
