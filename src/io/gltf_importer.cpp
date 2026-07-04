@@ -2,7 +2,11 @@
 #include "mesh_import_builder.h"
 
 #include <mulan/asset/material_asset.h>
+#include <mulan/asset/mesh_asset.h>
+#include <mulan/asset/asset_library.h>
 #include <mulan/document/document.h>
+#include <mulan/scene/scene.h>
+#include <mulan/math/linalg/transform.h>
 #include <mulan/engine/geometry/mesh.h>
 #include <mulan/engine/vertex/vertex_layout.h>
 #include <mulan/engine/vertex/vertex_buffer.h>
@@ -18,6 +22,7 @@
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <span>
 #include <string>
@@ -235,7 +240,9 @@ GltfImporter::import(const std::string& path,
     auto matMap = importMaterials(gltf, builder, texMap);
     result.report.materialCount = matMap.size();
 
-    // --- 4. 导入网格 ---
+    // --- 4. 收集所有 mesh → MeshAsset ---
+    std::vector<asset::AssetId> meshAssets(gltf.meshes.size(), asset::AssetId::invalid());
+
     for (size_t meshIdx = 0; meshIdx < gltf.meshes.size(); ++meshIdx) {
         const auto& mesh = gltf.meshes[meshIdx];
         std::string meshName = mesh.name.empty()
@@ -243,53 +250,116 @@ GltfImporter::import(const std::string& path,
 
         std::vector<asset::MeshPrimitive> primitives;
 
-        for (size_t primIdx = 0; primIdx < mesh.primitives.size(); ++primIdx) {
-            const auto& primitive = mesh.primitives[primIdx];
+        for (const auto& primitive : mesh.primitives) {
             auto geomData = extractPrimitiveData(gltf, primitive);
-
             if (geomData.positions.empty()) continue;
 
-            // 生成默认法线（如果 glTF 未提供）
-            if (geomData.normals.empty()) {
-                geomData.normals.resize(geomData.positions.size(),
-                                        math::FVec3(0.0f, 0.0f, 1.0f));
-            }
+            if (geomData.normals.empty())
+                geomData.normals.resize(geomData.positions.size(), math::FVec3(0.0f, 0.0f, 1.0f));
 
             StandardMeshSource src;
-            src.positions  = std::span(geomData.positions);
-            src.normals    = std::span(geomData.normals);
-            src.texcoords  = std::span(geomData.texcoords);
-            src.indices    = std::span(geomData.indices);
-            src.topology   = engine::PrimitiveTopology::TriangleList;
+            src.positions = std::span(geomData.positions);
+            src.normals   = std::span(geomData.normals);
+            src.texcoords = std::span(geomData.texcoords);
+            src.indices   = std::span(geomData.indices);
+            src.topology  = engine::PrimitiveTopology::TriangleList;
 
             auto engineMesh = buildStandardMesh(src);
             if (engineMesh.empty()) continue;
 
             asset::MeshPrimitive prim;
-            prim.mesh     = std::move(engineMesh);
+            prim.mesh = std::move(engineMesh);
             prim.material = asset::AssetId::invalid();
-
             if (primitive.materialIndex.has_value()) {
                 auto it = matMap.find(*primitive.materialIndex);
                 if (it != matMap.end()) prim.material = it->second;
             } else if (!matMap.empty()) {
                 prim.material = matMap.begin()->second;
             }
-
             primitives.push_back(std::move(prim));
         }
 
         if (!primitives.empty()) {
-            scene::EntityId entity = doc.addMesh(meshName, std::move(primitives));
-            if (entity) {
-                result.entities.push_back(entity);
-                ++result.report.entityCount;
-                result.report.primitiveCount += primitives.size();
-            }
+            auto* assetLib = doc.assets();
+            auto* meshAsset = assetLib->create<asset::MeshAsset>(meshName, std::move(primitives));
+            if (meshAsset) meshAssets[meshIdx] = meshAsset->id();
+            result.report.primitiveCount += primitives.size();
         }
     }
 
     result.report.meshAssetCount = gltf.meshes.size();
+
+    // --- 5. 遍历 node 树，创建实体层级 ---
+    auto* scene = doc.scene();
+    if (!scene) return result;
+
+    // TRS → Mat4（使用项目已有的 math::Transform3）
+    auto nodeTransform = [](const fastgltf::Node& node) -> math::Mat4 {
+        math::Mat4 mat;
+        std::visit(fastgltf::visitor{
+            [&](const fastgltf::math::fmat4x4& m) {
+                for (int c = 0; c < 4; ++c)
+                    for (int r = 0; r < 4; ++r)
+                        mat[c][r] = static_cast<double>(m[c][r]);
+            },
+            [&](const fastgltf::TRS& trs) {
+                math::Transform3 t;
+                t.translation = {trs.translation[0], trs.translation[1], trs.translation[2]};
+                t.rotation    = math::Quat(trs.rotation[0], trs.rotation[1],
+                                           trs.rotation[2], trs.rotation[3]);
+                t.scale       = {trs.scale[0], trs.scale[1], trs.scale[2]};
+                mat = t.toMatrix();
+            }
+        }, node.transform);
+        return mat;
+    };
+
+    std::function<void(size_t, scene::EntityId)> importNode;
+    importNode = [&](size_t nodeIdx, scene::EntityId parent) {
+        const auto& node = gltf.nodes[nodeIdx];
+
+        scene::EntityId entity = scene->createEntity(
+            node.name.empty() ? "Node_" + std::to_string(nodeIdx) : std::string(node.name));
+
+        if (parent) scene->setParent(entity, parent);
+
+        scene->setLocalTransform(entity, nodeTransform(node));
+
+        if (node.meshIndex.has_value() && *node.meshIndex < meshAssets.size()) {
+            auto meshId = meshAssets[*node.meshIndex];
+            if (meshId) {
+                scene->setGeometry(entity, meshId);
+                const auto* meshAsset = dynamic_cast<const asset::MeshAsset*>(
+                    doc.assets()->asset(meshId));
+                if (meshAsset) {
+                    std::vector<asset::AssetId> slots;
+                    for (auto& prim : meshAsset->primitives())
+                        slots.push_back(prim.material);
+                    scene->setMaterialSlots(entity, std::move(slots));
+                }
+            }
+        }
+
+        result.entities.push_back(entity);
+        ++result.report.entityCount;
+
+        for (auto childIdx : node.children)
+            importNode(childIdx, entity);
+    };
+
+    // 从默认 scene 的根节点开始遍历
+    if (gltf.defaultScene.has_value()) {
+        const auto& sceneNode = gltf.scenes[*gltf.defaultScene];
+        for (auto rootIdx : sceneNode.nodeIndices)
+            importNode(rootIdx, scene::EntityId::invalid());
+    } else {
+        // 无 scene 定义时，遍历所有根节点（不被任何节点引用为 child）
+        std::vector<bool> isChild(gltf.nodes.size(), false);
+        for (auto& n : gltf.nodes)
+            for (auto c : n.children) isChild[c] = true;
+        for (size_t i = 0; i < gltf.nodes.size(); ++i)
+            if (!isChild[i]) importNode(i, scene::EntityId::invalid());
+    }
 
     return result;
 }
