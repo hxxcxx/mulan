@@ -49,26 +49,14 @@ VKDevice::~VKDevice() {
         vmaCalculateStatistics(allocator_, &stats);
     }
 
-    clearFramebufferCache();
+    standalone_allocators_.clear();
+
     frame_cmd_list_.reset();
     frame_contexts_.clear();
     upload_context_.reset();
     descriptor_allocators_.clear();
-    standalone_allocators_.clear();
 
     // 销毁 per-image renderFinished 信号量
-    for (auto& sem : render_finished_semaphores_) {
-        if (device_ && sem) device_.destroySemaphore(sem);
-    }
-    render_finished_semaphores_.clear();
-
-    // 销毁 RenderPass Cache
-    for (auto& [key, rp] : render_pass_cache_) {
-        if (device_ && rp) device_.destroyRenderPass(rp);
-    }
-    render_pass_cache_.clear();
-
-    shutdown();
 }
 
 // ============================================================
@@ -157,11 +145,16 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
     if (surface_) {
         deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
+    deviceExtensions.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
 
     // Features
     vk::PhysicalDeviceFeatures features;
     features.fillModeNonSolid = true;  // wireframe
     features.depthClamp       = true;
+
+    // Dynamic rendering feature (VK_KHR_dynamic_rendering)
+    vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature;
+    dynamicRenderingFeature.dynamicRendering = true;
 
     vk::DeviceCreateInfo deviceCI;
     deviceCI.queueCreateInfoCount    = static_cast<uint32_t>(queueCIs.size());
@@ -169,6 +162,7 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
     deviceCI.enabledExtensionCount   = static_cast<uint32_t>(deviceExtensions.size());
     deviceCI.ppEnabledExtensionNames = deviceExtensions.data();
     deviceCI.pEnabledFeatures        = &features;
+    deviceCI.pNext                   = &dynamicRenderingFeature;
 
     device_ = physical_device_.createDevice(deviceCI);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(device_);

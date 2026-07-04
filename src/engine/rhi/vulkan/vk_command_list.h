@@ -18,6 +18,7 @@
 #include <array>
 #include <expected>
 #include <memory>
+#include <optional>
 
 namespace mulan::engine {
 
@@ -97,24 +98,11 @@ public:
     void clearDepth(float depth) override;
     void clearStencil(uint8_t stencil) override;
 
-    // --- Vulkan 特有：开始/结束 RenderPass（底层，被 RHI override 调用）---
-    void beginVkRenderPass(vk::RenderPass renderPass, vk::Framebuffer framebuffer,
-                           uint32_t width, uint32_t height,
-                           const std::array<float, 4>& clearColor = {0.15f, 0.15f, 0.15f, 1.0f},
-                           float clearDepth = 1.0f);
-    void endRenderPass() override;
-
     // --- RenderPass (RHI override) ---
     void beginRenderPass(const RenderPassBeginInfo& info) override;
+    void endRenderPass() override;
 
     vk::PipelineLayout currentLayout() const { return current_layout_; }
-
-    /// 设置所属 VKDevice（用于访问 RenderPass/Framebuffer cache）
-    void setOwnerDevice(VKDevice* dev) { owner_device_ = dev; }
-
-    /// 绑定 descriptor set 到当前管线
-    void bindDescriptorSet(vk::PipelineLayout layout, vk::DescriptorSet set,
-                           uint32_t firstSet = 0);
 
 private:
     // 独立模式私有构造（create() 使用）
@@ -127,7 +115,8 @@ private:
     vk::PipelineLayout      current_layout_;
     vk::DescriptorSetLayout current_desc_set_layout_;
     VKDescriptorAllocator*  allocator_ = nullptr;
-    VKDevice*               owner_device_ = nullptr;
+    bool                    rp_present_source_ = false;
+    std::optional<vk::Image> swapchain_color_image_; // endRenderPass 时转 PRESENT_SRC_KHR
     bool                    owns_pool_;
 };
 

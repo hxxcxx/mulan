@@ -34,10 +34,6 @@ public:
 
     void resize(uint32_t width, uint32_t height) override;
 
-    // --- Vulkan 特有 ---
-    vk::RenderPass  renderPass()  const { return render_pass_; }
-    vk::Framebuffer framebuffer() const { return framebuffer_; }
-
 private:
     VKRenderTarget(const RenderTargetDesc& desc, vk::Device device, VmaAllocator allocator)
         : desc_(desc), device_(device), allocator_(allocator) {}
@@ -52,9 +48,6 @@ private:
 
     std::unique_ptr<VKTexture> color_texture_;
     std::unique_ptr<VKTexture> depth_texture_;
-
-    vk::RenderPass   render_pass_  = nullptr;
-    vk::Framebuffer  framebuffer_ = nullptr;
 };
 
 } // namespace mulan::engine

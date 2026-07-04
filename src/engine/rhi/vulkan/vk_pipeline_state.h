@@ -22,10 +22,10 @@ class VKDevice;
 
 class VKPipelineState : public PipelineState {
 public:
-    /// 创建 VKPipelineState。失败返回 PipelineCreateFailed。
+    /// 创建 VKPipelineState（dynamic rendering，无需 RenderPass）。
+    /// 失败返回 PipelineCreateFailed。
     static std::expected<std::unique_ptr<VKPipelineState>, core::Error>
-        create(const GraphicsPipelineDesc& desc,
-               vk::Device device, VKDevice* ownerDevice);
+        create(const GraphicsPipelineDesc& desc, vk::Device device);
     ~VKPipelineState();
 
     const GraphicsPipelineDesc& desc() const override { return desc_; }
@@ -38,7 +38,7 @@ private:
     VKPipelineState(const GraphicsPipelineDesc& desc, vk::Device device)
         : desc_(desc), device_(device) {}
 
-    core::Error build(vk::RenderPass renderPass);
+    core::Error build();
     core::Error createRootSignature();
     vk::PipelineVertexInputStateCreateInfo buildVertexInputState();
 

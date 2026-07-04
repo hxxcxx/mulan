@@ -66,6 +66,9 @@ void VKCommandList::begin() {
         device_.resetCommandPool(pool_);
     }
 
+    swapchain_color_image_.reset();
+    rp_present_source_ = false;
+
     vk::CommandBufferBeginInfo beginInfo;
     beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
     cmd_buffer_.begin(beginInfo);
@@ -267,25 +270,7 @@ void VKCommandList::clearDepth(float) {
 }
 
 void VKCommandList::clearStencil(uint8_t) {
-    // 通过 renderPass 的 clearValue 实现
-}
-
-void VKCommandList::beginVkRenderPass(vk::RenderPass renderPass, vk::Framebuffer framebuffer,
-                                     uint32_t width, uint32_t height,
-                                     const std::array<float, 4>& clearColor,
-                                     float clearDepth) {
-    vk::ClearValue clearValues[2];
-    clearValues[0].color = vk::ClearColorValue(clearColor);
-    clearValues[1].depthStencil = vk::ClearDepthStencilValue(clearDepth, 0);
-
-    vk::RenderPassBeginInfo rpBegin;
-    rpBegin.renderPass      = renderPass;
-    rpBegin.framebuffer     = framebuffer;
-    rpBegin.renderArea      = vk::Rect2D({0, 0}, {width, height});
-    rpBegin.clearValueCount = 2;
-    rpBegin.pClearValues    = clearValues;
-
-    cmd_buffer_.beginRenderPass(rpBegin, vk::SubpassContents::eInline);
+    // 由 VkRenderingAttachmentInfo 的 clearValue 实现
 }
 
 void VKCommandList::bindGroup(BindGroup& group) {
@@ -354,82 +339,113 @@ void VKCommandList::bindResources(const BindGroupDesc& desc) {
     set.bind(cmd_buffer_, current_layout_);
 }
 
-void VKCommandList::endRenderPass() {
-    cmd_buffer_.endRenderPass();
-}
-
-void VKCommandList::bindDescriptorSet(vk::PipelineLayout layout, vk::DescriptorSet set,
-                                       uint32_t firstSet) {
-    cmd_buffer_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                                   layout, firstSet, 1, &set, 0, nullptr);
-}
-
 // ============================================================
 // RHI beginRenderPass / endRenderPass
 // ============================================================
 
 void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
-    assert(owner_device_ && "VKCommandList needs ownerDevice for RenderPass/Framebuffer cache");
+    rp_present_source_ = info.presentSource;
 
-    // 收集 color attachment 的格式和 ImageView
-    std::array<TextureFormat, RenderPassBeginInfo::kMaxColorTargets> colorFmts{};
-    std::array<vk::ImageView, 9> views{};  // 8 color + 1 depth
-    uint8_t viewCount = 0;
+    // Track swapchain color image for present transition in endRenderPass
+    if (rp_present_source_ && info.colorCount > 0 && info.colorAttachments[0].target) {
+        swapchain_color_image_ = static_cast<VKTexture*>(
+            info.colorAttachments[0].target)->image();
+    }
 
+    // Color attachment barriers: transition to COLOR_ATTACHMENT_OPTIMAL
     for (uint8_t i = 0; i < info.colorCount; ++i) {
         auto* tex = static_cast<VKTexture*>(info.colorAttachments[i].target);
-        assert(tex && "Color attachment must not be null");
-        colorFmts[i] = tex->format();
-        views[viewCount++] = tex->view();
+        vk::ImageMemoryBarrier barrier;
+        barrier.image               = tex->image();
+        barrier.oldLayout           = vk::ImageLayout::eUndefined;
+        barrier.newLayout           = vk::ImageLayout::eColorAttachmentOptimal;
+        barrier.srcAccessMask       = {};
+        barrier.dstAccessMask       = vk::AccessFlagBits::eColorAttachmentWrite;
+        barrier.subresourceRange    = vk::ImageSubresourceRange(
+            vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+
+        cmd_buffer_.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            {}, nullptr, nullptr, barrier);
     }
 
-    // Depth attachment
-    TextureFormat depthFmt = TextureFormat::Unknown;
-    bool hasDepth = (info.depthAttachment.target != nullptr);
-    if (hasDepth) {
+    // Depth attachment barrier: transition to DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    if (info.depthAttachment.target) {
         auto* depthTex = static_cast<VKTexture*>(info.depthAttachment.target);
-        depthFmt = depthTex->format();
-        views[viewCount++] = depthTex->view();
+        vk::ImageMemoryBarrier barrier;
+        barrier.image               = depthTex->image();
+        barrier.oldLayout           = vk::ImageLayout::eUndefined;
+        barrier.newLayout           = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+        barrier.srcAccessMask       = {};
+        barrier.dstAccessMask       = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+        barrier.subresourceRange    = vk::ImageSubresourceRange(
+            vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1);
+
+        cmd_buffer_.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eEarlyFragmentTests,
+            {}, nullptr, nullptr, barrier);
     }
 
-    // 确定 finalLayout 和 loadOp/storeOp
-    vk::AttachmentLoadOp colorLoadOp = toVkLoadOp(info.colorAttachments[0].loadAction);
-    vk::AttachmentStoreOp colorStoreOp = toVkStoreOp(info.colorAttachments[0].storeAction);
-    vk::ImageLayout colorFinalLayout = info.presentSource
-        ? vk::ImageLayout::ePresentSrcKHR
-        : vk::ImageLayout::eShaderReadOnlyOptimal;
-
-    // 从 device cache 获取 RenderPass
-    vk::RenderPass renderPass = owner_device_->getOrCreateRenderPass(
-        std::span<const TextureFormat>(colorFmts.data(), info.colorCount),
-        depthFmt, hasDepth, colorLoadOp, colorStoreOp, colorFinalLayout);
-
-    // 从 device cache 获取 Framebuffer
-    vk::Framebuffer framebuffer = owner_device_->getOrCreateFramebuffer(
-        renderPass,
-        std::span<const vk::ImageView>(views.data(), viewCount),
-        info.width, info.height);
-
-    // 构造 clear values
-    std::array<vk::ClearValue, 9> clearValues;
+    // Build dynamic rendering attachments
+    std::array<vk::RenderingAttachmentInfo, RenderPassBeginInfo::kMaxColorTargets> colorAtt{};
     for (uint8_t i = 0; i < info.colorCount; ++i) {
-        clearValues[i].color = vk::ClearColorValue(std::array<float, 4>{
+        auto* tex = static_cast<VKTexture*>(info.colorAttachments[i].target);
+        auto& att = colorAtt[i];
+        att.imageView   = tex->view();
+        att.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        att.loadOp      = (info.colorAttachments[i].loadAction == LoadAction::Clear)
+            ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad;
+        att.storeOp     = vk::AttachmentStoreOp::eStore;
+        att.clearValue.color = vk::ClearColorValue(std::array<float, 4>{
             info.clearColor[0], info.clearColor[1], info.clearColor[2], info.clearColor[3]});
     }
-    if (hasDepth) {
-        clearValues[info.colorCount].depthStencil =
-            vk::ClearDepthStencilValue(info.clearDepth, info.clearStencil);
+
+    vk::RenderingAttachmentInfo depthAtt{};
+    if (info.depthAttachment.target) {
+        auto* depthTex = static_cast<VKTexture*>(info.depthAttachment.target);
+        depthAtt.imageView   = depthTex->view();
+        depthAtt.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+        depthAtt.loadOp      = (info.depthAttachment.loadAction == LoadAction::Clear)
+            ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad;
+        depthAtt.storeOp     = vk::AttachmentStoreOp::eStore;
+        depthAtt.clearValue.depthStencil = vk::ClearDepthStencilValue(info.clearDepth, info.clearStencil);
     }
 
-    // 录制 vkCmdBeginRenderPass
-    vk::RenderPassBeginInfo rpBegin;
-    rpBegin.renderPass      = renderPass;
-    rpBegin.framebuffer     = framebuffer;
-    rpBegin.renderArea      = vk::Rect2D({0, 0}, {info.width, info.height});
-    rpBegin.clearValueCount = info.colorCount + (hasDepth ? 1 : 0);
-    rpBegin.pClearValues    = clearValues.data();
+    vk::RenderingInfo renderingInfo;
+    renderingInfo.renderArea           = vk::Rect2D({0, 0}, {info.width, info.height});
+    renderingInfo.layerCount           = 1;
+    renderingInfo.colorAttachmentCount = info.colorCount;
+    renderingInfo.pColorAttachments    = colorAtt.data();
+    renderingInfo.pDepthAttachment     = info.depthAttachment.target ? &depthAtt : nullptr;
+    renderingInfo.pStencilAttachment   = nullptr;
 
-    cmd_buffer_.beginRenderPass(rpBegin, vk::SubpassContents::eInline);
+    cmd_buffer_.beginRendering(renderingInfo);
+}
+
+void VKCommandList::endRenderPass() {
+    cmd_buffer_.endRendering();
+
+    // Swapchain present: transition color attachment to PRESENT_SRC_KHR
+    if (rp_present_source_ && swapchain_color_image_) {
+        vk::ImageMemoryBarrier barrier;
+        barrier.image               = *swapchain_color_image_;
+        barrier.oldLayout           = vk::ImageLayout::eColorAttachmentOptimal;
+        barrier.newLayout           = vk::ImageLayout::ePresentSrcKHR;
+        barrier.srcAccessMask       = vk::AccessFlagBits::eColorAttachmentWrite;
+        barrier.dstAccessMask       = {};
+        barrier.subresourceRange    = vk::ImageSubresourceRange(
+            vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+
+        cmd_buffer_.pipelineBarrier(
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits::eBottomOfPipe,
+            {}, nullptr, nullptr, barrier);
+
+        swapchain_color_image_.reset();
+    }
+    rp_present_source_ = false;
 }
 
 } // namespace mulan::engine

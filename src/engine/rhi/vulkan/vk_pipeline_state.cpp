@@ -10,24 +10,13 @@
 namespace mulan::engine {
 
 std::expected<std::unique_ptr<VKPipelineState>, core::Error>
-VKPipelineState::create(const GraphicsPipelineDesc& desc,
-                        vk::Device device, VKDevice* ownerDevice) {
+VKPipelineState::create(const GraphicsPipelineDesc& desc, vk::Device device) {
     auto obj = std::unique_ptr<VKPipelineState>(new VKPipelineState(desc, device));
 
     if (auto e = obj->createRootSignature(); e.code != 0)
         return std::unexpected(e);
 
-    // 从 desc 获取 RT 格式 → device RenderPass Cache → build
-    std::array<TextureFormat, GraphicsPipelineDesc::kMaxRenderTargets> colorFmts;
-    for (uint8_t i = 0; i < desc.colorTargetCount; ++i) {
-        colorFmts[i] = desc.colorFormats[i];
-    }
-    vk::RenderPass renderPass = ownerDevice->getOrCreateRenderPass(
-        {colorFmts.data(), desc.colorTargetCount},
-        desc.depthStencilFormat,
-        desc.depthEnable);
-
-    if (auto e = obj->build(renderPass); e.code != 0)
+    if (auto e = obj->build(); e.code != 0)
         return std::unexpected(e);
 
     return obj;
@@ -84,12 +73,23 @@ core::Error VKPipelineState::createRootSignature() {
     return {};
 }
 
-core::Error VKPipelineState::build(vk::RenderPass renderPass) {
+core::Error VKPipelineState::build() {
     std::vector<vk::PipelineShaderStageCreateInfo> stages;
     auto* vkVs = static_cast<VKShader*>(desc_.vs);
     auto* vkPs = static_cast<VKShader*>(desc_.ps);
     if (vkVs) stages.push_back(vkVs->stageCreateInfo());
     if (vkPs) stages.push_back(vkPs->stageCreateInfo());
+
+    // --- Dynamic Rendering: 通过 pNext 声明 RT 格式（替代 RenderPass）---
+    vk::PipelineRenderingCreateInfo renderingCI;
+    renderingCI.colorAttachmentCount = desc_.colorTargetCount;
+    std::array<vk::Format, GraphicsPipelineDesc::kMaxRenderTargets> colorFmts;
+    for (uint8_t i = 0; i < desc_.colorTargetCount; ++i)
+        colorFmts[i] = toVkFormat(desc_.colorFormats[i]);
+    renderingCI.pColorAttachmentFormats = colorFmts.data();
+    renderingCI.depthAttachmentFormat   = desc_.depthEnable
+        ? toVkFormat(desc_.depthStencilFormat) : vk::Format::eUndefined;
+    renderingCI.stencilAttachmentFormat = vk::Format::eUndefined;
 
     // --- Vertex Input ---
     auto vertexInputState = buildVertexInputState();
@@ -175,8 +175,9 @@ core::Error VKPipelineState::build(vk::RenderPass renderPass) {
     gpCI.pColorBlendState    = &blendCI;
     gpCI.pDynamicState       = &dynamicCI;
     gpCI.layout              = layout_;
-    gpCI.renderPass          = renderPass;
+    gpCI.renderPass          = nullptr;   // dynamic rendering
     gpCI.subpass             = 0;
+    gpCI.pNext               = &renderingCI;
 
     try {
         pipeline_ = device_.createGraphicsPipeline(nullptr, gpCI).value;
