@@ -1,5 +1,5 @@
 # Engine - 渲染后端与场景管理（静态库）
-add_library(Engine STATIC
+add_library(engine STATIC
     platform/win32_window.cpp
     rhi/device_factory.cpp
     rhi/bind_group_layout.cpp
@@ -64,7 +64,7 @@ foreach(hdr ${ENGINE_HEADERS})
     configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/engine/${rel}" COPYONLY)
 endforeach()
 
-target_include_directories(Engine PUBLIC
+target_include_directories(engine PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
 )
 
@@ -77,9 +77,9 @@ find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 # nlohmann-json
 find_package(nlohmann_json CONFIG REQUIRED)
 
-target_link_libraries(Engine PUBLIC
-    Core
-    Math
+target_link_libraries(engine PUBLIC
+    core
+    math
     Vulkan::Vulkan
     GPUOpen::VulkanMemoryAllocator
     nlohmann_json::nlohmann_json
@@ -89,16 +89,16 @@ target_link_libraries(Engine PUBLIC
     dxgi
 )
 
-target_compile_definitions(Engine PRIVATE
+target_compile_definitions(engine PRIVATE
     $<$<CONFIG:Debug>:_DEBUG>
     _USE_MATH_DEFINES
 )
 
 # MSVC: 多文件并行编译写同一 PDB 需要 /FS
-set_target_properties(Engine PROPERTIES OUTPUT_NAME mulan_engine)
+set_target_properties(engine PROPERTIES OUTPUT_NAME mulan_engine)
 
 if(MSVC)
-    target_compile_options(Engine PRIVATE /FS)
+    target_compile_options(engine PRIVATE /FS)
 endif()
 
 # --- Shader 编译 (HLSL → SPIR-V + DXIL via dxc, DXBC via fxc) ---
@@ -225,10 +225,10 @@ if(DXC_EXECUTABLE)
     endforeach()
 
     add_custom_target(Shaders ALL DEPENDS ${SHADER_OUTPUTS})
-    add_dependencies(Engine Shaders)
+    add_dependencies(engine Shaders)
 
     # 将 shader 输出目录作为 include path（方便运行时加载）
-    target_compile_definitions(Engine PRIVATE
+    target_compile_definitions(engine PRIVATE
         SHADER_DIR="${SHADER_OUTPUT_DIR}"
     )
 else()

@@ -1,5 +1,5 @@
 # Asset - reusable document data skeleton
-add_library(Asset STATIC
+add_library(asset STATIC
     asset.cpp
     asset_library.cpp
 )
@@ -12,15 +12,15 @@ foreach(hdr ${ASSET_HEADERS})
     configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/asset/${rel}" COPYONLY)
 endforeach()
 
-target_include_directories(Asset PUBLIC
+target_include_directories(asset PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
 )
 
-target_link_libraries(Asset PUBLIC Engine)
+target_link_libraries(asset PUBLIC engine)
 
-set_target_properties(Asset PROPERTIES OUTPUT_NAME mulan_asset)
+set_target_properties(asset PROPERTIES OUTPUT_NAME mulan_asset)
 
-target_compile_definitions(Asset PRIVATE
+target_compile_definitions(asset PRIVATE
     $<$<CONFIG:Debug>:_DEBUG>
 )
 

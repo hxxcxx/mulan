@@ -1,5 +1,5 @@
 # View - 消费 RenderScene 的视图运行时
-add_library(View STATIC
+add_library(view STATIC
     view_context.cpp
     render_surface.cpp
     renderer.cpp
@@ -16,18 +16,18 @@ foreach(hdr ${VIEW_HEADERS})
     configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/view/${rel}" COPYONLY)
 endforeach()
 
-target_include_directories(View PUBLIC
+target_include_directories(view PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
 )
 
-target_link_libraries(View PUBLIC
-    Engine
-    Asset
-    Scene
+target_link_libraries(view PUBLIC
+    engine
+    asset
+    scene
 )
 
-set_target_properties(View PROPERTIES OUTPUT_NAME mulan_view)
+set_target_properties(view PROPERTIES OUTPUT_NAME mulan_view)
 
-target_compile_definitions(View PRIVATE
+target_compile_definitions(view PRIVATE
     $<$<CONFIG:Debug>:_DEBUG>
 )

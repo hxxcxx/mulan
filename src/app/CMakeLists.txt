@@ -20,9 +20,9 @@ add_executable(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    View
-    Engine
-    $<LINK_LIBRARY:WHOLE_ARCHIVE,IO>
+    view
+    engine
+    $<LINK_LIBRARY:WHOLE_ARCHIVE,io>
     SARibbon
     Qt6::Core
     Qt6::Gui

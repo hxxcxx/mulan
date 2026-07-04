@@ -1,5 +1,5 @@
 # Scene - componentized scene instance model skeleton
-add_library(Scene STATIC
+add_library(scene STATIC
     scene.cpp
 )
 
@@ -11,15 +11,15 @@ foreach(hdr ${SCENE_HEADERS})
     configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/scene/${rel}" COPYONLY)
 endforeach()
 
-target_include_directories(Scene PUBLIC
+target_include_directories(scene PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
 )
 
-target_link_libraries(Scene PUBLIC Asset Engine)
+target_link_libraries(scene PUBLIC asset engine)
 
-set_target_properties(Scene PROPERTIES OUTPUT_NAME mulan_scene)
+set_target_properties(scene PROPERTIES OUTPUT_NAME mulan_scene)
 
-target_compile_definitions(Scene PRIVATE
+target_compile_definitions(scene PRIVATE
     $<$<CONFIG:Debug>:_DEBUG>
 )
 
