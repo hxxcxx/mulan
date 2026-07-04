@@ -91,9 +91,11 @@ void DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* data,
     // 对齐到 256 字节（D3D12 要求）
     slab.used = (slab.used + 255u) & ~255u;
 
-    // 录制 CopyTextureRegion / CopyBufferRegion
-    cmd_allocator_->Reset();
-    cmd_list_->Reset(cmd_allocator_.Get(), nullptr);
+    // 非批量模式：每次提交都需 Reset 重新开录；批量模式：cmd_list 已 open，直接 Record
+    if (!batch_active_) {
+        cmd_allocator_->Reset();
+        cmd_list_->Reset(cmd_allocator_.Get(), nullptr);
+    }
 
     // 确保目标处于 COPY_DEST 状态
     D3D12_RESOURCE_BARRIER barrier = {};
@@ -111,16 +113,7 @@ void DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* data,
     barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COMMON;
     cmd_list_->ResourceBarrier(1, &barrier);
 
-    cmd_list_->Close();
-
-    ID3D12CommandList* lists[] = { cmd_list_.Get() };
-    queue_->ExecuteCommandLists(1, lists);
-
-    fence_value_++;
-    queue_->Signal(fence_.Get(), fence_value_);
-    fence_->SetEventOnCompletion(fence_value_, fence_event_);
-    WaitForSingleObject(fence_event_, INFINITE);
-
+    submitIfNotBatching();
     dst->markUploaded();
 }
 
@@ -166,8 +159,10 @@ void DX12UploadContext::uploadTexture(DX12Texture* dst, const void* data,
     slab.used = (slab.used + 255u) & ~255u;
 
     // 录制
-    cmd_allocator_->Reset();
-    cmd_list_->Reset(cmd_allocator_.Get(), nullptr);
+    if (!batch_active_) {
+        cmd_allocator_->Reset();
+        cmd_list_->Reset(cmd_allocator_.Get(), nullptr);
+    }
 
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -195,6 +190,20 @@ void DX12UploadContext::uploadTexture(DX12Texture* dst, const void* data,
     barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
     cmd_list_->ResourceBarrier(1, &barrier);
 
+    submitIfNotBatching();
+    dst->setState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+}
+
+void DX12UploadContext::beginUploadBatch() {
+    if (batch_active_) return;
+    cmd_allocator_->Reset();
+    cmd_list_->Reset(cmd_allocator_.Get(), nullptr);
+    batch_active_ = true;
+}
+
+void DX12UploadContext::flushUploadBatch() {
+    if (!batch_active_) return;
+    batch_active_ = false;
     cmd_list_->Close();
 
     ID3D12CommandList* lists[] = { cmd_list_.Get() };
@@ -205,7 +214,25 @@ void DX12UploadContext::uploadTexture(DX12Texture* dst, const void* data,
     fence_->SetEventOnCompletion(fence_value_, fence_event_);
     WaitForSingleObject(fence_event_, INFINITE);
 
-    dst->setState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    // 本批次 GPU 已完成，staging slab 空间可回收复用
+    for (auto& slab : slabs_) slab.used = 0;
+}
+
+void DX12UploadContext::submitIfNotBatching() {
+    if (batch_active_) return;
+
+    cmd_list_->Close();
+
+    ID3D12CommandList* lists[] = { cmd_list_.Get() };
+    queue_->ExecuteCommandLists(1, lists);
+
+    fence_value_++;
+    queue_->Signal(fence_.Get(), fence_value_);
+    fence_->SetEventOnCompletion(fence_value_, fence_event_);
+    WaitForSingleObject(fence_event_, INFINITE);
+
+    // 同步提交完成后，staging 空间可复用
+    for (auto& slab : slabs_) slab.used = 0;
 }
 
 void DX12UploadContext::flush() {

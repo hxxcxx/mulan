@@ -33,8 +33,21 @@ public:
     void uploadTexture(DX12Texture* dst, const void* data, uint32_t width, uint32_t height,
                        TextureFormat format);
 
+    /// 开始批量上传：后续 uploadBuffer/uploadTexture 只录制到同一 cmd list，不提交。
+    /// 配合 flushUploadBatch() 把多个上传合并成一次提交 + 一次 GPU 同步等待，
+    /// 显著减少大模型加载（几十张纹理/网格）时的 GPU round-trip。
+    void beginUploadBatch();
+
+    /// 结束批量上传：Close + Execute + Signal + Wait，一次提交本批次所有命令。
+    void flushUploadBatch();
+
     /// 提交并等待所有上传命令完成
     void flush();
+
+private:
+    /// 非批量模式下：录制完立即 Close→Execute→Signal→Wait（同步提交）。
+    /// 批量模式下：不做任何提交，命令已录入 batch cmd list。
+    void submitIfNotBatching();
 
 private:
     ID3D12Device*         device_;
@@ -45,6 +58,7 @@ private:
     HANDLE                fence_event_ = nullptr;
     uint64_t              fence_value_ = 0;
     bool                  has_commands_ = false;
+    bool                  batch_active_ = false;  // 批量模式：cmd_list 保持 open，不逐次提交
 
     static constexpr uint32_t kStagingSize = 4 * 1024 * 1024;  // 4MB per slab
 

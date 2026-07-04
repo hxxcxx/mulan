@@ -312,6 +312,14 @@ void DX12Device::uploadTextureData(Texture* dst, const void* data,
                                    width, height, format);
 }
 
+void DX12Device::beginUploadBatch() {
+    upload_context_->beginUploadBatch();
+}
+
+void DX12Device::flushUploadBatch() {
+    upload_context_->flushUploadBatch();
+}
+
 ID3D12CommandSignature* DX12Device::drawIndirectSignature() {
     if (!draw_indirect_sig_) {
         D3D12_INDIRECT_ARGUMENT_DESC argDesc{};
