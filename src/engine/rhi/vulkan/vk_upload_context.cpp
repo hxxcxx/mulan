@@ -35,7 +35,7 @@ VKUploadContext::~VKUploadContext() {
 void VKUploadContext::uploadToBuffer(VKBuffer* dst, const void* data, uint32_t size,
                                       uint32_t dstOffset) {
     auto slice = allocStaging(size);
-    memcpy(slice.mapped, data, size);
+    memcpy(static_cast<uint8_t*>(slice.mapped) + slice.offset, data, size);
 
     vmaFlushAllocation(allocator_, slice.allocation, slice.offset, size);
 
@@ -69,12 +69,13 @@ void VKUploadContext::uploadTexture(VKTexture* dst, const void* data,
     const uint32_t dataSize  = rowStride * height;
 
     auto slice = allocStaging(dataSize);
+    auto* dstPtr = static_cast<uint8_t*>(slice.mapped) + slice.offset;
     if (rowStride == rowSize) {
-        memcpy(slice.mapped, data, dataSize);
+        memcpy(dstPtr, data, dataSize);
     } else {
         // 行距 > 行实际大小时逐行拷贝
         const auto* src = static_cast<const uint8_t*>(data);
-        auto* dstPtr = static_cast<uint8_t*>(slice.mapped);
+        auto* dstPtr = static_cast<uint8_t*>(slice.mapped) + slice.offset;
         for (uint32_t y = 0; y < height; ++y) {
             memcpy(dstPtr + y * rowStride, src + y * rowSize, rowSize);
         }
