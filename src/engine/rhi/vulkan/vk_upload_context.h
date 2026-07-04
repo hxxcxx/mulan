@@ -47,9 +47,21 @@ public:
     void resetSlabs();
     void flush();
 
+    /// 开始批量上传：后续 uploadToBuffer/uploadTexture 只录制不提交
+    void beginUploadBatch();
+
+    /// 结束批量上传：提交一次命令并同步等待 GPU 完成
+    void flushUploadBatch();
+
 private:
     template <typename F>
     void executeCopy(F&& copyCmd) {
+        if (batch_active_) {
+            // 批量模式：只录制到 batch_cmd_，不提交
+            copyCmd(batch_cmd_);
+            return;
+        }
+
         vk::CommandBufferAllocateInfo allocCI;
         allocCI.commandPool        = cmd_pool_;
         allocCI.level              = vk::CommandBufferLevel::ePrimary;
@@ -96,6 +108,10 @@ private:
     vk::CommandPool  cmd_pool_;
     vk::Fence        upload_fence_;
     bool             pending_ = false;
+
+    // 批量上传状态
+    bool             batch_active_ = false;
+    vk::CommandBuffer batch_cmd_;
 
     std::vector<Slab> slabs_;
     std::mutex        mutex_;

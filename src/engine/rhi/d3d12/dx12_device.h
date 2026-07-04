@@ -55,6 +55,8 @@ public:
     void uploadTextureData(Texture* dst, const void* data,
                            uint32_t width, uint32_t height,
                            TextureFormat format) override;
+    void beginUploadBatch() override {}
+    void flushUploadBatch() override {}
 
     // --- 提交命令 ---
     void executeCommandLists(CommandList** cmdLists, uint32_t count,

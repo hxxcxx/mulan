@@ -127,6 +127,11 @@ public:
                                    uint32_t width, uint32_t height,
                                    TextureFormat format) = 0;
 
+    /// 批量刷新所有待上传资源（beginUpload → 所有 pending upload → flushUploadBatch）。
+    /// 在批量加载大量资源后调用一次，替代每个资源单独的 submit+wait。
+    virtual void beginUploadBatch() = 0;
+    virtual void flushUploadBatch() = 0;
+
     // --- 提交命令 ---
 
     virtual void executeCommandLists(CommandList** cmdLists,

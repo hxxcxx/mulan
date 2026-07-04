@@ -135,6 +135,14 @@ void VKDevice::uploadTextureData(Texture* dst, const void* data,
                                    width, height, format);
 }
 
+void VKDevice::beginUploadBatch() {
+    upload_context_->beginUploadBatch();
+}
+
+void VKDevice::flushUploadBatch() {
+    upload_context_->flushUploadBatch();
+}
+
 std::expected<std::unique_ptr<RenderTarget>, core::Error>
 VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
     // 如果 frame contexts 还未初始化（无 SwapChain 时），在此初始化

@@ -182,6 +182,42 @@ void VKUploadContext::flush() {
     }
 }
 
+void VKUploadContext::beginUploadBatch() {
+    if (batch_active_) return;
+
+    vk::CommandBufferAllocateInfo allocCI;
+    allocCI.commandPool        = cmd_pool_;
+    allocCI.level              = vk::CommandBufferLevel::ePrimary;
+    allocCI.commandBufferCount = 1;
+    auto cmds = device_.allocateCommandBuffers(allocCI);
+    batch_cmd_ = cmds[0];
+
+    vk::CommandBufferBeginInfo beginInfo;
+    beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+    batch_cmd_.begin(beginInfo);
+    batch_active_ = true;
+}
+
+void VKUploadContext::flushUploadBatch() {
+    if (!batch_active_) return;
+
+    batch_cmd_.end();
+
+    vk::SubmitInfo submitInfo;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers    = &batch_cmd_;
+    queue_.submit(submitInfo, upload_fence_);
+
+    device_.waitForFences(upload_fence_, true, UINT64_MAX);
+    device_.resetFences(upload_fence_);
+
+    device_.freeCommandBuffers(cmd_pool_, batch_cmd_);
+    device_.resetCommandPool(cmd_pool_);
+    resetSlabs();
+
+    batch_active_ = false;
+}
+
 VKUploadContext::Slab VKUploadContext::createSlab(uint32_t size) {
     VkBufferCreateInfo ci{};
     ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;

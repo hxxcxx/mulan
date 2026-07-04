@@ -93,12 +93,15 @@ void Renderer::render(engine::RHIDevice& device,
                       const ViewState& viewState) {
     if (!initialized_) return;
 
-    if (resources_)
+    if (resources_) {
+        device.beginUploadBatch();
         builder_.rebuild(*resources_,
                          solid_pass_ ? solid_pass_->pipelineState() : nullptr,
                          wire_pass_ ? wire_pass_->pipelineState() : nullptr,
                          *texture_cache_,
                          *material_cache_);
+        device.flushUploadBatch();
+    }
 
     const std::span<const engine::MeshDrawCommand> emptyCommands;
     if (solid_pass_)
