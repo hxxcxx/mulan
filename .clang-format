@@ -1,0 +1,81 @@
+BasedOnStyle: Google
+Language: Cpp
+Standard: Latest
+
+# 缩进
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+AccessModifierOffset: -4
+
+# 大括号：全部不换行（与 image.h 现有风格一致）
+BreakBeforeBraces: Attach
+BraceWrapping:
+  AfterFunction: false
+  AfterClass: false
+  AfterStruct: false
+  AfterEnum: false
+  AfterNamespace: false
+  AfterControlStatement: Never
+  BeforeElse: false
+
+# 列宽
+ColumnLimit: 120
+
+# 指针/引用
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# 空格
+SpaceAfterCStyleCast: true
+SpaceBeforeParens: ControlStatements
+
+# 注释
+ReflowComments: false
+
+# 对齐：类型与变量名纵向对齐，但 = 赋值不对齐（按用户偏好）
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: None           # = 不对齐
+AlignConsecutiveDeclarations: None            # 不对齐类型/变量名（避免 int    w 这种多空格）
+AlignConsecutiveMacros: Consecutive
+AlignEscapedNewlines: Left
+AlignOperands: Align
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 1
+
+# include 排序：组内排序，项目内 "" 在前、系统 <> 在后（与 image.h 一致）
+SortIncludes: CaseInsensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^".*"'
+    Priority: 1
+  - Regex: '^<.*\.h>'
+    Priority: 2
+  - Regex: '^<.*>'
+    Priority: 3
+
+# 其他
+AllowShortFunctionsOnASingleLine: InlineOnly      # 类内 inline 单行保留，顶层空函数体保留
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: true           # case X: return 1; 保留单行
+AllowShortBlocksOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: Inline
+
+# switch/case 风格（与 image.h 一致）
+IndentCaseLabels: false                            # case 不缩进，与 switch 对齐
+AlwaysBreakTemplateDeclarations: true
+ConstructorInitializerIndentWidth: 4
+ContinuationIndentWidth: 8
+Cpp11BracedListStyle: false
+DerivePointerAlignment: false
+FixNamespaceComments: true
+NamespaceIndentation: None
+SpacesInLineCommentPrefix:
+  Minimum: 1
+  Maximum: 1
+
+# 尾随空格/换行
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
