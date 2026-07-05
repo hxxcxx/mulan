@@ -1,0 +1,49 @@
+/**
+ * @file capture_request.h
+ * @brief CaptureRequest 描述 view 层一次截图所需的相机、渲染风格和输出参数。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
+#pragma once
+
+#include "view_state.h"
+
+#include <mulan/engine/render/camera/camera.h>
+#include <mulan/engine/render/frontend/render_capture.h>
+
+#include <string>
+
+namespace mulan::view {
+
+enum class CaptureRenderStyle {
+    Shaded,
+    ShadedWithEdges,
+    Wireframe,
+    EdgesOnly,
+};
+
+struct CaptureVisual {
+    CaptureRenderStyle style = CaptureRenderStyle::ShadedWithEdges;
+    bool showViewCube = false;
+    bool showOverlays = false;
+};
+
+struct CaptureRequest {
+    std::string name;
+    engine::RenderCaptureDesc desc;
+    engine::Camera camera;
+    CaptureVisual visual;
+};
+
+struct CaptureImage {
+    std::string name;
+    engine::RenderCaptureResult result;
+};
+
+ViewState makeCaptureViewState(const engine::Camera& camera,
+                               const CaptureVisual& visual,
+                               uint32_t width,
+                               uint32_t height);
+
+} // namespace mulan::view

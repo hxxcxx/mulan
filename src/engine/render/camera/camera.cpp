@@ -25,6 +25,41 @@ Camera::Camera(CameraMode initialMode)
     createRotation(initialMode);
 }
 
+Camera::Camera(const Camera& other) {
+    copyFrom(other);
+}
+
+Camera& Camera::operator=(const Camera& other) {
+    if (this != &other) {
+        copyFrom(other);
+    }
+    return *this;
+}
+
+void Camera::copyFrom(const Camera& other) {
+    mode_ = other.mode_;
+    createRotation(mode_);
+    target_ = other.target_;
+    pan_offset_ = other.pan_offset_;
+    distance_ = other.distance_;
+    width_ = other.width_;
+    height_ = other.height_;
+    fov_y_ = other.fov_y_;
+    near_z_ = other.near_z_;
+    far_z_ = other.far_z_;
+    ortho_ = other.ortho_;
+    ortho_size_ = other.ortho_size_;
+    min_distance_ = other.min_distance_;
+    pan_speed_ = other.pan_speed_;
+    zoom_speed_ = other.zoom_speed_;
+    active_->setOrbitSpeed(other.active_->orbitSpeed());
+    if (mode_ == CameraMode::Turntable) {
+        active_->setYawPitch(other.active_->yaw(), other.active_->pitch());
+    } else {
+        active_->setRotation(other.active_->rotation());
+    }
+}
+
 void Camera::setMode(CameraMode mode) {
     if (mode_ == mode) return;
     mode_ = mode;

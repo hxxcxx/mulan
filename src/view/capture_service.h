@@ -7,9 +7,11 @@
 
 #pragma once
 
+#include "capture_batch.h"
 #include <mulan/engine/render/frontend/render_capture.h>
 
 #include <optional>
+#include <vector>
 
 namespace mulan::view {
 
@@ -19,6 +21,12 @@ class CaptureService {
 public:
     std::optional<engine::RenderCaptureResult>
     capture(ViewContext& context, const engine::RenderCaptureDesc& desc) const;
+
+    std::optional<CaptureImage>
+    capture(ViewContext& context, const CaptureRequest& request) const;
+
+    std::vector<CaptureImage>
+    capture(ViewContext& context, const CaptureBatch& batch) const;
 };
 
 } // namespace mulan::view

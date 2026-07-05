@@ -1,5 +1,7 @@
 # View - 消费 RenderScene 的视图运行时
 add_library(view STATIC
+    capture_batch.cpp
+    capture_request.cpp
     capture_service.cpp
     view_context.cpp
     render_surface.cpp

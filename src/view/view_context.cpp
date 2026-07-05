@@ -1,5 +1,7 @@
 #include "view_context.h"
 
+#include "capture_service.h"
+
 #include <cstdio>
 
 namespace mulan::view {
@@ -134,7 +136,13 @@ void ViewContext::cleanup() {
 void ViewContext::renderFrame() {
     if (!initialized_) return;
 
-    renderer_.render(*device_, surface_, buildViewState());
+    renderFrame(buildViewState());
+}
+
+void ViewContext::renderFrame(const ViewState& viewState) {
+    if (!initialized_) return;
+
+    renderer_.render(*device_, surface_, viewState);
     onFrameEnd();
 }
 
@@ -199,6 +207,19 @@ engine::Operator* ViewContext::activeOperator() const {
 bool ViewContext::readbackPixels(std::vector<uint8_t>& pixels) {
     if (!device_) return false;
     return surface_.readbackPixels(*device_, pixels);
+}
+
+std::optional<engine::RenderCaptureResult>
+ViewContext::capture(const engine::RenderCaptureDesc& desc) {
+    return CaptureService{}.capture(*this, desc);
+}
+
+std::optional<CaptureImage> ViewContext::capture(const CaptureRequest& request) {
+    return CaptureService{}.capture(*this, request);
+}
+
+std::vector<CaptureImage> ViewContext::capture(const CaptureBatch& batch) {
+    return CaptureService{}.capture(*this, batch);
 }
 
 ViewState ViewContext::buildViewState() const {

@@ -10,6 +10,8 @@
 #include "view_config.h"
 #include "view_state.h"
 
+#include "capture_batch.h"
+
 #include "mulan/engine/interaction/camera_manipulator.h"
 #include "mulan/engine/interaction/input_event.h"
 #include "mulan/engine/interaction/operator.h"
@@ -19,6 +21,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -50,6 +53,7 @@ public:
                         const asset::AssetLibrary* assets);
 
     void renderFrame();
+    void renderFrame(const ViewState& viewState);
     void onFrameEnd();
     void resize(int width, int height);
 
@@ -62,6 +66,10 @@ public:
     engine::Operator* defaultOperator() const { return default_op_.get(); }
 
     bool readbackPixels(std::vector<uint8_t>& pixels);
+    std::optional<engine::RenderCaptureResult>
+    capture(const engine::RenderCaptureDesc& desc);
+    std::optional<CaptureImage> capture(const CaptureRequest& request);
+    std::vector<CaptureImage> capture(const CaptureBatch& batch);
 
     engine::Camera& camera() { return camera_; }
     const engine::Camera& camera() const { return camera_; }

@@ -36,6 +36,10 @@ class Camera {
 public:
     /// @param initialMode 初始旋转模式，缺省为 Trackball
     explicit Camera(CameraMode initialMode = CameraMode::Trackball);
+    Camera(const Camera& other);
+    Camera& operator=(const Camera& other);
+    Camera(Camera&&) noexcept = default;
+    Camera& operator=(Camera&&) noexcept = default;
 
     // ==================== 模式控制 ====================
 
@@ -164,6 +168,7 @@ public:
 private:
     /// 根据模式创建对应的 RotationMode 实例
     void createRotation(CameraMode mode);
+    void copyFrom(const Camera& other);
 
     CameraMode mode_ = CameraMode::Trackball;
 
