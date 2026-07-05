@@ -69,7 +69,7 @@ public:
     std::optional<engine::RenderCaptureResult>
     capture(const engine::RenderCaptureDesc& desc);
     std::optional<CaptureImage> capture(const CaptureRequest& request);
-    std::vector<CaptureImage> capture(const CaptureBatch& batch);
+    CaptureBatchResult capture(const CaptureBatch& batch);
 
     engine::Camera& camera() { return camera_; }
     const engine::Camera& camera() const { return camera_; }
@@ -82,6 +82,9 @@ public:
 
     bool showViewCube() const { return show_view_cube_; }
     void setShowViewCube(bool show) { show_view_cube_ = show; }
+
+    bool showOverlays() const { return show_overlays_; }
+    void setShowOverlays(bool show) { show_overlays_ = show; }
 
     RenderSurface& surface() { return surface_; }
     const RenderSurface& surface() const { return surface_; }
@@ -113,6 +116,7 @@ private:
 
     engine::LightEnvironment light_env_;
     RenderMode render_mode_ = RenderMode::ShadedWithEdges;
+    bool show_overlays_ = true;
     bool show_view_cube_ = true;
 
     int width_ = 800;

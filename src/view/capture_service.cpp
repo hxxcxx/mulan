@@ -15,21 +15,37 @@ uint32_t captureHeight(ViewContext& context, const engine::RenderCaptureDesc& de
     return desc.height ? desc.height : static_cast<uint32_t>(context.surface().height());
 }
 
-bool prepareOffscreenSurface(ViewContext& context, uint32_t width, uint32_t height) {
+CaptureResult makeFailure(std::string name, CaptureFailureCode code, std::string message) {
+    return CaptureResult{
+        .name = std::move(name),
+        .result = std::nullopt,
+        .failure = code,
+        .message = std::move(message),
+    };
+}
+
+std::optional<CaptureResult>
+validateOffscreenSurface(ViewContext& context, std::string name, uint32_t width, uint32_t height) {
     if (!context.isInitialized()) {
-        return false;
+        return makeFailure(std::move(name),
+                           CaptureFailureCode::ContextNotInitialized,
+                           "ViewContext is not initialized.");
     }
     if (!context.surface().isOffscreen()) {
-        return false;
+        return makeFailure(std::move(name),
+                           CaptureFailureCode::SurfaceNotOffscreen,
+                           "Capture requires an offscreen ViewContext.");
     }
     if (width == 0 || height == 0) {
-        return false;
+        return makeFailure(std::move(name),
+                           CaptureFailureCode::InvalidSize,
+                           "Capture width and height must be greater than zero.");
     }
     if (context.surface().width() != static_cast<int>(width) ||
         context.surface().height() != static_cast<int>(height)) {
         context.resize(static_cast<int>(width), static_cast<int>(height));
     }
-    return true;
+    return std::nullopt;
 }
 
 std::optional<engine::RenderCaptureResult>
@@ -52,7 +68,7 @@ std::optional<engine::RenderCaptureResult>
 CaptureService::capture(ViewContext& context, const engine::RenderCaptureDesc& desc) const {
     const uint32_t width = captureWidth(context, desc);
     const uint32_t height = captureHeight(context, desc);
-    if (!prepareOffscreenSurface(context, width, height)) return std::nullopt;
+    if (validateOffscreenSurface(context, {}, width, height)) return std::nullopt;
 
     context.renderFrame();
     return readCaptureResult(context, desc, width, height);
@@ -62,7 +78,7 @@ std::optional<CaptureImage>
 CaptureService::capture(ViewContext& context, const CaptureRequest& request) const {
     const uint32_t width = captureWidth(context, request.desc);
     const uint32_t height = captureHeight(context, request.desc);
-    if (!prepareOffscreenSurface(context, width, height)) return std::nullopt;
+    if (validateOffscreenSurface(context, request.name, width, height)) return std::nullopt;
 
     engine::Camera camera = request.camera;
     camera.setViewport(static_cast<int>(width), static_cast<int>(height));
@@ -73,17 +89,37 @@ CaptureService::capture(ViewContext& context, const CaptureRequest& request) con
     return CaptureImage{.name = request.name, .result = std::move(*result)};
 }
 
-std::vector<CaptureImage>
+CaptureBatchResult
 CaptureService::capture(ViewContext& context, const CaptureBatch& batch) const {
-    std::vector<CaptureImage> images;
-    images.reserve(batch.size());
+    CaptureBatchResult batchResult;
+    batchResult.items.reserve(batch.size());
     for (const auto& request : batch.requests()) {
-        auto image = capture(context, request);
-        if (image) {
-            images.push_back(std::move(*image));
+        const uint32_t width = captureWidth(context, request.desc);
+        const uint32_t height = captureHeight(context, request.desc);
+        if (auto failure = validateOffscreenSurface(context, request.name, width, height)) {
+            batchResult.items.push_back(std::move(*failure));
+            continue;
         }
+
+        engine::Camera camera = request.camera;
+        camera.setViewport(static_cast<int>(width), static_cast<int>(height));
+        context.renderFrame(makeCaptureViewState(camera, request.visual, width, height));
+
+        auto result = readCaptureResult(context, request.desc, width, height);
+        if (!result) {
+            batchResult.items.push_back(makeFailure(request.name,
+                                                   CaptureFailureCode::ReadbackFailed,
+                                                   "Capture readback failed."));
+            continue;
+        }
+        batchResult.items.push_back(CaptureResult{
+            .name = request.name,
+            .result = std::move(*result),
+            .failure = CaptureFailureCode::None,
+            .message = {},
+        });
     }
-    return images;
+    return batchResult;
 }
 
 } // namespace mulan::view

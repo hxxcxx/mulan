@@ -218,7 +218,7 @@ std::optional<CaptureImage> ViewContext::capture(const CaptureRequest& request) 
     return CaptureService{}.capture(*this, request);
 }
 
-std::vector<CaptureImage> ViewContext::capture(const CaptureBatch& batch) {
+CaptureBatchResult ViewContext::capture(const CaptureBatch& batch) {
     return CaptureService{}.capture(*this, batch);
 }
 
@@ -232,6 +232,7 @@ ViewState ViewContext::buildViewState() const {
     state.renderMode = render_mode_;
     state.showFaces = render_mode_ != RenderMode::Wireframe;
     state.showEdges = render_mode_ != RenderMode::Shaded;
+    state.showOverlays = show_overlays_;
     state.showViewCube = show_view_cube_;
     return state;
 }

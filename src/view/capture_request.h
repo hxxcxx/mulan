@@ -12,7 +12,11 @@
 #include <mulan/engine/render/camera/camera.h>
 #include <mulan/engine/render/frontend/render_capture.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace mulan::view {
 
@@ -39,6 +43,33 @@ struct CaptureRequest {
 struct CaptureImage {
     std::string name;
     engine::RenderCaptureResult result;
+};
+
+enum class CaptureFailureCode : uint8_t {
+    None,
+    ContextNotInitialized,
+    SurfaceNotOffscreen,
+    InvalidSize,
+    ReadbackFailed,
+};
+
+struct CaptureResult {
+    std::string name;
+    std::optional<engine::RenderCaptureResult> result;
+    CaptureFailureCode failure = CaptureFailureCode::None;
+    std::string message;
+
+    bool succeeded() const { return result.has_value(); }
+};
+
+struct CaptureBatchResult {
+    std::vector<CaptureResult> items;
+
+    bool empty() const { return items.empty(); }
+    bool allSucceeded() const;
+    std::size_t succeededCount() const;
+    std::size_t failedCount() const;
+    std::vector<CaptureImage> images() const;
 };
 
 ViewState makeCaptureViewState(const engine::Camera& camera,

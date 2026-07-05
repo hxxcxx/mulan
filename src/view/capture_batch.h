@@ -9,6 +9,7 @@
 
 #include "capture_request.h"
 
+#include <cstddef>
 #include <span>
 #include <vector>
 

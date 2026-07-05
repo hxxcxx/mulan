@@ -1,6 +1,7 @@
 /**
  * @file capture_service.h
  * @brief CaptureService 将 ViewContext 的离屏渲染与像素读回封装为正式截图入口。
+ *
  * @author hxxcxx
  * @date 2026-07-05
  */
@@ -25,7 +26,7 @@ public:
     std::optional<CaptureImage>
     capture(ViewContext& context, const CaptureRequest& request) const;
 
-    std::vector<CaptureImage>
+    CaptureBatchResult
     capture(ViewContext& context, const CaptureBatch& batch) const;
 };
 

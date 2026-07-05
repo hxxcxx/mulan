@@ -30,6 +30,7 @@ struct ViewState {
     RenderMode renderMode = RenderMode::ShadedWithEdges;
     bool showFaces = true;
     bool showEdges = true;
+    bool showOverlays = true;
     bool showViewCube = true;
 };
 

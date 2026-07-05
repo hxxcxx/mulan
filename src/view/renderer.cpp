@@ -78,7 +78,7 @@ engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewS
     request.output.capture.readback = request.output.readback;
     request.options.showSurfaces = viewState.showFaces;
     request.options.showEdges = viewState.showEdges;
-    request.options.showOverlays = true;
+    request.options.showOverlays = viewState.showOverlays;
     request.options.showViewCube = viewState.showViewCube;
     return request;
 }

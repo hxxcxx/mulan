@@ -2,6 +2,35 @@
 
 namespace mulan::view {
 
+bool CaptureBatchResult::allSucceeded() const {
+    return failedCount() == 0;
+}
+
+std::size_t CaptureBatchResult::succeededCount() const {
+    std::size_t count = 0;
+    for (const auto& item : items) {
+        if (item.succeeded()) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+std::size_t CaptureBatchResult::failedCount() const {
+    return items.size() - succeededCount();
+}
+
+std::vector<CaptureImage> CaptureBatchResult::images() const {
+    std::vector<CaptureImage> result;
+    result.reserve(succeededCount());
+    for (const auto& item : items) {
+        if (item.result) {
+            result.push_back(CaptureImage{.name = item.name, .result = *item.result});
+        }
+    }
+    return result;
+}
+
 ViewState makeCaptureViewState(const engine::Camera& camera,
                                const CaptureVisual& visual,
                                uint32_t width,
@@ -12,6 +41,7 @@ ViewState makeCaptureViewState(const engine::Camera& camera,
     state.cameraPosition = camera.eyePosition();
     state.width = static_cast<int>(width);
     state.height = static_cast<int>(height);
+    state.showOverlays = visual.showOverlays;
     state.showViewCube = visual.showViewCube;
 
     switch (visual.style) {
