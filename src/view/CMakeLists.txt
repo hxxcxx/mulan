@@ -35,6 +35,10 @@ target_link_libraries(view PUBLIC
     scene
 )
 
+target_precompile_headers(view PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/pch.h
+)
+
 set_target_properties(view PROPERTIES OUTPUT_NAME mulan_view)
 
 target_compile_definitions(view PRIVATE

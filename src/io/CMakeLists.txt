@@ -58,3 +58,7 @@ target_compile_definitions(io PRIVATE
     FASTGLTF_USE_NLOHMANN_JSON
     $<$<CONFIG:Debug>:_DEBUG>
 )
+
+target_precompile_headers(io PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/pch.h
+)

@@ -40,6 +40,10 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
     SHADER_DIR="${CMAKE_SOURCE_DIR}/build/shaders"
 )
 
+target_precompile_headers(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/pch.h
+)
+
 # ── Post-build: copy OCCT DLLs ──
 if(DEFINED OCCT_BIN_DIR AND EXISTS "${OCCT_BIN_DIR}")
     file(GLOB OCCT_DLLS "${OCCT_BIN_DIR}/*.dll")

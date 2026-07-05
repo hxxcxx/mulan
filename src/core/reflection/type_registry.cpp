@@ -1,7 +1,6 @@
 #include "type_registry.h"
 
 #include <algorithm>
-#include <memory>
 
 namespace mulan::core {
 

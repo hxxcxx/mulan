@@ -17,6 +17,10 @@ target_include_directories(scene PUBLIC
 
 target_link_libraries(scene PUBLIC asset graphics math)
 
+target_precompile_headers(scene PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/pch.h
+)
+
 set_target_properties(scene PROPERTIES OUTPUT_NAME mulan_scene)
 
 target_compile_definitions(scene PRIVATE

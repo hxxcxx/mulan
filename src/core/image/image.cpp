@@ -4,8 +4,6 @@
 #include <stb_image_write.h>
 
 #include <algorithm>
-#include <filesystem>
-#include <string>
 #include <utility>
 
 namespace mulan::core {

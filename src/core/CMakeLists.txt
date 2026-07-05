@@ -50,6 +50,10 @@ target_link_libraries(core PUBLIC tomlplusplus::tomlplusplus)
 
 # CMake 对 SHARED 库自动定义 <name>_EXPORTS 宏（如 core_EXPORTS）
 # 我们用 core_EXPORTS 来触发 dllexport
+target_precompile_headers(core PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/pch.h
+)
+
 target_compile_definitions(core PRIVATE
     BUILDING_CORE=1
     $<$<CONFIG:Debug>:_DEBUG>

@@ -105,6 +105,10 @@ target_compile_definitions(engine PRIVATE
     _USE_MATH_DEFINES
 )
 
+target_precompile_headers(engine PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/pch.h
+)
+
 # MSVC: 多文件并行编译写同一 PDB 需要 /FS
 set_target_properties(engine PROPERTIES OUTPUT_NAME mulan_engine)
 

@@ -1,6 +1,5 @@
 #include "binary_archive.h"
 
-#include <cstring>
 #include <fstream>
 #include <stdexcept>
 
