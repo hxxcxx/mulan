@@ -66,6 +66,9 @@ public:
     engine::Operator* defaultOperator() const { return default_op_.get(); }
 
     bool readbackPixels(std::vector<uint8_t>& pixels);
+    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc,
+                                 uint32_t width,
+                                 uint32_t height);
     std::optional<engine::RenderCaptureResult>
     capture(const engine::RenderCaptureDesc& desc);
     std::optional<CaptureImage> capture(const CaptureRequest& request);

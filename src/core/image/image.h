@@ -144,4 +144,26 @@ private:
     std::vector<uint8_t>  pixels_;
 };
 
+class CORE_API FloatImage {
+public:
+    FloatImage() = default;
+    FloatImage(uint32_t w, uint32_t h, uint32_t channels, std::vector<float> pixels);
+
+    uint32_t width() const { return width_; }
+    uint32_t height() const { return height_; }
+    uint32_t channels() const { return channels_; }
+    bool valid() const;
+
+    const float* data() const { return pixels_.data(); }
+    size_t totalBytes() const { return pixels_.size() * sizeof(float); }
+
+    static std::shared_ptr<FloatImage> loadHDR(std::string_view path, int forceChannels = 4);
+
+private:
+    uint32_t width_ = 0;
+    uint32_t height_ = 0;
+    uint32_t channels_ = 0;
+    std::vector<float> pixels_;
+};
+
 } // namespace mulan::core

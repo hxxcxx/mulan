@@ -25,7 +25,11 @@ CaptureResult makeFailure(std::string name, CaptureFailureCode code, std::string
 }
 
 std::optional<CaptureResult>
-validateOffscreenSurface(ViewContext& context, std::string name, uint32_t width, uint32_t height) {
+validateOffscreenSurface(ViewContext& context,
+                         const engine::RenderCaptureDesc& desc,
+                         std::string name,
+                         uint32_t width,
+                         uint32_t height) {
     if (!context.isInitialized()) {
         return makeFailure(std::move(name),
                            CaptureFailureCode::ContextNotInitialized,
@@ -41,9 +45,10 @@ validateOffscreenSurface(ViewContext& context, std::string name, uint32_t width,
                            CaptureFailureCode::InvalidSize,
                            "Capture width and height must be greater than zero.");
     }
-    if (context.surface().width() != static_cast<int>(width) ||
-        context.surface().height() != static_cast<int>(height)) {
-        context.resize(static_cast<int>(width), static_cast<int>(height));
+    if (!context.configureCaptureSurface(desc, width, height)) {
+        return makeFailure(std::move(name),
+                           CaptureFailureCode::SurfaceConfigurationFailed,
+                           "Capture surface configuration failed.");
     }
     return std::nullopt;
 }
@@ -55,6 +60,8 @@ readCaptureResult(ViewContext& context, const engine::RenderCaptureDesc& desc,
     result.width = width;
     result.height = height;
     result.format = desc.format;
+    result.bytesPerPixel = engine::textureFormatBytesPerPixel(desc.format);
+    result.rowBytes = width * result.bytesPerPixel;
 
     if (desc.readback && !context.readbackPixels(result.pixels)) {
         return std::nullopt;
@@ -68,7 +75,7 @@ std::optional<engine::RenderCaptureResult>
 CaptureService::capture(ViewContext& context, const engine::RenderCaptureDesc& desc) const {
     const uint32_t width = captureWidth(context, desc);
     const uint32_t height = captureHeight(context, desc);
-    if (validateOffscreenSurface(context, {}, width, height)) return std::nullopt;
+    if (validateOffscreenSurface(context, desc, {}, width, height)) return std::nullopt;
 
     context.renderFrame();
     return readCaptureResult(context, desc, width, height);
@@ -78,7 +85,7 @@ std::optional<CaptureImage>
 CaptureService::capture(ViewContext& context, const CaptureRequest& request) const {
     const uint32_t width = captureWidth(context, request.desc);
     const uint32_t height = captureHeight(context, request.desc);
-    if (validateOffscreenSurface(context, request.name, width, height)) return std::nullopt;
+    if (validateOffscreenSurface(context, request.desc, request.name, width, height)) return std::nullopt;
 
     engine::Camera camera = request.camera;
     camera.setViewport(static_cast<int>(width), static_cast<int>(height));
@@ -96,7 +103,7 @@ CaptureService::capture(ViewContext& context, const CaptureBatch& batch) const {
     for (const auto& request : batch.requests()) {
         const uint32_t width = captureWidth(context, request.desc);
         const uint32_t height = captureHeight(context, request.desc);
-        if (auto failure = validateOffscreenSurface(context, request.name, width, height)) {
+        if (auto failure = validateOffscreenSurface(context, request.desc, request.name, width, height)) {
             batchResult.items.push_back(std::move(*failure));
             continue;
         }

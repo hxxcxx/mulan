@@ -10,6 +10,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <utility>
 
 namespace mulan::view {
 
@@ -46,30 +47,75 @@ bool RenderSurface::initWindowSurface(engine::RHIDevice& device,
 }
 
 bool RenderSurface::initOffscreenSurface(engine::RHIDevice& device, int width, int height) {
-    if (swapchain_ || render_target_) return true;
+    RenderSurfaceDesc desc;
+    desc.width = width;
+    desc.height = height;
+    return initOffscreenSurface(device, desc);
+}
 
-    width_  = width;
-    height_ = height;
+bool RenderSurface::initOffscreenSurface(engine::RHIDevice& device, const RenderSurfaceDesc& desc) {
+    if (swapchain_ || render_target_) return true;
+    if (desc.width <= 0 || desc.height <= 0) return false;
+    const uint32_t bpp = engine::textureFormatBytesPerPixel(desc.colorFormat);
+    if (desc.readback && bpp == 0) return false;
+
+    offscreen_desc_ = desc;
+    width_  = desc.width;
+    height_ = desc.height;
+    bytes_per_pixel_ = bpp;
+    row_bytes_ = static_cast<uint32_t>(width_) * bytes_per_pixel_;
 
     engine::RenderTargetDesc rtDesc;
-    rtDesc.width       = static_cast<uint32_t>(width);
-    rtDesc.height      = static_cast<uint32_t>(height);
-    rtDesc.colorFormat = engine::TextureFormat::RGBA8_UNorm;
-    rtDesc.depthFormat = engine::TextureFormat::D24_UNorm_S8_UInt;
-    rtDesc.hasDepth    = true;
+    rtDesc.width       = static_cast<uint32_t>(desc.width);
+    rtDesc.height      = static_cast<uint32_t>(desc.height);
+    rtDesc.colorFormat = desc.colorFormat;
+    rtDesc.depthFormat = desc.depthFormat;
+    rtDesc.hasDepth    = desc.hasDepth;
 
     auto rt = device.createRenderTarget(rtDesc);
     if (!rt) return false;
     render_target_ = std::move(*rt);
 
-    uint32_t pixelBytes = static_cast<uint32_t>(width) * height * 4;
-    auto sb = device.createBuffer(
-        engine::BufferDesc::staging(pixelBytes, "ReadbackStaging"));
-    if (!sb) {
+    if (!createReadbackBuffer(device)) {
         render_target_.reset();
         return false;
     }
-    staging_buffer_ = std::move(*sb);
+    return true;
+}
+
+bool RenderSurface::configureOffscreenSurface(engine::RHIDevice& device,
+                                              const RenderSurfaceDesc& desc) {
+    if (swapchain_) return false;
+    if (!render_target_) return initOffscreenSurface(device, desc);
+    if (offscreenDescMatches(desc)) return true;
+
+    if (desc.width <= 0 || desc.height <= 0) return false;
+    const uint32_t nextBytesPerPixel = engine::textureFormatBytesPerPixel(desc.colorFormat);
+    if (desc.readback && nextBytesPerPixel == 0) return false;
+
+    const bool formatChanged = offscreen_desc_.colorFormat != desc.colorFormat ||
+                               offscreen_desc_.depthFormat != desc.depthFormat ||
+                               offscreen_desc_.hasDepth != desc.hasDepth;
+    const bool readbackChanged = offscreen_desc_.readback != desc.readback;
+
+    device.waitIdle();
+    offscreen_desc_ = desc;
+    width_ = desc.width;
+    height_ = desc.height;
+    bytes_per_pixel_ = nextBytesPerPixel;
+    row_bytes_ = static_cast<uint32_t>(width_) * bytes_per_pixel_;
+
+    if (formatChanged) {
+        render_target_.reset();
+        staging_buffer_.reset();
+        return initOffscreenSurface(device, desc);
+    }
+
+    render_target_->resize(static_cast<uint32_t>(desc.width), static_cast<uint32_t>(desc.height));
+    if (readbackChanged || desc.readback) {
+        return createReadbackBuffer(device);
+    }
+    staging_buffer_.reset();
     return true;
 }
 
@@ -79,6 +125,9 @@ void RenderSurface::shutdown(engine::RHIDevice& device) {
     staging_buffer_.reset();
     render_target_.reset();
     swapchain_.reset();
+    offscreen_desc_ = {};
+    bytes_per_pixel_ = 0;
+    row_bytes_ = 0;
     width_ = 0;
     height_ = 0;
 }
@@ -90,18 +139,12 @@ void RenderSurface::resize(engine::RHIDevice& device, int width, int height) {
     device.waitIdle();
 
     if (render_target_) {
-        render_target_->resize(width, height);
-
-        // 重建 readback staging buffer
-        staging_buffer_.reset();
-        uint32_t pixelBytes = static_cast<uint32_t>(width) * height * 4;
-        auto sb = device.createBuffer(
-            engine::BufferDesc::staging(pixelBytes, "ReadbackStaging"));
-        if (!sb) {
-            std::fprintf(stderr, "[RenderSurface] resize staging buffer failed: %s\n",
-                         sb.error().message.c_str());
-        } else {
-            staging_buffer_ = std::move(*sb);
+        offscreen_desc_.width = width;
+        offscreen_desc_.height = height;
+        render_target_->resize(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
+        row_bytes_ = static_cast<uint32_t>(width_) * bytes_per_pixel_;
+        if (!createReadbackBuffer(device)) {
+            std::fprintf(stderr, "[RenderSurface] resize staging buffer failed\n");
         }
     } else if (swapchain_) {
         device.clearCaches();
@@ -129,9 +172,30 @@ bool RenderSurface::readbackPixels(engine::RHIDevice& device, std::vector<uint8_
     device.executeCommandList(cmd.get());
     device.waitIdle();
 
-    uint32_t byteSize = static_cast<uint32_t>(width_) * height_ * 4;
+    uint32_t byteSize = row_bytes_ * static_cast<uint32_t>(height_);
     pixels.resize(byteSize);
     return staging_buffer_->readback(0, byteSize, pixels.data());
+}
+
+bool RenderSurface::createReadbackBuffer(engine::RHIDevice& device) {
+    staging_buffer_.reset();
+    if (!offscreen_desc_.readback) return true;
+    const uint32_t byteSize = row_bytes_ * static_cast<uint32_t>(height_);
+    if (byteSize == 0) return false;
+    auto sb = device.createBuffer(engine::BufferDesc::staging(byteSize, "ReadbackStaging"));
+    if (!sb) return false;
+    staging_buffer_ = std::move(*sb);
+    return true;
+}
+
+bool RenderSurface::offscreenDescMatches(const RenderSurfaceDesc& desc) const {
+    return render_target_ &&
+           offscreen_desc_.width == desc.width &&
+           offscreen_desc_.height == desc.height &&
+           offscreen_desc_.colorFormat == desc.colorFormat &&
+           offscreen_desc_.depthFormat == desc.depthFormat &&
+           offscreen_desc_.hasDepth == desc.hasDepth &&
+           offscreen_desc_.readback == desc.readback;
 }
 
 engine::TextureFormat RenderSurface::colorFormat(engine::RHIDevice& /*device*/) const {

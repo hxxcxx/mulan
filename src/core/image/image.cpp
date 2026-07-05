@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <string>
+#include <utility>
 
 namespace mulan::core {
 
@@ -237,6 +238,35 @@ bool Image::isSupportedFile(std::string_view path) {
     for (auto& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return ext == ".png" || ext == ".jpg" || ext == ".jpeg"
         || ext == ".bmp" || ext == ".tga" || ext == ".hdr";
+}
+
+FloatImage::FloatImage(uint32_t w, uint32_t h, uint32_t channels, std::vector<float> pixels)
+    : width_(w)
+    , height_(h)
+    , channels_(channels)
+    , pixels_(std::move(pixels)) {
+}
+
+bool FloatImage::valid() const {
+    return width_ > 0 && height_ > 0 && channels_ > 0 &&
+           pixels_.size() == static_cast<size_t>(width_) * height_ * channels_;
+}
+
+std::shared_ptr<FloatImage> FloatImage::loadHDR(std::string_view path, int forceChannels) {
+    std::string p(path);
+    int w = 0, h = 0, ch = 0;
+    float* raw = stbi_loadf(p.c_str(), &w, &h, &ch, forceChannels);
+    if (!raw) return nullptr;
+
+    const int outCh = (forceChannels > 0) ? forceChannels : ch;
+    const size_t total = static_cast<size_t>(w) * h * outCh;
+    std::vector<float> pixels(raw, raw + total);
+    stbi_image_free(raw);
+
+    return std::make_shared<FloatImage>(static_cast<uint32_t>(w),
+                                        static_cast<uint32_t>(h),
+                                        static_cast<uint32_t>(outCh),
+                                        std::move(pixels));
 }
 
 } // namespace mulan::core

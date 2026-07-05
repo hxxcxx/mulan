@@ -75,6 +75,12 @@ engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewS
     request.output.readback = surface.isOffscreen();
     request.output.capture.width = request.output.width;
     request.output.capture.height = request.output.height;
+    request.output.capture.format = surface.renderTarget()
+        ? surface.renderTarget()->colorFormat()
+        : surface.swapChain()->colorFormat();
+    request.output.capture.depthFormat = surface.renderTarget()
+        ? surface.renderTarget()->depthFormat()
+        : surface.swapChain()->depthFormat();
     request.output.capture.readback = request.output.readback;
     request.options.showSurfaces = viewState.showFaces;
     request.options.showEdges = viewState.showEdges;

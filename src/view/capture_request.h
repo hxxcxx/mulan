@@ -50,6 +50,7 @@ enum class CaptureFailureCode : uint8_t {
     ContextNotInitialized,
     SurfaceNotOffscreen,
     InvalidSize,
+    SurfaceConfigurationFailed,
     ReadbackFailed,
 };
 

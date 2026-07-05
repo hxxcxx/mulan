@@ -16,8 +16,7 @@
 #include "../rhi/bind_group.h"
 #include "../rhi/pipeline_state.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include <mulan/core/image/image.h>
 
 #include <cstdio>
 
@@ -71,9 +70,8 @@ IBLPipeline::~IBLPipeline() = default;
 
 bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
     // 1. 加载 equirect HDR → RGBA32F 2D 纹理
-    int w = 0, h = 0, comp = 0;
-    float* data = stbi_loadf(hdrPath.c_str(), &w, &h, &comp, 4);
-    if (!data) {
+    auto image = mulan::core::FloatImage::loadHDR(hdrPath, 4);
+    if (!image || !image->valid()) {
         std::fprintf(stderr, "[IBL] Failed to load HDR: %s\n", hdrPath.c_str());
         return false;
     }
@@ -83,19 +81,17 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
     eqDesc.format    = TextureFormat::RGBA32_Float;
     eqDesc.dimension = TextureDimension::Texture2D;
     eqDesc.usage     = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
-    eqDesc.width     = static_cast<uint32_t>(w);
-    eqDesc.height    = static_cast<uint32_t>(h);
+    eqDesc.width     = image->width();
+    eqDesc.height    = image->height();
     auto eqR = device.createTexture(eqDesc);
     if (!eqR) {
         std::fprintf(stderr, "[IBL] createTexture(source) failed\n");
-        stbi_image_free(data);
         return false;
     }
     auto sourceEquirect = std::move(*eqR);
-    device.uploadTextureData(sourceEquirect.get(), data,
-                             static_cast<uint32_t>(w), static_cast<uint32_t>(h),
+    device.uploadTextureData(sourceEquirect.get(), image->data(),
+                             image->width(), image->height(),
                              TextureFormat::RGBA32_Float);
-    stbi_image_free(data);
 
     // 2. 创建三张输出纹理（2D equirect 表示）
     auto make2D = [](RHIDevice& dev, uint32_t width, uint32_t height,

@@ -18,6 +18,7 @@ struct RenderCaptureDesc {
     uint32_t width = 0;
     uint32_t height = 0;
     TextureFormat format = TextureFormat::RGBA8_UNorm;
+    TextureFormat depthFormat = TextureFormat::D24_UNorm_S8_UInt;
     bool readback = true;
 };
 
@@ -25,6 +26,8 @@ struct RenderCaptureResult {
     uint32_t width = 0;
     uint32_t height = 0;
     TextureFormat format = TextureFormat::RGBA8_UNorm;
+    uint32_t bytesPerPixel = 0;
+    uint32_t rowBytes = 0;
     std::vector<uint8_t> pixels;
 
     bool empty() const { return pixels.empty(); }

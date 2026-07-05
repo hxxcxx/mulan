@@ -209,6 +209,27 @@ bool ViewContext::readbackPixels(std::vector<uint8_t>& pixels) {
     return surface_.readbackPixels(*device_, pixels);
 }
 
+bool ViewContext::configureCaptureSurface(const engine::RenderCaptureDesc& desc,
+                                          uint32_t width,
+                                          uint32_t height) {
+    if (!device_) return false;
+
+    RenderSurfaceDesc surfaceDesc;
+    surfaceDesc.width = static_cast<int>(width);
+    surfaceDesc.height = static_cast<int>(height);
+    surfaceDesc.colorFormat = desc.format;
+    surfaceDesc.depthFormat = desc.depthFormat;
+    surfaceDesc.hasDepth = true;
+    surfaceDesc.readback = desc.readback;
+    if (!surface_.configureOffscreenSurface(*device_, surfaceDesc)) {
+        return false;
+    }
+    width_ = surface_.width();
+    height_ = surface_.height();
+    camera_.setViewport(width_, height_);
+    return true;
+}
+
 std::optional<engine::RenderCaptureResult>
 ViewContext::capture(const engine::RenderCaptureDesc& desc) {
     return CaptureService{}.capture(*this, desc);
