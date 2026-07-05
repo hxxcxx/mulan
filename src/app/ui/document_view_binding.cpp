@@ -6,11 +6,8 @@
 #include <mulan/view/render_scene.h>
 #include <mulan/view/view_context.h>
 
-#include <unordered_map>
-
 struct DocumentViewBinding::RenderCache {
     mulan::view::RenderScene renderScene;
-    std::unordered_map<uint32_t, mulan::scene::EntityId> pickIds;
 };
 
 DocumentViewBinding::DocumentViewBinding() = default;
@@ -58,17 +55,6 @@ void DocumentViewBinding::fitAll() {
     view_->renderFrame();
 }
 
-mulan::scene::EntityId DocumentViewBinding::resolvePickId(uint32_t pickId) const {
-    if (!render_cache_) {
-        return mulan::scene::EntityId::invalid();
-    }
-    auto it = render_cache_->pickIds.find(pickId);
-    if (it != render_cache_->pickIds.end()) {
-        return it->second;
-    }
-    return mulan::scene::EntityId::invalid();
-}
-
 void DocumentViewBinding::syncRenderCache() {
     if (!render_cache_) {
         render_cache_ = std::make_unique<RenderCache>();
@@ -77,22 +63,10 @@ void DocumentViewBinding::syncRenderCache() {
     if (!session_ || !session_->document() ||
         !session_->document()->scene() || !session_->document()->assets()) {
         render_cache_->renderScene.clear();
-        render_cache_->pickIds.clear();
         return;
     }
 
     render_cache_->renderScene.sync(*session_->document()->scene(), *session_->document()->assets());
-    rebuildPickIdMap();
-}
-
-void DocumentViewBinding::rebuildPickIdMap() {
-    if (!render_cache_) {
-        return;
-    }
-    render_cache_->pickIds.clear();
-    render_cache_->renderScene.forEachProxy([&](const mulan::view::SceneProxy& proxy) {
-        render_cache_->pickIds[proxy.entity.index()] = proxy.entity;
-    });
 }
 
 void DocumentViewBinding::applyViewPreferences() {

@@ -7,9 +7,6 @@
  */
 #pragma once
 
-#include <mulan/scene/entity_id.h>
-
-#include <cstdint>
 #include <memory>
 
 class DocumentSession;
@@ -33,13 +30,10 @@ public:
     void refresh();
     void fitAll();
 
-    mulan::scene::EntityId resolvePickId(uint32_t pickId) const;
-
 private:
     struct RenderCache;
 
     void syncRenderCache();
-    void rebuildPickIdMap();
     void applyViewPreferences();
     void injectRenderCache();
 
