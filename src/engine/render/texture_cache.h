@@ -70,6 +70,11 @@ public:
     /// 如果已加载过，直接返回已有 asset
     TextureAsset* load(const std::string& path, const TextureLoadOptions& options = {}, bool async = false);
 
+    /// 从内存字节加载纹理（带缓存）。key 仅用于缓存去重（如 "gltf:<file>#image[<i>]"）。
+    /// 适用于 GLB 内嵌 / data: URI / LoadExternalImages 已加载到内存的图像字节。
+    TextureAsset* loadFromMemory(const std::string& key, const std::byte* data, size_t size,
+                                 const TextureLoadOptions& options = {});
+
     /// 创建空白纹理
     TextureAsset* create(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage,
                          const std::string& name = {});

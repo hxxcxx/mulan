@@ -8,8 +8,10 @@
 
 #include "asset.h"
 
+#include <cstddef>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace mulan::asset {
 
@@ -21,8 +23,16 @@ public:
     const std::string& sourcePath() const { return source_path_; }
     void setSourcePath(std::string path) { source_path_ = std::move(path); }
 
-    bool srgb() const { return srgb_; }
-    void setSrgb(bool value) { srgb_ = value; }
+    /// 内嵌编码字节（PNG/JPG/...，未解码）。非空时优先于 sourcePath，
+    /// 用于 GLB bufferView / data: URI / LoadExternalImages 已加载到内存的图像。
+    /// 注：sRGB 不再存于 TextureAsset，而由使用方（material slot）决定。
+    const std::vector<std::byte>& embeddedBytes() const { return embedded_bytes_; }
+    void setEmbeddedBytes(std::vector<std::byte> bytes) { embedded_bytes_ = std::move(bytes); }
+    bool hasEmbeddedData() const { return !embedded_bytes_.empty(); }
+
+    /// MIME 类型提示（"image/png" 等），可空——让 ImageLoader 自检测
+    const std::string& mimeType() const { return mime_type_; }
+    void setMimeType(std::string mt) { mime_type_ = std::move(mt); }
 
     int width() const { return width_; }
     int height() const { return height_; }
@@ -33,7 +43,8 @@ public:
 
 private:
     std::string source_path_;
-    bool srgb_ = true;
+    std::vector<std::byte> embedded_bytes_;
+    std::string mime_type_;
     int width_ = 0;
     int height_ = 0;
 };

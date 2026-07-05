@@ -1,6 +1,6 @@
 #include "assimp_importer.h"
 #include "importer_factory.h"
-#include "mesh_import_builder.h"
+#include "import_builder.h"
 
 #include <mulan/core/result/error.h>
 #include <mulan/io/document.h>
@@ -104,8 +104,8 @@ asset::AlphaMode alphaModeFromAssimp(const aiMaterial& material) {
     return asset::AlphaMode::Opaque;
 }
 
-asset::AssetId importTexture(aiMaterial& material, aiTextureType type, MeshImportBuilder& builder,
-                             const std::filesystem::path& baseDirectory, bool srgb) {
+asset::AssetId importTexture(aiMaterial& material, aiTextureType type, ImportBuilder& builder,
+                             const std::filesystem::path& baseDirectory) {
     if (material.GetTextureCount(type) == 0)
         return asset::AssetId::invalid();
 
@@ -118,17 +118,19 @@ asset::AssetId importTexture(aiMaterial& material, aiTextureType type, MeshImpor
     std::filesystem::path texturePath(path.C_Str());
     const std::string texturePathString = texturePath.string();
     if (!texturePathString.empty() && texturePathString.front() == '*') {
+        // TODO(assimp-embedded): 当前未读取 aiScene::mTextures 中的内嵌像素字节。
+        //      渲染端会因找不到文件加载失败；后续应从 scene.mTextures[idx].pcData 取出
+        //      (mWidth*mHeight*bpp 或 mHeight=compressed size) 字节填入 desc.data。
         desc.name = "EmbeddedTexture_" + texturePathString.substr(1);
-        desc.sourcePath = texturePathString;
+        desc.sourcePath = "assimp:embedded#" + texturePathString;  // 缓存键占位，避免空路径误判
     } else {
         desc.name = texturePath.filename().string();
         desc.sourcePath = texturePath.is_relative() ? (baseDirectory / texturePath).string() : texturePath.string();
     }
-    desc.srgb = srgb;
     return builder.createTexture(desc);
 }
 
-std::vector<asset::AssetId> importMaterials(const aiScene& scene, MeshImportBuilder& builder,
+std::vector<asset::AssetId> importMaterials(const aiScene& scene, ImportBuilder& builder,
                                             const std::filesystem::path& baseDirectory, const ImportOptions& options) {
     std::vector<asset::AssetId> materials(scene.mNumMaterials, asset::AssetId::invalid());
     if (!options.importMaterials)
@@ -165,14 +167,18 @@ std::vector<asset::AssetId> importMaterials(const aiScene& scene, MeshImportBuil
 
         desc.alphaMode = alphaModeFromAssimp(*source);
 
+        // sRGB 由 material slot 决定：albedo 类 → sRGB；normal/metallic → linear（数据贴图）
+        desc.baseColorTextureSrgb = true;
+        desc.normalTextureSrgb = false;
+        desc.metallicRoughnessTextureSrgb = false;
+
         if (options.importTextures) {
-            desc.baseColorTexture = importTexture(*source, aiTextureType_BASE_COLOR, builder, baseDirectory, true);
+            desc.baseColorTexture = importTexture(*source, aiTextureType_BASE_COLOR, builder, baseDirectory);
             if (!desc.baseColorTexture.valid()) {
-                desc.baseColorTexture = importTexture(*source, aiTextureType_DIFFUSE, builder, baseDirectory, true);
+                desc.baseColorTexture = importTexture(*source, aiTextureType_DIFFUSE, builder, baseDirectory);
             }
-            desc.normalTexture = importTexture(*source, aiTextureType_NORMALS, builder, baseDirectory, false);
-            desc.metallicRoughnessTexture =
-                    importTexture(*source, aiTextureType_METALNESS, builder, baseDirectory, false);
+            desc.normalTexture = importTexture(*source, aiTextureType_NORMALS, builder, baseDirectory);
+            desc.metallicRoughnessTexture = importTexture(*source, aiTextureType_METALNESS, builder, baseDirectory);
         }
 
         materials[i] = builder.createMaterial(desc);
@@ -224,7 +230,7 @@ struct ImportedMeshRecord {
     std::string name;
 };
 
-std::vector<std::optional<ImportedMeshRecord>> importMeshAssets(const aiScene& scene, MeshImportBuilder& builder,
+std::vector<std::optional<ImportedMeshRecord>> importMeshAssets(const aiScene& scene, ImportBuilder& builder,
                                                                 std::span<const asset::AssetId> materials,
                                                                 ImportReport& report) {
     std::vector<std::optional<ImportedMeshRecord>> records(scene.mNumMeshes);
@@ -342,7 +348,7 @@ core::Result<ImportResult> AssimpImporter::import(const std::string& path, mulan
                 core::ErrorCode::Io, std::string("Assimp failed to import model: ") + importer.GetErrorString()));
     }
 
-    MeshImportBuilder builder(doc);
+    ImportBuilder builder(doc);
     const std::filesystem::path baseDirectory = std::filesystem::path(path).parent_path();
     std::vector<asset::AssetId> materials = importMaterials(*scene, builder, baseDirectory, options);
 

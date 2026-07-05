@@ -6,7 +6,7 @@ add_library(io STATIC
     importer_registry.cpp
     importer_factory.cpp
     file_manager.cpp
-    mesh_import_builder.cpp
+    import_builder.cpp
     document.cpp
     shape_render_geometry.cpp
 )

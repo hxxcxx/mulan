@@ -1,5 +1,6 @@
 #include "texture_cache.h"
 
+#include <cstddef>
 #include <stdexcept>
 
 namespace mulan::engine {
@@ -55,6 +56,38 @@ TextureAsset* TextureCache::load(const std::string& path, const TextureLoadOptio
 
     // 插入缓存
     auto [inserted, _] = textures_.emplace(path, TextureAsset{ std::move(texture), path });
+    return &inserted->second;
+}
+
+TextureAsset* TextureCache::loadFromMemory(const std::string& key, const std::byte* data, size_t size,
+                                           const TextureLoadOptions& options) {
+    if (!device_ || !data || size == 0) {
+        return nullptr;
+    }
+
+    // 检查是否已缓存
+    auto it = textures_.find(key);
+    if (it != textures_.end()) {
+        return &it->second;
+    }
+
+    // 从内存解码 + 转 RHI 友好缓冲
+    TextureLoader loader;
+    LoadedTexture loaded = loader.loadFromMemory(reinterpret_cast<const uint8_t*>(data), size, options);
+    if (loaded.pixels.empty()) {
+        return nullptr;
+    }
+
+    auto texture =
+            createRHITexture(loaded,
+                             TextureUsageFlags::ShaderResource |
+                                     (options.generateMips ? TextureUsageFlags::GenerateMips : TextureUsageFlags::None),
+                             options.generateMips);
+    if (!texture) {
+        return nullptr;
+    }
+
+    auto [inserted, _] = textures_.emplace(key, TextureAsset{ std::move(texture), key });
     return &inserted->second;
 }
 

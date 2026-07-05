@@ -1,4 +1,4 @@
-#include "mesh_import_builder.h"
+#include "import_builder.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/texture_asset.h>
@@ -68,10 +68,10 @@ graphics::Mesh buildStandardMesh(const StandardMeshSource& source) {
     return mesh;
 }
 
-MeshImportBuilder::MeshImportBuilder(Document& document) : document_(document) {
+ImportBuilder::ImportBuilder(Document& document) : document_(document) {
 }
 
-asset::AssetId MeshImportBuilder::createTexture(const ImportedTextureDesc& desc) {
+asset::AssetId ImportBuilder::createTexture(const ImportedTextureDesc& desc) {
     auto* library = document_.assets();
     if (!library)
         return asset::AssetId::invalid();
@@ -80,13 +80,16 @@ asset::AssetId MeshImportBuilder::createTexture(const ImportedTextureDesc& desc)
     if (!texture)
         return asset::AssetId::invalid();
 
-    texture->setSrgb(desc.srgb);
+    if (!desc.data.empty()) {
+        texture->setEmbeddedBytes(std::move(desc.data));
+        texture->setMimeType(desc.mimeType);
+    }
     texture->setSize(desc.width, desc.height);
     ++report_.textureCount;
     return texture->id();
 }
 
-asset::AssetId MeshImportBuilder::createMaterial(const ImportedMaterialDesc& desc) {
+asset::AssetId ImportBuilder::createMaterial(const ImportedMaterialDesc& desc) {
     auto* library = document_.assets();
     if (!library)
         return asset::AssetId::invalid();
@@ -99,28 +102,33 @@ asset::AssetId MeshImportBuilder::createMaterial(const ImportedMaterialDesc& des
     material->setRoughness(desc.roughness);
     material->setMetallic(desc.metallic);
     material->setBaseColorTexture(desc.baseColorTexture);
+    material->setBaseColorTextureSrgb(desc.baseColorTextureSrgb);
     material->setNormalTexture(desc.normalTexture);
+    material->setNormalTextureSrgb(desc.normalTextureSrgb);
     material->setMetallicRoughnessTexture(desc.metallicRoughnessTexture);
+    material->setMetallicRoughnessTextureSrgb(desc.metallicRoughnessTextureSrgb);
     material->setEmissiveTexture(desc.emissiveTexture);
+    material->setEmissiveTextureSrgb(desc.emissiveTextureSrgb);
     material->setOcclusionTexture(desc.occlusionTexture);
+    material->setOcclusionTextureSrgb(desc.occlusionTextureSrgb);
     material->setAlphaMode(desc.alphaMode);
     material->setDoubleSided(desc.doubleSided);
     ++report_.materialCount;
     return material->id();
 }
 
-void MeshImportBuilder::addPrimitive(asset::MeshPrimitive primitive) {
+void ImportBuilder::addPrimitive(asset::MeshPrimitive primitive) {
     if (primitive.mesh.empty())
         return;
     primitives_.push_back(std::move(primitive));
     ++report_.primitiveCount;
 }
 
-void MeshImportBuilder::addPrimitive(graphics::Mesh mesh, asset::AssetId material, std::string name) {
+void ImportBuilder::addPrimitive(graphics::Mesh mesh, asset::AssetId material, std::string name) {
     addPrimitive(asset::MeshPrimitive{ std::move(mesh), material, std::move(name) });
 }
 
-core::Result<ImportedMeshAsset> MeshImportBuilder::commitAsset(std::string name) {
+core::Result<ImportedMeshAsset> ImportBuilder::commitAsset(std::string name) {
     if (primitives_.empty()) {
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "Mesh import contains no primitives"));
     }
@@ -154,7 +162,7 @@ core::Result<ImportedMeshAsset> MeshImportBuilder::commitAsset(std::string name)
     return result;
 }
 
-core::Result<scene::EntityId> MeshImportBuilder::commit(std::string name) {
+core::Result<scene::EntityId> ImportBuilder::commit(std::string name) {
     auto asset = commitAsset(name);
     if (!asset) {
         return std::unexpected(asset.error());

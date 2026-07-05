@@ -15,7 +15,8 @@ namespace mulan::view {
 namespace {
 
 engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::AssetId materialId,
-                                      asset::AssetId (asset::MaterialAsset::*texGetter)() const) {
+                                      asset::AssetId (asset::MaterialAsset::*texGetter)() const,
+                                      bool (asset::MaterialAsset::*srgbGetter)() const) {
     if (!materialId)
         return {};
 
@@ -31,7 +32,11 @@ engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::
     if (!texture)
         return {};
 
-    return engine::RenderTextureDesc{ .sourcePath = texture->sourcePath() };
+    engine::RenderTextureDesc desc;
+    desc.sourcePath = texture->sourcePath();
+    desc.embeddedData = texture->embeddedBytes();  // 拷贝；内嵌源时非空
+    desc.srgb = (material->*srgbGetter)();
+    return desc;
 }
 
 engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset::AssetId materialId) {
@@ -54,9 +59,12 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
     desc.material.roughness = material->roughness();
     desc.material.alphaMode = material->alphaMode();
     desc.material.doubleSided = material->doubleSided();
-    desc.baseColorTexture = textureDesc(assets, materialId, &asset::MaterialAsset::baseColorTexture);
-    desc.normalTexture = textureDesc(assets, materialId, &asset::MaterialAsset::normalTexture);
-    desc.metallicRoughnessTexture = textureDesc(assets, materialId, &asset::MaterialAsset::metallicRoughnessTexture);
+    desc.baseColorTexture = textureDesc(assets, materialId, &asset::MaterialAsset::baseColorTexture,
+                                        &asset::MaterialAsset::baseColorTextureSrgb);
+    desc.normalTexture = textureDesc(assets, materialId, &asset::MaterialAsset::normalTexture,
+                                     &asset::MaterialAsset::normalTextureSrgb);
+    desc.metallicRoughnessTexture = textureDesc(assets, materialId, &asset::MaterialAsset::metallicRoughnessTexture,
+                                                &asset::MaterialAsset::metallicRoughnessTextureSrgb);
     return desc;
 }
 

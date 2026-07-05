@@ -1,6 +1,6 @@
 /**
- * @file mesh_import_builder.h
- * @brief 网格导入构建器，统一创建材质、纹理、primitive 与文档实体。
+ * @file import_builder.h
+ * @brief 导入构建器，统一创建材质、纹理、primitive 与文档实体。
  * @author hxxcxx
  * @date 2026-07-03
  */
@@ -20,6 +20,7 @@
 #include <expected>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace mulan::io {
@@ -30,8 +31,9 @@ namespace mulan::io {
 
 struct ImportedTextureDesc {
     std::string name;
-    std::string sourcePath;
-    bool srgb = true;
+    std::string sourcePath;       ///< 文件源（与 data 二选一）。内嵌源时填缓存键
+    std::vector<std::byte> data;  ///< 内嵌编码字节（PNG/JPG/...，未解码）；非空时优先于 sourcePath
+    std::string mimeType;         ///< 可选 MIME 提示（"image/png" 等）
     int width = 0;
     int height = 0;
 };
@@ -42,10 +44,15 @@ struct ImportedMaterialDesc {
     double roughness = 0.5;
     double metallic = 0.0;
     asset::AssetId baseColorTexture = asset::AssetId::invalid();
+    bool baseColorTextureSrgb = true;
     asset::AssetId normalTexture = asset::AssetId::invalid();
+    bool normalTextureSrgb = false;
     asset::AssetId metallicRoughnessTexture = asset::AssetId::invalid();
+    bool metallicRoughnessTextureSrgb = false;
     asset::AssetId emissiveTexture = asset::AssetId::invalid();
+    bool emissiveTextureSrgb = true;
     asset::AssetId occlusionTexture = asset::AssetId::invalid();
+    bool occlusionTextureSrgb = false;
     math::Vec3 emissiveFactor{ 0.0, 0.0, 0.0 };
     asset::AlphaMode alphaMode = asset::AlphaMode::Opaque;
     bool doubleSided = false;
@@ -68,9 +75,9 @@ struct ImportedMeshAsset {
     math::AABB3 bounds;
 };
 
-class MeshImportBuilder {
+class ImportBuilder {
 public:
-    explicit MeshImportBuilder(Document& document);
+    explicit ImportBuilder(Document& document);
 
     asset::AssetId createTexture(const ImportedTextureDesc& desc);
     asset::AssetId createMaterial(const ImportedMaterialDesc& desc);

@@ -3,6 +3,7 @@
 #include "../material/material_cache.h"
 #include "../render_resource_cache.h"
 #include "../texture_cache.h"
+#include "../texture_loader.h"
 
 #include <string>
 
@@ -26,9 +27,19 @@ uint32_t materialOffset(const RenderWorldSnapshot& snapshot, RenderMaterialHandl
 }
 
 Texture* loadTexture(TextureCache& cache, const RenderTextureDesc& desc) {
-    if (desc.sourcePath.empty())
+    if (desc.embeddedData.empty() && desc.sourcePath.empty())
         return nullptr;
-    auto* loaded = cache.load(desc.sourcePath);
+
+    TextureLoadOptions options;
+    options.sRGB = desc.srgb;
+
+    // 内嵌字节优先（GLB bufferView / data: URI / 已加载内存字节）
+    if (!desc.embeddedData.empty()) {
+        auto* loaded =
+                cache.loadFromMemory(desc.sourcePath, desc.embeddedData.data(), desc.embeddedData.size(), options);
+        return loaded ? loaded->get() : nullptr;
+    }
+    auto* loaded = cache.load(desc.sourcePath, options);
     return loaded ? loaded->get() : nullptr;
 }
 
