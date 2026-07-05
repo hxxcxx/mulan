@@ -142,8 +142,17 @@ bool GeometryPass::createPSO(TextureFormat colorFmt, TextureFormat depthFmt,
             .binding = 8, .count = 1,
             .type = DescriptorType::Sampler,
             .stages = PB::kStageFragment};
+        // IBL 三件套：binding 9=irradiance, 10=prefilter, 11=brdf LUT
         desc.descriptorBindings[bindingCount++] = {
             .binding = 9, .count = 1,
+            .type = DescriptorType::TextureSRV,
+            .stages = PB::kStageFragment};
+        desc.descriptorBindings[bindingCount++] = {
+            .binding = 10, .count = 1,
+            .type = DescriptorType::TextureSRV,
+            .stages = PB::kStageFragment};
+        desc.descriptorBindings[bindingCount++] = {
+            .binding = 11, .count = 1,
             .type = DescriptorType::TextureSRV,
             .stages = PB::kStageFragment};
     }
@@ -189,6 +198,47 @@ bool GeometryPass::createDefaultResources() {
     default_white_tex_ = std::move(*texResult);
     const uint8_t white[4] = {255, 255, 255, 255};
     device_.uploadTextureData(default_white_tex_.get(), white, 1, 1, TextureFormat::RGBA8_UNorm);
+
+    // IBL fallback：1×1 RGBA16F 黑色 2D 纹理（无 IBL 时漫反射/镜面反射=0）
+    if (cfg_.sampleTextures) {
+        TextureDesc iblDesc;
+        iblDesc.name      = "DefaultIBL";
+        iblDesc.format    = TextureFormat::RGBA16_Float;
+        iblDesc.dimension = TextureDimension::Texture2D;
+        iblDesc.usage     = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
+        iblDesc.width     = 1;
+        iblDesc.height    = 1;
+        iblDesc.depth     = 1;
+        auto iblR = device_.createTexture(iblDesc);
+        if (!iblR) {
+            std::fprintf(stderr, "[GeometryPass] create default IBL texture failed\n");
+            return false;
+        }
+        default_ibl_tex_ = std::move(*iblR);
+        const float black[4] = {0.f, 0.f, 0.f, 1.f};
+        device_.uploadTextureData(default_ibl_tex_.get(), black, 1, 1,
+                                  TextureFormat::RGBA16_Float);
+
+        // BRDF LUT fallback：1×1 RG16F，r=1, g=0（让 specular 至少反射环境本身）
+        TextureDesc lutDesc;
+        lutDesc.name      = "DefaultBrdfLUT";
+        lutDesc.format    = TextureFormat::RG16_Float;
+        lutDesc.dimension = TextureDimension::Texture2D;
+        lutDesc.usage     = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
+        lutDesc.width     = 1;
+        lutDesc.height    = 1;
+        lutDesc.depth     = 1;
+        auto lutR = device_.createTexture(lutDesc);
+        if (!lutR) {
+            std::fprintf(stderr, "[GeometryPass] create default brdf LUT failed\n");
+            return false;
+        }
+        default_brdf_lut_ = std::move(*lutR);
+        // RG16F：half r=1.0 (0x3C00), half g=0.0 (0x0000)，4 字节
+        const uint16_t lutData[2] = {0x3C00, 0x0000};
+        device_.uploadTextureData(default_brdf_lut_.get(), lutData, 1, 1,
+                                  TextureFormat::RG16_Float);
+    }
     return true;
 }
 
@@ -208,7 +258,10 @@ bool GeometryPass::createFrameBindGroup(TextureFormat, TextureFormat, bool) {
         bg.addTexture(6, default_white_tex_.get());
         bg.addTexture(7, default_white_tex_.get());
         bg.addSampler(8, default_sampler_.get());
-        bg.addTexture(9, default_white_tex_.get());
+        // IBL 三件套：先用 fallback，每帧 execute 时刷新为真实烘焙产物
+        bg.addTexture(9,  default_ibl_tex_.get());
+        bg.addTexture(10, default_ibl_tex_.get());
+        bg.addTexture(11, default_brdf_lut_.get());
     }
 
     auto result = device_.createBindGroup(pso_->bindGroupLayout(), bg);
@@ -265,16 +318,18 @@ void GeometryPass::execute(const PassContext& ctx) {
 
     // binding=0 (scene UBO) 内容每帧由 uploadSceneUBO 更新，但 binding 本身指向的
     // buffer/offset/range 不变 → 无需 update，复用缓存 descriptor。
-    // binding=9 (env map) 可能在 init 后由 setEnvironmentMap 改变，每帧刷新一次确保生效。
+    // binding=9/10/11 (IBL 三件套) 在 setIBLTextures 后生效，每帧刷新一次。
     if (cfg_.sampleTextures) {
-        frame_bg_->updateTexture(9, env_map_ ? env_map_ : default_white_tex_.get());
+        frame_bg_->updateTexture(9,  ibl_irradiance_ ? ibl_irradiance_ : default_ibl_tex_.get());
+        frame_bg_->updateTexture(10, ibl_prefilter_  ? ibl_prefilter_  : default_ibl_tex_.get());
+        frame_bg_->updateTexture(11, ibl_brdf_lut_   ? ibl_brdf_lut_   : default_brdf_lut_.get());
     }
 
     for (auto& cmd : commands_) {
         if (!cmd.visible || cmd.instanceCount == 0) continue;
         cmd.execute(*ctx.cmd, *frame_bg_, scene_ubo_.get(), object_ubo_.get(),
                     material_ubo_.get(), default_white_tex_.get(),
-                    default_sampler_.get(), env_map_);
+                    default_sampler_.get());
     }
 }
 

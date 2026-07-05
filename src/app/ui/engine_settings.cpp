@@ -42,6 +42,18 @@ void EngineSettings::setBackgroundColor(const QColor& color) {
     if (bgcolor_ != color) { bgcolor_ = color; save(); }
 }
 
+// --- IBL 开关 / HDR 路径 ---
+
+bool EngineSettings::iblEnabled() const { return ibl_enabled_; }
+void EngineSettings::setIblEnabled(bool enabled) {
+    if (ibl_enabled_ != enabled) { ibl_enabled_ = enabled; save(); }
+}
+
+QString EngineSettings::hdrPath() const { return hdr_path_; }
+void EngineSettings::setHdrPath(const QString& path) {
+    if (hdr_path_ != path) { hdr_path_ = path; save(); }
+}
+
 // --- 批量应用 / 读取 ---
 
 void EngineSettings::applyTo(mulan::view::ViewConfig& cfg) const {
@@ -52,6 +64,8 @@ void EngineSettings::applyTo(mulan::view::ViewConfig& cfg) const {
     cfg.clearColor[1] = static_cast<float>(bgcolor_.greenF());
     cfg.clearColor[2] = static_cast<float>(bgcolor_.blueF());
     cfg.clearColor[3] = static_cast<float>(bgcolor_.alphaF());
+    cfg.iblEnabled = ibl_enabled_;
+    cfg.hdrPath    = hdr_path_.toStdString();
 }
 
 void EngineSettings::loadFrom(const mulan::view::ViewConfig& cfg) {
@@ -59,6 +73,8 @@ void EngineSettings::loadFrom(const mulan::view::ViewConfig& cfg) {
     msaa_    = cfg.msaa;
     vsync_   = cfg.vsync;
     bgcolor_ = QColor::fromRgbF(cfg.clearColor[0], cfg.clearColor[1], cfg.clearColor[2], cfg.clearColor[3]);
+    ibl_enabled_ = cfg.iblEnabled;
+    hdr_path_    = QString::fromStdString(cfg.hdrPath);
     save();
 }
 
@@ -96,6 +112,8 @@ void EngineSettings::save() {
     qsettings_.setValue("msaa", msaaToInt(msaa_));
     qsettings_.setValue("vsync", vsync_);
     qsettings_.setValue("backgroundColor", bgcolor_);
+    qsettings_.setValue("iblEnabled", ibl_enabled_);
+    qsettings_.setValue("hdrPath", hdr_path_);
 }
 
 void EngineSettings::load() {
@@ -107,4 +125,6 @@ void EngineSettings::load() {
         "backgroundColor",
         QColor::fromRgbF(defaults.clearColor[0], defaults.clearColor[1], defaults.clearColor[2], defaults.clearColor[3])
     ).value<QColor>();
+    ibl_enabled_ = qsettings_.value("iblEnabled", false).toBool();
+    hdr_path_    = qsettings_.value("hdrPath", QStringLiteral("assets/envmap.hdr")).toString();
 }

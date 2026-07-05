@@ -50,7 +50,6 @@ struct MeshDrawCommand {
     Texture* emissiveTex = nullptr;  // binding 6
     Texture* aoTex     = nullptr;    // binding 7
     Sampler* sampler   = nullptr;    // binding 8
-    Texture* envMap    = nullptr;    // binding 9 (IBL environment map)
 
     // Per-object data（Pass::execute 时写入 objectUBO）
     math::Mat4 worldTransform{1.0f};
@@ -76,8 +75,7 @@ struct MeshDrawCommand {
                  Buffer* objectUBO,
                  Buffer* materialUBO,
                  Texture* defaultWhite = nullptr,
-                 Sampler* defaultSampler = nullptr,
-                 Texture* defaultEnvMap = nullptr) const;
+                 Sampler* defaultSampler = nullptr) const;
 
     /// Object UBO slot 步进（字节）。
     /// 单条 ObjectUniforms 记录为 128 字节，但 D3D12 要求 root CBV 偏移

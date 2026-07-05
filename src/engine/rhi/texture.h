@@ -31,6 +31,7 @@ enum class TextureFormat : uint8_t {
     // --- 16-bit float ---
     RGBA16_Float,
     R16_Float,
+    RG16_Float,
 
     // --- 32-bit float ---
     RGBA32_Float,
@@ -98,6 +99,7 @@ constexpr uint32_t textureFormatBytesPerPixel(TextureFormat fmt) {
     case TextureFormat::BGRA8_sRGB:         return 4;
     case TextureFormat::RGBA16_Float:       return 8;
     case TextureFormat::R16_Float:          return 2;
+    case TextureFormat::RG16_Float:         return 4;
     case TextureFormat::RGBA32_Float:       return 16;
     case TextureFormat::R32_Float:          return 4;
     case TextureFormat::RG32_Float:         return 8;

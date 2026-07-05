@@ -25,6 +25,7 @@ inline DXGI_FORMAT toDXGIFormat(TextureFormat fmt) {
         case TextureFormat::BGRA8_sRGB:          return DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
         case TextureFormat::RGBA16_Float:        return DXGI_FORMAT_R16G16B16A16_FLOAT;
         case TextureFormat::R16_Float:           return DXGI_FORMAT_R16_FLOAT;
+        case TextureFormat::RG16_Float:          return DXGI_FORMAT_R16G16_FLOAT;
         case TextureFormat::RGBA32_Float:        return DXGI_FORMAT_R32G32B32A32_FLOAT;
         case TextureFormat::R32_Float:           return DXGI_FORMAT_R32_FLOAT;
         case TextureFormat::RG32_Float:          return DXGI_FORMAT_R32G32_FLOAT;
@@ -90,6 +91,7 @@ inline DXGI_FORMAT toTypelessFormat(TextureFormat fmt) {
         case TextureFormat::RGBA16_Float:        return DXGI_FORMAT_R16G16B16A16_TYPELESS;
         case TextureFormat::RGBA32_Float:        return DXGI_FORMAT_R32G32B32A32_TYPELESS;
         case TextureFormat::R32_Float:           return DXGI_FORMAT_R32_TYPELESS;
+        case TextureFormat::RG16_Float:          return DXGI_FORMAT_R16G16_TYPELESS;
         default:                                 return toDXGIFormat(fmt);
     }
 }

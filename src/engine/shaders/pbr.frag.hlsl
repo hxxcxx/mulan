@@ -8,9 +8,10 @@
  *   binding 5 = MetallicRoughness(t5) — B=metal, G=roughness
  *   binding 6 = Emissive (t6)    — HDR emissive
  *   binding 7 = AO (t7)          — ambient occlusion
- *   binding 7 = AO (t7)          — ambient occlusion
- *   binding 8 = Sampler (s4)     — shared linear-repeat sampler
- *   binding 9 = EnvMap (t9)      — equirect HDR environment map (IBL)
+ *   binding 8 = Sampler (s4)     — shared linear sampler
+ *   binding 9 = IrradianceMap (t9)  — Texture2D equirect, diffuse IBL
+ *   binding 10 = PrefilterMap (t10) — Texture2D equirect, specular IBL
+ *   binding 11 = BrdfLUT      (t11) — Texture2D RG, split-sum BRDF 积分
  *
  * TextureFlags bitmask (来自 Material cbuffer):
  *   bit0 = albedo, bit1 = normal, bit2 = mr, bit3 = emissive, bit4 = ao
@@ -24,7 +25,9 @@
 [[vk::binding(6, 0)]] Texture2D    EmissiveTex  : register(t6);
 [[vk::binding(7, 0)]] Texture2D    AOTex        : register(t7);
 [[vk::binding(8, 0)]] SamplerState PbrSampler   : register(s4);
-[[vk::binding(9, 0)]] Texture2D    EnvMap       : register(t9);
+[[vk::binding(9, 0)]]  Texture2D   IrradianceMap : register(t9);
+[[vk::binding(10, 0)]] Texture2D   PrefilterMap  : register(t10);
+[[vk::binding(11, 0)]] Texture2D   BrdfLUT       : register(t11);
 
 #define TF_ALBEDO   0x01u
 #define TF_NORMAL   0x02u
@@ -63,17 +66,12 @@ float3 perturbNormal(float3 N, float3 V, float2 uv, float3 tangent, float3 bitan
     return normalize(tn.x * T + tn.y * B + tn.z * N);
 }
 
-// ─── IBL: equirect UV from direction ─────────────────────────
-
+// ─── IBL: 已烘焙的 irradiance/prefilter equirect + BRDF LUT ──────
+// irradiance/prefilter 用 equirect 表示，需把方向转回 uv（与烘焙时一致）。
 float2 directionToEquirectUV(float3 dir) {
     float phi   = atan2(dir.z, dir.x);
-    float theta = acos(dir.y);
+    float theta = acos(clamp(dir.y, -1.0, 1.0));
     return float2(0.5 + phi / (2.0 * PI), 1.0 - theta / PI);
-}
-
-float3 sampleEnvMap(float3 dir, float lod) {
-    float2 uv = directionToEquirectUV(dir);
-    return EnvMap.SampleLevel(PbrSampler, uv, lod).rgb;
 }
 
 // ─── ACES tonemap ─────────────────────────────────────────────
@@ -139,19 +137,20 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
 
     float3 directLight = (diffuse + specular) * LightColor * NdotL;
 
-    // ── IBL 环境光照 ──
+    // ── IBL 环境光照（split-sum 近似，equirect 表示）──
     float3 R = reflect(-V, N);
 
-    // Diffuse IBL: 法线方向采样（低 LOD ≈ 模糊预过滤）
-    float3 irradiance = sampleEnvMap(N, 4.0);
+    // Diffuse IBL: irradiance equirect 沿法线采样（已离线卷积）
+    float3 irradiance = IrradianceMap.Sample(PbrSampler, directionToEquirectUV(N)).rgb;
     float3 diffuseIBL = irradiance * kD * albedo * ao;
 
-    // Specular IBL: 反射方向采样（LOD 按 roughness）
-    float specLod = roughness * 4.0;
-    float3 specularIBL = sampleEnvMap(R, specLod) * F * ao;
+    // Specular IBL: prefilter equirect 沿反射方向采样（单档 roughness，运行时不再按 mip 选）
+    float3 prefiltered = PrefilterMap.Sample(PbrSampler, directionToEquirectUV(R)).rgb;
+    // BRDF LUT: 输入 (NdotV, roughness)，输出 (scale, bias)
+    float2 brdf = BrdfLUT.Sample(PbrSampler, float2(NdotV, roughness)).rg;
+    float3 specularIBL = prefiltered * (F * brdf.x + brdf.y) * ao;
 
-    float3 iblScale = AmbientColor * 3.5; // 保持与之前环境光强度兼容
-    float3 ambient = (diffuseIBL + specularIBL) * iblScale;
+    float3 ambient = (diffuseIBL + specularIBL) * AmbientColor;
 
     float3 color = ambient + directLight + emissive;
 

@@ -10,6 +10,8 @@
 #include <QColor>
 class QComboBox;
 class QPushButton;
+class QCheckBox;
+class QLineEdit;
 
 class EngineSettingsDialog : public QDialog {
     Q_OBJECT
@@ -29,4 +31,7 @@ private:
     QComboBox*  combo_msaa_    = nullptr;
     QPushButton* button_color_ = nullptr;
     QColor      background_color_;
+
+    QCheckBox* check_ibl_   = nullptr;
+    QLineEdit* edit_hdr_path_ = nullptr;
 };

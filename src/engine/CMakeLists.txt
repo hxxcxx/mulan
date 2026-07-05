@@ -132,10 +132,16 @@ if(DXC_EXECUTABLE)
         edge.frag.hlsl
         text.vert.hlsl
         text.frag.hlsl
+        ibl.vert.hlsl
+        ibl_irradiance.frag.hlsl
+        ibl_prefilter.frag.hlsl
+        ibl_brdf_lut.frag.hlsl
     )
 
     # common.hlsli 作为依赖（不单独编译）
     set(SHADER_COMMON "${SHADER_SOURCE_DIR}/common.hlsli")
+    # IBL 共享头同样作为依赖
+    set(IBL_COMMON "${SHADER_SOURCE_DIR}/ibl_common.hlsli")
 
     # 确定每个 shader 文件的 stage 和入口点
     set(SOLID_VERT_STAGE    vs)
@@ -201,7 +207,7 @@ if(DXC_EXECUTABLE)
                 -I "${SHADER_SOURCE_DIR}"
                 -Fo "${SPV_OUTPUT}"
                 "${SHADER_INPUT}"
-            DEPENDS "${SHADER_INPUT}" "${SHADER_COMMON}"
+            DEPENDS "${SHADER_INPUT}" "${SHADER_COMMON}" "${IBL_COMMON}"
             COMMENT "Compiling shader: ${SHADER_FILE} → ${SPV_FILE} (SPIR-V)"
         )
         list(APPEND SHADER_OUTPUTS "${SPV_OUTPUT}")
@@ -218,7 +224,7 @@ if(DXC_EXECUTABLE)
                 -I "${SHADER_SOURCE_DIR}"
                 -Fo "${DXIL_OUTPUT}"
                 "${SHADER_INPUT}"
-            DEPENDS "${SHADER_INPUT}" "${SHADER_COMMON}"
+            DEPENDS "${SHADER_INPUT}" "${SHADER_COMMON}" "${IBL_COMMON}"
             COMMENT "Compiling shader: ${SHADER_FILE} → ${DXIL_FILE} (DXIL)"
         )
         list(APPEND SHADER_OUTPUTS "${DXIL_OUTPUT}")

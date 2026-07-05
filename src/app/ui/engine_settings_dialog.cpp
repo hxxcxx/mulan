@@ -3,6 +3,8 @@
 
 #include <QFormLayout>
 #include <QComboBox>
+#include <QCheckBox>
+#include <QLineEdit>
 #include <QColorDialog>
 #include <QDialogButtonBox>
 #include <QLabel>
@@ -37,6 +39,15 @@ EngineSettingsDialog::EngineSettingsDialog(QWidget* parent)
     connect(button_color_, &QPushButton::clicked, this, &EngineSettingsDialog::onChooseBackgroundColor);
     layout->addRow(tr("Background:"), button_color_);
 
+    // --- IBL 开关 ---
+    check_ibl_ = new QCheckBox(tr("Enable IBL (environment reflections)"), this);
+    layout->addRow(check_ibl_);
+
+    // --- HDR 路径 ---
+    edit_hdr_path_ = new QLineEdit(this);
+    edit_hdr_path_->setPlaceholderText(tr("assets/envmap.hdr"));
+    layout->addRow(tr("HDR Path:"), edit_hdr_path_);
+
     // --- 提示 ---
     auto* hint = new QLabel(tr("Changes take effect on next document tab."), this);
     hint->setStyleSheet("color: gray; font-size: 10pt;");
@@ -62,6 +73,8 @@ void EngineSettingsDialog::readSettings() {
     if (idx >= 0) combo_msaa_->setCurrentIndex(idx);
     background_color_ = s.backgroundColor();
     updateBackgroundButton();
+    check_ibl_->setChecked(s.iblEnabled());
+    edit_hdr_path_->setText(s.hdrPath());
 }
 
 void EngineSettingsDialog::onAccept() {
@@ -69,6 +82,8 @@ void EngineSettingsDialog::onAccept() {
     s.setBackend(static_cast<GraphicsBackend>(combo_backend_->currentData().toInt()));
     s.setMsaa(static_cast<RenderConfig::MSAALevel>(combo_msaa_->currentData().toInt()));
     s.setBackgroundColor(background_color_);
+    s.setIblEnabled(check_ibl_->isChecked());
+    s.setHdrPath(edit_hdr_path_->text().trimmed());
     accept();
 }
 

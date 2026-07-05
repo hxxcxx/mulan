@@ -23,6 +23,8 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
 
     width_  = width;
     height_ = height;
+    ibl_enabled_ = cfg.iblEnabled;
+    hdr_path_    = cfg.hdrPath;
 
     engine::NativeWindowHandle window = cfg.toNativeWindowHandle();
     if (!window.valid()) return false;
@@ -111,7 +113,8 @@ bool ViewContext::initRendering() {
 
     return renderer_.init(*device_, light_env_,
                           surface_.colorFormat(*device_),
-                          surface_.depthFormat(*device_));
+                          surface_.depthFormat(*device_),
+                          ibl_enabled_, hdr_path_);
 }
 
 void ViewContext::cleanup() {

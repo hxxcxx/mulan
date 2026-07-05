@@ -13,6 +13,7 @@
 #include "mulan/engine/window.h"
 
 #include <cstdint>
+#include <string>
 
 namespace mulan::view {
 
@@ -30,6 +31,12 @@ struct ViewConfig {
     bool enableValidation = true;
 
     float clearColor[4] = {97.0f / 255, 101.0f / 255, 118.0f / 255, 1.0f};
+
+    /// IBL（环境光反射）开关。默认关闭：需要 hdrPath 指向一张可读的 HDR 文件。
+    /// 开启时启动时一次性烘焙 irradiance/prefilter/BRDF LUT；关闭则完全跳过烘焙。
+    bool iblEnabled = false;
+    /// HDR 文件路径（相对进程工作目录）。仅 iblEnabled=true 时使用。
+    std::string hdrPath = "assets/envmap.hdr";
 
 #ifdef _WIN32
     uintptr_t hInstance = 0;

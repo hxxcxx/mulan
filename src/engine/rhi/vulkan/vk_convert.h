@@ -22,6 +22,7 @@ inline vk::Format toVkFormat(TextureFormat fmt) {
         case TextureFormat::BGRA8_sRGB:        return vk::Format::eB8G8R8A8Srgb;
         case TextureFormat::RGBA16_Float:      return vk::Format::eR16G16B16A16Sfloat;
         case TextureFormat::R16_Float:         return vk::Format::eR16Sfloat;
+        case TextureFormat::RG16_Float:        return vk::Format::eR16G16Sfloat;
         case TextureFormat::RGBA32_Float:      return vk::Format::eR32G32B32A32Sfloat;
         case TextureFormat::R32_Float:         return vk::Format::eR32Sfloat;
         case TextureFormat::RG32_Float:        return vk::Format::eR32G32Sfloat;
@@ -42,6 +43,7 @@ inline TextureFormat fromVkFormat(vk::Format fmt) {
         case vk::Format::eB8G8R8A8Srgb:         return TextureFormat::BGRA8_sRGB;
         case vk::Format::eR16G16B16A16Sfloat:   return TextureFormat::RGBA16_Float;
         case vk::Format::eR16Sfloat:            return TextureFormat::R16_Float;
+        case vk::Format::eR16G16Sfloat:         return TextureFormat::RG16_Float;
         case vk::Format::eR32G32B32A32Sfloat:   return TextureFormat::RGBA32_Float;
         case vk::Format::eR32Sfloat:            return TextureFormat::R32_Float;
         case vk::Format::eR32G32Sfloat:         return TextureFormat::RG32_Float;

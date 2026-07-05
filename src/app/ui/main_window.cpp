@@ -218,7 +218,7 @@ void MainWindow::onOpenFile() {
     logImportReport(opened->import.report);
     auto doc = std::move(opened->document);
     QString title = QString::fromStdString(doc->displayName());
-    auto* session = new DocumentSession(std::move(doc));
+    auto* session = new DocumentSession(std::move(doc), std::move(opened->import.report));
     doc_area_->addDocument(session, title);
 
     statusBar()->showMessage(
@@ -250,7 +250,7 @@ void MainWindow::dropEvent(QDropEvent* e) {
     logImportReport(opened->import.report);
     auto doc = std::move(opened->document);
     QString title = QString::fromStdString(doc->displayName());
-    auto* session = new DocumentSession(std::move(doc));
+    auto* session = new DocumentSession(std::move(doc), std::move(opened->import.report));
     doc_area_->addDocument(session, title);
 
     statusBar()->showMessage(

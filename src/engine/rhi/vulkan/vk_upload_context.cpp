@@ -75,7 +75,6 @@ void VKUploadContext::uploadTexture(VKTexture* dst, const void* data,
     } else {
         // 行距 > 行实际大小时逐行拷贝
         const auto* src = static_cast<const uint8_t*>(data);
-        auto* dstPtr = static_cast<uint8_t*>(slice.mapped) + slice.offset;
         for (uint32_t y = 0; y < height; ++y) {
             memcpy(dstPtr + y * rowStride, src + y * rowSize, rowSize);
         }

@@ -24,6 +24,7 @@
 #include "mulan/engine/render/environment_map.h"
 
 #include <memory>
+#include <string>
 
 namespace mulan::engine {
 class RHIDevice;
@@ -55,7 +56,9 @@ public:
     bool init(engine::RHIDevice& device,
               engine::LightEnvironment& lightEnv,
               engine::TextureFormat colorFmt,
-              engine::TextureFormat depthFmt);
+              engine::TextureFormat depthFmt,
+              bool iblEnabled = false,
+              const std::string& hdrPath = "assets/envmap.hdr");
 
     void shutdown(engine::RHIDevice& device);
 
@@ -80,7 +83,7 @@ private:
     // 此时 passes/resources 已释放，但 device 仍活，GPU 纹理可安全销毁）
     std::unique_ptr<engine::TextureCache>  texture_cache_;
     std::unique_ptr<engine::MaterialCache> material_cache_;
-    std::unique_ptr<engine::EnvironmentMap> env_map_;
+    std::unique_ptr<engine::IBLPipeline> ibl_;
 
     std::unique_ptr<engine::RenderResourceCache> resources_;
 

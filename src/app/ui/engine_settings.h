@@ -10,6 +10,7 @@
 #include <mulan/view/view_config.h>
 #include <QColor>
 #include <QSettings>
+#include <QString>
 
 class EngineSettings {
 public:
@@ -37,6 +38,16 @@ public:
     QColor backgroundColor() const;
     void setBackgroundColor(const QColor& color);
 
+    /// IBL（Image-Based Lighting）开关。默认关闭——需要把一张 HDR 放到 hdrPath()
+    /// 指向的位置，开启后启动时一次性烘焙 irradiance/prefilter/BRDF LUT 三件套。
+    /// 关闭时完全跳过烘焙，shader 走默认黑色 fallback，零开销。
+    bool iblEnabled() const;
+    void setIblEnabled(bool enabled);
+
+    /// HDR 文件路径。默认 "assets/envmap.hdr"（相对进程工作目录）。
+    QString hdrPath() const;
+    void setHdrPath(const QString& path);
+
 private:
     EngineSettings();
     ~EngineSettings() = default;
@@ -52,4 +63,6 @@ private:
     mulan::engine::RenderConfig::MSAALevel   msaa_    = mulan::engine::RenderConfig::MSAALevel::x4;
     bool                                        vsync_   = true;
     QColor                                     bgcolor_;
+    bool                                        ibl_enabled_ = false;  // 默认关
+    QString                                     hdr_path_{"assets/envmap.hdr"};
 };

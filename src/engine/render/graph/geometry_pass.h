@@ -74,8 +74,13 @@ public:
     /// 全局默认线性 sampler。仅 sampleTextures=true 时非 null。
     Sampler* defaultSampler() const { return default_sampler_.get(); }
 
-    /// 设置 IBL 环境贴图（nullptr = 退化到 defaultWhite，无 IBL 效果）
-    void setEnvironmentMap(Texture* envMap) { env_map_ = envMap; }
+    /// 设置 IBL 三件套（irradiance / prefilter / brdf LUT，均为 equirect 2D）。
+    /// 任意一张为 nullptr 时该 binding 走 default fallback。
+    void setIBLTextures(Texture* irradiance, Texture* prefilter, Texture* brdfLUT) {
+        ibl_irradiance_ = irradiance;
+        ibl_prefilter_  = prefilter;
+        ibl_brdf_lut_   = brdfLUT;
+    }
 
 private:
     bool loadShaders();
@@ -105,7 +110,14 @@ private:
     // 仅 sampleTextures=true 时持有：默认 sampler + 1×1 白纹理（本 pass 独占所有权）
     std::unique_ptr<Sampler>       default_sampler_;
     std::unique_ptr<Texture>       default_white_tex_;
-    Texture*                       env_map_ = nullptr;  // 借用自 Renderer 的 EnvironmentMap
+
+    // IBL 默认 fallback：黑色 1×1 RGBA16F 2D + (1,0) RG16F LUT
+    std::unique_ptr<Texture>       default_ibl_tex_;
+    std::unique_ptr<Texture>       default_brdf_lut_;
+    // 借用自 Renderer::IBLPipeline 的烘焙产物
+    Texture*                       ibl_irradiance_ = nullptr;
+    Texture*                       ibl_prefilter_  = nullptr;
+    Texture*                       ibl_brdf_lut_   = nullptr;
 
     std::span<const MeshDrawCommand> commands_;
     bool initialized_ = false;

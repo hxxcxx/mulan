@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace mulan::asset {
@@ -102,6 +103,10 @@ private:
     int width_ = 800;
     int height_ = 600;
     bool initialized_ = false;
+
+    // IBL 配置（由 ViewConfig::iblEnabled / hdrPath 填充，initRendering 时传给 Renderer）
+    bool ibl_enabled_ = false;
+    std::string hdr_path_ = "assets/envmap.hdr";
 };
 
 } // namespace mulan::view

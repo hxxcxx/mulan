@@ -24,8 +24,7 @@ void MeshDrawCommand::execute(CommandList& cmd,
                                Buffer* objectUBO,
                                Buffer* materialUBO,
                                Texture* defaultWhite,
-                               Sampler* defaultSampler,
-                               Texture* defaultEnvMap) const {
+                               Sampler* defaultSampler) const {
     if (instanceCount == 0 || !pipelineState || !vertexBuffer) return;
 
     // 上传 per-object UBO
@@ -57,8 +56,8 @@ void MeshDrawCommand::execute(CommandList& cmd,
 
     // 刷新每 draw 变化的 binding：
     //   binding=1 (object UBO offset) / binding=2 (material UBO offset) 每 draw 必变；
-    //   binding=3..9 纹理可能变（按 draw 材质决定）。
-    // 其余 binding（scene=0）帧内不变，复用 frameBg 缓存 descriptor。
+    //   binding=3..8 纹理/sampler 可能变（按 draw 材质决定）。
+    // 其余 binding（scene=0, IBL=10/11/12）帧内不变，复用 frameBg 缓存 descriptor。
     // 后端据 dirtyMask 走局部重写，未变化的 binding 零分配零写入。
     frameBg.updateUBO(1, objectUBO, objectUboOffset, kObjectUboStride);
     frameBg.updateUBO(2, materialUBO, materialUboOffset, 128);
@@ -72,7 +71,6 @@ void MeshDrawCommand::execute(CommandList& cmd,
         frameBg.updateTexture(6, emissiveTex ? emissiveTex : defaultWhite);
         frameBg.updateTexture(7, aoTex     ? aoTex     : defaultWhite);
         frameBg.updateSampler(8, sampler ? sampler : defaultSampler);
-        frameBg.updateTexture(9, envMap    ? envMap    : (defaultEnvMap ? defaultEnvMap : defaultWhite));
     }
 
     cmd.bindGroup(frameBg);
