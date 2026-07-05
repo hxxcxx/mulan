@@ -2,10 +2,28 @@
 
 #include "view_context.h"
 
+#include <optional>
 #include <utility>
 
 namespace mulan::view {
 namespace {
+
+core::ErrorCode errorCodeFor(CaptureFailureCode code) {
+    switch (code) {
+    case CaptureFailureCode::ContextNotInitialized:
+        return core::ErrorCode::InvalidArg;
+    case CaptureFailureCode::SurfaceNotOffscreen:
+    case CaptureFailureCode::SurfaceConfigurationFailed:
+        return core::ErrorCode::NotSupported;
+    case CaptureFailureCode::InvalidSize:
+        return core::ErrorCode::InvalidArg;
+    case CaptureFailureCode::ReadbackFailed:
+        return core::ErrorCode::Io;
+    case CaptureFailureCode::None:
+        return core::ErrorCode::Generic;
+    }
+    return core::ErrorCode::Generic;
+}
 
 uint32_t captureWidth(ViewContext& context, const engine::RenderCaptureDesc& desc) {
     return desc.width ? desc.width : static_cast<uint32_t>(context.surface().width());
@@ -16,9 +34,10 @@ uint32_t captureHeight(ViewContext& context, const engine::RenderCaptureDesc& de
 }
 
 CaptureResult makeFailure(std::string name, CaptureFailureCode code, std::string message) {
+    auto error = core::Error::make(errorCodeFor(code), message);
     return CaptureResult{
         .name = std::move(name),
-        .result = std::nullopt,
+        .result = std::unexpected(error),
         .failure = code,
         .message = std::move(message),
     };
@@ -53,7 +72,7 @@ validateOffscreenSurface(ViewContext& context,
     return std::nullopt;
 }
 
-std::optional<engine::RenderCaptureResult>
+std::expected<engine::RenderCaptureResult, core::Error>
 readCaptureResult(ViewContext& context, const engine::RenderCaptureDesc& desc,
                   uint32_t width, uint32_t height) {
     engine::RenderCaptureResult result;
@@ -64,35 +83,40 @@ readCaptureResult(ViewContext& context, const engine::RenderCaptureDesc& desc,
     result.rowBytes = width * result.bytesPerPixel;
 
     if (desc.readback && !context.readbackPixels(result.pixels)) {
-        return std::nullopt;
+        return std::unexpected(core::Error::make(core::ErrorCode::Io,
+                                                "Capture readback failed."));
     }
     return result;
 }
 
 } // namespace
 
-std::optional<engine::RenderCaptureResult>
+std::expected<engine::RenderCaptureResult, core::Error>
 CaptureService::capture(ViewContext& context, const engine::RenderCaptureDesc& desc) const {
     const uint32_t width = captureWidth(context, desc);
     const uint32_t height = captureHeight(context, desc);
-    if (validateOffscreenSurface(context, desc, {}, width, height)) return std::nullopt;
+    if (auto failure = validateOffscreenSurface(context, desc, {}, width, height)) {
+        return std::unexpected(failure->result.error());
+    }
 
     context.renderFrame();
     return readCaptureResult(context, desc, width, height);
 }
 
-std::optional<CaptureImage>
+std::expected<CaptureImage, core::Error>
 CaptureService::capture(ViewContext& context, const CaptureRequest& request) const {
     const uint32_t width = captureWidth(context, request.desc);
     const uint32_t height = captureHeight(context, request.desc);
-    if (validateOffscreenSurface(context, request.desc, request.name, width, height)) return std::nullopt;
+    if (auto failure = validateOffscreenSurface(context, request.desc, request.name, width, height)) {
+        return std::unexpected(failure->result.error());
+    }
 
     engine::Camera camera = request.camera;
     camera.setViewport(static_cast<int>(width), static_cast<int>(height));
     context.renderFrame(makeCaptureViewState(camera, request.visual, width, height));
 
     auto result = readCaptureResult(context, request.desc, width, height);
-    if (!result) return std::nullopt;
+    if (!result) return std::unexpected(result.error());
     return CaptureImage{.name = request.name, .result = std::move(*result)};
 }
 
@@ -114,9 +138,12 @@ CaptureService::capture(ViewContext& context, const CaptureBatch& batch) const {
 
         auto result = readCaptureResult(context, request.desc, width, height);
         if (!result) {
-            batchResult.items.push_back(makeFailure(request.name,
-                                                   CaptureFailureCode::ReadbackFailed,
-                                                   "Capture readback failed."));
+            batchResult.items.push_back(CaptureResult{
+                .name = request.name,
+                .result = std::unexpected(result.error()),
+                .failure = CaptureFailureCode::ReadbackFailed,
+                .message = result.error().message,
+            });
             continue;
         }
         batchResult.items.push_back(CaptureResult{

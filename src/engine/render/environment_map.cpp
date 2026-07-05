@@ -70,9 +70,10 @@ IBLPipeline::~IBLPipeline() = default;
 
 bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
     // 1. 加载 equirect HDR → RGBA32F 2D 纹理
-    auto image = mulan::core::FloatImage::loadHDR(hdrPath, 4);
-    if (!image || !image->valid()) {
-        std::fprintf(stderr, "[IBL] Failed to load HDR: %s\n", hdrPath.c_str());
+    auto image = mulan::core::FloatImage::loadHDRExpected(hdrPath, 4);
+    if (!image || !(*image)->valid()) {
+        const char* reason = image ? "invalid HDR image" : image.error().message.c_str();
+        std::fprintf(stderr, "[IBL] Failed to load HDR: %s (%s)\n", hdrPath.c_str(), reason);
         return false;
     }
 
@@ -81,16 +82,16 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
     eqDesc.format    = TextureFormat::RGBA32_Float;
     eqDesc.dimension = TextureDimension::Texture2D;
     eqDesc.usage     = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
-    eqDesc.width     = image->width();
-    eqDesc.height    = image->height();
+    eqDesc.width     = (*image)->width();
+    eqDesc.height    = (*image)->height();
     auto eqR = device.createTexture(eqDesc);
     if (!eqR) {
         std::fprintf(stderr, "[IBL] createTexture(source) failed\n");
         return false;
     }
     auto sourceEquirect = std::move(*eqR);
-    device.uploadTextureData(sourceEquirect.get(), image->data(),
-                             image->width(), image->height(),
+    device.uploadTextureData(sourceEquirect.get(), (*image)->data(),
+                             (*image)->width(), (*image)->height(),
                              TextureFormat::RGBA32_Float);
 
     // 2. 创建三张输出纹理（2D equirect 表示）

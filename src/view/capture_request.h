@@ -11,10 +11,11 @@
 
 #include <mulan/engine/render/camera/camera.h>
 #include <mulan/engine/render/frontend/render_capture.h>
+#include <mulan/core/result/error.h>
 
 #include <cstddef>
 #include <cstdint>
-#include <optional>
+#include <expected>
 #include <string>
 #include <vector>
 
@@ -56,7 +57,7 @@ enum class CaptureFailureCode : uint8_t {
 
 struct CaptureResult {
     std::string name;
-    std::optional<engine::RenderCaptureResult> result;
+    std::expected<engine::RenderCaptureResult, core::Error> result;
     CaptureFailureCode failure = CaptureFailureCode::None;
     std::string message;
 

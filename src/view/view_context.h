@@ -12,6 +12,7 @@
 
 #include "capture_batch.h"
 
+#include "mulan/core/result/error.h"
 #include "mulan/engine/interaction/camera_manipulator.h"
 #include "mulan/engine/interaction/input_event.h"
 #include "mulan/engine/interaction/operator.h"
@@ -20,8 +21,8 @@
 #include "mulan/engine/render/camera/camera.h"
 
 #include <cstdint>
+#include <expected>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -69,9 +70,9 @@ public:
     bool configureCaptureSurface(const engine::RenderCaptureDesc& desc,
                                  uint32_t width,
                                  uint32_t height);
-    std::optional<engine::RenderCaptureResult>
+    std::expected<engine::RenderCaptureResult, core::Error>
     capture(const engine::RenderCaptureDesc& desc);
-    std::optional<CaptureImage> capture(const CaptureRequest& request);
+    std::expected<CaptureImage, core::Error> capture(const CaptureRequest& request);
     CaptureBatchResult capture(const CaptureBatch& batch);
 
     engine::Camera& camera() { return camera_; }

@@ -9,9 +9,10 @@
 #pragma once
 
 #include "capture_batch.h"
+#include <mulan/core/result/error.h>
 #include <mulan/engine/render/frontend/render_capture.h>
 
-#include <optional>
+#include <expected>
 #include <vector>
 
 namespace mulan::view {
@@ -20,10 +21,10 @@ class ViewContext;
 
 class CaptureService {
 public:
-    std::optional<engine::RenderCaptureResult>
+    std::expected<engine::RenderCaptureResult, core::Error>
     capture(ViewContext& context, const engine::RenderCaptureDesc& desc) const;
 
-    std::optional<CaptureImage>
+    std::expected<CaptureImage, core::Error>
     capture(ViewContext& context, const CaptureRequest& request) const;
 
     CaptureBatchResult

@@ -109,13 +109,23 @@ std::vector<uint8_t> Image::detachPixels() {
 // ============================================================
 
 bool Image::savePNG(std::string_view path) const {
-    if (!valid()) return false;
+    return savePNGExpected(path).has_value();
+}
+
+std::expected<void, Error> Image::savePNGExpected(std::string_view path) const {
+    if (!valid()) {
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Cannot save an invalid image."));
+    }
     std::string p(path);
     int stride = static_cast<int>(rowBytes());
     int comps  = static_cast<int>(bytesPerPixel(format_));
-    return stbi_write_png(p.c_str(),
+    const int ok = stbi_write_png(p.c_str(),
         static_cast<int>(width_), static_cast<int>(height_),
-        comps, pixels_.data(), stride) != 0;
+        comps, pixels_.data(), stride);
+    if (ok == 0) {
+        return std::unexpected(Error::make(ErrorCode::Io, "Failed to save PNG image."));
+    }
+    return {};
 }
 
 bool Image::saveBMP(std::string_view path) const {
@@ -150,7 +160,16 @@ bool Image::saveJPG(std::string_view path, int quality) const {
 // ============================================================
 
 std::shared_ptr<Image> Image::load(std::string_view path) {
-    return load(path, 0);
+    auto result = loadExpected(path);
+    return result ? *result : nullptr;
+}
+
+std::expected<std::shared_ptr<Image>, Error> Image::loadExpected(std::string_view path) {
+    auto image = load(path, 0);
+    if (!image || !image->valid()) {
+        return std::unexpected(Error::make(ErrorCode::Io, "Failed to load image."));
+    }
+    return image;
 }
 
 std::shared_ptr<Image> Image::load(std::string_view path, int forceChannels) {
@@ -253,12 +272,24 @@ bool FloatImage::valid() const {
 }
 
 std::shared_ptr<FloatImage> FloatImage::loadHDR(std::string_view path, int forceChannels) {
+    auto result = loadHDRExpected(path, forceChannels);
+    return result ? *result : nullptr;
+}
+
+std::expected<std::shared_ptr<FloatImage>, Error>
+FloatImage::loadHDRExpected(std::string_view path, int forceChannels) {
     std::string p(path);
     int w = 0, h = 0, ch = 0;
     float* raw = stbi_loadf(p.c_str(), &w, &h, &ch, forceChannels);
-    if (!raw) return nullptr;
+    if (!raw) {
+        return std::unexpected(Error::make(ErrorCode::Io, "Failed to load HDR image."));
+    }
 
     const int outCh = (forceChannels > 0) ? forceChannels : ch;
+    if (w <= 0 || h <= 0 || outCh <= 0) {
+        stbi_image_free(raw);
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Loaded HDR image has invalid dimensions."));
+    }
     const size_t total = static_cast<size_t>(w) * h * outCh;
     std::vector<float> pixels(raw, raw + total);
     stbi_image_free(raw);

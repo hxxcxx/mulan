@@ -230,12 +230,12 @@ bool ViewContext::configureCaptureSurface(const engine::RenderCaptureDesc& desc,
     return true;
 }
 
-std::optional<engine::RenderCaptureResult>
+std::expected<engine::RenderCaptureResult, core::Error>
 ViewContext::capture(const engine::RenderCaptureDesc& desc) {
     return CaptureService{}.capture(*this, desc);
 }
 
-std::optional<CaptureImage> ViewContext::capture(const CaptureRequest& request) {
+std::expected<CaptureImage, core::Error> ViewContext::capture(const CaptureRequest& request) {
     return CaptureService{}.capture(*this, request);
 }
 
