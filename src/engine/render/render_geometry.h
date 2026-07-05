@@ -8,7 +8,7 @@
 #pragma once
 
 #include <mulan/math/math.h>
-#include "../vertex/vertex_layout.h"
+#include <mulan/graphics/vertex/vertex_layout.h>
 #include "../rhi/pipeline_state.h"
 #include "../rhi/device.h"
 
@@ -19,6 +19,9 @@
 #include <vector>
 
 namespace mulan::engine {
+
+using graphics::IndexType;
+using graphics::VertexLayout;
 
 // ============================================================
 // 可绘制几何数据 — 原始字节 + 元信息

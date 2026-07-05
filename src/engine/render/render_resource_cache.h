@@ -6,10 +6,10 @@
  */
 #pragma once
 
-#include "../geometry/mesh.h"
 #include "../render/render_geometry.h"
 
 #include <mulan/core/result/error.h>
+#include <mulan/graphics/mesh.h>
 
 #include <cstdint>
 #include <expected>
@@ -23,8 +23,8 @@ class RenderResourceCache {
 public:
     explicit RenderResourceCache(RHIDevice& device);
 
-    void uploadSolidGeometry(uint64_t key, const Mesh& mesh);
-    void uploadWireGeometry(uint64_t key, const Mesh& mesh);
+    void uploadSolidGeometry(uint64_t key, const graphics::Mesh& mesh);
+    void uploadWireGeometry(uint64_t key, const graphics::Mesh& mesh);
     void releaseResource(uint64_t key);
 
     bool hasResource(uint64_t key) const;
@@ -37,7 +37,7 @@ public:
 
 private:
     static std::expected<GpuGeometry, core::Error>
-        createGpuBuffer(RHIDevice& device, const Mesh& mesh);
+        createGpuBuffer(RHIDevice& device, const graphics::Mesh& mesh);
 
     RHIDevice& device_;
     std::unordered_map<uint64_t, GpuGeometry> solid_geos_;

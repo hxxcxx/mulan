@@ -7,11 +7,13 @@
 
 #pragma once
 
-#include "../vertex/vertex_layout.h"  // IndexType
+#include <mulan/graphics/vertex/vertex_layout.h>
 
 #include <cstdint>
 
 namespace mulan::engine {
+
+using graphics::IndexType;
 
 // ============================================================
 // 前向声明

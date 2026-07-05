@@ -10,6 +10,8 @@
 
 namespace mulan::engine {
 
+namespace layouts = graphics::layouts;
+
 // ─── Scene UBO（严格对齐 Common.hlsli 的 cbuffer Scene，288 bytes）────────
 
 #pragma pack(push, 1)

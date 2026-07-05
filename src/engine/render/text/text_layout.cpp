@@ -1,13 +1,17 @@
 #include "text_layout.h"
 #include "font_manager.h"
-#include "../../vertex/vertex_buffer.h"
-#include "../../vertex/vertex_semantic.h"
+#include <mulan/graphics/vertex/vertex_buffer.h>
+#include <mulan/graphics/vertex/vertex_semantic.h>
 
 #include <cmath>
 #include <cstdint>
 #include <algorithm>
 
 namespace mulan::engine {
+
+using graphics::VertexBufferBuilder;
+using graphics::VertexSemantic;
+namespace layouts = graphics::layouts;
 
 // ============================================================
 // UTF-8 解码

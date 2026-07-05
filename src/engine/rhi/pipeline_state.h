@@ -10,7 +10,8 @@
 #include "render_state.h"
 #include "shader.h"
 #include "texture.h"
-#include "../vertex/vertex_layout.h"
+
+#include <mulan/graphics/vertex/vertex_layout.h>
 
 #include <cstdint>
 #include <memory>
@@ -19,6 +20,8 @@
 namespace mulan::engine {
 
 class BindGroupLayout;
+
+using graphics::VertexLayout;
 
 // ============================================================
 // 输入布局元素（PSO 层定义 stride）

@@ -1,6 +1,6 @@
 #include "view_cube_renderer.h"
 #include "../../rhi/command_list.h"
-#include "../../vertex/vertex_layout.h"
+#include <mulan/graphics/vertex/vertex_layout.h>
 #include <mulan/math/math.h>
 
 #include <cstdio>
@@ -10,6 +10,8 @@
 #include <array>
 
 namespace mulan::engine {
+
+namespace layouts = graphics::layouts;
 
 // ============================================================
 // 立方体几何常量

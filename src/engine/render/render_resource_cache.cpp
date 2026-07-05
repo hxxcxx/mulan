@@ -10,7 +10,7 @@ RenderResourceCache::RenderResourceCache(RHIDevice& device)
     : device_(device) {
 }
 
-void RenderResourceCache::uploadSolidGeometry(uint64_t key, const Mesh& mesh) {
+void RenderResourceCache::uploadSolidGeometry(uint64_t key, const graphics::Mesh& mesh) {
     auto result = createGpuBuffer(device_, mesh);
     if (!result) {
         return;
@@ -18,7 +18,7 @@ void RenderResourceCache::uploadSolidGeometry(uint64_t key, const Mesh& mesh) {
     solid_geos_[key] = std::move(*result);
 }
 
-void RenderResourceCache::uploadWireGeometry(uint64_t key, const Mesh& mesh) {
+void RenderResourceCache::uploadWireGeometry(uint64_t key, const graphics::Mesh& mesh) {
     auto result = createGpuBuffer(device_, mesh);
     if (!result) {
         return;
@@ -54,7 +54,7 @@ void RenderResourceCache::clear() {
 }
 
 std::expected<GpuGeometry, core::Error>
-RenderResourceCache::createGpuBuffer(RHIDevice& device, const Mesh& mesh) {
+RenderResourceCache::createGpuBuffer(RHIDevice& device, const graphics::Mesh& mesh) {
     GpuGeometry geo;
     if (mesh.empty()) return geo;
 
