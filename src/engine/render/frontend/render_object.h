@@ -15,6 +15,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -29,9 +30,9 @@ enum class RenderBucket : uint8_t {
 };
 
 struct RenderTextureDesc {
-    std::string sourcePath;               ///< 文件路径（文件源）或缓存键（内嵌源）
-    std::vector<std::byte> embeddedData;  ///< 内嵌编码字节；非空时优先于 sourcePath
-    bool srgb = false;                    ///< sRGB 意图，由 material slot 决定
+    std::string sourcePath;                   ///< 文件路径（文件源）或缓存键（内嵌源）
+    std::span<const std::byte> embeddedData;  ///< 内嵌编码字节的非拥有视图，指向 asset::TextureAsset 的字节
+    bool srgb = false;                        ///< sRGB 意图，由 material slot 决定
 };
 
 struct RenderMaterialDesc {

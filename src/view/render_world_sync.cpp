@@ -7,6 +7,7 @@
 #include <mulan/view/render_scene.h>
 #include <mulan/view/scene_proxy.h>
 
+#include <span>
 #include <utility>
 #include <unordered_map>
 #include <vector>
@@ -34,7 +35,10 @@ engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::
 
     engine::RenderTextureDesc desc;
     desc.sourcePath = texture->sourcePath();
-    desc.embeddedData = texture->embeddedBytes();  // 拷贝；内嵌源时非空
+    // 非拥有视图，指向 asset::TextureAsset 的字节。生命周期安全：assets_ 在文档存活期间稳定，
+    // TextureAsset::embeddedBytes() 仅 import 时 mutate，渲染帧内不可变；snapshot 在同步 render() 内消费。
+    // 与 Drawable::mesh (const Mesh* 裸指针) 同契约。
+    desc.embeddedData = std::span<const std::byte>(texture->embeddedBytes());
     desc.srgb = (material->*srgbGetter)();
     return desc;
 }
@@ -65,6 +69,25 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
                                      &asset::MaterialAsset::normalTextureSrgb);
     desc.metallicRoughnessTexture = textureDesc(assets, materialId, &asset::MaterialAsset::metallicRoughnessTexture,
                                                 &asset::MaterialAsset::metallicRoughnessTextureSrgb);
+    desc.emissiveTexture = textureDesc(assets, materialId, &asset::MaterialAsset::emissiveTexture,
+                                       &asset::MaterialAsset::emissiveTextureSrgb);
+    desc.ambientOcclusionTexture = textureDesc(assets, materialId, &asset::MaterialAsset::occlusionTexture,
+                                               &asset::MaterialAsset::occlusionTextureSrgb);
+
+    // 点亮 Material::textureSlots —— MaterialGPU::fromMaterial 据此生成 textureFlags 位掩码，
+    // shader 用 (flags & TF_*) 决定是否采样。未点亮则纹理虽绑定到 descriptor 但被跳过。
+    // 真实纹理数据由上面的 RenderTextureDesc 槽位携带，这里仅是"有无"标志。
+    if (!desc.baseColorTexture.sourcePath.empty())
+        desc.material.textureSlots |= engine::TextureSlotFlags::HasAlbedo;
+    if (!desc.normalTexture.sourcePath.empty())
+        desc.material.textureSlots |= engine::TextureSlotFlags::HasNormal;
+    if (!desc.metallicRoughnessTexture.sourcePath.empty())
+        desc.material.textureSlots |= engine::TextureSlotFlags::HasMetallicRough;
+    if (!desc.emissiveTexture.sourcePath.empty())
+        desc.material.textureSlots |= engine::TextureSlotFlags::HasEmissive;
+    if (!desc.ambientOcclusionTexture.sourcePath.empty())
+        desc.material.textureSlots |= engine::TextureSlotFlags::HasAO;
+
     return desc;
 }
 

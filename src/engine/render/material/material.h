@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <cmath>
 #include <algorithm>
-#include <array>
 #include <string>
 
 namespace mulan::engine {
@@ -87,7 +86,41 @@ inline const char* textureSlotName(TextureSlot slot) {
     }
 }
 
-static constexpr uint16_t kInvalidTexture = 0xFFFF;
+// ============================================================
+// 纹理槽位掩码 — 标记材质的哪些纹理槽位有数据
+//
+// 与 shader 的 TF_* 常量及 MaterialGPU::textureFlags 位定义一致（单一来源）：
+//   bit0=albedo, bit1=normal, bit2=mr, bit3=emissive, bit4=ao
+// 这里用枚举 + 位运算符替代旧的 Material::textures[]（uint16_t 数组当 bool 用，语义不清）。
+// 真实纹理数据由 RenderMaterialDesc 的 RenderTextureDesc 槽位携带，本标志仅驱动 shader
+// 的 (textureFlags & TF_*) 采样开关。
+// ============================================================
+
+enum class TextureSlotFlags : uint8_t {
+    None = 0,
+    HasAlbedo = 1u << 0,
+    HasNormal = 1u << 1,
+    HasMetallicRough = 1u << 2,
+    HasEmissive = 1u << 3,
+    HasAO = 1u << 4,
+};
+
+inline TextureSlotFlags operator|(TextureSlotFlags a, TextureSlotFlags b) {
+    return static_cast<TextureSlotFlags>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+}
+
+inline TextureSlotFlags operator&(TextureSlotFlags a, TextureSlotFlags b) {
+    return static_cast<TextureSlotFlags>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
+}
+
+inline TextureSlotFlags& operator|=(TextureSlotFlags& a, TextureSlotFlags b) {
+    a = a | b;
+    return a;
+}
+
+inline bool operator!=(TextureSlotFlags a, int b) {
+    return static_cast<int>(a) != b;
+}
 
 // ============================================================
 // 材质描述 — CPU 端完整参数
@@ -122,32 +155,10 @@ struct Material {
     // --- 双面渲染 ---
     bool doubleSided = false;
 
-    // --- 纹理索引 (kInvalidTexture = 无纹理) ---
-    std::array<uint16_t, static_cast<size_t>(TextureSlot::Count)> textures{};
-
-    // --- 纹理路径（用于序列化/延迟加载） ---
-    std::array<std::string, static_cast<size_t>(TextureSlot::Count)> texturePaths{};
-
-    Material() { textures.fill(kInvalidTexture); }
-
-    // --- 纹理访问便捷方法 ---
-
-    uint16_t albedoTexture() const { return textures[static_cast<size_t>(TextureSlot::Albedo)]; }
-    uint16_t normalTexture() const { return textures[static_cast<size_t>(TextureSlot::Normal)]; }
-    uint16_t metallicRoughnessTexture() const { return textures[static_cast<size_t>(TextureSlot::MetallicRoughness)]; }
-    uint16_t emissiveTexture() const { return textures[static_cast<size_t>(TextureSlot::Emissive)]; }
-    uint16_t aoTexture() const { return textures[static_cast<size_t>(TextureSlot::AO)]; }
-
-    void setAlbedoTexture(uint16_t id) { textures[static_cast<size_t>(TextureSlot::Albedo)] = id; }
-    void setNormalTexture(uint16_t id) { textures[static_cast<size_t>(TextureSlot::Normal)] = id; }
-    void setMetallicRoughnessTexture(uint16_t id) {
-        textures[static_cast<size_t>(TextureSlot::MetallicRoughness)] = id;
-    }
-    void setEmissiveTexture(uint16_t id) { textures[static_cast<size_t>(TextureSlot::Emissive)] = id; }
-    void setAoTexture(uint16_t id) { textures[static_cast<size_t>(TextureSlot::AO)] = id; }
-
-    uint16_t textureBySlot(TextureSlot slot) const { return textures[static_cast<size_t>(slot)]; }
-    void setTextureBySlot(TextureSlot slot, uint16_t id) { textures[static_cast<size_t>(slot)] = id; }
+    // --- 纹理槽位掩码：标记哪些槽位有数据，驱动 shader 的 textureFlags 采样开关 ---
+    // 注：真实纹理数据（路径/内嵌字节/srgb）由 RenderMaterialDesc 的 RenderTextureDesc 槽位携带，
+    // 这里仅是"有无"标志。详见 TextureSlotFlags。
+    TextureSlotFlags textureSlots = TextureSlotFlags::None;
 
     // --- 便捷工厂 ---
 
@@ -189,20 +200,14 @@ struct Material {
     }
 
     /// 是否有纹理
-    bool hasTextures() const {
-        for (size_t i = 0; i < textures.size(); ++i) {
-            if (textures[i] != kInvalidTexture)
-                return true;
-        }
-        return false;
-    }
+    bool hasAnyTexture() const { return textureSlots != TextureSlotFlags::None; }
 
     /// 是否等于（忽略 name）
     bool equals(const Material& o) const {
         return type == o.type && alphaMode == o.alphaMode && baseColor == o.baseColor && alpha == o.alpha &&
                metallic == o.metallic && roughness == o.roughness && ao == o.ao && specular == o.specular &&
                shininess == o.shininess && emissive == o.emissive && emissiveStrength == o.emissiveStrength &&
-               alphaCutoff == o.alphaCutoff && doubleSided == o.doubleSided && textures == o.textures;
+               alphaCutoff == o.alphaCutoff && doubleSided == o.doubleSided && textureSlots == o.textureSlots;
     }
 
     bool operator==(const Material& o) const { return equals(o); }
@@ -268,12 +273,7 @@ struct alignas(16) MaterialGPU {
 
         g.materialType = static_cast<uint32_t>(m.type);
         g.alphaMode = static_cast<uint32_t>(m.alphaMode);
-        g.textureFlags = 0;
-        for (size_t i = 0; i < static_cast<size_t>(TextureSlot::Count); ++i) {
-            if (m.textures[i] != kInvalidTexture) {
-                g.textureFlags |= (1u << i);
-            }
-        }
+        g.textureFlags = static_cast<uint32_t>(m.textureSlots);  // TextureSlotFlags 位定义与 shader TF_* 一致
         g.doubleSided = m.doubleSided ? 1u : 0u;
 
         return g;
