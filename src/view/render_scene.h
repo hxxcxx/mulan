@@ -20,7 +20,7 @@ namespace mulan::scene {
 class Scene;
 }
 
-namespace mulan::render_scene {
+namespace mulan::view {
 
 class RenderScene {
 public:
@@ -65,4 +65,4 @@ private:
     bool initialized_ = false;  // 首次 sync 全量，之后增量
 };
 
-} // namespace mulan::render_scene
+} // namespace mulan::view

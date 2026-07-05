@@ -14,7 +14,7 @@
 
 #include <vector>
 
-namespace mulan::render_scene {
+namespace mulan::view {
 
 struct SceneProxy {
     scene::EntityId entity;
@@ -27,4 +27,4 @@ struct SceneProxy {
     bool selected = false;
 };
 
-} // namespace mulan::render_scene
+} // namespace mulan::view

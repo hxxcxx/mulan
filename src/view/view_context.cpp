@@ -62,7 +62,7 @@ void ViewContext::shutdown() {
     runtime_host_.shutdown();
 }
 
-void ViewContext::setRenderScene(const render_scene::RenderScene* scene,
+void ViewContext::setRenderScene(const RenderScene* scene,
                                  const asset::AssetLibrary* assets) {
     runtime_host_.setRenderScene(scene, assets);
 }

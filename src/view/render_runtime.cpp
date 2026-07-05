@@ -112,7 +112,7 @@ void RenderRuntime::shutdown() {
     initialized_ = false;
 }
 
-void RenderRuntime::setRenderScene(const render_scene::RenderScene* scene,
+void RenderRuntime::setRenderScene(const RenderScene* scene,
                                    const asset::AssetLibrary* assets) {
     renderer_.setScene(scene, assets);
 }

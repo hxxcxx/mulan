@@ -29,7 +29,7 @@ namespace mulan::asset {
 class AssetLibrary;
 }
 
-namespace mulan::render_scene {
+namespace mulan::view {
 class RenderScene;
 }
 
@@ -49,7 +49,7 @@ public:
 
     bool isInitialized() const { return runtime_host_.isInitialized(); }
 
-    void setRenderScene(const render_scene::RenderScene* scene,
+    void setRenderScene(const RenderScene* scene,
                         const asset::AssetLibrary* assets);
 
     void renderFrame();

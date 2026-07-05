@@ -9,7 +9,7 @@
 #include <mulan/scene/entity_dirty.h>
 #include <mulan/scene/scene.h>
 
-namespace mulan::render_scene {
+namespace mulan::view {
 
 namespace {
 
@@ -151,4 +151,4 @@ const SceneProxy* RenderScene::proxy(scene::EntityId id) const {
     return it != proxies_.end() ? &it->second : nullptr;
 }
 
-} // namespace mulan::render_scene
+} // namespace mulan::view

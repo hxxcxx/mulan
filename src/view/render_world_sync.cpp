@@ -73,7 +73,7 @@ uint64_t drawableGeometryKey(asset::AssetId geometry, size_t drawableIndex) {
 
 } // namespace
 
-void RenderWorldSync::rebuild(const render_scene::RenderScene& scene,
+void RenderWorldSync::rebuild(const RenderScene& scene,
                               const asset::AssetLibrary& assets,
                               engine::RenderWorld& world) const {
     world.clear();
@@ -81,7 +81,7 @@ void RenderWorldSync::rebuild(const render_scene::RenderScene& scene,
     std::unordered_map<uint64_t, engine::GeometryHandle> geometryHandles;
     std::unordered_map<uint64_t, engine::RenderMaterialHandle> materialHandles;
     std::vector<asset::Drawable> drawables;
-    scene.forEachProxy([&](const render_scene::SceneProxy& proxy) {
+    scene.forEachProxy([&](const SceneProxy& proxy) {
         if (!proxy.visible || !proxy.geometry) {
             return;
         }

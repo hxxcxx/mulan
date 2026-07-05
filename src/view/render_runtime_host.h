@@ -35,7 +35,7 @@ public:
 
     bool isInitialized() const;
 
-    void setRenderScene(const render_scene::RenderScene* scene,
+    void setRenderScene(const RenderScene* scene,
                         const asset::AssetLibrary* assets);
 
     void render(const ViewState& viewState);

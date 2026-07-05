@@ -29,7 +29,7 @@ bool RenderRuntimeHost::isInitialized() const {
     return runtime_.isInitialized();
 }
 
-void RenderRuntimeHost::setRenderScene(const render_scene::RenderScene* scene,
+void RenderRuntimeHost::setRenderScene(const RenderScene* scene,
                                        const asset::AssetLibrary* assets) {
     runtime_.setRenderScene(scene, assets);
 }

@@ -35,7 +35,7 @@ void Renderer::shutdown(engine::RHIDevice& device) {
     initialized_ = false;
 }
 
-void Renderer::setScene(const render_scene::RenderScene* scene,
+void Renderer::setScene(const RenderScene* scene,
                         const asset::AssetLibrary* assets) {
     scene_ = scene;
     assets_ = assets;

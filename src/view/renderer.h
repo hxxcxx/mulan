@@ -26,7 +26,7 @@ namespace mulan::engine {
 class RHIDevice;
 } // namespace mulan::engine
 
-namespace mulan::render_scene {
+namespace mulan::view {
 class RenderScene;
 }
 
@@ -55,7 +55,7 @@ public:
 
     void shutdown(engine::RHIDevice& device);
 
-    void setScene(const render_scene::RenderScene* scene,
+    void setScene(const RenderScene* scene,
                   const asset::AssetLibrary* assets);
 
     /// 按需烘焙 IBL 三件套（irradiance/prefilter/BRDF LUT）。
@@ -74,7 +74,7 @@ private:
     engine::RenderRequest buildRequest(RenderSurface& surface, const ViewState& viewState);
     engine::RenderSurfaceBinding surfaceBinding(RenderSurface& surface) const;
 
-    const render_scene::RenderScene* scene_ = nullptr;
+    const RenderScene* scene_ = nullptr;
     const asset::AssetLibrary* assets_ = nullptr;
 
     RenderWorldSync render_world_sync_;

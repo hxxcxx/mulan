@@ -32,7 +32,7 @@ namespace mulan::engine {
 class RHIDevice;
 }
 
-namespace mulan::render_scene {
+namespace mulan::view {
 class RenderScene;
 }
 
@@ -61,7 +61,7 @@ public:
 
     bool isInitialized() const { return initialized_; }
 
-    void setRenderScene(const render_scene::RenderScene* scene,
+    void setRenderScene(const RenderScene* scene,
                         const asset::AssetLibrary* assets);
 
     void render(const ViewState& viewState);

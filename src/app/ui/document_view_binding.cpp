@@ -9,9 +9,11 @@
 #include <unordered_map>
 
 struct DocumentViewBinding::RenderCache {
-    mulan::render_scene::RenderScene renderScene;
+    mulan::view::RenderScene renderScene;
     std::unordered_map<uint32_t, mulan::scene::EntityId> pickIds;
 };
+
+DocumentViewBinding::DocumentViewBinding() = default;
 
 DocumentViewBinding::~DocumentViewBinding() {
     unbind();
@@ -88,7 +90,7 @@ void DocumentViewBinding::rebuildPickIdMap() {
         return;
     }
     render_cache_->pickIds.clear();
-    render_cache_->renderScene.forEachProxy([&](const mulan::render_scene::SceneProxy& proxy) {
+    render_cache_->renderScene.forEachProxy([&](const mulan::view::SceneProxy& proxy) {
         render_cache_->pickIds[proxy.entity.index()] = proxy.entity;
     });
 }

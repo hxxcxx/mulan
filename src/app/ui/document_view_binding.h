@@ -20,7 +20,7 @@ class ViewContext;
 
 class DocumentViewBinding {
 public:
-    DocumentViewBinding() = default;
+    DocumentViewBinding();
     ~DocumentViewBinding();
 
     DocumentViewBinding(const DocumentViewBinding&) = delete;
