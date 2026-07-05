@@ -6,6 +6,7 @@ add_library(view STATIC
     capture_service.cpp
     view_context.cpp
     render_queue.cpp
+    render_runtime.cpp
     render_surface.cpp
     render_thread.cpp
     renderer.cpp

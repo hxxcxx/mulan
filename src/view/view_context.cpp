@@ -2,8 +2,6 @@
 
 #include "capture_service.h"
 
-#include <cstdio>
-
 namespace mulan::view {
 
 ViewContext::ViewContext()
@@ -21,128 +19,70 @@ ViewContext::~ViewContext() {
 }
 
 bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
-    if (initialized_) return true;
+    if (runtime_.isInitialized()) return true;
 
     width_  = width;
     height_ = height;
     ibl_enabled_ = cfg.iblEnabled;
     hdr_path_    = cfg.hdrPath;
 
-    engine::NativeWindowHandle window = cfg.toNativeWindowHandle();
-    if (!window.valid()) return false;
-
-    engine::RenderConfig renderCfg = cfg.toRenderConfig();
-
-    engine::DeviceCreateInfo ci;
-    ci.backend          = cfg.backend;
-    ci.window           = window;
-    ci.renderConfig     = renderCfg;
-    ci.enableValidation = cfg.enableValidation;
-
-    device_ = engine::RHIDevice::create(ci).value_or(nullptr);
-    if (!device_) return false;
-
-    if (!surface_.initWindowSurface(*device_, cfg, width, height)) {
-        cleanup();
+    if (!runtime_.initWindow(cfg, width, height, light_env_)) {
         return false;
     }
 
-    if (!initRendering()) { cleanup(); return false; }
+    width_ = runtime_.surface().width();
+    height_ = runtime_.surface().height();
 
-    camera_.setViewport(width, height);
+    camera_.setViewport(width_, height_);
     camera_.fitToBox(math::AABB3(math::Point3(-1, -1, -1), math::Point3(1, 1, 1)));
 
-    initialized_ = true;
     return true;
 }
 
 bool ViewContext::initOffscreen(int width, int height) {
-    if (initialized_) return true;
+    if (runtime_.isInitialized()) return true;
 
     width_  = width;
     height_ = height;
 
-    engine::RenderConfig config;
-    config.bufferCount   = 2;
-    config.vsync         = false;
-    config.depthBuffer   = true;
-    config.stencilBuffer = false;
-
-    engine::DeviceCreateInfo ci;
-    ci.backend          = engine::GraphicsBackend::Vulkan;
-    ci.window           = {};
-    ci.renderConfig     = config;
-    ci.enableValidation = true;
-
-    device_ = engine::RHIDevice::create(ci).value_or(nullptr);
-    if (!device_) return false;
-
-    if (!surface_.initOffscreenSurface(*device_, width, height)) {
-        cleanup();
+    if (!runtime_.initOffscreen(width, height, light_env_)) {
         return false;
     }
 
-    if (!initRendering()) { cleanup(); return false; }
+    width_ = runtime_.surface().width();
+    height_ = runtime_.surface().height();
 
-    camera_.setViewport(width, height);
+    camera_.setViewport(width_, height_);
     camera_.fitToBox(math::AABB3(math::Point3(-1, -1, -1), math::Point3(1, 1, 1)));
 
-    initialized_ = true;
     return true;
 }
 
 void ViewContext::shutdown() {
-    if (!initialized_ && !device_) return;
-    if (device_) {
-        renderer_.shutdown(*device_);
-        surface_.shutdown(*device_);
-    }
-    device_.reset();
-    initialized_ = false;
+    runtime_.shutdown();
 }
 
 void ViewContext::setRenderScene(const render_scene::RenderScene* scene,
                                  const asset::AssetLibrary* assets) {
-    render_scene_ = scene;
-    assets_ = assets;
-    renderer_.setScene(scene, assets);
-}
-
-bool ViewContext::initRendering() {
-    width_  = surface_.width();
-    height_ = surface_.height();
-    camera_.setViewport(width_, height_);
-
-    return renderer_.init(*device_, light_env_,
-                          surface_.colorFormat(*device_),
-                          surface_.depthFormat(*device_));
+    runtime_.setRenderScene(scene, assets);
 }
 
 void ViewContext::enableIBL() {
     // 两层门控：全局开关 + HDR 路径有效
     if (!ibl_enabled_) return;
-    if (!device_ || hdr_path_.empty()) return;
-    renderer_.enableIBL(*device_, hdr_path_);
-}
-
-void ViewContext::cleanup() {
-    if (device_) {
-        renderer_.shutdown(*device_);
-        surface_.shutdown(*device_);
-    }
-    device_.reset();
+    runtime_.enableIBL(hdr_path_);
 }
 
 void ViewContext::renderFrame() {
-    if (!initialized_) return;
+    if (!runtime_.isInitialized()) return;
 
     renderFrame(buildViewState());
 }
 
 void ViewContext::renderFrame(const ViewState& viewState) {
-    if (!initialized_) return;
+    if (!runtime_.isInitialized()) return;
 
-    renderer_.render(*device_, surface_, viewState);
+    runtime_.render(viewState);
     onFrameEnd();
 }
 
@@ -152,10 +92,12 @@ void ViewContext::onFrameEnd() {
 void ViewContext::resize(int width, int height) {
     width_  = width;
     height_ = height;
-    if (device_ && initialized_) {
-        surface_.resize(*device_, width, height);
+    if (runtime_.isInitialized()) {
+        runtime_.resize(width, height);
+        width_ = runtime_.surface().width();
+        height_ = runtime_.surface().height();
     }
-    camera_.setViewport(width, height);
+    camera_.setViewport(width_, height_);
 }
 
 void ViewContext::handleInput(const engine::InputEvent& event) {
@@ -205,27 +147,17 @@ engine::Operator* ViewContext::activeOperator() const {
 }
 
 bool ViewContext::readbackPixels(std::vector<uint8_t>& pixels) {
-    if (!device_) return false;
-    return surface_.readbackPixels(*device_, pixels);
+    return runtime_.readbackPixels(pixels);
 }
 
 bool ViewContext::configureCaptureSurface(const engine::RenderCaptureDesc& desc,
                                           uint32_t width,
                                           uint32_t height) {
-    if (!device_) return false;
-
-    RenderSurfaceDesc surfaceDesc;
-    surfaceDesc.width = static_cast<int>(width);
-    surfaceDesc.height = static_cast<int>(height);
-    surfaceDesc.colorFormat = desc.format;
-    surfaceDesc.depthFormat = desc.depthFormat;
-    surfaceDesc.hasDepth = true;
-    surfaceDesc.readback = desc.readback;
-    if (!surface_.configureOffscreenSurface(*device_, surfaceDesc)) {
+    if (!runtime_.configureCaptureSurface(desc, width, height)) {
         return false;
     }
-    width_ = surface_.width();
-    height_ = surface_.height();
+    width_ = runtime_.surface().width();
+    height_ = runtime_.surface().height();
     camera_.setViewport(width_, height_);
     return true;
 }
