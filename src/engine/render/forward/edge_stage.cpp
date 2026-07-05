@@ -4,10 +4,7 @@ namespace mulan::engine {
 
 EdgeStage::EdgeStage(RHIDevice& device, RenderResourceCache& gpu,
                      MaterialCache& matCache, const LightEnvironment& lightEnv)
-    : pass_(device, gpu, matCache, lightEnv,
-            GeometryPassConfig{
-                "edge", PrimitiveTopology::LineList,
-                false, "Edge", false}) {
+    : pass_(device, gpu, matCache, lightEnv, RenderTechnique::EdgeLine) {
 }
 
 std::expected<void, core::Error>

@@ -5,7 +5,7 @@
  * @date 2026-07-03
  *
  * 消费 MeshDrawCommand 并逐条绘制。它的可变部分（shader / 拓扑 / 是否写深度）
- * 由 GeometryPassConfig 在构造时指定；绘制逻辑（上传 Scene/Object/Material
+ * 由 TechniqueDesc 在构造时指定；绘制逻辑（上传 Scene/Object/Material
  * UBO、遍历命令、执行 MeshDrawCommand）对所有配置完全相同。
  *
  * 因此同一个 GeometryPass 类可表达多种“画法”：实体面、边线、线框、拾取、
@@ -18,6 +18,7 @@
 #include "../render_resource_cache.h"
 #include "../mesh_draw_command.h"
 #include "../light_environment.h"
+#include "../technique/render_technique.h"
 #include "../../rhi/device.h"
 #include "../../rhi/buffer.h"
 #include "../../rhi/bind_group.h"
@@ -36,30 +37,13 @@ namespace mulan::engine {
 
 class MaterialCache;
 
-/// GeometryPass 的可变配置。值类型，构造时传入后不再变更。
-struct GeometryPassConfig {
-    /// 着色器基名（不含扩展名），按 `<base>.vert` / `<base>.frag` 加载。
-    /// 例如 "solid" → solid.vert / solid.frag。
-    const char* shaderBase = "solid";
-    /// 图元拓扑（TriangleList / LineList / ...）
-    PrimitiveTopology topology = PrimitiveTopology::TriangleList;
-    /// 是否写深度缓冲
-    bool depthWrite = true;
-    /// Pass 名（调试 / 日志用）
-    const char* passName = "Geometry";
-    /// 是否声明纹理/sampler binding 并采样 albedo 纹理。
-    /// true  → PSO 声明 binding=3(TextureSRV)/4(Sampler)，draw 命令绑定纹理
-    /// false → 仅 3 个 UBO，纯色快速路径（edge/pick/wireframe）
-    bool sampleTextures = false;
-};
-
 class GeometryPass : public RenderPass {
 public:
     GeometryPass(RHIDevice& device, RenderResourceCache& gpu,
                  MaterialCache& matCache, const LightEnvironment& lightEnv,
-                 GeometryPassConfig cfg);
+                 RenderTechnique technique);
 
-    const char* name() const override { return cfg_.passName; }
+    const char* name() const override { return technique_.debugName; }
 
     bool init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
     void execute(const PassContext& ctx) override;
@@ -93,7 +77,7 @@ private:
     RenderResourceCache&    gpu_;
     MaterialCache&          mat_cache_;
     const LightEnvironment& light_env_;
-    GeometryPassConfig      cfg_;
+    const TechniqueDesc&    technique_;
 
     std::unique_ptr<Shader>        vs_;
     std::unique_ptr<Shader>        fs_;

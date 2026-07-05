@@ -4,10 +4,7 @@ namespace mulan::engine {
 
 FaceStage::FaceStage(RHIDevice& device, RenderResourceCache& gpu,
                      MaterialCache& matCache, const LightEnvironment& lightEnv)
-    : pass_(device, gpu, matCache, lightEnv,
-            GeometryPassConfig{
-                "pbr", PrimitiveTopology::TriangleList,
-                true, "Face", true}) {
+    : pass_(device, gpu, matCache, lightEnv, RenderTechnique::SurfacePBR) {
 }
 
 std::expected<void, core::Error>

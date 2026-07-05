@@ -410,16 +410,4 @@ bool ViewCubeStage::hitTest(int screenX, int screenY,
     return false;
 }
 
-std::optional<ViewCubeFace> ViewCubeStage::hitTestFace(int screenX, int screenY,
-                                                           uint32_t vpWidth, uint32_t vpHeight) const {
-    // TODO: 检测点击了哪个面
-    (void)screenX; (void)screenY; (void)vpWidth; (void)vpHeight;
-    return std::nullopt;
-}
-
-void ViewCubeStage::snapToFace(ViewCubeFace face, Camera& camera) {
-    // TODO: 动画过渡到指定面的标准视图
-    (void)face; (void)camera;
-}
-
 } // namespace mulan::engine

@@ -17,28 +17,16 @@
 #include "../../rhi/buffer.h"
 #include "../../rhi/bind_group.h"
 #include "../../rhi/pipeline_state.h"
-#include "../camera/camera.h"
 #include "../material/material.h"  // MaterialGPU
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 
 namespace mulan::engine {
 
 class CommandList;
 class Sampler;
 class Texture;
-
-/// ViewCube 面枚举（用于交互预留）
-enum class ViewCubeFace : uint8_t {
-    Front  = 0,
-    Back   = 1,
-    Left   = 2,
-    Right  = 3,
-    Top    = 4,
-    Bottom = 5,
-};
 
 /// 导航立方体渲染阶段
 ///
@@ -74,14 +62,6 @@ public:
     /// @return true 如果在区域内
     bool hitTest(int screenX, int screenY,
                  uint32_t vpWidth, uint32_t vpHeight) const;
-
-    /// 获取点击的面（交互预留，当前空实现）
-    /// @return std::nullopt
-    std::optional<ViewCubeFace> hitTestFace(int screenX, int screenY,
-                                             uint32_t vpWidth, uint32_t vpHeight) const;
-
-    /// 跳转到指定面（交互预留，当前空实现）
-    void snapToFace(ViewCubeFace face, Camera& camera);
 
     bool isInitialized() const { return initialized_; }
 

@@ -1,6 +1,6 @@
 /**
  * @file render_pass.h
- * @brief 渲染 Pass 基类 — RenderGraph 的执行单元
+ * @brief 旧几何执行器使用的轻量 PassContext / RenderPass 适配层
  * @author hxxcxx
  * @date 2026-05-29
  */

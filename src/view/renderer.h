@@ -28,8 +28,10 @@
 #include <string>
 
 namespace mulan::engine {
+class CommandList;
 class RHIDevice;
 class PipelineState;
+struct RenderFrame;
 class ViewCubeStage;
 } // namespace mulan::engine
 
@@ -80,6 +82,13 @@ public:
     bool isInitialized() const { return initialized_; }
 
 private:
+    void prepareDrawCommands(engine::RHIDevice& device, const ViewState& viewState);
+    engine::CommandList* beginRenderFrame(engine::RHIDevice& device,
+                                          RenderSurface& surface,
+                                          const ViewState& viewState);
+    void executeStages(engine::RenderFrame& frame);
+    void endRenderFrame(engine::RHIDevice& device, RenderSurface& surface);
+
     // cache 在最前声明（C++ 按声明逆序析构 → cache 最后析构，
     // 此时 passes/resources 已释放，但 device 仍活，GPU 纹理可安全销毁）
     std::unique_ptr<engine::TextureCache>  texture_cache_;

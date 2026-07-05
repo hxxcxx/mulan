@@ -11,16 +11,14 @@
 
 namespace mulan::engine {
 
-namespace layouts = graphics::layouts;
-
 // ─── 构造 / init ───────────────────────────────────────────────
 
 GeometryPass::GeometryPass(RHIDevice& device, RenderResourceCache& gpu,
                            MaterialCache& matCache,
                            const LightEnvironment& lightEnv,
-                           GeometryPassConfig cfg)
+                           RenderTechnique technique)
     : device_(device), gpu_(gpu), mat_cache_(matCache), light_env_(lightEnv),
-      cfg_(cfg) {
+      technique_(TechniqueRegistry::builtin(technique)) {
 }
 
 
@@ -28,7 +26,7 @@ bool GeometryPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool has
     if (!loadShaders()) return false;
     if (!createPSO(colorFmt, depthFmt, hasDepth)) return false;
 
-    if (cfg_.sampleTextures) {
+    if (technique_.sampleTextures) {
         if (!createDefaultResources()) return false;
     }
 
@@ -55,12 +53,8 @@ bool GeometryPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool has
 // ─── Shader ────────────────────────────────────────────────────
 
 bool GeometryPass::loadShaders() {
-    // 按 cfg_.shaderBase 拼 "<base>.vert" / "<base>.frag"
-    const std::string vertName = std::string(cfg_.shaderBase) + ".vert";
-    const std::string fragName = std::string(cfg_.shaderBase) + ".frag";
-
-    auto vs = loadShader(device_, ShaderType::Vertex, vertName.c_str());
-    auto fs = loadShader(device_, ShaderType::Pixel,  fragName.c_str());
+    auto vs = loadShader(device_, ShaderType::Vertex, technique_.shader.vertex);
+    auto fs = loadShader(device_, ShaderType::Pixel,  technique_.shader.pixel);
     if (!vs) { return false; }
     if (!fs) { return false; }
     vs_ = std::move(*vs);
@@ -72,19 +66,17 @@ bool GeometryPass::loadShaders() {
 
 bool GeometryPass::createPSO(TextureFormat colorFmt, TextureFormat depthFmt,
                               bool hasDepth) {
-    VertexLayout vl = layouts::surface();
-
     GraphicsPipelineDesc desc{};
-    desc.name             = cfg_.passName;
+    desc.name             = technique_.debugName;
     desc.vs               = vs_.get();
     desc.ps               = fs_.get();
-    desc.vertexLayout     = vl;
-    desc.topology         = cfg_.topology;
+    desc.vertexLayout     = technique_.vertexLayout;
+    desc.topology         = technique_.topology;
     desc.cullMode         = CullMode::None;
     desc.frontFace        = FrontFace::CounterClockwise;
     desc.fillMode         = FillMode::Solid;
     desc.depthStencil.depthEnable = true;
-    desc.depthStencil.depthWrite  = cfg_.depthWrite;
+    desc.depthStencil.depthWrite  = technique_.depthWrite;
     desc.depthStencil.depthFunc   = CompareFunc::LessEqual;
 
     using PB = PipelineBinding;
@@ -103,7 +95,7 @@ bool GeometryPass::createPSO(TextureFormat colorFmt, TextureFormat depthFmt,
     uint8_t bindingCount = 3;
 
     // 纹理 + sampler（仅 sampleTextures=true 的 pass 声明）
-    if (cfg_.sampleTextures) {
+    if (technique_.sampleTextures) {
         desc.descriptorBindings[bindingCount++] = {
             .binding = 3, .count = 1,
             .type = DescriptorType::TextureSRV,
@@ -186,7 +178,7 @@ bool GeometryPass::createDefaultResources() {
     device_.uploadTextureData(default_white_tex_.get(), white, 1, 1, TextureFormat::RGBA8_UNorm);
 
     // IBL fallback：1×1 RGBA16F 黑色 2D 纹理（无 IBL 时漫反射/镜面反射=0）
-    if (cfg_.sampleTextures) {
+    if (technique_.sampleTextures) {
         TextureDesc iblDesc;
         iblDesc.name      = "DefaultIBL";
         iblDesc.format    = TextureFormat::RGBA16_Float;
@@ -237,7 +229,7 @@ bool GeometryPass::createFrameBindGroup(TextureFormat, TextureFormat, bool) {
     bg.addUBO(1, object_ubo_.get(), 0, MeshDrawCommand::kObjectUboStride);
     bg.addUBO(2, material_ubo_.get(), 0, 128);
 
-    if (cfg_.sampleTextures && default_white_tex_ && default_sampler_) {
+    if (technique_.sampleTextures && default_white_tex_ && default_sampler_) {
         bg.addTexture(3, default_white_tex_.get());
         bg.addTexture(4, default_white_tex_.get());
         bg.addTexture(5, default_white_tex_.get());
@@ -297,7 +289,7 @@ void GeometryPass::execute(const PassContext& ctx) {
     // binding=0 (scene UBO) 内容每帧由 uploadSceneUBO 更新，但 binding 本身指向的
     // buffer/offset/range 不变 → 无需 update，复用缓存 descriptor。
     // binding=9/10/11 (IBL 三件套) 在 setIBLTextures 后生效，每帧刷新一次。
-    if (cfg_.sampleTextures) {
+    if (technique_.sampleTextures) {
         frame_bg_->updateTexture(9,  ibl_irradiance_ ? ibl_irradiance_ : default_ibl_tex_.get());
         frame_bg_->updateTexture(10, ibl_prefilter_  ? ibl_prefilter_  : default_ibl_tex_.get());
         frame_bg_->updateTexture(11, ibl_brdf_lut_   ? ibl_brdf_lut_   : default_brdf_lut_.get());

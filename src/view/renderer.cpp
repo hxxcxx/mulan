@@ -119,6 +119,36 @@ void Renderer::render(engine::RHIDevice& device,
                       const ViewState& viewState) {
     if (!initialized_) return;
 
+    prepareDrawCommands(device, viewState);
+    auto* cmd = beginRenderFrame(device, surface, viewState);
+    if (!cmd) return;
+
+    engine::RenderView renderView;
+    renderView.viewMatrix = viewState.viewMatrix;
+    renderView.projectionMatrix = viewState.projectionMatrix;
+    renderView.cameraPosition = viewState.cameraPosition;
+    renderView.width = static_cast<uint32_t>(viewState.width);
+    renderView.height = static_cast<uint32_t>(viewState.height);
+    renderView.showFaces = viewState.showFaces;
+    renderView.showEdges = viewState.showEdges;
+    renderView.showViewCube = viewState.showViewCube;
+
+    engine::RenderTargetInfo frameTargetInfo;
+    frameTargetInfo.width = renderView.width;
+    frameTargetInfo.height = renderView.height;
+    frameTargetInfo.hasDepth = true;
+    frameTargetInfo.presentable = surface.swapChain() != nullptr;
+
+    engine::RenderFrame frame{device, *cmd, renderView, frameTargetInfo};
+    executeStages(frame);
+
+    cmd->endRenderPass();
+    cmd->end();
+
+    endRenderFrame(device, surface);
+}
+
+void Renderer::prepareDrawCommands(engine::RHIDevice& device, const ViewState& viewState) {
     if (resources_) {
         device.beginUploadBatch();
         builder_.rebuild(*resources_,
@@ -134,16 +164,23 @@ void Renderer::render(engine::RHIDevice& device,
         face_stage_->setDrawCommands(viewState.showFaces ? builder_.solidCommands() : emptyCommands);
     if (edge_stage_)
         edge_stage_->setDrawCommands(viewState.showEdges ? builder_.wireCommands() : emptyCommands);
+}
 
+engine::CommandList* Renderer::beginRenderFrame(engine::RHIDevice& device,
+                                                RenderSurface& surface,
+                                                const ViewState& viewState) {
     auto* sc = surface.swapChain();
     auto* rt = surface.renderTarget();
+    if (!sc && !rt) return nullptr;
+
     device.beginFrame(sc ? sc : nullptr);
     auto* cmd = device.frameCommandList();
+    if (!cmd) return nullptr;
     cmd->begin();
 
     if (rt)
         cmd->beginRenderPass(rt->renderPassBeginInfo());
-    else if (sc)
+    else
         cmd->beginRenderPass(sc->renderPassBeginInfo());
 
     engine::Viewport vp;
@@ -161,24 +198,10 @@ void Renderer::render(engine::RHIDevice& device,
     scRect.width  = static_cast<int32_t>(viewState.width);
     scRect.height = static_cast<int32_t>(viewState.height);
     cmd->setScissorRect(scRect);
+    return cmd;
+}
 
-    engine::RenderView renderView;
-    renderView.viewMatrix = viewState.viewMatrix;
-    renderView.projectionMatrix = viewState.projectionMatrix;
-    renderView.cameraPosition = viewState.cameraPosition;
-    renderView.width = static_cast<uint32_t>(viewState.width);
-    renderView.height = static_cast<uint32_t>(viewState.height);
-    renderView.showFaces = viewState.showFaces;
-    renderView.showEdges = viewState.showEdges;
-    renderView.showViewCube = viewState.showViewCube;
-
-    engine::RenderTargetInfo frameTargetInfo;
-    frameTargetInfo.width = renderView.width;
-    frameTargetInfo.height = renderView.height;
-    frameTargetInfo.hasDepth = true;
-    frameTargetInfo.presentable = sc != nullptr;
-
-    engine::RenderFrame frame{device, *cmd, renderView, frameTargetInfo};
+void Renderer::executeStages(engine::RenderFrame& frame) {
     if (face_stage_) face_stage_->execute(frame);
     if (edge_stage_) edge_stage_->execute(frame);
     // 两个 pass 各持有独立的 material UBO，uploadDirtyMaterials 不再自行清空脏集合，
@@ -193,10 +216,11 @@ void Renderer::render(engine::RHIDevice& device,
                                                face_stage_ ? face_stage_->defaultSampler() : nullptr);
         view_cube_stage_->execute(frame);
     }
+}
 
-    cmd->endRenderPass();
-    cmd->end();
-
+void Renderer::endRenderFrame(engine::RHIDevice& device, RenderSurface& surface) {
+    auto* sc = surface.swapChain();
+    auto* rt = surface.renderTarget();
     if (rt)
         device.submitOffscreen();
     else

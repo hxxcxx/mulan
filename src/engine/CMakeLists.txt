@@ -11,6 +11,7 @@ add_library(engine STATIC
     render/environment_map.cpp
     render/render_resource_cache.cpp
     render/mesh_draw_command.cpp
+    render/technique/render_technique.cpp
     # Render passes
     render/graph/geometry_pass.cpp
     render/forward/face_stage.cpp
@@ -129,8 +130,6 @@ if(DXC_EXECUTABLE)
         pbr.frag.hlsl
         wireframe.vert.hlsl
         wireframe.frag.hlsl
-        pick.vert.hlsl
-        pick.frag.hlsl
         edge.vert.hlsl
         edge.frag.hlsl
         text.vert.hlsl
