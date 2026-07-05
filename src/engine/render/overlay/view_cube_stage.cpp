@@ -1,5 +1,9 @@
-#include "view_cube_renderer.h"
+#include "view_cube_stage.h"
 #include "../../rhi/command_list.h"
+#include "../../rhi/device.h"
+#include "../../engine_error_code.h"
+
+#include <mulan/core/result/error.h>
 #include <mulan/graphics/vertex/vertex_layout.h>
 #include <mulan/math/math.h>
 
@@ -43,10 +47,10 @@ static const struct {
 // 构造 / 析构
 // ============================================================
 
-ViewCubeRenderer::ViewCubeRenderer(RHIDevice* device)
-    : device_(device) {}
+ViewCubeStage::ViewCubeStage(RHIDevice& device)
+    : device_(&device) {}
 
-ViewCubeRenderer::~ViewCubeRenderer() {
+ViewCubeStage::~ViewCubeStage() {
     edge_ib_.reset();
     edge_vb_.reset();
     face_ib_.reset();
@@ -61,7 +65,10 @@ ViewCubeRenderer::~ViewCubeRenderer() {
 // 初始化
 // ============================================================
 
-bool ViewCubeRenderer::init(TextureFormat /*colorFmt*/, TextureFormat /*depthFmt*/) {
+std::expected<void, core::Error>
+ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo&) {
+    device_ = &device;
+
     // --- UBO ---
     uint32_t uboAlign = device_->capabilities().minUniformBufferOffsetAlignment;
     if (uboAlign == 0) uboAlign = 256;
@@ -72,17 +79,17 @@ bool ViewCubeRenderer::init(TextureFormat /*colorFmt*/, TextureFormat /*depthFmt
 
     {
         auto r = device_->createBuffer(BufferDesc::uniform(sizeof(SceneUBO),   "ViewCube_SceneUBO"));
-        if (!r) { std::fprintf(stderr, "[ViewCube] SceneUBO: %s\n", r.error().message.c_str()); return false; }
+        if (!r) return std::unexpected(r.error());
         scene_ubo_ = std::move(*r);
     }
     {
         auto r = device_->createBuffer(BufferDesc::uniform(sizeof(ObjectUBO),  "ViewCube_ObjectUBO"));
-        if (!r) { std::fprintf(stderr, "[ViewCube] ObjectUBO: %s\n", r.error().message.c_str()); return false; }
+        if (!r) return std::unexpected(r.error());
         object_ubo_ = std::move(*r);
     }
     {
         auto r = device_->createBuffer(BufferDesc::uniform(material_stride_ * kFaceCount, "ViewCube_MaterialUBO"));
-        if (!r) { std::fprintf(stderr, "[ViewCube] MaterialUBO: %s\n", r.error().message.c_str()); return false; }
+        if (!r) return std::unexpected(r.error());
         material_ubo_= std::move(*r);
     }
 
@@ -104,23 +111,54 @@ bool ViewCubeRenderer::init(TextureFormat /*colorFmt*/, TextureFormat /*depthFmt
         material_ubo_->update(i * material_stride_, sizeof(MaterialGPU), &face_materials_[i]);
 
     // --- 几何体 ---
-    if (!createGeometry()) return false;
+    if (!createGeometry()) {
+        return std::unexpected(makeError(EngineErrorCode::PipelineCreateFailed,
+                                        "ViewCubeStage geometry creation failed"));
+    }
 
     initialized_ = true;
-    return true;
+    return {};
+}
+
+void ViewCubeStage::shutdown(RHIDevice&) {
+    edge_bg_.reset();
+    face_bg_.reset();
+    edge_ib_.reset();
+    edge_vb_.reset();
+    face_ib_.reset();
+    face_vb_.reset();
+    material_ubo_.reset();
+    object_ubo_.reset();
+    scene_ubo_.reset();
+    initialized_ = false;
+}
+
+void ViewCubeStage::setPipelines(PipelineState* solidPso, PipelineState* edgePso) {
+    solid_pso_ = solidPso;
+    edge_pso_ = edgePso;
+}
+
+void ViewCubeStage::setFallbackResources(Texture* defaultWhite, Sampler* defaultSampler) {
+    default_white_ = defaultWhite;
+    default_sampler_ = defaultSampler;
+}
+
+void ViewCubeStage::execute(RenderFrame& frame) {
+    if (!frame.view.showViewCube) return;
+    render(&frame.cmd, frame.view.viewMatrix, frame.view.width, frame.view.height);
 }
 
 // ============================================================
 // 几何体生成
 // ============================================================
 
-bool ViewCubeRenderer::createGeometry() {
+bool ViewCubeStage::createGeometry() {
     if (!createFaceGeometry()) return false;
     if (!createEdgeGeometry()) return false;
     return true;
 }
 
-bool ViewCubeRenderer::createFaceGeometry() {
+bool ViewCubeStage::createFaceGeometry() {
     // 每个面 4 个顶点，6 个面 = 24 个顶点
     // 每个面 6 个索引（2个三角形），6 个面 = 36 个索引
     std::array<CubeVertex, 24> verts;
@@ -191,7 +229,7 @@ bool ViewCubeRenderer::createFaceGeometry() {
     return true;
 }
 
-bool ViewCubeRenderer::createEdgeGeometry() {
+bool ViewCubeStage::createEdgeGeometry() {
     // 12 条边，每条边 2 个顶点 = 24 个顶点
     // 12 条边，每条边 2 个索引 = 24 个索引
     float h = kHalf;
@@ -245,12 +283,10 @@ bool ViewCubeRenderer::createEdgeGeometry() {
 // 渲染
 // ============================================================
 
-void ViewCubeRenderer::render(CommandList* cmd,
-                               PipelineState* solidPso, PipelineState* edgePso,
-                               const math::Mat4& mainViewMatrix,
-                               uint32_t vpWidth, uint32_t vpHeight,
-                               Texture* defaultWhite, Sampler* defaultSampler) {
-    if (!initialized_ || !cmd || !solidPso) return;
+void ViewCubeStage::render(CommandList* cmd,
+                           const math::Mat4& mainViewMatrix,
+                           uint32_t vpWidth, uint32_t vpHeight) {
+    if (!initialized_ || !cmd || !solid_pso_) return;
 
     // --- 1. 计算 ViewCube 视口（右下角）---
     uint32_t size   = cube_size_;
@@ -296,31 +332,31 @@ void ViewCubeRenderer::render(CommandList* cmd,
     object_ubo_->update(0, sizeof(ObjectUBO), &objUbo);
 
     // --- 5. 渲染面（每面独立材质）---
-    cmd->setPipelineState(solidPso);
+    cmd->setPipelineState(solid_pso_);
 
     // 确保 face_bg_ 与当前 PSO layout 一致（PSO 不变期间复用，descriptor set 缓存生效）
     {
-        const uint64_t hash = solidPso->bindGroupLayout().hash();
+        const uint64_t hash = solid_pso_->bindGroupLayout().hash();
         if (!face_bg_ || face_bg_layout_hash_ != hash) {
             BindGroupDesc bg;
             bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUBO))
               .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUBO))
               .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
-            if (defaultWhite) {
-                bg.addTexture(3, defaultWhite)
-                  .addTexture(4, defaultWhite)
-                  .addTexture(5, defaultWhite)
-                  .addTexture(6, defaultWhite)
-                  .addTexture(7, defaultWhite);
-                if (defaultSampler) bg.addSampler(8, defaultSampler);
+            if (default_white_) {
+                bg.addTexture(3, default_white_)
+                  .addTexture(4, default_white_)
+                  .addTexture(5, default_white_)
+                  .addTexture(6, default_white_)
+                  .addTexture(7, default_white_);
+                if (default_sampler_) bg.addSampler(8, default_sampler_);
                 // IBL 三件套（binding 9/10/11）：ViewCube 是 UI 元素，不需要真实 IBL，
                 // 但 PSO layout 声明了这些 binding，必须填上避免 "descriptor never updated"。
                 // 用 defaultWhite 占位即可（shader 采到白色，影响微乎其微）。
-                bg.addTexture(9,  defaultWhite);
-                bg.addTexture(10, defaultWhite);
-                bg.addTexture(11, defaultWhite);
+                bg.addTexture(9,  default_white_);
+                bg.addTexture(10, default_white_);
+                bg.addTexture(11, default_white_);
             }
-            auto r = device_->createBindGroup(solidPso->bindGroupLayout(), bg);
+            auto r = device_->createBindGroup(solid_pso_->bindGroupLayout(), bg);
             if (r) {
                 face_bg_ = std::move(*r);
                 face_bg_layout_hash_ = hash;
@@ -340,15 +376,15 @@ void ViewCubeRenderer::render(CommandList* cmd,
     }
 
     // --- 6. 渲染边线 ---
-    if (edgePso && edge_vb_ && edge_ib_) {
-        cmd->setPipelineState(edgePso);
-        const uint64_t hash = edgePso->bindGroupLayout().hash();
+    if (edge_pso_ && edge_vb_ && edge_ib_) {
+        cmd->setPipelineState(edge_pso_);
+        const uint64_t hash = edge_pso_->bindGroupLayout().hash();
         if (!edge_bg_ || edge_bg_layout_hash_ != hash) {
             BindGroupDesc bg;
             bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUBO))
               .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUBO))
               .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
-            auto r = device_->createBindGroup(edgePso->bindGroupLayout(), bg);
+            auto r = device_->createBindGroup(edge_pso_->bindGroupLayout(), bg);
             if (r) {
                 edge_bg_ = std::move(*r);
                 edge_bg_layout_hash_ = hash;
@@ -371,21 +407,21 @@ void ViewCubeRenderer::render(CommandList* cmd,
 // 交互预留（空实现）
 // ============================================================
 
-bool ViewCubeRenderer::hitTest(int screenX, int screenY,
+bool ViewCubeStage::hitTest(int screenX, int screenY,
                                 uint32_t vpWidth, uint32_t vpHeight) const {
     // TODO: 检测屏幕坐标是否在 ViewCube 区域内
     (void)screenX; (void)screenY; (void)vpWidth; (void)vpHeight;
     return false;
 }
 
-std::optional<ViewCubeFace> ViewCubeRenderer::hitTestFace(int screenX, int screenY,
+std::optional<ViewCubeFace> ViewCubeStage::hitTestFace(int screenX, int screenY,
                                                            uint32_t vpWidth, uint32_t vpHeight) const {
     // TODO: 检测点击了哪个面
     (void)screenX; (void)screenY; (void)vpWidth; (void)vpHeight;
     return std::nullopt;
 }
 
-void ViewCubeRenderer::snapToFace(ViewCubeFace face, Camera& camera) {
+void ViewCubeStage::snapToFace(ViewCubeFace face, Camera& camera) {
     // TODO: 动画过渡到指定面的标准视图
     (void)face; (void)camera;
 }

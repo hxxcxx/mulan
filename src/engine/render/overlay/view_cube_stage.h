@@ -1,6 +1,6 @@
 /**
- * @file view_cube_renderer.h
- * @brief 导航立方体渲染器 — 在视口角落显示方向指示立方体
+ * @file view_cube_stage.h
+ * @brief 导航立方体渲染阶段 — 在视口角落显示方向指示立方体
  * @date 2026-05-26
  *
  * 职责：
@@ -13,20 +13,22 @@
 
 #pragma once
 
-#include "../../rhi/device.h"
-#include "../../rhi/pipeline_state.h"
+#include "../forward/render_stage.h"
 #include "../../rhi/buffer.h"
 #include "../../rhi/bind_group.h"
-#include "../../rhi/shader.h"
+#include "../../rhi/pipeline_state.h"
 #include "../camera/camera.h"
 #include "../material/material.h"  // MaterialGPU
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 namespace mulan::engine {
 
 class CommandList;
+class Sampler;
+class Texture;
 
 /// ViewCube 面枚举（用于交互预留）
 enum class ViewCubeFace : uint8_t {
@@ -38,37 +40,29 @@ enum class ViewCubeFace : uint8_t {
     Bottom = 5,
 };
 
-/// 导航立方体渲染器
+/// 导航立方体渲染阶段
 ///
 /// 不拥有 PSO / Shader —— 由 Renderer 注入 GeometryPass 的 PSO。
 /// 只拥有 CPU 几何体 + 面材质 + 小尺寸 UBO（与主场景布局不同）。
 /// render() 从主相机提取旋转、设置角落视口、借用 PSO + BindGroupDesc 录制命令。
-class ViewCubeRenderer {
+class ViewCubeStage final : public RenderStage {
 public:
-    explicit ViewCubeRenderer(RHIDevice* device);
-    ~ViewCubeRenderer();
+    explicit ViewCubeStage(RHIDevice& device);
+    ~ViewCubeStage() override;
 
-    ViewCubeRenderer(const ViewCubeRenderer&) = delete;
-    ViewCubeRenderer& operator=(const ViewCubeRenderer&) = delete;
+    ViewCubeStage(const ViewCubeStage&) = delete;
+    ViewCubeStage& operator=(const ViewCubeStage&) = delete;
 
-    /// 初始化：创建几何缓冲 + UBO（PSO 由 Renderer 注入，此处仅传格式）
-    bool init(TextureFormat colorFmt, TextureFormat depthFmt);
+    std::string_view name() const override { return "ViewCube"; }
 
-    /// 渲染 ViewCube（在 Renderer::render() 末尾调用）
-    /// @param cmd            命令列表
-    /// @param solidPso       实体面 PSO（借用自 GeometryPass）
-    /// @param edgePso        边线 PSO（借用自 GeometryPass）
-    /// @param mainViewMatrix 主相机 view 矩阵（提取旋转）
-    /// @param vpWidth        视口总宽度
-    /// @param vpHeight       视口总高度
-    /// @param defaultWhite   无纹理退化用 1×1 白纹理（PSO 声明了纹理 binding 时必填）
-    /// @param defaultSampler 默认线性采样器
-    void render(CommandList* cmd,
-                PipelineState* solidPso, PipelineState* edgePso,
-                const math::Mat4& mainViewMatrix,
-                uint32_t vpWidth, uint32_t vpHeight,
-                Texture* defaultWhite = nullptr,
-                Sampler* defaultSampler = nullptr);
+    std::expected<void, core::Error>
+    init(RHIDevice& device, const RenderTargetInfo& target) override;
+
+    void shutdown(RHIDevice& device) override;
+    void execute(RenderFrame& frame) override;
+
+    void setPipelines(PipelineState* solidPso, PipelineState* edgePso);
+    void setFallbackResources(Texture* defaultWhite, Sampler* defaultSampler);
 
     /// 设置 ViewCube 显示大小（像素）
     void setSize(uint32_t size) { cube_size_ = size; }
@@ -139,8 +133,16 @@ private:
     bool createFaceGeometry();
     bool createEdgeGeometry();
 
+    void render(CommandList* cmd,
+                const math::Mat4& mainViewMatrix,
+                uint32_t vpWidth, uint32_t vpHeight);
+
     // --- 设备 ---
     RHIDevice*   device_;
+    PipelineState* solid_pso_ = nullptr;
+    PipelineState* edge_pso_ = nullptr;
+    Texture* default_white_ = nullptr;
+    Sampler* default_sampler_ = nullptr;
 
     // --- 几何缓冲 ---
     std::unique_ptr<Buffer>         face_vb_;     // 面顶点

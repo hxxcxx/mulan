@@ -19,8 +19,8 @@ add_library(engine STATIC
     render/text/font_atlas.cpp
     render/text/text_layout.cpp
     render/text/font_manager.cpp
-    # ViewCube navigation
-    render/viewcube/view_cube_renderer.cpp
+    # Overlay / navigation stages
+    render/overlay/view_cube_stage.cpp
     # Material system
     render/material/material_cache.cpp
     # Vulkan backend

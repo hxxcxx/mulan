@@ -13,8 +13,8 @@
 #include "mulan/engine/rhi/swap_chain.h"
 #include "mulan/engine/render/frame/render_frame.h"
 #include "mulan/engine/render/material/material_cache.h"
+#include "mulan/engine/render/overlay/view_cube_stage.h"
 #include "mulan/engine/render/texture_cache.h"
-#include "mulan/engine/render/viewcube/view_cube_renderer.h"
 #include "mulan/engine/render/environment_map.h"
 
 #include <cstdio>
@@ -58,8 +58,10 @@ bool Renderer::init(engine::RHIDevice& device,
     if (!edge_stage_->init(device, targetInfo))
         return false;
 
-    if (!initViewCube(&device, colorFmt, depthFmt)) {
+    view_cube_stage_ = std::make_unique<engine::ViewCubeStage>(device);
+    if (!view_cube_stage_->init(device, targetInfo)) {
         std::fprintf(stderr, "[Renderer] ViewCube init failed (non-fatal)\n");
+        view_cube_stage_.reset();
     }
 
     initialized_ = true;
@@ -69,7 +71,7 @@ bool Renderer::init(engine::RHIDevice& device,
 void Renderer::shutdown(engine::RHIDevice& device) {
     if (!initialized_) return;
     device.waitIdle();
-    view_cube_renderer_.reset();
+    view_cube_stage_.reset();
     edge_stage_.reset();
     face_stage_.reset();
     resources_.reset();
@@ -184,15 +186,12 @@ void Renderer::render(engine::RHIDevice& device,
     if (face_stage_ || edge_stage_)
         material_cache_->clearDirtyMaterials();
 
-    if (viewState.showViewCube && view_cube_renderer_) {
-        view_cube_renderer_->render(cmd,
-                                    face_stage_ ? face_stage_->pipelineState() : nullptr,
-                                    edge_stage_ ? edge_stage_->pipelineState() : nullptr,
-                                    viewState.viewMatrix,
-                                    static_cast<uint32_t>(viewState.width),
-                                    static_cast<uint32_t>(viewState.height),
-                                    face_stage_ ? face_stage_->defaultWhiteTexture() : nullptr,
-                                    face_stage_ ? face_stage_->defaultSampler() : nullptr);
+    if (view_cube_stage_) {
+        view_cube_stage_->setPipelines(face_stage_ ? face_stage_->pipelineState() : nullptr,
+                                       edge_stage_ ? edge_stage_->pipelineState() : nullptr);
+        view_cube_stage_->setFallbackResources(face_stage_ ? face_stage_->defaultWhiteTexture() : nullptr,
+                                               face_stage_ ? face_stage_->defaultSampler() : nullptr);
+        view_cube_stage_->execute(frame);
     }
 
     cmd->endRenderPass();
@@ -202,17 +201,6 @@ void Renderer::render(engine::RHIDevice& device,
         device.submitOffscreen();
     else
         device.submitAndPresent(sc);
-}
-
-bool Renderer::initViewCube(engine::RHIDevice* device,
-                            engine::TextureFormat colorFmt,
-                            engine::TextureFormat depthFmt) {
-    view_cube_renderer_ = std::make_unique<engine::ViewCubeRenderer>(device);
-    if (!view_cube_renderer_->init(colorFmt, depthFmt)) {
-        view_cube_renderer_.reset();
-        return false;
-    }
-    return true;
 }
 
 } // namespace mulan::view

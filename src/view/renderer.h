@@ -30,7 +30,7 @@
 namespace mulan::engine {
 class RHIDevice;
 class PipelineState;
-class ViewCubeRenderer;
+class ViewCubeStage;
 } // namespace mulan::engine
 
 namespace mulan::render_scene {
@@ -80,10 +80,6 @@ public:
     bool isInitialized() const { return initialized_; }
 
 private:
-    bool initViewCube(engine::RHIDevice* device,
-                      engine::TextureFormat colorFmt,
-                      engine::TextureFormat depthFmt);
-
     // cache 在最前声明（C++ 按声明逆序析构 → cache 最后析构，
     // 此时 passes/resources 已释放，但 device 仍活，GPU 纹理可安全销毁）
     std::unique_ptr<engine::TextureCache>  texture_cache_;
@@ -95,7 +91,7 @@ private:
     DrawCommandBuilder builder_;
     std::unique_ptr<engine::FaceStage> face_stage_;
     std::unique_ptr<engine::EdgeStage> edge_stage_;
-    std::unique_ptr<engine::ViewCubeRenderer> view_cube_renderer_;
+    std::unique_ptr<engine::ViewCubeStage> view_cube_stage_;
 
     bool initialized_ = false;
 };
