@@ -1,3 +1,10 @@
+/**
+ * @file render_request.h
+ * @brief RenderRequest 描述一次渲染调用的世界快照、视图、输出目标和显示选项。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include "render_view_desc.h"

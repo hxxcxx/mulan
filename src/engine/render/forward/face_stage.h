@@ -1,3 +1,10 @@
+/**
+ * @file face_stage.h
+ * @brief FaceStage 执行实体表面 bucket 的几何绘制。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include "render_stage.h"

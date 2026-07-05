@@ -19,7 +19,6 @@
 #define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 1
 
 #include <vulkan/vulkan.hpp>
-#include <vulkan/vulkan.hpp>
 
 
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1

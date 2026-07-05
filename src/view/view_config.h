@@ -1,6 +1,7 @@
 /**
  * @file view_config.h
  * @brief ViewContext 初始化配置
+ * @author hxxcxx
  * @date 2026-06-01
  *
  * ViewConfig 是 UI 端可控制的引擎初始化参数。

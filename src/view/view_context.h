@@ -1,6 +1,7 @@
 /**
  * @file view_context.h
  * @brief ViewContext 管理视图状态、相机和交互，并生成 ViewState。
+ * @author hxxcxx
  */
 #pragma once
 

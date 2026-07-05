@@ -1,3 +1,10 @@
+/**
+ * @file render_world_snapshot.h
+ * @brief RenderWorldSnapshot 是 RenderWorld 的不可变 CPU 渲染快照。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include "render_object.h"

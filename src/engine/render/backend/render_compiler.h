@@ -1,3 +1,10 @@
+/**
+ * @file render_compiler.h
+ * @brief RenderCompiler 将 frontend workload 编译为可提交的 MeshDrawCommand 列表。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include "render_compile_context.h"

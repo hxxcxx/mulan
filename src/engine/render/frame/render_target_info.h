@@ -1,3 +1,10 @@
+/**
+ * @file render_target_info.h
+ * @brief RenderTargetInfo 描述当前帧输出目标的尺寸、格式和呈现属性。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include "../../rhi/texture.h"

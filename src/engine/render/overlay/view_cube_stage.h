@@ -1,6 +1,7 @@
 /**
  * @file view_cube_stage.h
  * @brief 导航立方体渲染阶段 — 在视口角落显示方向指示立方体
+ * @author hxxcxx
  * @date 2026-05-26
  *
  * 职责：

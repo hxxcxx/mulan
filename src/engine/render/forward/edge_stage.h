@@ -1,3 +1,10 @@
+/**
+ * @file edge_stage.h
+ * @brief EdgeStage 执行边线 bucket 的几何绘制。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include "render_stage.h"

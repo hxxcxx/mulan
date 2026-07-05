@@ -1,3 +1,10 @@
+/**
+ * @file gpu_scene_contract.h
+ * @brief 定义 CPU 与 shader 共享的 Scene/Object UBO 数据契约。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include <mulan/math/math.h>

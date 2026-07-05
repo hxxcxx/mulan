@@ -1,3 +1,10 @@
+/**
+ * @file render_workload.h
+ * @brief RenderWorkload 将 RenderWorldSnapshot 分类为 backend 可编译的渲染 bucket。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include "render_request.h"

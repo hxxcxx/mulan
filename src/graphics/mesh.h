@@ -8,7 +8,6 @@
 #pragma once
 
 #include <mulan/math/math.h>
-#include <mulan/math/math.h>
 #include "primitive_types.h"
 #include "vertex/vertex_layout.h"
 

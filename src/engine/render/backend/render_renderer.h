@@ -1,3 +1,10 @@
+/**
+ * @file render_renderer.h
+ * @brief RenderRenderer 是 engine backend 的一帧渲染编排入口。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include "render_compiler.h"
@@ -43,11 +50,14 @@ public:
     bool isInitialized() const { return initialized_; }
 
 private:
+    bool validateOutput(const RenderSurfaceBinding& surface,
+                        const RenderRequest& request) const;
     void compile(const RenderRequest& request);
     CommandList* beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
                             const RenderRequest& request);
     void executeStages(RenderFrame& frame);
-    void endFrame(RHIDevice& device, const RenderSurfaceBinding& surface);
+    void endFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
+                  const RenderRequest& request);
 
     std::unique_ptr<TextureCache> texture_cache_;
     std::unique_ptr<MaterialCache> material_cache_;

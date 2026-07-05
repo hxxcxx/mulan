@@ -22,8 +22,6 @@
 #include <optional>
 
 #include <mulan/math/math.h>
-#include <mulan/math/math.h>
-#include <mulan/math/math.h>
 #include "rotation_mode.h"
 
 namespace mulan::engine {

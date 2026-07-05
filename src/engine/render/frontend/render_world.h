@@ -1,3 +1,10 @@
+/**
+ * @file render_world.h
+ * @brief RenderWorld 保存 engine frontend 的 CPU 渲染对象、几何和材质描述。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include "render_world_snapshot.h"

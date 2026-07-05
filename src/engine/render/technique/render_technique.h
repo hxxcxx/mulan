@@ -1,3 +1,10 @@
+/**
+ * @file render_technique.h
+ * @brief RenderTechnique 描述内置渲染技术与 shader/pipeline 配置的映射。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include "../../rhi/render_state.h"

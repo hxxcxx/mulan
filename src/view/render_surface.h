@@ -1,6 +1,7 @@
 /**
  * @file render_surface.h
  * @brief RenderSurface —— 可渲染表面抽象（窗口交换链 / 离屏渲染目标）
+ * @author hxxcxx
  * @date 2026-07-03
  *
  * 从 ViewContext 抽出的表面层。负责持有 SwapChain 或离屏 RenderTarget

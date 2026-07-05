@@ -1,3 +1,10 @@
+/**
+ * @file render_object.h
+ * @brief 定义 engine frontend 的渲染对象、材质、纹理和几何描述。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include "render_handle.h"

@@ -1,3 +1,10 @@
+/**
+ * @file render_view.h
+ * @brief RenderView 保存 backend 执行一帧渲染所需的视图快照。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include <mulan/math/math.h>

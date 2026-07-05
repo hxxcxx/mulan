@@ -1,6 +1,7 @@
 /**
  * @file renderer.h
  * @brief Renderer —— 一帧渲染执行入口
+ * @author hxxcxx
  * @date 2026-07-03
  *
  * 从 ViewContext 抽出的视图渲染适配层。负责把 RenderScene + camera 同步为

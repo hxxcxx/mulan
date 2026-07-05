@@ -93,6 +93,7 @@ void RenderRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
 void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surface,
                             const RenderRequest& request) {
     if (!initialized_ || !surface.isValid()) return;
+    if (!validateOutput(surface, request)) return;
 
     device.beginUploadBatch();
     compile(request);
@@ -105,8 +106,8 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     renderView.viewMatrix = request.view.viewMatrix;
     renderView.projectionMatrix = request.view.projectionMatrix;
     renderView.cameraPosition = request.view.cameraPosition;
-    renderView.width = request.view.width;
-    renderView.height = request.view.height;
+    renderView.width = request.output.width ? request.output.width : request.view.width;
+    renderView.height = request.output.height ? request.output.height : request.view.height;
     renderView.showFaces = request.options.showSurfaces;
     renderView.showEdges = request.options.showEdges;
     renderView.showOverlay = request.options.showOverlays;
@@ -116,7 +117,7 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     frameTargetInfo.width = renderView.width;
     frameTargetInfo.height = renderView.height;
     frameTargetInfo.hasDepth = true;
-    frameTargetInfo.presentable = surface.swapChain != nullptr;
+    frameTargetInfo.presentable = request.output.mode == RenderTargetMode::Present;
 
     RenderFrame frame{device, *cmd, renderView, frameTargetInfo};
     executeStages(frame);
@@ -124,7 +125,35 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     cmd->endRenderPass();
     cmd->end();
 
-    endFrame(device, surface);
+    endFrame(device, surface, request);
+}
+
+bool RenderRenderer::validateOutput(const RenderSurfaceBinding& surface,
+                                    const RenderRequest& request) const {
+    switch (request.output.mode) {
+    case RenderTargetMode::Present:
+        if (!surface.swapChain) {
+            std::fprintf(stderr, "[RenderRenderer] Present request requires a SwapChain\n");
+            return false;
+        }
+        return true;
+    case RenderTargetMode::Offscreen:
+        if (!surface.renderTarget) {
+            std::fprintf(stderr, "[RenderRenderer] Offscreen request requires a RenderTarget\n");
+            return false;
+        }
+        return true;
+    case RenderTargetMode::Capture:
+        if (!surface.renderTarget) {
+            std::fprintf(stderr, "[RenderRenderer] Capture request requires a RenderTarget\n");
+            return false;
+        }
+        if (!request.output.readback) {
+            std::fprintf(stderr, "[RenderRenderer] Capture request should enable readback\n");
+        }
+        return true;
+    }
+    return false;
 }
 
 void RenderRenderer::compile(const RenderRequest& request) {
@@ -164,10 +193,10 @@ CommandList* RenderRenderer::beginFrame(RHIDevice& device,
     if (!cmd) return nullptr;
     cmd->begin();
 
-    if (surface.renderTarget) {
-        cmd->beginRenderPass(surface.renderTarget->renderPassBeginInfo());
-    } else {
+    if (request.output.mode == RenderTargetMode::Present) {
         cmd->beginRenderPass(surface.swapChain->renderPassBeginInfo());
+    } else {
+        cmd->beginRenderPass(surface.renderTarget->renderPassBeginInfo());
     }
 
     Viewport vp;
@@ -204,11 +233,12 @@ void RenderRenderer::executeStages(RenderFrame& frame) {
     }
 }
 
-void RenderRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface) {
-    if (surface.renderTarget) {
-        device.submitOffscreen();
-    } else {
+void RenderRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
+                              const RenderRequest& request) {
+    if (request.output.mode == RenderTargetMode::Present) {
         device.submitAndPresent(surface.swapChain);
+    } else {
+        device.submitOffscreen();
     }
 }
 

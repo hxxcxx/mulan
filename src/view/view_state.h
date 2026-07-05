@@ -1,6 +1,7 @@
 /**
  * @file view_state.h
  * @brief ViewState 是一帧渲染所需的只读视图快照。
+ * @author hxxcxx
  * @date 2026-07-03
  */
 #pragma once

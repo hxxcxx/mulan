@@ -1,3 +1,10 @@
+/**
+ * @file material_types.h
+ * @brief 定义 graphics/asset/engine 共享的材质枚举和值类型。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include <cstdint>

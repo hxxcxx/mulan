@@ -1,3 +1,10 @@
+/**
+ * @file render_handle.h
+ * @brief 定义 engine frontend 使用的带 generation 的强类型资源句柄。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include <cstdint>

@@ -1,3 +1,10 @@
+/**
+ * @file render_frame.h
+ * @brief RenderFrame 聚合 RHI 设备、命令列表、视图和目标信息。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include "render_target_info.h"

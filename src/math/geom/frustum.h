@@ -4,6 +4,7 @@
  *
  * Frustum3 stores six inward-facing clip planes in the same convention as
  * Plane3: normal dot point = d, and inside points have signedDistance >= 0.
+ * @author hxxcxx
  */
 #pragma once
 

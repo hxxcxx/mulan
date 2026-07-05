@@ -1,3 +1,10 @@
+/**
+ * @file render_stage.h
+ * @brief RenderStage 定义 engine backend 中渲染阶段的统一接口。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include "../frame/render_frame.h"

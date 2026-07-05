@@ -1,3 +1,10 @@
+/**
+ * @file render_view_desc.h
+ * @brief RenderViewDesc 描述一次渲染请求中的相机矩阵和输出尺寸。
+ * @author hxxcxx
+ * @date 2026-07-05
+ */
+
 #pragma once
 
 #include <mulan/math/math.h>
