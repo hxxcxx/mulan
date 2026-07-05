@@ -2,6 +2,7 @@
 #include "../../rhi/command_list.h"
 #include "../../rhi/device.h"
 #include "../../engine_error_code.h"
+#include "../gpu_scene_contract.h"
 
 #include <mulan/core/result/error.h>
 #include <mulan/graphics/vertex/vertex_layout.h>
@@ -78,12 +79,12 @@ ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo&) {
     material_stride_ = alignUp32(static_cast<uint32_t>(sizeof(MaterialGPU)), uboAlign);
 
     {
-        auto r = device_->createBuffer(BufferDesc::uniform(sizeof(SceneUBO),   "ViewCube_SceneUBO"));
+        auto r = device_->createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "ViewCube_SceneUBO"));
         if (!r) return std::unexpected(r.error());
         scene_ubo_ = std::move(*r);
     }
     {
-        auto r = device_->createBuffer(BufferDesc::uniform(sizeof(ObjectUBO),  "ViewCube_ObjectUBO"));
+        auto r = device_->createBuffer(BufferDesc::uniform(sizeof(ObjectUniforms), "ViewCube_ObjectUBO"));
         if (!r) return std::unexpected(r.error());
         object_ubo_ = std::move(*r);
     }
@@ -311,25 +312,20 @@ void ViewCubeStage::render(CommandList* cmd,
     math::Mat4 corrProj = device_->clipSpaceCorrectionMatrix() * cubeProj;
     math::Mat4 cubeVP_mat = corrProj * cubeView;
 
-    // --- 3. 上传 SceneUBO ---
-    SceneUBO sceneUbo{};
-    auto storeMat4 = [](float* dst, const math::Mat4& src) {
-        for (int i = 0; i < 16; ++i) dst[i] = static_cast<float>(src.data()[i]);
-    };
-    storeMat4(sceneUbo.view,           cubeView);
-    storeMat4(sceneUbo.projection,     corrProj);
-    storeMat4(sceneUbo.viewProjection, cubeVP_mat);
-    sceneUbo.lightDir[0]  = -0.3f; sceneUbo.lightDir[1]  = -1.0f; sceneUbo.lightDir[2]  = -0.4f;
-    sceneUbo.lightColor[0]= 1.0f;  sceneUbo.lightColor[1]= 1.0f;  sceneUbo.lightColor[2]= 1.0f;
-    sceneUbo.ambientColor[0]=0.85f;sceneUbo.ambientColor[1]=0.85f;sceneUbo.ambientColor[2]=0.85f;
-    sceneUbo.edgeColor[0]=0.08f;   sceneUbo.edgeColor[1]=0.08f;   sceneUbo.edgeColor[2]=0.08f;
-    scene_ubo_->update(0, sizeof(SceneUBO), &sceneUbo);
+    // --- 3. 上传 Scene UBO ---
+    SceneUniforms sceneUbo{};
+    storeGpuMat4(sceneUbo.view, cubeView);
+    storeGpuMat4(sceneUbo.projection, corrProj);
+    storeGpuMat4(sceneUbo.viewProjection, cubeVP_mat);
+    storeGpuVec3(sceneUbo.lightDir, math::Vec3(-0.3, -1.0, -0.4));
+    storeGpuVec3(sceneUbo.lightColor, math::Vec3(1.0));
+    storeGpuVec3(sceneUbo.ambientColor, math::Vec3(0.85));
+    storeGpuVec3(sceneUbo.edgeColor, math::Vec3(0.08, 0.08, 0.08));
+    scene_ubo_->update(0, sizeof(SceneUniforms), &sceneUbo);
 
-    // --- 4. 上传 ObjectUBO（单位矩阵）---
-    ObjectUBO objUbo{};
-    objUbo.world[0] = objUbo.world[5] = objUbo.world[10] = objUbo.world[15] = 1.0f;
-    objUbo.normalMat[0] = objUbo.normalMat[5] = objUbo.normalMat[10] = 1.0f;
-    object_ubo_->update(0, sizeof(ObjectUBO), &objUbo);
+    // --- 4. 上传 Object UBO（单位矩阵）---
+    const ObjectUniforms objUbo = makeObjectUniforms(math::Mat4(1.0));
+    object_ubo_->update(0, sizeof(ObjectUniforms), &objUbo);
 
     // --- 5. 渲染面（每面独立材质）---
     cmd->setPipelineState(solid_pso_);
@@ -339,8 +335,8 @@ void ViewCubeStage::render(CommandList* cmd,
         const uint64_t hash = solid_pso_->bindGroupLayout().hash();
         if (!face_bg_ || face_bg_layout_hash_ != hash) {
             BindGroupDesc bg;
-            bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUBO))
-              .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUBO))
+            bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUniforms))
+              .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUniforms))
               .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
             if (default_white_) {
                 bg.addTexture(3, default_white_)
@@ -381,8 +377,8 @@ void ViewCubeStage::render(CommandList* cmd,
         const uint64_t hash = edge_pso_->bindGroupLayout().hash();
         if (!edge_bg_ || edge_bg_layout_hash_ != hash) {
             BindGroupDesc bg;
-            bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUBO))
-              .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUBO))
+            bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUniforms))
+              .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUniforms))
               .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
             auto r = device_->createBindGroup(edge_pso_->bindGroupLayout(), bg);
             if (r) {

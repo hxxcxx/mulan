@@ -3,6 +3,7 @@
 #include "../../rhi/bind_group.h"
 #include "../../rhi/render_types.h"
 #include "../../rhi/render_state.h"
+#include "../gpu_scene_contract.h"
 #include "../material/material_cache.h"
 
 #include <cstdio>
@@ -11,23 +12,6 @@
 namespace mulan::engine {
 
 namespace layouts = graphics::layouts;
-
-// ─── Scene UBO（严格对齐 Common.hlsli 的 cbuffer Scene，288 bytes）────────
-
-#pragma pack(push, 1)
-struct alignas(16) SceneUniforms {
-    float view[16];           // offset 0
-    float projection[16];     // offset 64
-    float viewProjection[16]; // offset 128
-    float cameraPos[4];       // offset 192 (xyz + pad)
-    float lightDir[4];        // offset 208
-    float lightColor[4];      // offset 224
-    float ambientColor[4];    // offset 240
-    float edgeColor[4];       // offset 256
-    float highlightColor[4];  // offset 272
-};
-#pragma pack(pop)
-static_assert(sizeof(SceneUniforms) == 288);
 
 // ─── 构造 / init ───────────────────────────────────────────────
 
@@ -290,28 +274,16 @@ void GeometryPass::uploadSceneUBO(const PassContext& ctx) {
     auto* dl  = light_env_.primaryDirectional();
     math::Vec3 ldir = dl ? dl->direction.normalized() : math::Vec3(-0.3, -1.0, -0.4);
 
-    auto storeMat = [](float* dst, const math::Mat4& m) {
-        for (int c = 0; c < 4; ++c)
-            for (int r = 0; r < 4; ++r)
-                dst[c * 4 + r] = static_cast<float>(m[c][r]);
-    };
-    auto storeVec3 = [](float* dst, const math::Vec3& v) {
-        dst[0] = static_cast<float>(v.x);
-        dst[1] = static_cast<float>(v.y);
-        dst[2] = static_cast<float>(v.z);
-        dst[3] = 0.0f;
-    };
-
     SceneUniforms ubo{};
-    storeMat(ubo.view,           view);
-    storeMat(ubo.projection,     proj);
-    storeMat(ubo.viewProjection, vp);
-    storeVec3(ubo.cameraPos,   eye);
-    storeVec3(ubo.lightDir,    ldir);
-    storeVec3(ubo.lightColor,  math::Vec3(0.8));    // 主光稍弱
-    storeVec3(ubo.ambientColor,math::Vec3(0.35));   // 环境光：既给无 IBL 时背光面底色，又给 IBL 一个合理倍率
-    storeVec3(ubo.edgeColor,   math::Vec3(0.08, 0.08, 0.08));
-    storeVec3(ubo.highlightColor, math::Vec3(1.0, 0.5, 0.0));
+    storeGpuMat4(ubo.view, view);
+    storeGpuMat4(ubo.projection, proj);
+    storeGpuMat4(ubo.viewProjection, vp);
+    storeGpuVec3(ubo.cameraPos, eye);
+    storeGpuVec3(ubo.lightDir, ldir);
+    storeGpuVec3(ubo.lightColor, math::Vec3(0.8));    // 主光稍弱
+    storeGpuVec3(ubo.ambientColor, math::Vec3(0.35)); // 环境光：无 IBL 时给背光面底色，也给 IBL 合理倍率
+    storeGpuVec3(ubo.edgeColor, math::Vec3(0.08, 0.08, 0.08));
+    storeGpuVec3(ubo.highlightColor, math::Vec3(1.0, 0.5, 0.0));
 
     ctx.cmd->updateBuffer(scene_ubo_.get(), 0, sizeof(ubo), &ubo);
 }

@@ -103,31 +103,6 @@ private:
         float edgeColor[3];  // 边线颜色
     };
 
-    // --- SceneUBO / ObjectUBO / MaterialUBO 与主场景相同布局 ---
-    struct alignas(16) SceneUBO {
-        float view[16];
-        float projection[16];
-        float viewProjection[16];
-        float cameraPos[3];      float _pad0;
-        float lightDir[3];       float _pad1;
-        float lightColor[3];     float _pad2;
-        float ambientColor[3];   float _pad3;
-        float edgeColor[3];      float _pad4;
-        float highlightColor[3]; float _pad5;
-    };
-    static_assert(sizeof(SceneUBO) == 288);
-
-    struct alignas(16) ObjectUBO {
-        float world[16];
-        float normalMat[12];
-        uint32_t pickId;
-        uint32_t selected;
-        float _pad[2];
-    };
-    static_assert(sizeof(ObjectUBO) == 128);
-
-    // MaterialUBO 直接复用 engine::MaterialGPU（80 字节，与 shader cbuffer 1:1）
-
     // --- 内部方法 ---
     bool createGeometry();
     bool createFaceGeometry();
