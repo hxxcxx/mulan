@@ -15,7 +15,6 @@
 #pragma once
 
 #include "draw_execution_context.h"
-#include "../render_resource_cache.h"
 #include "../mesh_draw_command.h"
 #include "../light_environment.h"
 #include "../technique/render_technique.h"
@@ -39,8 +38,8 @@ class MaterialCache;
 
 class GeometryDrawExecutor : public DrawExecutor {
 public:
-    GeometryDrawExecutor(RHIDevice& device, RenderResourceCache& gpu, MaterialCache& matCache,
-                         const LightEnvironment& lightEnv, RenderTechnique technique);
+    GeometryDrawExecutor(RHIDevice& device, MaterialCache& matCache, const LightEnvironment& lightEnv,
+                         RenderTechnique technique);
 
     const char* name() const override { return technique_.debugName; }
 
@@ -73,7 +72,6 @@ private:
     void uploadSceneUBO(const DrawExecutionContext& ctx);
 
     RHIDevice& device_;
-    RenderResourceCache& gpu_;
     MaterialCache& mat_cache_;
     const LightEnvironment& light_env_;
     const TechniqueDesc& technique_;

@@ -45,7 +45,17 @@ struct RenderMaterialDesc {
 };
 
 struct RenderGeometryDesc {
-    graphics::Mesh mesh;
+    /// 资产身份 key（由 view 层 RenderWorldSync 按资产身份生成，engine 透传不解释）。
+    /// 用作 AssetGpuRegistry 的去重/查表 key，跨帧稳定。
+    uint64_t resourceKey = 0;
+
+    /// 非拥有指针，指向资产持有的 graphics::Mesh（文档存活期稳定，与 Drawable::mesh 同契约）。
+    /// 仅 AssetGpuRegistry cache miss 时被读（上传 vertex/index 字节）；命中即返时不碰。
+    const graphics::Mesh* mesh = nullptr;
+
+    /// 冗余标量：渲染端常用，避免每次都解引用 mesh。snapshot 拷贝的是这些标量，零成本。
+    graphics::PrimitiveTopology topology = graphics::PrimitiveTopology::TriangleList;
+    bool empty = true;
 };
 
 struct RenderObjectDrawable {

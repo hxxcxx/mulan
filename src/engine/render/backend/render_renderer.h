@@ -16,7 +16,7 @@
 #include "../frontend/render_workload.h"
 #include "../light_environment.h"
 #include "../material/material_cache.h"
-#include "../render_resource_cache.h"
+#include "../asset_gpu_registry.h"
 #include "../texture_cache.h"
 
 #include <memory>
@@ -42,7 +42,9 @@ public:
     void enableIBL(RHIDevice& device, const std::string& hdrPath);
     void render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
 
-    RenderResourceCache& resources() { return *resources_; }
+    /// 释放全部资产派生 GPU 资源（文档切换时由 Renderer::setScene 触发）。
+    void clearAssetResources();
+
     bool isInitialized() const { return initialized_; }
 
 private:
@@ -55,7 +57,7 @@ private:
     std::unique_ptr<TextureCache> texture_cache_;
     std::unique_ptr<MaterialCache> material_cache_;
     std::unique_ptr<IBLPipeline> ibl_;
-    std::unique_ptr<RenderResourceCache> resources_;
+    std::unique_ptr<AssetGpuRegistry> asset_gpu_registry_;
 
     RenderWorkload workload_;
     RenderCompiler compiler_;

@@ -139,7 +139,11 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
             auto geometryIt = geometryHandles.find(geometryKey);
             if (geometryIt == geometryHandles.end()) {
                 engine::RenderGeometryDesc geometryDesc;
-                geometryDesc.mesh = *drawable.mesh;
+                geometryDesc.resourceKey = geometryKey;           // 资产身份 key，跨帧稳定
+                geometryDesc.mesh = drawable.mesh;                // 非拥有指针，指向资产 Mesh
+                geometryDesc.topology = drawable.mesh->topology;  // 冗余标量，避免渲染端解引用
+                geometryDesc.empty = drawable.mesh->empty();
+                // 不再深拷贝 Mesh：渲染端 miss 时通过 mesh 指针读字节上传，命中即返不碰。
                 geometryIt = geometryHandles.emplace(geometryKey, world.addGeometry(std::move(geometryDesc))).first;
             }
 

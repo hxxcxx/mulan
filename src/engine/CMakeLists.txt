@@ -8,8 +8,8 @@ add_library(engine STATIC
     render/camera/trackball_rotation.cpp
     render/texture_loader.cpp
     render/texture_cache.cpp
+    render/asset_gpu_registry.cpp
     render/environment_map.cpp
-    render/render_resource_cache.cpp
     render/mesh_draw_command.cpp
     render/technique/render_technique.cpp
     # Render frontend / backend

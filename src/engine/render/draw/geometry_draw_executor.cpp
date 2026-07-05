@@ -13,13 +13,9 @@ namespace mulan::engine {
 
 // ─── 构造 / init ───────────────────────────────────────────────
 
-GeometryDrawExecutor::GeometryDrawExecutor(RHIDevice& device, RenderResourceCache& gpu, MaterialCache& matCache,
-                                           const LightEnvironment& lightEnv, RenderTechnique technique)
-    : device_(device),
-      gpu_(gpu),
-      mat_cache_(matCache),
-      light_env_(lightEnv),
-      technique_(TechniqueRegistry::builtin(technique)) {
+GeometryDrawExecutor::GeometryDrawExecutor(RHIDevice& device, MaterialCache& matCache, const LightEnvironment& lightEnv,
+                                           RenderTechnique technique)
+    : device_(device), mat_cache_(matCache), light_env_(lightEnv), technique_(TechniqueRegistry::builtin(technique)) {
 }
 
 bool GeometryDrawExecutor::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {

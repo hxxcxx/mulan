@@ -23,19 +23,19 @@ bool RenderRenderer::init(RHIDevice& device, LightEnvironment& lightEnv, Texture
 
     texture_cache_ = std::make_unique<TextureCache>(&device);
     material_cache_ = std::make_unique<MaterialCache>();
-    resources_ = std::make_unique<RenderResourceCache>(device);
+    asset_gpu_registry_ = std::make_unique<AssetGpuRegistry>(device);
 
     RenderTargetInfo targetInfo;
     targetInfo.colorFormat = colorFmt;
     targetInfo.depthFormat = depthFmt;
     targetInfo.hasDepth = true;
 
-    face_stage_ = std::make_unique<FaceStage>(device, *resources_, *material_cache_, lightEnv);
+    face_stage_ = std::make_unique<FaceStage>(device, *material_cache_, lightEnv);
     if (!face_stage_->init(device, targetInfo)) {
         return false;
     }
 
-    edge_stage_ = std::make_unique<EdgeStage>(device, *resources_, *material_cache_, lightEnv);
+    edge_stage_ = std::make_unique<EdgeStage>(device, *material_cache_, lightEnv);
     if (!edge_stage_->init(device, targetInfo)) {
         return false;
     }
@@ -57,7 +57,7 @@ void RenderRenderer::shutdown(RHIDevice& device) {
     view_cube_stage_.reset();
     edge_stage_.reset();
     face_stage_.reset();
-    resources_.reset();
+    asset_gpu_registry_.reset();
     material_cache_.reset();
     texture_cache_.reset();
     ibl_.reset();
@@ -133,6 +133,13 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     endFrame(device, surface, request);
 }
 
+void RenderRenderer::clearAssetResources() {
+    if (asset_gpu_registry_) {
+        asset_gpu_registry_->clear();
+    }
+    // TODO(后续): 贴图并入 Registry 后，texture_cache_->clear() 也移到这里
+}
+
 bool RenderRenderer::validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const {
     switch (request.output.mode) {
     case RenderTargetMode::Present:
@@ -165,7 +172,7 @@ void RenderRenderer::compile(const RenderRequest& request) {
         workload_.build(*request.world, request.options);
 
         RenderCompileContext compileContext{
-            .resources = *resources_,
+            .geometry = *asset_gpu_registry_,
             .textures = *texture_cache_,
             .materials = *material_cache_,
             .surfacePipeline = face_stage_ ? face_stage_->pipelineState() : nullptr,

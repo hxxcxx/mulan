@@ -9,13 +9,13 @@
 
 namespace mulan::engine {
 
+class AssetGpuRegistry;
 class MaterialCache;
 class PipelineState;
-class RenderResourceCache;
 class TextureCache;
 
 struct RenderCompileContext {
-    RenderResourceCache& resources;
+    AssetGpuRegistry& geometry;
     TextureCache& textures;
     MaterialCache& materials;
     PipelineState* surfacePipeline = nullptr;

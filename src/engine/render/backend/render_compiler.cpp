@@ -1,7 +1,8 @@
 #include "render_compiler.h"
 
+#include "../asset_gpu_registry.h"
 #include "../material/material_cache.h"
-#include "../render_resource_cache.h"
+#include "../render_geometry.h"
 #include "../texture_cache.h"
 #include "../texture_loader.h"
 
@@ -9,10 +10,6 @@
 
 namespace mulan::engine {
 namespace {
-
-uint64_t geometryCacheKey(GeometryHandle handle) {
-    return (static_cast<uint64_t>(handle.generation) << 32u) | handle.index;
-}
 
 uint32_t materialOffset(const RenderWorldSnapshot& snapshot, RenderMaterialHandle handle, MaterialCache& cache) {
     const auto* record = snapshot.material(handle);
@@ -69,7 +66,7 @@ MeshDrawCommand makeCommand(const RenderWorldSnapshot& snapshot, const RenderWor
     command.indexType = geometry.indexType;
     command.vertexCount = geometry.vertexCount;
     command.instanceCount = 1;
-    command.topology = geometryRecord ? geometryRecord->desc.mesh.topology : PrimitiveTopology::TriangleList;
+    command.topology = geometryRecord ? geometryRecord->desc.topology : PrimitiveTopology::TriangleList;
     command.objectUboOffset = objectOffset;
     command.materialUboOffset = materialOffset;
     command.worldTransform = item.worldTransform;
@@ -89,11 +86,11 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
 
     for (const auto& item : workload.surfaces()) {
         const auto* geometryRecord = snapshot.geometry(item.geometry);
-        if (!geometryRecord || geometryRecord->desc.mesh.empty())
+        if (!geometryRecord || geometryRecord->desc.empty || !geometryRecord->desc.mesh)
             continue;
 
-        const auto key = geometryCacheKey(item.geometry);
-        const auto* gpuGeometry = context.resources.ensureSolidGeometry(key, geometryRecord->desc.mesh);
+        const auto* gpuGeometry =
+                context.geometry.acquireGeometry(geometryRecord->desc.resourceKey, *geometryRecord->desc.mesh);
         if (!gpuGeometry)
             continue;
 
@@ -106,11 +103,11 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
 
     for (const auto& item : workload.edges()) {
         const auto* geometryRecord = snapshot.geometry(item.geometry);
-        if (!geometryRecord || geometryRecord->desc.mesh.empty())
+        if (!geometryRecord || geometryRecord->desc.empty || !geometryRecord->desc.mesh)
             continue;
 
-        const auto key = geometryCacheKey(item.geometry);
-        const auto* gpuGeometry = context.resources.ensureWireGeometry(key, geometryRecord->desc.mesh);
+        const auto* gpuGeometry =
+                context.geometry.acquireGeometry(geometryRecord->desc.resourceKey, *geometryRecord->desc.mesh);
         if (!gpuGeometry)
             continue;
 
