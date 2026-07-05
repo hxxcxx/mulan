@@ -25,12 +25,9 @@ namespace {
 void logImportReport(const mulan::io::ImportReport& report) {
     std::ostringstream os;
     os << "Import ok"
-       << ": entities=" << report.entityCount
-       << ", mesh=" << report.meshAssetCount
-       << ", brep=" << report.brepAssetCount
-       << ", primitives=" << report.primitiveCount
-       << ", materials=" << report.materialCount
-       << ", textures=" << report.textureCount;
+       << ": entities=" << report.entityCount << ", mesh=" << report.meshAssetCount
+       << ", brep=" << report.brepAssetCount << ", primitives=" << report.primitiveCount
+       << ", materials=" << report.materialCount << ", textures=" << report.textureCount;
     mulan::core::log::log(mulan::core::log::Level::Info, os.str());
 
     for (const auto& warning : report.warnings) {
@@ -38,7 +35,7 @@ void logImportReport(const mulan::io::ImportReport& report) {
     }
 }
 
-} // namespace
+}  // namespace
 
 //===================================================
 // MainWindow
@@ -53,8 +50,7 @@ MainWindow::MainWindow(QWidget* parent) : SARibbonMainWindow(parent) {
     doc_area_ = new DocumentArea(this);
     setCentralWidget(doc_area_);
 
-    connect(doc_area_, &DocumentArea::currentDocumentChanged,
-            this, &MainWindow::onCurrentDocumentChanged);
+    connect(doc_area_, &DocumentArea::currentDocumentChanged, this, &MainWindow::onCurrentDocumentChanged);
 
     // 构建 Ribbon
     buildRibbon();
@@ -96,7 +92,8 @@ void MainWindow::buildRibbonHomeCategory() {
     action_fit_all_ = new QAction(QIcon(":/app/bright/icon/fitall.svg"), tr("Fit All"), this);
     action_fit_all_->setShortcut(Qt::Key_F);
     connect(action_fit_all_, &QAction::triggered, this, [this]() {
-        if (auto* doc = doc_area_->currentDocWidget()) doc->fitAll();
+        if (auto* doc = doc_area_->currentDocWidget())
+            doc->fitAll();
     });
     panel_view_->addLargeAction(action_fit_all_);
     category_home_->addPanel(panel_view_);
@@ -104,10 +101,8 @@ void MainWindow::buildRibbonHomeCategory() {
     // ── Setting 面板 ──
     panel_setting_ = new SARibbonPanel(tr("Setting"), category_home_);
     auto* actionAbout = new QAction(QIcon(":/app/bright/icon/about.svg"), tr("About"), this);
-    connect(actionAbout, &QAction::triggered, this, [this]() {
-        QMessageBox::about(this, tr("About mulan"),
-            tr("mulan v1.0\nA model geometry viewer."));
-    });
+    connect(actionAbout, &QAction::triggered, this,
+            [this]() { QMessageBox::about(this, tr("About mulan"), tr("mulan v1.0\nA model geometry viewer.")); });
     panel_setting_->addLargeAction(actionAbout);
 
     action_engine_settings_ = new QAction(QIcon(":/app/bright/icon/setting.svg"), tr("Engine"), this);
@@ -160,8 +155,9 @@ void MainWindow::buildRibbonViewCategory() {
 
 void MainWindow::buildQuickAccessBar() {
     auto* bar = ribbonBar()->quickAccessBar();
-    if (!bar) return;
-    
+    if (!bar)
+        return;
+
     auto* actionUndo = new QAction(QIcon(":/app/bright/icon/undo.svg"), tr("Undo"), this);
     actionUndo->setShortcut(QKeySequence::Undo);
     bar->addAction(actionUndo);
@@ -201,14 +197,14 @@ void MainWindow::onOpenFile() {
     filter += " )";
 
     QString filePath = QFileDialog::getOpenFileName(this, "Open Model File", {}, filter);
-    if (filePath.isEmpty()) return;
+    if (filePath.isEmpty())
+        return;
 
     statusBar()->showMessage("Loading: " + filePath);
 
     auto opened = doc_manager_.openFile(filePath.toStdString());
     if (!opened) {
-        QMessageBox::warning(this, "Import Error",
-            QString::fromStdString(opened.error().message));
+        QMessageBox::warning(this, "Import Error", QString::fromStdString(opened.error().message));
         statusBar()->showMessage("Ready");
         return;
     }
@@ -219,28 +215,28 @@ void MainWindow::onOpenFile() {
     auto* session = new DocumentSession(std::move(doc), std::move(opened->import.report));
     doc_area_->addDocument(session, title);
 
-    statusBar()->showMessage(
-        QString("Loaded: %1")
-            .arg(title));
+    statusBar()->showMessage(QString("Loaded: %1").arg(title));
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* e) {
-    if (e->mimeData()->hasUrls()) e->acceptProposedAction();
+    if (e->mimeData()->hasUrls())
+        e->acceptProposedAction();
 }
 
 void MainWindow::dropEvent(QDropEvent* e) {
     const auto urls = e->mimeData()->urls();
-    if (urls.isEmpty()) return;
+    if (urls.isEmpty())
+        return;
 
     QString filePath = urls[0].toLocalFile();
-    if (filePath.isEmpty()) return;
+    if (filePath.isEmpty())
+        return;
 
     statusBar()->showMessage("Loading: " + filePath);
 
     auto opened = doc_manager_.openFile(filePath.toStdString());
     if (!opened) {
-        QMessageBox::warning(this, "Import Error",
-            QString::fromStdString(opened.error().message));
+        QMessageBox::warning(this, "Import Error", QString::fromStdString(opened.error().message));
         statusBar()->showMessage("Ready");
         return;
     }
@@ -251,7 +247,5 @@ void MainWindow::dropEvent(QDropEvent* e) {
     auto* session = new DocumentSession(std::move(doc), std::move(opened->import.report));
     doc_area_->addDocument(session, title);
 
-    statusBar()->showMessage(
-        QString("Loaded: %1")
-            .arg(title));
+    statusBar()->showMessage(QString("Loaded: %1").arg(title));
 }

@@ -49,8 +49,7 @@ public:
 
     bool isInitialized() const { return runtime_host_.isInitialized(); }
 
-    void setRenderScene(const RenderScene* scene,
-                        const asset::AssetLibrary* assets);
+    void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
 
     void renderFrame();
     void resize(int width, int height);
@@ -96,9 +95,7 @@ private:
     ViewState buildViewState() const;
     void renderFrame(const ViewState& viewState);
     ViewState snapshotViewState() const;
-    ViewState snapshotViewState(const engine::Camera& camera,
-                                const CaptureVisual& visual,
-                                uint32_t width,
+    ViewState snapshotViewState(const engine::Camera& camera, const CaptureVisual& visual, uint32_t width,
                                 uint32_t height) const;
     void onFrameEnd();
 
@@ -106,14 +103,12 @@ private:
     uint32_t surfaceWidth() const;
     uint32_t surfaceHeight() const;
     bool readbackPixels(std::vector<uint8_t>& pixels);
-    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc,
-                                 uint32_t width,
-                                 uint32_t height);
+    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
     std::optional<RenderSurfaceDesc> captureSurfaceSnapshot() const;
     bool restoreCaptureSurface(const RenderSurfaceDesc& desc);
 
     RenderRuntimeHost runtime_host_;
-    engine::Camera camera_{engine::CameraMode::Trackball};
+    engine::Camera camera_{ engine::CameraMode::Trackball };
 
     std::unique_ptr<engine::Operator> default_op_;
     std::vector<std::unique_ptr<engine::Operator>> op_stack_;
@@ -133,4 +128,4 @@ private:
     std::string hdr_path_ = "assets/envmap.hdr";
 };
 
-} // namespace mulan::view
+}  // namespace mulan::view

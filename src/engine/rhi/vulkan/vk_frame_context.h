@@ -23,19 +23,19 @@ public:
     void resetFence();
     void resetCommandBuffer();
 
-    vk::CommandBuffer  cmdBuffer()       const { return cmd_buffer_; }
-    vk::CommandPool    cmdPool()         const { return cmd_pool_; }
-    vk::Semaphore      imageAvailable()  const { return image_available_; }
-    vk::Semaphore      renderFinished()  const { return render_finished_; }
-    vk::Fence          inFlightFence()   const { return in_flight_fence_; }
+    vk::CommandBuffer cmdBuffer() const { return cmd_buffer_; }
+    vk::CommandPool cmdPool() const { return cmd_pool_; }
+    vk::Semaphore imageAvailable() const { return image_available_; }
+    vk::Semaphore renderFinished() const { return render_finished_; }
+    vk::Fence inFlightFence() const { return in_flight_fence_; }
 
 private:
-    vk::Device         device_;
-    vk::CommandPool    cmd_pool_;
-    vk::CommandBuffer  cmd_buffer_;
-    vk::Semaphore      image_available_;
-    vk::Semaphore      render_finished_;
-    vk::Fence          in_flight_fence_;
+    vk::Device device_;
+    vk::CommandPool cmd_pool_;
+    vk::CommandBuffer cmd_buffer_;
+    vk::Semaphore image_available_;
+    vk::Semaphore render_finished_;
+    vk::Fence in_flight_fence_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

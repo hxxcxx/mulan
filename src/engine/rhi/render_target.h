@@ -28,14 +28,14 @@ class CommandList;
 // ============================================================
 
 struct RenderTargetDesc {
-    uint32_t      width       = 0;
-    uint32_t      height      = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
     TextureFormat colorFormat = TextureFormat::RGBA8_UNorm;
     TextureFormat depthFormat = TextureFormat::D24_UNorm_S8_UInt;
-    bool          hasDepth    = true;
+    bool hasDepth = true;
 
     float clearColor[4] = { 0.15f, 0.15f, 0.15f, 1.0f };
-    float clearDepth    = 1.0f;
+    float clearDepth = 1.0f;
 };
 
 // ============================================================
@@ -62,15 +62,15 @@ public:
         RenderPassBeginInfo info;
         auto* color = colorTexture();
         if (color) {
-            info.colorAttachments[0].target     = color;
-            info.colorAttachments[0].loadAction  = LoadAction::Clear;
+            info.colorAttachments[0].target = color;
+            info.colorAttachments[0].loadAction = LoadAction::Clear;
             info.colorAttachments[0].storeAction = StoreAction::Store;
             info.colorCount = 1;
         }
         auto* depth = depthTexture();
         if (depth) {
-            info.depthAttachment.target     = depth;
-            info.depthAttachment.loadAction  = LoadAction::Clear;
+            info.depthAttachment.target = depth;
+            info.depthAttachment.loadAction = LoadAction::Clear;
             info.depthAttachment.storeAction = StoreAction::Store;
         }
         auto& cc = desc().clearColor;
@@ -78,11 +78,11 @@ public:
         info.clearColor[1] = cc[1];
         info.clearColor[2] = cc[2];
         info.clearColor[3] = cc[3];
-        info.clearDepth    = desc().clearDepth;
+        info.clearDepth = desc().clearDepth;
         info.presentSource = false;
-        info.width         = desc().width;
-        info.height        = desc().height;
-        info.nativeHandle  = nativeRenderPassHandle();
+        info.width = desc().width;
+        info.height = desc().height;
+        info.nativeHandle = nativeRenderPassHandle();
         return info;
     }
 
@@ -90,13 +90,13 @@ public:
     virtual uint64_t nativeRenderPassHandle() const { return 0; }
 
     // 便捷查询
-    uint32_t width()  const { return desc().width; }
+    uint32_t width() const { return desc().width; }
     uint32_t height() const { return desc().height; }
 
     // 格式查询（非虚，通过 desc() 委托）
     TextureFormat colorFormat() const { return desc().colorFormat; }
     TextureFormat depthFormat() const { return desc().depthFormat; }
-    bool          hasDepth()    const { return desc().hasDepth; }
+    bool hasDepth() const { return desc().hasDepth; }
 
 protected:
     RenderTarget() = default;
@@ -104,4 +104,4 @@ protected:
     RenderTarget& operator=(const RenderTarget&) = delete;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

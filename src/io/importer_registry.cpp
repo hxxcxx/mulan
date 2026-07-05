@@ -28,18 +28,18 @@ struct ImportRegistry {
         auto assimp = []() -> std::unique_ptr<mulan::io::IFileImporter> {
             return std::make_unique<mulan::io::AssimpImporter>();
         };
-        for (auto ext : {"obj","fbx","dae","3ds","ply","stl","blend","x","ase","lwo","off","dxf"})
+        for (auto ext : { "obj", "fbx", "dae", "3ds", "ply", "stl", "blend", "x", "ase", "lwo", "off", "dxf" })
             factory.registerImporter(ext, assimp);
 
         // OCCT
         auto occt = []() -> std::unique_ptr<mulan::io::IFileImporter> {
             return std::make_unique<mulan::io::OCCTImporter>();
         };
-        for (auto ext : {"step","stp","iges","igs"})
+        for (auto ext : { "step", "stp", "iges", "igs" })
             factory.registerImporter(ext, occt);
     }
 };
 
 static ImportRegistry _registry;
 
-} // namespace
+}  // namespace

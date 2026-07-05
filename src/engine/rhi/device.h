@@ -46,13 +46,13 @@ enum class GraphicsBackend : uint8_t {
 
 struct GPUDeviceCapabilities {
     GraphicsBackend backend = GraphicsBackend::OpenGL;
-    uint32_t maxTextureSize    = 0;
-    uint32_t maxTextureAniso   = 0;
+    uint32_t maxTextureSize = 0;
+    uint32_t maxTextureAniso = 0;
     uint32_t minUniformBufferOffsetAlignment = 256;
-    bool     depthClamp        = false;
-    bool     geometryShader    = false;
-    bool     tessellationShader = false;
-    bool     computeShader     = false;
+    bool depthClamp = false;
+    bool geometryShader = false;
+    bool tessellationShader = false;
+    bool computeShader = false;
 };
 
 // ============================================================
@@ -60,11 +60,11 @@ struct GPUDeviceCapabilities {
 // ============================================================
 
 struct DeviceCreateInfo {
-    GraphicsBackend   backend          = GraphicsBackend::Vulkan;
-    NativeWindowHandle window           = {};
-    RenderConfig       renderConfig     = {};
-    bool               enableValidation = true;
-    const char*        appName          = "mulan";
+    GraphicsBackend backend = GraphicsBackend::Vulkan;
+    NativeWindowHandle window = {};
+    RenderConfig renderConfig = {};
+    bool enableValidation = true;
+    const char* appName = "mulan";
 };
 
 // ============================================================
@@ -107,7 +107,8 @@ public:
     virtual core::Result<std::unique_ptr<Texture>> createTexture(const TextureDesc& desc) = 0;
     virtual core::Result<std::unique_ptr<Shader>> createShader(const ShaderDesc& desc) = 0;
     virtual core::Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc& desc) = 0;
-    virtual core::Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(const ComputePipelineDesc& desc) = 0;
+    virtual core::Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(
+            const ComputePipelineDesc& desc) = 0;
     virtual core::Result<std::unique_ptr<CommandList>> createCommandList() = 0;
     virtual core::Result<std::unique_ptr<SwapChain>> createSwapChain(const SwapChainDesc& desc) = 0;
     virtual core::Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc& desc) = 0;
@@ -116,15 +117,14 @@ public:
 
     /// 创建 BindGroup 对象（从 layout + desc，缓存后端 descriptor 句柄）。
     /// layout 从 PipelineState::bindGroupLayout() 获取。
-    virtual core::Result<std::unique_ptr<BindGroup>>
-        createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) = 0;
+    virtual core::Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout,
+                                                                     const BindGroupDesc& desc) = 0;
 
     // --- 资源上传 ---
     // 把 CPU 端像素数据同步上传到 GPU 纹理，并在内部完成到 SHADER_READ 的状态转换。
     // 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式（bpp 由公共工具统一计算）。
     // 后端各自实现，经此接口避免向 render 层泄漏后端 UploadContext 类型。
-    virtual void uploadTextureData(Texture* dst, const void* data,
-                                   uint32_t width, uint32_t height,
+    virtual void uploadTextureData(Texture* dst, const void* data, uint32_t width, uint32_t height,
                                    TextureFormat format) = 0;
 
     /// 批量刷新所有待上传资源（beginUpload → 所有 pending upload → flushUploadBatch）。
@@ -134,14 +134,10 @@ public:
 
     // --- 提交命令 ---
 
-    virtual void executeCommandLists(CommandList** cmdLists,
-                                     uint32_t count,
-                                     Fence* fence = nullptr,
+    virtual void executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence = nullptr,
                                      uint64_t fenceValue = 0) = 0;
 
-    void executeCommandList(CommandList* cmdList,
-                            Fence* fence = nullptr,
-                            uint64_t fenceValue = 0) {
+    void executeCommandList(CommandList* cmdList, Fence* fence = nullptr, uint64_t fenceValue = 0) {
         executeCommandLists(&cmdList, 1, fence, fenceValue);
     }
 
@@ -197,4 +193,4 @@ protected:
 };
 
 // ============================================================
-} // namespace mulan::engine
+}  // namespace mulan::engine

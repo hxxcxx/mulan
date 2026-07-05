@@ -4,9 +4,7 @@
 
 namespace mulan::view {
 
-ViewContext::ViewContext()
-    : default_op_(std::make_unique<engine::CameraManipulator>())
-{
+ViewContext::ViewContext() : default_op_(std::make_unique<engine::CameraManipulator>()) {
     default_op_->setState(engine::Operator::State::Active);
     default_op_->onActivate(camera_);
     camera_.setOrthographic(true);
@@ -19,12 +17,13 @@ ViewContext::~ViewContext() {
 }
 
 bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
-    if (runtime_host_.isInitialized()) return true;
+    if (runtime_host_.isInitialized())
+        return true;
 
-    width_  = width;
+    width_ = width;
     height_ = height;
     ibl_enabled_ = cfg.iblEnabled;
-    hdr_path_    = cfg.hdrPath;
+    hdr_path_ = cfg.hdrPath;
 
     if (!runtime_host_.initWindow(cfg, width, height, light_env_)) {
         return false;
@@ -40,9 +39,10 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
 }
 
 bool ViewContext::initOffscreen(int width, int height) {
-    if (runtime_host_.isInitialized()) return true;
+    if (runtime_host_.isInitialized())
+        return true;
 
-    width_  = width;
+    width_ = width;
     height_ = height;
 
     if (!runtime_host_.initOffscreen(width, height, light_env_)) {
@@ -62,25 +62,27 @@ void ViewContext::shutdown() {
     runtime_host_.shutdown();
 }
 
-void ViewContext::setRenderScene(const RenderScene* scene,
-                                 const asset::AssetLibrary* assets) {
+void ViewContext::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
     runtime_host_.setRenderScene(scene, assets);
 }
 
 void ViewContext::enableIBL() {
     // 两层门控：全局开关 + HDR 路径有效
-    if (!ibl_enabled_) return;
+    if (!ibl_enabled_)
+        return;
     runtime_host_.enableIBL(hdr_path_);
 }
 
 void ViewContext::renderFrame() {
-    if (!runtime_host_.isInitialized()) return;
+    if (!runtime_host_.isInitialized())
+        return;
 
     renderFrame(buildViewState());
 }
 
 void ViewContext::renderFrame(const ViewState& viewState) {
-    if (!runtime_host_.isInitialized()) return;
+    if (!runtime_host_.isInitialized())
+        return;
 
     runtime_host_.render(viewState);
     onFrameEnd();
@@ -90,9 +92,7 @@ ViewState ViewContext::snapshotViewState() const {
     return buildViewState();
 }
 
-ViewState ViewContext::snapshotViewState(const engine::Camera& camera,
-                                         const CaptureVisual& visual,
-                                         uint32_t width,
+ViewState ViewContext::snapshotViewState(const engine::Camera& camera, const CaptureVisual& visual, uint32_t width,
                                          uint32_t height) const {
     ViewState state;
     state.viewMatrix = camera.viewMatrix();
@@ -128,7 +128,7 @@ void ViewContext::onFrameEnd() {
 }
 
 void ViewContext::resize(int width, int height) {
-    width_  = width;
+    width_ = width;
     height_ = height;
     if (runtime_host_.isInitialized()) {
         runtime_host_.resize(width, height);
@@ -140,19 +140,22 @@ void ViewContext::resize(int width, int height) {
 
 void ViewContext::handleInput(const engine::InputEvent& event) {
     engine::Operator* op = activeOperator();
-    if (!op) return;
+    if (!op)
+        return;
 
     op->handleEvent(event, camera_);
 
     if (op->isFinished() && !op_stack_.empty()) {
         auto finishedHook = op->finishHook();
-        if (finishedHook) finishedHook(*op);
+        if (finishedHook)
+            finishedHook(*op);
         popOperator();
     }
 }
 
 void ViewContext::pushOperator(std::unique_ptr<engine::Operator> op) {
-    if (!op) return;
+    if (!op)
+        return;
 
     if (auto* cur = activeOperator()) {
         cur->setState(engine::Operator::State::Inactive);
@@ -165,7 +168,8 @@ void ViewContext::pushOperator(std::unique_ptr<engine::Operator> op) {
 }
 
 void ViewContext::popOperator() {
-    if (op_stack_.empty()) return;
+    if (op_stack_.empty())
+        return;
 
     auto top = std::move(op_stack_.back());
     op_stack_.pop_back();
@@ -180,7 +184,8 @@ void ViewContext::popOperator() {
 }
 
 engine::Operator* ViewContext::activeOperator() const {
-    if (!op_stack_.empty()) return op_stack_.back().get();
+    if (!op_stack_.empty())
+        return op_stack_.back().get();
     return default_op_.get();
 }
 
@@ -200,9 +205,7 @@ uint32_t ViewContext::surfaceHeight() const {
     return runtime_host_.surfaceHeight();
 }
 
-bool ViewContext::configureCaptureSurface(const engine::RenderCaptureDesc& desc,
-                                          uint32_t width,
-                                          uint32_t height) {
+bool ViewContext::configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height) {
     if (!runtime_host_.configureCaptureSurface(desc, width, height)) {
         return false;
     }
@@ -253,4 +256,4 @@ ViewState ViewContext::buildViewState() const {
     return state;
 }
 
-} // namespace mulan::view
+}  // namespace mulan::view

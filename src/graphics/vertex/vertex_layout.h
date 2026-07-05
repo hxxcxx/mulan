@@ -21,22 +21,20 @@ namespace mulan::graphics {
 // ============================================================
 
 struct VertexAttribute {
-    VertexSemantic semantic   = VertexSemantic::Position;
-    VertexFormat   format     = VertexFormat::Invalid;
-    uint16_t       offset     = 0;        // 距顶点起始的字节偏移
-    uint8_t        bufferSlot = 0;        // vertex buffer slot [0-3]
+    VertexSemantic semantic = VertexSemantic::Position;
+    VertexFormat format = VertexFormat::Invalid;
+    uint16_t offset = 0;     // 距顶点起始的字节偏移
+    uint8_t bufferSlot = 0;  // vertex buffer slot [0-3]
 
     constexpr VertexAttribute() = default;
-    constexpr VertexAttribute(VertexSemantic sem, VertexFormat fmt,
-                              uint16_t off = 0, uint8_t slot = 0)
+    constexpr VertexAttribute(VertexSemantic sem, VertexFormat fmt, uint16_t off = 0, uint8_t slot = 0)
         : semantic(sem), format(fmt), offset(off), bufferSlot(slot) {}
 
     constexpr uint8_t size() const { return vertexFormatSize(format); }
     constexpr bool isValid() const { return format != VertexFormat::Invalid; }
 
     constexpr bool operator==(const VertexAttribute& o) const {
-        return semantic == o.semantic && format == o.format
-            && offset == o.offset && bufferSlot == o.bufferSlot;
+        return semantic == o.semantic && format == o.format && offset == o.offset && bufferSlot == o.bufferSlot;
     }
 };
 
@@ -45,7 +43,7 @@ struct VertexAttribute {
 // ============================================================
 
 static constexpr uint8_t kMaxVertexAttributes = 16;
-static constexpr uint8_t kMaxVertexBuffers    = 4;
+static constexpr uint8_t kMaxVertexBuffers = 4;
 
 class VertexLayout {
 public:
@@ -53,14 +51,13 @@ public:
 
     // 构建器模式（全部 constexpr）
     constexpr VertexLayout& begin(uint8_t bufferCount = 1) {
-        attr_count_   = 0;
-        stride_      = 0;
+        attr_count_ = 0;
+        stride_ = 0;
         buffer_count_ = bufferCount;
         return *this;
     }
 
-    constexpr VertexLayout& add(VertexSemantic semantic, VertexFormat format,
-                                uint8_t bufferSlot = 0) {
+    constexpr VertexLayout& add(VertexSemantic semantic, VertexFormat format, uint8_t bufferSlot = 0) {
         if (attr_count_ < kMaxVertexAttributes) {
             attrs_[attr_count_] = VertexAttribute(semantic, format, stride_, bufferSlot);
             stride_ += vertexFormatSize(format);
@@ -94,26 +91,23 @@ public:
 
     // 查询
     constexpr uint16_t stride() const { return stride_; }
-    constexpr uint8_t  attrCount() const { return attr_count_; }
-    constexpr uint8_t  bufferCount() const { return buffer_count_; }
-    constexpr bool     empty() const { return attr_count_ == 0; }
+    constexpr uint8_t attrCount() const { return attr_count_; }
+    constexpr uint8_t bufferCount() const { return buffer_count_; }
+    constexpr bool empty() const { return attr_count_ == 0; }
 
     constexpr const VertexAttribute& operator[](uint8_t i) const { return attrs_[i]; }
-    constexpr std::span<const VertexAttribute> attributes() const {
-        return {attrs_.data(), attr_count_};
-    }
+    constexpr std::span<const VertexAttribute> attributes() const { return { attrs_.data(), attr_count_ }; }
 
     // 按语义查找属性
     constexpr const VertexAttribute* find(VertexSemantic sem) const {
         for (uint8_t i = 0; i < attr_count_; ++i) {
-            if (attrs_[i].semantic == sem) return &attrs_[i];
+            if (attrs_[i].semantic == sem)
+                return &attrs_[i];
         }
         return nullptr;
     }
 
-    constexpr bool has(VertexSemantic sem) const {
-        return find(sem) != nullptr;
-    }
+    constexpr bool has(VertexSemantic sem) const { return find(sem) != nullptr; }
 
     constexpr uint16_t offsetOf(VertexSemantic sem) const {
         auto* a = find(sem);
@@ -122,9 +116,9 @@ public:
 
 private:
     std::array<VertexAttribute, kMaxVertexAttributes> attrs_{};
-    uint16_t stride_      = 0;
-    uint8_t  attr_count_   = 0;
-    uint8_t  buffer_count_ = 1;
+    uint16_t stride_ = 0;
+    uint8_t attr_count_ = 0;
+    uint8_t buffer_count_ = 1;
 };
 
 // ============================================================
@@ -155,9 +149,9 @@ namespace layouts {
 consteval VertexLayout wire() {
     VertexLayout l;
     l.begin(1)
-        .add(VertexSemantic::Position, VertexFormat::Float3)
-        .add(VertexSemantic::Color0,   VertexFormat::UByte4N)
-     .end();
+            .add(VertexSemantic::Position, VertexFormat::Float3)
+            .add(VertexSemantic::Color0, VertexFormat::UByte4N)
+            .end();
     return l;
 }
 
@@ -167,11 +161,11 @@ consteval VertexLayout wire() {
 consteval VertexLayout solid() {
     VertexLayout l;
     l.begin(1)
-        .add(VertexSemantic::Position, VertexFormat::Float3)
-        .add(VertexSemantic::Normal,   VertexFormat::Float3)
-        .add(VertexSemantic::Color0,   VertexFormat::UByte4N)
-        .skip(4)
-     .end();
+            .add(VertexSemantic::Position, VertexFormat::Float3)
+            .add(VertexSemantic::Normal, VertexFormat::Float3)
+            .add(VertexSemantic::Color0, VertexFormat::UByte4N)
+            .skip(4)
+            .end();
     return l;
 }
 
@@ -179,11 +173,11 @@ consteval VertexLayout solid() {
 consteval VertexLayout solidMaterial() {
     VertexLayout l;
     l.begin(1)
-        .add(VertexSemantic::Position,   VertexFormat::Float3)
-        .add(VertexSemantic::Normal,     VertexFormat::Float3)
-        .add(VertexSemantic::Color0,     VertexFormat::UByte4N)
-        .add(VertexSemantic::MaterialId, VertexFormat::UInt)
-     .end();
+            .add(VertexSemantic::Position, VertexFormat::Float3)
+            .add(VertexSemantic::Normal, VertexFormat::Float3)
+            .add(VertexSemantic::Color0, VertexFormat::UByte4N)
+            .add(VertexSemantic::MaterialId, VertexFormat::UInt)
+            .end();
     return l;
 }
 
@@ -191,9 +185,9 @@ consteval VertexLayout solidMaterial() {
 consteval VertexLayout pick() {
     VertexLayout l;
     l.begin(1)
-        .add(VertexSemantic::Position, VertexFormat::Float3)
-        .add(VertexSemantic::PickId,   VertexFormat::UInt)
-     .end();
+            .add(VertexSemantic::Position, VertexFormat::Float3)
+            .add(VertexSemantic::PickId, VertexFormat::UInt)
+            .end();
     return l;
 }
 
@@ -201,11 +195,11 @@ consteval VertexLayout pick() {
 consteval VertexLayout pbr() {
     VertexLayout l;
     l.begin(1)
-        .add(VertexSemantic::Position,  VertexFormat::Float3)
-        .add(VertexSemantic::Normal,    VertexFormat::Float3)
-        .add(VertexSemantic::TexCoord0, VertexFormat::Float2)
-        .add(VertexSemantic::Tangent,   VertexFormat::Float4)
-     .end();
+            .add(VertexSemantic::Position, VertexFormat::Float3)
+            .add(VertexSemantic::Normal, VertexFormat::Float3)
+            .add(VertexSemantic::TexCoord0, VertexFormat::Float2)
+            .add(VertexSemantic::Tangent, VertexFormat::Float4)
+            .end();
     return l;
 }
 
@@ -213,9 +207,9 @@ consteval VertexLayout pbr() {
 consteval VertexLayout pointCloud() {
     VertexLayout l;
     l.begin(1)
-        .add(VertexSemantic::Position, VertexFormat::Float3)
-        .add(VertexSemantic::Color0,   VertexFormat::UByte4N)
-     .end();
+            .add(VertexSemantic::Position, VertexFormat::Float3)
+            .add(VertexSemantic::Color0, VertexFormat::UByte4N)
+            .end();
     return l;
 }
 
@@ -223,13 +217,13 @@ consteval VertexLayout pointCloud() {
 consteval VertexLayout objectMetadata() {
     VertexLayout l;
     l.begin(1)
-        .add(VertexSemantic::Position,   VertexFormat::Float3)
-        .add(VertexSemantic::Normal,     VertexFormat::Float3)
-        .add(VertexSemantic::Color0,     VertexFormat::UByte4N)
-        .add(VertexSemantic::ObjectId,   VertexFormat::UInt)
-        .add(VertexSemantic::MaterialId, VertexFormat::UInt)
-        .skip(8)
-     .end();
+            .add(VertexSemantic::Position, VertexFormat::Float3)
+            .add(VertexSemantic::Normal, VertexFormat::Float3)
+            .add(VertexSemantic::Color0, VertexFormat::UByte4N)
+            .add(VertexSemantic::ObjectId, VertexFormat::UInt)
+            .add(VertexSemantic::MaterialId, VertexFormat::UInt)
+            .skip(8)
+            .end();
     return l;
 }
 
@@ -237,9 +231,9 @@ consteval VertexLayout objectMetadata() {
 consteval VertexLayout overlay2D() {
     VertexLayout l;
     l.begin(1)
-        .add(VertexSemantic::Position, VertexFormat::Float2)
-        .add(VertexSemantic::Color0,   VertexFormat::UByte4N)
-     .end();
+            .add(VertexSemantic::Position, VertexFormat::Float2)
+            .add(VertexSemantic::Color0, VertexFormat::UByte4N)
+            .end();
     return l;
 }
 
@@ -247,10 +241,10 @@ consteval VertexLayout overlay2D() {
 consteval VertexLayout soaSolid() {
     VertexLayout l;
     l.begin(3)
-        .add(VertexSemantic::Position, VertexFormat::Float3,  0)
-        .add(VertexSemantic::Normal,   VertexFormat::Float3,  1)
-        .add(VertexSemantic::Color0,   VertexFormat::UByte4N, 2)
-     .end();
+            .add(VertexSemantic::Position, VertexFormat::Float3, 0)
+            .add(VertexSemantic::Normal, VertexFormat::Float3, 1)
+            .add(VertexSemantic::Color0, VertexFormat::UByte4N, 2)
+            .end();
     return l;
 }
 
@@ -258,13 +252,13 @@ consteval VertexLayout soaSolid() {
 consteval VertexLayout skinned() {
     VertexLayout l;
     l.begin(1)
-        .add(VertexSemantic::Position,  VertexFormat::Float3)
-        .add(VertexSemantic::Normal,    VertexFormat::Float3)
-        .add(VertexSemantic::TexCoord0, VertexFormat::Float2)
-        .add(VertexSemantic::Tangent,   VertexFormat::Float4)
-        .add(VertexSemantic::Indices,   VertexFormat::UInt)
-        .add(VertexSemantic::Weight,    VertexFormat::Float4)
-     .end();
+            .add(VertexSemantic::Position, VertexFormat::Float3)
+            .add(VertexSemantic::Normal, VertexFormat::Float3)
+            .add(VertexSemantic::TexCoord0, VertexFormat::Float2)
+            .add(VertexSemantic::Tangent, VertexFormat::Float4)
+            .add(VertexSemantic::Indices, VertexFormat::UInt)
+            .add(VertexSemantic::Weight, VertexFormat::Float4)
+            .end();
     return l;
 }
 
@@ -272,12 +266,12 @@ consteval VertexLayout skinned() {
 consteval VertexLayout solidTextured() {
     VertexLayout l;
     l.begin(1)
-        .add(VertexSemantic::Position,  VertexFormat::Float3)
-        .add(VertexSemantic::Normal,    VertexFormat::Float3)
-        .add(VertexSemantic::Color0,    VertexFormat::UByte4N)
-        .add(VertexSemantic::TexCoord0, VertexFormat::Float2)
-        .skip(4)
-     .end();
+            .add(VertexSemantic::Position, VertexFormat::Float3)
+            .add(VertexSemantic::Normal, VertexFormat::Float3)
+            .add(VertexSemantic::Color0, VertexFormat::UByte4N)
+            .add(VertexSemantic::TexCoord0, VertexFormat::Float2)
+            .skip(4)
+            .end();
     return l;
 }
 
@@ -285,12 +279,12 @@ consteval VertexLayout solidTextured() {
 consteval VertexLayout lightmap() {
     VertexLayout l;
     l.begin(1)
-        .add(VertexSemantic::Position,  VertexFormat::Float3)
-        .add(VertexSemantic::Normal,    VertexFormat::Float3)
-        .add(VertexSemantic::TexCoord0, VertexFormat::Float2)
-        .add(VertexSemantic::TexCoord1, VertexFormat::Float2)
-        .add(VertexSemantic::Tangent,   VertexFormat::Float4)
-     .end();
+            .add(VertexSemantic::Position, VertexFormat::Float3)
+            .add(VertexSemantic::Normal, VertexFormat::Float3)
+            .add(VertexSemantic::TexCoord0, VertexFormat::Float2)
+            .add(VertexSemantic::TexCoord1, VertexFormat::Float2)
+            .add(VertexSemantic::Tangent, VertexFormat::Float4)
+            .end();
     return l;
 }
 
@@ -299,14 +293,14 @@ consteval VertexLayout lightmap() {
 consteval VertexLayout surface() {
     VertexLayout l;
     l.begin(1)
-        .add(VertexSemantic::Position,  VertexFormat::Float3)
-        .add(VertexSemantic::Normal,    VertexFormat::Float3)
-        .add(VertexSemantic::TexCoord0, VertexFormat::Float2)
-     .end();
+            .add(VertexSemantic::Position, VertexFormat::Float3)
+            .add(VertexSemantic::Normal, VertexFormat::Float3)
+            .add(VertexSemantic::TexCoord0, VertexFormat::Float2)
+            .end();
     return l;
 }
 
-} // namespace layouts
+}  // namespace layouts
 
 // ============================================================
 // 编译期布局验证
@@ -315,7 +309,8 @@ consteval VertexLayout surface() {
 constexpr bool validateLayout(const VertexLayout& L) {
     for (uint8_t i = 0; i < L.attrCount(); ++i) {
         for (uint8_t j = i + 1; j < L.attrCount(); ++j) {
-            if (L[i].semantic == L[j].semantic) return false;
+            if (L[i].semantic == L[j].semantic)
+                return false;
         }
     }
     return true;
@@ -347,4 +342,4 @@ static_assert(layouts::solidTextured().stride() == 40);
 static_assert(layouts::lightmap().stride() == 56);
 static_assert(layouts::surface().stride() == 32);
 
-} // namespace mulan::graphics
+}  // namespace mulan::graphics

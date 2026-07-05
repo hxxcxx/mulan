@@ -16,8 +16,7 @@ namespace mulan::engine {
 
 class EdgeStage final : public RenderStage {
 public:
-    EdgeStage(RHIDevice& device, RenderResourceCache& gpu,
-              MaterialCache& matCache, const LightEnvironment& lightEnv);
+    EdgeStage(RHIDevice& device, RenderResourceCache& gpu, MaterialCache& matCache, const LightEnvironment& lightEnv);
 
     std::string_view name() const override { return "Edge"; }
 
@@ -33,4 +32,4 @@ private:
     GeometryDrawExecutor draw_executor_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

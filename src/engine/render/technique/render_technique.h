@@ -41,4 +41,4 @@ public:
     static const TechniqueDesc& builtin(RenderTechnique technique);
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

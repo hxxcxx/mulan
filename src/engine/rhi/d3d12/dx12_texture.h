@@ -19,13 +19,12 @@ namespace mulan::engine {
 class DX12Texture final : public Texture {
 public:
     /// 创建常规纹理。失败返回 TextureCreateFailed。
-    static core::Result<std::unique_ptr<DX12Texture>>
-        create(const TextureDesc& desc, ID3D12Device* device,
-               D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON);
+    static core::Result<std::unique_ptr<DX12Texture>> create(
+            const TextureDesc& desc, ID3D12Device* device,
+            D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON);
 
     /// Swapchain backbuffer / 现有资源包装构造（不可失败，保持 public）。
-    DX12Texture(const TextureDesc& desc, ID3D12Resource* existingResource,
-                D3D12_RESOURCE_STATES initialState);
+    DX12Texture(const TextureDesc& desc, ID3D12Resource* existingResource, D3D12_RESOURCE_STATES initialState);
     ~DX12Texture();
 
     const TextureDesc& desc() const override { return desc_; }
@@ -35,8 +34,14 @@ public:
     void setState(D3D12_RESOURCE_STATES s) { state_ = s; }
 
     // RTV/DSV/SRV 句柄
-    void setRTV(D3D12_CPU_DESCRIPTOR_HANDLE handle) { rtv_ = handle; has_rtv_ = true; }
-    void setDSV(D3D12_CPU_DESCRIPTOR_HANDLE handle) { dsv_ = handle; has_dsv_ = true; }
+    void setRTV(D3D12_CPU_DESCRIPTOR_HANDLE handle) {
+        rtv_ = handle;
+        has_rtv_ = true;
+    }
+    void setDSV(D3D12_CPU_DESCRIPTOR_HANDLE handle) {
+        dsv_ = handle;
+        has_dsv_ = true;
+    }
     D3D12_CPU_DESCRIPTOR_HANDLE rtv() const { return rtv_; }
     D3D12_CPU_DESCRIPTOR_HANDLE dsv() const { return dsv_; }
     D3D12_CPU_DESCRIPTOR_HANDLE srv() const { return srv_; }
@@ -45,14 +50,13 @@ public:
     bool hasSRV() const { return has_srv_; }
 
 private:
-    DX12Texture(const TextureDesc& desc, ID3D12Device* device,
-                D3D12_RESOURCE_STATES initialState);
+    DX12Texture(const TextureDesc& desc, ID3D12Device* device, D3D12_RESOURCE_STATES initialState);
 
     void createSRVIfNeeded(ID3D12Device* device);
 
-    TextureDesc               desc_;
-    ComPtr<ID3D12Resource>    resource_;
-    D3D12_RESOURCE_STATES     state_;
+    TextureDesc desc_;
+    ComPtr<ID3D12Resource> resource_;
+    D3D12_RESOURCE_STATES state_;
     D3D12_CPU_DESCRIPTOR_HANDLE rtv_ = {};
     D3D12_CPU_DESCRIPTOR_HANDLE dsv_ = {};
     D3D12_CPU_DESCRIPTOR_HANDLE srv_ = {};
@@ -62,4 +66,4 @@ private:
     bool has_srv_ = false;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

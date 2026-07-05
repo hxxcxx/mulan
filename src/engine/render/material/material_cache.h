@@ -55,11 +55,11 @@ public:
 
     /// 按句柄查找
     const Material* find(MaterialHandle handle) const;
-    Material*       find(MaterialHandle handle);
+    Material* find(MaterialHandle handle);
 
     /// 按名称查找
     const Material* findByName(const std::string& name) const;
-    Material*       findByName(const std::string& name);
+    Material* findByName(const std::string& name);
 
     /// 获取所有材质（只读）
     const std::vector<Material>& all() const { return materials_; }
@@ -112,9 +112,9 @@ public:
 private:
     void rebuildNameIndex();
 
-    std::vector<Material>                               materials_;
-    std::unordered_map<std::string, size_t>            name_to_index_;
-    std::set<size_t>                                   dirty_materials_;
+    std::vector<Material> materials_;
+    std::unordered_map<std::string, size_t> name_to_index_;
+    std::set<size_t> dirty_materials_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

@@ -12,24 +12,22 @@ core::Error runtimeError(core::ErrorCode code, std::string_view message) {
     return core::Error::make(code, message);
 }
 
-} // namespace
+}  // namespace
 
 RenderRuntime::~RenderRuntime() {
     shutdown();
 }
 
-core::Result<void> RenderRuntime::initWindow(const ViewConfig& cfg,
-                          int width,
-                          int height,
-                          engine::LightEnvironment& lightEnv) {
+core::Result<void> RenderRuntime::initWindow(const ViewConfig& cfg, int width, int height,
+                                             engine::LightEnvironment& lightEnv) {
     if (initialized_) {
         return {};
     }
 
     engine::NativeWindowHandle window = cfg.toNativeWindowHandle();
     if (!window.valid()) {
-        return std::unexpected(runtimeError(core::ErrorCode::InvalidArg,
-                                           "Window render runtime requires a valid native window."));
+        return std::unexpected(
+                runtimeError(core::ErrorCode::InvalidArg, "Window render runtime requires a valid native window."));
     }
 
     engine::DeviceCreateInfo ci;
@@ -46,8 +44,7 @@ core::Result<void> RenderRuntime::initWindow(const ViewConfig& cfg,
 
     if (!surface_.initWindowSurface(*device_, cfg, width, height)) {
         shutdown();
-        return std::unexpected(runtimeError(core::ErrorCode::Internal,
-                                           "Failed to initialize window render surface."));
+        return std::unexpected(runtimeError(core::ErrorCode::Internal, "Failed to initialize window render surface."));
     }
 
     auto init = initRendering(lightEnv);
@@ -60,9 +57,7 @@ core::Result<void> RenderRuntime::initWindow(const ViewConfig& cfg,
     return {};
 }
 
-core::Result<void> RenderRuntime::initOffscreen(int width,
-                             int height,
-                             engine::LightEnvironment& lightEnv) {
+core::Result<void> RenderRuntime::initOffscreen(int width, int height, engine::LightEnvironment& lightEnv) {
     if (initialized_) {
         return {};
     }
@@ -87,8 +82,8 @@ core::Result<void> RenderRuntime::initOffscreen(int width,
 
     if (!surface_.initOffscreenSurface(*device_, width, height)) {
         shutdown();
-        return std::unexpected(runtimeError(core::ErrorCode::Internal,
-                                           "Failed to initialize offscreen render surface."));
+        return std::unexpected(
+                runtimeError(core::ErrorCode::Internal, "Failed to initialize offscreen render surface."));
     }
 
     auto init = initRendering(lightEnv);
@@ -110,8 +105,7 @@ void RenderRuntime::shutdown() {
     initialized_ = false;
 }
 
-void RenderRuntime::setRenderScene(const RenderScene* scene,
-                                   const asset::AssetLibrary* assets) {
+void RenderRuntime::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
     renderer_.setScene(scene, assets);
 }
 
@@ -142,9 +136,7 @@ bool RenderRuntime::readbackPixels(std::vector<uint8_t>& pixels) {
     return surface_.readbackPixels(*device_, pixels);
 }
 
-bool RenderRuntime::configureCaptureSurface(const engine::RenderCaptureDesc& desc,
-                                            uint32_t width,
-                                            uint32_t height) {
+bool RenderRuntime::configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height) {
     if (!device_) {
         return false;
     }
@@ -172,18 +164,14 @@ std::optional<RenderSurfaceDesc> RenderRuntime::offscreenSurfaceDesc() const {
 
 core::Result<void> RenderRuntime::initRendering(engine::LightEnvironment& lightEnv) {
     if (!device_) {
-        return std::unexpected(runtimeError(core::ErrorCode::InvalidArg,
-                                           "RenderRuntime cannot initialize without a device."));
+        return std::unexpected(
+                runtimeError(core::ErrorCode::InvalidArg, "RenderRuntime cannot initialize without a device."));
     }
 
-    if (!renderer_.init(*device_,
-                        lightEnv,
-                        surface_.colorFormat(*device_),
-                        surface_.depthFormat(*device_))) {
-        return std::unexpected(runtimeError(core::ErrorCode::Internal,
-                                           "Failed to initialize renderer."));
+    if (!renderer_.init(*device_, lightEnv, surface_.colorFormat(*device_), surface_.depthFormat(*device_))) {
+        return std::unexpected(runtimeError(core::ErrorCode::Internal, "Failed to initialize renderer."));
     }
     return {};
 }
 
-} // namespace mulan::view
+}  // namespace mulan::view

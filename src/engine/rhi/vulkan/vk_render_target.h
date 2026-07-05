@@ -22,9 +22,8 @@ namespace mulan::engine {
 class VKRenderTarget : public RenderTarget {
 public:
     /// 创建 VKRenderTarget。失败返回 RenderTargetCreateFailed。
-    static core::Result<std::unique_ptr<VKRenderTarget>>
-        create(const RenderTargetDesc& desc,
-               vk::Device device, VmaAllocator allocator);
+    static core::Result<std::unique_ptr<VKRenderTarget>> create(const RenderTargetDesc& desc, vk::Device device,
+                                                                VmaAllocator allocator);
     ~VKRenderTarget();
 
     const RenderTargetDesc& desc() const override { return desc_; }
@@ -43,11 +42,11 @@ private:
     void cleanup();
 
     RenderTargetDesc desc_;
-    vk::Device       device_;
-    VmaAllocator     allocator_;
+    vk::Device device_;
+    VmaAllocator allocator_;
 
     std::unique_ptr<VKTexture> color_texture_;
     std::unique_ptr<VKTexture> depth_texture_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

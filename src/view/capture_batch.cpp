@@ -12,4 +12,4 @@ void CaptureBatch::clear() {
     requests_.clear();
 }
 
-} // namespace mulan::view
+}  // namespace mulan::view

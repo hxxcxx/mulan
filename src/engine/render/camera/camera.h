@@ -28,8 +28,8 @@ namespace mulan::engine {
 
 /// 相机旋转模式
 enum class CameraMode : uint8_t {
-    Turntable,   ///< yaw/pitch 转台，世界 Z-up 约束
-    Trackball,   ///< 四元数自由旋转（arcball）
+    Turntable,  ///< yaw/pitch 转台，世界 Z-up 约束
+    Trackball,  ///< 四元数自由旋转（arcball）
 };
 
 class Camera {
@@ -53,20 +53,23 @@ public:
         height_ = height;
     }
 
-    int width()  const { return width_; }
+    int width() const { return width_; }
     int height() const { return height_; }
     double aspect() const { return height_ > 0 ? double(width_) / height_ : 1.0; }
 
     // ==================== 投影参数 ====================
 
     void setFieldOfView(double fovY) { fov_y_ = fovY; }
-    void setClipPlanes(double nearZ, double farZ) { near_z_ = nearZ; far_z_ = farZ; }
+    void setClipPlanes(double nearZ, double farZ) {
+        near_z_ = nearZ;
+        far_z_ = farZ;
+    }
     void setOrthographic(bool ortho) { ortho_ = ortho; }
 
     double fieldOfView() const { return fov_y_; }
-    bool   isOrthographic() const { return ortho_; }
+    bool isOrthographic() const { return ortho_; }
     double nearPlane() const { return near_z_; }
-    double farPlane()  const { return far_z_; }
+    double farPlane() const { return far_z_; }
 
     // ==================== 轨道参数 ====================
 
@@ -82,7 +85,7 @@ public:
     // ==================== 模式专用访问 ====================
 
     /// Turntable 专用：yaw 角度（仅在 Turntable 模式下有意义）
-    double yaw()   const;
+    double yaw() const;
     /// Turntable 专用：pitch 角度（仅在 Turntable 模式下有意义）
     double pitch() const;
     /// Turntable 专用：设置 yaw/pitch
@@ -117,10 +120,10 @@ public:
     void setOrbitSpeed(double s);
     double orbitSpeed() const;
 
-    void setPanSpeed(double s)   { pan_speed_ = s; }
-    void setZoomSpeed(double s)  { zoom_speed_ = s; }
+    void setPanSpeed(double s) { pan_speed_ = s; }
+    void setZoomSpeed(double s) { zoom_speed_ = s; }
 
-    double panSpeed()  const { return pan_speed_; }
+    double panSpeed() const { return pan_speed_; }
     double zoomSpeed() const { return zoom_speed_; }
 
     // ==================== 矩阵计算 ====================
@@ -145,12 +148,12 @@ public:
     /// @param screenY  像素 Y（左上角为原点）
     math::Ray3 screenRay(int screenX, int screenY) const {
         // 屏幕 → NDC
-        double ndcX =  (2.0 * screenX) / width_  - 1.0;
+        double ndcX = (2.0 * screenX) / width_ - 1.0;
         double ndcY = -(2.0 * screenY) / height_ + 1.0;
 
         // NDC 近/远裁剪面点
         math::Vec4 nearPt(ndcX, ndcY, -1.0, 1.0);
-        math::Vec4 farPt (ndcX, ndcY,  1.0, 1.0);
+        math::Vec4 farPt(ndcX, ndcY, 1.0, 1.0);
 
         // 逆 VP 变换到世界空间
         math::Mat4 invVP = viewProjectionMatrix().inverse();
@@ -174,23 +177,23 @@ private:
 
     std::unique_ptr<RotationMode> active_;
 
-    math::Vec3   target_   = {0, 0, 0};     ///< 轨道旋转中心（模型中心，pan 不改它）
-    math::Vec3   pan_offset_ = {0, 0, 0};   ///< 视图空间平移偏移（与旋转中心解耦）
+    math::Vec3 target_ = { 0, 0, 0 };      ///< 轨道旋转中心（模型中心，pan 不改它）
+    math::Vec3 pan_offset_ = { 0, 0, 0 };  ///< 视图空间平移偏移（与旋转中心解耦）
     double distance_ = 10.0;
 
     // 投影参数
-    int    width_    = 800;
-    int    height_   = 600;
-    double fov_y_     = 3.14159265358979323846 / 4.0;
-    double near_z_    = 0.1;
-    double far_z_     = 1000.0;
-    bool   ortho_    = true;
+    int width_ = 800;
+    int height_ = 600;
+    double fov_y_ = 3.14159265358979323846 / 4.0;
+    double near_z_ = 0.1;
+    double far_z_ = 1000.0;
+    bool ortho_ = true;
     double ortho_size_ = 5.0;
 
     // 交互速度
-    double pan_speed_    = 0.003;
-    double zoom_speed_   = 1.08;
+    double pan_speed_ = 0.003;
+    double zoom_speed_ = 1.08;
     double min_distance_ = 0.001;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

@@ -4,9 +4,7 @@
 
 namespace mulan::asset {
 
-Asset::Asset(AssetId id, AssetKind kind, std::string name)
-    : id_(id)
-    , kind_(kind)
-    , name_(std::move(name)) {}
+Asset::Asset(AssetId id, AssetKind kind, std::string name) : id_(id), kind_(kind), name_(std::move(name)) {
+}
 
-} // namespace mulan::asset
+}  // namespace mulan::asset

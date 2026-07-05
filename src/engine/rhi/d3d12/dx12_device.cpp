@@ -33,35 +33,35 @@ DX12Device::~DX12Device() {
 // ============================================================
 
 void DX12Device::init(const DeviceCreateInfo& ci) {
-    window_       = ci.window;
+    window_ = ci.window;
     render_config_ = ci.renderConfig;
-    frame_count_   = ci.renderConfig.bufferCount > 0 ? ci.renderConfig.bufferCount : 2;
-    if (ci.enableValidation) enableDebugLayer();
+    frame_count_ = ci.renderConfig.bufferCount > 0 ? ci.renderConfig.bufferCount : 2;
+    if (ci.enableValidation)
+        enableDebugLayer();
     createFactory();
     findAdapter();
     createDevice();
-    if (ci.enableValidation) attachInfoQueue();
+    if (ci.enableValidation)
+        attachInfoQueue();
     createCommandQueue();
     createFrameContexts();
 
-    upload_context_ = std::make_unique<DX12UploadContext>(
-        device_.Get(), command_queue_.Get(), frame_count_);
+    upload_context_ = std::make_unique<DX12UploadContext>(device_.Get(), command_queue_.Get(), frame_count_);
 
     frame_cmd_wrapper_ = std::make_unique<DX12CommandList>(nullptr);
 
     shader_visible_heap_ = std::make_unique<DX12DescriptorAllocator>(
-        device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-        D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 1024);
+            device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 1024);
 
     caps_.backend = GraphicsBackend::D3D12;
 
     // D3D12 FL 12.0 所有基础特性均保证支持
-    caps_.depthClamp         = true;
-    caps_.geometryShader     = true;
+    caps_.depthClamp = true;
+    caps_.geometryShader = true;
     caps_.tessellationShader = true;
-    caps_.computeShader      = true;
-    caps_.maxTextureSize     = D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION;   // 16384
-    caps_.maxTextureAniso    = D3D12_DEFAULT_MAX_ANISOTROPY;           // 16
+    caps_.computeShader = true;
+    caps_.maxTextureSize = D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION;  // 16384
+    caps_.maxTextureAniso = D3D12_DEFAULT_MAX_ANISOTROPY;         // 16
     // minUniformBufferOffsetAlignment 保持默认 256（D3D12 常量缓冲对齐）
 }
 
@@ -86,7 +86,8 @@ void DX12Device::attachInfoQueue() {
     // 这是定位 device removed 根因的唯一可靠手段——
     // GetDeviceRemovedReason() 只返回「已移除」，从不说明原因。
     ComPtr<ID3D12InfoQueue> infoQueue;
-    if (FAILED(device_.As(&infoQueue))) return;
+    if (FAILED(device_.As(&infoQueue)))
+        return;
     info_queue_ = infoQueue;
 
     // 关闭存储过滤：让所有严重级别的消息都被留存
@@ -95,20 +96,20 @@ void DX12Device::attachInfoQueue() {
 }
 
 void DX12Device::dumpInfoQueueMessages() const {
-    if (!info_queue_) return;
+    if (!info_queue_)
+        return;
     UINT64 count = info_queue_->GetNumStoredMessages();
     for (UINT64 i = 0; i < count; ++i) {
         SIZE_T size = 0;
         info_queue_->GetMessage(i, nullptr, &size);
-        if (size == 0) continue;
+        if (size == 0)
+            continue;
         std::vector<uint8_t> buffer(size);
         auto* msg = reinterpret_cast<D3D12_MESSAGE*>(buffer.data());
         if (SUCCEEDED(info_queue_->GetMessage(i, msg, &size))) {
             // pDescription 末尾含 '\0'，DescriptionByteLength 含该字节
             const char* desc = msg->pDescription ? msg->pDescription : "";
-            std::fprintf(stderr, "[D3D12] %s%s",
-                         desc,
-                         (desc[0] && desc[std::strlen(desc) - 1] != '\n') ? "\n" : "");
+            std::fprintf(stderr, "[D3D12] %s%s", desc, (desc[0] && desc[std::strlen(desc) - 1] != '\n') ? "\n" : "");
         }
     }
     // 清空已读消息，避免重复打印
@@ -128,17 +129,20 @@ void DX12Device::findAdapter() {
     ComPtr<IDXGIAdapter1> bestAdapter;
     SIZE_T maxDedicatedVideoMemory = 0;
 
-    for (UINT i = 0; ; ++i) {
+    for (UINT i = 0;; ++i) {
         ComPtr<IDXGIAdapter1> adapter;
         HRESULT hr = factory_->EnumAdapters1(i, &adapter);
-        if (hr == DXGI_ERROR_NOT_FOUND) break;
-        if (FAILED(hr)) continue;
+        if (hr == DXGI_ERROR_NOT_FOUND)
+            break;
+        if (FAILED(hr))
+            continue;
 
         DXGI_ADAPTER_DESC1 desc;
         adapter->GetDesc1(&desc);
 
         // 跳过软件适配器
-        if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) continue;
+        if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
+            continue;
 
         if (desc.DedicatedVideoMemory > maxDedicatedVideoMemory) {
             maxDedicatedVideoMemory = desc.DedicatedVideoMemory;
@@ -152,20 +156,18 @@ void DX12Device::findAdapter() {
 }
 
 void DX12Device::createDevice() {
-    HRESULT hr = D3D12CreateDevice(adapter_.Get(), D3D_FEATURE_LEVEL_12_0,
-                                   IID_PPV_ARGS(&device_));
+    HRESULT hr = D3D12CreateDevice(adapter_.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device_));
     DX12_CHECK(hr);
 }
 
 void DX12Device::createCommandQueue() {
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-    queueDesc.Type     = D3D12_COMMAND_LIST_TYPE_DIRECT;
+    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
     queueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-    queueDesc.Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE;
+    queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     queueDesc.NodeMask = 0;
 
-    HRESULT hr = device_->CreateCommandQueue(&queueDesc,
-                                              IID_PPV_ARGS(&command_queue_));
+    HRESULT hr = device_->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&command_queue_));
     DX12_CHECK(hr);
 }
 
@@ -186,8 +188,8 @@ math::Mat4 DX12Device::clipSpaceCorrectionMatrix() const {
     // Only Z needs conversion: z' = 0.5*z + 0.5*w
     // (Vulkan flips Y; D3D12 does NOT)
     math::Mat4 mat(1.0);
-    mat[2][2] =  0.5;   // z scale: [-1,1] → [0,1]
-    mat[3][2] =  0.5;   // z offset
+    mat[2][2] = 0.5;  // z scale: [-1,1] → [0,1]
+    mat[3][2] = 0.5;  // z offset
     return mat;
 }
 
@@ -204,7 +206,8 @@ core::Result<std::unique_ptr<Buffer>> DX12Device::createBuffer(const BufferDesc&
     }
 
     auto result = DX12Buffer::create(desc, device_.Get());
-    if (!result) return std::unexpected(result.error());
+    if (!result)
+        return std::unexpected(result.error());
     auto& buf = *result;
     setDebugName(buf->resource(), desc.name.empty() ? "Buffer" : desc.name);
 
@@ -218,7 +221,8 @@ core::Result<std::unique_ptr<Buffer>> DX12Device::createBuffer(const BufferDesc&
 
 core::Result<std::unique_ptr<Texture>> DX12Device::createTexture(const TextureDesc& desc) {
     auto result = DX12Texture::create(desc, device_.Get());
-    if (!result) return std::unexpected(result.error());
+    if (!result)
+        return std::unexpected(result.error());
     auto& tex = *result;
     setDebugName(tex->resource(), desc.name.empty() ? "Texture" : desc.name);
     return result;
@@ -226,42 +230,41 @@ core::Result<std::unique_ptr<Texture>> DX12Device::createTexture(const TextureDe
 
 core::Result<std::unique_ptr<Shader>> DX12Device::createShader(const ShaderDesc& desc) {
     auto result = DX12Shader::create(desc);
-    if (!result) return std::unexpected(result.error());
+    if (!result)
+        return std::unexpected(result.error());
     // DX12Shader 仅持有 DXIL 字节码（无 COM 对象），无需命名
     return result;
 }
 
-core::Result<std::unique_ptr<PipelineState>>
-DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
+core::Result<std::unique_ptr<PipelineState>> DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
     HRESULT reason = device_->GetDeviceRemovedReason();
     if (FAILED(reason)) {
         std::fprintf(stderr, "[DX12 ERROR] createPipelineState('%.*s'): device already removed! Reason=0x%08lX\n",
-                     static_cast<int>(desc.name.size()), desc.name.data(),
-                     static_cast<unsigned long>(reason));
+                     static_cast<int>(desc.name.size()), desc.name.data(), static_cast<unsigned long>(reason));
         dumpInfoQueueMessages();
     }
     auto result = DX12PipelineState::create(desc, device_.Get());
-    if (!result) return std::unexpected(result.error());
+    if (!result)
+        return std::unexpected(result.error());
     auto& pso = *result;
-    setDebugName(pso->pipeline(),
-                 desc.name.empty() ? "Pipeline" : desc.name);
+    setDebugName(pso->pipeline(), desc.name.empty() ? "Pipeline" : desc.name);
     setDebugName(pso->rootSignature(),
                  desc.name.empty() ? "RootSignature" : (std::string(desc.name) + "/RootSig").c_str());
     return result;
 }
 
-core::Result<std::unique_ptr<ComputePipelineState>>
-DX12Device::createComputePipelineState(const ComputePipelineDesc& /*desc*/) {
-    return std::unexpected(core::Error::make(
-        core::ErrorCode::NotSupported, "DX12 compute pipeline not yet implemented"));
+core::Result<std::unique_ptr<ComputePipelineState>> DX12Device::createComputePipelineState(
+        const ComputePipelineDesc& /*desc*/) {
+    return std::unexpected(
+            core::Error::make(core::ErrorCode::NotSupported, "DX12 compute pipeline not yet implemented"));
 }
 
 core::Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
     auto allocator = ComPtr<ID3D12CommandAllocator>();
-    device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
-                                     IID_PPV_ARGS(&allocator));
+    device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&allocator));
     auto result = DX12CommandList::create(device_.Get(), allocator.Get());
-    if (!result) return std::unexpected(result.error());
+    if (!result)
+        return std::unexpected(result.error());
     auto& cmd = *result;
     cmd->setIndirectSignatures(drawIndirectSignature(), dispatchIndirectSignature());
     char nm[64];
@@ -270,28 +273,24 @@ core::Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
     return result;
 }
 
-core::Result<std::unique_ptr<SwapChain>>
-DX12Device::createSwapChain(const SwapChainDesc& desc) {
-    return DX12SwapChain::create(desc, device_.Get(), factory_.Get(),
-                                 command_queue_.Get(), window_);
+core::Result<std::unique_ptr<SwapChain>> DX12Device::createSwapChain(const SwapChainDesc& desc) {
+    return DX12SwapChain::create(desc, device_.Get(), factory_.Get(), command_queue_.Get(), window_);
 }
 
-core::Result<std::unique_ptr<RenderTarget>>
-DX12Device::createRenderTarget(const RenderTargetDesc& desc) {
+core::Result<std::unique_ptr<RenderTarget>> DX12Device::createRenderTarget(const RenderTargetDesc& desc) {
     return DX12RenderTarget::create(desc, device_.Get());
 }
 
-core::Result<std::unique_ptr<Sampler>>
-DX12Device::createSampler(const SamplerDesc& desc) {
+core::Result<std::unique_ptr<Sampler>> DX12Device::createSampler(const SamplerDesc& desc) {
     // Sampler 仅持有 descriptor handle（非 COM 对象），无需命名。
     // 传 nullptr samplerHeap 会被 create() 拒绝并返回错误。
     return DX12Sampler::create(desc, device_.Get(), nullptr);
 }
 
-core::Result<std::unique_ptr<Fence>>
-DX12Device::createFence(uint64_t initialValue) {
+core::Result<std::unique_ptr<Fence>> DX12Device::createFence(uint64_t initialValue) {
     auto result = DX12Fence::create(device_.Get(), initialValue);
-    if (!result) return std::unexpected(result.error());
+    if (!result)
+        return std::unexpected(result.error());
     auto& f = *result;
     char nm[64];
     std::snprintf(nm, sizeof(nm), "Fence@%p", f.get());
@@ -299,17 +298,14 @@ DX12Device::createFence(uint64_t initialValue) {
     return result;
 }
 
-core::Result<std::unique_ptr<BindGroup>>
-DX12Device::createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) {
-    return std::unique_ptr<BindGroup>(
-        std::make_unique<DX12BindGroup>(layout, desc.entries, desc.count));
+core::Result<std::unique_ptr<BindGroup>> DX12Device::createBindGroup(const BindGroupLayout& layout,
+                                                                     const BindGroupDesc& desc) {
+    return std::unique_ptr<BindGroup>(std::make_unique<DX12BindGroup>(layout, desc.entries, desc.count));
 }
 
-void DX12Device::uploadTextureData(Texture* dst, const void* data,
-                                   uint32_t width, uint32_t height,
+void DX12Device::uploadTextureData(Texture* dst, const void* data, uint32_t width, uint32_t height,
                                    TextureFormat format) {
-    upload_context_->uploadTexture(static_cast<DX12Texture*>(dst), data,
-                                   width, height, format);
+    upload_context_->uploadTexture(static_cast<DX12Texture*>(dst), data, width, height, format);
 }
 
 void DX12Device::beginUploadBatch() {
@@ -326,13 +322,12 @@ ID3D12CommandSignature* DX12Device::drawIndirectSignature() {
         argDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
 
         D3D12_COMMAND_SIGNATURE_DESC sigDesc{};
-        sigDesc.ByteStride          = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
-        sigDesc.NumArgumentDescs    = 1;
-        sigDesc.pArgumentDescs      = &argDesc;
-        sigDesc.NodeMask            = 0;
+        sigDesc.ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
+        sigDesc.NumArgumentDescs = 1;
+        sigDesc.pArgumentDescs = &argDesc;
+        sigDesc.NodeMask = 0;
 
-        device_->CreateCommandSignature(&sigDesc, nullptr,
-                                        IID_PPV_ARGS(&draw_indirect_sig_));
+        device_->CreateCommandSignature(&sigDesc, nullptr, IID_PPV_ARGS(&draw_indirect_sig_));
     }
     return draw_indirect_sig_.Get();
 }
@@ -343,13 +338,12 @@ ID3D12CommandSignature* DX12Device::dispatchIndirectSignature() {
         argDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
 
         D3D12_COMMAND_SIGNATURE_DESC sigDesc{};
-        sigDesc.ByteStride          = sizeof(D3D12_DISPATCH_ARGUMENTS);
-        sigDesc.NumArgumentDescs    = 1;
-        sigDesc.pArgumentDescs      = &argDesc;
-        sigDesc.NodeMask            = 0;
+        sigDesc.ByteStride = sizeof(D3D12_DISPATCH_ARGUMENTS);
+        sigDesc.NumArgumentDescs = 1;
+        sigDesc.pArgumentDescs = &argDesc;
+        sigDesc.NodeMask = 0;
 
-        device_->CreateCommandSignature(&sigDesc, nullptr,
-                                        IID_PPV_ARGS(&dispatch_indirect_sig_));
+        device_->CreateCommandSignature(&sigDesc, nullptr, IID_PPV_ARGS(&dispatch_indirect_sig_));
     }
     return dispatch_indirect_sig_.Get();
 }
@@ -358,8 +352,7 @@ ID3D12CommandSignature* DX12Device::dispatchIndirectSignature() {
 // 命令提交
 // ============================================================
 
-void DX12Device::executeCommandLists(CommandList** cmdLists, uint32_t count,
-                                      Fence* fence, uint64_t fenceValue) {
+void DX12Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence, uint64_t fenceValue) {
     std::vector<ID3D12CommandList*> lists(count);
     for (uint32_t i = 0; i < count; ++i) {
         lists[i] = static_cast<DX12CommandList*>(cmdLists[i])->commandList();
@@ -373,7 +366,8 @@ void DX12Device::executeCommandLists(CommandList** cmdLists, uint32_t count,
 }
 
 void DX12Device::waitIdle() {
-    if (!command_queue_) return;
+    if (!command_queue_)
+        return;
     ComPtr<ID3D12Fence> fence;
     device_->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
     command_queue_->Signal(fence.Get(), 1);
@@ -460,4 +454,4 @@ void DX12Device::submitOffscreen() {
     command_queue_->Signal(frame->fence()->fence(), fenceVal);
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

@@ -27,11 +27,10 @@ struct BinaryOutputArchive::Impl {
 // BinaryOutputArchive
 // ============================================================
 
-BinaryOutputArchive::BinaryOutputArchive()
-    : impl_(std::make_unique<Impl>()) {}
+BinaryOutputArchive::BinaryOutputArchive() : impl_(std::make_unique<Impl>()) {
+}
 
-BinaryOutputArchive::BinaryOutputArchive(const std::filesystem::path& filePath)
-    : impl_(std::make_unique<Impl>()) {
+BinaryOutputArchive::BinaryOutputArchive(const std::filesystem::path& filePath) : impl_(std::make_unique<Impl>()) {
     impl_->filePath = filePath;
     impl_->fileMode = true;
 }
@@ -50,17 +49,20 @@ void BinaryOutputArchive::writeTag(TypeTag tag) {
 }
 
 void BinaryOutputArchive::beginObject() {
-    if (bulk_mode_) return;
+    if (bulk_mode_)
+        return;
     writeTag(TypeTag::ObjectStart);
 }
 
 void BinaryOutputArchive::endObject() {
-    if (bulk_mode_) return;
+    if (bulk_mode_)
+        return;
     writeTag(TypeTag::ObjectEnd);
 }
 
 void BinaryOutputArchive::key(std::string_view name) {
-    if (bulk_mode_) return;
+    if (bulk_mode_)
+        return;
     writeTag(TypeTag::Key);
     uint32_t len = static_cast<uint32_t>(name.size());
     writeRaw(&len, sizeof(len));
@@ -68,13 +70,15 @@ void BinaryOutputArchive::key(std::string_view name) {
 }
 
 void BinaryOutputArchive::beginArray(uint32_t size) {
-    if (bulk_mode_) return;
+    if (bulk_mode_)
+        return;
     writeTag(TypeTag::ArrayStart);
     writeRaw(&size, sizeof(size));
 }
 
 void BinaryOutputArchive::endArray() {
-    if (bulk_mode_) return;
+    if (bulk_mode_)
+        return;
     writeTag(TypeTag::ArrayEnd);
 }
 
@@ -103,7 +107,8 @@ void BinaryOutputArchive::endBulkArray() {
 
 void BinaryOutputArchive::write(int32_t value) {
     if (bulk_mode_) {
-        if (bulk_written_ >= bulk_count_) return;
+        if (bulk_written_ >= bulk_count_)
+            return;
         writeRaw(&value, sizeof(value));
         ++bulk_written_;
         return;
@@ -114,7 +119,8 @@ void BinaryOutputArchive::write(int32_t value) {
 
 void BinaryOutputArchive::write(int64_t value) {
     if (bulk_mode_) {
-        if (bulk_written_ >= bulk_count_) return;
+        if (bulk_written_ >= bulk_count_)
+            return;
         writeRaw(&value, sizeof(value));
         ++bulk_written_;
         return;
@@ -125,7 +131,8 @@ void BinaryOutputArchive::write(int64_t value) {
 
 void BinaryOutputArchive::write(float value) {
     if (bulk_mode_) {
-        if (bulk_written_ >= bulk_count_) return;
+        if (bulk_written_ >= bulk_count_)
+            return;
         writeRaw(&value, sizeof(value));
         ++bulk_written_;
         return;
@@ -136,7 +143,8 @@ void BinaryOutputArchive::write(float value) {
 
 void BinaryOutputArchive::write(double value) {
     if (bulk_mode_) {
-        if (bulk_written_ >= bulk_count_) return;
+        if (bulk_written_ >= bulk_count_)
+            return;
         writeRaw(&value, sizeof(value));
         ++bulk_written_;
         return;
@@ -147,7 +155,8 @@ void BinaryOutputArchive::write(double value) {
 
 void BinaryOutputArchive::write(bool value) {
     if (bulk_mode_) {
-        if (bulk_written_ >= bulk_count_) return;
+        if (bulk_written_ >= bulk_count_)
+            return;
         uint8_t v = value ? 1 : 0;
         writeRaw(&v, sizeof(v));
         ++bulk_written_;
@@ -160,7 +169,8 @@ void BinaryOutputArchive::write(bool value) {
 
 void BinaryOutputArchive::write(std::string_view value) {
     if (bulk_mode_) {
-        if (bulk_written_ >= bulk_count_) return;
+        if (bulk_written_ >= bulk_count_)
+            return;
         writeRaw(value.data(), value.size());
         ++bulk_written_;
         return;
@@ -173,7 +183,8 @@ void BinaryOutputArchive::write(std::string_view value) {
 
 void BinaryOutputArchive::writeBytes(std::span<const byte> data) {
     if (bulk_mode_) {
-        if (bulk_written_ >= bulk_count_) return;
+        if (bulk_written_ >= bulk_count_)
+            return;
         writeRaw(data.data(), data.size());
         ++bulk_written_;
         return;
@@ -191,9 +202,9 @@ const std::vector<byte>& BinaryOutputArchive::data() const {
 bool BinaryOutputArchive::saveToFile(const std::filesystem::path& filePath) const {
     auto path = filePath.empty() ? impl_->filePath : filePath;
     std::ofstream ofs(path, std::ios::binary);
-    if (!ofs) return false;
-    ofs.write(reinterpret_cast<const char*>(impl_->buffer.data()),
-              static_cast<std::streamsize>(impl_->buffer.size()));
+    if (!ofs)
+        return false;
+    ofs.write(reinterpret_cast<const char*>(impl_->buffer.data()), static_cast<std::streamsize>(impl_->buffer.size()));
     return ofs.good();
 }
 
@@ -221,25 +232,18 @@ struct BinaryInputArchive::Impl {
     std::vector<byte> buffer;
     uint64_t pos = 0;
 
-    bool hasMore(size_t n) const {
-        return pos + n <= buffer.size();
-    }
+    bool hasMore(size_t n) const { return pos + n <= buffer.size(); }
 
-    const byte* current() const {
-        return buffer.data() + pos;
-    }
+    const byte* current() const { return buffer.data() + pos; }
 
-    void advance(size_t n) {
-        pos += n;
-    }
+    void advance(size_t n) { pos += n; }
 };
 
 // ============================================================
 // BinaryInputArchive
 // ============================================================
 
-BinaryInputArchive::BinaryInputArchive(std::span<const byte> data)
-    : impl_(std::make_unique<Impl>()) {
+BinaryInputArchive::BinaryInputArchive(std::span<const byte> data) : impl_(std::make_unique<Impl>()) {
     impl_->buffer.assign(data.begin(), data.end());
 
     // 读取并验证文件头
@@ -259,8 +263,7 @@ BinaryInputArchive::BinaryInputArchive(std::span<const byte> data)
     setVersion(header.version);
 }
 
-BinaryInputArchive::BinaryInputArchive(const std::filesystem::path& filePath)
-    : impl_(std::make_unique<Impl>()) {
+BinaryInputArchive::BinaryInputArchive(const std::filesystem::path& filePath) : impl_(std::make_unique<Impl>()) {
     std::ifstream ifs(filePath, std::ios::binary | std::ios::ate);
     if (!ifs) {
         setError("Cannot open file: " + filePath.string());
@@ -270,8 +273,7 @@ BinaryInputArchive::BinaryInputArchive(const std::filesystem::path& filePath)
     auto size = ifs.tellg();
     ifs.seekg(0);
     impl_->buffer.resize(static_cast<size_t>(size));
-    ifs.read(reinterpret_cast<char*>(impl_->buffer.data()),
-             static_cast<std::streamsize>(size));
+    ifs.read(reinterpret_cast<char*>(impl_->buffer.data()), static_cast<std::streamsize>(size));
 
     if (!ifs) {
         setError("Failed to read file: " + filePath.string());
@@ -298,11 +300,11 @@ BinaryInputArchive::BinaryInputArchive(const std::filesystem::path& filePath)
 BinaryInputArchive::~BinaryInputArchive() = default;
 
 ArchiveResult BinaryInputArchive::readRaw(void* out, size_t size) {
-    if (hasError()) return {};
+    if (hasError())
+        return {};
     if (!impl_->hasMore(size)) {
         setError("Unexpected end of binary data");
-        return std::unexpected(
-            ArchiveError::corrupted("Unexpected end of binary data"));
+        return std::unexpected(ArchiveError::corrupted("Unexpected end of binary data"));
     }
     std::memcpy(out, impl_->current(), size);
     impl_->advance(size);
@@ -312,7 +314,8 @@ ArchiveResult BinaryInputArchive::readRaw(void* out, size_t size) {
 ArchiveResult BinaryInputArchive::readTag(TypeTag& out) {
     uint8_t raw = 0;
     auto result = readRaw(&raw, sizeof(raw));
-    if (!result) return result;
+    if (!result)
+        return result;
     out = static_cast<TypeTag>(raw);
     return {};
 }
@@ -320,42 +323,46 @@ ArchiveResult BinaryInputArchive::readTag(TypeTag& out) {
 ArchiveResult BinaryInputArchive::expectTag(TypeTag expected) {
     TypeTag actual;
     auto result = readTag(actual);
-    if (!result) return result;
+    if (!result)
+        return result;
     if (actual != expected) {
-        return std::unexpected(
-            ArchiveError::corrupted("Expected tag " +
-                                    std::to_string(static_cast<int>(expected)) +
-                                    " but got " +
-                                    std::to_string(static_cast<int>(actual))));
+        return std::unexpected(ArchiveError::corrupted("Expected tag " + std::to_string(static_cast<int>(expected)) +
+                                                       " but got " + std::to_string(static_cast<int>(actual))));
     }
     return {};
 }
 
 ArchiveResult BinaryInputArchive::beginObject() {
-    if (hasError()) return {};
+    if (hasError())
+        return {};
     return expectTag(TypeTag::ObjectStart);
 }
 
 ArchiveResult BinaryInputArchive::endObject() {
-    if (hasError()) return {};
+    if (hasError())
+        return {};
     return expectTag(TypeTag::ObjectEnd);
 }
 
 ArchiveResult BinaryInputArchive::key(std::string_view name) {
-    if (hasError()) return {};
+    if (hasError())
+        return {};
 
     // Binary 格式按顺序读取，key 必须匹配
     auto result = expectTag(TypeTag::Key);
-    if (!result) return result;
+    if (!result)
+        return result;
 
     uint32_t len = 0;
     result = readRaw(&len, sizeof(len));
-    if (!result) return result;
+    if (!result)
+        return result;
 
     // Binary 格式严格匹配 key 名称
     if (len != name.size() || !impl_->hasMore(len)) {
         // key 不匹配，不回退——这是严格顺序格式
-        if (impl_->hasMore(len)) impl_->advance(len);
+        if (impl_->hasMore(len))
+            impl_->advance(len);
         return std::unexpected(ArchiveError::missingKey(name));
     }
 
@@ -370,25 +377,30 @@ ArchiveResult BinaryInputArchive::key(std::string_view name) {
 }
 
 ArchiveResult BinaryInputArchive::beginArray(uint32_t& outSize) {
-    if (hasError()) return {};
+    if (hasError())
+        return {};
 
     auto result = expectTag(TypeTag::ArrayStart);
-    if (!result) return result;
+    if (!result)
+        return result;
 
     result = readRaw(&outSize, sizeof(outSize));
-    if (!result) return result;
+    if (!result)
+        return result;
 
     // 检查是否是 bulk 数组
     if (impl_->hasMore(1)) {
         uint64_t savedPos = impl_->pos;
         TypeTag nextTag;
         result = readTag(nextTag);
-        if (!result) return result;
+        if (!result)
+            return result;
 
         if (nextTag == TypeTag::BulkFlag) {
             uint32_t stride = 0;
             result = readRaw(&stride, sizeof(stride));
-            if (!result) return result;
+            if (!result)
+                return result;
 
             bulk_mode_ = true;
             bulk_stride_ = stride;
@@ -409,84 +421,98 @@ ArchiveResult BinaryInputArchive::endArray() {
         // bulk 模式结束时可能还有剩余未读数据，跳过
         return expectTag(TypeTag::ArrayEnd);
     }
-    if (hasError()) return {};
+    if (hasError())
+        return {};
     return expectTag(TypeTag::ArrayEnd);
 }
 
 ArchiveResult BinaryInputArchive::read(int32_t& out) {
-    if (hasError()) return {};
+    if (hasError())
+        return {};
 
     if (bulk_mode_) {
         if (bulk_remaining_ == 0) {
             return std::unexpected(ArchiveError::corrupted("Bulk array overrun"));
         }
         auto result = readRaw(&out, sizeof(int32_t));
-        if (!result) return result;
+        if (!result)
+            return result;
         --bulk_remaining_;
         return {};
     }
 
     auto result = expectTag(TypeTag::Int32);
-    if (!result) return result;
+    if (!result)
+        return result;
     return readRaw(&out, sizeof(out));
 }
 
 ArchiveResult BinaryInputArchive::read(int64_t& out) {
-    if (hasError()) return {};
+    if (hasError())
+        return {};
 
     if (bulk_mode_) {
         if (bulk_remaining_ == 0) {
             return std::unexpected(ArchiveError::corrupted("Bulk array overrun"));
         }
         auto result = readRaw(&out, sizeof(int64_t));
-        if (!result) return result;
+        if (!result)
+            return result;
         --bulk_remaining_;
         return {};
     }
 
     auto result = expectTag(TypeTag::Int64);
-    if (!result) return result;
+    if (!result)
+        return result;
     return readRaw(&out, sizeof(out));
 }
 
 ArchiveResult BinaryInputArchive::read(float& out) {
-    if (hasError()) return {};
+    if (hasError())
+        return {};
 
     if (bulk_mode_) {
         if (bulk_remaining_ == 0) {
             return std::unexpected(ArchiveError::corrupted("Bulk array overrun"));
         }
         auto result = readRaw(&out, sizeof(float));
-        if (!result) return result;
+        if (!result)
+            return result;
         --bulk_remaining_;
         return {};
     }
 
     auto result = expectTag(TypeTag::Float32);
-    if (!result) return result;
+    if (!result)
+        return result;
     return readRaw(&out, sizeof(out));
 }
 
 ArchiveResult BinaryInputArchive::read(double& out) {
-    if (hasError()) return {};
+    if (hasError())
+        return {};
 
     if (bulk_mode_) {
         if (bulk_remaining_ == 0) {
             return std::unexpected(ArchiveError::corrupted("Bulk array overrun"));
         }
         auto result = readRaw(&out, sizeof(double));
-        if (!result) return result;
+        if (!result)
+            return result;
         --bulk_remaining_;
         return {};
     }
 
     auto result = expectTag(TypeTag::Float64);
-    if (!result) return result;
+    if (!result)
+        return result;
     return readRaw(&out, sizeof(out));
 }
 
 ArchiveResult BinaryInputArchive::read(bool& out) {
-    if (hasError()) return {};
+    if (hasError())
+        return {};
 
     if (bulk_mode_) {
         if (bulk_remaining_ == 0) {
@@ -494,36 +520,41 @@ ArchiveResult BinaryInputArchive::read(bool& out) {
         }
         uint8_t v = 0;
         auto result = readRaw(&v, sizeof(v));
-        if (!result) return result;
+        if (!result)
+            return result;
         out = (v != 0);
         --bulk_remaining_;
         return {};
     }
 
     auto result = expectTag(TypeTag::Bool);
-    if (!result) return result;
+    if (!result)
+        return result;
     uint8_t v = 0;
     result = readRaw(&v, sizeof(v));
-    if (!result) return result;
+    if (!result)
+        return result;
     out = (v != 0);
     return {};
 }
 
 ArchiveResult BinaryInputArchive::read(std::string& out) {
-    if (hasError()) return {};
+    if (hasError())
+        return {};
 
     if (bulk_mode_) {
         // bulk 模式下 string 无法按 stride 读取，报错
-        return std::unexpected(
-            ArchiveError::corrupted("Cannot read string in bulk mode"));
+        return std::unexpected(ArchiveError::corrupted("Cannot read string in bulk mode"));
     }
 
     auto result = expectTag(TypeTag::String);
-    if (!result) return result;
+    if (!result)
+        return result;
 
     uint32_t len = 0;
     result = readRaw(&len, sizeof(len));
-    if (!result) return result;
+    if (!result)
+        return result;
 
     if (!impl_->hasMore(len)) {
         return std::unexpected(ArchiveError::corrupted("String data truncated"));
@@ -535,14 +566,17 @@ ArchiveResult BinaryInputArchive::read(std::string& out) {
 }
 
 ArchiveResult BinaryInputArchive::readBytes(std::vector<byte>& out) {
-    if (hasError()) return {};
+    if (hasError())
+        return {};
 
     auto result = expectTag(TypeTag::Bytes);
-    if (!result) return result;
+    if (!result)
+        return result;
 
     uint32_t len = 0;
     result = readRaw(&len, sizeof(len));
-    if (!result) return result;
+    if (!result)
+        return result;
 
     if (!impl_->hasMore(len)) {
         return std::unexpected(ArchiveError::corrupted("Bytes data truncated"));
@@ -567,4 +601,4 @@ uint64_t BinaryInputArchive::remaining() const {
     return impl_->buffer.size() - impl_->pos;
 }
 
-} // namespace mulan::core
+}  // namespace mulan::core

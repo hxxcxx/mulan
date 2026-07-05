@@ -7,8 +7,7 @@
 
 int main(int argc, char* argv[]) {
     // HiDPI 支持
-    QApplication::setHighDpiScaleFactorRoundingPolicy(
-        Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+    QApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 
 #ifdef _WIN32
     // 确保调试输出可见（附加到父进程控制台或新建控制台）

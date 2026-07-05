@@ -54,22 +54,21 @@ public:
     /// 控制点 + 次数构造，u/v 方向各自生成 clamped 节点向量。
     /// 前置条件：网格非空矩形；列数 > p，行数 > q。
     BSplineSurface(int p, int q, ControlGrid grid)
-        : degree_u_(p)
-        , degree_v_(q)
-        , control_points_(std::move(grid))
-        , knots_u_(clampedKnotVector(p, numCols()))
-        , knots_v_(clampedKnotVector(q, numRows())) {
+        : degree_u_(p),
+          degree_v_(q),
+          control_points_(std::move(grid)),
+          knots_u_(clampedKnotVector(p, numCols())),
+          knots_v_(clampedKnotVector(q, numRows())) {
         validateInvariants();
     }
 
     /// 完整构造（控制点 + 显式 u/v 节点向量）。
-    BSplineSurface(int p, int q, ControlGrid grid,
-                   KnotVector knotsU, KnotVector knotsV)
-        : degree_u_(p)
-        , degree_v_(q)
-        , control_points_(std::move(grid))
-        , knots_u_(std::move(knotsU))
-        , knots_v_(std::move(knotsV)) {
+    BSplineSurface(int p, int q, ControlGrid grid, KnotVector knotsU, KnotVector knotsV)
+        : degree_u_(p),
+          degree_v_(q),
+          control_points_(std::move(grid)),
+          knots_u_(std::move(knotsU)),
+          knots_v_(std::move(knotsV)) {
         validateInvariants();
     }
 
@@ -81,8 +80,8 @@ public:
     int numCols() const noexcept { return static_cast<int>(control_points_[0].size()); }
 
     const ControlGrid& controlPoints() const noexcept { return control_points_; }
-    const KnotVector&  knotsU()       const noexcept { return knots_u_; }
-    const KnotVector&  knotsV()       const noexcept { return knots_v_; }
+    const KnotVector& knotsU() const noexcept { return knots_u_; }
+    const KnotVector& knotsV() const noexcept { return knots_v_; }
 
     /// u 方向定义域 [U[p], U[end-p]]
     std::pair<double, double> domainU() const noexcept {
@@ -141,13 +140,14 @@ public:
         std::vector<Vec3> dvCtrl(numCols());
         for (int i = 0; i < numCols(); ++i) {
             Row col(numRows());
-            for (int j = 0; j < numRows(); ++j) col[j] = control_points_[j][i];
+            for (int j = 0; j < numRows(); ++j)
+                col[j] = control_points_[j][i];
             BSplineCurve3d colCurve(degree_v_, col, knots_v_);
             dvCtrl[i] = colCurve.derivative(v, 1);
         }
         Vec3 dSdv = deBoorVecRow(dvCtrl, knots_u_, degree_u_, u);
 
-        return {dSdu, dSdv};
+        return { dSdu, dSdv };
     }
 
     /// 单位法向 = normalize(dS/du × dS/dv)。退化曲面回退 UnitZ()。
@@ -158,19 +158,18 @@ public:
     }
 
 private:
-    int         degree_u_;
-    int         degree_v_;
+    int degree_u_;
+    int degree_v_;
     ControlGrid control_points_;
-    KnotVector  knots_u_;
-    KnotVector  knots_v_;
+    KnotVector knots_u_;
+    KnotVector knots_v_;
 
     void validateInvariants() const {
         assert(!control_points_.empty() && "BSplineSurface: control grid must not be empty");
         const int cols = static_cast<int>(control_points_[0].size());
         assert(cols > 0 && "BSplineSurface: control rows must not be empty");
         for (const auto& row : control_points_) {
-            assert(static_cast<int>(row.size()) == cols &&
-                   "BSplineSurface: all rows must have equal length");
+            assert(static_cast<int>(row.size()) == cols && "BSplineSurface: all rows must have equal length");
         }
         assert(numCols() > degree_u_ && "BSplineSurface: numCols must be > degreeU");
         assert(numRows() > degree_v_ && "BSplineSurface: numRows must be > degreeV");
@@ -180,16 +179,15 @@ private:
                "BSplineSurface: V knot count mismatch");
     }
 
-    static double clampToDomain(double t, double lo, double hi) noexcept {
-        return t < lo ? lo : (t > hi ? hi : t);
-    }
+    static double clampToDomain(double t, double lo, double hi) noexcept { return t < lo ? lo : (t > hi ? hi : t); }
 
     // 对一条 Point3 控制序列做 de Boor 求值
     static Point3 deBoorRow(const Row& cp, const KnotVector& U, int p, double u) {
         const int n = static_cast<int>(cp.size()) - 1;
         const int k = bsplineFindSpan(n, p, u, U);
         Row d(p + 1);
-        for (int j = 0; j <= p; ++j) d[j] = cp[k - p + j];
+        for (int j = 0; j <= p; ++j)
+            d[j] = cp[k - p + j];
         for (int r = 1; r <= p; ++r) {
             for (int j = p; j >= r; --j) {
                 const int idx = k - p + j;
@@ -209,7 +207,8 @@ private:
         const int n = static_cast<int>(cp.size()) - 1;
         const int k = bsplineFindSpan(n, p, u, U);
         std::vector<Vec3> d(p + 1);
-        for (int j = 0; j <= p; ++j) d[j] = cp[k - p + j];
+        for (int j = 0; j <= p; ++j)
+            d[j] = cp[k - p + j];
         for (int r = 1; r <= p; ++r) {
             for (int j = p; j >= r; --j) {
                 const int idx = k - p + j;
@@ -225,4 +224,4 @@ private:
     }
 };
 
-} // namespace mulan::math
+}  // namespace mulan::math

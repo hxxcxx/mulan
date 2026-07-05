@@ -20,8 +20,7 @@ namespace mulan::engine {
 class VKSampler : public Sampler {
 public:
     /// 创建 VKSampler。失败返回 SamplerCreateFailed。
-    static core::Result<std::unique_ptr<VKSampler>>
-        create(const SamplerDesc& desc, vk::Device device);
+    static core::Result<std::unique_ptr<VKSampler>> create(const SamplerDesc& desc, vk::Device device);
     ~VKSampler();
 
     const SamplerDesc& desc() const override { return desc_; }
@@ -29,12 +28,11 @@ public:
     vk::Sampler handle() const { return sampler_; }
 
 private:
-    VKSampler(const SamplerDesc& desc, vk::Device device)
-        : desc_(desc), device_(device) {}
+    VKSampler(const SamplerDesc& desc, vk::Device device) : desc_(desc), device_(device) {}
 
     SamplerDesc desc_;
-    vk::Device  device_;
+    vk::Device device_;
     vk::Sampler sampler_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

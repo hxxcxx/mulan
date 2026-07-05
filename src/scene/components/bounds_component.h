@@ -15,4 +15,4 @@ struct BoundsComponent {
     math::AABB3 world_bounds;
 };
 
-} // namespace mulan::scene
+}  // namespace mulan::scene

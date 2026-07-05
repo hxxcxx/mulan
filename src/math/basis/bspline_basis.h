@@ -46,13 +46,18 @@ namespace mulan::math {
 /// 特殊处理 u == U.back()（右端点）：返回 n（最后有效 span）。
 inline int bsplineFindSpan(int n, int p, double u, const std::vector<double>& U) noexcept {
     // 右端点闭合：u 在最后节点上时，归到最后一个 span
-    if (u >= U[n + 1]) return n;
-    if (u <= U[p])     return p;
+    if (u >= U[n + 1])
+        return n;
+    if (u <= U[p])
+        return p;
 
     // 线性查找（学习实现；大规模可换二分）
     int k = p;
     for (int i = p; i <= n; ++i) {
-        if (u < U[i + 1]) { k = i; break; }
+        if (u < U[i + 1]) {
+            k = i;
+            break;
+        }
         k = i;
     }
     return k;
@@ -65,7 +70,8 @@ inline int bsplineFindSpan(int n, int p, double u, const std::vector<double>& U)
 /// 计算 N_{i,p}(u)。分母为 0 时该系数按 0 处理（容差 paramEps）。
 /// 越界 i 返回 0。学习/参考用；批量求一整组基函数建议用 bsplineBasisFunctions。
 inline double bsplineBasis(int i, int p, double u, const std::vector<double>& U) noexcept {
-    if (i < 0 || i + p + 1 >= static_cast<int>(U.size())) return 0.0;
+    if (i < 0 || i + p + 1 >= static_cast<int>(U.size()))
+        return 0.0;
 
     // 动态规划表：N[j] 表示当前层 N_{i+j, layer}
     // 从 p=0 层起步，逐层向上累加
@@ -74,8 +80,10 @@ inline double bsplineBasis(int i, int p, double u, const std::vector<double>& U)
         // N_{i,0} = 1 if U[i] <= u < U[i+1]（半开区间）
         // 右端点闭合：u == U.back() 时，仅最后一个非零长度区间 [U[i], U[i+1]] 命中
         const int last = static_cast<int>(U.size()) - 1;
-        if (u >= U[i] && u < U[i + 1]) return 1.0;
-        if (i + 1 == last && u == U[last] && U[i] < U[i + 1]) return 1.0;
+        if (u >= U[i] && u < U[i + 1])
+            return 1.0;
+        if (i + 1 == last && u == U[last] && U[i] < U[i + 1])
+            return 1.0;
         return 0.0;
     }
 
@@ -97,15 +105,14 @@ inline double bsplineBasis(int i, int p, double u, const std::vector<double>& U)
 
 /// 一次求出 span k 上 p+1 个非零基函数 N_{k-p+0..p,p}(u)。NURBS Book A2.2。
 /// 返回数组 N[0..p]，N[r] = N_{k-p+r, p}(u)。比逐个调用 bsplineBasis 高效（共享子问题）。
-inline std::vector<double> bsplineBasisFunctions(int p, int k, double u,
-                                                 const std::vector<double>& U) {
+inline std::vector<double> bsplineBasisFunctions(int p, int k, double u, const std::vector<double>& U) {
     std::vector<double> N(p + 1, 0.0);
     std::vector<double> left(p + 1, 0.0);
     std::vector<double> right(p + 1, 0.0);
 
     N[0] = 1.0;
     for (int j = 1; j <= p; ++j) {
-        left[j]  = u - U[k + 1 - j];
+        left[j] = u - U[k + 1 - j];
         right[j] = U[k + j] - u;
         double saved = 0.0;
         for (int r = 0; r < j; ++r) {
@@ -132,22 +139,25 @@ inline std::vector<double> clampedKnotVector(int degree, int controlPointCount) 
     std::vector<double> U;
     U.reserve(controlPointCount + degree + 1);
 
-    for (int i = 0; i <= degree; ++i) U.push_back(0.0);
+    for (int i = 0; i <= degree; ++i)
+        U.push_back(0.0);
     for (int i = 1; i <= numInterior; ++i) {
         U.push_back(static_cast<double>(i) / (numInterior + 1));
     }
-    for (int i = 0; i <= degree; ++i) U.push_back(1.0);
+    for (int i = 0; i <= degree; ++i)
+        U.push_back(1.0);
     return U;
 }
 
 /// 生成 uniform（均匀）节点向量：从 0 开始等距分布。
 /// 注意：uniform 节点向量下曲线【不】穿过首末控制点（首末段定义域非 [0,1]）。
 inline std::vector<double> uniformKnotVector(int degree, int controlPointCount) {
-    const int total = controlPointCount + degree + 1; // 节点数 = m + 1，m = total - 1
+    const int total = controlPointCount + degree + 1;  // 节点数 = m + 1，m = total - 1
     std::vector<double> U(total);
     const double step = 1.0 / (total - 1);
-    for (int i = 0; i < total; ++i) U[i] = i * step;
+    for (int i = 0; i < total; ++i)
+        U[i] = i * step;
     return U;
 }
 
-} // namespace mulan::math
+}  // namespace mulan::math

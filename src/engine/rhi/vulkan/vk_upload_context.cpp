@@ -5,15 +5,10 @@
 
 namespace mulan::engine {
 
-VKUploadContext::VKUploadContext(vk::Device device, VmaAllocator allocator,
-                                 uint32_t queueFamily, vk::Queue queue)
-    : device_(device)
-    , allocator_(allocator)
-    , queue_family_(queueFamily)
-    , queue_(queue)
-{
+VKUploadContext::VKUploadContext(vk::Device device, VmaAllocator allocator, uint32_t queueFamily, vk::Queue queue)
+    : device_(device), allocator_(allocator), queue_family_(queueFamily), queue_(queue) {
     vk::CommandPoolCreateInfo poolCI;
-    poolCI.flags            = vk::CommandPoolCreateFlagBits::eTransient;
+    poolCI.flags = vk::CommandPoolCreateFlagBits::eTransient;
     poolCI.queueFamilyIndex = queue_family_;
     cmd_pool_ = device_.createCommandPool(poolCI);
 
@@ -28,26 +23,25 @@ VKUploadContext::~VKUploadContext() {
     }
     slabs_.clear();
 
-    if (upload_fence_) device_.destroyFence(upload_fence_);
-    if (cmd_pool_)     device_.destroyCommandPool(cmd_pool_);
+    if (upload_fence_)
+        device_.destroyFence(upload_fence_);
+    if (cmd_pool_)
+        device_.destroyCommandPool(cmd_pool_);
 }
 
-void VKUploadContext::uploadToBuffer(VKBuffer* dst, const void* data, uint32_t size,
-                                      uint32_t dstOffset) {
+void VKUploadContext::uploadToBuffer(VKBuffer* dst, const void* data, uint32_t size, uint32_t dstOffset) {
     auto slice = allocStaging(size);
     memcpy(static_cast<uint8_t*>(slice.mapped) + slice.offset, data, size);
 
     vmaFlushAllocation(allocator_, slice.allocation, slice.offset, size);
 
-    executeCopy(
-        [&](vk::CommandBuffer cmd) {
-            vk::BufferCopy region;
-            region.srcOffset = slice.offset;
-            region.dstOffset = dstOffset;
-            region.size      = size;
-            cmd.copyBuffer(slice.buffer, dst->vkBuffer(), 1, &region);
-        }
-    );
+    executeCopy([&](vk::CommandBuffer cmd) {
+        vk::BufferCopy region;
+        region.srcOffset = slice.offset;
+        region.dstOffset = dstOffset;
+        region.size = size;
+        cmd.copyBuffer(slice.buffer, dst->vkBuffer(), 1, &region);
+    });
 }
 
 void VKUploadContext::uploadBufferInit(VKBuffer* dst) {
@@ -55,18 +49,18 @@ void VKUploadContext::uploadBufferInit(VKBuffer* dst) {
     dst->markUploaded();
 }
 
-void VKUploadContext::uploadTexture(VKTexture* dst, const void* data,
-                                    uint32_t width, uint32_t height,
+void VKUploadContext::uploadTexture(VKTexture* dst, const void* data, uint32_t width, uint32_t height,
                                     TextureFormat format) {
     const uint32_t bpp = textureFormatBytesPerPixel(format);
-    if (bpp == 0 || width == 0 || height == 0) return;
+    if (bpp == 0 || width == 0 || height == 0)
+        return;
 
     // Vulkan 要求 bufferRowLength 对齐到 4 字节；颜色格式 bpp 通常 ≥ 4，
     // 但 R8 需显式对齐。staging 内的行距 = 对齐后的 bytesPerRow。
-    const uint32_t rowSize   = width * bpp;
-    const uint32_t rowAlign  = 4;
+    const uint32_t rowSize = width * bpp;
+    const uint32_t rowAlign = 4;
     const uint32_t rowStride = (rowSize + rowAlign - 1) & ~(rowAlign - 1);
-    const uint32_t dataSize  = rowStride * height;
+    const uint32_t dataSize = rowStride * height;
 
     auto slice = allocStaging(dataSize);
     auto* dstPtr = static_cast<uint8_t*>(slice.mapped) + slice.offset;
@@ -83,55 +77,47 @@ void VKUploadContext::uploadTexture(VKTexture* dst, const void* data,
 
     vk::Image image = dst->image();
 
-    executeCopy(
-        [&](vk::CommandBuffer cmd) {
-            // eUndefined → eTransferDstOptimal
-            vk::ImageMemoryBarrier b1;
-            b1.srcAccessMask               = {};
-            b1.dstAccessMask               = vk::AccessFlagBits::eTransferWrite;
-            b1.oldLayout                   = vk::ImageLayout::eUndefined;
-            b1.newLayout                   = vk::ImageLayout::eTransferDstOptimal;
-            b1.srcQueueFamilyIndex         = VK_QUEUE_FAMILY_IGNORED;
-            b1.dstQueueFamilyIndex         = VK_QUEUE_FAMILY_IGNORED;
-            b1.image                       = image;
-            b1.subresourceRange.aspectMask = VKTexture::isDepthFormat(format)
-                ? vk::ImageAspectFlagBits::eDepth
-                : vk::ImageAspectFlagBits::eColor;
-            b1.subresourceRange.baseMipLevel   = 0;
-            b1.subresourceRange.levelCount     = 1;
-            b1.subresourceRange.baseArrayLayer = 0;
-            b1.subresourceRange.layerCount     = 1;
-            cmd.pipelineBarrier(
-                vk::PipelineStageFlagBits::eTopOfPipe,
-                vk::PipelineStageFlagBits::eTransfer,
-                {}, {}, nullptr, b1);
+    executeCopy([&](vk::CommandBuffer cmd) {
+        // eUndefined → eTransferDstOptimal
+        vk::ImageMemoryBarrier b1;
+        b1.srcAccessMask = {};
+        b1.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+        b1.oldLayout = vk::ImageLayout::eUndefined;
+        b1.newLayout = vk::ImageLayout::eTransferDstOptimal;
+        b1.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        b1.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        b1.image = image;
+        b1.subresourceRange.aspectMask =
+                VKTexture::isDepthFormat(format) ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
+        b1.subresourceRange.baseMipLevel = 0;
+        b1.subresourceRange.levelCount = 1;
+        b1.subresourceRange.baseArrayLayer = 0;
+        b1.subresourceRange.layerCount = 1;
+        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, {}, {},
+                            nullptr, b1);
 
-            // buffer → image
-            vk::BufferImageCopy region;
-            region.bufferOffset      = slice.offset;
-            region.bufferRowLength   = rowStride / bpp;  // 以 texel 为单位
-            region.bufferImageHeight = height;
-            region.imageSubresource.aspectMask = b1.subresourceRange.aspectMask;
-            region.imageSubresource.mipLevel   = 0;
-            region.imageSubresource.baseArrayLayer = 0;
-            region.imageSubresource.layerCount     = 1;
-            region.imageOffset = vk::Offset3D(0, 0, 0);
-            region.imageExtent = vk::Extent3D(width, height, 1);
-            cmd.copyBufferToImage(slice.buffer, image,
-                                  vk::ImageLayout::eTransferDstOptimal, 1, &region);
+        // buffer → image
+        vk::BufferImageCopy region;
+        region.bufferOffset = slice.offset;
+        region.bufferRowLength = rowStride / bpp;  // 以 texel 为单位
+        region.bufferImageHeight = height;
+        region.imageSubresource.aspectMask = b1.subresourceRange.aspectMask;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = 0;
+        region.imageSubresource.layerCount = 1;
+        region.imageOffset = vk::Offset3D(0, 0, 0);
+        region.imageExtent = vk::Extent3D(width, height, 1);
+        cmd.copyBufferToImage(slice.buffer, image, vk::ImageLayout::eTransferDstOptimal, 1, &region);
 
-            // eTransferDstOptimal → eShaderReadOnlyOptimal
-            vk::ImageMemoryBarrier b2 = b1;
-            b2.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-            b2.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-            b2.oldLayout     = vk::ImageLayout::eTransferDstOptimal;
-            b2.newLayout     = vk::ImageLayout::eShaderReadOnlyOptimal;
-            cmd.pipelineBarrier(
-                vk::PipelineStageFlagBits::eTransfer,
-                vk::PipelineStageFlagBits::eFragmentShader,
-                {}, {}, nullptr, b2);
-        }
-    );
+        // eTransferDstOptimal → eShaderReadOnlyOptimal
+        vk::ImageMemoryBarrier b2 = b1;
+        b2.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+        b2.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+        b2.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+        b2.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, {}, {},
+                            nullptr, b2);
+    });
 
     dst->setCurrentLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 }
@@ -142,27 +128,27 @@ StagingSlice VKUploadContext::allocStaging(uint32_t size) {
     for (auto& slab : slabs_) {
         if (slab.used + size <= slab.capacity) {
             StagingSlice slice;
-            slice.buffer     = slab.buffer;
+            slice.buffer = slab.buffer;
             slice.allocation = slab.allocation;
-            slice.mapped     = slab.mapped;
-            slice.offset     = slab.used;
-            slice.size       = size;
-            slab.used       += size;
+            slice.mapped = slab.mapped;
+            slice.offset = slab.used;
+            slice.size = size;
+            slab.used += size;
             return slice;
         }
     }
 
-    uint32_t slabSize = (std::max)(uint32_t(4 * 1024 * 1024), alignUp(size, 256));
+    uint32_t slabSize = (std::max) (uint32_t(4 * 1024 * 1024), alignUp(size, 256));
     auto slab = createSlab(slabSize);
     slabs_.push_back(slab);
 
     StagingSlice slice;
-    slice.buffer     = slab.buffer;
+    slice.buffer = slab.buffer;
     slice.allocation = slab.allocation;
-    slice.mapped     = slab.mapped;
-    slice.offset     = 0;
-    slice.size       = size;
-    slab.used        = size;
+    slice.mapped = slab.mapped;
+    slice.offset = 0;
+    slice.size = size;
+    slab.used = size;
     return slice;
 }
 
@@ -183,11 +169,12 @@ void VKUploadContext::flush() {
 }
 
 void VKUploadContext::beginUploadBatch() {
-    if (batch_active_) return;
+    if (batch_active_)
+        return;
 
     vk::CommandBufferAllocateInfo allocCI;
-    allocCI.commandPool        = cmd_pool_;
-    allocCI.level              = vk::CommandBufferLevel::ePrimary;
+    allocCI.commandPool = cmd_pool_;
+    allocCI.level = vk::CommandBufferLevel::ePrimary;
     allocCI.commandBufferCount = 1;
     auto cmds = device_.allocateCommandBuffers(allocCI);
     batch_cmd_ = cmds[0];
@@ -199,13 +186,14 @@ void VKUploadContext::beginUploadBatch() {
 }
 
 void VKUploadContext::flushUploadBatch() {
-    if (!batch_active_) return;
+    if (!batch_active_)
+        return;
 
     batch_cmd_.end();
 
     vk::SubmitInfo submitInfo;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers    = &batch_cmd_;
+    submitInfo.pCommandBuffers = &batch_cmd_;
     queue_.submit(submitInfo, upload_fence_);
 
     device_.waitForFences(upload_fence_, true, UINT64_MAX);
@@ -221,13 +209,12 @@ void VKUploadContext::flushUploadBatch() {
 VKUploadContext::Slab VKUploadContext::createSlab(uint32_t size) {
     VkBufferCreateInfo ci{};
     ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    ci.size  = size;
+    ci.size = size;
     ci.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     VmaAllocationCreateInfo allocCI{};
     allocCI.usage = VMA_MEMORY_USAGE_AUTO;
-    allocCI.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT
-                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    allocCI.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
 
     VkBuffer buffer;
     VmaAllocation allocation;
@@ -235,11 +222,11 @@ VKUploadContext::Slab VKUploadContext::createSlab(uint32_t size) {
     vmaCreateBuffer(allocator_, &ci, &allocCI, &buffer, &allocation, &info);
 
     Slab slab;
-    slab.buffer     = vk::Buffer(buffer);
+    slab.buffer = vk::Buffer(buffer);
     slab.allocation = allocation;
-    slab.mapped     = info.pMappedData;
-    slab.capacity   = size;
-    slab.used       = 0;
+    slab.mapped = info.pMappedData;
+    slab.capacity = size;
+    slab.used = 0;
     return slab;
 }
 
@@ -247,4 +234,4 @@ uint32_t VKUploadContext::alignUp(uint32_t v, uint32_t align) {
     return (v + align - 1) & ~(align - 1);
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

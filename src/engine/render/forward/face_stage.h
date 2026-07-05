@@ -16,8 +16,7 @@ namespace mulan::engine {
 
 class FaceStage final : public RenderStage {
 public:
-    FaceStage(RHIDevice& device, RenderResourceCache& gpu,
-              MaterialCache& matCache, const LightEnvironment& lightEnv);
+    FaceStage(RHIDevice& device, RenderResourceCache& gpu, MaterialCache& matCache, const LightEnvironment& lightEnv);
 
     std::string_view name() const override { return "Face"; }
 
@@ -37,4 +36,4 @@ private:
     GeometryDrawExecutor draw_executor_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

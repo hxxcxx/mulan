@@ -8,11 +8,12 @@ namespace mulan::io {
 namespace {
 
 std::string toLower(std::string s) {
-    for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (auto& c : s)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return s;
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 ImporterFactory& ImporterFactory::instance() {
     static ImporterFactory factory;
@@ -44,4 +45,4 @@ AutoRegisterImporter::AutoRegisterImporter(const std::string& extension, Importe
     ImporterFactory::instance().registerImporter(extension, std::move(creator));
 }
 
-} // namespace mulan::io
+}  // namespace mulan::io

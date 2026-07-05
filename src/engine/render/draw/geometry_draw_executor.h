@@ -39,9 +39,8 @@ class MaterialCache;
 
 class GeometryDrawExecutor : public DrawExecutor {
 public:
-    GeometryDrawExecutor(RHIDevice& device, RenderResourceCache& gpu,
-                         MaterialCache& matCache, const LightEnvironment& lightEnv,
-                         RenderTechnique technique);
+    GeometryDrawExecutor(RHIDevice& device, RenderResourceCache& gpu, MaterialCache& matCache,
+                         const LightEnvironment& lightEnv, RenderTechnique technique);
 
     const char* name() const override { return technique_.debugName; }
 
@@ -62,8 +61,8 @@ public:
     /// 任意一张为 nullptr 时该 binding 走 default fallback。
     void setIBLTextures(Texture* irradiance, Texture* prefilter, Texture* brdfLUT) {
         ibl_irradiance_ = irradiance;
-        ibl_prefilter_  = prefilter;
-        ibl_brdf_lut_   = brdfLUT;
+        ibl_prefilter_ = prefilter;
+        ibl_brdf_lut_ = brdfLUT;
     }
 
 private:
@@ -73,38 +72,38 @@ private:
     bool createFrameBindGroup(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
     void uploadSceneUBO(const DrawExecutionContext& ctx);
 
-    RHIDevice&              device_;
-    RenderResourceCache&    gpu_;
-    MaterialCache&          mat_cache_;
+    RHIDevice& device_;
+    RenderResourceCache& gpu_;
+    MaterialCache& mat_cache_;
     const LightEnvironment& light_env_;
-    const TechniqueDesc&    technique_;
+    const TechniqueDesc& technique_;
 
-    std::unique_ptr<Shader>        vs_;
-    std::unique_ptr<Shader>        fs_;
+    std::unique_ptr<Shader> vs_;
+    std::unique_ptr<Shader> fs_;
     std::unique_ptr<PipelineState> pso_;
-    std::unique_ptr<Buffer>        scene_ubo_;    // set=0, binding=0
-    std::unique_ptr<Buffer>        object_ubo_;   // set=0, binding=1
-    std::unique_ptr<Buffer>        material_ubo_; // set=0, binding=2
+    std::unique_ptr<Buffer> scene_ubo_;     // set=0, binding=0
+    std::unique_ptr<Buffer> object_ubo_;    // set=0, binding=1
+    std::unique_ptr<Buffer> material_ubo_;  // set=0, binding=2
 
     /// per-frame BindGroup（按 PSO layout 创建，binding=0/1/2 + 纹理槽）。
     /// 帧内 scene/material/texture binding 不变，仅每 draw 通过 updateUBO(1,...)
     /// 刷新 object UBO offset —— 后端走局部重写路径，descriptor set 复用。
-    std::unique_ptr<BindGroup>     frame_bg_;
+    std::unique_ptr<BindGroup> frame_bg_;
 
     // 仅 sampleTextures=true 时持有：默认 sampler + 1×1 白纹理（本 pass 独占所有权）
-    std::unique_ptr<Sampler>       default_sampler_;
-    std::unique_ptr<Texture>       default_white_tex_;
+    std::unique_ptr<Sampler> default_sampler_;
+    std::unique_ptr<Texture> default_white_tex_;
 
     // IBL 默认 fallback：黑色 1×1 RGBA16F 2D + (1,0) RG16F LUT
-    std::unique_ptr<Texture>       default_ibl_tex_;
-    std::unique_ptr<Texture>       default_brdf_lut_;
+    std::unique_ptr<Texture> default_ibl_tex_;
+    std::unique_ptr<Texture> default_brdf_lut_;
     // 借用自 Renderer::IBLPipeline 的烘焙产物
-    Texture*                       ibl_irradiance_ = nullptr;
-    Texture*                       ibl_prefilter_  = nullptr;
-    Texture*                       ibl_brdf_lut_   = nullptr;
+    Texture* ibl_irradiance_ = nullptr;
+    Texture* ibl_prefilter_ = nullptr;
+    Texture* ibl_brdf_lut_ = nullptr;
 
     std::span<const MeshDrawCommand> commands_;
     bool initialized_ = false;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

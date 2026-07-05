@@ -19,9 +19,9 @@ DocumentArea::DocumentArea(QWidget* parent) : QWidget(parent) {
 
     // Page 0: 欢迎页
     welcome_page_ = new QLabel(
-        "<h2 style='color:#888;'>mulan</h2>"
-        "<p style='color:#aaa;'>Open a model file to begin: File → Open, or drag & drop</p>",
-        this);
+            "<h2 style='color:#888;'>mulan</h2>"
+            "<p style='color:#aaa;'>Open a model file to begin: File → Open, or drag & drop</p>",
+            this);
     welcome_page_->setAlignment(Qt::AlignCenter);
     welcome_page_->setStyleSheet("background-color: #373a45;");
     stack_->addWidget(welcome_page_);
@@ -33,10 +33,8 @@ DocumentArea::DocumentArea(QWidget* parent) : QWidget(parent) {
     tab_widget_->setDocumentMode(true);
     tab_widget_->tabBar()->hide();
 
-    connect(tab_widget_, &QTabWidget::tabCloseRequested,
-            this, &DocumentArea::onTabCloseRequested);
-    connect(tab_widget_, &QTabWidget::currentChanged,
-            this, &DocumentArea::onCurrentTabChanged);
+    connect(tab_widget_, &QTabWidget::tabCloseRequested, this, &DocumentArea::onTabCloseRequested);
+    connect(tab_widget_, &QTabWidget::currentChanged, this, &DocumentArea::onCurrentTabChanged);
 
     stack_->addWidget(tab_widget_);
     stack_->setCurrentIndex(0);
@@ -73,13 +71,15 @@ DocWidget* DocumentArea::addDocument(DocumentSession* session, const QString& ti
 
 void DocumentArea::closeCurrentDocument() {
     int idx = tab_widget_->currentIndex();
-    if (idx >= 0) closeDocument(idx);
+    if (idx >= 0)
+        closeDocument(idx);
 }
 
 void DocumentArea::closeDocument(int index) {
     auto* w = tab_widget_->widget(index);
     auto* docWidget = qobject_cast<DocWidget*>(w);
-    if (!docWidget) return;
+    if (!docWidget)
+        return;
 
     // Unbind the view before deleting the session; the widget itself is deleted later.
     auto it = docs_.find(docWidget);
@@ -114,7 +114,8 @@ void DocumentArea::onTabCloseRequested(int index) {
 }
 
 void DocumentArea::onCurrentTabChanged(int index) {
-    if (index < 0) return;
+    if (index < 0)
+        return;
 
     auto* w = tab_widget_->widget(index);
     auto* docWidget = qobject_cast<DocWidget*>(w);

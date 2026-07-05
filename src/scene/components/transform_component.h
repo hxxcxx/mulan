@@ -12,8 +12,8 @@
 namespace mulan::scene {
 
 struct TransformComponent {
-    math::Mat4 local{1.0};
-    math::Mat4 world{1.0};
+    math::Mat4 local{ 1.0 };
+    math::Mat4 world{ 1.0 };
 };
 
-} // namespace mulan::scene
+}  // namespace mulan::scene

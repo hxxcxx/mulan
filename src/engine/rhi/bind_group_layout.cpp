@@ -10,15 +10,14 @@ BindGroupLayout BindGroupLayout::fromPipelineDesc(const GraphicsPipelineDesc& de
 
     for (uint8_t i = 0; i < desc.descriptorBindingCount; ++i) {
         const auto& b = desc.descriptorBindings[i];
-        if (b.count == 0) continue;
-        entries.push_back({b.binding, b.count, b.type, b.stages});
+        if (b.count == 0)
+            continue;
+        entries.push_back({ b.binding, b.count, b.type, b.stages });
     }
 
     // 按 binding 排序，确保布局等价判定稳定
     std::sort(entries.begin(), entries.end(),
-              [](const BindGroupLayoutEntry& a, const BindGroupLayoutEntry& b) {
-                  return a.binding < b.binding;
-              });
+              [](const BindGroupLayoutEntry& a, const BindGroupLayoutEntry& b) { return a.binding < b.binding; });
 
     return BindGroupLayout(std::move(entries), computeHash(entries));
 }
@@ -26,16 +25,14 @@ BindGroupLayout BindGroupLayout::fromPipelineDesc(const GraphicsPipelineDesc& de
 BindGroupLayout BindGroupLayout::fromBindings(std::span<const BindGroupLayoutEntry> entries) {
     std::vector<BindGroupLayoutEntry> sorted(entries.begin(), entries.end());
     std::sort(sorted.begin(), sorted.end(),
-              [](const BindGroupLayoutEntry& a, const BindGroupLayoutEntry& b) {
-                  return a.binding < b.binding;
-              });
+              [](const BindGroupLayoutEntry& a, const BindGroupLayoutEntry& b) { return a.binding < b.binding; });
     return BindGroupLayout(std::move(sorted), computeHash(sorted));
 }
 
 uint64_t BindGroupLayout::computeHash(const std::vector<BindGroupLayoutEntry>& entries) {
     // FNV-1a 64-bit hash over binding entries
     constexpr uint64_t fnvOffsetBasis = 14695981039346656037ULL;
-    constexpr uint64_t fnvPrime       = 1099511628211ULL;
+    constexpr uint64_t fnvPrime = 1099511628211ULL;
     uint64_t hash = fnvOffsetBasis;
 
     auto hashByte = [&hash](uint8_t b) {
@@ -74,10 +71,9 @@ PipelineState::~PipelineState() = default;
 
 const BindGroupLayout& PipelineState::bindGroupLayout() const {
     if (!bg_layout_) {
-        bg_layout_ = std::make_unique<BindGroupLayout>(
-            BindGroupLayout::fromPipelineDesc(desc()));
+        bg_layout_ = std::make_unique<BindGroupLayout>(BindGroupLayout::fromPipelineDesc(desc()));
     }
     return *bg_layout_;
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

@@ -24,11 +24,11 @@ public:
 
     struct Config {
         MouseButton orbitButton = MouseButton::Left;
-        MouseButton panButton   = MouseButton::Middle;
-        MouseButton panAltButton = MouseButton::Right;   ///< 可选的第二平移按钮
+        MouseButton panButton = MouseButton::Middle;
+        MouseButton panAltButton = MouseButton::Right;  ///< 可选的第二平移按钮
 
-        double zoomFactor   = 1.0;     ///< 每滚轮档位缩放百分比
-        double minDistance   = 0.001;
+        double zoomFactor = 1.0;                        ///< 每滚轮档位缩放百分比
+        double minDistance = 0.001;
     };
 
     Config config;
@@ -47,21 +47,23 @@ public:
     }
 
     bool onMouseRelease(const InputEvent& e, Camera& cam) override {
-        (void)e;
+        (void) e;
         cam.endOrbit();
         dragging_ = false;
         return true;
     }
 
     bool onMouseMove(const InputEvent& e, Camera& cam) override {
-        if (!dragging_) return false;
+        if (!dragging_)
+            return false;
 
         int dx = e.x - last_x_;
         int dy = e.y - last_y_;
         last_x_ = e.x;
         last_y_ = e.y;
 
-        if (dx == 0 && dy == 0) return false;
+        if (dx == 0 && dy == 0)
+            return false;
 
         // --- 轨道旋转 ---
         if (e.isButtonPressed(config.orbitButton)) {
@@ -87,14 +89,15 @@ public:
     bool onKeyPress(const InputEvent& e, Camera& cam) override {
         // Home 键（或 F 键）：适配全场景
         // 子类可扩展更多快捷键
-        (void)e; (void)cam;
+        (void) e;
+        (void) cam;
         return false;
     }
 
 private:
-    int  last_x_    = 0;
-    int  last_y_    = 0;
+    int last_x_ = 0;
+    int last_y_ = 0;
     bool dragging_ = false;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

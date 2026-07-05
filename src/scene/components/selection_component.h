@@ -13,4 +13,4 @@ struct SelectionComponent {
     bool selected = false;
 };
 
-} // namespace mulan::scene
+}  // namespace mulan::scene

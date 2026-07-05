@@ -10,7 +10,7 @@
 
 #include "../core_export.h"
 #include "type_info.h"
-#include "object.h"       // ClassInfo 完整定义
+#include "object.h"  // ClassInfo 完整定义
 
 #include <cstddef>
 #include <cstdint>
@@ -28,7 +28,7 @@ namespace mulan::core {
 // ============================================================
 
 enum class PropertyAccess : uint8_t {
-    ReadOnly  = 0x01,
+    ReadOnly = 0x01,
     WriteOnly = 0x02,
     ReadWrite = ReadOnly | WriteOnly,
 };
@@ -38,9 +38,9 @@ enum class PropertyAccess : uint8_t {
 // ============================================================
 
 struct CORE_API PropertyInfo {
-    std::string name;               // 属性名
-    TypeInfo typeInfo;              // 属性类型
-    size_t offset = 0;              // 成员偏移量（offsetof）
+    std::string name;   // 属性名
+    TypeInfo typeInfo;  // 属性类型
+    size_t offset = 0;  // 成员偏移量（offsetof）
     PropertyAccess access = PropertyAccess::ReadWrite;
 };
 
@@ -59,10 +59,7 @@ public:
     // --- 注册 ---
 
     /// 注册一个类
-    void registerClass(std::string_view name,
-                       TypeInfo typeInfo,
-                       const ClassInfo* baseInfo = nullptr,
-                       size_t size = 0,
+    void registerClass(std::string_view name, TypeInfo typeInfo, const ClassInfo* baseInfo = nullptr, size_t size = 0,
                        bool isAbstract = false);
 
     /// 向已注册的类添加属性
@@ -103,4 +100,4 @@ private:
     std::unordered_map<std::type_index, ClassInfo*> classes_by_type_;
 };
 
-} // namespace mulan::core
+}  // namespace mulan::core

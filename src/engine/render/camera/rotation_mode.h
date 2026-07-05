@@ -23,8 +23,8 @@ public:
     virtual ~RotationMode() = default;
 
     virtual math::Vec3 forward() const = 0;
-    virtual math::Vec3 right()   const = 0;
-    virtual math::Vec3 up()      const = 0;
+    virtual math::Vec3 right() const = 0;
+    virtual math::Vec3 up() const = 0;
 
     virtual void orbitDelta(double dx, double dy) = 0;
 
@@ -38,13 +38,13 @@ public:
     // ==================== 模式专用访问器（默认空实现，子类按需覆盖） ====================
 
     /// Turntable 专用
-    virtual double yaw()   const { return 0.0; }
+    virtual double yaw() const { return 0.0; }
     virtual double pitch() const { return 0.0; }
     virtual void setYawPitch(double /*yaw*/, double /*pitch*/) {}
 
     /// Trackball 专用
-    virtual math::Quat rotation() const { return math::Quat{1, 0, 0, 0}; }
+    virtual math::Quat rotation() const { return math::Quat{ 1, 0, 0, 0 }; }
     virtual void setRotation(const math::Quat& /*q*/) {}
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

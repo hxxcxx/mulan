@@ -30,9 +30,7 @@ public:
     /// @param fontSize  MSDF 基准字号（像素，默认 48）
     /// @param atlasSize 图集尺寸（默认 1024）
     /// @return 成功返回 true
-    bool loadFont(const char* key, const char* fontPath,
-                  float fontSize = 48.0f,
-                  uint32_t atlasSize = 1024);
+    bool loadFont(const char* key, const char* fontPath, float fontSize = 48.0f, uint32_t atlasSize = 1024);
 
     /// 按 key 获取字体，未找到返回 nullptr
     FontAtlas* font(const char* key) const;
@@ -50,9 +48,9 @@ private:
     FontManager(const FontManager&) = delete;
     FontManager& operator=(const FontManager&) = delete;
 
-    RHIDevice*                                          device_ = nullptr;
+    RHIDevice* device_ = nullptr;
     std::unordered_map<std::string, std::unique_ptr<FontAtlas>> fonts_;
-    std::string                                         default_key_;
+    std::string default_key_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

@@ -41,9 +41,7 @@ std::string fileDirectory(const std::string& filePath) {
 /// 读取索引数据
 std::vector<uint32_t> readIndices(const Asset& asset, const Accessor& accessor) {
     std::vector<uint32_t> result(accessor.count);
-    iterateAccessorWithIndex<uint32_t>(
-        asset, accessor,
-        [&](uint32_t idx, size_t i) { result[i] = idx; });
+    iterateAccessorWithIndex<uint32_t>(asset, accessor, [&](uint32_t idx, size_t i) { result[i] = idx; });
     return result;
 }
 
@@ -51,10 +49,7 @@ std::vector<uint32_t> readIndices(const Asset& asset, const Accessor& accessor) 
 std::vector<math::FVec3> readPositions(const Asset& asset, const Accessor& acc) {
     std::vector<math::FVec3> result(acc.count);
     iterateAccessorWithIndex<fastgltf::math::fvec3>(
-        asset, acc,
-        [&](fastgltf::math::fvec3 v, size_t i) {
-            result[i] = {v[0], v[1], v[2]};
-        });
+            asset, acc, [&](fastgltf::math::fvec3 v, size_t i) { result[i] = { v[0], v[1], v[2] }; });
     return result;
 }
 
@@ -62,50 +57,42 @@ std::vector<math::FVec3> readPositions(const Asset& asset, const Accessor& acc) 
 std::vector<math::FVec2> readTexcoords(const Asset& asset, const Accessor& acc) {
     std::vector<math::FVec2> result(acc.count);
     iterateAccessorWithIndex<fastgltf::math::fvec2>(
-        asset, acc,
-        [&](fastgltf::math::fvec2 v, size_t i) {
-            result[i] = {v[0], v[1]};
-        });
+            asset, acc, [&](fastgltf::math::fvec2 v, size_t i) { result[i] = { v[0], v[1] }; });
     return result;
 }
 
 /// 导入纹理，返回 {gltfImageIndex → AssetId}
-std::map<size_t, asset::AssetId> importTextures(
-    const Asset& gltf, MeshImportBuilder& builder, const std::string& sourceDir) {
-
+std::map<size_t, asset::AssetId> importTextures(const Asset& gltf, MeshImportBuilder& builder,
+                                                const std::string& sourceDir) {
     std::map<size_t, asset::AssetId> texMap;
     for (size_t i = 0; i < gltf.images.size(); ++i) {
         const auto& image = gltf.images[i];
         std::string texPath;
 
-        std::visit(visitor{
-            [&](const sources::URI& uri) {
-                if (!uri.uri.isLocalPath()) return;
-                auto p = std::filesystem::path(uri.uri.path());
-                texPath = p.is_relative()
-                    ? (std::filesystem::path(sourceDir) / p).string()
-                    : p.string();
-            },
-            [](auto&) {}
-        }, image.data);
+        std::visit(visitor{ [&](const sources::URI& uri) {
+                               if (!uri.uri.isLocalPath())
+                                   return;
+                               auto p = std::filesystem::path(uri.uri.path());
+                               texPath = p.is_relative() ? (std::filesystem::path(sourceDir) / p).string() : p.string();
+                           },
+                            [](auto&) {} },
+                   image.data);
 
         ImportedTextureDesc desc;
-        desc.name = image.name.empty()
-            ? "Texture_" + std::to_string(i) : std::string(image.name);
+        desc.name = image.name.empty() ? "Texture_" + std::to_string(i) : std::string(image.name);
         desc.sourcePath = texPath;
         desc.srgb = true;
 
         asset::AssetId texId = builder.createTexture(desc);
-        if (texId) texMap[i] = texId;
+        if (texId)
+            texMap[i] = texId;
     }
     return texMap;
 }
 
 /// 导入材质，返回 {gltfMaterialIndex → AssetId}
-std::map<size_t, asset::AssetId> importMaterials(
-    const Asset& gltf, MeshImportBuilder& builder,
-    const std::map<size_t, asset::AssetId>& texMap) {
-
+std::map<size_t, asset::AssetId> importMaterials(const Asset& gltf, MeshImportBuilder& builder,
+                                                 const std::map<size_t, asset::AssetId>& texMap) {
     std::map<size_t, asset::AssetId> matMap;
 
     auto mapTex = [&](std::optional<size_t> texIdx) -> asset::AssetId {
@@ -121,14 +108,12 @@ std::map<size_t, asset::AssetId> importMaterials(
         const auto& pbr = mat.pbrData;
 
         ImportedMaterialDesc desc;
-        desc.name = mat.name.empty()
-            ? "Material_" + std::to_string(i) : std::string(mat.name);
+        desc.name = mat.name.empty() ? "Material_" + std::to_string(i) : std::string(mat.name);
 
-        desc.baseColorFactor = {
-            pbr.baseColorFactor[0], pbr.baseColorFactor[1],
-            pbr.baseColorFactor[2], pbr.baseColorFactor[3]};
+        desc.baseColorFactor = { pbr.baseColorFactor[0], pbr.baseColorFactor[1], pbr.baseColorFactor[2],
+                                 pbr.baseColorFactor[3] };
         desc.roughness = static_cast<double>(pbr.roughnessFactor);
-        desc.metallic  = static_cast<double>(pbr.metallicFactor);
+        desc.metallic = static_cast<double>(pbr.metallicFactor);
 
         if (pbr.baseColorTexture.has_value())
             desc.baseColorTexture = mapTex(pbr.baseColorTexture->textureIndex);
@@ -141,13 +126,14 @@ std::map<size_t, asset::AssetId> importMaterials(
         if (mat.occlusionTexture.has_value())
             desc.occlusionTexture = mapTex(mat.occlusionTexture->textureIndex);
 
-        desc.emissiveFactor = {mat.emissiveFactor[0], mat.emissiveFactor[1], mat.emissiveFactor[2]};
+        desc.emissiveFactor = { mat.emissiveFactor[0], mat.emissiveFactor[1], mat.emissiveFactor[2] };
 
-        desc.alphaMode   = static_cast<asset::AlphaMode>(mat.alphaMode);
+        desc.alphaMode = static_cast<asset::AlphaMode>(mat.alphaMode);
         desc.doubleSided = mat.doubleSided;
 
         asset::AssetId matId = builder.createMaterial(desc);
-        if (matId) matMap[i] = matId;
+        if (matId)
+            matMap[i] = matId;
     }
 
     if (matMap.empty()) {
@@ -171,27 +157,31 @@ struct PrimitiveGeomData {
 /// - accessorIndex 有效
 /// - 类型/分量类型符合预期
 /// - 指向的 bufferView / buffer 存在且 buffer 已实际加载数据（非空 / 非 Fallback / 非 monostate）
-bool isAccessorReadable(const Asset& gltf, size_t accessorIndex,
-                        AccessorType expectedType,
+bool isAccessorReadable(const Asset& gltf, size_t accessorIndex, AccessorType expectedType,
                         ComponentType expectedCompType = ComponentType::Invalid) {
-    if (accessorIndex >= gltf.accessors.size()) return false;
+    if (accessorIndex >= gltf.accessors.size())
+        return false;
     const auto& acc = gltf.accessors[accessorIndex];
-    if (acc.type != expectedType) return false;
+    if (acc.type != expectedType)
+        return false;
     if (expectedCompType != ComponentType::Invalid && acc.componentType != expectedCompType)
         return false;
-    if (acc.count == 0) return false;
+    if (acc.count == 0)
+        return false;
 
     // bufferView 可缺省（全 0 accessor），此时 iterateAccessor 会用 ElementType{} 填充，是安全的。
-    if (!acc.bufferViewIndex.has_value()) return true;
-    if (*acc.bufferViewIndex >= gltf.bufferViews.size()) return false;
+    if (!acc.bufferViewIndex.has_value())
+        return true;
+    if (*acc.bufferViewIndex >= gltf.bufferViews.size())
+        return false;
 
     const auto& view = gltf.bufferViews[*acc.bufferViewIndex];
-    if (view.bufferIndex >= gltf.buffers.size()) return false;
+    if (view.bufferIndex >= gltf.buffers.size())
+        return false;
 
     const auto& buf = gltf.buffers[view.bufferIndex].data;
     // 已加载的数据源：Array / Vector / ByteView；其余（monostate / Fallback 等）说明数据缺失。
-    return std::holds_alternative<sources::Array>(buf) ||
-           std::holds_alternative<sources::Vector>(buf) ||
+    return std::holds_alternative<sources::Array>(buf) || std::holds_alternative<sources::Vector>(buf) ||
            std::holds_alternative<sources::ByteView>(buf);
 }
 
@@ -199,31 +189,24 @@ PrimitiveGeomData extractPrimitiveData(const Asset& gltf, const Primitive& prim)
     PrimitiveGeomData geom;
 
     auto* posAttr = prim.findAttribute("POSITION");
-    if (posAttr &&
-        isAccessorReadable(gltf, posAttr->accessorIndex, AccessorType::Vec3,
-                           ComponentType::Float)) {
+    if (posAttr && isAccessorReadable(gltf, posAttr->accessorIndex, AccessorType::Vec3, ComponentType::Float)) {
         auto& acc = gltf.accessors[posAttr->accessorIndex];
         geom.positions = readPositions(gltf, acc);
     }
 
     auto* nrmAttr = prim.findAttribute("NORMAL");
-    if (nrmAttr &&
-        isAccessorReadable(gltf, nrmAttr->accessorIndex, AccessorType::Vec3,
-                           ComponentType::Float)) {
+    if (nrmAttr && isAccessorReadable(gltf, nrmAttr->accessorIndex, AccessorType::Vec3, ComponentType::Float)) {
         auto& acc = gltf.accessors[nrmAttr->accessorIndex];
-        geom.normals = readPositions(gltf, acc); // NORMAL 也是 fvec3
+        geom.normals = readPositions(gltf, acc);  // NORMAL 也是 fvec3
     }
 
     auto* uvAttr = prim.findAttribute("TEXCOORD_0");
-    if (uvAttr &&
-        isAccessorReadable(gltf, uvAttr->accessorIndex, AccessorType::Vec2,
-                           ComponentType::Float)) {
+    if (uvAttr && isAccessorReadable(gltf, uvAttr->accessorIndex, AccessorType::Vec2, ComponentType::Float)) {
         auto& acc = gltf.accessors[uvAttr->accessorIndex];
         geom.texcoords = readTexcoords(gltf, acc);
     }
 
-    if (prim.indicesAccessor.has_value() &&
-        isAccessorReadable(gltf, *prim.indicesAccessor, AccessorType::Scalar)) {
+    if (prim.indicesAccessor.has_value() && isAccessorReadable(gltf, *prim.indicesAccessor, AccessorType::Scalar)) {
         auto& acc = gltf.accessors[*prim.indicesAccessor];
         geom.indices = readIndices(gltf, acc);
     }
@@ -231,37 +214,32 @@ PrimitiveGeomData extractPrimitiveData(const Asset& gltf, const Primitive& prim)
     return geom;
 }
 
-} // namespace
+}  // namespace
 
 // ============================================================
 // GltfImporter
 // ============================================================
 
-core::Result<ImportResult> GltfImporter::import(const std::string& path,
-                     mulan::io::Document& doc,
-                     const ImportOptions& options) {
+core::Result<ImportResult> GltfImporter::import(const std::string& path, mulan::io::Document& doc,
+                                                const ImportOptions& options) {
     ImportResult result{};
     const std::string sourceDir = fileDirectory(path);
 
     // --- 1. 加载 glTF 文件 ---
     auto fileStream = GltfFileStream(path);
     if (!fileStream.isOpen()) {
-        return std::unexpected(core::Error::make(
-            core::ErrorCode::InvalidArg,
-            "Failed to open glTF file: " + path));
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "Failed to open glTF file: " + path));
     }
 
     Parser parser;
     constexpr auto gltfOpts = Options::LoadExternalBuffers | Options::LoadExternalImages;
 
-    auto assetResult = parser.loadGltf(fileStream,
-                                       std::filesystem::path(path).parent_path(),
-                                       gltfOpts);
+    auto assetResult = parser.loadGltf(fileStream, std::filesystem::path(path).parent_path(), gltfOpts);
 
     if (assetResult.error() != Error::None) {
-        return std::unexpected(core::Error::make(
-            core::ErrorCode::InvalidArg,
-            "Failed to parse glTF: " + std::string(getErrorMessage(assetResult.error()))));
+        return std::unexpected(
+                core::Error::make(core::ErrorCode::InvalidArg,
+                                  "Failed to parse glTF: " + std::string(getErrorMessage(assetResult.error()))));
     }
 
     auto& gltf = assetResult.get();
@@ -280,14 +258,14 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path,
 
     for (size_t meshIdx = 0; meshIdx < gltf.meshes.size(); ++meshIdx) {
         const auto& mesh = gltf.meshes[meshIdx];
-        std::string meshName = mesh.name.empty()
-            ? "Mesh_" + std::to_string(meshIdx) : std::string(mesh.name);
+        std::string meshName = mesh.name.empty() ? "Mesh_" + std::to_string(meshIdx) : std::string(mesh.name);
 
         std::vector<asset::MeshPrimitive> primitives;
 
         for (const auto& primitive : mesh.primitives) {
             auto geomData = extractPrimitiveData(gltf, primitive);
-            if (geomData.positions.empty()) continue;
+            if (geomData.positions.empty())
+                continue;
 
             if (geomData.normals.empty())
                 geomData.normals.resize(geomData.positions.size(), math::FVec3(0.0f, 0.0f, 1.0f));
@@ -297,20 +275,22 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path,
 
             StandardMeshSource src;
             src.positions = std::span(geomData.positions);
-            src.normals   = std::span(geomData.normals);
+            src.normals = std::span(geomData.normals);
             src.texcoords = std::span(geomData.texcoords);
-            src.indices   = std::span(geomData.indices);
-            src.topology  = graphics::PrimitiveTopology::TriangleList;
+            src.indices = std::span(geomData.indices);
+            src.topology = graphics::PrimitiveTopology::TriangleList;
 
             auto engineMesh = buildStandardMesh(src);
-            if (engineMesh.empty()) continue;
+            if (engineMesh.empty())
+                continue;
 
             asset::MeshPrimitive prim;
             prim.mesh = std::move(engineMesh);
             prim.material = asset::AssetId::invalid();
             if (primitive.materialIndex.has_value()) {
                 auto it = matMap.find(*primitive.materialIndex);
-                if (it != matMap.end()) prim.material = it->second;
+                if (it != matMap.end())
+                    prim.material = it->second;
             } else if (!matMap.empty()) {
                 prim.material = matMap.begin()->second;
             }
@@ -320,7 +300,8 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path,
         if (!primitives.empty()) {
             auto* assetLib = doc.assets();
             auto* meshAsset = assetLib->create<asset::MeshAsset>(meshName, std::move(primitives));
-            if (meshAsset) meshAssets[meshIdx] = meshAsset->id();
+            if (meshAsset)
+                meshAssets[meshIdx] = meshAsset->id();
             result.report.primitiveCount += primitives.size();
         }
     }
@@ -329,26 +310,27 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path,
 
     // --- 5. 遍历 node 树，创建实体层级 ---
     auto* scene = doc.scene();
-    if (!scene) return result;
+    if (!scene)
+        return result;
 
     // TRS → Mat4（使用项目已有的 math::Transform3）
     auto nodeTransform = [](const fastgltf::Node& node) -> math::Mat4 {
         math::Mat4 mat;
-        std::visit(fastgltf::visitor{
-            [&](const fastgltf::math::fmat4x4& m) {
-                for (int c = 0; c < 4; ++c)
-                    for (int r = 0; r < 4; ++r)
-                        mat[c][r] = static_cast<double>(m[c][r]);
-            },
-            [&](const fastgltf::TRS& trs) {
-                math::Transform3 t;
-                t.translation = {trs.translation[0], trs.translation[1], trs.translation[2]};
-                t.rotation    = math::Quat(trs.rotation[0], trs.rotation[1],
-                                           trs.rotation[2], trs.rotation[3]);
-                t.scale       = {trs.scale[0], trs.scale[1], trs.scale[2]};
-                mat = t.toMatrix();
-            }
-        }, node.transform);
+        std::visit(fastgltf::visitor{ [&](const fastgltf::math::fmat4x4& m) {
+                                         for (int c = 0; c < 4; ++c)
+                                             for (int r = 0; r < 4; ++r)
+                                                 mat[c][r] = static_cast<double>(m[c][r]);
+                                     },
+                                      [&](const fastgltf::TRS& trs) {
+                                          math::Transform3 t;
+                                          t.translation = { trs.translation[0], trs.translation[1],
+                                                            trs.translation[2] };
+                                          t.rotation = math::Quat(trs.rotation[0], trs.rotation[1], trs.rotation[2],
+                                                                  trs.rotation[3]);
+                                          t.scale = { trs.scale[0], trs.scale[1], trs.scale[2] };
+                                          mat = t.toMatrix();
+                                      } },
+                   node.transform);
         return mat;
     };
 
@@ -356,10 +338,11 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path,
     importNode = [&](size_t nodeIdx, scene::EntityId parent) {
         const auto& node = gltf.nodes[nodeIdx];
 
-        scene::EntityId entity = scene->createEntity(
-            node.name.empty() ? "Node_" + std::to_string(nodeIdx) : std::string(node.name));
+        scene::EntityId entity =
+                scene->createEntity(node.name.empty() ? "Node_" + std::to_string(nodeIdx) : std::string(node.name));
 
-        if (parent) scene->setParent(entity, parent);
+        if (parent)
+            scene->setParent(entity, parent);
 
         scene->setLocalTransform(entity, nodeTransform(node));
 
@@ -367,8 +350,7 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path,
             auto meshId = meshAssets[*node.meshIndex];
             if (meshId) {
                 scene->setGeometry(entity, meshId);
-                const auto* meshAsset = dynamic_cast<const asset::MeshAsset*>(
-                    doc.assets()->asset(meshId));
+                const auto* meshAsset = dynamic_cast<const asset::MeshAsset*>(doc.assets()->asset(meshId));
                 if (meshAsset) {
                     std::vector<asset::AssetId> slots;
                     for (auto& prim : meshAsset->primitives())
@@ -394,20 +376,22 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path,
         // 无 scene 定义时，遍历所有根节点（不被任何节点引用为 child）
         std::vector<bool> isChild(gltf.nodes.size(), false);
         for (auto& n : gltf.nodes)
-            for (auto c : n.children) isChild[c] = true;
+            for (auto c : n.children)
+                isChild[c] = true;
         for (size_t i = 0; i < gltf.nodes.size(); ++i)
-            if (!isChild[i]) importNode(i, scene::EntityId::invalid());
+            if (!isChild[i])
+                importNode(i, scene::EntityId::invalid());
     }
 
     return result;
 }
 
 std::vector<std::string> GltfImporter::supportedExtensions() const {
-    return {".gltf", ".glb"};
+    return { ".gltf", ".glb" };
 }
 
 std::string GltfImporter::name() const {
     return "glTF 2.0 (fastgltf)";
 }
 
-} // namespace mulan::io
+}  // namespace mulan::io

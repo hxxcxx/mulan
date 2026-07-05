@@ -69,19 +69,19 @@ public:
     uint64_t dirtyFlags(EntityId id) const;
     void clearDirty(EntityDirty mask);
 
-    template<typename Func>
+    template <typename Func>
     void forEachEntity(Func&& fn) {
         for (auto id : entities_)
             fn(id);
     }
 
-    template<typename Func>
+    template <typename Func>
     void forEachEntity(Func&& fn) const {
         for (auto id : entities_)
             fn(id);
     }
 
-    template<typename Func>
+    template <typename Func>
     void forEachDirty(EntityDirty mask, Func&& fn) {
         uint64_t maskValue = dirtyValue(mask);
         for (auto& [id, flags] : dirty_) {
@@ -90,7 +90,7 @@ public:
         }
     }
 
-    template<typename Func>
+    template <typename Func>
     void forEachDirty(EntityDirty mask, Func&& fn) const {
         uint64_t maskValue = dirtyValue(mask);
         for (const auto& [id, flags] : dirty_) {
@@ -142,4 +142,4 @@ private:
     std::unordered_map<EntityId, uint64_t> dirty_;
 };
 
-} // namespace mulan::scene
+}  // namespace mulan::scene

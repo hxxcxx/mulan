@@ -21,9 +21,7 @@ namespace mulan::view {
 
 class RenderWorldSync {
 public:
-    void rebuild(const RenderScene& scene,
-                 const asset::AssetLibrary& assets,
-                 engine::RenderWorld& world) const;
+    void rebuild(const RenderScene& scene, const asset::AssetLibrary& assets, engine::RenderWorld& world) const;
 };
 
-} // namespace mulan::view
+}  // namespace mulan::view

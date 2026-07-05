@@ -42,18 +42,18 @@ private:
     mulan::io::FileManager doc_manager_;
 
     // --- Actions ---
-    QAction* action_open_   = nullptr;
-    QAction* action_exit_   = nullptr;
+    QAction* action_open_ = nullptr;
+    QAction* action_exit_ = nullptr;
     QAction* action_fit_all_ = nullptr;
     QAction* action_engine_settings_ = nullptr;
 
     // --- Ribbon 结构：Home ---
-    SARibbonCategory* category_home_     = nullptr;
-    SARibbonPanel*    panel_file_        = nullptr;
-    SARibbonPanel*    panel_view_        = nullptr;
-    SARibbonPanel*    panel_setting_     = nullptr;
+    SARibbonCategory* category_home_ = nullptr;
+    SARibbonPanel* panel_file_ = nullptr;
+    SARibbonPanel* panel_view_ = nullptr;
+    SARibbonPanel* panel_setting_ = nullptr;
 
     // --- Ribbon 结构：View ---
-    SARibbonCategory* category_view_     = nullptr;
-    SARibbonPanel*    panel_display_     = nullptr;
+    SARibbonCategory* category_view_ = nullptr;
+    SARibbonPanel* panel_display_ = nullptr;
 };

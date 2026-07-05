@@ -34,4 +34,4 @@ private:
     uint32_t generation_ = 1;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

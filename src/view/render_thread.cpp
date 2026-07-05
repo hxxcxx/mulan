@@ -11,29 +11,26 @@ core::Result<void> RenderThread::start(std::string /*name*/) {
         return {};
     }
     if (queue_.closed()) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg,
-                                                "RenderThread cannot be restarted after stop."));
+        return std::unexpected(
+                core::Error::make(core::ErrorCode::InvalidArg, "RenderThread cannot be restarted after stop."));
     }
 
     running_.store(true);
     try {
-        worker_ = std::jthread([this](std::stop_token stopToken) {
-            run(stopToken);
-        });
+        worker_ = std::jthread([this](std::stop_token stopToken) { run(stopToken); });
     } catch (...) {
         running_.store(false);
         queue_.close();
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal,
-                                                "Failed to start render thread."));
+        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "Failed to start render thread."));
     }
     return {};
 }
 
 core::Result<void> RenderThread::requestShutdown() {
     return queue_.submit(RenderTask{
-        RenderTaskKind::Shutdown,
-        "Shutdown",
-        [] {},
+            RenderTaskKind::Shutdown,
+            "Shutdown",
+            [] {},
     });
 }
 
@@ -56,8 +53,7 @@ void RenderThread::run(std::stop_token stopToken) {
         }
         try {
             task->execute();
-        } catch (...) {
-        }
+        } catch (...) {}
         if (task->kind() == RenderTaskKind::Shutdown) {
             break;
         }
@@ -65,4 +61,4 @@ void RenderThread::run(std::stop_token stopToken) {
     running_.store(false);
 }
 
-} // namespace mulan::view
+}  // namespace mulan::view

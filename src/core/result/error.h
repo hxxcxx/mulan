@@ -27,13 +27,13 @@ namespace mulan::core {
 // ============================================================
 
 enum class ErrorCode : int32_t {
-    Generic      = 0,
-    NotFound     = 1,
-    InvalidArg   = 2,
-    Io           = 3,
-    OutOfMemory  = 4,
+    Generic = 0,
+    NotFound = 1,
+    InvalidArg = 2,
+    Io = 3,
+    OutOfMemory = 4,
     NotSupported = 5,
-    Internal     = 6,
+    Internal = 6,
 };
 
 // ============================================================
@@ -41,19 +41,16 @@ enum class ErrorCode : int32_t {
 // ============================================================
 
 struct CORE_API Error {
-    int32_t     code    = static_cast<int32_t>(ErrorCode::Generic);
+    int32_t code = static_cast<int32_t>(ErrorCode::Generic);
     std::string message;
-    const char* file    = nullptr;
-    uint32_t    line    = 0;
+    const char* file = nullptr;
+    uint32_t line = 0;
 
-    static Error make(std::string_view msg,
-                      std::source_location loc = std::source_location::current());
+    static Error make(std::string_view msg, std::source_location loc = std::source_location::current());
 
-    static Error make(ErrorCode code, std::string_view msg,
-                      std::source_location loc = std::source_location::current());
+    static Error make(ErrorCode code, std::string_view msg, std::source_location loc = std::source_location::current());
 
-    static Error make(int32_t code, std::string_view msg,
-                      std::source_location loc = std::source_location::current());
+    static Error make(int32_t code, std::string_view msg, std::source_location loc = std::source_location::current());
 };
 
 // ============================================================
@@ -64,4 +61,4 @@ struct CORE_API Error {
 template <typename T>
 using Result = std::expected<T, Error>;
 
-} // namespace mulan::core
+}  // namespace mulan::core

@@ -50,9 +50,9 @@ private slots:
     void onCurrentTabChanged(int index);
 
 private:
-    QStackedWidget* stack_     = nullptr;
-    QTabWidget*     tab_widget_ = nullptr;
-    QLabel*         welcome_page_ = nullptr;
+    QStackedWidget* stack_ = nullptr;
+    QTabWidget* tab_widget_ = nullptr;
+    QLabel* welcome_page_ = nullptr;
 
     // DocWidget 到 DocumentSession 的映射，管理会话生命周期。
     std::unordered_map<DocWidget*, DocumentSession*> docs_;

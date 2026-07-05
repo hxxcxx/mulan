@@ -7,11 +7,11 @@ namespace mulan::core {
 // ============================================================
 
 void InputArchive::onPathKey(std::string_view name) {
-    path_stack_.push_back({PathEntry::Key, std::string(name), 0});
+    path_stack_.push_back({ PathEntry::Key, std::string(name), 0 });
 }
 
 void InputArchive::onPathBeginArray() {
-    path_stack_.push_back({PathEntry::Array, {}, 0});
+    path_stack_.push_back({ PathEntry::Array, {}, 0 });
 }
 
 void InputArchive::onPathAdvanceIndex() {
@@ -30,7 +30,8 @@ std::string InputArchive::buildPath() const {
     std::string path;
     for (const auto& entry : path_stack_) {
         if (entry.type == PathEntry::Key) {
-            if (!path.empty()) path += '.';
+            if (!path.empty())
+                path += '.';
             path += entry.name;
         } else {
             path += '[';
@@ -41,4 +42,4 @@ std::string InputArchive::buildPath() const {
     return path;
 }
 
-} // namespace mulan::core
+}  // namespace mulan::core

@@ -31,7 +31,7 @@ struct ViewConfig {
 
     bool enableValidation = true;
 
-    float clearColor[4] = {97.0f / 255, 101.0f / 255, 118.0f / 255, 1.0f};
+    float clearColor[4] = { 97.0f / 255, 101.0f / 255, 118.0f / 255, 1.0f };
 
     /// IBL（环境光反射）开关。默认关闭：需要 hdrPath 指向一张可读的 HDR 文件。
     /// 开启时启动时一次性烘焙 irradiance/prefilter/BRDF LUT；关闭则完全跳过烘焙。
@@ -54,13 +54,15 @@ struct ViewConfig {
         rc.vsync = vsync;
         rc.depthBuffer = depthBuffer;
         rc.stencilBuffer = stencilBuffer;
-        for (int i = 0; i < 4; ++i) rc.clearColor[i] = clearColor[i];
+        for (int i = 0; i < 4; ++i)
+            rc.clearColor[i] = clearColor[i];
         return rc;
     }
 
     engine::NativeWindowHandle toNativeWindowHandle() const {
 #ifdef _WIN32
-        if (hWnd) return engine::NativeWindowHandle::makeWin32(hInstance, hWnd);
+        if (hWnd)
+            return engine::NativeWindowHandle::makeWin32(hInstance, hWnd);
 #else
         if (displayConnection && windowHandle)
             return engine::NativeWindowHandle::makeXCB(displayConnection, windowHandle);
@@ -69,4 +71,4 @@ struct ViewConfig {
     }
 };
 
-} // namespace mulan::view
+}  // namespace mulan::view

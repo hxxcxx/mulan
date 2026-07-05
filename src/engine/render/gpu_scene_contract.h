@@ -60,9 +60,7 @@ inline void storeGpuVec3(float* dst, const math::Vec3& v) {
     dst[3] = 0.0f;
 }
 
-inline ObjectUniforms makeObjectUniforms(const math::Mat4& world,
-                                         uint32_t pickId = 0,
-                                         bool selected = false) {
+inline ObjectUniforms makeObjectUniforms(const math::Mat4& world, uint32_t pickId = 0, bool selected = false) {
     ObjectUniforms ubo{};
     storeGpuMat4(ubo.world, world);
 
@@ -75,4 +73,4 @@ inline ObjectUniforms makeObjectUniforms(const math::Mat4& world,
     return ubo;
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

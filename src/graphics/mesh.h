@@ -19,13 +19,13 @@
 namespace mulan::graphics {
 
 struct RenderGeometryView {
-    VertexLayout              layout;
+    VertexLayout layout;
     std::span<const std::byte> vertexBytes;
     std::span<const std::byte> indexBytes;
-    uint32_t                  vertexCount  = 0;
-    uint32_t                  indexCount   = 0;
-    uint32_t                  vertexStride = 0;
-    PrimitiveTopology         topology     = PrimitiveTopology::TriangleList;
+    uint32_t vertexCount = 0;
+    uint32_t indexCount = 0;
+    uint32_t vertexStride = 0;
+    PrimitiveTopology topology = PrimitiveTopology::TriangleList;
 };
 
 // ============================================================
@@ -38,21 +38,19 @@ struct RenderGeometryView {
 // ============================================================
 
 struct Mesh {
-    VertexLayout              layout;     // 唯一布局来源
-    std::vector<std::byte>    vertices;   // 裸字节，按 layout.stride() 切分
-    std::vector<std::byte>    indices;    // 裸字节，宽度由 indexType 决定
-    IndexType                 indexType  = IndexType::UInt32;
-    PrimitiveTopology         topology   = PrimitiveTopology::TriangleList;
-    math::AABB3                      bounds;
+    VertexLayout layout;              // 唯一布局来源
+    std::vector<std::byte> vertices;  // 裸字节，按 layout.stride() 切分
+    std::vector<std::byte> indices;   // 裸字节，宽度由 indexType 决定
+    IndexType indexType = IndexType::UInt32;
+    PrimitiveTopology topology = PrimitiveTopology::TriangleList;
+    math::AABB3 bounds;
 
     // --- 便捷访问 ---
 
     uint32_t vertexStride() const { return layout.stride(); }
 
     uint32_t vertexCount() const {
-        return layout.stride() > 0
-            ? static_cast<uint32_t>(vertices.size()) / layout.stride()
-            : 0;
+        return layout.stride() > 0 ? static_cast<uint32_t>(vertices.size()) / layout.stride() : 0;
     }
 
     uint32_t indexCount() const {
@@ -60,25 +58,21 @@ struct Mesh {
         return isz > 0 ? static_cast<uint32_t>(indices.size()) / isz : 0;
     }
 
-    uint32_t triangleCount() const {
-        return static_cast<uint32_t>(indexCount()) / 3;
-    }
+    uint32_t triangleCount() const { return static_cast<uint32_t>(indexCount()) / 3; }
 
-    bool empty() const {
-        return vertices.empty();
-    }
+    bool empty() const { return vertices.empty(); }
 
     // --- 转换为渲染管线的零拷贝视图 ---
 
     RenderGeometryView asRenderGeometry() const {
         RenderGeometryView geo{};
-        geo.layout        = layout;
-        geo.vertexBytes   = std::span<const std::byte>{vertices};
-        geo.indexBytes    = std::span<const std::byte>{indices};
-        geo.vertexCount   = vertexCount();
-        geo.indexCount    = indexCount();
-        geo.vertexStride  = layout.stride();
-        geo.topology      = topology;
+        geo.layout = layout;
+        geo.vertexBytes = std::span<const std::byte>{ vertices };
+        geo.indexBytes = std::span<const std::byte>{ indices };
+        geo.vertexCount = vertexCount();
+        geo.indexCount = indexCount();
+        geo.vertexStride = layout.stride();
+        geo.topology = topology;
         return geo;
     }
 
@@ -87,11 +81,14 @@ struct Mesh {
     void computeBounds() {
         bounds.reset();
         const uint16_t off = layout.offsetOf(VertexSemantic::Position);
-        if (off == 0xFFFF) return;  // 布局无 Position，无法计算
+        if (off == 0xFFFF)
+            return;  // 布局无 Position，无法计算
         const uint16_t stride = layout.stride();
-        if (stride == 0) return;
+        if (stride == 0)
+            return;
         const auto* position = layout.find(VertexSemantic::Position);
-        if (!position) return;
+        if (!position)
+            return;
 
         for (size_t p = off; p + position->size() <= vertices.size(); p += stride) {
             math::Vec3 v{};
@@ -111,4 +108,4 @@ struct Mesh {
     }
 };
 
-} // namespace mulan::graphics
+}  // namespace mulan::graphics

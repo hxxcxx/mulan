@@ -29,4 +29,4 @@ private:
     std::vector<CaptureRequest> requests_;
 };
 
-} // namespace mulan::view
+}  // namespace mulan::view

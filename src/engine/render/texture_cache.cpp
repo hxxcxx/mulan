@@ -9,10 +9,9 @@ namespace mulan::engine {
 // ============================================================
 
 TextureAsset::TextureAsset(std::unique_ptr<Texture> texture, std::string path)
-    : texture_(std::move(texture))
-    , path_(std::move(path)) {
+    : texture_(std::move(texture)), path_(std::move(path)) {
     if (texture_) {
-        width_  = texture_->width();
+        width_ = texture_->width();
         height_ = texture_->height();
     }
 }
@@ -21,9 +20,7 @@ TextureAsset::TextureAsset(std::unique_ptr<Texture> texture, std::string path)
 // TextureCache
 // ============================================================
 
-TextureAsset* TextureCache::load(const std::string& path,
-                                 const TextureLoadOptions& options,
-                                 bool /*async*/) {
+TextureAsset* TextureCache::load(const std::string& path, const TextureLoadOptions& options, bool /*async*/) {
     if (!device_) {
         return nullptr;
     }
@@ -43,12 +40,13 @@ TextureAsset* TextureCache::load(const std::string& path,
 
     // 创建 RHI Texture
     TextureDesc desc;
-    desc.width      = static_cast<uint32_t>(loaded.width);
-    desc.height     = static_cast<uint32_t>(loaded.height);
-    desc.depth      = 1;
-    desc.format     = loaded.format;
-    desc.dimension   = TextureDimension::Texture2D;
-    desc.usage      = TextureUsageFlags::ShaderResource | (options.generateMips ? TextureUsageFlags::GenerateMips : TextureUsageFlags::None);
+    desc.width = static_cast<uint32_t>(loaded.width);
+    desc.height = static_cast<uint32_t>(loaded.height);
+    desc.depth = 1;
+    desc.format = loaded.format;
+    desc.dimension = TextureDimension::Texture2D;
+    desc.usage = TextureUsageFlags::ShaderResource |
+                 (options.generateMips ? TextureUsageFlags::GenerateMips : TextureUsageFlags::None);
 
     auto texture = createRHITexture(loaded, desc.usage, options.generateMips);
     if (!texture) {
@@ -56,25 +54,23 @@ TextureAsset* TextureCache::load(const std::string& path,
     }
 
     // 插入缓存
-    auto [inserted, _] = textures_.emplace(path, TextureAsset{std::move(texture), path});
+    auto [inserted, _] = textures_.emplace(path, TextureAsset{ std::move(texture), path });
     return &inserted->second;
 }
 
-TextureAsset* TextureCache::create(uint32_t width, uint32_t height,
-                                    TextureFormat format,
-                                    TextureUsageFlags usage,
-                                    const std::string& name) {
+TextureAsset* TextureCache::create(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage,
+                                   const std::string& name) {
     if (!device_) {
         return nullptr;
     }
 
     TextureDesc desc;
-    desc.width     = width;
-    desc.height    = height;
-    desc.depth     = 1;
-    desc.format    = format;
-    desc.dimension  = TextureDimension::Texture2D;
-    desc.usage     = usage;
+    desc.width = width;
+    desc.height = height;
+    desc.depth = 1;
+    desc.format = format;
+    desc.dimension = TextureDimension::Texture2D;
+    desc.usage = usage;
 
     auto result = device_->createTexture(desc);
     if (!result) {
@@ -83,7 +79,7 @@ TextureAsset* TextureCache::create(uint32_t width, uint32_t height,
     auto texture = std::move(*result);
 
     auto key = name.empty() ? ("__unnamed_" + std::to_string(reinterpret_cast<uintptr_t>(texture.get()))) : name;
-    auto [inserted, _] = textures_.emplace(key, TextureAsset{std::move(texture), key});
+    auto [inserted, _] = textures_.emplace(key, TextureAsset{ std::move(texture), key });
     return &inserted->second;
 }
 
@@ -112,16 +108,15 @@ std::vector<std::string> TextureCache::allNames() const {
     return names;
 }
 
-std::unique_ptr<Texture> TextureCache::createRHITexture(const LoadedTexture& loaded,
-                                                     TextureUsageFlags usage,
-                                                     bool generateMips) {
+std::unique_ptr<Texture> TextureCache::createRHITexture(const LoadedTexture& loaded, TextureUsageFlags usage,
+                                                        bool generateMips) {
     TextureDesc desc;
-    desc.width     = static_cast<uint32_t>(loaded.width);
-    desc.height    = static_cast<uint32_t>(loaded.height);
-    desc.depth     = 1;
-    desc.format    = loaded.format;
+    desc.width = static_cast<uint32_t>(loaded.width);
+    desc.height = static_cast<uint32_t>(loaded.height);
+    desc.depth = 1;
+    desc.format = loaded.format;
     desc.dimension = TextureDimension::Texture2D;
-    desc.usage     = usage;
+    desc.usage = usage;
 
     auto result = device_->createTexture(desc);
     if (!result) {
@@ -130,16 +125,14 @@ std::unique_ptr<Texture> TextureCache::createRHITexture(const LoadedTexture& loa
 
     // 上传像素数据到 GPU（内部含 layout/state 转换到 SHADER_READ）
     if (!loaded.pixels.empty()) {
-        device_->uploadTextureData(result->get(), loaded.pixels.data(),
-                                   static_cast<uint32_t>(loaded.width),
-                                   static_cast<uint32_t>(loaded.height),
-                                   loaded.format);
+        device_->uploadTextureData(result->get(), loaded.pixels.data(), static_cast<uint32_t>(loaded.width),
+                                   static_cast<uint32_t>(loaded.height), loaded.format);
     }
 
     // TODO(后续): generateMips 的 GPU mipmap 生成链（独立功能，本轮未实现）
-    (void)generateMips;
+    (void) generateMips;
 
     return std::move(*result);
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

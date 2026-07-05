@@ -7,14 +7,10 @@
 
 namespace mulan::engine {
 
-void MeshDrawCommand::execute(CommandList& cmd,
-                               BindGroup& frameBg,
-                               Buffer* sceneUBO,
-                               Buffer* objectUBO,
-                               Buffer* materialUBO,
-                               Texture* defaultWhite,
-                               Sampler* defaultSampler) const {
-    if (instanceCount == 0 || !pipelineState || !vertexBuffer) return;
+void MeshDrawCommand::execute(CommandList& cmd, BindGroup& frameBg, Buffer* sceneUBO, Buffer* objectUBO,
+                              Buffer* materialUBO, Texture* defaultWhite, Sampler* defaultSampler) const {
+    if (instanceCount == 0 || !pipelineState || !vertexBuffer)
+        return;
 
     // 上传 per-object UBO
     if (objectUBO) {
@@ -37,9 +33,9 @@ void MeshDrawCommand::execute(CommandList& cmd,
     if (defaultWhite) {
         frameBg.updateTexture(3, albedoTex ? albedoTex : defaultWhite);
         frameBg.updateTexture(4, normalTex ? normalTex : defaultWhite);
-        frameBg.updateTexture(5, mrTex     ? mrTex     : defaultWhite);
+        frameBg.updateTexture(5, mrTex ? mrTex : defaultWhite);
         frameBg.updateTexture(6, emissiveTex ? emissiveTex : defaultWhite);
-        frameBg.updateTexture(7, aoTex     ? aoTex     : defaultWhite);
+        frameBg.updateTexture(7, aoTex ? aoTex : defaultWhite);
         frameBg.updateSampler(8, sampler ? sampler : defaultSampler);
     }
 
@@ -50,18 +46,18 @@ void MeshDrawCommand::execute(CommandList& cmd,
     if (indexBuffer && indexCount > 0) {
         cmd.setIndexBuffer(indexBuffer, 0, indexType);
         DrawIndexedAttribs attrs;
-        attrs.indexCount    = indexCount;
+        attrs.indexCount = indexCount;
         attrs.instanceCount = instanceCount;
-        attrs.startIndex    = firstIndex;
-        attrs.baseVertex    = baseVertex;
-        attrs.indexType     = indexType;
+        attrs.startIndex = firstIndex;
+        attrs.baseVertex = baseVertex;
+        attrs.indexType = indexType;
         cmd.drawIndexed(attrs);
     } else if (vertexCount > 0) {
         DrawAttribs attrs;
-        attrs.vertexCount   = vertexCount;
+        attrs.vertexCount = vertexCount;
         attrs.instanceCount = instanceCount;
         cmd.draw(attrs);
     }
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

@@ -35,14 +35,13 @@ enum class DrawableRole : uint8_t {
 /// material 为 invalid 表示该段无专属材质（如 TessellatedAsset 的线框），由调用方回退默认。
 struct Drawable {
     const graphics::Mesh* mesh = nullptr;
-    AssetId             material = AssetId::invalid();
-    DrawableRole        role = DrawableRole::Solid;
+    AssetId material = AssetId::invalid();
+    DrawableRole role = DrawableRole::Solid;
 };
 
 class GeometryAsset : public Asset {
 public:
-    GeometryAsset(AssetId id, AssetKind kind, std::string name)
-        : Asset(id, kind, std::move(name)) {}
+    GeometryAsset(AssetId id, AssetKind kind, std::string name) : Asset(id, kind, std::move(name)) {}
 
     /// 把自身展开为可绘制网格段，追加到 out。
     /// 子类按自身结构实现：TessellatedAsset 产出 face + edge，Mesh 产出每个 primitive。
@@ -55,4 +54,4 @@ public:
     virtual math::AABB3 localBounds() const = 0;
 };
 
-} // namespace mulan::asset
+}  // namespace mulan::asset

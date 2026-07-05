@@ -35,22 +35,22 @@ public:
     TextureAsset(TextureAsset&&) noexcept = default;
     TextureAsset& operator=(TextureAsset&&) noexcept = default;
 
-    Texture*        get()       { return texture_.get(); }
-    const Texture*  get() const { return texture_.get(); }
-    Texture&        operator*()       { return *texture_; }
-    const Texture&  operator*() const { return *texture_; }
+    Texture* get() { return texture_.get(); }
+    const Texture* get() const { return texture_.get(); }
+    Texture& operator*() { return *texture_; }
+    const Texture& operator*() const { return *texture_; }
 
     explicit operator bool() const { return texture_ != nullptr; }
 
     const std::string& path() const { return path_; }
-    uint32_t width()  const { return width_; }
+    uint32_t width() const { return width_; }
     uint32_t height() const { return height_; }
 
 private:
     std::unique_ptr<Texture> texture_;
-    std::string          path_;
-    uint32_t             width_  = 0;
-    uint32_t             height_ = 0;
+    std::string path_;
+    uint32_t width_ = 0;
+    uint32_t height_ = 0;
 };
 
 // ============================================================
@@ -68,14 +68,10 @@ public:
 
     /// 从文件加载纹理（带缓存）
     /// 如果已加载过，直接返回已有 asset
-    TextureAsset* load(const std::string& path,
-                       const TextureLoadOptions& options = {},
-                       bool async = false);
+    TextureAsset* load(const std::string& path, const TextureLoadOptions& options = {}, bool async = false);
 
     /// 创建空白纹理
-    TextureAsset* create(uint32_t width, uint32_t height,
-                         TextureFormat format,
-                         TextureUsageFlags usage,
+    TextureAsset* create(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage,
                          const std::string& name = {});
 
     /// 按名称查找
@@ -98,12 +94,10 @@ public:
 
 private:
     // 内部：从 LoadedTexture 创建 RHI Texture
-    std::unique_ptr<Texture> createRHITexture(const LoadedTexture& loaded,
-                                           TextureUsageFlags usage,
-                                           bool generateMips);
+    std::unique_ptr<Texture> createRHITexture(const LoadedTexture& loaded, TextureUsageFlags usage, bool generateMips);
 
-    RHIDevice*                    device_ = nullptr;
+    RHIDevice* device_ = nullptr;
     std::unordered_map<std::string, TextureAsset> textures_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

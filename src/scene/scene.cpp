@@ -16,14 +16,14 @@ EntityId Scene::allocateId() {
 
     Slot& slot = slots_[index];
     slot.alive = true;
-    return EntityId{(static_cast<uint64_t>(slot.generation) << EntityId::INDEX_BITS) | index};
+    return EntityId{ (static_cast<uint64_t>(slot.generation) << EntityId::INDEX_BITS) | index };
 }
 
 EntityId Scene::createEntity(std::string name) {
     EntityId id = allocateId();
     entities_.push_back(id);
 
-    names_.emplace(id, NameComponent{std::move(name)});
+    names_.emplace(id, NameComponent{ std::move(name) });
     transforms_.emplace(id, TransformComponent{});
     hierarchies_.emplace(id, HierarchyComponent{});
     geometries_.emplace(id, GeometryComponent{});
@@ -36,7 +36,8 @@ EntityId Scene::createEntity(std::string name) {
 }
 
 void Scene::destroyEntity(EntityId id) {
-    if (!isValid(id)) return;
+    if (!isValid(id))
+        return;
 
     auto childIt = children_.find(id);
     if (childIt != children_.end()) {
@@ -62,22 +63,26 @@ void Scene::destroyEntity(EntityId id) {
     Slot& slot = slots_[indexOf(id)];
     slot.alive = false;
     ++slot.generation;
-    free_indices_.push_back(EntityId{static_cast<uint64_t>(indexOf(id))});
+    free_indices_.push_back(EntityId{ static_cast<uint64_t>(indexOf(id)) });
 }
 
 bool Scene::isValid(EntityId id) const {
-    if (!id) return false;
+    if (!id)
+        return false;
     uint32_t index = indexOf(id);
-    if (index >= slots_.size()) return false;
+    if (index >= slots_.size())
+        return false;
     const Slot& slot = slots_[index];
     return slot.alive && slot.generation == id.generation();
 }
 
 bool Scene::setParent(EntityId child, EntityId parent) {
-    if (!isValid(child)) return false;
+    if (!isValid(child))
+        return false;
 
     auto* h = mutableHierarchy(child);
-    if (!h) return false;
+    if (!h)
+        return false;
 
     if (!parent) {
         if (h->parent)
@@ -144,8 +149,10 @@ const BoundsComponent* Scene::bounds(EntityId id) const {
 
 bool Scene::setName(EntityId id, std::string name) {
     auto* c = mutableName(id);
-    if (!c) return false;
-    if (c->value == name) return true;
+    if (!c)
+        return false;
+    if (c->value == name)
+        return true;
 
     c->value = std::move(name);
     markDirty(id, EntityDirty::Name);
@@ -154,7 +161,8 @@ bool Scene::setName(EntityId id, std::string name) {
 
 bool Scene::setLocalTransform(EntityId id, const math::Mat4& transform) {
     auto* c = mutableTransform(id);
-    if (!c) return false;
+    if (!c)
+        return false;
 
     c->local = transform;
     updateWorldRecursive(id);
@@ -163,7 +171,8 @@ bool Scene::setLocalTransform(EntityId id, const math::Mat4& transform) {
 
 bool Scene::setWorldTransform(EntityId id, const math::Mat4& transform) {
     auto* c = mutableTransform(id);
-    if (!c) return false;
+    if (!c)
+        return false;
 
     c->world = transform;
     // 由 world 反推 local：local = parent.world⁻¹ * world（根节点 local = world）
@@ -181,8 +190,10 @@ bool Scene::setWorldTransform(EntityId id, const math::Mat4& transform) {
 
 bool Scene::setGeometry(EntityId id, asset::AssetId geometry) {
     auto* c = mutableGeometry(id);
-    if (!c) return false;
-    if (c->geometry == geometry) return true;
+    if (!c)
+        return false;
+    if (c->geometry == geometry)
+        return true;
 
     c->geometry = geometry;
     markDirty(id, EntityDirty::Geometry | EntityDirty::Bounds);
@@ -191,8 +202,10 @@ bool Scene::setGeometry(EntityId id, asset::AssetId geometry) {
 
 bool Scene::setVisible(EntityId id, bool visible) {
     auto* c = mutableRender(id);
-    if (!c) return false;
-    if (c->visible == visible) return true;
+    if (!c)
+        return false;
+    if (c->visible == visible)
+        return true;
 
     c->visible = visible;
     markDirty(id, EntityDirty::RenderState);
@@ -201,8 +214,10 @@ bool Scene::setVisible(EntityId id, bool visible) {
 
 bool Scene::setMaterialSlots(EntityId id, std::vector<asset::AssetId> materials) {
     auto* c = mutableRender(id);
-    if (!c) return false;
-    if (c->material_slots == materials) return true;
+    if (!c)
+        return false;
+    if (c->material_slots == materials)
+        return true;
 
     c->material_slots = std::move(materials);
     markDirty(id, EntityDirty::Material);
@@ -211,8 +226,10 @@ bool Scene::setMaterialSlots(EntityId id, std::vector<asset::AssetId> materials)
 
 bool Scene::setSelected(EntityId id, bool selected) {
     auto* c = mutableSelection(id);
-    if (!c) return false;
-    if (c->selected == selected) return true;
+    if (!c)
+        return false;
+    if (c->selected == selected)
+        return true;
 
     c->selected = selected;
     markDirty(id, EntityDirty::Selection);
@@ -221,7 +238,8 @@ bool Scene::setSelected(EntityId id, bool selected) {
 
 bool Scene::setWorldBounds(EntityId id, const math::AABB3& bounds) {
     auto* c = mutableBounds(id);
-    if (!c) return false;
+    if (!c)
+        return false;
 
     c->world_bounds = bounds;
     markDirty(id, EntityDirty::Bounds);
@@ -233,9 +251,11 @@ void Scene::markDirty(EntityId id, EntityDirty dirty) {
 }
 
 void Scene::updateWorldRecursive(EntityId id, bool selfWorldFixed) {
-    if (!isValid(id)) return;
+    if (!isValid(id))
+        return;
     auto* c = mutableTransform(id);
-    if (!c) return;
+    if (!c)
+        return;
 
     // 本节点 world = parent.world * local（selfWorldFixed 时本节点 world 已是权威）
     if (!selfWorldFixed) {
@@ -276,13 +296,16 @@ void Scene::clearDirty(EntityDirty mask) {
 }
 
 bool Scene::detectCycle(EntityId child, EntityId parent) const {
-    if (child == parent) return true;
+    if (child == parent)
+        return true;
 
     EntityId cursor = parent;
     while (cursor) {
-        if (cursor == child) return true;
+        if (cursor == child)
+            return true;
         auto* h = hierarchy(cursor);
-        if (!h) break;
+        if (!h)
+            break;
         cursor = h->parent;
     }
     return false;
@@ -329,7 +352,8 @@ void Scene::addChild(EntityId parent, EntityId child) {
 
 void Scene::removeChild(EntityId parent, EntityId child) {
     auto it = children_.find(parent);
-    if (it == children_.end()) return;
+    if (it == children_.end())
+        return;
 
     auto& vec = it->second;
     vec.erase(std::remove(vec.begin(), vec.end(), child), vec.end());
@@ -347,4 +371,4 @@ void Scene::eraseComponents(EntityId id) {
     bounds_.erase(id);
 }
 
-} // namespace mulan::scene
+}  // namespace mulan::scene

@@ -40,21 +40,21 @@ namespace mulan::core {
 // ============================================================
 
 enum class TypeTag : uint8_t {
-    Null               = 0x00,
-    ObjectStart        = 0x01,
-    ObjectEnd          = 0x02,
-    ArrayStart         = 0x03,
-    ArrayEnd           = 0x04,
-    Key                = 0x05,
-    Int32              = 0x10,
-    Int64              = 0x11,
-    Float32            = 0x12,
-    Float64            = 0x13,
-    Bool               = 0x14,
-    String             = 0x15,
-    Bytes              = 0x16,
-    VersionBlockStart  = 0x20,
-    BulkFlag           = 0xFE,
+    Null = 0x00,
+    ObjectStart = 0x01,
+    ObjectEnd = 0x02,
+    ArrayStart = 0x03,
+    ArrayEnd = 0x04,
+    Key = 0x05,
+    Int32 = 0x10,
+    Int64 = 0x11,
+    Float32 = 0x12,
+    Float64 = 0x13,
+    Bool = 0x14,
+    String = 0x15,
+    Bytes = 0x16,
+    VersionBlockStart = 0x20,
+    BulkFlag = 0xFE,
 };
 
 // ============================================================
@@ -62,9 +62,9 @@ enum class TypeTag : uint8_t {
 // ============================================================
 
 struct BinaryFileHeader {
-    char magic[4] = {'M', 'G', 'A', 'R'};
+    char magic[4] = { 'M', 'G', 'A', 'R' };
     uint32_t version = 1;
-    uint32_t flags = 0;     // bit0=big-endian, bit1=has-index-table
+    uint32_t flags = 0;  // bit0=big-endian, bit1=has-index-table
 };
 
 static_assert(sizeof(BinaryFileHeader) == 12);
@@ -194,4 +194,4 @@ private:
     uint32_t bulk_remaining_ = 0;
 };
 
-} // namespace mulan::core
+}  // namespace mulan::core

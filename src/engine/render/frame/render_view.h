@@ -28,4 +28,4 @@ struct RenderView {
     bool showOverlay = true;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

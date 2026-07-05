@@ -25,4 +25,4 @@ protected:
     Sampler& operator=(const Sampler&) = delete;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

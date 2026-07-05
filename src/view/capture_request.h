@@ -74,9 +74,7 @@ struct CaptureBatchResult {
     std::vector<CaptureImage> images() const;
 };
 
-ViewState makeCaptureViewState(const engine::Camera& camera,
-                               const CaptureVisual& visual,
-                               uint32_t width,
+ViewState makeCaptureViewState(const engine::Camera& camera, const CaptureVisual& visual, uint32_t width,
                                uint32_t height);
 
-} // namespace mulan::view
+}  // namespace mulan::view

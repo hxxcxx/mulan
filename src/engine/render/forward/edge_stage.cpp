@@ -2,15 +2,14 @@
 
 namespace mulan::engine {
 
-EdgeStage::EdgeStage(RHIDevice& device, RenderResourceCache& gpu,
-                     MaterialCache& matCache, const LightEnvironment& lightEnv)
+EdgeStage::EdgeStage(RHIDevice& device, RenderResourceCache& gpu, MaterialCache& matCache,
+                     const LightEnvironment& lightEnv)
     : draw_executor_(device, gpu, matCache, lightEnv, RenderTechnique::EdgeLine) {
 }
 
 core::Result<void> EdgeStage::init(RHIDevice&, const RenderTargetInfo& target) {
     if (!draw_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal,
-                                                "EdgeStage init failed"));
+        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "EdgeStage init failed"));
     }
     return {};
 }
@@ -37,4 +36,4 @@ PipelineState* EdgeStage::pipelineState() const {
     return draw_executor_.pipelineState();
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

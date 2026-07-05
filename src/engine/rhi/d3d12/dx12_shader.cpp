@@ -10,8 +10,7 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<DX12Shader>>
-DX12Shader::create(const ShaderDesc& desc) {
+core::Result<std::unique_ptr<DX12Shader>> DX12Shader::create(const ShaderDesc& desc) {
     auto obj = std::unique_ptr<DX12Shader>(new DX12Shader(desc));
 
     bool fromFile = false;
@@ -22,19 +21,19 @@ DX12Shader::create(const ShaderDesc& desc) {
         fromFile = true;
         if (!obj->loadFromFile(desc.filePath)) {
             return std::unexpected(makeError(EngineErrorCode::ShaderFileNotFound,
-                "Failed to read DXIL file: " + std::string(desc.filePath)));
+                                             "Failed to read DXIL file: " + std::string(desc.filePath)));
         }
     } else if (!desc.source.empty()) {
         // 运行时 HLSL 编译 — 当前不支持，需要预编译 DXIL
         // 未来可通过 DXC 集成实现
         return std::unexpected(makeError(EngineErrorCode::ShaderCompileFailed,
-            "DX12Shader runtime HLSL compile not supported, provide precompiled DXIL"));
+                                         "DX12Shader runtime HLSL compile not supported, provide precompiled DXIL"));
     }
 
     if (obj->byte_code_.empty()) {
-        return std::unexpected(makeError(
-            fromFile ? EngineErrorCode::ShaderCompileFailed : EngineErrorCode::ShaderCompileFailed,
-            "DX12Shader ended up with empty bytecode"));
+        return std::unexpected(
+                makeError(fromFile ? EngineErrorCode::ShaderCompileFailed : EngineErrorCode::ShaderCompileFailed,
+                          "DX12Shader ended up with empty bytecode"));
     }
 
     return obj;
@@ -43,7 +42,8 @@ DX12Shader::create(const ShaderDesc& desc) {
 bool DX12Shader::loadFromFile(std::string_view path) {
     FILE* f = nullptr;
     std::string pathStr(path);
-    if (fopen_s(&f, pathStr.c_str(), "rb") != 0 || !f) return false;
+    if (fopen_s(&f, pathStr.c_str(), "rb") != 0 || !f)
+        return false;
 
     fseek(f, 0, SEEK_END);
     long fileSize = ftell(f);
@@ -65,4 +65,4 @@ bool DX12Shader::loadFromFile(std::string_view path) {
     return true;
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

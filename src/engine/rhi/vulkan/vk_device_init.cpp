@@ -13,12 +13,10 @@ namespace mulan::engine {
 // Vulkan 验证层调试回调
 // ============================================================
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL vkDebugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT      severity,
-    VkDebugUtilsMessageTypeFlagsEXT             type,
-    const VkDebugUtilsMessengerCallbackDataEXT* data,
-    void*                                       /*userData*/)
-{
+static VKAPI_ATTR VkBool32 VKAPI_CALL vkDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+                                                      VkDebugUtilsMessageTypeFlagsEXT type,
+                                                      const VkDebugUtilsMessengerCallbackDataEXT* data,
+                                                      void* /*userData*/) {
     const char* prefix = "[VK]";
     if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
         prefix = "[VK ERROR]";
@@ -80,9 +78,9 @@ math::Mat4 VKDevice::clipSpaceCorrectionMatrix() const {
     // 标准右手(OpenGL): Y 朝上, z∈[-1,1]
     // 修正: 翻转 Y, 将 z 从 [-1,1] 映射到 [0,1]
     math::Mat4 c(1.0);
-    c[1][1] = -1.0;   // Y 翻转
-    c[2][2] =  0.5;   // z scale
-    c[3][2] =  0.5;   // z offset
+    c[1][1] = -1.0;  // Y 翻转
+    c[2][2] = 0.5;   // z scale
+    c[3][2] = 0.5;   // z offset
     return c;
 }
 
@@ -130,12 +128,13 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
     float queuePriority = 1.0f;
     std::vector<vk::DeviceQueueCreateInfo> queueCIs;
     std::set<uint32_t> uniqueQueues = { graphics_queue_family_ };
-    if (surface_) uniqueQueues.insert(present_queue_family_);
+    if (surface_)
+        uniqueQueues.insert(present_queue_family_);
 
     for (uint32_t qf : uniqueQueues) {
         vk::DeviceQueueCreateInfo qCI;
         qCI.queueFamilyIndex = qf;
-        qCI.queueCount       = 1;
+        qCI.queueCount = 1;
         qCI.pQueuePriorities = &queuePriority;
         queueCIs.push_back(qCI);
     }
@@ -150,19 +149,19 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
     // Features
     vk::PhysicalDeviceFeatures features;
     features.fillModeNonSolid = true;  // wireframe
-    features.depthClamp       = true;
+    features.depthClamp = true;
 
     // Dynamic rendering feature (VK_KHR_dynamic_rendering)
     vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature;
     dynamicRenderingFeature.dynamicRendering = true;
 
     vk::DeviceCreateInfo deviceCI;
-    deviceCI.queueCreateInfoCount    = static_cast<uint32_t>(queueCIs.size());
-    deviceCI.pQueueCreateInfos       = queueCIs.data();
-    deviceCI.enabledExtensionCount   = static_cast<uint32_t>(deviceExtensions.size());
+    deviceCI.queueCreateInfoCount = static_cast<uint32_t>(queueCIs.size());
+    deviceCI.pQueueCreateInfos = queueCIs.data();
+    deviceCI.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     deviceCI.ppEnabledExtensionNames = deviceExtensions.data();
-    deviceCI.pEnabledFeatures        = &features;
-    deviceCI.pNext                   = &dynamicRenderingFeature;
+    deviceCI.pEnabledFeatures = &features;
+    deviceCI.pNext = &dynamicRenderingFeature;
 
     device_ = physical_device_.createDevice(deviceCI);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(device_);
@@ -185,7 +184,7 @@ vk::SurfaceKHR VKDevice::createSurface(const NativeWindowHandle& window) {
     case NativeWindowHandle::Type::Win32: {
         vk::Win32SurfaceCreateInfoKHR ci;
         ci.hinstance = reinterpret_cast<HINSTANCE>(window.win32.hInstance);
-        ci.hwnd      = reinterpret_cast<HWND>(window.win32.hWnd);
+        ci.hwnd = reinterpret_cast<HWND>(window.win32.hWnd);
         return instance_.createWin32SurfaceKHR(ci);
     }
 #endif
@@ -194,13 +193,12 @@ vk::SurfaceKHR VKDevice::createSurface(const NativeWindowHandle& window) {
     case NativeWindowHandle::Type::XCB: {
         vk::XcbSurfaceCreateInfoKHR ci;
         ci.connection = reinterpret_cast<xcb_connection_t*>(window.xcb.connection);
-        ci.window     = static_cast<xcb_window_t>(window.xcb.window);
+        ci.window = static_cast<xcb_window_t>(window.xcb.window);
         return instance_.createXcbSurfaceKHR(ci);
     }
 #endif
 
-    default:
-        return nullptr;
+    default: return nullptr;
     }
 }
 
@@ -211,17 +209,18 @@ vk::SurfaceKHR VKDevice::createSurface(const NativeWindowHandle& window) {
 void VKDevice::init(const DeviceCreateInfo& ci) {
     native_window_ = ci.window;
     render_config_ = ci.renderConfig;
-    frame_count_   = ci.renderConfig.bufferCount > 0 ? ci.renderConfig.bufferCount : 2;
+    frame_count_ = ci.renderConfig.bufferCount > 0 ? ci.renderConfig.bufferCount : 2;
 
     // --- Dynamic dispatch loader ---
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
 
 #ifdef _WIN32
     HMODULE vulkanModule = GetModuleHandleW(L"vulkan-1.dll");
-    if (!vulkanModule) vulkanModule = LoadLibraryW(L"vulkan-1.dll");
+    if (!vulkanModule)
+        vulkanModule = LoadLibraryW(L"vulkan-1.dll");
     if (vulkanModule) {
-        vkGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(
-            GetProcAddress(vulkanModule, "vkGetInstanceProcAddr"));
+        vkGetInstanceProcAddr =
+                reinterpret_cast<PFN_vkGetInstanceProcAddr>(GetProcAddress(vulkanModule, "vkGetInstanceProcAddr"));
     }
 #elif defined(__linux__)
     // Linux: 延迟到 SDL/GLFW/vulkan-1.so dlopen
@@ -237,11 +236,11 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
 
     // --- Instance ---
     vk::ApplicationInfo appInfo;
-    appInfo.pApplicationName   = ci.appName;
+    appInfo.pApplicationName = ci.appName;
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName        = "mulan";
-    appInfo.engineVersion      = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion         = VK_API_VERSION_1_3;
+    appInfo.pEngineName = "mulan";
+    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+    appInfo.apiVersion = VK_API_VERSION_1_3;
 
     std::vector<const char*> instanceExtensions;
 
@@ -253,17 +252,12 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     // 根据窗口类型添加平台 Surface 扩展
     switch (ci.window.type) {
 #ifdef VK_KHR_win32_surface
-        case NativeWindowHandle::Type::Win32:
-            instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-            break;
+    case NativeWindowHandle::Type::Win32: instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME); break;
 #endif
 #ifdef VK_KHR_xcb_surface
-        case NativeWindowHandle::Type::XCB:
-            instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
-            break;
+    case NativeWindowHandle::Type::XCB: instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME); break;
 #endif
-        default:
-            break;
+    default: break;
     }
 
     std::vector<const char*> instanceLayers;
@@ -273,11 +267,11 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     }
 
     vk::InstanceCreateInfo instanceCI;
-    instanceCI.pApplicationInfo        = &appInfo;
-    instanceCI.enabledExtensionCount   = static_cast<uint32_t>(instanceExtensions.size());
+    instanceCI.pApplicationInfo = &appInfo;
+    instanceCI.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
     instanceCI.ppEnabledExtensionNames = instanceExtensions.data();
-    instanceCI.enabledLayerCount       = static_cast<uint32_t>(instanceLayers.size());
-    instanceCI.ppEnabledLayerNames     = instanceLayers.data();
+    instanceCI.enabledLayerCount = static_cast<uint32_t>(instanceLayers.size());
+    instanceCI.ppEnabledLayerNames = instanceLayers.data();
 
     instance_ = vk::createInstance(instanceCI);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(instance_);
@@ -285,16 +279,16 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     // --- 调试回调（使用 C API 避免 vulkan-hpp 回调类型不匹配）---
     if (ci.enableValidation) {
         VkDebugUtilsMessengerCreateInfoEXT dbgCI{};
-        dbgCI.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-        dbgCI.messageSeverity  = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
-                               | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
-        dbgCI.messageType      = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
-                               | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
-                               | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        dbgCI.pfnUserCallback  = vkDebugCallback;
+        dbgCI.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        dbgCI.messageSeverity =
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+        dbgCI.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        dbgCI.pfnUserCallback = vkDebugCallback;
 
         auto createFn = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
-            vkGetInstanceProcAddr(VkInstance(instance_), "vkCreateDebugUtilsMessengerEXT"));
+                vkGetInstanceProcAddr(VkInstance(instance_), "vkCreateDebugUtilsMessengerEXT"));
         VkDebugUtilsMessengerEXT messenger = VK_NULL_HANDLE;
         if (createFn) {
             createFn(VkInstance(instance_), &dbgCI, nullptr, &messenger);
@@ -318,33 +312,32 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     VmaVulkanFunctions vkFuncs{};
     vkFuncs.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
     auto vkGetDeviceProcAddrFn = reinterpret_cast<PFN_vkGetDeviceProcAddr>(
-        vkGetInstanceProcAddr(VkInstance(instance_), "vkGetDeviceProcAddr"));
+            vkGetInstanceProcAddr(VkInstance(instance_), "vkGetDeviceProcAddr"));
     vkFuncs.vkGetDeviceProcAddr = vkGetDeviceProcAddrFn;
 
     VmaAllocatorCreateInfo allocCI{};
-    allocCI.physicalDevice   = VkPhysicalDevice(physical_device_);
-    allocCI.device           = VkDevice(device_);
-    allocCI.instance         = VkInstance(instance_);
+    allocCI.physicalDevice = VkPhysicalDevice(physical_device_);
+    allocCI.device = VkDevice(device_);
+    allocCI.instance = VkInstance(instance_);
     allocCI.vulkanApiVersion = VK_API_VERSION_1_3;
     allocCI.pVulkanFunctions = &vkFuncs;
 
     vmaCreateAllocator(&allocCI, &allocator_);
 
     // --- Capabilities ---
-    caps_.backend           = GraphicsBackend::Vulkan;
-    auto props               = physical_device_.getProperties();
-    auto features             = physical_device_.getFeatures();
-    caps_.maxTextureSize    = props.limits.maxImageDimension2D;
-    caps_.maxTextureAniso   = static_cast<uint32_t>(props.limits.maxSamplerAnisotropy);
+    caps_.backend = GraphicsBackend::Vulkan;
+    auto props = physical_device_.getProperties();
+    auto features = physical_device_.getFeatures();
+    caps_.maxTextureSize = props.limits.maxImageDimension2D;
+    caps_.maxTextureAniso = static_cast<uint32_t>(props.limits.maxSamplerAnisotropy);
     caps_.minUniformBufferOffsetAlignment = props.limits.minUniformBufferOffsetAlignment;
-    caps_.depthClamp        = features.depthClamp;
-    caps_.geometryShader    = features.geometryShader;
+    caps_.depthClamp = features.depthClamp;
+    caps_.geometryShader = features.geometryShader;
     caps_.tessellationShader = features.tessellationShader;
     // caps_.computeShader 由上方 queue families 检查 (hasComputeQueue) 设置，这里不覆盖
 
     // --- 私有组件 ---
-    upload_context_ = std::make_unique<VKUploadContext>(
-        device_, allocator_, graphics_queue_family_, graphics_queue_);
+    upload_context_ = std::make_unique<VKUploadContext>(device_, allocator_, graphics_queue_family_, graphics_queue_);
 
     // per-frame descriptor allocators (will be properly sized in initFrameContexts)
     descriptor_allocators_.clear();
@@ -382,4 +375,4 @@ void VKDevice::shutdown() {
     }
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

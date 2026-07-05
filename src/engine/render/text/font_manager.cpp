@@ -7,9 +7,9 @@ FontManager& FontManager::instance() {
     return inst;
 }
 
-bool FontManager::loadFont(const char* key, const char* fontPath,
-                            float fontSize, uint32_t atlasSize) {
-    if (!device_) return false;
+bool FontManager::loadFont(const char* key, const char* fontPath, float fontSize, uint32_t atlasSize) {
+    if (!device_)
+        return false;
 
     auto atlas = std::make_unique<FontAtlas>(device_);
     if (!atlas->load(fontPath, fontSize, atlasSize, atlasSize)) {
@@ -30,8 +30,9 @@ FontAtlas* FontManager::font(const char* key) const {
 }
 
 FontAtlas* FontManager::defaultFont() const {
-    if (default_key_.empty()) return nullptr;
+    if (default_key_.empty())
+        return nullptr;
     return font(default_key_.c_str());
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

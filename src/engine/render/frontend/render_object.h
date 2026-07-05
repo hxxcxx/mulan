@@ -54,7 +54,7 @@ struct RenderObjectDrawable {
 
 struct RenderObjectDesc {
     uint64_t externalId = 0;
-    math::Mat4 worldTransform{1.0f};
+    math::Mat4 worldTransform{ 1.0f };
     math::AABB3 worldBounds;
     std::vector<RenderObjectDrawable> drawables;
     bool visible = true;
@@ -76,4 +76,4 @@ struct RenderObjectRecord {
     RenderObjectDesc desc;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

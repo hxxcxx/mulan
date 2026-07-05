@@ -15,4 +15,4 @@ struct NameComponent {
     std::string value;
 };
 
-} // namespace mulan::scene
+}  // namespace mulan::scene

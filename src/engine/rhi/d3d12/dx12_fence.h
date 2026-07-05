@@ -19,8 +19,7 @@ namespace mulan::engine {
 class DX12Fence final : public Fence {
 public:
     /// 创建 DX12Fence。失败返回 FenceCreateFailed。
-    static core::Result<std::unique_ptr<DX12Fence>>
-        create(ID3D12Device* device, uint64_t initialValue);
+    static core::Result<std::unique_ptr<DX12Fence>> create(ID3D12Device* device, uint64_t initialValue);
 
     DX12Fence(ID3D12Device* device, uint64_t initialValue);
 
@@ -34,9 +33,8 @@ public:
     HANDLE event() const { return event_; }
 
 private:
-
     ComPtr<ID3D12Fence> fence_;
     HANDLE event_ = nullptr;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

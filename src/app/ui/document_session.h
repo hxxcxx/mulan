@@ -20,8 +20,7 @@ struct DocumentRenderPreferences {
 
 class DocumentSession {
 public:
-    explicit DocumentSession(std::unique_ptr<mulan::io::Document> doc,
-                             mulan::io::ImportReport report = {});
+    explicit DocumentSession(std::unique_ptr<mulan::io::Document> doc, mulan::io::ImportReport report = {});
     ~DocumentSession();
 
     DocumentSession(const DocumentSession&) = delete;

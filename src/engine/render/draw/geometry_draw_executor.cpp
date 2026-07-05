@@ -13,38 +13,48 @@ namespace mulan::engine {
 
 // ─── 构造 / init ───────────────────────────────────────────────
 
-GeometryDrawExecutor::GeometryDrawExecutor(RHIDevice& device, RenderResourceCache& gpu,
-                                           MaterialCache& matCache,
-                                           const LightEnvironment& lightEnv,
-                                           RenderTechnique technique)
-    : device_(device), gpu_(gpu), mat_cache_(matCache), light_env_(lightEnv),
+GeometryDrawExecutor::GeometryDrawExecutor(RHIDevice& device, RenderResourceCache& gpu, MaterialCache& matCache,
+                                           const LightEnvironment& lightEnv, RenderTechnique technique)
+    : device_(device),
+      gpu_(gpu),
+      mat_cache_(matCache),
+      light_env_(lightEnv),
       technique_(TechniqueRegistry::builtin(technique)) {
 }
 
-
 bool GeometryDrawExecutor::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
-    if (!loadShaders()) return false;
-    if (!createPSO(colorFmt, depthFmt, hasDepth)) return false;
+    if (!loadShaders())
+        return false;
+    if (!createPSO(colorFmt, depthFmt, hasDepth))
+        return false;
 
     if (technique_.sampleTextures) {
-        if (!createDefaultResources()) return false;
+        if (!createDefaultResources())
+            return false;
     }
 
     auto sceneResult = device_.createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "SceneUBO"));
-    if (!sceneResult) { return false; }
+    if (!sceneResult) {
+        return false;
+    }
     scene_ubo_ = std::move(*sceneResult);
 
-    auto objResult = device_.createBuffer(BufferDesc::uniform(
-        MeshDrawCommand::kObjectUboStride * 4096, "ObjUBO"));   // 4096 objects
-    if (!objResult) { return false; }
+    auto objResult = device_.createBuffer(
+            BufferDesc::uniform(MeshDrawCommand::kObjectUboStride * 4096, "ObjUBO"));  // 4096 objects
+    if (!objResult) {
+        return false;
+    }
     object_ubo_ = std::move(*objResult);
 
-    auto matResult = device_.createBuffer(BufferDesc::uniform(
-        MaterialCache::kMaxMaterials * 256, "MatUBO"));  // MaterialCache统一尺寸
-    if (!matResult) { return false; }
+    auto matResult = device_.createBuffer(
+            BufferDesc::uniform(MaterialCache::kMaxMaterials * 256, "MatUBO"));  // MaterialCache统一尺寸
+    if (!matResult) {
+        return false;
+    }
     material_ubo_ = std::move(*matResult);
 
-    if (!createFrameBindGroup(colorFmt, depthFmt, hasDepth)) return false;
+    if (!createFrameBindGroup(colorFmt, depthFmt, hasDepth))
+        return false;
 
     initialized_ = true;
     return true;
@@ -54,9 +64,13 @@ bool GeometryDrawExecutor::init(TextureFormat colorFmt, TextureFormat depthFmt, 
 
 bool GeometryDrawExecutor::loadShaders() {
     auto vs = loadShader(device_, ShaderType::Vertex, technique_.shader.vertex);
-    auto fs = loadShader(device_, ShaderType::Pixel,  technique_.shader.pixel);
-    if (!vs) { return false; }
-    if (!fs) { return false; }
+    auto fs = loadShader(device_, ShaderType::Pixel, technique_.shader.pixel);
+    if (!vs) {
+        return false;
+    }
+    if (!fs) {
+        return false;
+    }
     vs_ = std::move(*vs);
     fs_ = std::move(*fs);
     return true;
@@ -64,85 +78,74 @@ bool GeometryDrawExecutor::loadShaders() {
 
 // ─── PSO ───────────────────────────────────────────────────────
 
-bool GeometryDrawExecutor::createPSO(TextureFormat colorFmt, TextureFormat depthFmt,
-                                     bool hasDepth) {
+bool GeometryDrawExecutor::createPSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
     GraphicsPipelineDesc desc{};
-    desc.name             = technique_.debugName;
-    desc.vs               = vs_.get();
-    desc.ps               = fs_.get();
-    desc.vertexLayout     = technique_.vertexLayout;
-    desc.topology         = technique_.topology;
-    desc.cullMode         = CullMode::None;
-    desc.frontFace        = FrontFace::CounterClockwise;
-    desc.fillMode         = FillMode::Solid;
+    desc.name = technique_.debugName;
+    desc.vs = vs_.get();
+    desc.ps = fs_.get();
+    desc.vertexLayout = technique_.vertexLayout;
+    desc.topology = technique_.topology;
+    desc.cullMode = CullMode::None;
+    desc.frontFace = FrontFace::CounterClockwise;
+    desc.fillMode = FillMode::Solid;
     desc.depthStencil.depthEnable = true;
-    desc.depthStencil.depthWrite  = technique_.depthWrite;
-    desc.depthStencil.depthFunc   = CompareFunc::LessEqual;
+    desc.depthStencil.depthWrite = technique_.depthWrite;
+    desc.depthStencil.depthFunc = CompareFunc::LessEqual;
 
     using PB = PipelineBinding;
     desc.descriptorBindings[0] = {
-        .binding = 0, .count = 1,
-        .type = DescriptorType::UniformBuffer,
-        .stages = PB::kStageVertex | PB::kStageFragment};
+        .binding = 0, .count = 1, .type = DescriptorType::UniformBuffer, .stages = PB::kStageVertex | PB::kStageFragment
+    };
     desc.descriptorBindings[1] = {
-        .binding = 1, .count = 1,
-        .type = DescriptorType::UniformBuffer,
-        .stages = PB::kStageVertex | PB::kStageFragment};
+        .binding = 1, .count = 1, .type = DescriptorType::UniformBuffer, .stages = PB::kStageVertex | PB::kStageFragment
+    };
     desc.descriptorBindings[2] = {
-        .binding = 2, .count = 1,
-        .type = DescriptorType::UniformBuffer,
-        .stages = PB::kStageFragment};
+        .binding = 2, .count = 1, .type = DescriptorType::UniformBuffer, .stages = PB::kStageFragment
+    };
     uint8_t bindingCount = 3;
 
     // 纹理 + sampler（仅 sampleTextures=true 的 pass 声明）
     if (technique_.sampleTextures) {
         desc.descriptorBindings[bindingCount++] = {
-            .binding = 3, .count = 1,
-            .type = DescriptorType::TextureSRV,
-            .stages = PB::kStageFragment};
+            .binding = 3, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
+        };
         desc.descriptorBindings[bindingCount++] = {
-            .binding = 4, .count = 1,
-            .type = DescriptorType::TextureSRV,
-            .stages = PB::kStageFragment};
+            .binding = 4, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
+        };
         desc.descriptorBindings[bindingCount++] = {
-            .binding = 5, .count = 1,
-            .type = DescriptorType::TextureSRV,
-            .stages = PB::kStageFragment};
+            .binding = 5, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
+        };
         desc.descriptorBindings[bindingCount++] = {
-            .binding = 6, .count = 1,
-            .type = DescriptorType::TextureSRV,
-            .stages = PB::kStageFragment};
+            .binding = 6, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
+        };
         desc.descriptorBindings[bindingCount++] = {
-            .binding = 7, .count = 1,
-            .type = DescriptorType::TextureSRV,
-            .stages = PB::kStageFragment};
+            .binding = 7, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
+        };
         desc.descriptorBindings[bindingCount++] = {
-            .binding = 8, .count = 1,
-            .type = DescriptorType::Sampler,
-            .stages = PB::kStageFragment};
+            .binding = 8, .count = 1, .type = DescriptorType::Sampler, .stages = PB::kStageFragment
+        };
         // IBL 三件套：binding 9=irradiance, 10=prefilter, 11=brdf LUT
         desc.descriptorBindings[bindingCount++] = {
-            .binding = 9, .count = 1,
-            .type = DescriptorType::TextureSRV,
-            .stages = PB::kStageFragment};
+            .binding = 9, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
+        };
         desc.descriptorBindings[bindingCount++] = {
-            .binding = 10, .count = 1,
-            .type = DescriptorType::TextureSRV,
-            .stages = PB::kStageFragment};
+            .binding = 10, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
+        };
         desc.descriptorBindings[bindingCount++] = {
-            .binding = 11, .count = 1,
-            .type = DescriptorType::TextureSRV,
-            .stages = PB::kStageFragment};
+            .binding = 11, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
+        };
     }
     desc.descriptorBindingCount = bindingCount;
 
-    desc.colorFormats[0]    = colorFmt;
-    desc.colorTargetCount   = 1;
+    desc.colorFormats[0] = colorFmt;
+    desc.colorTargetCount = 1;
     desc.depthStencilFormat = depthFmt;
-    desc.depthEnable        = hasDepth;
+    desc.depthEnable = hasDepth;
 
     auto psoResult = device_.createPipelineState(desc);
-    if (!psoResult) { return false; }
+    if (!psoResult) {
+        return false;
+    }
     pso_ = std::move(*psoResult);
     return true;
 }
@@ -162,50 +165,49 @@ bool GeometryDrawExecutor::createDefaultResources() {
     // usage 加 GenerateMips：该 flag 在 VK 后端映射为 eTransferSrc|eTransferDst，
     // uploadTextureData 的 vkCmdCopyBufferToImage 需要 eTransferDst（见 vk_texture.cpp:39）。
     TextureDesc texDesc;
-    texDesc.width     = 1;
-    texDesc.height    = 1;
-    texDesc.depth     = 1;
-    texDesc.format    = TextureFormat::RGBA8_UNorm;
+    texDesc.width = 1;
+    texDesc.height = 1;
+    texDesc.depth = 1;
+    texDesc.format = TextureFormat::RGBA8_UNorm;
     texDesc.dimension = TextureDimension::Texture2D;
-    texDesc.usage     = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
+    texDesc.usage = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
     auto texResult = device_.createTexture(texDesc);
     if (!texResult) {
         std::fprintf(stderr, "[GeometryDrawExecutor] create default white texture failed\n");
         return false;
     }
     default_white_tex_ = std::move(*texResult);
-    const uint8_t white[4] = {255, 255, 255, 255};
+    const uint8_t white[4] = { 255, 255, 255, 255 };
     device_.uploadTextureData(default_white_tex_.get(), white, 1, 1, TextureFormat::RGBA8_UNorm);
 
     // IBL fallback：1×1 RGBA16F 黑色 2D 纹理（无 IBL 时漫反射/镜面反射=0）
     if (technique_.sampleTextures) {
         TextureDesc iblDesc;
-        iblDesc.name      = "DefaultIBL";
-        iblDesc.format    = TextureFormat::RGBA16_Float;
+        iblDesc.name = "DefaultIBL";
+        iblDesc.format = TextureFormat::RGBA16_Float;
         iblDesc.dimension = TextureDimension::Texture2D;
-        iblDesc.usage     = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
-        iblDesc.width     = 1;
-        iblDesc.height    = 1;
-        iblDesc.depth     = 1;
+        iblDesc.usage = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
+        iblDesc.width = 1;
+        iblDesc.height = 1;
+        iblDesc.depth = 1;
         auto iblR = device_.createTexture(iblDesc);
         if (!iblR) {
             std::fprintf(stderr, "[GeometryDrawExecutor] create default IBL texture failed\n");
             return false;
         }
         default_ibl_tex_ = std::move(*iblR);
-        const float black[4] = {0.f, 0.f, 0.f, 1.f};
-        device_.uploadTextureData(default_ibl_tex_.get(), black, 1, 1,
-                                  TextureFormat::RGBA16_Float);
+        const float black[4] = { 0.f, 0.f, 0.f, 1.f };
+        device_.uploadTextureData(default_ibl_tex_.get(), black, 1, 1, TextureFormat::RGBA16_Float);
 
         // BRDF LUT fallback：1×1 RG16F，r=1, g=0（让 specular 至少反射环境本身）
         TextureDesc lutDesc;
-        lutDesc.name      = "DefaultBrdfLUT";
-        lutDesc.format    = TextureFormat::RG16_Float;
+        lutDesc.name = "DefaultBrdfLUT";
+        lutDesc.format = TextureFormat::RG16_Float;
         lutDesc.dimension = TextureDimension::Texture2D;
-        lutDesc.usage     = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
-        lutDesc.width     = 1;
-        lutDesc.height    = 1;
-        lutDesc.depth     = 1;
+        lutDesc.usage = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
+        lutDesc.width = 1;
+        lutDesc.height = 1;
+        lutDesc.depth = 1;
         auto lutR = device_.createTexture(lutDesc);
         if (!lutR) {
             std::fprintf(stderr, "[GeometryDrawExecutor] create default brdf LUT failed\n");
@@ -213,9 +215,8 @@ bool GeometryDrawExecutor::createDefaultResources() {
         }
         default_brdf_lut_ = std::move(*lutR);
         // RG16F：half r=1.0 (0x3C00), half g=0.0 (0x0000)，4 字节
-        const uint16_t lutData[2] = {0x3C00, 0x0000};
-        device_.uploadTextureData(default_brdf_lut_.get(), lutData, 1, 1,
-                                  TextureFormat::RG16_Float);
+        const uint16_t lutData[2] = { 0x3C00, 0x0000 };
+        device_.uploadTextureData(default_brdf_lut_.get(), lutData, 1, 1, TextureFormat::RG16_Float);
     }
     return true;
 }
@@ -241,15 +242,14 @@ bool GeometryDrawExecutor::createFrameBindGroup(TextureFormat, TextureFormat, bo
         // —— 避免 Vulkan 验证层 "descriptor never updated" 错误。
         Texture* iblFallback = default_ibl_tex_ ? default_ibl_tex_.get() : default_white_tex_.get();
         Texture* lutFallback = default_brdf_lut_ ? default_brdf_lut_.get() : default_white_tex_.get();
-        bg.addTexture(9,  iblFallback);
+        bg.addTexture(9, iblFallback);
         bg.addTexture(10, iblFallback);
         bg.addTexture(11, lutFallback);
     }
 
     auto result = device_.createBindGroup(pso_->bindGroupLayout(), bg);
     if (!result) {
-        std::fprintf(stderr, "[GeometryDrawExecutor] createBindGroup failed: %s\n",
-                     result.error().message.c_str());
+        std::fprintf(stderr, "[GeometryDrawExecutor] createBindGroup failed: %s\n", result.error().message.c_str());
         return false;
     }
     frame_bg_ = std::move(*result);
@@ -261,9 +261,9 @@ void GeometryDrawExecutor::uploadSceneUBO(const DrawExecutionContext& ctx) {
     math::Mat4 clip = device_.clipSpaceCorrectionMatrix();
     math::Mat4 view = ctx.camera.viewMatrix;
     math::Mat4 proj = ctx.camera.projectionMatrix;
-    math::Mat4 vp   = clip * proj * view;
-    math::Vec3 eye  = ctx.camera.eyePosition;
-    auto* dl  = light_env_.primaryDirectional();
+    math::Mat4 vp = clip * proj * view;
+    math::Vec3 eye = ctx.camera.eyePosition;
+    auto* dl = light_env_.primaryDirectional();
     math::Vec3 ldir = dl ? dl->direction.normalized() : math::Vec3(-0.3, -1.0, -0.4);
 
     SceneUniforms ubo{};
@@ -272,8 +272,8 @@ void GeometryDrawExecutor::uploadSceneUBO(const DrawExecutionContext& ctx) {
     storeGpuMat4(ubo.viewProjection, vp);
     storeGpuVec3(ubo.cameraPos, eye);
     storeGpuVec3(ubo.lightDir, ldir);
-    storeGpuVec3(ubo.lightColor, math::Vec3(0.8));    // 主光稍弱
-    storeGpuVec3(ubo.ambientColor, math::Vec3(0.35)); // 环境光：无 IBL 时给背光面底色，也给 IBL 合理倍率
+    storeGpuVec3(ubo.lightColor, math::Vec3(0.8));     // 主光稍弱
+    storeGpuVec3(ubo.ambientColor, math::Vec3(0.35));  // 环境光：无 IBL 时给背光面底色，也给 IBL 合理倍率
     storeGpuVec3(ubo.edgeColor, math::Vec3(0.08, 0.08, 0.08));
     storeGpuVec3(ubo.highlightColor, math::Vec3(1.0, 0.5, 0.0));
 
@@ -281,7 +281,8 @@ void GeometryDrawExecutor::uploadSceneUBO(const DrawExecutionContext& ctx) {
 }
 
 void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
-    if (!initialized_ || !pso_ || !ctx.cmd || !frame_bg_) return;
+    if (!initialized_ || !pso_ || !ctx.cmd || !frame_bg_)
+        return;
 
     uploadSceneUBO(ctx);
     mat_cache_.uploadDirtyMaterials(material_ubo_.get());
@@ -290,17 +291,17 @@ void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
     // buffer/offset/range 不变 → 无需 update，复用缓存 descriptor。
     // binding=9/10/11 (IBL 三件套) 在 setIBLTextures 后生效，每帧刷新一次。
     if (technique_.sampleTextures) {
-        frame_bg_->updateTexture(9,  ibl_irradiance_ ? ibl_irradiance_ : default_ibl_tex_.get());
-        frame_bg_->updateTexture(10, ibl_prefilter_  ? ibl_prefilter_  : default_ibl_tex_.get());
-        frame_bg_->updateTexture(11, ibl_brdf_lut_   ? ibl_brdf_lut_   : default_brdf_lut_.get());
+        frame_bg_->updateTexture(9, ibl_irradiance_ ? ibl_irradiance_ : default_ibl_tex_.get());
+        frame_bg_->updateTexture(10, ibl_prefilter_ ? ibl_prefilter_ : default_ibl_tex_.get());
+        frame_bg_->updateTexture(11, ibl_brdf_lut_ ? ibl_brdf_lut_ : default_brdf_lut_.get());
     }
 
     for (auto& cmd : commands_) {
-        if (!cmd.visible || cmd.instanceCount == 0) continue;
-        cmd.execute(*ctx.cmd, *frame_bg_, scene_ubo_.get(), object_ubo_.get(),
-                    material_ubo_.get(), default_white_tex_.get(),
-                    default_sampler_.get());
+        if (!cmd.visible || cmd.instanceCount == 0)
+            continue;
+        cmd.execute(*ctx.cmd, *frame_bg_, scene_ubo_.get(), object_ubo_.get(), material_ubo_.get(),
+                    default_white_tex_.get(), default_sampler_.get());
     }
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

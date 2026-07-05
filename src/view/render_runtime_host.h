@@ -20,21 +20,15 @@ public:
     RenderRuntimeHost(const RenderRuntimeHost&) = delete;
     RenderRuntimeHost& operator=(const RenderRuntimeHost&) = delete;
 
-    core::Result<void> initWindow(const ViewConfig& config,
-               int width,
-               int height,
-               engine::LightEnvironment& lightEnv);
+    core::Result<void> initWindow(const ViewConfig& config, int width, int height, engine::LightEnvironment& lightEnv);
 
-    core::Result<void> initOffscreen(int width,
-                  int height,
-                  engine::LightEnvironment& lightEnv);
+    core::Result<void> initOffscreen(int width, int height, engine::LightEnvironment& lightEnv);
 
     void shutdown();
 
     bool isInitialized() const;
 
-    void setRenderScene(const RenderScene* scene,
-                        const asset::AssetLibrary* assets);
+    void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
 
     void render(const ViewState& viewState);
     void resize(int width, int height);
@@ -45,9 +39,7 @@ public:
     uint32_t surfaceHeight() const;
 
     bool readbackPixels(std::vector<uint8_t>& pixels);
-    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc,
-                                 uint32_t width,
-                                 uint32_t height);
+    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
     bool configureOffscreenSurface(const RenderSurfaceDesc& desc);
     std::optional<RenderSurfaceDesc> offscreenSurfaceDesc() const;
 
@@ -55,4 +47,4 @@ private:
     RenderRuntime runtime_;
 };
 
-} // namespace mulan::view
+}  // namespace mulan::view

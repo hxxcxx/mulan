@@ -18,42 +18,54 @@ namespace layouts = graphics::layouts;
 // ============================================================
 
 uint32_t TextLayout::decodeUtf8(const char*& ptr, const char* end) {
-    if (ptr >= end) return 0;
+    if (ptr >= end)
+        return 0;
 
     uint8_t c = static_cast<uint8_t>(*ptr++);
 
     // 1-byte: 0xxxxxxx
-    if (c < 0x80) return c;
+    if (c < 0x80)
+        return c;
 
     // 2-byte: 110xxxxx 10xxxxxx
     if ((c & 0xE0) == 0xC0) {
-        if (ptr >= end) return 0;
+        if (ptr >= end)
+            return 0;
         uint8_t c2 = static_cast<uint8_t>(*ptr++);
-        if ((c2 & 0xC0) != 0x80) return 0;
-        return ((uint32_t)(c & 0x1F) << 6) | (c2 & 0x3F);
+        if ((c2 & 0xC0) != 0x80)
+            return 0;
+        return ((uint32_t) (c & 0x1F) << 6) | (c2 & 0x3F);
     }
 
     // 3-byte: 1110xxxx 10xxxxxx 10xxxxxx
     if ((c & 0xF0) == 0xE0) {
-        if (ptr + 1 >= end) { ptr = end; return 0; }
+        if (ptr + 1 >= end) {
+            ptr = end;
+            return 0;
+        }
         uint8_t c2 = static_cast<uint8_t>(*ptr++);
         uint8_t c3 = static_cast<uint8_t>(*ptr++);
-        if ((c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80) return 0;
-        return ((uint32_t)(c & 0x0F) << 12) | ((uint32_t)(c2 & 0x3F) << 6) | (c3 & 0x3F);
+        if ((c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80)
+            return 0;
+        return ((uint32_t) (c & 0x0F) << 12) | ((uint32_t) (c2 & 0x3F) << 6) | (c3 & 0x3F);
     }
 
     // 4-byte: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
     if ((c & 0xF8) == 0xF0) {
-        if (ptr + 2 >= end) { ptr = end; return 0; }
+        if (ptr + 2 >= end) {
+            ptr = end;
+            return 0;
+        }
         uint8_t c2 = static_cast<uint8_t>(*ptr++);
         uint8_t c3 = static_cast<uint8_t>(*ptr++);
         uint8_t c4 = static_cast<uint8_t>(*ptr++);
-        if ((c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80 || (c4 & 0xC0) != 0x80) return 0;
-        return ((uint32_t)(c & 0x07) << 18) | ((uint32_t)(c2 & 0x3F) << 12)
-             | ((uint32_t)(c3 & 0x3F) << 6) | (c4 & 0x3F);
+        if ((c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80 || (c4 & 0xC0) != 0x80)
+            return 0;
+        return ((uint32_t) (c & 0x07) << 18) | ((uint32_t) (c2 & 0x3F) << 12) | ((uint32_t) (c3 & 0x3F) << 6) |
+               (c4 & 0x3F);
     }
 
-    return 0; // 非法 UTF-8
+    return 0;  // 非法 UTF-8
 }
 
 // ============================================================
@@ -64,25 +76,15 @@ uint32_t TextLayout::packColor(const float color[4]) {
     auto clamp255 = [](float v) -> uint32_t {
         return static_cast<uint32_t>(std::clamp(v * 255.0f, 0.0f, 255.0f));
     };
-    return clamp255(color[0]) << 0
-         | clamp255(color[1]) << 8
-         | clamp255(color[2]) << 16
-         | clamp255(color[3]) << 24;
+    return clamp255(color[0]) << 0 | clamp255(color[1]) << 8 | clamp255(color[2]) << 16 | clamp255(color[3]) << 24;
 }
 
 // ============================================================
 // 排版生成 Quad
 // ============================================================
 
-void TextLayout::layout(
-    const FontAtlas& font,
-    std::string_view text,
-    float x, float y,
-    float fontSize,
-    const float color[4],
-    std::vector<TextVertex>& outVertices,
-    std::vector<uint32_t>& outIndices)
-{
+void TextLayout::layout(const FontAtlas& font, std::string_view text, float x, float y, float fontSize,
+                        const float color[4], std::vector<TextVertex>& outVertices, std::vector<uint32_t>& outIndices) {
     float scale = fontSize / font.baseFontSize();
     uint32_t packedColor = packColor(color);
 
@@ -94,7 +96,8 @@ void TextLayout::layout(
 
     while (ptr < end) {
         uint32_t cp = decodeUtf8(ptr, end);
-        if (cp == 0) break;
+        if (cp == 0)
+            break;
 
         // 换行
         if (cp == '\n') {
@@ -104,7 +107,8 @@ void TextLayout::layout(
         }
 
         // 回车（忽略）
-        if (cp == '\r') continue;
+        if (cp == '\r')
+            continue;
 
         const GlyphInfo* glyph = font.getGlyph(cp);
         if (!glyph) {
@@ -127,10 +131,10 @@ void TextLayout::layout(
         float qh = glyph->height * scale;
 
         // 4 个顶点：左上、右上、右下、左下
-        outVertices.push_back({qx,      qy,      glyph->atlasU,  glyph->atlasV,  packedColor});
-        outVertices.push_back({qx + qw, qy,      glyph->atlasU2, glyph->atlasV,  packedColor});
-        outVertices.push_back({qx + qw, qy + qh, glyph->atlasU2, glyph->atlasV2, packedColor});
-        outVertices.push_back({qx,      qy + qh, glyph->atlasU,  glyph->atlasV2, packedColor});
+        outVertices.push_back({ qx, qy, glyph->atlasU, glyph->atlasV, packedColor });
+        outVertices.push_back({ qx + qw, qy, glyph->atlasU2, glyph->atlasV, packedColor });
+        outVertices.push_back({ qx + qw, qy + qh, glyph->atlasU2, glyph->atlasV2, packedColor });
+        outVertices.push_back({ qx, qy + qh, glyph->atlasU, glyph->atlasV2, packedColor });
 
         // 2 个三角形（6 个索引）
         outIndices.push_back(baseIdx + 0);
@@ -149,11 +153,7 @@ void TextLayout::layout(
 // 测量文字宽度
 // ============================================================
 
-float TextLayout::measureWidth(
-    const FontAtlas& font,
-    std::string_view text,
-    float fontSize)
-{
+float TextLayout::measureWidth(const FontAtlas& font, std::string_view text, float fontSize) {
     float scale = fontSize / font.baseFontSize();
     float width = 0;
 
@@ -162,8 +162,10 @@ float TextLayout::measureWidth(
 
     while (ptr < end) {
         uint32_t cp = decodeUtf8(ptr, end);
-        if (cp == 0) break;
-        if (cp == '\n' || cp == '\r') continue;
+        if (cp == 0)
+            break;
+        if (cp == '\n' || cp == '\r')
+            continue;
 
         const GlyphInfo* glyph = font.getGlyph(cp);
         if (glyph) {
@@ -180,34 +182,34 @@ float TextLayout::measureWidth(
 // buildTextMesh — 公开 API
 // ============================================================
 
-graphics::Mesh TextLayout::buildTextMesh(std::string_view text,
-                                float fontSize,
-                                const float color[4]) {
+graphics::Mesh TextLayout::buildTextMesh(std::string_view text, float fontSize, const float color[4]) {
     graphics::Mesh mesh;
-    mesh.layout    = layouts::surface();
-    mesh.topology  = PrimitiveTopology::TriangleList;
+    mesh.layout = layouts::surface();
+    mesh.topology = PrimitiveTopology::TriangleList;
     mesh.indexType = IndexType::UInt32;
 
     auto* font = FontManager::instance().defaultFont();
-    if (!font || !font->isLoaded()) return mesh;
+    if (!font || !font->isLoaded())
+        return mesh;
 
     // 排版得到 TextVertex 列表
-    float defaultColor[4] = {1, 1, 1, 1};
+    float defaultColor[4] = { 1, 1, 1, 1 };
     const float* c = color ? color : defaultColor;
 
     std::vector<TextVertex> textVerts;
     std::vector<uint32_t> textIndices;
     layout(*font, text, 0, 0, fontSize, c, textVerts, textIndices);
 
-    if (textVerts.empty()) return mesh;
+    if (textVerts.empty())
+        return mesh;
 
     // 按 surface 布局写入：pos(3f) + normal(3f) + uv(2f)
     VertexBufferBuilder vb(mesh.layout, static_cast<uint32_t>(textVerts.size()));
     for (uint32_t i = 0; i < textVerts.size(); ++i) {
         const auto& tv = textVerts[i];
-        vb.setPosition(i, tv.x, tv.y, 0.0f);           // pos.z = 0 (flat)
-        vb.setNormal  (i, 0.0f, 0.0f, 1.0f);           // normal 朝 +Z
-        float uv[2] = {tv.u, tv.v};
+        vb.setPosition(i, tv.x, tv.y, 0.0f);  // pos.z = 0 (flat)
+        vb.setNormal(i, 0.0f, 0.0f, 1.0f);    // normal 朝 +Z
+        float uv[2] = { tv.u, tv.v };
         vb.write(i, VertexSemantic::TexCoord0, uv);
     }
     auto vertBytes = vb.data();
@@ -221,4 +223,4 @@ graphics::Mesh TextLayout::buildTextMesh(std::string_view text,
     return mesh;
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

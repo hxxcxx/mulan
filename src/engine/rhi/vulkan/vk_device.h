@@ -49,24 +49,25 @@ public:
     core::Result<std::unique_ptr<Texture>> createTexture(const TextureDesc& desc) override;
     core::Result<std::unique_ptr<Shader>> createShader(const ShaderDesc& desc) override;
     core::Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc& desc) override;
-    core::Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(const ComputePipelineDesc& desc) override;
+    core::Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(
+            const ComputePipelineDesc& desc) override;
     core::Result<std::unique_ptr<CommandList>> createCommandList() override;
     core::Result<std::unique_ptr<SwapChain>> createSwapChain(const SwapChainDesc& desc) override;
     core::Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc& desc) override;
     core::Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc& desc) override;
     core::Result<std::unique_ptr<Fence>> createFence(uint64_t initialValue = 0) override;
-    core::Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) override;
+    core::Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout,
+                                                             const BindGroupDesc& desc) override;
 
     // --- 资源上传 ---
-    void uploadTextureData(Texture* dst, const void* data,
-                           uint32_t width, uint32_t height,
+    void uploadTextureData(Texture* dst, const void* data, uint32_t width, uint32_t height,
                            TextureFormat format) override;
     void beginUploadBatch() override;
     void flushUploadBatch() override;
 
     // --- 提交命令 ---
-    void executeCommandLists(CommandList** cmdLists, uint32_t count,
-                             Fence* fence = nullptr, uint64_t fenceValue = 0) override;
+    void executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence = nullptr,
+                             uint64_t fenceValue = 0) override;
     void waitIdle() override;
 
     // --- 帧循环 ---
@@ -79,17 +80,17 @@ public:
     void submitOffscreen() override;
 
     // --- Vulkan 特有访问器 ---
-    vk::Instance         vkInstance()          const { return instance_; }
-    vk::PhysicalDevice   vkPhysicalDevice()    const { return physical_device_; }
-    vk::Device           vkDevice()            const { return device_; }
-    vk::Queue            graphicsQueue()       const { return graphics_queue_; }
-    uint32_t             graphicsQueueFamily() const { return graphics_queue_family_; }
-    VmaAllocator         vmaAllocator()        const { return allocator_; }
+    vk::Instance vkInstance() const { return instance_; }
+    vk::PhysicalDevice vkPhysicalDevice() const { return physical_device_; }
+    vk::Device vkDevice() const { return device_; }
+    vk::Queue graphicsQueue() const { return graphics_queue_; }
+    uint32_t graphicsQueueFamily() const { return graphics_queue_family_; }
+    VmaAllocator vmaAllocator() const { return allocator_; }
 
-    VKUploadContext&       uploadContext()       { return *upload_context_; }
+    VKUploadContext& uploadContext() { return *upload_context_; }
     VKDescriptorAllocator& descriptorAllocator() { return *descriptor_allocators_[current_frame_]; }
-    VKFrameContext&        currentFrameContext() { return *frame_contexts_[current_frame_]; }
-    uint32_t               currentFrameIndex()   const { return current_frame_; }
+    VKFrameContext& currentFrameContext() { return *frame_contexts_[current_frame_]; }
+    uint32_t currentFrameIndex() const { return current_frame_; }
 
 private:
     void init(const DeviceCreateInfo& ci);
@@ -100,42 +101,42 @@ private:
     void initFrameContexts(uint32_t count);
 
     // --- Vulkan 核心 ---
-    vk::Instance                instance_;
-    vk::DebugUtilsMessengerEXT  debug_messenger_;
-    vk::PhysicalDevice          physical_device_;
-    vk::Device                  device_;
-    vk::SurfaceKHR              surface_;
-    vk::Queue                   graphics_queue_;
-    vk::Queue                   present_queue_;
-    VmaAllocator                allocator_ = nullptr;
+    vk::Instance instance_;
+    vk::DebugUtilsMessengerEXT debug_messenger_;
+    vk::PhysicalDevice physical_device_;
+    vk::Device device_;
+    vk::SurfaceKHR surface_;
+    vk::Queue graphics_queue_;
+    vk::Queue present_queue_;
+    VmaAllocator allocator_ = nullptr;
 
-    uint32_t                    graphics_queue_family_ = 0;
-    uint32_t                    present_queue_family_  = 0;
-    NativeWindowHandle          native_window_;
-    RenderConfig                render_config_;
+    uint32_t graphics_queue_family_ = 0;
+    uint32_t present_queue_family_ = 0;
+    NativeWindowHandle native_window_;
+    RenderConfig render_config_;
 
-    GPUDeviceCapabilities          caps_;
+    GPUDeviceCapabilities caps_;
 
     // --- 私有组件 ---
-    std::unique_ptr<VKUploadContext>             upload_context_;
+    std::unique_ptr<VKUploadContext> upload_context_;
     std::vector<std::unique_ptr<VKFrameContext>> frame_contexts_;
-    std::vector<std::unique_ptr<VKDescriptorAllocator>> descriptor_allocators_; // per-frame
+    std::vector<std::unique_ptr<VKDescriptorAllocator>> descriptor_allocators_;       // per-frame
     std::vector<std::unique_ptr<VKDescriptorAllocator>> standalone_allocators_;       // 当前帧的独立 cmd list
     std::vector<std::unique_ptr<VKDescriptorAllocator>> standalone_allocators_prev_;  // 上一帧的（安全回收）
-    std::unique_ptr<VKCommandList>               frame_cmd_list_;
+    std::unique_ptr<VKCommandList> frame_cmd_list_;
 
-    uint32_t                    frame_count_   = 2;
-    uint32_t                    current_frame_ = 0;
-    uint64_t                    frame_token_   = 0;  // 单调递增，BindGroup 句柄版本化用
+    uint32_t frame_count_ = 2;
+    uint32_t current_frame_ = 0;
+    uint64_t frame_token_ = 0;  // 单调递增，BindGroup 句柄版本化用
 
     // per-swapchain-image 的信号量，替代 per-frame 的 renderFinished
     // 按 acquired image index 索引，解决 present 异步持有信号量的问题
-    std::vector<vk::Semaphore>  render_finished_semaphores_;
-    uint32_t                    acquired_image_index_ = 0;
+    std::vector<vk::Semaphore> render_finished_semaphores_;
+    uint32_t acquired_image_index_ = 0;
 
     // 分离 submit/present 所需状态
-    vk::Semaphore               pending_render_finished_ = nullptr;
-    bool                        submitted_ = false;
+    vk::Semaphore pending_render_finished_ = nullptr;
+    bool submitted_ = false;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

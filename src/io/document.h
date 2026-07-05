@@ -40,8 +40,7 @@ public:
     scene::EntityId addShape(const TopoDS_Shape& shape, std::string name);
     scene::EntityId addMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
 
-    scene::EntityId addSceneInstance(std::string name,
-                                     asset::AssetId geometry,
+    scene::EntityId addSceneInstance(std::string name, asset::AssetId geometry,
                                      std::vector<asset::AssetId> materialSlots = {});
 
     scene::Scene* scene() { return scene_.get(); }
@@ -66,4 +65,4 @@ private:
     bool dirty_ = false;
 };
 
-} // namespace mulan::io
+}  // namespace mulan::io

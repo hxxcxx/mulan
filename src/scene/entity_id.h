@@ -25,26 +25,18 @@ struct EntityId {
     constexpr bool valid() const { return value != 0; }
     constexpr explicit operator bool() const { return valid(); }
 
-    constexpr uint32_t index() const {
-        return static_cast<uint32_t>(value & INDEX_MASK);
-    }
+    constexpr uint32_t index() const { return static_cast<uint32_t>(value & INDEX_MASK); }
 
-    constexpr uint32_t generation() const {
-        return static_cast<uint32_t>(value >> INDEX_BITS);
-    }
+    constexpr uint32_t generation() const { return static_cast<uint32_t>(value >> INDEX_BITS); }
 
-    friend constexpr bool operator==(EntityId a, EntityId b) {
-        return a.value == b.value;
-    }
+    friend constexpr bool operator==(EntityId a, EntityId b) { return a.value == b.value; }
 
-    friend constexpr bool operator!=(EntityId a, EntityId b) {
-        return !(a == b);
-    }
+    friend constexpr bool operator!=(EntityId a, EntityId b) { return !(a == b); }
 };
 
-} // namespace mulan::scene
+}  // namespace mulan::scene
 
-template<>
+template <>
 struct std::hash<mulan::scene::EntityId> {
     size_t operator()(mulan::scene::EntityId id) const noexcept {
         return std::hash<mulan::scene::EntityIdValue>{}(id.value);

@@ -22,4 +22,4 @@ struct RenderTargetInfo {
     bool presentable = false;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

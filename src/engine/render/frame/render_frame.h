@@ -22,4 +22,4 @@ struct RenderFrame {
     RenderTargetInfo target;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

@@ -23,4 +23,4 @@ enum class PrimitiveTopology : uint8_t {
     TriangleStripAdj,
 };
 
-} // namespace mulan::graphics
+}  // namespace mulan::graphics

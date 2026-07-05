@@ -3,13 +3,10 @@
 namespace mulan::engine {
 
 DX12FrameContext::DX12FrameContext(ID3D12Device* device) {
-    HRESULT hr = device->CreateCommandAllocator(
-        D3D12_COMMAND_LIST_TYPE_DIRECT,
-        IID_PPV_ARGS(&cmd_allocator_));
+    HRESULT hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmd_allocator_));
     DX12_CHECK(hr);
 
-    hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
-                                   cmd_allocator_.Get(), nullptr,
+    hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmd_allocator_.Get(), nullptr,
                                    IID_PPV_ARGS(&cmd_list_));
     DX12_CHECK(hr);
     cmd_list_->Close();  // 创建时 open，先关闭
@@ -29,4 +26,4 @@ void DX12FrameContext::resetCommandAllocator() {
     cmd_list_->Reset(cmd_allocator_.Get(), nullptr);
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

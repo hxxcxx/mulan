@@ -2,17 +2,13 @@
 
 namespace mulan::engine {
 
-DX12DescriptorAllocator::DX12DescriptorAllocator(
-    ID3D12Device* device,
-    D3D12_DESCRIPTOR_HEAP_TYPE type,
-    D3D12_DESCRIPTOR_HEAP_FLAGS flags,
-    uint32_t capacity)
-    : capacity_(capacity)
-{
+DX12DescriptorAllocator::DX12DescriptorAllocator(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type,
+                                                 D3D12_DESCRIPTOR_HEAP_FLAGS flags, uint32_t capacity)
+    : capacity_(capacity) {
     D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-    desc.Type           = type;
+    desc.Type = type;
     desc.NumDescriptors = capacity;
-    desc.Flags          = flags;
+    desc.Flags = flags;
 
     HRESULT hr = device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&heap_));
     DX12_CHECK(hr);
@@ -41,4 +37,4 @@ DX12Descriptor DX12DescriptorAllocator::allocate() {
     return desc;
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

@@ -18,15 +18,13 @@ class DX12BindGroup : public BindGroup {
 public:
     static constexpr uint8_t kMaxEntries = 16;
 
-    DX12BindGroup(const BindGroupLayout& layout,
-                  const BindGroupEntry* entries, uint8_t count);
+    DX12BindGroup(const BindGroupLayout& layout, const BindGroupEntry* entries, uint8_t count);
 
     const BindGroupLayout& layout() const override { return *layout_; }
-    const BindGroupEntry*  entries() const override { return entries_.data(); }
-    uint8_t                entryCount() const override { return count_; }
+    const BindGroupEntry* entries() const override { return entries_.data(); }
+    uint8_t entryCount() const override { return count_; }
 
-    bool updateUBO(uint32_t binding, Buffer* buf,
-                   uint32_t offset, uint32_t size) override;
+    bool updateUBO(uint32_t binding, Buffer* buf, uint32_t offset, uint32_t size) override;
     bool updateTexture(uint32_t binding, Texture* tex) override;
     bool updateSampler(uint32_t binding, Sampler* s) override;
 
@@ -43,4 +41,4 @@ private:
     D3D12_GPU_DESCRIPTOR_HANDLE cached_gpu_handle_ = {};
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

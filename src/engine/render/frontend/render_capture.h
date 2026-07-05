@@ -33,4 +33,4 @@ struct RenderCaptureResult {
     bool empty() const { return pixels.empty(); }
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

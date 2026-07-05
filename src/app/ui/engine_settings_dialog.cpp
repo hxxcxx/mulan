@@ -12,9 +12,7 @@
 
 using namespace mulan::engine;
 
-EngineSettingsDialog::EngineSettingsDialog(QWidget* parent)
-    : QDialog(parent)
-{
+EngineSettingsDialog::EngineSettingsDialog(QWidget* parent) : QDialog(parent) {
     setWindowTitle(tr("Engine Settings"));
     setMinimumWidth(320);
 
@@ -22,13 +20,13 @@ EngineSettingsDialog::EngineSettingsDialog(QWidget* parent)
 
     // --- 渲染后端 ---
     combo_backend_ = new QComboBox(this);
-    combo_backend_->addItem("Vulkan",   static_cast<int>(GraphicsBackend::Vulkan));
-    combo_backend_->addItem("D3D12",    static_cast<int>(GraphicsBackend::D3D12));
+    combo_backend_->addItem("Vulkan", static_cast<int>(GraphicsBackend::Vulkan));
+    combo_backend_->addItem("D3D12", static_cast<int>(GraphicsBackend::D3D12));
     layout->addRow(tr("Render Backend:"), combo_backend_);
 
     // --- 抗锯齿 ---
     combo_msaa_ = new QComboBox(this);
-    combo_msaa_->addItem("None",  static_cast<int>(RenderConfig::MSAALevel::None));
+    combo_msaa_->addItem("None", static_cast<int>(RenderConfig::MSAALevel::None));
     combo_msaa_->addItem("MSAA 2x", static_cast<int>(RenderConfig::MSAALevel::x2));
     combo_msaa_->addItem("MSAA 4x", static_cast<int>(RenderConfig::MSAALevel::x4));
     combo_msaa_->addItem("MSAA 8x", static_cast<int>(RenderConfig::MSAALevel::x8));
@@ -54,8 +52,7 @@ EngineSettingsDialog::EngineSettingsDialog(QWidget* parent)
     layout->addRow(hint);
 
     // --- 按钮 ---
-    auto* buttons = new QDialogButtonBox(
-        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     layout->addRow(buttons);
 
     connect(buttons, &QDialogButtonBox::accepted, this, &EngineSettingsDialog::onAccept);
@@ -68,9 +65,11 @@ EngineSettingsDialog::EngineSettingsDialog(QWidget* parent)
 void EngineSettingsDialog::readSettings() {
     auto& s = EngineSettings::instance();
     int idx = combo_backend_->findData(static_cast<int>(s.backend()));
-    if (idx >= 0) combo_backend_->setCurrentIndex(idx);
+    if (idx >= 0)
+        combo_backend_->setCurrentIndex(idx);
     idx = combo_msaa_->findData(static_cast<int>(s.msaa()));
-    if (idx >= 0) combo_msaa_->setCurrentIndex(idx);
+    if (idx >= 0)
+        combo_msaa_->setCurrentIndex(idx);
     background_color_ = s.backgroundColor();
     updateBackgroundButton();
     check_ibl_->setChecked(s.iblEnabled());
@@ -92,14 +91,17 @@ void EngineSettingsDialog::onReject() {
 }
 
 void EngineSettingsDialog::onChooseBackgroundColor() {
-    QColor color = QColorDialog::getColor(background_color_, this, tr("Background Color"), QColorDialog::ShowAlphaChannel);
-    if (!color.isValid()) return;
+    QColor color =
+            QColorDialog::getColor(background_color_, this, tr("Background Color"), QColorDialog::ShowAlphaChannel);
+    if (!color.isValid())
+        return;
     background_color_ = color;
     updateBackgroundButton();
 }
 
 void EngineSettingsDialog::updateBackgroundButton() {
-    if (!button_color_) return;
+    if (!button_color_)
+        return;
     button_color_->setText(background_color_.name(QColor::HexArgb).toUpper());
     button_color_->setStyleSheet(QString("background-color: %1;").arg(background_color_.name(QColor::HexArgb)));
 }

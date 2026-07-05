@@ -8,15 +8,14 @@ RenderQueue::~RenderQueue() {
 
 core::Result<void> RenderQueue::submit(RenderTask task) {
     if (!task) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg,
-                                                "Cannot submit an empty render task."));
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "Cannot submit an empty render task."));
     }
 
     {
         std::scoped_lock lock(mutex_);
         if (closed_) {
-            return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg,
-                                                    "Cannot submit to a closed render queue."));
+            return std::unexpected(
+                    core::Error::make(core::ErrorCode::InvalidArg, "Cannot submit to a closed render queue."));
         }
         tasks_.push_back(std::move(task));
     }
@@ -26,9 +25,7 @@ core::Result<void> RenderQueue::submit(RenderTask task) {
 
 std::optional<RenderTask> RenderQueue::waitPop(std::stop_token stopToken) {
     std::unique_lock lock(mutex_);
-    cv_.wait(lock, stopToken, [this] {
-        return closed_ || !tasks_.empty();
-    });
+    cv_.wait(lock, stopToken, [this] { return closed_ || !tasks_.empty(); });
 
     if (tasks_.empty()) {
         return std::nullopt;
@@ -57,4 +54,4 @@ std::size_t RenderQueue::pendingCount() const {
     return tasks_.size();
 }
 
-} // namespace mulan::view
+}  // namespace mulan::view

@@ -34,7 +34,7 @@ public:
     // --- 生命周期 ---
 
     virtual void begin() = 0;
-    virtual void end()   = 0;
+    virtual void end() = 0;
 
     // --- 管线状态 ---
 
@@ -56,12 +56,9 @@ public:
 
     // --- 缓冲区绑定（核心：Buffer 不自带 bind，由 CommandList 统一管理）---
 
-    virtual void setVertexBuffer(uint32_t slot, Buffer* buffer,
-                                 uint32_t offset = 0) = 0;
-    virtual void setVertexBuffers(uint32_t startSlot, uint32_t count,
-                                  Buffer** buffers, uint32_t* offsets) = 0;
-    virtual void setIndexBuffer(Buffer* buffer, uint32_t offset = 0,
-                                IndexType type = IndexType::UInt32) = 0;
+    virtual void setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset = 0) = 0;
+    virtual void setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) = 0;
+    virtual void setIndexBuffer(Buffer* buffer, uint32_t offset = 0, IndexType type = IndexType::UInt32) = 0;
 
     // --- 绘制 ---
 
@@ -72,21 +69,26 @@ public:
     // Indirect draw arguments layout in buffer:
     //   DrawIndirectArgs: { indexCount, instanceCount, firstIndex, baseVertex, startInstance }
     //   DispatchIndirectArgs: { groupCountX, groupCountY, groupCountZ }
-    virtual void drawIndirect(Buffer* argsBuffer, uint32_t offset,
-                              uint32_t drawCount = 1, uint32_t stride = 0) {
-        (void)argsBuffer; (void)offset; (void)drawCount; (void)stride;
+    virtual void drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount = 1, uint32_t stride = 0) {
+        (void) argsBuffer;
+        (void) offset;
+        (void) drawCount;
+        (void) stride;
     }
 
     // --- Compute ---
 
     /// 执行 compute shader dispatch
     virtual void dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
-        (void)threadGroupX; (void)threadGroupY; (void)threadGroupZ;
+        (void) threadGroupX;
+        (void) threadGroupY;
+        (void) threadGroupZ;
     }
 
     /// 间接 dispatch（GPU-driven）
     virtual void dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
-        (void)argsBuffer; (void)offset;
+        (void) argsBuffer;
+        (void) offset;
     }
 
     // --- Push Constants（快速小数据路径，不走 UBO）---
@@ -96,32 +98,36 @@ public:
     /// @param size    数据大小（字节），必须是 4 的倍数
     /// @param data    数据指针
     /// @param stageFlags 着色器阶段（PipelineBinding::kStageVertex 等）
-    virtual void setPushConstants(uint32_t offset, uint32_t size,
-                                  const void* data, uint32_t stageFlags) {
-        (void)offset; (void)size; (void)data; (void)stageFlags;
+    virtual void setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) {
+        (void) offset;
+        (void) size;
+        (void) data;
+        (void) stageFlags;
     }
 
     // --- 资源更新 ---
 
-    virtual void updateBuffer(Buffer* buffer, uint32_t offset,
-                              uint32_t size, const void* data,
-                              ResourceTransitionMode mode =
-                                  ResourceTransitionMode::Transition) = 0;
+    virtual void updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
+                              ResourceTransitionMode mode = ResourceTransitionMode::Transition) = 0;
 
     // --- 资源状态转换 ---
 
-    virtual void transitionResource(Buffer* buffer,
-                                    ResourceState newState) = 0;
+    virtual void transitionResource(Buffer* buffer, ResourceState newState) = 0;
 
-    virtual void transitionResource(Texture* texture,
-                                    ResourceState newState) { (void)texture; (void)newState; }
+    virtual void transitionResource(Texture* texture, ResourceState newState) {
+        (void) texture;
+        (void) newState;
+    }
 
     /// 将渲染目标 color 纹理复制到 staging buffer（用于 CPU 回读）
-    virtual void copyTextureToBuffer(Texture* src, Buffer* dst) { (void)src; (void)dst; }
+    virtual void copyTextureToBuffer(Texture* src, Buffer* dst) {
+        (void) src;
+        (void) dst;
+    }
 
     // --- RenderPass ---
 
-    virtual void beginRenderPass(const RenderPassBeginInfo& info) { (void)info; }
+    virtual void beginRenderPass(const RenderPassBeginInfo& info) { (void) info; }
     virtual void endRenderPass() {}
 
     // --- 清除 ---
@@ -155,4 +161,4 @@ private:
     CommandList* cmd_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

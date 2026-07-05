@@ -38,4 +38,4 @@ struct ImportResult {
     std::vector<scene::EntityId> entities;
 };
 
-} // namespace mulan::io
+}  // namespace mulan::io

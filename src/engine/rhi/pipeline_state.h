@@ -28,9 +28,9 @@ using graphics::VertexLayout;
 // ============================================================
 
 struct InputLayoutElement {
-    uint32_t    inputSlot     = 0;   // vertex buffer slot
-    uint32_t    stride        = 0;   // 该 slot 的顶点 stride
-    uint32_t    instanceDataStepRate = 0;  // 0 = per-vertex
+    uint32_t inputSlot = 0;             // vertex buffer slot
+    uint32_t stride = 0;                // 该 slot 的顶点 stride
+    uint32_t instanceDataStepRate = 0;  // 0 = per-vertex
 };
 
 // ============================================================
@@ -44,40 +44,40 @@ enum class DescriptorType : uint8_t {
 };
 
 struct PipelineBinding {
-    uint32_t       binding = 0;
-    uint32_t       count   = 1;
-    DescriptorType type    = DescriptorType::UniformBuffer;
+    uint32_t binding = 0;
+    uint32_t count = 1;
+    DescriptorType type = DescriptorType::UniformBuffer;
 
-    static constexpr uint32_t kStageVertex   = 0x00000001;
+    static constexpr uint32_t kStageVertex = 0x00000001;
     static constexpr uint32_t kStageFragment = 0x00000010;
-    static constexpr uint32_t kStageCompute  = 0x00000100;
-    static constexpr uint32_t kStageAll      = 0x7FFFFFFF;
+    static constexpr uint32_t kStageCompute = 0x00000100;
+    static constexpr uint32_t kStageAll = 0x7FFFFFFF;
 
-    uint32_t       stages  = kStageAll;
+    uint32_t stages = kStageAll;
 };
 
 struct GraphicsPipelineDesc {
     std::string_view name;
 
     // 着色器
-    Shader* vs = nullptr;   // Vertex
-    Shader* ps = nullptr;   // Pixel / Fragment
-    Shader* gs = nullptr;   // Geometry（可选）
-    Shader* cs = nullptr;   // Compute（仅计算管线）
+    Shader* vs = nullptr;  // Vertex
+    Shader* ps = nullptr;  // Pixel / Fragment
+    Shader* gs = nullptr;  // Geometry（可选）
+    Shader* cs = nullptr;  // Compute（仅计算管线）
 
     // Descriptor bindings — 描述着色器需要的资源绑定
     static constexpr uint8_t kMaxDescriptorBindings = 16;
-    PipelineBinding  descriptorBindings[kMaxDescriptorBindings] = {};
-    uint8_t          descriptorBindingCount = 0;
+    PipelineBinding descriptorBindings[kMaxDescriptorBindings] = {};
+    uint8_t descriptorBindingCount = 0;
 
     // 输入布局 — 关联到 VertexLayout
-    VertexLayout        vertexLayout;
-    PrimitiveTopology   topology   = PrimitiveTopology::TriangleList;
+    VertexLayout vertexLayout;
+    PrimitiveTopology topology = PrimitiveTopology::TriangleList;
 
     // 光栅化
-    CullMode   cullMode   = CullMode::Back;
-    FrontFace  frontFace  = FrontFace::CounterClockwise;
-    FillMode   fillMode   = FillMode::Solid;
+    CullMode cullMode = CullMode::Back;
+    FrontFace frontFace = FrontFace::CounterClockwise;
+    FillMode fillMode = FillMode::Solid;
 
     // 深度/模板
     DepthStencilDesc depthStencil;
@@ -87,15 +87,15 @@ struct GraphicsPipelineDesc {
 
     // 渲染目标格式 — 创建时必须提供
     static constexpr uint8_t kMaxRenderTargets = 8;
-    TextureFormat  colorFormats[kMaxRenderTargets] = {};
-    uint8_t        colorTargetCount   = 0;
-    TextureFormat  depthStencilFormat = TextureFormat::Unknown;
-    bool           depthEnable        = false;
-    uint32_t       sampleCount        = 1;   // MSAA: 1=无, 2/4/8=多采样
+    TextureFormat colorFormats[kMaxRenderTargets] = {};
+    uint8_t colorTargetCount = 0;
+    TextureFormat depthStencilFormat = TextureFormat::Unknown;
+    bool depthEnable = false;
+    uint32_t sampleCount = 1;  // MSAA: 1=无, 2/4/8=多采样
 
     // Push constant / root constant 范围
     // 若 size > 0，则 PSO 创建时会预留该范围
-    uint32_t       pushConstantSize   = 0;   // 字节，必须 ≤ 128（VK 保证的最小值）
+    uint32_t pushConstantSize = 0;  // 字节，必须 ≤ 128（VK 保证的最小值）
 };
 
 // ============================================================
@@ -108,10 +108,10 @@ struct ComputePipelineDesc {
     Shader* cs = nullptr;
 
     static constexpr uint8_t kMaxDescriptorBindings = 16;
-    PipelineBinding  descriptorBindings[kMaxDescriptorBindings] = {};
-    uint8_t          descriptorBindingCount = 0;
+    PipelineBinding descriptorBindings[kMaxDescriptorBindings] = {};
+    uint8_t descriptorBindingCount = 0;
 
-    uint32_t       pushConstantSize = 0;
+    uint32_t pushConstantSize = 0;
 };
 
 // ============================================================
@@ -157,4 +157,4 @@ protected:
     ComputePipelineState& operator=(const ComputePipelineState&) = delete;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

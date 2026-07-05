@@ -28,10 +28,10 @@ public:
     void setFenceValue(uint64_t v) { fence_value_ = v; }
 
 private:
-    ComPtr<ID3D12CommandAllocator>     cmd_allocator_;
-    ComPtr<ID3D12GraphicsCommandList>  cmd_list_;
-    std::unique_ptr<DX12Fence>         fence_;
-    uint64_t                           fence_value_ = 0;
+    ComPtr<ID3D12CommandAllocator> cmd_allocator_;
+    ComPtr<ID3D12GraphicsCommandList> cmd_list_;
+    std::unique_ptr<DX12Fence> fence_;
+    uint64_t fence_value_ = 0;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

@@ -10,9 +10,9 @@
 #pragma once
 
 #ifdef BUILDING_MATH
-    #define MATH_API __declspec(dllexport)
+#define MATH_API __declspec(dllexport)
 #elif defined(USING_MATH_DLL)
-    #define MATH_API __declspec(dllimport)
+#define MATH_API __declspec(dllimport)
 #else
-    #define MATH_API
+#define MATH_API
 #endif

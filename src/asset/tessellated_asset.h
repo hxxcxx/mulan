@@ -36,16 +36,18 @@ public:
     /// 产出两段：实体填充网格（Solid）+ 线框网格（Wire），均无专属材质。
     void collectDrawables(std::vector<Drawable>& out) const override {
         if (!solid_mesh_.empty())
-            out.push_back({&solid_mesh_, AssetId::invalid(), DrawableRole::Solid});
+            out.push_back({ &solid_mesh_, AssetId::invalid(), DrawableRole::Solid });
         if (!wire_mesh_.empty())
-            out.push_back({&wire_mesh_, AssetId::invalid(), DrawableRole::Wire});
+            out.push_back({ &wire_mesh_, AssetId::invalid(), DrawableRole::Wire });
     }
 
     /// 本地包围盒 = solid + wire 网格顶点的并集（mesh.bounds 在导入时已算好）。
     math::AABB3 localBounds() const override {
         math::AABB3 b = math::AABB3::empty();
-        if (!solid_mesh_.bounds.isEmpty()) b.expand(solid_mesh_.bounds);
-        if (!wire_mesh_.bounds.isEmpty())  b.expand(wire_mesh_.bounds);
+        if (!solid_mesh_.bounds.isEmpty())
+            b.expand(solid_mesh_.bounds);
+        if (!wire_mesh_.bounds.isEmpty())
+            b.expand(wire_mesh_.bounds);
         return b;
     }
 
@@ -54,4 +56,4 @@ private:
     graphics::Mesh wire_mesh_;
 };
 
-} // namespace mulan::asset
+}  // namespace mulan::asset

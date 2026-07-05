@@ -5,58 +5,58 @@
 
 namespace mulan::engine {
 
-TurntableRotation::TurntableRotation()
-    : yaw_(kPi * 0.25)
-    , pitch_(kPi * 0.33)
-{}
+TurntableRotation::TurntableRotation() : yaw_(kPi * 0.25), pitch_(kPi * 0.33) {
+}
 
 math::Vec3 TurntableRotation::forward() const {
     double cp = std::cos(pitch_);
-    return math::Vec3{cp * std::cos(yaw_), cp * std::sin(yaw_), std::sin(pitch_)};
+    return math::Vec3{ cp * std::cos(yaw_), cp * std::sin(yaw_), std::sin(pitch_) };
 }
 
 math::Vec3 TurntableRotation::right() const {
     math::Vec3 fwd = forward();
-    return fwd.cross(math::Vec3{0, 0, 1}).normalized();
+    return fwd.cross(math::Vec3{ 0, 0, 1 }).normalized();
 }
 
 math::Vec3 TurntableRotation::up() const {
     math::Vec3 fwd = forward();
-    math::Vec3 r   = fwd.cross(math::Vec3{0, 0, 1}).normalized();
+    math::Vec3 r = fwd.cross(math::Vec3{ 0, 0, 1 }).normalized();
     return r.cross(fwd).normalized();
 }
 
 void TurntableRotation::orbitDelta(double dx, double dy) {
-    yaw_   -= dx * orbit_speed_;
+    yaw_ -= dx * orbit_speed_;
     pitch_ -= dy * orbit_speed_;
-    pitch_  = std::clamp(pitch_, kMinPitch, kMaxPitch);
+    pitch_ = std::clamp(pitch_, kMinPitch, kMaxPitch);
 }
 
 void TurntableRotation::setYawPitch(double yaw, double pitch) {
-    yaw_   = yaw;
+    yaw_ = yaw;
     pitch_ = std::clamp(pitch, kMinPitch, kMaxPitch);
 }
 
 void TurntableRotation::beginOrbit(int x, int y, int, int) {
     orbit_prev_x_ = x;
     orbit_prev_y_ = y;
-    orbit_drag_  = true;
+    orbit_drag_ = true;
 }
 
 void TurntableRotation::orbitToPoint(int x, int y, int, int) {
-    if (!orbit_drag_) return;
+    if (!orbit_drag_)
+        return;
     int dx = x - orbit_prev_x_;
     int dy = y - orbit_prev_y_;
     orbit_prev_x_ = x;
     orbit_prev_y_ = y;
-    if (dx == 0 && dy == 0) return;
-    yaw_   -= static_cast<double>(dx) * orbit_speed_;
+    if (dx == 0 && dy == 0)
+        return;
+    yaw_ -= static_cast<double>(dx) * orbit_speed_;
     pitch_ -= static_cast<double>(dy) * orbit_speed_;
-    pitch_  = std::clamp(pitch_, kMinPitch, kMaxPitch);
+    pitch_ = std::clamp(pitch_, kMinPitch, kMaxPitch);
 }
 
 void TurntableRotation::endOrbit() {
     orbit_drag_ = false;
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

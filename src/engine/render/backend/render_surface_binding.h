@@ -20,4 +20,4 @@ struct RenderSurfaceBinding {
     bool isOffscreen() const { return !swapChain && renderTarget; }
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

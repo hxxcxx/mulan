@@ -21,27 +21,24 @@ class VKBuffer;
 class VKTexture;
 
 struct StagingSlice {
-    vk::Buffer      buffer     = {};
-    VmaAllocation   allocation = nullptr;
-    void*           mapped     = nullptr;
-    uint32_t        offset     = 0;
-    uint32_t        size       = 0;
+    vk::Buffer buffer = {};
+    VmaAllocation allocation = nullptr;
+    void* mapped = nullptr;
+    uint32_t offset = 0;
+    uint32_t size = 0;
 };
 
 class VKUploadContext {
 public:
-    VKUploadContext(vk::Device device, VmaAllocator allocator,
-                    uint32_t queueFamily, vk::Queue queue);
+    VKUploadContext(vk::Device device, VmaAllocator allocator, uint32_t queueFamily, vk::Queue queue);
     ~VKUploadContext();
 
-    void uploadToBuffer(VKBuffer* dst, const void* data, uint32_t size,
-                        uint32_t dstOffset = 0);
+    void uploadToBuffer(VKBuffer* dst, const void* data, uint32_t size, uint32_t dstOffset = 0);
     void uploadBufferInit(VKBuffer* dst);
 
     /// 上传像素数据到纹理：staging 拷贝 + layout 转换到 eShaderReadOnlyOptimal。
     /// 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式。
-    void uploadTexture(VKTexture* dst, const void* data, uint32_t width, uint32_t height,
-                       TextureFormat format);
+    void uploadTexture(VKTexture* dst, const void* data, uint32_t width, uint32_t height, TextureFormat format);
 
     StagingSlice allocStaging(uint32_t size);
     void resetSlabs();
@@ -63,8 +60,8 @@ private:
         }
 
         vk::CommandBufferAllocateInfo allocCI;
-        allocCI.commandPool        = cmd_pool_;
-        allocCI.level              = vk::CommandBufferLevel::ePrimary;
+        allocCI.commandPool = cmd_pool_;
+        allocCI.level = vk::CommandBufferLevel::ePrimary;
         allocCI.commandBufferCount = 1;
         auto cmds = device_.allocateCommandBuffers(allocCI);
 
@@ -78,7 +75,7 @@ private:
 
         vk::SubmitInfo submitInfo;
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers    = &cmds[0];
+        submitInfo.pCommandBuffers = &cmds[0];
         queue_.submit(submitInfo, upload_fence_);
 
         device_.waitForFences(upload_fence_, true, UINT64_MAX);
@@ -90,31 +87,31 @@ private:
     }
 
     struct Slab {
-        vk::Buffer      buffer;
-        VmaAllocation   allocation = nullptr;
-        void*           mapped     = nullptr;
-        uint32_t        capacity   = 0;
-        uint32_t        used       = 0;
+        vk::Buffer buffer;
+        VmaAllocation allocation = nullptr;
+        void* mapped = nullptr;
+        uint32_t capacity = 0;
+        uint32_t used = 0;
     };
 
     Slab createSlab(uint32_t size);
     static uint32_t alignUp(uint32_t v, uint32_t align);
 
-    vk::Device       device_;
-    VmaAllocator     allocator_;
-    uint32_t         queue_family_;
-    vk::Queue        queue_;
+    vk::Device device_;
+    VmaAllocator allocator_;
+    uint32_t queue_family_;
+    vk::Queue queue_;
 
-    vk::CommandPool  cmd_pool_;
-    vk::Fence        upload_fence_;
-    bool             pending_ = false;
+    vk::CommandPool cmd_pool_;
+    vk::Fence upload_fence_;
+    bool pending_ = false;
 
     // 批量上传状态
-    bool             batch_active_ = false;
+    bool batch_active_ = false;
     vk::CommandBuffer batch_cmd_;
 
     std::vector<Slab> slabs_;
-    std::mutex        mutex_;
+    std::mutex mutex_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

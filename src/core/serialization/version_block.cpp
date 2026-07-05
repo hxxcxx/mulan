@@ -7,8 +7,7 @@ namespace mulan::core {
 // WriteVersionBlock
 // ============================================================
 
-WriteVersionBlock::WriteVersionBlock(BinaryOutputArchive& ar, uint32_t version)
-    : archive_(ar) {
+WriteVersionBlock::WriteVersionBlock(BinaryOutputArchive& ar, uint32_t version) : archive_(ar) {
     // 写入 VersionBlockStart 标记
     ar.writeTag(TypeTag::VersionBlockStart);
 
@@ -34,18 +33,16 @@ WriteVersionBlock::~WriteVersionBlock() {
 // ReadVersionBlock
 // ============================================================
 
-ReadVersionBlock::ReadVersionBlock(BinaryInputArchive& ar)
-    : archive_(ar)
-    , version_(0)
-    , block_size_(0)
-    , end_pos_(0) {
+ReadVersionBlock::ReadVersionBlock(BinaryInputArchive& ar) : archive_(ar), version_(0), block_size_(0), end_pos_(0) {
     // 读取版本号（直接读 raw，不经过 TypeTag）
     auto result = ar.readRaw(&version_, sizeof(version_));
-    if (!result) return;
+    if (!result)
+        return;
 
     // 读取块大小
     result = ar.readRaw(&block_size_, sizeof(block_size_));
-    if (!result) return;
+    if (!result)
+        return;
 
     // 记录块结束位置
     end_pos_ = ar.tell() + block_size_;
@@ -59,4 +56,4 @@ ReadVersionBlock::~ReadVersionBlock() {
     }
 }
 
-} // namespace mulan::core
+}  // namespace mulan::core

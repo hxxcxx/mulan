@@ -22,9 +22,7 @@ struct DX12Descriptor {
 
 class DX12DescriptorAllocator {
 public:
-    DX12DescriptorAllocator(ID3D12Device* device,
-                            D3D12_DESCRIPTOR_HEAP_TYPE type,
-                            D3D12_DESCRIPTOR_HEAP_FLAGS flags,
+    DX12DescriptorAllocator(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, D3D12_DESCRIPTOR_HEAP_FLAGS flags,
                             uint32_t capacity = 256);
     ~DX12DescriptorAllocator() = default;
 
@@ -45,11 +43,11 @@ public:
 
 private:
     ComPtr<ID3D12DescriptorHeap> heap_;
-    D3D12_CPU_DESCRIPTOR_HANDLE  cpu_start_ = {};
-    D3D12_GPU_DESCRIPTOR_HANDLE  gpu_start_ = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE cpu_start_ = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE gpu_start_ = {};
     uint32_t capacity_ = 0;
     uint32_t allocated_ = 0;
     uint32_t descriptor_size_ = 0;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

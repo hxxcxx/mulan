@@ -60,8 +60,7 @@ public:
 
     /// 检测屏幕坐标是否在 ViewCube 区域内（交互预留，当前空实现）
     /// @return true 如果在区域内
-    bool hitTest(int screenX, int screenY,
-                 uint32_t vpWidth, uint32_t vpHeight) const;
+    bool hitTest(int screenX, int screenY, uint32_t vpWidth, uint32_t vpHeight) const;
 
     bool isInitialized() const { return initialized_; }
 
@@ -88,45 +87,43 @@ private:
     bool createFaceGeometry();
     bool createEdgeGeometry();
 
-    void render(CommandList* cmd,
-                const math::Mat4& mainViewMatrix,
-                uint32_t vpWidth, uint32_t vpHeight);
+    void render(CommandList* cmd, const math::Mat4& mainViewMatrix, uint32_t vpWidth, uint32_t vpHeight);
 
     // --- 设备 ---
-    RHIDevice*   device_;
+    RHIDevice* device_;
     PipelineState* solid_pso_ = nullptr;
     PipelineState* edge_pso_ = nullptr;
     Texture* default_white_ = nullptr;
     Sampler* default_sampler_ = nullptr;
 
     // --- 几何缓冲 ---
-    std::unique_ptr<Buffer>         face_vb_;     // 面顶点
-    std::unique_ptr<Buffer>         face_ib_;     // 面索引
-    uint32_t                    face_index_count_ = 0;
-    std::unique_ptr<Buffer>         edge_vb_;     // 边顶点
-    std::unique_ptr<Buffer>         edge_ib_;     // 边索引
-    uint32_t                    edge_index_count_ = 0;
+    std::unique_ptr<Buffer> face_vb_;  // 面顶点
+    std::unique_ptr<Buffer> face_ib_;  // 面索引
+    uint32_t face_index_count_ = 0;
+    std::unique_ptr<Buffer> edge_vb_;  // 边顶点
+    std::unique_ptr<Buffer> edge_ib_;  // 边索引
+    uint32_t edge_index_count_ = 0;
 
     // --- UBO（ViewCube 的 Scene/Object UB 布局与主场景不同，独立持有）---
-    std::unique_ptr<Buffer>         scene_ubo_;   // b0 — 正交投影 + 提取旋转
-    std::unique_ptr<Buffer>         object_ubo_;  // b1 — 单位矩阵
-    std::unique_ptr<Buffer>         material_ubo_;// b2 — 6面各一份材质
-    static constexpr uint32_t   kFaceCount = 6;
+    std::unique_ptr<Buffer> scene_ubo_;     // b0 — 正交投影 + 提取旋转
+    std::unique_ptr<Buffer> object_ubo_;    // b1 — 单位矩阵
+    std::unique_ptr<Buffer> material_ubo_;  // b2 — 6面各一份材质
+    static constexpr uint32_t kFaceCount = 6;
 
     // --- per-frame BindGroup（按借用 PSO 的 layout 创建，缓存在 PSO 不变期间复用）---
-    std::unique_ptr<BindGroup>      face_bg_;     // solid PSO (10 binding)
-    std::unique_ptr<BindGroup>      edge_bg_;     // edge PSO (3 UBO)
-    uint64_t                        face_bg_layout_hash_ = 0;
-    uint64_t                        edge_bg_layout_hash_ = 0;
+    std::unique_ptr<BindGroup> face_bg_;  // solid PSO (10 binding)
+    std::unique_ptr<BindGroup> edge_bg_;  // edge PSO (3 UBO)
+    uint64_t face_bg_layout_hash_ = 0;
+    uint64_t edge_bg_layout_hash_ = 0;
 
     // --- 面材质数据 ---
-    MaterialGPU                 face_materials_[kFaceCount];
-    uint32_t                    material_stride_ = sizeof(MaterialGPU);
+    MaterialGPU face_materials_[kFaceCount];
+    uint32_t material_stride_ = sizeof(MaterialGPU);
 
     // --- 配置 ---
-    uint32_t                    cube_size_ = 128;
-    uint32_t                    margin_   = 16;
-    bool                        initialized_ = false;
+    uint32_t cube_size_ = 128;
+    uint32_t margin_ = 16;
+    bool initialized_ = false;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

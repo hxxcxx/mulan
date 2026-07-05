@@ -31,43 +31,42 @@ namespace mulan::math {
 class NURBSSurface {
 public:
     using ControlGrid = std::vector<std::vector<Point3>>;
-    using WeightGrid  = std::vector<std::vector<double>>;
-    using Row         = std::vector<Point3>;
-    using KnotVector  = std::vector<double>;
+    using WeightGrid = std::vector<std::vector<double>>;
+    using Row = std::vector<Point3>;
+    using KnotVector = std::vector<double>;
 
     // ---------- 构造 ----------
 
     /// 控制点 + 次数构造，权重默认 1（退化为 B-spline 曲面），clamped 节点向量。
     NURBSSurface(int p, int q, ControlGrid grid)
-        : degree_u_(p)
-        , degree_v_(q)
-        , control_points_(std::move(grid))
-        , weights_(numRows(), std::vector<double>(numCols(), 1.0))
-        , knots_u_(clampedKnotVector(p, numCols()))
-        , knots_v_(clampedKnotVector(q, numRows())) {
+        : degree_u_(p),
+          degree_v_(q),
+          control_points_(std::move(grid)),
+          weights_(numRows(), std::vector<double>(numCols(), 1.0)),
+          knots_u_(clampedKnotVector(p, numCols())),
+          knots_v_(clampedKnotVector(q, numRows())) {
         validateInvariants();
     }
 
     /// 控制点 + 权重 + clamped 节点向量。
     NURBSSurface(int p, int q, ControlGrid grid, WeightGrid weights)
-        : degree_u_(p)
-        , degree_v_(q)
-        , control_points_(std::move(grid))
-        , weights_(std::move(weights))
-        , knots_u_(clampedKnotVector(p, numCols()))
-        , knots_v_(clampedKnotVector(q, numRows())) {
+        : degree_u_(p),
+          degree_v_(q),
+          control_points_(std::move(grid)),
+          weights_(std::move(weights)),
+          knots_u_(clampedKnotVector(p, numCols())),
+          knots_v_(clampedKnotVector(q, numRows())) {
         validateInvariants();
     }
 
     /// 完整构造。
-    NURBSSurface(int p, int q, ControlGrid grid, WeightGrid weights,
-                 KnotVector knotsU, KnotVector knotsV)
-        : degree_u_(p)
-        , degree_v_(q)
-        , control_points_(std::move(grid))
-        , weights_(std::move(weights))
-        , knots_u_(std::move(knotsU))
-        , knots_v_(std::move(knotsV)) {
+    NURBSSurface(int p, int q, ControlGrid grid, WeightGrid weights, KnotVector knotsU, KnotVector knotsV)
+        : degree_u_(p),
+          degree_v_(q),
+          control_points_(std::move(grid)),
+          weights_(std::move(weights)),
+          knots_u_(std::move(knotsU)),
+          knots_v_(std::move(knotsV)) {
         validateInvariants();
     }
 
@@ -79,9 +78,9 @@ public:
     int numCols() const noexcept { return static_cast<int>(control_points_[0].size()); }
 
     const ControlGrid& controlPoints() const noexcept { return control_points_; }
-    const WeightGrid&  weights()       const noexcept { return weights_; }
-    const KnotVector&  knotsU()        const noexcept { return knots_u_; }
-    const KnotVector&  knotsV()        const noexcept { return knots_v_; }
+    const WeightGrid& weights() const noexcept { return weights_; }
+    const KnotVector& knotsU() const noexcept { return knots_u_; }
+    const KnotVector& knotsV() const noexcept { return knots_v_; }
 
     std::pair<double, double> domainU() const noexcept {
         const int m = static_cast<int>(knots_u_.size()) - 1;
@@ -156,7 +155,7 @@ public:
         Vec4 hv = deBoorVec4(dV, knots_u_, degree_u_, u);
         Vec3 dSdv = (Vec3(hv.x, hv.y, hv.z) - s.asVec() * hv.w) * (1.0 / w);
 
-        return {dSdu, dSdv};
+        return { dSdu, dSdv };
     }
 
     Vec3 normal(double u, double v) const {
@@ -166,26 +165,23 @@ public:
     }
 
 private:
-    int        degree_u_;
-    int        degree_v_;
+    int degree_u_;
+    int degree_v_;
     ControlGrid control_points_;
-    WeightGrid  weights_;
-    KnotVector  knots_u_;
-    KnotVector  knots_v_;
+    WeightGrid weights_;
+    KnotVector knots_u_;
+    KnotVector knots_v_;
 
     void validateInvariants() const {
         assert(!control_points_.empty() && "NURBSSurface: control grid must not be empty");
         const int cols = static_cast<int>(control_points_[0].size());
         assert(cols > 0 && "NURBSSurface: control rows must not be empty");
         for (const auto& row : control_points_) {
-            assert(static_cast<int>(row.size()) == cols &&
-                   "NURBSSurface: all rows must have equal length");
+            assert(static_cast<int>(row.size()) == cols && "NURBSSurface: all rows must have equal length");
         }
-        assert(static_cast<int>(weights_.size()) == numRows() &&
-               "NURBSSurface: weights row count mismatch");
+        assert(static_cast<int>(weights_.size()) == numRows() && "NURBSSurface: weights row count mismatch");
         for (const auto& row : weights_) {
-            assert(static_cast<int>(row.size()) == cols &&
-                   "NURBSSurface: weights row length mismatch");
+            assert(static_cast<int>(row.size()) == cols && "NURBSSurface: weights row length mismatch");
         }
         assert(numCols() > degree_u_ && "NURBSSurface: numCols must be > degreeU");
         assert(numRows() > degree_v_ && "NURBSSurface: numRows must be > degreeV");
@@ -193,16 +189,11 @@ private:
         assert(static_cast<int>(knots_v_.size()) == numRows() + degree_v_ + 1);
     }
 
-    static double clampToDomain(double t, double lo, double hi) noexcept {
-        return t < lo ? lo : (t > hi ? hi : t);
-    }
+    static double clampToDomain(double t, double lo, double hi) noexcept { return t < lo ? lo : (t > hi ? hi : t); }
 
-    static Point3 perspectiveDivide(const Vec4& h) noexcept {
-        return Point3(h.x / h.w, h.y / h.w, h.z / h.w);
-    }
+    static Point3 perspectiveDivide(const Vec4& h) noexcept { return Point3(h.x / h.w, h.y / h.w, h.z / h.w); }
 
-    static std::vector<Vec4> liftRowHomogeneous(const ControlGrid& cp,
-                                                const WeightGrid& w, int row) {
+    static std::vector<Vec4> liftRowHomogeneous(const ControlGrid& cp, const WeightGrid& w, int row) {
         std::vector<Vec4> h(cp[row].size());
         for (size_t i = 0; i < cp[row].size(); ++i) {
             double wi = w[row][i];
@@ -212,9 +203,7 @@ private:
         return h;
     }
 
-    std::vector<Vec4> liftRowHomogeneous(int row) const {
-        return liftRowHomogeneous(control_points_, weights_, row);
-    }
+    std::vector<Vec4> liftRowHomogeneous(int row) const { return liftRowHomogeneous(control_points_, weights_, row); }
 
     /// 在 (u,v) 处求齐次值 H = (A, W)（不透视除法）
     Vec4 evaluateHomogeneous(double u, double v) const {
@@ -226,20 +215,16 @@ private:
     }
 
     // 去首末各一节点（导数曲线节点向量）
-    static KnotVector trimmedKnots(const KnotVector& U) {
-        return KnotVector(U.begin() + 1, U.end() - 1);
-    }
+    static KnotVector trimmedKnots(const KnotVector& U) { return KnotVector(U.begin() + 1, U.end() - 1); }
 
     /// 齐次 hodograph 控制点：Q_i = p·(H_{i+1}-H_i)/(U_{i+p+1}-U_{i+1})。
     /// 对任意一维齐次控制序列适用（行/列）。
-    static std::vector<Vec4> hodographVec4(const std::vector<Vec4>& H,
-                                           const KnotVector& U, int p) {
+    static std::vector<Vec4> hodographVec4(const std::vector<Vec4>& H, const KnotVector& U, int p) {
         std::vector<Vec4> Q;
         Q.reserve(H.size() - 1);
         for (size_t i = 0; i + 1 < H.size(); ++i) {
             double denom = U[i + p + 1] - U[i + 1];
-            double scale = std::abs(denom) > Tolerance::defaultValue().paramEps
-                         ? static_cast<double>(p) / denom : 0.0;
+            double scale = std::abs(denom) > Tolerance::defaultValue().paramEps ? static_cast<double>(p) / denom : 0.0;
             Q.push_back((H[i + 1] - H[i]) * scale);
         }
         return Q;
@@ -257,12 +242,12 @@ private:
     }
 
     // 通用 de Boor（Vec4 控制点）
-    static Vec4 deBoorVec4(const std::vector<Vec4>& cp, const KnotVector& U,
-                           int p, double u) {
+    static Vec4 deBoorVec4(const std::vector<Vec4>& cp, const KnotVector& U, int p, double u) {
         const int n = static_cast<int>(cp.size()) - 1;
         const int k = bsplineFindSpan(n, p, u, U);
         std::vector<Vec4> d(p + 1);
-        for (int j = 0; j <= p; ++j) d[j] = cp[k - p + j];
+        for (int j = 0; j <= p; ++j)
+            d[j] = cp[k - p + j];
         for (int r = 1; r <= p; ++r) {
             for (int j = p; j >= r; --j) {
                 const int idx = k - p + j;
@@ -278,4 +263,4 @@ private:
     }
 };
 
-} // namespace mulan::math
+}  // namespace mulan::math

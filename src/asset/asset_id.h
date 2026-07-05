@@ -22,18 +22,14 @@ struct AssetId {
     constexpr bool valid() const { return value != 0; }
     constexpr explicit operator bool() const { return valid(); }
 
-    friend constexpr bool operator==(AssetId a, AssetId b) {
-        return a.value == b.value;
-    }
+    friend constexpr bool operator==(AssetId a, AssetId b) { return a.value == b.value; }
 
-    friend constexpr bool operator!=(AssetId a, AssetId b) {
-        return !(a == b);
-    }
+    friend constexpr bool operator!=(AssetId a, AssetId b) { return !(a == b); }
 };
 
-} // namespace mulan::asset
+}  // namespace mulan::asset
 
-template<>
+template <>
 struct std::hash<mulan::asset::AssetId> {
     size_t operator()(mulan::asset::AssetId id) const noexcept {
         return std::hash<mulan::asset::AssetIdValue>{}(id.value);

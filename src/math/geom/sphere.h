@@ -21,7 +21,7 @@ namespace mulan::math {
 
 struct Sphere3 {
     Point3 center{};
-    double radius = -1.0;   // 负值表示无效
+    double radius = -1.0;  // 负值表示无效
 
     constexpr Sphere3() = default;
     constexpr Sphere3(const Point3& c, double r) : center(c), radius(r) {}
@@ -30,21 +30,30 @@ struct Sphere3 {
     static Sphere3 fromCenterRadius(const Point3& c, double r) { return Sphere3(c, r); }
 
     static Sphere3 fromAABB(const AABB3& box) {
-        if (box.isEmpty()) return invalid();
+        if (box.isEmpty())
+            return invalid();
         Point3 c = box.center();
         return Sphere3(c, (box.max - c).length());
     }
 
     // ---------- 状态 ----------
     bool isValid() const { return radius >= 0.0; }
-    void reset() { center = Point3::origin(); radius = -1.0; }
+    void reset() {
+        center = Point3::origin();
+        radius = -1.0;
+    }
 
     // ---------- 扩展 ----------
     void expand(const Point3& p) {
-        if (!isValid()) { center = p; radius = 0.0; return; }
+        if (!isValid()) {
+            center = p;
+            radius = 0.0;
+            return;
+        }
         Vec3 d = p - center;
         double dist = d.length();
-        if (dist <= radius) return;
+        if (dist <= radius)
+            return;
         double newR = (radius + dist) * 0.5;
         double shift = newR - radius;
         center += d * (shift / dist);
@@ -52,55 +61,69 @@ struct Sphere3 {
     }
 
     void expand(const Sphere3& o) {
-        if (!o.isValid()) return;
-        if (!isValid()) { *this = o; return; }
+        if (!o.isValid())
+            return;
+        if (!isValid()) {
+            *this = o;
+            return;
+        }
         Vec3 d = o.center - center;
         double dist = d.length();
-        if (dist + o.radius <= radius) return;
-        if (dist + radius <= o.radius) { *this = o; return; }
+        if (dist + o.radius <= radius)
+            return;
+        if (dist + radius <= o.radius) {
+            *this = o;
+            return;
+        }
         double newR = (radius + dist + o.radius) * 0.5;
-        if (dist > 1e-12) center += d * ((newR - radius) / dist);
+        if (dist > 1e-12)
+            center += d * ((newR - radius) / dist);
         radius = newR;
     }
 
     void expand(const AABB3& box) {
-        if (box.isEmpty()) return;
+        if (box.isEmpty())
+            return;
         expand(Sphere3::fromAABB(box));
     }
 
     // ---------- 查询 ----------
     bool contains(const Point3& p, const Tolerance& tol = defaultTolerance()) const {
-        if (!isValid()) return false;
+        if (!isValid())
+            return false;
         double r = radius + tol.lengthEps;
         return (p - center).lengthSq() <= r * r;
     }
 
     bool intersects(const Sphere3& o) const {
-        if (!isValid() || !o.isValid()) return false;
+        if (!isValid() || !o.isValid())
+            return false;
         double r = radius + o.radius;
         return (center - o.center).lengthSq() <= r * r;
     }
 
     bool intersects(const AABB3& box) const {
-        if (!isValid() || box.isEmpty()) return false;
+        if (!isValid() || box.isEmpty())
+            return false;
         // 求 box 上离 center 最近的点
         Point3 closest(math::max(box.min.x, math::min(box.max.x, center.x)),
-                        math::max(box.min.y, math::min(box.max.y, center.y)),
-                        math::max(box.min.z, math::min(box.max.z, center.z)));
+                       math::max(box.min.y, math::min(box.max.y, center.y)),
+                       math::max(box.min.z, math::min(box.max.z, center.z)));
         return (closest - center).lengthSq() <= radius * radius;
     }
 
     // ---------- 变换 ----------
     Sphere3 transformed(const Mat4& m) const {
-        if (!isValid()) return invalid();
+        if (!isValid())
+            return invalid();
         Point3 newC = center.transformedBy(m);
         // 取矩阵列向量长度为缩放因子
         double sx = Vec3(m[0].x, m[0].y, m[0].z).length();
         double sy = Vec3(m[1].x, m[1].y, m[1].z).length();
         double sz = Vec3(m[2].x, m[2].y, m[2].z).length();
-        double maxScale = std::max({sx, sy, sz});
+        double maxScale = std::max({ sx, sy, sz });
         return Sphere3(newC, radius * maxScale);
     }
 };
 
-} // namespace mulan::math
+}  // namespace mulan::math

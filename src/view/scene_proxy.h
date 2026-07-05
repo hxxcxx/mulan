@@ -21,10 +21,10 @@ struct SceneProxy {
     asset::AssetId geometry;
     asset::AssetKind geometryKind = asset::AssetKind::Unknown;
     std::vector<asset::AssetId> materialSlots;
-    math::Mat4 worldTransform{1.0};
+    math::Mat4 worldTransform{ 1.0 };
     math::AABB3 worldBounds;
     bool visible = true;
     bool selected = false;
 };
 
-} // namespace mulan::view
+}  // namespace mulan::view

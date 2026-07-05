@@ -15,4 +15,4 @@ struct GeometryComponent {
     asset::AssetId geometry = asset::AssetId::invalid();
 };
 
-} // namespace mulan::scene
+}  // namespace mulan::scene

@@ -7,19 +7,17 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<DX12Fence>>
-DX12Fence::create(ID3D12Device* device, uint64_t initialValue) {
+core::Result<std::unique_ptr<DX12Fence>> DX12Fence::create(ID3D12Device* device, uint64_t initialValue) {
     try {
         return std::unique_ptr<DX12Fence>(new DX12Fence(device, initialValue));
     } catch (const std::exception& e) {
-        return std::unexpected(makeError(EngineErrorCode::FenceCreateFailed,
-            std::string("DX12Fence create failed: ") + e.what()));
+        return std::unexpected(
+                makeError(EngineErrorCode::FenceCreateFailed, std::string("DX12Fence create failed: ") + e.what()));
     }
 }
 
 DX12Fence::DX12Fence(ID3D12Device* device, uint64_t initialValue) {
-    HRESULT hr = device->CreateFence(initialValue, D3D12_FENCE_FLAG_NONE,
-                                     IID_PPV_ARGS(&fence_));
+    HRESULT hr = device->CreateFence(initialValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence_));
     DX12_CHECK(hr);
     event_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
 }
@@ -46,4 +44,4 @@ DX12Fence::~DX12Fence() {
     }
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

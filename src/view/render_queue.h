@@ -41,7 +41,7 @@ public:
 
     template <class Fn>
     auto submit(RenderTaskKind kind, std::string label, Fn&& fn)
-        -> core::Result<std::future<std::invoke_result_t<Fn&>>>;
+            -> core::Result<std::future<std::invoke_result_t<Fn&>>>;
 
     std::optional<RenderTask> waitPop(std::stop_token stopToken);
     void close();
@@ -58,7 +58,7 @@ private:
 
 template <class Fn>
 auto RenderQueue::submit(RenderTaskKind kind, std::string label, Fn&& fn)
-    -> core::Result<std::future<std::invoke_result_t<Fn&>>> {
+        -> core::Result<std::future<std::invoke_result_t<Fn&>>> {
     using Result = std::invoke_result_t<Fn&>;
 
     auto promise = std::make_shared<std::promise<Result>>();
@@ -76,11 +76,11 @@ auto RenderQueue::submit(RenderTaskKind kind, std::string label, Fn&& fn)
         }
     };
 
-    auto submitted = submit(RenderTask{kind, std::move(label), std::move(work)});
+    auto submitted = submit(RenderTask{ kind, std::move(label), std::move(work) });
     if (!submitted) {
         return std::unexpected(submitted.error());
     }
     return future;
 }
 
-} // namespace mulan::view
+}  // namespace mulan::view

@@ -20,15 +20,12 @@ using AlphaMode = mulan::graphics::AlphaMode;
 
 class MaterialAsset : public Asset {
 public:
-    MaterialAsset(AssetId id, std::string name)
-        : Asset(id, AssetKind::Material, std::move(name)) {}
+    MaterialAsset(AssetId id, std::string name) : Asset(id, AssetKind::Material, std::move(name)) {}
 
     const math::Vec4& baseColorFactor() const { return base_color_factor_; }
     void setBaseColorFactor(const math::Vec4& color) { base_color_factor_ = color; }
 
-    math::Vec3 baseColor() const {
-        return {base_color_factor_.x, base_color_factor_.y, base_color_factor_.z};
-    }
+    math::Vec3 baseColor() const { return { base_color_factor_.x, base_color_factor_.y, base_color_factor_.z }; }
     void setBaseColor(const math::Vec3& color) {
         base_color_factor_.x = color.x;
         base_color_factor_.y = color.y;
@@ -63,7 +60,7 @@ public:
     void setDoubleSided(bool value) { double_sided_ = value; }
 
 private:
-    math::Vec4 base_color_factor_{0.8, 0.8, 0.8, 1.0};
+    math::Vec4 base_color_factor_{ 0.8, 0.8, 0.8, 1.0 };
     double roughness_ = 0.5;
     double metallic_ = 0.0;
     AssetId base_color_texture_ = AssetId::invalid();
@@ -75,4 +72,4 @@ private:
     bool double_sided_ = false;
 };
 
-} // namespace mulan::asset
+}  // namespace mulan::asset

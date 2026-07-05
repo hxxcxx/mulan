@@ -61,20 +61,15 @@ public:
 
     // ==================== 读取 ====================
 
-    std::string getString(std::string_view section, std::string_view key,
-                          std::string_view defaultValue = {}) const;
+    std::string getString(std::string_view section, std::string_view key, std::string_view defaultValue = {}) const;
 
-    int         getInt(std::string_view section, std::string_view key,
-                       int defaultValue = 0) const;
+    int getInt(std::string_view section, std::string_view key, int defaultValue = 0) const;
 
-    int64_t     getInt64(std::string_view section, std::string_view key,
-                         int64_t defaultValue = 0) const;
+    int64_t getInt64(std::string_view section, std::string_view key, int64_t defaultValue = 0) const;
 
-    double      getDouble(std::string_view section, std::string_view key,
-                          double defaultValue = 0.0) const;
+    double getDouble(std::string_view section, std::string_view key, double defaultValue = 0.0) const;
 
-    bool        getBool(std::string_view section, std::string_view key,
-                        bool defaultValue = false) const;
+    bool getBool(std::string_view section, std::string_view key, bool defaultValue = false) const;
 
     /// 键是否存在
     bool hasKey(std::string_view section, std::string_view key) const;
@@ -90,20 +85,15 @@ public:
 
     // ==================== 写入 ====================
 
-    void setString(std::string_view section, std::string_view key,
-                   std::string_view value);
+    void setString(std::string_view section, std::string_view key, std::string_view value);
 
-    void setInt(std::string_view section, std::string_view key,
-                int value);
+    void setInt(std::string_view section, std::string_view key, int value);
 
-    void setInt64(std::string_view section, std::string_view key,
-                  int64_t value);
+    void setInt64(std::string_view section, std::string_view key, int64_t value);
 
-    void setDouble(std::string_view section, std::string_view key,
-                   double value);
+    void setDouble(std::string_view section, std::string_view key, double value);
 
-    void setBool(std::string_view section, std::string_view key,
-                 bool value);
+    void setBool(std::string_view section, std::string_view key, bool value);
 
     /// 删除键
     void removeKey(std::string_view section, std::string_view key);
@@ -120,4 +110,4 @@ private:
     bool loaded_ = false;
 };
 
-} // namespace mulan::core
+}  // namespace mulan::core

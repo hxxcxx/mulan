@@ -16,11 +16,10 @@ namespace mulan::engine {
 RenderRenderer::RenderRenderer() = default;
 RenderRenderer::~RenderRenderer() = default;
 
-bool RenderRenderer::init(RHIDevice& device,
-                          LightEnvironment& lightEnv,
-                          TextureFormat colorFmt,
+bool RenderRenderer::init(RHIDevice& device, LightEnvironment& lightEnv, TextureFormat colorFmt,
                           TextureFormat depthFmt) {
-    if (initialized_) return true;
+    if (initialized_)
+        return true;
 
     texture_cache_ = std::make_unique<TextureCache>(&device);
     material_cache_ = std::make_unique<MaterialCache>();
@@ -52,7 +51,8 @@ bool RenderRenderer::init(RHIDevice& device,
 }
 
 void RenderRenderer::shutdown(RHIDevice& device) {
-    if (!initialized_) return;
+    if (!initialized_)
+        return;
     device.waitIdle();
     view_cube_stage_.reset();
     edge_stage_.reset();
@@ -65,7 +65,8 @@ void RenderRenderer::shutdown(RHIDevice& device) {
 }
 
 void RenderRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
-    if (ibl_) return;
+    if (ibl_)
+        return;
 
     FILE* test = nullptr;
 #ifdef _WIN32
@@ -74,8 +75,10 @@ void RenderRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
     test = fopen(hdrPath.c_str(), "rb");
 #endif
     if (!test) {
-        std::fprintf(stderr, "[RenderRenderer] IBL requested but HDR not found: %s "
-                             "(place a .hdr file there)\n", hdrPath.c_str());
+        std::fprintf(stderr,
+                     "[RenderRenderer] IBL requested but HDR not found: %s "
+                     "(place a .hdr file there)\n",
+                     hdrPath.c_str());
         return;
     }
     fclose(test);
@@ -90,17 +93,19 @@ void RenderRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
     }
 }
 
-void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surface,
-                            const RenderRequest& request) {
-    if (!initialized_ || !surface.isValid()) return;
-    if (!validateOutput(surface, request)) return;
+void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request) {
+    if (!initialized_ || !surface.isValid())
+        return;
+    if (!validateOutput(surface, request))
+        return;
 
     device.beginUploadBatch();
     compile(request);
     device.flushUploadBatch();
 
     auto* cmd = beginFrame(device, surface, request);
-    if (!cmd) return;
+    if (!cmd)
+        return;
 
     RenderView renderView;
     renderView.viewMatrix = request.view.viewMatrix;
@@ -119,7 +124,7 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     frameTargetInfo.hasDepth = true;
     frameTargetInfo.presentable = request.output.mode == RenderTargetMode::Present;
 
-    RenderFrame frame{device, *cmd, renderView, frameTargetInfo};
+    RenderFrame frame{ device, *cmd, renderView, frameTargetInfo };
     executeStages(frame);
 
     cmd->endRenderPass();
@@ -128,8 +133,7 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     endFrame(device, surface, request);
 }
 
-bool RenderRenderer::validateOutput(const RenderSurfaceBinding& surface,
-                                    const RenderRequest& request) const {
+bool RenderRenderer::validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const {
     switch (request.output.mode) {
     case RenderTargetMode::Present:
         if (!surface.swapChain) {
@@ -174,23 +178,19 @@ void RenderRenderer::compile(const RenderRequest& request) {
 
     const std::span<const MeshDrawCommand> emptyCommands;
     if (face_stage_) {
-        face_stage_->setDrawCommands(request.options.showSurfaces
-                                         ? compiler_.surfaceCommands()
-                                         : emptyCommands);
+        face_stage_->setDrawCommands(request.options.showSurfaces ? compiler_.surfaceCommands() : emptyCommands);
     }
     if (edge_stage_) {
-        edge_stage_->setDrawCommands(request.options.showEdges
-                                         ? compiler_.edgeCommands()
-                                         : emptyCommands);
+        edge_stage_->setDrawCommands(request.options.showEdges ? compiler_.edgeCommands() : emptyCommands);
     }
 }
 
-CommandList* RenderRenderer::beginFrame(RHIDevice& device,
-                                        const RenderSurfaceBinding& surface,
+CommandList* RenderRenderer::beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
                                         const RenderRequest& request) {
     device.beginFrame(surface.swapChain ? surface.swapChain : nullptr);
     auto* cmd = device.frameCommandList();
-    if (!cmd) return nullptr;
+    if (!cmd)
+        return nullptr;
     cmd->begin();
 
     if (request.output.mode == RenderTargetMode::Present) {
@@ -218,8 +218,10 @@ CommandList* RenderRenderer::beginFrame(RHIDevice& device,
 }
 
 void RenderRenderer::executeStages(RenderFrame& frame) {
-    if (face_stage_) face_stage_->execute(frame);
-    if (edge_stage_) edge_stage_->execute(frame);
+    if (face_stage_)
+        face_stage_->execute(frame);
+    if (edge_stage_)
+        edge_stage_->execute(frame);
     if (face_stage_ || edge_stage_) {
         material_cache_->clearDirtyMaterials();
     }
@@ -233,8 +235,7 @@ void RenderRenderer::executeStages(RenderFrame& frame) {
     }
 }
 
-void RenderRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
-                              const RenderRequest& request) {
+void RenderRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request) {
     if (request.output.mode == RenderTargetMode::Present) {
         device.submitAndPresent(surface.swapChain);
     } else {
@@ -242,4 +243,4 @@ void RenderRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& sur
     }
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

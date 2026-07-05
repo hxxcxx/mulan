@@ -18,22 +18,22 @@ namespace mulan::math {
 
 /// 3D 求交结果
 struct Hit3 {
-    bool   hit   = false;
-    Point3 point {};
-    double t     = 0.0;
+    bool hit = false;
+    Point3 point{};
+    double t = 0.0;
 
     static Hit3 miss() { return Hit3{}; }
-    static Hit3 make(const Point3& p, double t_) { return Hit3{true, p, t_}; }
+    static Hit3 make(const Point3& p, double t_) { return Hit3{ true, p, t_ }; }
 };
 
 /// 2D 求交结果
 struct Hit2 {
-    bool   hit   = false;
-    Point2 point {};
-    double t     = 0.0;
+    bool hit = false;
+    Point2 point{};
+    double t = 0.0;
 
     static Hit2 miss() { return Hit2{}; }
-    static Hit2 make(const Point2& p, double t_) { return Hit2{true, p, t_}; }
+    static Hit2 make(const Point2& p, double t_) { return Hit2{ true, p, t_ }; }
 };
 
-} // namespace mulan::math
+}  // namespace mulan::math

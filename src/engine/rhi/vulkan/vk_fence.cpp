@@ -7,13 +7,12 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<VKFence>>
-VKFence::create(vk::Device device, uint64_t initialValue) {
+core::Result<std::unique_ptr<VKFence>> VKFence::create(vk::Device device, uint64_t initialValue) {
     auto obj = std::unique_ptr<VKFence>(new VKFence(device));
 
     vk::SemaphoreTypeCreateInfo timelineCI;
     timelineCI.semaphoreType = vk::SemaphoreType::eTimeline;
-    timelineCI.initialValue  = initialValue;
+    timelineCI.initialValue = initialValue;
 
     vk::SemaphoreCreateInfo ci;
     ci.pNext = &timelineCI;
@@ -22,7 +21,7 @@ VKFence::create(vk::Device device, uint64_t initialValue) {
         obj->semaphore_ = device.createSemaphore(ci);
     } catch (const vk::Error& e) {
         return std::unexpected(makeError(EngineErrorCode::FenceCreateFailed,
-            std::string("createSemaphore(timeline) failed: ") + e.what()));
+                                         std::string("createSemaphore(timeline) failed: ") + e.what()));
     }
 
     return obj;
@@ -37,7 +36,7 @@ VKFence::~VKFence() {
 void VKFence::signal(uint64_t value) {
     vk::SemaphoreSignalInfo info;
     info.semaphore = semaphore_;
-    info.value     = value;
+    info.value = value;
     device_.signalSemaphore(info);
 }
 
@@ -47,7 +46,7 @@ void VKFence::wait(uint64_t value) {
     vk::Semaphore semaphores[] = { semaphore_ };
     uint64_t values[] = { value };
     info.pSemaphores = semaphores;
-    info.pValues     = values;
+    info.pValues = values;
     device_.waitSemaphores(info, UINT64_MAX);
 }
 
@@ -55,4 +54,4 @@ uint64_t VKFence::completedValue() const {
     return device_.getSemaphoreCounterValue(semaphore_);
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

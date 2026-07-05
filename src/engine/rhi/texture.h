@@ -45,9 +45,9 @@ enum class TextureFormat : uint8_t {
     D32_Float_S8X24_UInt,
 
     // --- 压缩 ---
-    BC1_RGBA_UNorm,    // DXT1
-    BC3_RGBA_UNorm,    // DXT5
-    BC5_RG_UNorm,      // 法线贴图
+    BC1_RGBA_UNorm,  // DXT1
+    BC3_RGBA_UNorm,  // DXT5
+    BC5_RG_UNorm,    // 法线贴图
     BC7_RGBA_UNorm,
     BC7_RGBA_sRGB,
 };
@@ -68,12 +68,12 @@ enum class TextureDimension : uint8_t {
 // ============================================================
 
 enum class TextureUsageFlags : uint8_t {
-    None           = 0,
-    ShaderResource = 1 << 0,  // SRV / sampler
-    RenderTarget   = 1 << 1,  // color RTV
-    DepthStencil   = 1 << 2,  // DSV
-    UnorderedAccess = 1 << 3, // UAV
-    GenerateMips   = 1 << 4,
+    None = 0,
+    ShaderResource = 1 << 0,   // SRV / sampler
+    RenderTarget = 1 << 1,     // color RTV
+    DepthStencil = 1 << 2,     // DSV
+    UnorderedAccess = 1 << 3,  // UAV
+    GenerateMips = 1 << 4,
 };
 
 constexpr TextureUsageFlags operator|(TextureUsageFlags a, TextureUsageFlags b) {
@@ -92,18 +92,18 @@ constexpr bool operator&(TextureUsageFlags a, TextureUsageFlags b) {
 /// 仅覆盖可被 CPU 上传的颜色格式；深度/压缩格式返回 0。
 constexpr uint32_t textureFormatBytesPerPixel(TextureFormat fmt) {
     switch (fmt) {
-    case TextureFormat::R8_UNorm:           return 1;
+    case TextureFormat::R8_UNorm: return 1;
     case TextureFormat::RGBA8_UNorm:
     case TextureFormat::BGRA8_UNorm:
     case TextureFormat::RGBA8_sRGB:
-    case TextureFormat::BGRA8_sRGB:         return 4;
-    case TextureFormat::RGBA16_Float:       return 8;
-    case TextureFormat::R16_Float:          return 2;
-    case TextureFormat::RG16_Float:         return 4;
-    case TextureFormat::RGBA32_Float:       return 16;
-    case TextureFormat::R32_Float:          return 4;
-    case TextureFormat::RG32_Float:         return 8;
-    default:                                return 0;  // 深度/压缩不支持 CPU 直接上传
+    case TextureFormat::BGRA8_sRGB: return 4;
+    case TextureFormat::RGBA16_Float: return 8;
+    case TextureFormat::R16_Float: return 2;
+    case TextureFormat::RG16_Float: return 4;
+    case TextureFormat::RGBA32_Float: return 16;
+    case TextureFormat::R32_Float: return 4;
+    case TextureFormat::RG32_Float: return 8;
+    default: return 0;  // 深度/压缩不支持 CPU 直接上传
     }
 }
 
@@ -113,32 +113,44 @@ constexpr uint32_t textureFormatBytesPerPixel(TextureFormat fmt) {
 
 struct TextureDesc {
     std::string_view name;
-    TextureFormat    format     = TextureFormat::RGBA8_UNorm;
-    TextureDimension dimension  = TextureDimension::Texture2D;
-    TextureUsageFlags usage     = TextureUsageFlags::ShaderResource;
-    uint32_t         width      = 0;
-    uint32_t         height     = 0;
-    uint32_t         depth      = 1;
-    uint32_t         mipLevels  = 1;
-    uint32_t         arraySize  = 1;
-    uint32_t         sampleCount = 1;
+    TextureFormat format = TextureFormat::RGBA8_UNorm;
+    TextureDimension dimension = TextureDimension::Texture2D;
+    TextureUsageFlags usage = TextureUsageFlags::ShaderResource;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t depth = 1;
+    uint32_t mipLevels = 1;
+    uint32_t arraySize = 1;
+    uint32_t sampleCount = 1;
 
     // 便捷构造
 
-    static TextureDesc renderTarget(uint32_t w, uint32_t h,
-                                    TextureFormat fmt = TextureFormat::RGBA8_UNorm,
+    static TextureDesc renderTarget(uint32_t w, uint32_t h, TextureFormat fmt = TextureFormat::RGBA8_UNorm,
                                     std::string_view debugName = {}) {
-        return {debugName, fmt, TextureDimension::Texture2D,
-                TextureUsageFlags::RenderTarget | TextureUsageFlags::ShaderResource,
-                w, h, 1, 1, 1, 1};
+        return { debugName,
+                 fmt,
+                 TextureDimension::Texture2D,
+                 TextureUsageFlags::RenderTarget | TextureUsageFlags::ShaderResource,
+                 w,
+                 h,
+                 1,
+                 1,
+                 1,
+                 1 };
     }
 
-    static TextureDesc depthStencil(uint32_t w, uint32_t h,
-                                    TextureFormat fmt = TextureFormat::D24_UNorm_S8_UInt,
+    static TextureDesc depthStencil(uint32_t w, uint32_t h, TextureFormat fmt = TextureFormat::D24_UNorm_S8_UInt,
                                     std::string_view debugName = {}) {
-        return {debugName, fmt, TextureDimension::Texture2D,
-                TextureUsageFlags::DepthStencil | TextureUsageFlags::ShaderResource,
-                w, h, 1, 1, 1, 1};
+        return { debugName,
+                 fmt,
+                 TextureDimension::Texture2D,
+                 TextureUsageFlags::DepthStencil | TextureUsageFlags::ShaderResource,
+                 w,
+                 h,
+                 1,
+                 1,
+                 1,
+                 1 };
     }
 };
 
@@ -152,7 +164,7 @@ public:
 
     virtual const TextureDesc& desc() const = 0;
 
-    uint32_t width()  const { return desc().width; }
+    uint32_t width() const { return desc().width; }
     uint32_t height() const { return desc().height; }
     TextureFormat format() const { return desc().format; }
 
@@ -162,4 +174,4 @@ protected:
     Texture& operator=(const Texture&) = delete;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

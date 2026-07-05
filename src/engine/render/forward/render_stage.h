@@ -29,10 +29,10 @@ public:
 
     virtual void shutdown(RHIDevice& device) = 0;
     virtual void resize(RHIDevice& device, const RenderTargetInfo& target) {
-        (void)device;
-        (void)target;
+        (void) device;
+        (void) target;
     }
     virtual void execute(RenderFrame& frame) = 0;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

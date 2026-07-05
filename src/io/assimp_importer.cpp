@@ -27,44 +27,52 @@
 namespace mulan::io {
 namespace {
 
-constexpr std::array<const char*, 14> kSupportedExtensions = {
-    "obj", "fbx", "dae", "3ds", "ply", "stl", "gltf", "glb",
-    "blend", "x", "ase", "lwo", "off", "dxf"
-};
+constexpr std::array<const char*, 14> kSupportedExtensions = { "obj", "fbx",   "dae", "3ds", "ply", "stl", "gltf",
+                                                               "glb", "blend", "x",   "ase", "lwo", "off", "dxf" };
 
 math::FVec3 toFVec3(const aiVector3D& value) {
-    return {value.x, value.y, value.z};
+    return { value.x, value.y, value.z };
 }
 
 math::FVec2 toTexcoord(const aiVector3D& value) {
-    return {value.x, value.y};
+    return { value.x, value.y };
 }
 
 math::Vec4 toColor(const aiColor4D& value) {
-    return {value.r, value.g, value.b, value.a};
+    return { value.r, value.g, value.b, value.a };
 }
 
 math::Mat4 toMat4(const aiMatrix4x4& value) {
-    math::Mat4 result{1.0};
-    result[0][0] = value.a1; result[1][0] = value.a2; result[2][0] = value.a3; result[3][0] = value.a4;
-    result[0][1] = value.b1; result[1][1] = value.b2; result[2][1] = value.b3; result[3][1] = value.b4;
-    result[0][2] = value.c1; result[1][2] = value.c2; result[2][2] = value.c3; result[3][2] = value.c4;
-    result[0][3] = value.d1; result[1][3] = value.d2; result[2][3] = value.d3; result[3][3] = value.d4;
+    math::Mat4 result{ 1.0 };
+    result[0][0] = value.a1;
+    result[1][0] = value.a2;
+    result[2][0] = value.a3;
+    result[3][0] = value.a4;
+    result[0][1] = value.b1;
+    result[1][1] = value.b2;
+    result[2][1] = value.b3;
+    result[3][1] = value.b4;
+    result[0][2] = value.c1;
+    result[1][2] = value.c2;
+    result[2][2] = value.c3;
+    result[3][2] = value.c4;
+    result[0][3] = value.d1;
+    result[1][3] = value.d2;
+    result[2][3] = value.d3;
+    result[3][3] = value.d4;
     return result;
 }
 
 math::AABB3 transformBounds(const math::AABB3& bounds, const math::Mat4& transform) {
-    if (bounds.isEmpty()) return math::AABB3::empty();
+    if (bounds.isEmpty())
+        return math::AABB3::empty();
 
     math::AABB3 result = math::AABB3::empty();
     for (int x = 0; x < 2; ++x) {
         for (int y = 0; y < 2; ++y) {
             for (int z = 0; z < 2; ++z) {
-                const math::Point3 corner{
-                    x == 0 ? bounds.min.x : bounds.max.x,
-                    y == 0 ? bounds.min.y : bounds.max.y,
-                    z == 0 ? bounds.min.z : bounds.max.z
-                };
+                const math::Point3 corner{ x == 0 ? bounds.min.x : bounds.max.x, y == 0 ? bounds.min.y : bounds.max.y,
+                                           z == 0 ? bounds.min.z : bounds.max.z };
                 result.expand(corner.transformedBy(transform));
             }
         }
@@ -85,21 +93,21 @@ asset::AlphaMode alphaModeFromAssimp(const aiMaterial& material) {
     aiString blendMode;
     if (material.Get(AI_MATKEY_GLTF_ALPHAMODE, blendMode) == AI_SUCCESS) {
         const std::string value = blendMode.C_Str();
-        if (value == "BLEND") return asset::AlphaMode::Blend;
-        if (value == "MASK") return asset::AlphaMode::Mask;
+        if (value == "BLEND")
+            return asset::AlphaMode::Blend;
+        if (value == "MASK")
+            return asset::AlphaMode::Mask;
     }
 #else
-    (void)material;
+    (void) material;
 #endif
     return asset::AlphaMode::Opaque;
 }
 
-asset::AssetId importTexture(aiMaterial& material,
-                             aiTextureType type,
-                             MeshImportBuilder& builder,
-                             const std::filesystem::path& baseDirectory,
-                             bool srgb) {
-    if (material.GetTextureCount(type) == 0) return asset::AssetId::invalid();
+asset::AssetId importTexture(aiMaterial& material, aiTextureType type, MeshImportBuilder& builder,
+                             const std::filesystem::path& baseDirectory, bool srgb) {
+    if (material.GetTextureCount(type) == 0)
+        return asset::AssetId::invalid();
 
     aiString path;
     if (material.GetTexture(type, 0, &path) != AI_SUCCESS || path.length == 0) {
@@ -114,24 +122,22 @@ asset::AssetId importTexture(aiMaterial& material,
         desc.sourcePath = texturePathString;
     } else {
         desc.name = texturePath.filename().string();
-        desc.sourcePath = texturePath.is_relative()
-            ? (baseDirectory / texturePath).string()
-            : texturePath.string();
+        desc.sourcePath = texturePath.is_relative() ? (baseDirectory / texturePath).string() : texturePath.string();
     }
     desc.srgb = srgb;
     return builder.createTexture(desc);
 }
 
-std::vector<asset::AssetId> importMaterials(const aiScene& scene,
-                                            MeshImportBuilder& builder,
-                                            const std::filesystem::path& baseDirectory,
-                                            const ImportOptions& options) {
+std::vector<asset::AssetId> importMaterials(const aiScene& scene, MeshImportBuilder& builder,
+                                            const std::filesystem::path& baseDirectory, const ImportOptions& options) {
     std::vector<asset::AssetId> materials(scene.mNumMaterials, asset::AssetId::invalid());
-    if (!options.importMaterials) return materials;
+    if (!options.importMaterials)
+        return materials;
 
     for (size_t i = 0; i < scene.mNumMaterials; ++i) {
         aiMaterial* source = scene.mMaterials[i];
-        if (!source) continue;
+        if (!source)
+            continue;
 
         ImportedMaterialDesc desc;
         desc.name = materialName(*source, i);
@@ -160,16 +166,13 @@ std::vector<asset::AssetId> importMaterials(const aiScene& scene,
         desc.alphaMode = alphaModeFromAssimp(*source);
 
         if (options.importTextures) {
-            desc.baseColorTexture = importTexture(*source, aiTextureType_BASE_COLOR, builder,
-                                                  baseDirectory, true);
+            desc.baseColorTexture = importTexture(*source, aiTextureType_BASE_COLOR, builder, baseDirectory, true);
             if (!desc.baseColorTexture.valid()) {
-                desc.baseColorTexture = importTexture(*source, aiTextureType_DIFFUSE, builder,
-                                                      baseDirectory, true);
+                desc.baseColorTexture = importTexture(*source, aiTextureType_DIFFUSE, builder, baseDirectory, true);
             }
-            desc.normalTexture = importTexture(*source, aiTextureType_NORMALS, builder,
-                                               baseDirectory, false);
+            desc.normalTexture = importTexture(*source, aiTextureType_NORMALS, builder, baseDirectory, false);
             desc.metallicRoughnessTexture =
-                importTexture(*source, aiTextureType_METALNESS, builder, baseDirectory, false);
+                    importTexture(*source, aiTextureType_METALNESS, builder, baseDirectory, false);
         }
 
         materials[i] = builder.createMaterial(desc);
@@ -190,31 +193,29 @@ graphics::Mesh buildMesh(const aiMesh& source) {
 
     for (size_t i = 0; i < source.mNumVertices; ++i) {
         positions.push_back(toFVec3(source.mVertices[i]));
-        normals.push_back(source.HasNormals()
-            ? toFVec3(source.mNormals[i])
-            : math::FVec3(0.0f, 0.0f, 1.0f));
-        texcoords.push_back(source.HasTextureCoords(0)
-            ? toTexcoord(source.mTextureCoords[0][i])
-            : math::FVec2(0.0f));
+        normals.push_back(source.HasNormals() ? toFVec3(source.mNormals[i]) : math::FVec3(0.0f, 0.0f, 1.0f));
+        texcoords.push_back(source.HasTextureCoords(0) ? toTexcoord(source.mTextureCoords[0][i]) : math::FVec2(0.0f));
     }
 
     indices.reserve(static_cast<size_t>(source.mNumFaces) * 3);
     for (size_t i = 0; i < source.mNumFaces; ++i) {
         const aiFace& face = source.mFaces[i];
-        if (face.mNumIndices != 3) continue;
+        if (face.mNumIndices != 3)
+            continue;
 
         indices.push_back(face.mIndices[0]);
         indices.push_back(face.mIndices[1]);
         indices.push_back(face.mIndices[2]);
     }
-    if (indices.empty()) return {};
+    if (indices.empty())
+        return {};
 
     return buildStandardMesh(StandardMeshSource{
-        .positions = std::span<const math::FVec3>{positions},
-        .normals = std::span<const math::FVec3>{normals},
-        .texcoords = std::span<const math::FVec2>{texcoords},
-        .indices = std::span<const uint32_t>{indices},
-        .topology = graphics::PrimitiveTopology::TriangleList,
+            .positions = std::span<const math::FVec3>{ positions },
+            .normals = std::span<const math::FVec3>{ normals },
+            .texcoords = std::span<const math::FVec2>{ texcoords },
+            .indices = std::span<const uint32_t>{ indices },
+            .topology = graphics::PrimitiveTopology::TriangleList,
     });
 }
 
@@ -223,16 +224,15 @@ struct ImportedMeshRecord {
     std::string name;
 };
 
-std::vector<std::optional<ImportedMeshRecord>> importMeshAssets(
-    const aiScene& scene,
-    MeshImportBuilder& builder,
-    std::span<const asset::AssetId> materials,
-    ImportReport& report) {
+std::vector<std::optional<ImportedMeshRecord>> importMeshAssets(const aiScene& scene, MeshImportBuilder& builder,
+                                                                std::span<const asset::AssetId> materials,
+                                                                ImportReport& report) {
     std::vector<std::optional<ImportedMeshRecord>> records(scene.mNumMeshes);
 
     for (size_t i = 0; i < scene.mNumMeshes; ++i) {
         const aiMesh* source = scene.mMeshes[i];
-        if (!source || !source->HasPositions()) continue;
+        if (!source || !source->HasPositions())
+            continue;
 
         graphics::Mesh mesh = buildMesh(*source);
         if (mesh.empty()) {
@@ -245,62 +245,52 @@ std::vector<std::optional<ImportedMeshRecord>> importMeshAssets(
             material = materials[source->mMaterialIndex];
         }
 
-        std::string name = source->mName.length > 0
-            ? source->mName.C_Str()
-            : "Mesh_" + std::to_string(i);
+        std::string name = source->mName.length > 0 ? source->mName.C_Str() : "Mesh_" + std::to_string(i);
         builder.addPrimitive(std::move(mesh), material, std::move(name));
 
-        auto asset = builder.commitAsset(source->mName.length > 0
-            ? source->mName.C_Str()
-            : "MeshAsset_" + std::to_string(i));
+        auto asset = builder.commitAsset(source->mName.length > 0 ? source->mName.C_Str()
+                                                                  : "MeshAsset_" + std::to_string(i));
         if (!asset) {
             report.warnings.push_back("Failed to create imported mesh asset: " + std::to_string(i));
             continue;
         }
 
-        records[i] = ImportedMeshRecord{std::move(*asset), source->mName.length > 0
-            ? source->mName.C_Str()
-            : "Mesh_" + std::to_string(i)};
+        records[i] = ImportedMeshRecord{ std::move(*asset), source->mName.length > 0 ? source->mName.C_Str()
+                                                                                     : "Mesh_" + std::to_string(i) };
     }
 
     return records;
 }
 
-scene::EntityId createNodeEntity(io::Document& doc,
-                                 const std::string& name,
-                                 scene::EntityId parent,
-                                 const math::Mat4& local,
-                                 const math::Mat4& world,
-                                 ImportResult& result) {
+scene::EntityId createNodeEntity(io::Document& doc, const std::string& name, scene::EntityId parent,
+                                 const math::Mat4& local, const math::Mat4& world, ImportResult& result) {
     auto* scene = doc.scene();
-    if (!scene) return scene::EntityId::invalid();
+    if (!scene)
+        return scene::EntityId::invalid();
 
     scene::EntityId entity = scene->createEntity(name);
-    if (parent) scene->setParent(entity, parent);
+    if (parent)
+        scene->setParent(entity, parent);
     scene->setLocalTransform(entity, local);
     scene->setWorldTransform(entity, world);
     result.entities.push_back(entity);
     return entity;
 }
 
-void applyMeshToEntity(io::Document& doc,
-                       scene::EntityId entity,
-                       const ImportedMeshRecord& mesh,
+void applyMeshToEntity(io::Document& doc, scene::EntityId entity, const ImportedMeshRecord& mesh,
                        const math::Mat4& world) {
     auto* scene = doc.scene();
-    if (!scene || !entity) return;
+    if (!scene || !entity)
+        return;
 
     scene->setGeometry(entity, mesh.asset.geometry);
     scene->setMaterialSlots(entity, mesh.asset.materialSlots);
     scene->setWorldBounds(entity, transformBounds(mesh.asset.bounds, world));
 }
 
-void importNodeRecursive(const aiNode& node,
-                         io::Document& doc,
-                         std::span<const std::optional<ImportedMeshRecord>> meshes,
-                         scene::EntityId parent,
-                         const math::Mat4& parentWorld,
-                         ImportResult& result) {
+void importNodeRecursive(const aiNode& node, io::Document& doc,
+                         std::span<const std::optional<ImportedMeshRecord>> meshes, scene::EntityId parent,
+                         const math::Mat4& parentWorld, ImportResult& result) {
     const std::string nodeName = node.mName.length > 0 ? node.mName.C_Str() : "Node";
     const math::Mat4 local = toMat4(node.mTransformation);
     const math::Mat4 world = parentWorld * local;
@@ -323,12 +313,7 @@ void importNodeRecursive(const aiNode& node,
             }
 
             const ImportedMeshRecord& mesh = *meshes[meshIndex];
-            scene::EntityId meshEntity = createNodeEntity(doc,
-                                                          mesh.name,
-                                                          nodeEntity,
-                                                          math::Mat4{1.0},
-                                                          world,
-                                                          result);
+            scene::EntityId meshEntity = createNodeEntity(doc, mesh.name, nodeEntity, math::Mat4{ 1.0 }, world, result);
             applyMeshToEntity(doc, meshEntity, mesh, world);
         }
     }
@@ -340,28 +325,21 @@ void importNodeRecursive(const aiNode& node,
     }
 }
 
-} // namespace
+}  // namespace
 
-core::Result<ImportResult> AssimpImporter::import(const std::string& path,
-                       mulan::io::Document& doc,
-                       const ImportOptions& options) {
+core::Result<ImportResult> AssimpImporter::import(const std::string& path, mulan::io::Document& doc,
+                                                  const ImportOptions& options) {
     Assimp::Importer importer;
-    const unsigned int flags =
-        aiProcess_Triangulate |
-        aiProcess_JoinIdenticalVertices |
-        aiProcess_ImproveCacheLocality |
-        aiProcess_RemoveRedundantMaterials |
-        aiProcess_FindInvalidData |
-        aiProcess_GenUVCoords |
-        aiProcess_TransformUVCoords |
-        aiProcess_SortByPType |
-        (options.generateMissingNormals ? aiProcess_GenSmoothNormals : 0u);
+    const unsigned int flags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices |
+                               aiProcess_ImproveCacheLocality | aiProcess_RemoveRedundantMaterials |
+                               aiProcess_FindInvalidData | aiProcess_GenUVCoords | aiProcess_TransformUVCoords |
+                               aiProcess_SortByPType |
+                               (options.generateMissingNormals ? aiProcess_GenSmoothNormals : 0u);
 
     const aiScene* scene = importer.ReadFile(path, flags);
     if (!scene || !scene->mRootNode) {
         return std::unexpected(core::Error::make(
-            core::ErrorCode::Io,
-            std::string("Assimp failed to import model: ") + importer.GetErrorString()));
+                core::ErrorCode::Io, std::string("Assimp failed to import model: ") + importer.GetErrorString()));
     }
 
     MeshImportBuilder builder(doc);
@@ -371,11 +349,11 @@ core::Result<ImportResult> AssimpImporter::import(const std::string& path,
     ImportResult result;
     ImportReport importReport;
     auto meshes = importMeshAssets(*scene, builder, materials, importReport);
-    const bool hasMeshAsset = std::any_of(meshes.begin(), meshes.end(),
-                                          [](const auto& mesh) { return mesh.has_value(); });
+    const bool hasMeshAsset =
+            std::any_of(meshes.begin(), meshes.end(), [](const auto& mesh) { return mesh.has_value(); });
     if (!hasMeshAsset) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg,
-                                                "Imported model contains no renderable meshes"));
+        return std::unexpected(
+                core::Error::make(core::ErrorCode::InvalidArg, "Imported model contains no renderable meshes"));
     }
 
     if (options.flattenNodeHierarchy) {
@@ -387,28 +365,24 @@ core::Result<ImportResult> AssimpImporter::import(const std::string& path,
         importReport.warnings.push_back("Invalid import unit scale; using 1.0");
     }
 
-    const math::Mat4 rootWorld =
-        math::Mat4::scale(math::Vec3(unitScale));
+    const math::Mat4 rootWorld = math::Mat4::scale(math::Vec3(unitScale));
     importNodeRecursive(*scene->mRootNode, doc, meshes, scene::EntityId::invalid(), rootWorld, result);
     auto nodeWarnings = std::move(result.report.warnings);
 
     result.report = builder.report();
     result.report.entityCount = result.entities.size();
-    result.report.warnings.insert(result.report.warnings.end(),
-                                  importReport.warnings.begin(),
+    result.report.warnings.insert(result.report.warnings.end(), importReport.warnings.begin(),
                                   importReport.warnings.end());
-    result.report.warnings.insert(result.report.warnings.end(),
-                                  nodeWarnings.begin(),
-                                  nodeWarnings.end());
+    result.report.warnings.insert(result.report.warnings.end(), nodeWarnings.begin(), nodeWarnings.end());
     return result;
 }
 
 std::vector<std::string> AssimpImporter::supportedExtensions() const {
-    return {kSupportedExtensions.begin(), kSupportedExtensions.end()};
+    return { kSupportedExtensions.begin(), kSupportedExtensions.end() };
 }
 
 std::string AssimpImporter::name() const {
     return "Assimp Importer";
 }
 
-} // namespace mulan::io
+}  // namespace mulan::io

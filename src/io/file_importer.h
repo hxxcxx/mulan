@@ -25,12 +25,11 @@ class IO_API IFileImporter {
 public:
     virtual ~IFileImporter() = default;
 
-    virtual core::Result<ImportResult> import(const std::string& path,
-                                              Document& doc,
+    virtual core::Result<ImportResult> import(const std::string& path, Document& doc,
                                               const ImportOptions& options = {}) = 0;
 
     virtual std::vector<std::string> supportedExtensions() const = 0;
     virtual std::string name() const = 0;
 };
 
-} // namespace mulan::io
+}  // namespace mulan::io

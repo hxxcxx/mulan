@@ -25,7 +25,7 @@ using graphics::PrimitiveTopology;
 // ============================================================
 
 enum class CullMode : uint8_t {
-    None,    // 双面渲染
+    None,  // 双面渲染
     Front,
     Back,
 };
@@ -67,26 +67,26 @@ enum class StencilOp : uint8_t {
 };
 
 struct DepthStencilOpDesc {
-    StencilOp  failOp      = StencilOp::Keep;
-    StencilOp  depthFailOp = StencilOp::Keep;
-    StencilOp  passOp      = StencilOp::Keep;
-    CompareFunc func       = CompareFunc::Always;
+    StencilOp failOp = StencilOp::Keep;
+    StencilOp depthFailOp = StencilOp::Keep;
+    StencilOp passOp = StencilOp::Keep;
+    CompareFunc func = CompareFunc::Always;
 };
 
 struct DepthStencilDesc {
-    bool             depthEnable   = true;
-    bool             depthWrite    = true;
-    CompareFunc      depthFunc     = CompareFunc::LessEqual;
-    bool             stencilEnable = false;
-    uint8_t          stencilReadMask  = 0xFF;
-    uint8_t          stencilWriteMask = 0xFF;
+    bool depthEnable = true;
+    bool depthWrite = true;
+    CompareFunc depthFunc = CompareFunc::LessEqual;
+    bool stencilEnable = false;
+    uint8_t stencilReadMask = 0xFF;
+    uint8_t stencilWriteMask = 0xFF;
     DepthStencilOpDesc frontFace;
     DepthStencilOpDesc backFace;
 
     // 深度偏移（用于边线渲染防 z-fighting）
-    float            depthBias     = 0.0f;
-    float            depthBiasClamp = 0.0f;
-    float            slopeScaledDepthBias = 0.0f;
+    float depthBias = 0.0f;
+    float depthBiasClamp = 0.0f;
+    float slopeScaledDepthBias = 0.0f;
 };
 
 // ============================================================
@@ -115,20 +115,20 @@ enum class BlendOp : uint8_t {
 };
 
 struct RenderTargetBlendDesc {
-    bool       blendEnable   = false;
-    BlendFactor srcBlend     = BlendFactor::One;
-    BlendFactor dstBlend     = BlendFactor::Zero;
-    BlendOp     blendOp      = BlendOp::Add;
+    bool blendEnable = false;
+    BlendFactor srcBlend = BlendFactor::One;
+    BlendFactor dstBlend = BlendFactor::Zero;
+    BlendOp blendOp = BlendOp::Add;
     BlendFactor srcBlendAlpha = BlendFactor::One;
     BlendFactor dstBlendAlpha = BlendFactor::Zero;
-    BlendOp     blendOpAlpha = BlendOp::Add;
-    uint8_t     writeMask    = 0x0F;  // RGBA
+    BlendOp blendOpAlpha = BlendOp::Add;
+    uint8_t writeMask = 0x0F;  // RGBA
 };
 
 struct BlendDesc {
-    bool                   alphaToCoverage = false;
-    bool                   independentBlend = false;
-    RenderTargetBlendDesc  renderTargets[8];
+    bool alphaToCoverage = false;
+    bool independentBlend = false;
+    RenderTargetBlendDesc renderTargets[8];
 };
 
 // ============================================================
@@ -150,27 +150,25 @@ enum class SamplerAddressMode : uint8_t {
 };
 
 struct SamplerDesc {
-    SamplerFilter     minFilter   = SamplerFilter::Linear;
-    SamplerFilter     magFilter   = SamplerFilter::Linear;
-    SamplerFilter     mipFilter   = SamplerFilter::Linear;
-    SamplerAddressMode addressU   = SamplerAddressMode::Repeat;
-    SamplerAddressMode addressV   = SamplerAddressMode::Repeat;
-    SamplerAddressMode addressW   = SamplerAddressMode::Repeat;
-    float             maxAniso    = 16.0f;
-    float             mipLodBias  = 0.0f;
-    float             minLod      = -1000.0f;
-    float             maxLod      = 1000.0f;
-    CompareFunc       compareFunc = CompareFunc::Never;
-    float             borderColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    bool              anisotropyEnable = false;
-    bool              compareEnable    = false;
-    std::string_view  debugName;
+    SamplerFilter minFilter = SamplerFilter::Linear;
+    SamplerFilter magFilter = SamplerFilter::Linear;
+    SamplerFilter mipFilter = SamplerFilter::Linear;
+    SamplerAddressMode addressU = SamplerAddressMode::Repeat;
+    SamplerAddressMode addressV = SamplerAddressMode::Repeat;
+    SamplerAddressMode addressW = SamplerAddressMode::Repeat;
+    float maxAniso = 16.0f;
+    float mipLodBias = 0.0f;
+    float minLod = -1000.0f;
+    float maxLod = 1000.0f;
+    CompareFunc compareFunc = CompareFunc::Never;
+    float borderColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    bool anisotropyEnable = false;
+    bool compareEnable = false;
+    std::string_view debugName;
 
     // 便捷构造
 
-    static SamplerDesc linear() {
-        return {};
-    }
+    static SamplerDesc linear() { return {}; }
 
     static SamplerDesc linearClamp() {
         SamplerDesc d;
@@ -196,4 +194,4 @@ struct SamplerDesc {
     }
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

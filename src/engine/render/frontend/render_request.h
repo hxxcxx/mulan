@@ -43,4 +43,4 @@ struct RenderRequest {
     RenderOptions options;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

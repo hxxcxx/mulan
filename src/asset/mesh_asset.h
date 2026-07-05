@@ -25,18 +25,14 @@ struct MeshPrimitive {
 class MeshAsset : public GeometryAsset {
 public:
     MeshAsset(AssetId id, std::string name, graphics::Mesh mesh = {})
-        : GeometryAsset(id, AssetKind::Mesh, std::move(name))
-    {
+        : GeometryAsset(id, AssetKind::Mesh, std::move(name)) {
         if (!mesh.empty()) {
             addPrimitive(std::move(mesh));
         }
     }
 
     MeshAsset(AssetId id, std::string name, std::vector<MeshPrimitive> primitives)
-        : GeometryAsset(id, AssetKind::Mesh, std::move(name))
-        , primitives_(std::move(primitives))
-    {
-    }
+        : GeometryAsset(id, AssetKind::Mesh, std::move(name)), primitives_(std::move(primitives)) {}
 
     const std::vector<MeshPrimitive>& primitives() const { return primitives_; }
     std::vector<MeshPrimitive>& primitives() { return primitives_; }
@@ -48,7 +44,7 @@ public:
     void collectDrawables(std::vector<Drawable>& out) const override {
         for (const auto& p : primitives_) {
             if (!p.mesh.empty())
-                out.push_back({&p.mesh, p.material, DrawableRole::Solid});
+                out.push_back({ &p.mesh, p.material, DrawableRole::Solid });
         }
     }
 
@@ -56,15 +52,14 @@ public:
     math::AABB3 localBounds() const override {
         math::AABB3 b = math::AABB3::empty();
         for (const auto& p : primitives_) {
-            if (!p.mesh.bounds.isEmpty()) b.expand(p.mesh.bounds);
+            if (!p.mesh.bounds.isEmpty())
+                b.expand(p.mesh.bounds);
         }
         return b;
     }
 
-    MeshPrimitive& addPrimitive(graphics::Mesh mesh,
-                                AssetId material = AssetId::invalid(),
-                                std::string name = {}) {
-        primitives_.push_back(MeshPrimitive{std::move(mesh), material, std::move(name)});
+    MeshPrimitive& addPrimitive(graphics::Mesh mesh, AssetId material = AssetId::invalid(), std::string name = {}) {
+        primitives_.push_back(MeshPrimitive{ std::move(mesh), material, std::move(name) });
         return primitives_.back();
     }
 
@@ -82,4 +77,4 @@ private:
     std::vector<MeshPrimitive> primitives_;
 };
 
-} // namespace mulan::asset
+}  // namespace mulan::asset

@@ -36,10 +36,7 @@ public:
     /// @param atlasWidth   图集宽度（默认 1024）
     /// @param atlasHeight  图集高度（默认 1024）
     /// @return true 成功
-    bool load(const char* fontPath,
-              float fontSize = 48.0f,
-              uint32_t atlasWidth = 1024,
-              uint32_t atlasHeight = 1024);
+    bool load(const char* fontPath, float fontSize = 48.0f, uint32_t atlasWidth = 1024, uint32_t atlasHeight = 1024);
 
     /// 查找字形信息，未找到返回 nullptr
     const GlyphInfo* getGlyph(uint32_t unicode) const;
@@ -67,15 +64,15 @@ private:
     /// 将 msdf-atlas-gen 生成的像素数据上传到 GPU
     bool uploadAtlas(const std::vector<uint8_t>& rgbaData);
 
-    RHIDevice*                             device_;
-    std::unique_ptr<Texture>                   texture_;
-    std::unique_ptr<Sampler>                   sampler_;
+    RHIDevice* device_;
+    std::unique_ptr<Texture> texture_;
+    std::unique_ptr<Sampler> sampler_;
     std::unordered_map<uint32_t, GlyphInfo> glyphs_;
 
-    float     base_font_size_ = 48.0f;
-    float     px_range_      = 4.0f;
-    uint32_t  atlas_width_   = 0;
-    uint32_t  atlas_height_  = 0;
+    float base_font_size_ = 48.0f;
+    float px_range_ = 4.0f;
+    uint32_t atlas_width_ = 0;
+    uint32_t atlas_height_ = 0;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

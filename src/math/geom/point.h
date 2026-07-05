@@ -57,11 +57,21 @@ struct Point3 {
 
     // ---------- 仿射运算 ----------
 
-    Point3& operator+=(const Vec3& v) { x += v.x; y += v.y; z += v.z; return *this; }
-    Point3& operator-=(const Vec3& v) { x -= v.x; y -= v.y; z -= v.z; return *this; }
+    Point3& operator+=(const Vec3& v) {
+        x += v.x;
+        y += v.y;
+        z += v.z;
+        return *this;
+    }
+    Point3& operator-=(const Vec3& v) {
+        x -= v.x;
+        y -= v.y;
+        z -= v.z;
+        return *this;
+    }
 
     // 下标（方便与 Vec 风格代码互通）
-    double&       operator[](int i)       { return (i == 0) ? x : (i == 1) ? y : z; }
+    double& operator[](int i) { return (i == 0) ? x : (i == 1) ? y : z; }
     const double& operator[](int i) const { return (i == 0) ? x : (i == 1) ? y : z; }
 
     // ---------- 工厂 ----------
@@ -75,7 +85,8 @@ struct Point3 {
     double distanceSq(const Point3& o) const { return (asVec() - o.asVec()).lengthSq(); }
 
     // ---------- 矩阵变换（成员声明；定义见文件末尾）----------
-    template<typename U> Point3 transformedBy(const Mat4T<U>& m) const;
+    template <typename U>
+    Point3 transformedBy(const Mat4T<U>& m) const;
 };
 
 // ---------- 仿射自由函数 ----------
@@ -88,7 +99,9 @@ inline constexpr Vec3 operator-(const Point3& a, const Point3& b) {
 inline constexpr Point3 operator+(const Point3& p, const Vec3& v) {
     return Point3(p.x + v.x, p.y + v.y, p.z + v.z);
 }
-inline constexpr Point3 operator+(const Vec3& v, const Point3& p) { return p + v; }
+inline constexpr Point3 operator+(const Vec3& v, const Point3& p) {
+    return p + v;
+}
 /// Point - Vec = Point
 inline constexpr Point3 operator-(const Point3& p, const Vec3& v) {
     return Point3(p.x - v.x, p.y - v.y, p.z - v.z);
@@ -102,13 +115,13 @@ inline constexpr Point3 operator-(const Point3& p) {
 inline bool operator==(const Point3& a, const Point3& b) {
     return a.x == b.x && a.y == b.y && a.z == b.z;
 }
-inline bool operator!=(const Point3& a, const Point3& b) { return !(a == b); }
+inline bool operator!=(const Point3& a, const Point3& b) {
+    return !(a == b);
+}
 
 /// 线性插值两点（t∈[0,1]），结果为 Point
 inline Point3 lerp(const Point3& a, const Point3& b, double t) {
-    return Point3(a.x + (b.x - a.x) * t,
-                  a.y + (b.y - a.y) * t,
-                  a.z + (b.z - a.z) * t);
+    return Point3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t);
 }
 
 /// 两点距离（便捷）
@@ -132,10 +145,18 @@ struct Point2 {
     constexpr Vec2 asVec() const { return Vec2(x, y); }
     explicit operator Vec2() const { return asVec(); }
 
-    Point2& operator+=(const Vec2& v) { x += v.x; y += v.y; return *this; }
-    Point2& operator-=(const Vec2& v) { x -= v.x; y -= v.y; return *this; }
+    Point2& operator+=(const Vec2& v) {
+        x += v.x;
+        y += v.y;
+        return *this;
+    }
+    Point2& operator-=(const Vec2& v) {
+        x -= v.x;
+        y -= v.y;
+        return *this;
+    }
 
-    double&       operator[](int i)       { return (i == 0) ? x : y; }
+    double& operator[](int i) { return (i == 0) ? x : y; }
     const double& operator[](int i) const { return (i == 0) ? x : y; }
 
     static constexpr Point2 origin() { return Point2(0.0, 0.0); }
@@ -153,7 +174,9 @@ inline constexpr Vec2 operator-(const Point2& a, const Point2& b) {
 inline constexpr Point2 operator+(const Point2& p, const Vec2& v) {
     return Point2(p.x + v.x, p.y + v.y);
 }
-inline constexpr Point2 operator+(const Vec2& v, const Point2& p) { return p + v; }
+inline constexpr Point2 operator+(const Vec2& v, const Point2& p) {
+    return p + v;
+}
 inline constexpr Point2 operator-(const Point2& p, const Vec2& v) {
     return Point2(p.x - v.x, p.y - v.y);
 }
@@ -164,11 +187,12 @@ inline constexpr Point2 operator-(const Point2& p) {
 inline bool operator==(const Point2& a, const Point2& b) {
     return a.x == b.x && a.y == b.y;
 }
-inline bool operator!=(const Point2& a, const Point2& b) { return !(a == b); }
+inline bool operator!=(const Point2& a, const Point2& b) {
+    return !(a == b);
+}
 
 inline Point2 lerp(const Point2& a, const Point2& b, double t) {
-    return Point2(a.x + (b.x - a.x) * t,
-                  a.y + (b.y - a.y) * t);
+    return Point2(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
 }
 
 inline double distance(const Point2& a, const Point2& b) {
@@ -181,8 +205,8 @@ inline double distance(const Point2& a, const Point2& b) {
 
 // ---- Vec3 的方向 / 法向变换 ----
 
-template<typename T>
-template<typename U>
+template <typename T>
+template <typename U>
 inline Vec3T<T> Vec3T<T>::transformedAsDir(const Mat4T<U>& m) const {
     // w = 0，忽略平移：取左上 3x3
     return Vec3T<T>(static_cast<T>(m[0].x * x + m[1].x * y + m[2].x * z),
@@ -190,8 +214,8 @@ inline Vec3T<T> Vec3T<T>::transformedAsDir(const Mat4T<U>& m) const {
                     static_cast<T>(m[0].z * x + m[1].z * y + m[2].z * z));
 }
 
-template<typename T>
-template<typename U>
+template <typename T>
+template <typename U>
 inline Vec3T<T> Vec3T<T>::transformedAsNormal(const Mat4T<U>& m) const {
     // 法向变换 = (M^-1)^T 的左上 3x3 作用于向量
     Mat4T<U> invT = m.inverse().transposed();
@@ -203,10 +227,10 @@ inline Vec3T<T> Vec3T<T>::transformedAsNormal(const Mat4T<U>& m) const {
 
 // ---- Point3 的点变换（w = 1，含平移）----
 
-template<typename U>
+template <typename U>
 inline Point3 Point3::transformedBy(const Mat4T<U>& m) const {
     Vec4 r = m * Vec4(x, y, z, 1.0);
     return Point3(r.x, r.y, r.z);
 }
 
-} // namespace mulan::math
+}  // namespace mulan::math

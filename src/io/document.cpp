@@ -12,10 +12,10 @@
 namespace mulan::io {
 
 Document::Document(std::string displayName)
-    : scene_(std::make_unique<scene::Scene>())
-    , assets_(std::make_unique<asset::AssetLibrary>())
-    , display_name_(std::move(displayName))
-{}
+    : scene_(std::make_unique<scene::Scene>()),
+      assets_(std::make_unique<asset::AssetLibrary>()),
+      display_name_(std::move(displayName)) {
+}
 
 Document::~Document() = default;
 
@@ -37,7 +37,8 @@ scene::EntityId Document::addMesh(std::string name, std::vector<asset::MeshPrimi
     std::string meshName = std::move(name);
 
     auto* mesh = assets_->create<asset::MeshAsset>(meshName);
-    if (!mesh) return scene::EntityId::invalid();
+    if (!mesh)
+        return scene::EntityId::invalid();
 
     math::AABB3 bounds = math::AABB3::empty();
     std::vector<asset::AssetId> materialSlots;
@@ -57,10 +58,10 @@ scene::EntityId Document::addMesh(std::string name, std::vector<asset::MeshPrimi
     return sceneId;
 }
 
-scene::EntityId Document::addSceneInstance(std::string name,
-                                           asset::AssetId geometry,
+scene::EntityId Document::addSceneInstance(std::string name, asset::AssetId geometry,
                                            std::vector<asset::AssetId> materialSlots) {
-    if (!scene_) return scene::EntityId::invalid();
+    if (!scene_)
+        return scene::EntityId::invalid();
 
     scene::EntityId id = scene_->createEntity(std::move(name));
     scene_->setGeometry(id, geometry);
@@ -68,4 +69,4 @@ scene::EntityId Document::addSceneInstance(std::string name,
     return id;
 }
 
-} // namespace mulan::io
+}  // namespace mulan::io

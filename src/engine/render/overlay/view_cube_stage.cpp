@@ -22,7 +22,7 @@ namespace layouts = graphics::layouts;
 // 立方体几何常量
 // ============================================================
 
-static constexpr float kHalf = 0.5f;   // 半边长
+static constexpr float kHalf = 0.5f;  // 半边长
 
 /// 6个面定义：normal, up, 面颜色(线性), 边线颜色
 static const struct {
@@ -31,25 +31,25 @@ static const struct {
     float color[3];
 } kFaces[6] = {
     // Front  (+Z)
-    {{ 0, 0, 1},  { 0, 1, 0},  {0.35f, 0.65f, 0.35f}},
+    { { 0, 0, 1 }, { 0, 1, 0 }, { 0.35f, 0.65f, 0.35f } },
     // Back   (-Z)
-    {{ 0, 0,-1},  { 0, 1, 0},  {0.65f, 0.35f, 0.35f}},
+    { { 0, 0, -1 }, { 0, 1, 0 }, { 0.65f, 0.35f, 0.35f } },
     // Left   (-X)
-    {{-1, 0, 0},  { 0, 1, 0},  {0.35f, 0.35f, 0.65f}},
+    { { -1, 0, 0 }, { 0, 1, 0 }, { 0.35f, 0.35f, 0.65f } },
     // Right  (+X)
-    {{ 1, 0, 0},  { 0, 1, 0},  {0.65f, 0.65f, 0.35f}},
+    { { 1, 0, 0 }, { 0, 1, 0 }, { 0.65f, 0.65f, 0.35f } },
     // Top    (+Y)
-    {{ 0, 1, 0},  { 0, 0,-1},  {0.85f, 0.85f, 0.85f}},
+    { { 0, 1, 0 }, { 0, 0, -1 }, { 0.85f, 0.85f, 0.85f } },
     // Bottom (-Y)
-    {{ 0,-1, 0},  { 0, 0, 1},  {0.45f, 0.45f, 0.45f}},
+    { { 0, -1, 0 }, { 0, 0, 1 }, { 0.45f, 0.45f, 0.45f } },
 };
 
 // ============================================================
 // 构造 / 析构
 // ============================================================
 
-ViewCubeStage::ViewCubeStage(RHIDevice& device)
-    : device_(&device) {}
+ViewCubeStage::ViewCubeStage(RHIDevice& device) : device_(&device) {
+}
 
 ViewCubeStage::~ViewCubeStage() {
     edge_ib_.reset();
@@ -71,7 +71,8 @@ core::Result<void> ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo
 
     // --- UBO ---
     uint32_t uboAlign = device_->capabilities().minUniformBufferOffsetAlignment;
-    if (uboAlign == 0) uboAlign = 256;
+    if (uboAlign == 0)
+        uboAlign = 256;
     auto alignUp32 = [](uint32_t value, uint32_t alignment) -> uint32_t {
         return (value + alignment - 1) & ~(alignment - 1);
     };
@@ -79,18 +80,21 @@ core::Result<void> ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo
 
     {
         auto r = device_->createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "ViewCube_SceneUBO"));
-        if (!r) return std::unexpected(r.error());
+        if (!r)
+            return std::unexpected(r.error());
         scene_ubo_ = std::move(*r);
     }
     {
         auto r = device_->createBuffer(BufferDesc::uniform(sizeof(ObjectUniforms), "ViewCube_ObjectUBO"));
-        if (!r) return std::unexpected(r.error());
+        if (!r)
+            return std::unexpected(r.error());
         object_ubo_ = std::move(*r);
     }
     {
         auto r = device_->createBuffer(BufferDesc::uniform(material_stride_ * kFaceCount, "ViewCube_MaterialUBO"));
-        if (!r) return std::unexpected(r.error());
-        material_ubo_= std::move(*r);
+        if (!r)
+            return std::unexpected(r.error());
+        material_ubo_ = std::move(*r);
     }
 
     // --- 初始化面材质 ---
@@ -100,10 +104,10 @@ core::Result<void> ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo
         m.baseColor[0] = kFaces[i].color[0];
         m.baseColor[1] = kFaces[i].color[1];
         m.baseColor[2] = kFaces[i].color[2];
-        m.metallic     = 0.0f;
-        m.roughness    = 0.8f;
-        m.alpha        = 1.0f;
-        m.ao           = 1.0f;   // 无 AO 纹理时必须为 1，否则 PBR 的 IBL 环境光被乘 0 → 背光面纯黑
+        m.metallic = 0.0f;
+        m.roughness = 0.8f;
+        m.alpha = 1.0f;
+        m.ao = 1.0f;  // 无 AO 纹理时必须为 1，否则 PBR 的 IBL 环境光被乘 0 → 背光面纯黑
         m.materialType = 0;
     }
 
@@ -112,8 +116,8 @@ core::Result<void> ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo
 
     // --- 几何体 ---
     if (!createGeometry()) {
-        return std::unexpected(makeError(EngineErrorCode::PipelineCreateFailed,
-                                        "ViewCubeStage geometry creation failed"));
+        return std::unexpected(
+                makeError(EngineErrorCode::PipelineCreateFailed, "ViewCubeStage geometry creation failed"));
     }
 
     initialized_ = true;
@@ -144,7 +148,8 @@ void ViewCubeStage::setFallbackResources(Texture* defaultWhite, Sampler* default
 }
 
 void ViewCubeStage::execute(RenderFrame& frame) {
-    if (!frame.view.showViewCube) return;
+    if (!frame.view.showViewCube)
+        return;
     render(&frame.cmd, frame.view.viewMatrix, frame.view.width, frame.view.height);
 }
 
@@ -153,8 +158,10 @@ void ViewCubeStage::execute(RenderFrame& frame) {
 // ============================================================
 
 bool ViewCubeStage::createGeometry() {
-    if (!createFaceGeometry()) return false;
-    if (!createEdgeGeometry()) return false;
+    if (!createFaceGeometry())
+        return false;
+    if (!createEdgeGeometry())
+        return false;
     return true;
 }
 
@@ -162,7 +169,7 @@ bool ViewCubeStage::createFaceGeometry() {
     // 每个面 4 个顶点，6 个面 = 24 个顶点
     // 每个面 6 个索引（2个三角形），6 个面 = 36 个索引
     std::array<CubeVertex, 24> verts;
-    std::array<uint32_t, 36>  indices;
+    std::array<uint32_t, 36> indices;
 
     float h = kHalf;
 
@@ -188,20 +195,21 @@ bool ViewCubeStage::createFaceGeometry() {
         // v2 = center + right*h + up*h
         // v3 = center - right*h + up*h
         auto makeVert = [&](float sr, float su) -> CubeVertex {
-            return {
-                cx + rx*sr*h + ux*su*h,
-                cy + ry*sr*h + uy*su*h,
-                cz + rz*sr*h + uz*su*h,
-                nx, ny, nz,
-                sr * 0.5f + 0.5f, su * 0.5f + 0.5f
-            };
+            return { cx + rx * sr * h + ux * su * h,
+                     cy + ry * sr * h + uy * su * h,
+                     cz + rz * sr * h + uz * su * h,
+                     nx,
+                     ny,
+                     nz,
+                     sr * 0.5f + 0.5f,
+                     su * 0.5f + 0.5f };
         };
 
         int base = f * 4;
         verts[base + 0] = makeVert(-1, -1);
-        verts[base + 1] = makeVert( 1, -1);
-        verts[base + 2] = makeVert( 1,  1);
-        verts[base + 3] = makeVert(-1,  1);
+        verts[base + 1] = makeVert(1, -1);
+        verts[base + 2] = makeVert(1, 1);
+        verts[base + 3] = makeVert(-1, 1);
 
         int ib = f * 6;
         indices[ib + 0] = base + 0;
@@ -216,14 +224,20 @@ bool ViewCubeStage::createFaceGeometry() {
 
     {
         auto r = device_->createBuffer(
-            BufferDesc::vertex(sizeof(CubeVertex) * verts.size(), verts.data(), "ViewCube_FaceVB"));
-        if (!r) { std::fprintf(stderr, "[ViewCube] createBuffer FaceVB: %s\n", r.error().message.c_str()); return false; }
+                BufferDesc::vertex(sizeof(CubeVertex) * verts.size(), verts.data(), "ViewCube_FaceVB"));
+        if (!r) {
+            std::fprintf(stderr, "[ViewCube] createBuffer FaceVB: %s\n", r.error().message.c_str());
+            return false;
+        }
         face_vb_ = std::move(*r);
     }
     {
         auto r = device_->createBuffer(
-            BufferDesc::index(sizeof(uint32_t) * indices.size(), indices.data(), "ViewCube_FaceIB"));
-        if (!r) { std::fprintf(stderr, "[ViewCube] createBuffer FaceIB: %s\n", r.error().message.c_str()); return false; }
+                BufferDesc::index(sizeof(uint32_t) * indices.size(), indices.data(), "ViewCube_FaceIB"));
+        if (!r) {
+            std::fprintf(stderr, "[ViewCube] createBuffer FaceIB: %s\n", r.error().message.c_str());
+            return false;
+        }
         face_ib_ = std::move(*r);
     }
     return true;
@@ -236,27 +250,27 @@ bool ViewCubeStage::createEdgeGeometry() {
 
     // 8 个角点
     float corners[8][3] = {
-        {-h, -h, -h}, { h, -h, -h}, { h,  h, -h}, {-h,  h, -h},  // back face
-        {-h, -h,  h}, { h, -h,  h}, { h,  h,  h}, {-h,  h,  h},  // front face
+        { -h, -h, -h }, { h, -h, -h }, { h, h, -h }, { -h, h, -h },  // back face
+        { -h, -h, h },  { h, -h, h },  { h, h, h },  { -h, h, h },   // front face
     };
 
     // 12 条边的索引对
     static constexpr int edgePairs[12][2] = {
-        {0,1}, {1,2}, {2,3}, {3,0},   // back
-        {4,5}, {5,6}, {6,7}, {7,4},   // front
-        {0,4}, {1,5}, {2,6}, {3,7},   // connecting
+        { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 },  // back
+        { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 },  // front
+        { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 },  // connecting
     };
 
     std::array<CubeVertex, 24> verts;
-    std::array<uint32_t, 24>   indices;
+    std::array<uint32_t, 24> indices;
 
     for (int i = 0; i < 12; ++i) {
         int a = edgePairs[i][0];
         int b = edgePairs[i][1];
 
         // 使用一个默认法线（边线渲染不依赖法线）
-        verts[i * 2 + 0] = {corners[a][0], corners[a][1], corners[a][2], 0,1,0, 0,0};
-        verts[i * 2 + 1] = {corners[b][0], corners[b][1], corners[b][2], 0,1,0, 1,0};
+        verts[i * 2 + 0] = { corners[a][0], corners[a][1], corners[a][2], 0, 1, 0, 0, 0 };
+        verts[i * 2 + 1] = { corners[b][0], corners[b][1], corners[b][2], 0, 1, 0, 1, 0 };
 
         indices[i * 2 + 0] = i * 2 + 0;
         indices[i * 2 + 1] = i * 2 + 1;
@@ -266,14 +280,20 @@ bool ViewCubeStage::createEdgeGeometry() {
 
     {
         auto r = device_->createBuffer(
-            BufferDesc::vertex(sizeof(CubeVertex) * verts.size(), verts.data(), "ViewCube_EdgeVB"));
-        if (!r) { std::fprintf(stderr, "[ViewCube] createBuffer EdgeVB: %s\n", r.error().message.c_str()); return false; }
+                BufferDesc::vertex(sizeof(CubeVertex) * verts.size(), verts.data(), "ViewCube_EdgeVB"));
+        if (!r) {
+            std::fprintf(stderr, "[ViewCube] createBuffer EdgeVB: %s\n", r.error().message.c_str());
+            return false;
+        }
         edge_vb_ = std::move(*r);
     }
     {
         auto r = device_->createBuffer(
-            BufferDesc::index(sizeof(uint32_t) * indices.size(), indices.data(), "ViewCube_EdgeIB"));
-        if (!r) { std::fprintf(stderr, "[ViewCube] createBuffer EdgeIB: %s\n", r.error().message.c_str()); return false; }
+                BufferDesc::index(sizeof(uint32_t) * indices.size(), indices.data(), "ViewCube_EdgeIB"));
+        if (!r) {
+            std::fprintf(stderr, "[ViewCube] createBuffer EdgeIB: %s\n", r.error().message.c_str());
+            return false;
+        }
         edge_ib_ = std::move(*r);
     }
     return true;
@@ -283,20 +303,20 @@ bool ViewCubeStage::createEdgeGeometry() {
 // 渲染
 // ============================================================
 
-void ViewCubeStage::render(CommandList* cmd,
-                           const math::Mat4& mainViewMatrix,
-                           uint32_t vpWidth, uint32_t vpHeight) {
-    if (!initialized_ || !cmd || !solid_pso_) return;
+void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, uint32_t vpWidth, uint32_t vpHeight) {
+    if (!initialized_ || !cmd || !solid_pso_)
+        return;
 
     // --- 1. 计算 ViewCube 视口（右下角）---
-    uint32_t size   = cube_size_;
+    uint32_t size = cube_size_;
     uint32_t margin = margin_;
-    int32_t vx = static_cast<int32_t>(vpWidth)  - static_cast<int32_t>(size + margin);
+    int32_t vx = static_cast<int32_t>(vpWidth) - static_cast<int32_t>(size + margin);
     int32_t vy = static_cast<int32_t>(vpHeight) - static_cast<int32_t>(size + margin);
 
-    Viewport cubeVP{static_cast<float>(vx), static_cast<float>(vy),
-                    static_cast<float>(size), static_cast<float>(size), 0.0f, 1.0f};
-    ScissorRect cubeScissor{vx, vy, static_cast<int32_t>(size), static_cast<int32_t>(size)};
+    Viewport cubeVP{
+        static_cast<float>(vx), static_cast<float>(vy), static_cast<float>(size), static_cast<float>(size), 0.0f, 1.0f
+    };
+    ScissorRect cubeScissor{ vx, vy, static_cast<int32_t>(size), static_cast<int32_t>(size) };
     cmd->setViewport(cubeVP);
     cmd->setScissorRect(cubeScissor);
 
@@ -306,8 +326,7 @@ void ViewCubeStage::render(CommandList* cmd,
     cubeView[3] = math::Vec4(0, 0, -3.5, 1);
 
     double orthoSize = 1.2;
-    math::Mat4 cubeProj = math::Mat4::ortho(-orthoSize, orthoSize,
-                                            -orthoSize, orthoSize, 0.1, 10.0);
+    math::Mat4 cubeProj = math::Mat4::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, 0.1, 10.0);
     math::Mat4 corrProj = device_->clipSpaceCorrectionMatrix() * cubeProj;
     math::Mat4 cubeVP_mat = corrProj * cubeView;
 
@@ -334,20 +353,21 @@ void ViewCubeStage::render(CommandList* cmd,
         const uint64_t hash = solid_pso_->bindGroupLayout().hash();
         if (!face_bg_ || face_bg_layout_hash_ != hash) {
             BindGroupDesc bg;
-            bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUniforms))
-              .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUniforms))
-              .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
+            bg.addUBO(0, scene_ubo_.get(), 0, sizeof(SceneUniforms))
+                    .addUBO(1, object_ubo_.get(), 0, sizeof(ObjectUniforms))
+                    .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
             if (default_white_) {
                 bg.addTexture(3, default_white_)
-                  .addTexture(4, default_white_)
-                  .addTexture(5, default_white_)
-                  .addTexture(6, default_white_)
-                  .addTexture(7, default_white_);
-                if (default_sampler_) bg.addSampler(8, default_sampler_);
+                        .addTexture(4, default_white_)
+                        .addTexture(5, default_white_)
+                        .addTexture(6, default_white_)
+                        .addTexture(7, default_white_);
+                if (default_sampler_)
+                    bg.addSampler(8, default_sampler_);
                 // IBL 三件套（binding 9/10/11）：ViewCube 是 UI 元素，不需要真实 IBL，
                 // 但 PSO layout 声明了这些 binding，必须填上避免 "descriptor never updated"。
                 // 用 defaultWhite 占位即可（shader 采到白色，影响微乎其微）。
-                bg.addTexture(9,  default_white_);
+                bg.addTexture(9, default_white_);
                 bg.addTexture(10, default_white_);
                 bg.addTexture(11, default_white_);
             }
@@ -361,13 +381,13 @@ void ViewCubeStage::render(CommandList* cmd,
 
     for (int f = 0; f < kFaceCount; ++f) {
         if (face_bg_)
-            face_bg_->updateUBO(2, material_ubo_.get(),
-                                f * material_stride_, sizeof(MaterialGPU));
-        if (face_bg_) cmd->bindGroup(*face_bg_);
+            face_bg_->updateUBO(2, material_ubo_.get(), f * material_stride_, sizeof(MaterialGPU));
+        if (face_bg_)
+            cmd->bindGroup(*face_bg_);
 
         cmd->setVertexBuffer(0, face_vb_.get());
         cmd->setIndexBuffer(face_ib_.get());
-        cmd->drawIndexed(DrawIndexedAttribs{6, 1, static_cast<uint32_t>(f * 6)});
+        cmd->drawIndexed(DrawIndexedAttribs{ 6, 1, static_cast<uint32_t>(f * 6) });
     }
 
     // --- 6. 渲染边线 ---
@@ -376,37 +396,38 @@ void ViewCubeStage::render(CommandList* cmd,
         const uint64_t hash = edge_pso_->bindGroupLayout().hash();
         if (!edge_bg_ || edge_bg_layout_hash_ != hash) {
             BindGroupDesc bg;
-            bg.addUBO(0, scene_ubo_.get(),   0, sizeof(SceneUniforms))
-              .addUBO(1, object_ubo_.get(),   0, sizeof(ObjectUniforms))
-              .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
+            bg.addUBO(0, scene_ubo_.get(), 0, sizeof(SceneUniforms))
+                    .addUBO(1, object_ubo_.get(), 0, sizeof(ObjectUniforms))
+                    .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
             auto r = device_->createBindGroup(edge_pso_->bindGroupLayout(), bg);
             if (r) {
                 edge_bg_ = std::move(*r);
                 edge_bg_layout_hash_ = hash;
             }
         }
-        if (edge_bg_) cmd->bindGroup(*edge_bg_);
+        if (edge_bg_)
+            cmd->bindGroup(*edge_bg_);
         cmd->setVertexBuffer(0, edge_vb_.get());
         cmd->setIndexBuffer(edge_ib_.get());
-        cmd->drawIndexed(DrawIndexedAttribs{edge_index_count_});
+        cmd->drawIndexed(DrawIndexedAttribs{ edge_index_count_ });
     }
 
     // --- 7. 恢复全屏视口 ---
-    cmd->setViewport({0.0f, 0.0f, static_cast<float>(vpWidth),
-                      static_cast<float>(vpHeight), 0.0f, 1.0f});
-    cmd->setScissorRect({0, 0, static_cast<int32_t>(vpWidth),
-                         static_cast<int32_t>(vpHeight)});
+    cmd->setViewport({ 0.0f, 0.0f, static_cast<float>(vpWidth), static_cast<float>(vpHeight), 0.0f, 1.0f });
+    cmd->setScissorRect({ 0, 0, static_cast<int32_t>(vpWidth), static_cast<int32_t>(vpHeight) });
 }
 
 // ============================================================
 // 交互预留（空实现）
 // ============================================================
 
-bool ViewCubeStage::hitTest(int screenX, int screenY,
-                                uint32_t vpWidth, uint32_t vpHeight) const {
+bool ViewCubeStage::hitTest(int screenX, int screenY, uint32_t vpWidth, uint32_t vpHeight) const {
     // TODO: 检测屏幕坐标是否在 ViewCube 区域内
-    (void)screenX; (void)screenY; (void)vpWidth; (void)vpHeight;
+    (void) screenX;
+    (void) screenY;
+    (void) vpWidth;
+    (void) vpHeight;
     return false;
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

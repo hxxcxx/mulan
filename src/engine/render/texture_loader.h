@@ -29,12 +29,12 @@ namespace mulan::engine {
 // ============================================================
 
 struct TextureLoadOptions {
-    bool           generateMips  = true;
+    bool generateMips = true;
     /// 是否使用 sRGB 纹理格式（硬件采样时自动 sRGB→linear，shader 无需手动转换）。
     /// 适用于 albedo/color 类贴图；normal/mr/ao 等数据贴图应设 false。
     /// 不设置时由 loadFromImage 按文件扩展名推断（.jpg/.jpeg → sRGB）。
-    bool           sRGB          = false;
-    TextureFormat  format        = TextureFormat::RGBA8_UNorm;
+    bool sRGB = false;
+    TextureFormat format = TextureFormat::RGBA8_UNorm;
 };
 
 // ============================================================
@@ -42,11 +42,11 @@ struct TextureLoadOptions {
 // ============================================================
 
 struct LoadedTexture {
-    uint32_t             width    = 0;
-    uint32_t             height   = 0;
-    uint32_t             channels = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t channels = 0;
     std::vector<uint8_t> pixels;
-    TextureFormat        format   = TextureFormat::RGBA8_UNorm;
+    TextureFormat format = TextureFormat::RGBA8_UNorm;
 };
 
 // ============================================================
@@ -62,16 +62,14 @@ public:
     TextureLoader& operator=(const TextureLoader&) = delete;
 
     /// 从文件加载（委托 core::Image::load + 转换）
-    LoadedTexture loadFromFile(const std::string& path,
-                               const TextureLoadOptions& options = {}) const;
+    LoadedTexture loadFromFile(const std::string& path, const TextureLoadOptions& options = {}) const;
 
     /// 从 core::Image 直接转换
     LoadedTexture loadFromImage(const std::shared_ptr<core::Image>& image,
                                 const TextureLoadOptions& options = {}) const;
 
     /// 从内存加载
-    LoadedTexture loadFromMemory(const uint8_t* data, size_t size,
-                                 const TextureLoadOptions& options = {}) const;
+    LoadedTexture loadFromMemory(const uint8_t* data, size_t size, const TextureLoadOptions& options = {}) const;
 
     /// 检查文件是否为支持的图片格式
     static bool isSupportedFormat(const std::string& path);
@@ -84,4 +82,4 @@ private:
     static bool inferSrgb(const std::string& path);
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

@@ -52,7 +52,7 @@ public:
     const SceneProxy* proxy(scene::EntityId id) const;
     const math::AABB3& sceneBounds() const { return scene_bounds_; }
 
-    template<typename Func>
+    template <typename Func>
     void forEachProxy(Func&& fn) const {
         for (const auto& [id, proxy] : proxies_)
             fn(proxy);
@@ -65,4 +65,4 @@ private:
     bool initialized_ = false;  // 首次 sync 全量，之后增量
 };
 
-} // namespace mulan::view
+}  // namespace mulan::view

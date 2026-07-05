@@ -27,38 +27,40 @@ inline std::vector<uint8_t> readFile(const char* path) {
 #else
     f = fopen(path, "rb");
 #endif
-    if (!f) return {};
+    if (!f)
+        return {};
     fseek(f, 0, SEEK_END);
     long sz = ftell(f);
     fseek(f, 0, SEEK_SET);
     std::vector<uint8_t> d(sz > 0 ? sz : 0);
-    if (sz > 0) fread(d.data(), 1, sz, f);
+    if (sz > 0)
+        fread(d.data(), 1, sz, f);
     fclose(f);
     return d;
 }
 
-inline core::Result<std::unique_ptr<Shader>>
-loadShader(RHIDevice& device, ShaderType type, const char* name) {
+inline core::Result<std::unique_ptr<Shader>> loadShader(RHIDevice& device, ShaderType type, const char* name) {
 #ifdef SHADER_DIR
     std::string dir = SHADER_DIR;
 #else
     std::string dir = "shaders";
 #endif
     const char* ext = ".spv";
-    if (device.backend() == GraphicsBackend::D3D12) ext = ".dxil";
+    if (device.backend() == GraphicsBackend::D3D12)
+        ext = ".dxil";
 
     std::string path = dir + "/" + name + ext;
     auto data = readFile(path.c_str());
     if (data.empty()) {
-        return std::unexpected(makeError(EngineErrorCode::ShaderFileNotFound,
-            "Shader file not found or empty: " + path));
+        return std::unexpected(
+                makeError(EngineErrorCode::ShaderFileNotFound, "Shader file not found or empty: " + path));
     }
 
     ShaderDesc d;
-    d.type         = type;
-    d.byteCode     = data.data();
+    d.type = type;
+    d.byteCode = data.data();
     d.byteCodeSize = static_cast<uint32_t>(data.size());
     return device.createShader(d);
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

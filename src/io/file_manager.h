@@ -40,4 +40,4 @@ public:
     std::vector<std::string> supportedExtensions() const;
 };
 
-} // namespace mulan::io
+}  // namespace mulan::io

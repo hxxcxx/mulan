@@ -60,8 +60,7 @@ void DocumentViewBinding::syncRenderCache() {
         render_cache_ = std::make_unique<RenderCache>();
     }
 
-    if (!session_ || !session_->document() ||
-        !session_->document()->scene() || !session_->document()->assets()) {
+    if (!session_ || !session_->document() || !session_->document()->scene() || !session_->document()->assets()) {
         render_cache_->renderScene.clear();
         return;
     }

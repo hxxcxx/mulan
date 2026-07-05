@@ -15,11 +15,10 @@
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #define VK_NO_PROTOTYPES
-#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC    1
 #define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 1
 
 #include <vulkan/vulkan.hpp>
-
 
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 #include <vma/vk_mem_alloc.h>

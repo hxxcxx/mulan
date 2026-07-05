@@ -12,30 +12,24 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<DX12CommandList>>
-DX12CommandList::create(ID3D12Device* device, ID3D12CommandAllocator* allocator) {
+core::Result<std::unique_ptr<DX12CommandList>> DX12CommandList::create(ID3D12Device* device,
+                                                                       ID3D12CommandAllocator* allocator) {
     try {
         return std::unique_ptr<DX12CommandList>(new DX12CommandList(device, allocator));
     } catch (const std::exception& e) {
         return std::unexpected(makeError(EngineErrorCode::CommandListCreateFailed,
-            std::string("DX12CommandList create failed: ") + e.what()));
+                                         std::string("DX12CommandList create failed: ") + e.what()));
     }
 }
 
-DX12CommandList::DX12CommandList(ID3D12Device* device,
-                                 ID3D12CommandAllocator* allocator)
-    : owns_cmd_list_(true)
-{
-    HRESULT hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
-                                           allocator, nullptr,
-                                           IID_PPV_ARGS(&cmd_list_));
+DX12CommandList::DX12CommandList(ID3D12Device* device, ID3D12CommandAllocator* allocator) : owns_cmd_list_(true) {
+    HRESULT hr =
+            device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, nullptr, IID_PPV_ARGS(&cmd_list_));
     DX12_CHECK(hr);
     cmd_list_->Close();
 }
 
-DX12CommandList::DX12CommandList(ID3D12GraphicsCommandList* existingCmdList)
-    : owns_cmd_list_(false)
-{
+DX12CommandList::DX12CommandList(ID3D12GraphicsCommandList* existingCmdList) : owns_cmd_list_(false) {
     if (existingCmdList) {
         cmd_list_ = existingCmdList;
     }
@@ -80,8 +74,7 @@ void DX12CommandList::setViewport(const Viewport& vp) {
 }
 
 void DX12CommandList::setScissorRect(const ScissorRect& rect) {
-    D3D12_RECT d3dRect = { rect.x, rect.y,
-                           rect.x + rect.width, rect.y + rect.height };
+    D3D12_RECT d3dRect = { rect.x, rect.y, rect.x + rect.width, rect.y + rect.height };
     cmd_list_->RSSetScissorRects(1, &d3dRect);
 }
 
@@ -89,68 +82,59 @@ void DX12CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t of
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
     D3D12_VERTEX_BUFFER_VIEW vbv = {};
     vbv.BufferLocation = dx12Buf->gpuAddress() + offset;
-    vbv.SizeInBytes    = buffer->size() - offset;
-    vbv.StrideInBytes  = cached_stride_;
+    vbv.SizeInBytes = buffer->size() - offset;
+    vbv.StrideInBytes = cached_stride_;
     cmd_list_->IASetVertexBuffers(slot, 1, &vbv);
 }
 
-void DX12CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count,
-                                        Buffer** buffers, uint32_t* offsets) {
+void DX12CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
     D3D12_VERTEX_BUFFER_VIEW vbvs[16] = {};
     for (uint32_t i = 0; i < count && i < 16; ++i) {
         auto* dx12Buf = static_cast<DX12Buffer*>(buffers[i]);
         vbvs[i].BufferLocation = dx12Buf->gpuAddress() + (offsets ? offsets[i] : 0);
-        vbvs[i].SizeInBytes    = buffers[i]->size() - (offsets ? offsets[i] : 0);
-        vbvs[i].StrideInBytes  = cached_stride_;
+        vbvs[i].SizeInBytes = buffers[i]->size() - (offsets ? offsets[i] : 0);
+        vbvs[i].StrideInBytes = cached_stride_;
     }
     cmd_list_->IASetVertexBuffers(startSlot, count, vbvs);
 }
 
-void DX12CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset,
-                                      IndexType type) {
+void DX12CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
     D3D12_INDEX_BUFFER_VIEW ibv = {};
     ibv.BufferLocation = dx12Buf->gpuAddress() + offset;
-    ibv.SizeInBytes    = buffer->size() - offset;
-    ibv.Format         = (type == IndexType::UInt16)
-                             ? DXGI_FORMAT_R16_UINT
-                             : DXGI_FORMAT_R32_UINT;
+    ibv.SizeInBytes = buffer->size() - offset;
+    ibv.Format = (type == IndexType::UInt16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT;
     cmd_list_->IASetIndexBuffer(&ibv);
 }
 
 void DX12CommandList::draw(const DrawAttribs& attribs) {
-    cmd_list_->DrawInstanced(attribs.vertexCount, attribs.instanceCount,
-                             attribs.startVertex, attribs.startInstance);
+    cmd_list_->DrawInstanced(attribs.vertexCount, attribs.instanceCount, attribs.startVertex, attribs.startInstance);
 }
 
 void DX12CommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
-    cmd_list_->DrawIndexedInstanced(attribs.indexCount, attribs.instanceCount,
-                                    attribs.startIndex, attribs.baseVertex,
+    cmd_list_->DrawIndexedInstanced(attribs.indexCount, attribs.instanceCount, attribs.startIndex, attribs.baseVertex,
                                     attribs.startInstance);
 }
 
-void DX12CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset,
-                                    uint32_t drawCount, uint32_t /*stride*/) {
-    if (!draw_indirect_sig_) return;
+void DX12CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t /*stride*/) {
+    if (!draw_indirect_sig_)
+        return;
     auto* dx12Buf = static_cast<DX12Buffer*>(argsBuffer);
-    cmd_list_->ExecuteIndirect(draw_indirect_sig_, drawCount,
-                               dx12Buf->resource(), offset, nullptr, 0);
+    cmd_list_->ExecuteIndirect(draw_indirect_sig_, drawCount, dx12Buf->resource(), offset, nullptr, 0);
 }
 
-void DX12CommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY,
-                                uint32_t threadGroupZ) {
+void DX12CommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
     cmd_list_->Dispatch(threadGroupX, threadGroupY, threadGroupZ);
 }
 
 void DX12CommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
-    if (!dispatch_indirect_sig_) return;
+    if (!dispatch_indirect_sig_)
+        return;
     auto* dx12Buf = static_cast<DX12Buffer*>(argsBuffer);
-    cmd_list_->ExecuteIndirect(dispatch_indirect_sig_, 1,
-                               dx12Buf->resource(), offset, nullptr, 0);
+    cmd_list_->ExecuteIndirect(dispatch_indirect_sig_, 1, dx12Buf->resource(), offset, nullptr, 0);
 }
 
-void DX12CommandList::setPushConstants(uint32_t offset, uint32_t size,
-                                        const void* data, uint32_t /*stageFlags*/) {
+void DX12CommandList::setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t /*stageFlags*/) {
     // DX12 root constants: binding slot 3 reserved for push constants
     // (slot 0=scene UBO, 1=object UBO, 2=material UBO, 3=push constants)
     uint32_t count = size / 4;
@@ -159,16 +143,16 @@ void DX12CommandList::setPushConstants(uint32_t offset, uint32_t size,
     }
 }
 
-void DX12CommandList::updateBuffer(Buffer* buffer, uint32_t offset,
-                                    uint32_t size, const void* data,
-                                    ResourceTransitionMode mode) {
+void DX12CommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
+                                   ResourceTransitionMode mode) {
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
     dx12Buf->update(offset, size, data);
 }
 
 void DX12CommandList::bindGroup(BindGroup& group) {
     auto* dx12Group = static_cast<DX12BindGroup*>(&group);
-    if (dx12Group->entryCount() == 0 || !desc_heap_) return;
+    if (dx12Group->entryCount() == 0 || !desc_heap_)
+        return;
 
     // --- 跨帧失效：per-frame heap reset 已回收上一帧的 descriptor 区段，
     // 若 BindGroup 缓存句柄不属于当前帧则丢弃并强制本帧完整重写。
@@ -185,8 +169,7 @@ void DX12CommandList::bindGroup(BindGroup& group) {
             const auto& e = dx12Group->entries()[i];
             if (e.buffer) {
                 auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
-                cmd_list_->SetGraphicsRootConstantBufferView(
-                    e.binding, dx12Buf->gpuAddress() + e.offset);
+                cmd_list_->SetGraphicsRootConstantBufferView(e.binding, dx12Buf->gpuAddress() + e.offset);
             } else if (e.texture) {
                 cmd_list_->SetGraphicsRootDescriptorTable(e.binding, cachedGpu);
             }
@@ -214,8 +197,7 @@ void DX12CommandList::bindGroup(BindGroup& group) {
         if (e.buffer) {
             // UBO：root CBV 每 draw 必须重设（offset 变化），不依赖脏位
             auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
-            cmd_list_->SetGraphicsRootConstantBufferView(
-                e.binding, dx12Buf->gpuAddress() + e.offset);
+            cmd_list_->SetGraphicsRootConstantBufferView(e.binding, dx12Buf->gpuAddress() + e.offset);
         } else if (e.texture) {
             // texture：仅脏时重写 descriptor 槽，非脏复用上一轮 CopyDescriptorsSimple 结果
             if (((mask >> i) & 1u) == 0) {
@@ -223,19 +205,20 @@ void DX12CommandList::bindGroup(BindGroup& group) {
                 continue;
             }
             auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
-            if (!dx12Tex->srv().ptr) continue;
+            if (!dx12Tex->srv().ptr)
+                continue;
             D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle;
             cpuHandle.ptr = desc_cpu_base_.ptr + (gpuHandle.ptr - desc_gpu_base_.ptr);
             if (device) {
-                device->CopyDescriptorsSimple(1, cpuHandle, dx12Tex->srv(),
-                                              D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+                device->CopyDescriptorsSimple(1, cpuHandle, dx12Tex->srv(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
             }
             cmd_list_->SetGraphicsRootDescriptorTable(e.binding, gpuHandle);
             written |= (uint16_t(1) << i);
         }
     }
 
-    if (device) device->Release();
+    if (device)
+        device->Release();
     dx12Group->clearDirty(written);
 }
 
@@ -244,11 +227,11 @@ void DX12CommandList::bindResources(const BindGroupDesc& desc) {
         const auto& e = desc.entries[i];
         if (e.buffer) {
             auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
-            cmd_list_->SetGraphicsRootConstantBufferView(
-                e.binding, dx12Buf->gpuAddress() + e.offset);
+            cmd_list_->SetGraphicsRootConstantBufferView(e.binding, dx12Buf->gpuAddress() + e.offset);
         } else if (e.texture && desc_heap_) {
             auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
-            if (!dx12Tex->srv().ptr) continue;
+            if (!dx12Tex->srv().ptr)
+                continue;
 
             D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = desc_cpu_base_;
             cpuHandle.ptr += desc_alloc_count_ * desc_size_;
@@ -259,8 +242,7 @@ void DX12CommandList::bindResources(const BindGroupDesc& desc) {
             ID3D12Device* device = nullptr;
             cmd_list_->GetDevice(IID_PPV_ARGS(&device));
             if (device) {
-                device->CopyDescriptorsSimple(1, cpuHandle, dx12Tex->srv(),
-                                              D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+                device->CopyDescriptorsSimple(1, cpuHandle, dx12Tex->srv(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
                 device->Release();
             }
             cmd_list_->SetGraphicsRootDescriptorTable(e.binding, gpuHandle);
@@ -268,10 +250,8 @@ void DX12CommandList::bindResources(const BindGroupDesc& desc) {
     }
 }
 
-void DX12CommandList::setDescriptorHeap(ID3D12DescriptorHeap* heap,
-                                         D3D12_CPU_DESCRIPTOR_HANDLE cpuBase,
-                                         D3D12_GPU_DESCRIPTOR_HANDLE gpuBase,
-                                         uint32_t descriptorSize) {
+void DX12CommandList::setDescriptorHeap(ID3D12DescriptorHeap* heap, D3D12_CPU_DESCRIPTOR_HANDLE cpuBase,
+                                        D3D12_GPU_DESCRIPTOR_HANDLE gpuBase, uint32_t descriptorSize) {
     desc_heap_ = heap;
     desc_cpu_base_ = cpuBase;
     desc_gpu_base_ = gpuBase;
@@ -283,18 +263,20 @@ void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState)
     // 未实现：buffer 资源状态当前未跟踪（DX12Buffer 无 state_ 字段，与 Texture 不同）。
     // 之前的实现把 StateBefore 写死 GENERIC_READ，对 staging/COPY_DEST 等是错的。
     // 当前无调用方；要正确实现需先给 DX12Buffer 加状态跟踪。
-    (void)buffer; (void)newState;
-    assert(false && "transitionResource(Buffer*) not implemented: "
-                    "DX12Buffer lacks per-resource state tracking");
+    (void) buffer;
+    (void) newState;
+    assert(false &&
+           "transitionResource(Buffer*) not implemented: "
+           "DX12Buffer lacks per-resource state tracking");
 }
 
 void DX12CommandList::transitionResource(Texture* texture, ResourceState newState) {
     auto* dx12Tex = static_cast<DX12Texture*>(texture);
     D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource   = dx12Tex->resource();
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = dx12Tex->resource();
     barrier.Transition.StateBefore = dx12Tex->state();
-    barrier.Transition.StateAfter  = toDX12ResourceStates(newState);
+    barrier.Transition.StateAfter = toDX12ResourceStates(newState);
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     cmd_list_->ResourceBarrier(1, &barrier);
     dx12Tex->setState(toDX12ResourceStates(newState));
@@ -307,67 +289,67 @@ void DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     // 取 device 用于 GetCopyableFootprints（与 bindResources 同模式）
     ID3D12Device* device = nullptr;
     cmd_list_->GetDevice(IID_PPV_ARGS(&device));
-    if (!device) return;
+    if (!device)
+        return;
 
     // 构建与纹理一致的 resource desc，用于计算可拷贝的 footprint
     const auto& td = dx12Tex->desc();
     D3D12_RESOURCE_DESC texDesc = {};
-    texDesc.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    texDesc.Alignment        = 0;
-    texDesc.Width            = td.width;
-    texDesc.Height           = td.height;
+    texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    texDesc.Alignment = 0;
+    texDesc.Width = td.width;
+    texDesc.Height = td.height;
     texDesc.DepthOrArraySize = 1;
-    texDesc.MipLevels        = 1;
-    texDesc.Format           = toDXGIFormat(td.format);
+    texDesc.MipLevels = 1;
+    texDesc.Format = toDXGIFormat(td.format);
     texDesc.SampleDesc.Count = 1;
-    texDesc.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    texDesc.Flags            = D3D12_RESOURCE_FLAG_NONE;
+    texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    texDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
     UINT numRows = 0;
     UINT64 rowSizeInBytes = 0;
     UINT64 totalSize = 0;
-    device->GetCopyableFootprints(&texDesc, 0, 1, 0, &footprint,
-                                  &numRows, &rowSizeInBytes, &totalSize);
+    device->GetCopyableFootprints(&texDesc, 0, 1, 0, &footprint, &numRows, &rowSizeInBytes, &totalSize);
     device->Release();
 
     // src texture: COMMON/COPY_DEST → COPY_SOURCE
     D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource   = dx12Tex->resource();
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = dx12Tex->resource();
     barrier.Transition.StateBefore = dx12Tex->state();
-    barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_SOURCE;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     cmd_list_->ResourceBarrier(1, &barrier);
 
     // dst buffer: GENERIC_READ → COPY_DEST
     D3D12_RESOURCE_BARRIER bufBarrier = {};
-    bufBarrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    bufBarrier.Transition.pResource   = dx12Buf->resource();
+    bufBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    bufBarrier.Transition.pResource = dx12Buf->resource();
     bufBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
-    bufBarrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
+    bufBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
     bufBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     cmd_list_->ResourceBarrier(1, &bufBarrier);
 
     D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
-    srcLoc.Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    srcLoc.pResource        = dx12Tex->resource();
+    srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    srcLoc.pResource = dx12Tex->resource();
     srcLoc.SubresourceIndex = 0;
 
     D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
-    dstLoc.Type            = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-    dstLoc.pResource       = dx12Buf->resource();
+    dstLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    dstLoc.pResource = dx12Buf->resource();
     dstLoc.PlacedFootprint = footprint;
 
     cmd_list_->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
 
     // 还原状态
     bufBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    bufBarrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COMMON;
+    bufBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COMMON;
     cmd_list_->ResourceBarrier(1, &bufBarrier);
 
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    barrier.Transition.StateAfter  = dx12Tex->state();
+    barrier.Transition.StateAfter = dx12Tex->state();
     cmd_list_->ResourceBarrier(1, &barrier);
 }
 
@@ -394,16 +376,17 @@ void DX12CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
     // Color attachment barrier: current → RENDER_TARGET
     for (uint8_t i = 0; i < info.colorCount; ++i) {
         auto* tex = static_cast<DX12Texture*>(info.colorAttachments[i].target);
-        if (!tex) continue;
+        if (!tex)
+            continue;
 
         D3D12_RESOURCE_STATES before = tex->state();
         D3D12_RESOURCE_STATES after = D3D12_RESOURCE_STATE_RENDER_TARGET;
         if (tex->resource() && before != after) {
             D3D12_RESOURCE_BARRIER barrier = {};
-            barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            barrier.Transition.pResource   = tex->resource();
+            barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            barrier.Transition.pResource = tex->resource();
             barrier.Transition.StateBefore = before;
-            barrier.Transition.StateAfter  = after;
+            barrier.Transition.StateAfter = after;
             barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
             cl->ResourceBarrier(1, &barrier);
             tex->setState(after);
@@ -425,19 +408,18 @@ void DX12CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
         D3D12_RESOURCE_STATES after = D3D12_RESOURCE_STATE_DEPTH_WRITE;
         if (depthTex->resource() && before != after) {
             D3D12_RESOURCE_BARRIER barrier = {};
-            barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            barrier.Transition.pResource   = depthTex->resource();
+            barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            barrier.Transition.pResource = depthTex->resource();
             barrier.Transition.StateBefore = before;
-            barrier.Transition.StateAfter  = after;
+            barrier.Transition.StateAfter = after;
             barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
             cl->ResourceBarrier(1, &barrier);
             depthTex->setState(after);
         }
 
         if (info.depthAttachment.loadAction == LoadAction::Clear) {
-            cl->ClearDepthStencilView(depthTex->dsv(),
-                D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-                info.clearDepth, info.clearStencil, 0, nullptr);
+            cl->ClearDepthStencilView(depthTex->dsv(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+                                      info.clearDepth, info.clearStencil, 0, nullptr);
         }
         dsvHandle = depthTex->dsv();
         pDSV = &dsvHandle;
@@ -455,21 +437,21 @@ void DX12CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
 }
 
 void DX12CommandList::endRenderPass() {
-    if (!rp_color_tex_) return;
+    if (!rp_color_tex_)
+        return;
     auto* cl = cmd_list_.Get();
 
-    D3D12_RESOURCE_STATES targetState = rp_present_source_
-        ? D3D12_RESOURCE_STATE_PRESENT
-        : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    D3D12_RESOURCE_STATES targetState =
+            rp_present_source_ ? D3D12_RESOURCE_STATE_PRESENT : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 
     D3D12_RESOURCE_STATES before = rp_color_tex_->state();
     D3D12_RESOURCE_STATES after = targetState;
     if (rp_color_tex_->resource() && before != after) {
         D3D12_RESOURCE_BARRIER barrier = {};
-        barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrier.Transition.pResource   = rp_color_tex_->resource();
+        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barrier.Transition.pResource = rp_color_tex_->resource();
         barrier.Transition.StateBefore = before;
-        barrier.Transition.StateAfter  = after;
+        barrier.Transition.StateAfter = after;
         barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
         cl->ResourceBarrier(1, &barrier);
         rp_color_tex_->setState(after);
@@ -478,4 +460,4 @@ void DX12CommandList::endRenderPass() {
     rp_color_tex_ = nullptr;
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

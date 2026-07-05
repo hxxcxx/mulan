@@ -25,28 +25,31 @@ namespace mulan::io {
 namespace {
 
 math::AABB3 buildBounds(const TopoDS_Shape& shape) {
-    if (shape.IsNull()) return math::AABB3::empty();
+    if (shape.IsNull())
+        return math::AABB3::empty();
 
     Bnd_Box box;
     BRepBndLib::Add(shape, box);
-    if (box.IsVoid()) return math::AABB3::empty();
+    if (box.IsVoid())
+        return math::AABB3::empty();
 
     double xmin, ymin, zmin, xmax, ymax, zmax;
     box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
 
     math::AABB3 result;
-    result.min = {xmin, ymin, zmin};
-    result.max = {xmax, ymax, zmax};
+    result.min = { xmin, ymin, zmin };
+    result.max = { xmax, ymax, zmax };
     return result;
 }
 
 graphics::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bounds) {
-    if (shape.IsNull() || bounds.isEmpty()) return {};
+    if (shape.IsNull() || bounds.isEmpty())
+        return {};
 
     const double dx = bounds.max.x - bounds.min.x;
     const double dy = bounds.max.y - bounds.min.y;
     const double dz = bounds.max.z - bounds.min.z;
-    const double maxDim = std::max({dx, dy, dz});
+    const double maxDim = std::max({ dx, dy, dz });
     const double deflection = maxDim * 0.001;
 
     TopoDS_Shape meshedShape = shape;
@@ -54,21 +57,24 @@ graphics::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bound
     mesher.Perform();
 
     uint32_t totalVerts = 0;
-    uint32_t totalTris  = 0;
+    uint32_t totalTris = 0;
     for (TopExp_Explorer ex(meshedShape, TopAbs_FACE); ex.More(); ex.Next()) {
         TopoDS_Face face = TopoDS::Face(ex.Current());
         TopLoc_Location loc;
         Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(face, loc);
-        if (tri.IsNull()) continue;
-        if (!tri->HasNormals()) tri->ComputeNormals();
+        if (tri.IsNull())
+            continue;
+        if (!tri->HasNormals())
+            tri->ComputeNormals();
         totalVerts += static_cast<uint32_t>(tri->NbNodes());
-        totalTris  += static_cast<uint32_t>(tri->NbTriangles());
+        totalTris += static_cast<uint32_t>(tri->NbTriangles());
     }
-    if (totalVerts == 0) return {};
+    if (totalVerts == 0)
+        return {};
 
     graphics::Mesh mesh;
-    mesh.layout    = graphics::layouts::surface();
-    mesh.topology  = graphics::PrimitiveTopology::TriangleList;
+    mesh.layout = graphics::layouts::surface();
+    mesh.topology = graphics::PrimitiveTopology::TriangleList;
     mesh.indexType = graphics::IndexType::UInt32;
 
     graphics::VertexBufferBuilder vb(mesh.layout, totalVerts);
@@ -81,27 +87,32 @@ graphics::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bound
         TopoDS_Face face = TopoDS::Face(ex.Current());
         TopLoc_Location loc;
         Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(face, loc);
-        if (tri.IsNull()) continue;
+        if (tri.IsNull())
+            continue;
 
         gp_Trsf trsf = loc.Transformation();
         const bool hasTransform = trsf.Form() != gp_Identity;
 
         const int nv = tri->NbNodes();
         const int nt = tri->NbTriangles();
-        if (!tri->HasNormals()) tri->ComputeNormals();
+        if (!tri->HasNormals())
+            tri->ComputeNormals();
 
         for (int i = 1; i <= nv; ++i) {
             gp_Pnt p = tri->Node(i);
-            if (hasTransform) p.Transform(trsf);
+            if (hasTransform)
+                p.Transform(trsf);
 
             gp_Dir n(0, 0, 1);
-            if (tri->HasNormals()) n = tri->Normal(i);
-            if (hasTransform) n.Transform(trsf);
+            if (tri->HasNormals())
+                n = tri->Normal(i);
+            if (hasTransform)
+                n.Transform(trsf);
 
             const uint32_t v = baseVertex + static_cast<uint32_t>(i - 1);
             vb.setPosition(v, static_cast<float>(p.X()), static_cast<float>(p.Y()), static_cast<float>(p.Z()));
-            vb.setNormal  (v, static_cast<float>(n.X()), static_cast<float>(n.Y()), static_cast<float>(n.Z()));
-            float uv[2] = {0.f, 0.f};
+            vb.setNormal(v, static_cast<float>(n.X()), static_cast<float>(n.Y()), static_cast<float>(n.Z()));
+            float uv[2] = { 0.f, 0.f };
             vb.write(v, graphics::VertexSemantic::TexCoord0, uv);
         }
 
@@ -123,27 +134,29 @@ graphics::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bound
 }
 
 graphics::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
-    if (shape.IsNull()) return {};
+    if (shape.IsNull())
+        return {};
 
     uint32_t totalVerts = 0;
-    uint32_t totalIdx   = 0;
+    uint32_t totalIdx = 0;
     for (TopExp_Explorer ex(shape, TopAbs_EDGE); ex.More(); ex.Next()) {
         TopoDS_Edge edge = TopoDS::Edge(ex.Current());
         BRepAdaptor_Curve curve(edge);
         try {
-            GCPnts_TangentialDeflection discret(curve, curve.FirstParameter(),
-                                                curve.LastParameter(), 0.1, 0.1, 2);
+            GCPnts_TangentialDeflection discret(curve, curve.FirstParameter(), curve.LastParameter(), 0.1, 0.1, 2);
             const int np = discret.NbPoints();
-            if (np < 2) continue;
+            if (np < 2)
+                continue;
             totalVerts += static_cast<uint32_t>(np);
-            totalIdx   += static_cast<uint32_t>(np - 1) * 2;
+            totalIdx += static_cast<uint32_t>(np - 1) * 2;
         } catch (...) {}
     }
-    if (totalVerts == 0) return {};
+    if (totalVerts == 0)
+        return {};
 
     graphics::Mesh mesh;
-    mesh.layout    = graphics::layouts::surface();
-    mesh.topology  = graphics::PrimitiveTopology::LineList;
+    mesh.layout = graphics::layouts::surface();
+    mesh.topology = graphics::PrimitiveTopology::LineList;
     mesh.indexType = graphics::IndexType::UInt32;
 
     graphics::VertexBufferBuilder vb(mesh.layout, totalVerts);
@@ -156,15 +169,15 @@ graphics::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
         TopoDS_Edge edge = TopoDS::Edge(ex.Current());
         BRepAdaptor_Curve curve(edge);
         try {
-            GCPnts_TangentialDeflection discret(curve, curve.FirstParameter(),
-                                                curve.LastParameter(), 0.1, 0.1, 2);
-            if (discret.NbPoints() < 2) continue;
+            GCPnts_TangentialDeflection discret(curve, curve.FirstParameter(), curve.LastParameter(), 0.1, 0.1, 2);
+            if (discret.NbPoints() < 2)
+                continue;
 
             for (int i = 1; i <= discret.NbPoints(); ++i) {
                 gp_Pnt pt = discret.Value(i);
                 vb.setPosition(vi, static_cast<float>(pt.X()), static_cast<float>(pt.Y()), static_cast<float>(pt.Z()));
-                vb.setNormal  (vi, 0.f, 0.f, 0.f);
-                float uv[2] = {0.f, 0.f};
+                vb.setNormal(vi, 0.f, 0.f, 0.f);
+                float uv[2] = { 0.f, 0.f };
                 vb.write(vi, graphics::VertexSemantic::TexCoord0, uv);
 
                 if (i > 1) {
@@ -182,7 +195,7 @@ graphics::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
     return mesh;
 }
 
-} // namespace
+}  // namespace
 
 ShapeRenderGeometry buildShapeRenderGeometry(const TopoDS_Shape& shape) {
     ShapeRenderGeometry result;
@@ -192,4 +205,4 @@ ShapeRenderGeometry buildShapeRenderGeometry(const TopoDS_Shape& shape) {
     return result;
 }
 
-} // namespace mulan::io
+}  // namespace mulan::io

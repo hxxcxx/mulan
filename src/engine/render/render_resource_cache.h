@@ -45,4 +45,4 @@ private:
     std::unordered_map<uint64_t, GpuGeometry> wire_geos_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

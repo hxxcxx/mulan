@@ -28,26 +28,21 @@ struct Interval {
     double max{};
 
     constexpr Interval() = default;
-    constexpr Interval(double v) : min(v), max(v) {}                  // 退化区间（单点）
+    constexpr Interval(double v) : min(v), max(v) {}  // 退化区间（单点）
     constexpr Interval(double lo, double hi) : min(lo), max(hi) {}
 
     static constexpr Interval empty() {
         return Interval(std::numeric_limits<double>::max(),
-                       -std::numeric_limits<double>::max());   // min>max → 空
+                        -std::numeric_limits<double>::max());  // min>max → 空
     }
     static constexpr Interval unbounded() {
-        return Interval(-std::numeric_limits<double>::max(),
-                        std::numeric_limits<double>::max());
+        return Interval(-std::numeric_limits<double>::max(), std::numeric_limits<double>::max());
     }
 
     // ---------- 状态 ----------
 
-    bool isEmpty(const Tolerance& tol = defaultTolerance()) const {
-        return min > max + tol.paramEps;
-    }
-    bool isPoint(const Tolerance& tol = defaultTolerance()) const {
-        return std::abs(max - min) <= tol.paramEps;
-    }
+    bool isEmpty(const Tolerance& tol = defaultTolerance()) const { return min > max + tol.paramEps; }
+    bool isPoint(const Tolerance& tol = defaultTolerance()) const { return std::abs(max - min) <= tol.paramEps; }
     double length() const { return max - min; }
     double center() const { return (min + max) * 0.5; }
 
@@ -69,7 +64,8 @@ struct Interval {
     /// 把 v 从本区间线性映射到 [0,1]（归一化参数）
     double toNormalized(double v) const {
         double len = length();
-        if (std::abs(len) < 1e-15) return 0.0;
+        if (std::abs(len) < 1e-15)
+            return 0.0;
         return (v - min) / len;
     }
     /// 把 [0,1] 的归一化参数映射回本区间
@@ -81,7 +77,7 @@ struct Interval {
     Interval intersected(const Interval& o) const {
         double lo = std::max(min, o.min);
         double hi = std::min(max, o.max);
-        return Interval(lo, hi);   // 若 lo>hi，isEmpty() 为真
+        return Interval(lo, hi);  // 若 lo>hi，isEmpty() 为真
     }
 
     /// 扩展以包含 v
@@ -91,7 +87,8 @@ struct Interval {
     }
     /// 扩展以包含另一区间
     void expand(const Interval& o) {
-        if (o.isEmpty()) return;
+        if (o.isEmpty())
+            return;
         min = std::min(min, o.min);
         max = std::max(max, o.max);
     }
@@ -110,21 +107,16 @@ struct Interval2 {
 
     constexpr Interval2() = default;
     constexpr Interval2(const Interval& u_, const Interval& v_) : u(u_), v(v_) {}
-    constexpr Interval2(double umin, double umax, double vmin, double vmax)
-        : u(umin, umax), v(vmin, vmax) {}
+    constexpr Interval2(double umin, double umax, double vmin, double vmax) : u(umin, umax), v(vmin, vmax) {}
 
-    bool isEmpty(const Tolerance& tol = defaultTolerance()) const {
-        return u.isEmpty(tol) || v.isEmpty(tol);
-    }
+    bool isEmpty(const Tolerance& tol = defaultTolerance()) const { return u.isEmpty(tol) || v.isEmpty(tol); }
 
     /// (pu,pv) 是否落在域内
     bool contains(double pu, double pv, const Tolerance& tol = defaultTolerance()) const {
         return u.contains(pu, tol) && v.contains(pv, tol);
     }
 
-    Interval2 intersected(const Interval2& o) const {
-        return Interval2(u.intersected(o.u), v.intersected(o.v));
-    }
+    Interval2 intersected(const Interval2& o) const { return Interval2(u.intersected(o.u), v.intersected(o.v)); }
 };
 
-} // namespace mulan::math
+}  // namespace mulan::math

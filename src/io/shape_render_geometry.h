@@ -21,4 +21,4 @@ struct ShapeRenderGeometry {
 
 ShapeRenderGeometry buildShapeRenderGeometry(const TopoDS_Shape& shape);
 
-} // namespace mulan::io
+}  // namespace mulan::io

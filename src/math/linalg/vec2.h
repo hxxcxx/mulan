@@ -13,7 +13,7 @@
 
 namespace mulan::math {
 
-template<typename T>
+template <typename T>
 struct Vec2T {
     T x{};
     T y{};
@@ -23,27 +23,42 @@ struct Vec2T {
     explicit constexpr Vec2T(T v) : x(v), y(v) {}
     constexpr Vec2T(T x_, T y_) : x(x_), y(y_) {}
 
-    template<typename U>
-    explicit constexpr Vec2T(const Vec2T<U>& v)
-        : x(static_cast<T>(v.x)), y(static_cast<T>(v.y)) {}
+    template <typename U>
+    explicit constexpr Vec2T(const Vec2T<U>& v) : x(static_cast<T>(v.x)), y(static_cast<T>(v.y)) {}
 
     // ---------- 下标 ----------
-    T&       operator[](int i)       { return (i == 0) ? x : y; }
+    T& operator[](int i) { return (i == 0) ? x : y; }
     const T& operator[](int i) const { return (i == 0) ? x : y; }
 
     // ---------- 算术赋值 ----------
-    Vec2T& operator+=(const Vec2T& o) { x += o.x; y += o.y; return *this; }
-    Vec2T& operator-=(const Vec2T& o) { x -= o.x; y -= o.y; return *this; }
-    Vec2T& operator*=(T s)            { x *= s;   y *= s;   return *this; }
-    Vec2T& operator/=(T s)            { x /= s;   y /= s;   return *this; }
+    Vec2T& operator+=(const Vec2T& o) {
+        x += o.x;
+        y += o.y;
+        return *this;
+    }
+    Vec2T& operator-=(const Vec2T& o) {
+        x -= o.x;
+        y -= o.y;
+        return *this;
+    }
+    Vec2T& operator*=(T s) {
+        x *= s;
+        y *= s;
+        return *this;
+    }
+    Vec2T& operator/=(T s) {
+        x /= s;
+        y /= s;
+        return *this;
+    }
 
     Vec2T operator-() const { return Vec2T(-x, -y); }
 
     // ---------- 几何查询 ----------
     T lengthSq() const { return x * x + y * y; }
-    T length()   const { return std::sqrt(lengthSq()); }
+    T length() const { return std::sqrt(lengthSq()); }
     /// 平方长度（glm length2 等价）
-    T length2()  const { return lengthSq(); }
+    T length2() const { return lengthSq(); }
 
     Vec2T normalized() const {
         T len = length();
@@ -60,9 +75,7 @@ struct Vec2T {
     /// 2D 叉乘（返回标量，z 分量）
     constexpr T cross(const Vec2T& o) const { return x * o.y - y * o.x; }
     /// 线性插值到 o（t∈[0,1]）
-    constexpr Vec2T lerp(const Vec2T& o, T t) const {
-        return Vec2T(x + (o.x - x) * t, y + (o.y - y) * t);
-    }
+    constexpr Vec2T lerp(const Vec2T& o, T t) const { return Vec2T(x + (o.x - x) * t, y + (o.y - y) * t); }
     /// 到 o 的距离
     T distanceTo(const Vec2T& o) const { return (*this - o).length(); }
     /// 到 o 的平方距离（glm distance2 等价）
@@ -73,48 +86,64 @@ struct Vec2T {
     }
 
     // ---------- 工厂 ----------
-    static constexpr Vec2T zero()   { return Vec2T(T(0), T(0)); }
-    static constexpr Vec2T unitX()  { return Vec2T(T(1), T(0)); }
-    static constexpr Vec2T unitY()  { return Vec2T(T(0), T(1)); }
+    static constexpr Vec2T zero() { return Vec2T(T(0), T(0)); }
+    static constexpr Vec2T unitX() { return Vec2T(T(1), T(0)); }
+    static constexpr Vec2T unitY() { return Vec2T(T(0), T(1)); }
 };
 
 // ---------- 自由函数运算符 ----------
 
-template<typename T>
-constexpr Vec2T<T> operator+(const Vec2T<T>& a, const Vec2T<T>& b) { return Vec2T<T>(a.x + b.x, a.y + b.y); }
-template<typename T>
-constexpr Vec2T<T> operator-(const Vec2T<T>& a, const Vec2T<T>& b) { return Vec2T<T>(a.x - b.x, a.y - b.y); }
-template<typename T>
-constexpr Vec2T<T> operator*(const Vec2T<T>& a, T s) { return Vec2T<T>(a.x * s, a.y * s); }
-template<typename T>
-constexpr Vec2T<T> operator*(T s, const Vec2T<T>& a) { return a * s; }
-template<typename T>
-constexpr Vec2T<T> operator/(const Vec2T<T>& a, T s) { return Vec2T<T>(a.x / s, a.y / s); }
+template <typename T>
+constexpr Vec2T<T> operator+(const Vec2T<T>& a, const Vec2T<T>& b) {
+    return Vec2T<T>(a.x + b.x, a.y + b.y);
+}
+template <typename T>
+constexpr Vec2T<T> operator-(const Vec2T<T>& a, const Vec2T<T>& b) {
+    return Vec2T<T>(a.x - b.x, a.y - b.y);
+}
+template <typename T>
+constexpr Vec2T<T> operator*(const Vec2T<T>& a, T s) {
+    return Vec2T<T>(a.x * s, a.y * s);
+}
+template <typename T>
+constexpr Vec2T<T> operator*(T s, const Vec2T<T>& a) {
+    return a * s;
+}
+template <typename T>
+constexpr Vec2T<T> operator/(const Vec2T<T>& a, T s) {
+    return Vec2T<T>(a.x / s, a.y / s);
+}
 
 /// 逐分量乘（Hadamard 积）
-template<typename T>
-constexpr Vec2T<T> operator*(const Vec2T<T>& a, const Vec2T<T>& b) { return Vec2T<T>(a.x * b.x, a.y * b.y); }
+template <typename T>
+constexpr Vec2T<T> operator*(const Vec2T<T>& a, const Vec2T<T>& b) {
+    return Vec2T<T>(a.x * b.x, a.y * b.y);
+}
 
-template<typename T>
-constexpr bool operator==(const Vec2T<T>& a, const Vec2T<T>& b) { return a.x == b.x && a.y == b.y; }
-template<typename T>
-constexpr bool operator!=(const Vec2T<T>& a, const Vec2T<T>& b) { return !(a == b); }
+template <typename T>
+constexpr bool operator==(const Vec2T<T>& a, const Vec2T<T>& b) {
+    return a.x == b.x && a.y == b.y;
+}
+template <typename T>
+constexpr bool operator!=(const Vec2T<T>& a, const Vec2T<T>& b) {
+    return !(a == b);
+}
 
-template<typename T>
+template <typename T>
 constexpr Vec2T<T> min(const Vec2T<T>& a, const Vec2T<T>& b) {
     return Vec2T<T>(math::min(a.x, b.x), math::min(a.y, b.y));
 }
-template<typename T>
+template <typename T>
 constexpr Vec2T<T> max(const Vec2T<T>& a, const Vec2T<T>& b) {
     return Vec2T<T>(math::max(a.x, b.x), math::max(a.y, b.y));
 }
-template<typename T>
+template <typename T>
 constexpr Vec2T<T> clamp(const Vec2T<T>& v, const Vec2T<T>& lo, const Vec2T<T>& hi) {
     return Vec2T<T>(math::clamp(v.x, lo.x, hi.x), math::clamp(v.y, lo.y, hi.y));
 }
 
 // ---------- 别名 ----------
-using Vec2  = Vec2T<double>;
+using Vec2 = Vec2T<double>;
 using FVec2 = Vec2T<float>;
 
-} // namespace mulan::math
+}  // namespace mulan::math

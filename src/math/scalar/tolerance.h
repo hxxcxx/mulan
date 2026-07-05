@@ -21,9 +21,9 @@ namespace mulan::math {
 
 /// 容差配置
 struct Tolerance {
-    double lengthEps = 1e-9;   ///< 长度/距离容差
-    double angleEps  = 1e-9;   ///< 角度容差（弧度）
-    double paramEps  = 1e-10;  ///< 参数域容差（u/v）
+    double lengthEps = 1e-9;  ///< 长度/距离容差
+    double angleEps = 1e-9;   ///< 角度容差（弧度）
+    double paramEps = 1e-10;  ///< 参数域容差（u/v）
 
     /// 默认容差（点重合/距离判定的全局基准）
     static const Tolerance& defaultValue() {
@@ -34,13 +34,9 @@ struct Tolerance {
     // ---------- 标量比较 ----------
 
     /// a == b （长度尺度）
-    bool equal(double a, double b) const {
-        return abs(a - b) <= lengthEps;
-    }
+    bool equal(double a, double b) const { return abs(a - b) <= lengthEps; }
     /// |v| == 0 （长度尺度）
-    bool isZero(double v) const {
-        return abs(v) <= lengthEps;
-    }
+    bool isZero(double v) const { return abs(v) <= lengthEps; }
     bool lessEqual(double a, double b) const { return a <= b + lengthEps; }
     bool greaterEqual(double a, double b) const { return a >= b - lengthEps; }
     bool less(double a, double b) const { return a < b - lengthEps; }
@@ -48,12 +44,8 @@ struct Tolerance {
 
     // ---------- 参数比较 ----------
 
-    bool paramEqual(double a, double b) const {
-        return std::abs(a - b) <= paramEps;
-    }
-    bool paramIsZero(double v) const {
-        return std::abs(v) <= paramEps;
-    }
+    bool paramEqual(double a, double b) const { return std::abs(a - b) <= paramEps; }
+    bool paramIsZero(double v) const { return std::abs(v) <= paramEps; }
 
 private:
     static double abs(double v) { return v < 0.0 ? -v : v; }
@@ -64,4 +56,4 @@ inline const Tolerance& defaultTolerance() {
     return Tolerance::defaultValue();
 }
 
-} // namespace mulan::math
+}  // namespace mulan::math

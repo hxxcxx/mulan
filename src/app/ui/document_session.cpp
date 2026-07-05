@@ -5,21 +5,18 @@
 namespace {
 
 DocumentRenderPreferences makePreferences(const mulan::io::ImportReport& report) {
-    const bool isCad = report.brepAssetCount > 0 &&
-                       (report.meshAssetCount == 0 ||
-                        report.brepAssetCount >= report.meshAssetCount);
+    const bool isCad =
+            report.brepAssetCount > 0 && (report.meshAssetCount == 0 || report.brepAssetCount >= report.meshAssetCount);
     return DocumentRenderPreferences{
         .preferOrthographic = isCad,
         .preferIBL = !isCad,
     };
 }
 
-} // namespace
+}  // namespace
 
-DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc,
-                                 mulan::io::ImportReport report)
-    : document_(std::move(doc)),
-      preferences_(makePreferences(report)) {
+DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc, mulan::io::ImportReport report)
+    : document_(std::move(doc)), preferences_(makePreferences(report)) {
 }
 
 DocumentSession::~DocumentSession() = default;

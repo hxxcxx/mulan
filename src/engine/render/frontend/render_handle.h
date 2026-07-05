@@ -12,14 +12,12 @@
 
 namespace mulan::engine {
 
-template<typename Tag>
+template <typename Tag>
 struct RenderHandle {
     uint32_t index = std::numeric_limits<uint32_t>::max();
     uint32_t generation = 0;
 
-    constexpr bool isValid() const {
-        return index != std::numeric_limits<uint32_t>::max();
-    }
+    constexpr bool isValid() const { return index != std::numeric_limits<uint32_t>::max(); }
 
     constexpr explicit operator bool() const { return isValid(); }
 
@@ -38,4 +36,4 @@ using RenderMaterialHandle = RenderHandle<MaterialHandleTag>;
 using RenderTextureHandle = RenderHandle<TextureHandleTag>;
 using RenderObjectId = RenderHandle<RenderObjectIdTag>;
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

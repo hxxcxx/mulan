@@ -17,12 +17,12 @@ namespace mulan::engine {
 // ============================================================
 
 enum class ShaderType : uint8_t {
-    Vertex         = 0,
-    Pixel          = 1,   // Fragment
-    Geometry       = 2,
-    Compute        = 3,
-    TessControl    = 4,   // Hull
-    TessEvaluation = 5,   // Domain
+    Vertex = 0,
+    Pixel = 1,  // Fragment
+    Geometry = 2,
+    Compute = 3,
+    TessControl = 4,     // Hull
+    TessEvaluation = 5,  // Domain
 };
 
 // ============================================================
@@ -32,8 +32,8 @@ enum class ShaderType : uint8_t {
 enum class ShaderSourceLanguage : uint8_t {
     GLSL,
     HLSL,
-    SPIRV,     // Vulkan precompiled
-    WGSL,      // WebGPU
+    SPIRV,  // Vulkan precompiled
+    WGSL,   // WebGPU
 };
 
 // ============================================================
@@ -41,14 +41,14 @@ enum class ShaderSourceLanguage : uint8_t {
 // ============================================================
 
 struct ShaderDesc {
-    std::string_view name;              // 调试名称
-    ShaderType       type = ShaderType::Vertex;
+    std::string_view name;  // 调试名称
+    ShaderType type = ShaderType::Vertex;
 
     // 源码 — 三种方式任选其一
     std::string_view source;            // 源码文本
     std::string_view filePath;          // 或文件路径
-    const uint8_t*   byteCode   = nullptr;  // 或预编译字节码
-    uint32_t         byteCodeSize = 0;
+    const uint8_t* byteCode = nullptr;  // 或预编译字节码
+    uint32_t byteCodeSize = 0;
 
     std::string_view entryPoint = "main";
     ShaderSourceLanguage language = ShaderSourceLanguage::GLSL;
@@ -75,4 +75,4 @@ protected:
     Shader& operator=(const Shader&) = delete;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

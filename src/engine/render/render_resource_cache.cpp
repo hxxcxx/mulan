@@ -6,8 +6,7 @@
 
 namespace mulan::engine {
 
-RenderResourceCache::RenderResourceCache(RHIDevice& device)
-    : device_(device) {
+RenderResourceCache::RenderResourceCache(RHIDevice& device) : device_(device) {
 }
 
 void RenderResourceCache::uploadSolidGeometry(uint64_t key, const graphics::Mesh& mesh) {
@@ -26,16 +25,14 @@ void RenderResourceCache::uploadWireGeometry(uint64_t key, const graphics::Mesh&
     wire_geos_[key] = std::move(*result);
 }
 
-const GpuGeometry* RenderResourceCache::ensureSolidGeometry(uint64_t key,
-                                                            const graphics::Mesh& mesh) {
+const GpuGeometry* RenderResourceCache::ensureSolidGeometry(uint64_t key, const graphics::Mesh& mesh) {
     if (!solidGeometry(key)) {
         uploadSolidGeometry(key, mesh);
     }
     return solidGeometry(key);
 }
 
-const GpuGeometry* RenderResourceCache::ensureWireGeometry(uint64_t key,
-                                                           const graphics::Mesh& mesh) {
+const GpuGeometry* RenderResourceCache::ensureWireGeometry(uint64_t key, const graphics::Mesh& mesh) {
     if (!wireGeometry(key)) {
         uploadWireGeometry(key, mesh);
     }
@@ -49,7 +46,8 @@ void RenderResourceCache::releaseResource(uint64_t key) {
 
 bool RenderResourceCache::hasResource(uint64_t key) const {
     auto it = solid_geos_.find(key);
-    if (it != solid_geos_.end() && it->second.isValid()) return true;
+    if (it != solid_geos_.end() && it->second.isValid())
+        return true;
     auto eit = wire_geos_.find(key);
     return eit != wire_geos_.end() && eit->second.isValid();
 }
@@ -71,27 +69,28 @@ void RenderResourceCache::clear() {
 
 core::Result<GpuGeometry> RenderResourceCache::createGpuBuffer(RHIDevice& device, const graphics::Mesh& mesh) {
     GpuGeometry geo;
-    if (mesh.empty()) return geo;
+    if (mesh.empty())
+        return geo;
 
-    geo.layout       = mesh.layout;
+    geo.layout = mesh.layout;
     geo.vertexStride = mesh.vertexStride();
-    geo.vertexCount  = mesh.vertexCount();
-    geo.indexCount   = mesh.indexCount();
-    geo.indexType    = mesh.indexType;
+    geo.vertexCount = mesh.vertexCount();
+    geo.indexCount = mesh.indexCount();
+    geo.indexType = mesh.indexType;
 
     if (geo.vertexCount > 0 && !mesh.vertices.empty()) {
         uint32_t size = static_cast<uint32_t>(mesh.vertices.size());
-        auto vb = device.createBuffer(
-            BufferDesc::vertex(size, mesh.vertices.data(), "RenderGeometryVB"));
-        if (!vb) return std::unexpected(vb.error());
+        auto vb = device.createBuffer(BufferDesc::vertex(size, mesh.vertices.data(), "RenderGeometryVB"));
+        if (!vb)
+            return std::unexpected(vb.error());
         geo.vertexBuffer = std::move(*vb);
     }
 
     if (geo.indexCount > 0 && !mesh.indices.empty()) {
         uint32_t size = static_cast<uint32_t>(mesh.indices.size());
-        auto ib = device.createBuffer(
-            BufferDesc::index(size, mesh.indices.data(), "RenderGeometryIB"));
-        if (!ib) return std::unexpected(ib.error());
+        auto ib = device.createBuffer(BufferDesc::index(size, mesh.indices.data(), "RenderGeometryIB"));
+        if (!ib)
+            return std::unexpected(ib.error());
         geo.indexBuffer = std::move(*ib);
     }
 
@@ -99,4 +98,4 @@ core::Result<GpuGeometry> RenderResourceCache::createGpuBuffer(RHIDevice& device
     return geo;
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

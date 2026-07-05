@@ -20,8 +20,7 @@ namespace mulan::engine {
 class VKFence : public Fence {
 public:
     /// 创建 VKFence（timeline semaphore）。失败返回 FenceCreateFailed。
-    static core::Result<std::unique_ptr<VKFence>>
-        create(vk::Device device, uint64_t initialValue);
+    static core::Result<std::unique_ptr<VKFence>> create(vk::Device device, uint64_t initialValue);
     ~VKFence();
 
     void signal(uint64_t value) override;
@@ -33,8 +32,8 @@ public:
 private:
     VKFence(vk::Device device) : device_(device) {}
 
-    vk::Device    device_;
+    vk::Device device_;
     vk::Semaphore semaphore_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

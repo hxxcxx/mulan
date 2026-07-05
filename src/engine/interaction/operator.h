@@ -36,10 +36,10 @@ class Operator {
 public:
     /// 交互状态
     enum class State : uint8_t {
-        Inactive  = 0,   ///< 未激活（构造后、push 前）
-        Active    = 1,   ///< 激活中（在栈顶接收事件）
-        Finished  = 2,   ///< 正常完成（finish(true)）
-        Cancelled = 3,   ///< 用户取消（finish(false)，ESC / 右键）
+        Inactive = 0,   ///< 未激活（构造后、push 前）
+        Active = 1,     ///< 激活中（在栈顶接收事件）
+        Finished = 2,   ///< 正常完成（finish(true)）
+        Cancelled = 3,  ///< 用户取消（finish(false)，ESC / 右键）
     };
 
     /// 完成回调签名：参数为该 Operator 自身（调用方可读取结果、状态）
@@ -52,8 +52,8 @@ public:
     // ============================================================
 
     State state() const { return state_; }
-    bool isActive()    const { return state_ == State::Active; }
-    bool isFinished()  const { return state_ == State::Finished || state_ == State::Cancelled; }
+    bool isActive() const { return state_ == State::Active; }
+    bool isFinished() const { return state_ == State::Finished || state_ == State::Cancelled; }
     bool isCompleted() const { return state_ == State::Finished; }
 
     /// 注册完成回调（由 Viewport 在 push 时自动连接到 popOperator）
@@ -76,25 +76,53 @@ public:
     // 鼠标事件（子类覆盖）
     // ============================================================
 
-    virtual bool onMousePress      (const InputEvent& e, Camera& cam) { (void)e; (void)cam; return false; }
-    virtual bool onMouseRelease    (const InputEvent& e, Camera& cam) { (void)e; (void)cam; return false; }
-    virtual bool onMouseMove       (const InputEvent& e, Camera& cam) { (void)e; (void)cam; return false; }
-    virtual bool onMouseDoubleClick(const InputEvent& e, Camera& cam) { (void)e; (void)cam; return false; }
-    virtual bool onWheel           (const InputEvent& e, Camera& cam) { (void)e; (void)cam; return false; }
+    virtual bool onMousePress(const InputEvent& e, Camera& cam) {
+        (void) e;
+        (void) cam;
+        return false;
+    }
+    virtual bool onMouseRelease(const InputEvent& e, Camera& cam) {
+        (void) e;
+        (void) cam;
+        return false;
+    }
+    virtual bool onMouseMove(const InputEvent& e, Camera& cam) {
+        (void) e;
+        (void) cam;
+        return false;
+    }
+    virtual bool onMouseDoubleClick(const InputEvent& e, Camera& cam) {
+        (void) e;
+        (void) cam;
+        return false;
+    }
+    virtual bool onWheel(const InputEvent& e, Camera& cam) {
+        (void) e;
+        (void) cam;
+        return false;
+    }
 
     // ============================================================
     // 键盘事件（子类覆盖）
     // ============================================================
 
-    virtual bool onKeyPress  (const InputEvent& e, Camera& cam) { (void)e; (void)cam; return false; }
-    virtual bool onKeyRelease(const InputEvent& e, Camera& cam) { (void)e; (void)cam; return false; }
+    virtual bool onKeyPress(const InputEvent& e, Camera& cam) {
+        (void) e;
+        (void) cam;
+        return false;
+    }
+    virtual bool onKeyRelease(const InputEvent& e, Camera& cam) {
+        (void) e;
+        (void) cam;
+        return false;
+    }
 
     // ============================================================
     // 生命周期
     // ============================================================
 
-    virtual void onActivate  (Camera& cam) { (void)cam; }
-    virtual void onDeactivate(Camera& cam) { (void)cam; }
+    virtual void onActivate(Camera& cam) { (void) cam; }
+    virtual void onDeactivate(Camera& cam) { (void) cam; }
 
     // ============================================================
     // 统一分发入口（virtual —— 修复重构前的 #2 bug）
@@ -106,7 +134,8 @@ public:
     // ============================================================
 
     virtual bool handleEvent(const InputEvent& e, Camera& cam) {
-        if (!isActive()) return false;
+        if (!isActive())
+            return false;
 
         // 1. 相机事件拦截钩子（默认实现返回 false，见下）
         if (isCameraEvent(e) && handleCameraEvent(e, cam))
@@ -114,13 +143,13 @@ public:
 
         // 2. 常规分发
         switch (e.type) {
-        case InputEvent::Type::MousePress:       return onMousePress(e, cam);
-        case InputEvent::Type::MouseRelease:     return onMouseRelease(e, cam);
-        case InputEvent::Type::MouseMove:        return onMouseMove(e, cam);
+        case InputEvent::Type::MousePress: return onMousePress(e, cam);
+        case InputEvent::Type::MouseRelease: return onMouseRelease(e, cam);
+        case InputEvent::Type::MouseMove: return onMouseMove(e, cam);
         case InputEvent::Type::MouseDoubleClick: return onMouseDoubleClick(e, cam);
-        case InputEvent::Type::Wheel:            return onWheel(e, cam);
-        case InputEvent::Type::KeyPress:         return onKeyPress(e, cam);
-        case InputEvent::Type::KeyRelease:       return onKeyRelease(e, cam);
+        case InputEvent::Type::Wheel: return onWheel(e, cam);
+        case InputEvent::Type::KeyPress: return onKeyPress(e, cam);
+        case InputEvent::Type::KeyRelease: return onKeyRelease(e, cam);
         }
         return false;
     }
@@ -134,26 +163,28 @@ protected:
     /// 仅翻转状态，不触发回调（回调由 Viewport 在 handleInput 之后外部触发，
     /// 避免在 Operator 成员函数内析构自身）。重复调用安全（幂等）。
     void finish(bool completed = true) {
-        if (state_ == State::Finished || state_ == State::Cancelled) return;
+        if (state_ == State::Finished || state_ == State::Cancelled)
+            return;
         state_ = completed ? State::Finished : State::Cancelled;
     }
 
     /// 判定是否为相机操控事件（中键 / 右键 / 滚轮）。
     /// 模态工具可覆盖以自定义相机事件范围。
     virtual bool isCameraEvent(const InputEvent& e) const {
-        (void)e;
+        (void) e;
         return false;  // 默认无相机事件；CameraManipulator 自己处理一切
     }
 
     /// 相机事件处理器。默认空实现；模态工具通常会组合一个 CameraManipulator
     /// 并在此转发给它（参考注释中的示例）。
     virtual bool handleCameraEvent(const InputEvent& e, Camera& cam) {
-        (void)e; (void)cam;
+        (void) e;
+        (void) cam;
         return false;
     }
 
-    State          state_    = State::Inactive;
+    State state_ = State::Inactive;
     FinishCallback on_finish_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

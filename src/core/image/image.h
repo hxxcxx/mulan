@@ -32,30 +32,30 @@ namespace mulan::core {
 
 enum class PixelFormat : uint8_t {
     Unknown = 0,
-    R8,          ///< 单通道 8-bit 灰度
-    RG8,         ///< 双通道 8-bit
-    RGB8,        ///< 三通道 8-bit
-    RGBA8,       ///< 四通道 8-bit（推荐默认）
+    R8,     ///< 单通道 8-bit 灰度
+    RG8,    ///< 双通道 8-bit
+    RGB8,   ///< 三通道 8-bit
+    RGBA8,  ///< 四通道 8-bit（推荐默认）
 };
 
 /// 每像素字节数
 inline uint32_t bytesPerPixel(PixelFormat fmt) {
     switch (fmt) {
-    case PixelFormat::R8:    return 1;
-    case PixelFormat::RG8:   return 2;
-    case PixelFormat::RGB8:  return 3;
+    case PixelFormat::R8: return 1;
+    case PixelFormat::RG8: return 2;
+    case PixelFormat::RGB8: return 3;
     case PixelFormat::RGBA8: return 4;
-    default:                 return 0;
+    default: return 0;
     }
 }
 
 inline const char* pixelFormatName(PixelFormat fmt) {
     switch (fmt) {
-    case PixelFormat::R8:    return "R8";
-    case PixelFormat::RG8:   return "RG8";
-    case PixelFormat::RGB8:  return "RGB8";
+    case PixelFormat::R8: return "R8";
+    case PixelFormat::RG8: return "RG8";
+    case PixelFormat::RGB8: return "RGB8";
     case PixelFormat::RGBA8: return "RGBA8";
-    default:                 return "Unknown";
+    default: return "Unknown";
     }
 }
 
@@ -74,16 +74,16 @@ public:
 
     // --- 查询 ---
 
-    uint32_t   width()    const { return width_; }
-    uint32_t   height()   const { return height_; }
-    PixelFormat format()  const { return format_; }
-    bool       valid()    const;
+    uint32_t width() const { return width_; }
+    uint32_t height() const { return height_; }
+    PixelFormat format() const { return format_; }
+    bool valid() const;
 
-    uint32_t   rowBytes()      const { return width_ * bytesPerPixel(format_); }
-    size_t     totalBytes()    const { return pixels_.size(); }
+    uint32_t rowBytes() const { return width_ * bytesPerPixel(format_); }
+    size_t totalBytes() const { return pixels_.size(); }
 
     /// 只读像素访问
-    const uint8_t* data()         const { return pixels_.data(); }
+    const uint8_t* data() const { return pixels_.data(); }
     const uint8_t* scanline(uint32_t row) const;
 
     // --- 变换 ---
@@ -130,8 +130,8 @@ public:
     // --- 工厂：从缓冲区构建 ---
 
     /// 从已有像素缓冲创建（用于离屏渲染回写）
-    static std::shared_ptr<Image> createFromBuffer(
-        uint32_t w, uint32_t h, PixelFormat fmt, std::vector<uint8_t> pixels);
+    static std::shared_ptr<Image> createFromBuffer(uint32_t w, uint32_t h, PixelFormat fmt,
+                                                   std::vector<uint8_t> pixels);
 
     /// 创建空白图像
     static std::shared_ptr<Image> create(uint32_t w, uint32_t h, PixelFormat fmt);
@@ -142,10 +142,10 @@ public:
     static bool isSupportedFile(std::string_view path);
 
 private:
-    uint32_t              width_  = 0;
-    uint32_t              height_ = 0;
-    PixelFormat           format_ = PixelFormat::Unknown;
-    std::vector<uint8_t>  pixels_;
+    uint32_t width_ = 0;
+    uint32_t height_ = 0;
+    PixelFormat format_ = PixelFormat::Unknown;
+    std::vector<uint8_t> pixels_;
 };
 
 class CORE_API FloatImage {
@@ -162,8 +162,7 @@ public:
     size_t totalBytes() const { return pixels_.size() * sizeof(float); }
 
     static std::shared_ptr<FloatImage> loadHDR(std::string_view path, int forceChannels = 4);
-    static core::Result<std::shared_ptr<FloatImage>>
-    loadHDRExpected(std::string_view path, int forceChannels = 4);
+    static core::Result<std::shared_ptr<FloatImage>> loadHDRExpected(std::string_view path, int forceChannels = 4);
 
 private:
     uint32_t width_ = 0;
@@ -172,4 +171,4 @@ private:
     std::vector<float> pixels_;
 };
 
-} // namespace mulan::core
+}  // namespace mulan::core

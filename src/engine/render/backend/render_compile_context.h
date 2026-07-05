@@ -22,4 +22,4 @@ struct RenderCompileContext {
     PipelineState* edgePipeline = nullptr;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

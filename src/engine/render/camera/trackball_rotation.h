@@ -23,8 +23,8 @@ public:
     TrackballRotation();
 
     math::Vec3 forward() const override;
-    math::Vec3 right()   const override;
-    math::Vec3 up()      const override;
+    math::Vec3 right() const override;
+    math::Vec3 up() const override;
 
     void orbitDelta(double dx, double dy) override;
 
@@ -41,10 +41,10 @@ public:
 private:
     math::Vec3 arcballProject(int x, int y, int viewW, int viewH) const;
 
-    math::Quat   rotation_;
-    math::Vec3   arcball_prev_   = {0, 0, 0};
-    bool   arcball_active_ = false;
-    double arcball_speed_  = 1.75;
+    math::Quat rotation_;
+    math::Vec3 arcball_prev_ = { 0, 0, 0 };
+    bool arcball_active_ = false;
+    double arcball_speed_ = 1.75;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

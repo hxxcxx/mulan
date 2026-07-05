@@ -18,4 +18,4 @@ struct RenderComponent {
     std::vector<asset::AssetId> material_slots;
 };
 
-} // namespace mulan::scene
+}  // namespace mulan::scene

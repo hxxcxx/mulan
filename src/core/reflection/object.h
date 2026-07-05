@@ -27,13 +27,9 @@ namespace mulan::core {
 
 class CORE_API ClassInfo {
 public:
-    ClassInfo(std::string_view name, TypeInfo typeInfo, const ClassInfo* baseInfo = nullptr,
-              size_t size = 0, bool isAbstract = false)
-        : name_(name)
-        , type_info_(std::move(typeInfo))
-        , base_info_(baseInfo)
-        , size_(size)
-        , is_abstract_(isAbstract) {}
+    ClassInfo(std::string_view name, TypeInfo typeInfo, const ClassInfo* baseInfo = nullptr, size_t size = 0,
+              bool isAbstract = false)
+        : name_(name), type_info_(std::move(typeInfo)), base_info_(baseInfo), size_(size), is_abstract_(isAbstract) {}
 
     const std::string& name() const { return name_; }
     const TypeInfo& typeInfo() const { return type_info_; }
@@ -45,7 +41,8 @@ public:
     bool isDerivedFrom(const ClassInfo* other) const {
         const ClassInfo* current = this;
         while (current) {
-            if (current == other) return true;
+            if (current == other)
+                return true;
             current = current->base_info_;
         }
         return false;
@@ -77,9 +74,7 @@ public:
     virtual const ClassInfo& classInfo() const noexcept = 0;
 
     /// 便捷方法：获取类型名
-    const std::string& typeName() const noexcept {
-        return classInfo().name();
-    }
+    const std::string& typeName() const noexcept { return classInfo().name(); }
 
     /// 创建自身类型的默认实例（由 MULANGEO_OBJECT 宏实现）
     virtual std::unique_ptr<Object> create() const = 0;
@@ -103,7 +98,7 @@ public:
         return inst;
     }
 
-    using Creator = std::unique_ptr<Object>(*)();
+    using Creator = std::unique_ptr<Object> (*)();
 
     /// 注册类型（线程安全，支持动态插件加载）
     void registerType(std::string_view typeName, Creator fn);
@@ -126,8 +121,7 @@ private:
     std::unordered_map<std::string, Creator> creators_;
 };
 
-
-} // namespace mulan::core
+}  // namespace mulan::core
 
 // ============================================================
 // Serializer<std::unique_ptr<Object>> 声明（DLL 导出）
@@ -138,10 +132,10 @@ private:
 
 namespace mulan::core {
 
-template<>
+template <>
 struct CORE_API Serializer<std::unique_ptr<Object>> {
     static void write(OutputArchive& ar, const std::unique_ptr<Object>& obj);
     static ArchiveResult read(InputArchive& ar, std::unique_ptr<Object>& out);
 };
 
-} // namespace mulan::core
+}  // namespace mulan::core

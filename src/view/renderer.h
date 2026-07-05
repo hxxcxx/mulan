@@ -24,7 +24,7 @@
 
 namespace mulan::engine {
 class RHIDevice;
-} // namespace mulan::engine
+}  // namespace mulan::engine
 
 namespace mulan::view {
 class RenderScene;
@@ -48,15 +48,12 @@ public:
 
     /// 初始化 stages 与资源缓存。lightEnv 引用在 ViewContext 生命周期内稳定。
     /// IBL 烘焙不在此处发生——按需通过 enableIBL() 触发，由调用方根据模型类型决定。
-    bool init(engine::RHIDevice& device,
-              engine::LightEnvironment& lightEnv,
-              engine::TextureFormat colorFmt,
+    bool init(engine::RHIDevice& device, engine::LightEnvironment& lightEnv, engine::TextureFormat colorFmt,
               engine::TextureFormat depthFmt);
 
     void shutdown(engine::RHIDevice& device);
 
-    void setScene(const RenderScene* scene,
-                  const asset::AssetLibrary* assets);
+    void setScene(const RenderScene* scene, const asset::AssetLibrary* assets);
 
     /// 按需烘焙 IBL 三件套（irradiance/prefilter/BRDF LUT）。
     /// 已烘焙过则跳过（幂等）。HDR 文件不存在则静默失败。
@@ -64,9 +61,7 @@ public:
     void enableIBL(engine::RHIDevice& device, const std::string& hdrPath);
 
     /// 执行一帧渲染。viewState 是当帧只读视图快照（相机矩阵等）。
-    void render(engine::RHIDevice& device,
-                RenderSurface& surface,
-                const ViewState& viewState);
+    void render(engine::RHIDevice& device, RenderSurface& surface, const ViewState& viewState);
 
     bool isInitialized() const { return initialized_; }
 
@@ -85,4 +80,4 @@ private:
     bool initialized_ = false;
 };
 
-} // namespace mulan::view
+}  // namespace mulan::view

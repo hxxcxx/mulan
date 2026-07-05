@@ -2,15 +2,14 @@
 
 namespace mulan::engine {
 
-FaceStage::FaceStage(RHIDevice& device, RenderResourceCache& gpu,
-                     MaterialCache& matCache, const LightEnvironment& lightEnv)
+FaceStage::FaceStage(RHIDevice& device, RenderResourceCache& gpu, MaterialCache& matCache,
+                     const LightEnvironment& lightEnv)
     : draw_executor_(device, gpu, matCache, lightEnv, RenderTechnique::SurfacePBR) {
 }
 
 core::Result<void> FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
     if (!draw_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal,
-                                                "FaceStage init failed"));
+        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage init failed"));
     }
     return {};
 }
@@ -49,4 +48,4 @@ Sampler* FaceStage::defaultSampler() const {
     return draw_executor_.defaultSampler();
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

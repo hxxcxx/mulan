@@ -25,15 +25,13 @@ std::vector<CaptureImage> CaptureBatchResult::images() const {
     result.reserve(succeededCount());
     for (const auto& item : items) {
         if (item.result) {
-            result.push_back(CaptureImage{.name = item.name, .result = *item.result});
+            result.push_back(CaptureImage{ .name = item.name, .result = *item.result });
         }
     }
     return result;
 }
 
-ViewState makeCaptureViewState(const engine::Camera& camera,
-                               const CaptureVisual& visual,
-                               uint32_t width,
+ViewState makeCaptureViewState(const engine::Camera& camera, const CaptureVisual& visual, uint32_t width,
                                uint32_t height) {
     ViewState state;
     state.viewMatrix = camera.viewMatrix();
@@ -65,4 +63,4 @@ ViewState makeCaptureViewState(const engine::Camera& camera,
     return state;
 }
 
-} // namespace mulan::view
+}  // namespace mulan::view

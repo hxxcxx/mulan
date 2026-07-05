@@ -18,8 +18,8 @@
 namespace mulan::math {
 
 struct Plane3 {
-    Vec3   normal{};   // 应为单位向量
-    double d = 0.0;    // n·p = d
+    Vec3 normal{};   // 应为单位向量
+    double d = 0.0;  // n·p = d
 
     constexpr Plane3() = default;
     constexpr Plane3(const Vec3& n, double d_) : normal(n), d(d_) {}
@@ -38,22 +38,18 @@ struct Plane3 {
     // ---------- 查询 ----------
 
     /// 有符号距离：>0 法向侧，<0 反向侧，=0 在平面上
-    double signedDistance(const Point3& p) const {
-        return normal.dot(p.asVec()) - d;
-    }
+    double signedDistance(const Point3& p) const { return normal.dot(p.asVec()) - d; }
 
     bool contains(const Point3& p, const Tolerance& tol = defaultTolerance()) const {
         return std::abs(signedDistance(p)) <= tol.lengthEps;
     }
 
     /// 将 p 投影到平面
-    Point3 project(const Point3& p) const {
-        return p - normal * signedDistance(p);
-    }
+    Point3 project(const Point3& p) const { return p - normal * signedDistance(p); }
 
     /// 经矩阵变换：法向用逆转置（transformedAsNormal），平面上一点用点变换
     Plane3 transformed(const Mat4& m) const {
-        Vec3 newNormal = normal.transformedAsNormal(m);   // 已归一化
+        Vec3 newNormal = normal.transformedAsNormal(m);  // 已归一化
         // 平面上一点 = normal * d，经点变换
         Point3 pointOnPlane(normal * d);
         Point3 newPoint = pointOnPlane.transformedBy(m);
@@ -61,4 +57,4 @@ struct Plane3 {
     }
 };
 
-} // namespace mulan::math
+}  // namespace mulan::math

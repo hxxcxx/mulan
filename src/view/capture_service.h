@@ -24,12 +24,12 @@ class ViewContext;
 
 class CaptureService {
 public:
-    core::Result<engine::RenderCaptureResult> capture(ViewContext& context, const engine::RenderCaptureDesc& desc) const;
+    core::Result<engine::RenderCaptureResult> capture(ViewContext& context,
+                                                      const engine::RenderCaptureDesc& desc) const;
 
     core::Result<CaptureImage> capture(ViewContext& context, const CaptureRequest& request) const;
 
-    CaptureBatchResult
-    capture(ViewContext& context, const CaptureBatch& batch) const;
+    CaptureBatchResult capture(ViewContext& context, const CaptureBatch& batch) const;
 
 private:
     class CaptureScope;
@@ -37,23 +37,16 @@ private:
     static uint32_t captureWidth(ViewContext& context, const engine::RenderCaptureDesc& desc);
     static uint32_t captureHeight(ViewContext& context, const engine::RenderCaptureDesc& desc);
 
-    static std::optional<CaptureResult>
-    validateCaptureInput(ViewContext& context,
-                         std::string name,
-                         uint32_t width,
-                         uint32_t height);
+    static std::optional<CaptureResult> validateCaptureInput(ViewContext& context, std::string name, uint32_t width,
+                                                             uint32_t height);
 
-    static std::optional<CaptureResult>
-    configureCaptureTarget(ViewContext& context,
-                           const engine::RenderCaptureDesc& desc,
-                           std::string name,
-                           uint32_t width,
-                           uint32_t height);
+    static std::optional<CaptureResult> configureCaptureTarget(ViewContext& context,
+                                                               const engine::RenderCaptureDesc& desc, std::string name,
+                                                               uint32_t width, uint32_t height);
 
     static core::Result<engine::RenderCaptureResult> readCaptureResult(ViewContext& context,
-                      const engine::RenderCaptureDesc& desc,
-                      uint32_t width,
-                      uint32_t height);
+                                                                       const engine::RenderCaptureDesc& desc,
+                                                                       uint32_t width, uint32_t height);
 };
 
-} // namespace mulan::view
+}  // namespace mulan::view

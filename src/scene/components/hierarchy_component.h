@@ -15,4 +15,4 @@ struct HierarchyComponent {
     EntityId parent = EntityId::invalid();
 };
 
-} // namespace mulan::scene
+}  // namespace mulan::scene

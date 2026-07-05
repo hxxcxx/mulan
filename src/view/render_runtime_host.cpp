@@ -6,16 +6,12 @@ RenderRuntimeHost::~RenderRuntimeHost() {
     shutdown();
 }
 
-core::Result<void> RenderRuntimeHost::initWindow(const ViewConfig& config,
-                              int width,
-                              int height,
-                              engine::LightEnvironment& lightEnv) {
+core::Result<void> RenderRuntimeHost::initWindow(const ViewConfig& config, int width, int height,
+                                                 engine::LightEnvironment& lightEnv) {
     return runtime_.initWindow(config, width, height, lightEnv);
 }
 
-core::Result<void> RenderRuntimeHost::initOffscreen(int width,
-                                 int height,
-                                 engine::LightEnvironment& lightEnv) {
+core::Result<void> RenderRuntimeHost::initOffscreen(int width, int height, engine::LightEnvironment& lightEnv) {
     return runtime_.initOffscreen(width, height, lightEnv);
 }
 
@@ -27,8 +23,7 @@ bool RenderRuntimeHost::isInitialized() const {
     return runtime_.isInitialized();
 }
 
-void RenderRuntimeHost::setRenderScene(const RenderScene* scene,
-                                       const asset::AssetLibrary* assets) {
+void RenderRuntimeHost::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
     runtime_.setRenderScene(scene, assets);
 }
 
@@ -60,8 +55,7 @@ bool RenderRuntimeHost::readbackPixels(std::vector<uint8_t>& pixels) {
     return runtime_.readbackPixels(pixels);
 }
 
-bool RenderRuntimeHost::configureCaptureSurface(const engine::RenderCaptureDesc& desc,
-                                                uint32_t width,
+bool RenderRuntimeHost::configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width,
                                                 uint32_t height) {
     return runtime_.configureCaptureSurface(desc, width, height);
 }
@@ -74,4 +68,4 @@ std::optional<RenderSurfaceDesc> RenderRuntimeHost::offscreenSurfaceDesc() const
     return runtime_.offscreenSurfaceDesc();
 }
 
-} // namespace mulan::view
+}  // namespace mulan::view

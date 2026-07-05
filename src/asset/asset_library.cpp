@@ -3,7 +3,7 @@
 namespace mulan::asset {
 
 AssetId AssetLibrary::allocateId() {
-    return AssetId{next_id_++};
+    return AssetId{ next_id_++ };
 }
 
 Asset* AssetLibrary::asset(AssetId id) {
@@ -37,4 +37,4 @@ size_t AssetLibrary::count(AssetKind kind) const {
     return result;
 }
 
-} // namespace mulan::asset
+}  // namespace mulan::asset

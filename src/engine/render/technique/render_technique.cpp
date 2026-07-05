@@ -7,7 +7,7 @@ consteval TechniqueDesc makeSurfacePBR() {
     return TechniqueDesc{
         .technique = RenderTechnique::SurfacePBR,
         .debugName = "SurfacePBR",
-        .shader = {.vertex = "pbr.vert", .pixel = "pbr.frag"},
+        .shader = { .vertex = "pbr.vert", .pixel = "pbr.frag" },
         .vertexLayout = graphics::layouts::surface(),
         .topology = PrimitiveTopology::TriangleList,
         .depthWrite = true,
@@ -19,7 +19,7 @@ consteval TechniqueDesc makeEdgeLine() {
     return TechniqueDesc{
         .technique = RenderTechnique::EdgeLine,
         .debugName = "EdgeLine",
-        .shader = {.vertex = "edge.vert", .pixel = "edge.frag"},
+        .shader = { .vertex = "edge.vert", .pixel = "edge.frag" },
         .vertexLayout = graphics::layouts::surface(),
         .topology = PrimitiveTopology::LineList,
         .depthWrite = false,
@@ -30,16 +30,14 @@ consteval TechniqueDesc makeEdgeLine() {
 constexpr TechniqueDesc kSurfacePBR = makeSurfacePBR();
 constexpr TechniqueDesc kEdgeLine = makeEdgeLine();
 
-} // namespace
+}  // namespace
 
 const TechniqueDesc& TechniqueRegistry::builtin(RenderTechnique technique) {
     switch (technique) {
-    case RenderTechnique::SurfacePBR:
-        return kSurfacePBR;
-    case RenderTechnique::EdgeLine:
-        return kEdgeLine;
+    case RenderTechnique::SurfacePBR: return kSurfacePBR;
+    case RenderTechnique::EdgeLine: return kEdgeLine;
     }
     return kSurfacePBR;
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

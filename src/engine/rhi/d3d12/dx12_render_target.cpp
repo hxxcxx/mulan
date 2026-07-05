@@ -11,14 +11,14 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<DX12RenderTarget>>
-DX12RenderTarget::create(const RenderTargetDesc& desc, ID3D12Device* device) {
+core::Result<std::unique_ptr<DX12RenderTarget>> DX12RenderTarget::create(const RenderTargetDesc& desc,
+                                                                         ID3D12Device* device) {
     auto obj = std::unique_ptr<DX12RenderTarget>(new DX12RenderTarget(desc, device));
     try {
         obj->createResources();
     } catch (const std::exception& e) {
         return std::unexpected(makeError(EngineErrorCode::RenderTargetCreateFailed,
-            std::string("DX12RenderTarget create failed: ") + e.what()));
+                                         std::string("DX12RenderTarget create failed: ") + e.what()));
     }
     return obj;
 }
@@ -28,18 +28,16 @@ DX12RenderTarget::~DX12RenderTarget() = default;
 void DX12RenderTarget::createResources() {
     // Color texture
     auto colorDesc = TextureDesc::renderTarget(desc_.width, desc_.height, desc_.colorFormat);
-    auto colorResult = DX12Texture::create(
-        colorDesc, device_, D3D12_RESOURCE_STATE_RENDER_TARGET);
-    if (!colorResult) throw std::runtime_error(colorResult.error().message);
+    auto colorResult = DX12Texture::create(colorDesc, device_, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    if (!colorResult)
+        throw std::runtime_error(colorResult.error().message);
     color_texture_ = std::move(*colorResult);
 
     // RTV heap
-    rtv_heap_ = std::make_unique<DX12DescriptorAllocator>(
-        device_, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-        D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 1);
+    rtv_heap_ = std::make_unique<DX12DescriptorAllocator>(device_, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+                                                          D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 1);
     auto rtvDesc = rtv_heap_->allocate();
-    device_->CreateRenderTargetView(
-        color_texture_->resource(), nullptr, rtvDesc.cpu);
+    device_->CreateRenderTargetView(color_texture_->resource(), nullptr, rtvDesc.cpu);
     rtv_handle_ = rtvDesc.cpu;
     color_texture_->setRTV(rtvDesc.cpu);
 
@@ -47,29 +45,27 @@ void DX12RenderTarget::createResources() {
         // Depth texture —— 纯 DSV 用途，不带 ShaderResource（见 DX12SwapChain 同样注释）
         auto depthDesc = TextureDesc::depthStencil(desc_.width, desc_.height, desc_.depthFormat);
         depthDesc.usage = TextureUsageFlags::DepthStencil;  // 剥离 ShaderResource
-        auto depthResult = DX12Texture::create(
-            depthDesc, device_, D3D12_RESOURCE_STATE_DEPTH_WRITE);
-        if (!depthResult) throw std::runtime_error(depthResult.error().message);
+        auto depthResult = DX12Texture::create(depthDesc, device_, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+        if (!depthResult)
+            throw std::runtime_error(depthResult.error().message);
         depth_texture_ = std::move(*depthResult);
 
         // DSV heap
-        dsv_heap_ = std::make_unique<DX12DescriptorAllocator>(
-            device_, D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
-            D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 1);
+        dsv_heap_ = std::make_unique<DX12DescriptorAllocator>(device_, D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
+                                                              D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 1);
         auto dsvDesc = dsv_heap_->allocate();
 
         D3D12_DEPTH_STENCIL_VIEW_DESC dsvViewDesc = {};
-        dsvViewDesc.Format        = toDSVFormat(desc_.depthFormat);
+        dsvViewDesc.Format = toDSVFormat(desc_.depthFormat);
         dsvViewDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-        device_->CreateDepthStencilView(
-            depth_texture_->resource(), &dsvViewDesc, dsvDesc.cpu);
+        device_->CreateDepthStencilView(depth_texture_->resource(), &dsvViewDesc, dsvDesc.cpu);
         dsv_handle_ = dsvDesc.cpu;
         depth_texture_->setDSV(dsvDesc.cpu);
     }
 }
 
 void DX12RenderTarget::resize(uint32_t width, uint32_t height) {
-    desc_.width  = width;
+    desc_.width = width;
     desc_.height = height;
     color_texture_.reset();
     depth_texture_.reset();
@@ -78,9 +74,7 @@ void DX12RenderTarget::resize(uint32_t width, uint32_t height) {
     // resize 是基类 void 热路径契约，内部消化错误。
     try {
         createResources();
-    } catch (const std::exception& e) {
-        
-    }
+    } catch (const std::exception& e) {}
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

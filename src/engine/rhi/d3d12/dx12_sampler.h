@@ -21,9 +21,8 @@ namespace mulan::engine {
 class DX12Sampler : public Sampler {
 public:
     /// 创建 DX12Sampler。heap 为空或分配失败 → SamplerCreateFailed。
-    static core::Result<std::unique_ptr<DX12Sampler>>
-        create(const SamplerDesc& desc, ID3D12Device* device,
-               DX12DescriptorAllocator* samplerHeap);
+    static core::Result<std::unique_ptr<DX12Sampler>> create(const SamplerDesc& desc, ID3D12Device* device,
+                                                             DX12DescriptorAllocator* samplerHeap);
     ~DX12Sampler();
 
     const SamplerDesc& desc() const override { return desc_; }
@@ -32,11 +31,10 @@ public:
     D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle() const { return descriptor_.gpu; }
 
 private:
-    DX12Sampler(const SamplerDesc& desc, ID3D12Device* device,
-                DX12DescriptorAllocator* samplerHeap);
+    DX12Sampler(const SamplerDesc& desc, ID3D12Device* device, DX12DescriptorAllocator* samplerHeap);
 
-    SamplerDesc     desc_;
-    DX12Descriptor  descriptor_;
+    SamplerDesc desc_;
+    DX12Descriptor descriptor_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

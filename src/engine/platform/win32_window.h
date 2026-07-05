@@ -22,10 +22,10 @@ namespace mulan::engine {
 class Win32Window : public IWindow {
 public:
     struct Desc {
-        std::wstring title     = L"mulan";
-        uint32_t     width     = 1280;
-        uint32_t     height    = 720;
-        bool         resizable = true;
+        std::wstring title = L"mulan";
+        uint32_t width = 1280;
+        uint32_t height = 720;
+        bool resizable = true;
         RenderConfig renderConfig = {};
     };
 
@@ -35,7 +35,7 @@ public:
     // --- IWindow 接口 ---
 
     NativeWindowHandle nativeHandle() const override;
-    uint32_t width()  const override { return width_; }
+    uint32_t width() const override { return width_; }
     uint32_t height() const override { return height_; }
 
     // --- Win32 特有（外部主循环使用，不是 IWindow 接口）---
@@ -53,12 +53,12 @@ private:
 
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-    HWND     hwnd_          = nullptr;
-    uint32_t width_         = 0;
-    uint32_t height_        = 0;
-    bool     should_close_  = false;
+    HWND hwnd_ = nullptr;
+    uint32_t width_ = 0;
+    uint32_t height_ = 0;
+    bool should_close_ = false;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine
 
-#endif // _WIN32
+#endif  // _WIN32

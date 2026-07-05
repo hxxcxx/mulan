@@ -46,30 +46,22 @@ public:
     RenderRuntime(const RenderRuntime&) = delete;
     RenderRuntime& operator=(const RenderRuntime&) = delete;
 
-    core::Result<void> initWindow(const ViewConfig& config,
-               int width,
-               int height,
-               engine::LightEnvironment& lightEnv);
+    core::Result<void> initWindow(const ViewConfig& config, int width, int height, engine::LightEnvironment& lightEnv);
 
-    core::Result<void> initOffscreen(int width,
-                  int height,
-                  engine::LightEnvironment& lightEnv);
+    core::Result<void> initOffscreen(int width, int height, engine::LightEnvironment& lightEnv);
 
     void shutdown();
 
     bool isInitialized() const { return initialized_; }
 
-    void setRenderScene(const RenderScene* scene,
-                        const asset::AssetLibrary* assets);
+    void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
 
     void render(const ViewState& viewState);
     void resize(int width, int height);
     void enableIBL(const std::string& hdrPath);
 
     bool readbackPixels(std::vector<uint8_t>& pixels);
-    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc,
-                                 uint32_t width,
-                                 uint32_t height);
+    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
     bool configureOffscreenSurface(const RenderSurfaceDesc& desc);
     std::optional<RenderSurfaceDesc> offscreenSurfaceDesc() const;
 
@@ -85,4 +77,4 @@ private:
     bool initialized_ = false;
 };
 
-} // namespace mulan::view
+}  // namespace mulan::view

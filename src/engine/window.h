@@ -17,25 +17,25 @@ namespace mulan::engine {
 
 struct RenderConfig {
     // --- 背景 ---
-    float clearColor[4] = { 97.0f/255, 101.0f/255, 118.0f/255, 1.0f };
-    float clearDepth    = 1.0f;
+    float clearColor[4] = { 97.0f / 255, 101.0f / 255, 118.0f / 255, 1.0f };
+    float clearDepth = 1.0f;
 
     // --- 抗锯齿 ---
     enum class MSAALevel : uint8_t {
-        None   = 1,
-        x2     = 2,
-        x4     = 4,
-        x8     = 8,
+        None = 1,
+        x2 = 2,
+        x4 = 4,
+        x8 = 8,
     };
     MSAALevel msaa = MSAALevel::x4;
 
     // --- 帧缓冲 ---
-    uint8_t  bufferCount = 2;           // 双缓冲 / 三缓冲
-    bool     vsync       = true;
+    uint8_t bufferCount = 2;  // 双缓冲 / 三缓冲
+    bool vsync = true;
 
     // --- 深度缓冲 ---
-    bool     depthBuffer   = true;
-    bool     stencilBuffer = false;     // pick 模式需要 stencil
+    bool depthBuffer = true;
+    bool stencilBuffer = false;  // pick 模式需要 stencil
 
     // 便捷
     uint32_t sampleCount() const { return static_cast<uint32_t>(msaa); }
@@ -50,17 +50,23 @@ struct RenderConfig {
 struct NativeWindowHandle {
     enum class Type : uint8_t {
         Unknown = 0,
-        Win32,       // Windows: HINSTANCE + HWND
-        XCB,         // Linux X11: xcb_connection_t* + xcb_window_t
+        Win32,  // Windows: HINSTANCE + HWND
+        XCB,    // Linux X11: xcb_connection_t* + xcb_window_t
     };
 
     Type type = Type::Unknown;
 
     union {
         // Win32:  hInstance + hWnd
-        struct { uintptr_t hInstance; uintptr_t hWnd; }    win32;
+        struct {
+            uintptr_t hInstance;
+            uintptr_t hWnd;
+        } win32;
         // XCB:    connection + window
-        struct { uintptr_t connection; uintptr_t window; } xcb;
+        struct {
+            uintptr_t connection;
+            uintptr_t window;
+        } xcb;
     };
 
     NativeWindowHandle() : type(Type::Unknown), win32{} {}
@@ -68,8 +74,8 @@ struct NativeWindowHandle {
     bool valid() const {
         switch (type) {
         case Type::Win32: return win32.hWnd != 0;
-        case Type::XCB:   return xcb.connection != 0 && xcb.window != 0;
-        default:          return false;
+        case Type::XCB: return xcb.connection != 0 && xcb.window != 0;
+        default: return false;
         }
     }
 
@@ -79,7 +85,7 @@ struct NativeWindowHandle {
         NativeWindowHandle h;
         h.type = Type::Win32;
         h.win32.hInstance = hInstance;
-        h.win32.hWnd      = hWnd;
+        h.win32.hWnd = hWnd;
         return h;
     }
 
@@ -87,7 +93,7 @@ struct NativeWindowHandle {
         NativeWindowHandle h;
         h.type = Type::XCB;
         h.xcb.connection = connection;
-        h.xcb.window     = window;
+        h.xcb.window = window;
         return h;
     }
 };
@@ -107,27 +113,28 @@ public:
     virtual NativeWindowHandle nativeHandle() const = 0;
 
     /// 窗口客户区尺寸（像素）
-    virtual uint32_t width()  const = 0;
+    virtual uint32_t width() const = 0;
     virtual uint32_t height() const = 0;
 
     // --- 渲染配置 ---
     RenderConfig renderConfig;
 
     // --- Resize 回调 ---
-    using ResizeCallback = void(*)(IWindow& window, uint32_t width, uint32_t height, void* userData);
+    using ResizeCallback = void (*)(IWindow& window, uint32_t width, uint32_t height, void* userData);
 
     void setResizeCallback(ResizeCallback cb, void* userData = nullptr) {
-        resize_cb_     = cb;
+        resize_cb_ = cb;
         resize_cb_data_ = userData;
     }
 
 protected:
     void notifyResize(uint32_t w, uint32_t h) {
-        if (resize_cb_) resize_cb_(*this, w, h, resize_cb_data_);
+        if (resize_cb_)
+            resize_cb_(*this, w, h, resize_cb_data_);
     }
 
-    ResizeCallback resize_cb_     = nullptr;
-    void*          resize_cb_data_ = nullptr;
+    ResizeCallback resize_cb_ = nullptr;
+    void* resize_cb_data_ = nullptr;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

@@ -41,4 +41,4 @@ private:
     std::string name_;
 };
 
-} // namespace mulan::asset
+}  // namespace mulan::asset

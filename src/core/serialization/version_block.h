@@ -42,7 +42,7 @@ public:
 
 private:
     BinaryOutputArchive& archive_;
-    uint64_t start_pos_;      // size 占位符的位置
+    uint64_t start_pos_;       // size 占位符的位置
     uint64_t data_start_pos_;  // 数据开始的位置
 };
 
@@ -74,7 +74,7 @@ private:
     BinaryInputArchive& archive_;
     uint32_t version_;
     uint32_t block_size_;
-    uint64_t end_pos_;        // 块结束位置
+    uint64_t end_pos_;  // 块结束位置
 };
 
-} // namespace mulan::core
+}  // namespace mulan::core

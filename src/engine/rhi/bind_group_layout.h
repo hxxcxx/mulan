@@ -24,10 +24,10 @@
 namespace mulan::engine {
 
 struct BindGroupLayoutEntry {
-    uint32_t       binding = 0;
-    uint32_t       count   = 1;
-    DescriptorType type    = DescriptorType::UniformBuffer;
-    uint32_t       stages  = PipelineBinding::kStageAll;
+    uint32_t binding = 0;
+    uint32_t count = 1;
+    DescriptorType type = DescriptorType::UniformBuffer;
+    uint32_t stages = PipelineBinding::kStageAll;
 };
 
 class BindGroupLayout {
@@ -59,14 +59,12 @@ private:
     uint64_t hash_ = 0;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine
 
 // std::hash 特化，用于 unordered_map 缓存
 namespace std {
-template<>
+template <>
 struct hash<mulan::engine::BindGroupLayout> {
-    size_t operator()(const mulan::engine::BindGroupLayout& l) const {
-        return static_cast<size_t>(l.hash());
-    }
+    size_t operator()(const mulan::engine::BindGroupLayout& l) const { return static_cast<size_t>(l.hash()); }
 };
-} // namespace std
+}  // namespace std

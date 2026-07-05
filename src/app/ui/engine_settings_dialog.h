@@ -27,11 +27,11 @@ private:
     void readSettings();
     void updateBackgroundButton();
 
-    QComboBox*  combo_backend_ = nullptr;
-    QComboBox*  combo_msaa_    = nullptr;
+    QComboBox* combo_backend_ = nullptr;
+    QComboBox* combo_msaa_ = nullptr;
     QPushButton* button_color_ = nullptr;
-    QColor      background_color_;
+    QColor background_color_;
 
-    QCheckBox* check_ibl_   = nullptr;
+    QCheckBox* check_ibl_ = nullptr;
     QLineEdit* edit_hdr_path_ = nullptr;
 };

@@ -18,7 +18,7 @@ struct RenderWorkItem {
     RenderBucket bucket = RenderBucket::Surface;
     GeometryHandle geometry;
     RenderMaterialHandle material;
-    math::Mat4 worldTransform{1.0f};
+    math::Mat4 worldTransform{ 1.0f };
     uint32_t pickId = 0;
     size_t sourceDrawableIndex = 0;
     bool selected = false;
@@ -37,4 +37,4 @@ private:
     std::vector<RenderWorkItem> edges_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

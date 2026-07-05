@@ -23,10 +23,11 @@ namespace mulan::engine {
 
 /// 为任意 ID3D12Object 挂调试名（接受 UTF-8/窄字符串，内部转宽字符）
 inline void setDebugName(ID3D12Object* obj, std::string_view name) {
-    if (!obj || name.empty()) return;
+    if (!obj || name.empty())
+        return;
     // D3D12 SetName 接受宽字符串；此处做窄→宽转换
     std::wstring wname(name.begin(), name.end());
     obj->SetName(wname.c_str());
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

@@ -18,7 +18,7 @@ namespace mulan::core::log {
 namespace {
 
 std::once_flag g_initFlag;
-bool           g_initialized = false;
+bool g_initialized = false;
 
 // ----------------------------------------------------------
 // MSVC Debug Output sink
@@ -37,16 +37,14 @@ public:
     void set_pattern(const std::string& pattern) override {
         formatter_ = std::make_unique<spdlog::pattern_formatter>(pattern);
     }
-    void set_formatter(std::unique_ptr<spdlog::formatter> formatter) override {
-        formatter_ = std::move(formatter);
-    }
+    void set_formatter(std::unique_ptr<spdlog::formatter> formatter) override { formatter_ = std::move(formatter); }
 
 private:
     std::unique_ptr<spdlog::formatter> formatter_ =
-        std::make_unique<spdlog::pattern_formatter>("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
+            std::make_unique<spdlog::pattern_formatter>("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 // ============================================================
 // 生命周期
@@ -63,10 +61,9 @@ void init(const Config& cfg) {
         }
 
         if (cfg.enableFile) {
-            auto file = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-                std::string(cfg.logDir) + "/mulan.log",
-                static_cast<size_t>(cfg.maxFileSize),
-                static_cast<size_t>(cfg.maxFiles));
+            auto file = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(std::string(cfg.logDir) + "/mulan.log",
+                                                                               static_cast<size_t>(cfg.maxFileSize),
+                                                                               static_cast<size_t>(cfg.maxFiles));
             file->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%t] %v");
             sinks.push_back(file);
         }
@@ -77,27 +74,23 @@ void init(const Config& cfg) {
             sinks.push_back(msvc);
         }
 
-        if (sinks.empty()) return;
+        if (sinks.empty())
+            return;
 
         std::shared_ptr<spdlog::logger> logger;
 
         if (cfg.asyncMode) {
             spdlog::init_thread_pool(8192, 1);
-            logger = std::make_shared<spdlog::async_logger>(
-                std::string(cfg.loggerName),
-                sinks.begin(), sinks.end(),
-                spdlog::thread_pool(),
-                spdlog::async_overflow_policy::block);
+            logger =
+                    std::make_shared<spdlog::async_logger>(std::string(cfg.loggerName), sinks.begin(), sinks.end(),
+                                                           spdlog::thread_pool(), spdlog::async_overflow_policy::block);
         } else {
-            logger = std::make_shared<spdlog::logger>(
-                std::string(cfg.loggerName),
-                sinks.begin(), sinks.end());
+            logger = std::make_shared<spdlog::logger>(std::string(cfg.loggerName), sinks.begin(), sinks.end());
         }
 
         logger->set_level(toSpdlogLevel(cfg.flushOnCritical ? Level::Trace : Level::Info));
-        logger->set_error_handler([](const std::string& err) {
-            ::OutputDebugStringA(("spdlog error: " + err + "\n").c_str());
-        });
+        logger->set_error_handler(
+                [](const std::string& err) { ::OutputDebugStringA(("spdlog error: " + err + "\n").c_str()); });
 
         spdlog::set_default_logger(logger);
         g_initialized = true;
@@ -139,4 +132,4 @@ void log(Level lvl, std::string_view msg) {
     }
 }
 
-} // namespace mulan::core::Log
+}  // namespace mulan::core::log

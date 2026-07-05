@@ -41,7 +41,7 @@ namespace mulan::math {
 // BezierCurve —— 模板化（Point = Point2 | Point3）
 // ============================================================
 
-template<typename Point>
+template <typename Point>
 class BezierCurveT {
 public:
     using PointList = std::vector<Point>;
@@ -51,25 +51,20 @@ public:
     // ---------- 构造 ----------
 
     /// 用控制点构造。前置条件：points 非空。
-    explicit BezierCurveT(PointList points)
-        : control_points_(std::move(points)) {
+    explicit BezierCurveT(PointList points) : control_points_(std::move(points)) {
         assert(!control_points_.empty() && "BezierCurve: control points must not be empty");
     }
 
     // ---------- 查询 ----------
 
     /// 曲线次数 = 控制点数 - 1。0 阶 = 单个控制点（退化为常值曲线）。
-    int degree() const noexcept {
-        return static_cast<int>(control_points_.size()) - 1;
-    }
+    int degree() const noexcept { return static_cast<int>(control_points_.size()) - 1; }
 
-    int controlPointCount() const noexcept {
-        return static_cast<int>(control_points_.size());
-    }
+    int controlPointCount() const noexcept { return static_cast<int>(control_points_.size()); }
 
     const PointList& controlPoints() const noexcept { return control_points_; }
 
-    Point&       controlPoint(int idx)       { return control_points_[idx]; }
+    Point& controlPoint(int idx) { return control_points_[idx]; }
     const Point& controlPoint(int idx) const { return control_points_[idx]; }
 
     // ---------- 求值 ----------
@@ -81,7 +76,7 @@ public:
         const int n = degree();
         // B(t) 是点的仿射组合（Σ B_{i,n} = 1）。以 P_0 为基准累加位移，
         // 避免依赖 Point + Point（point.h 故意不提供）。
-        Vec acc{}; // 零向量
+        Vec acc{};  // 零向量
         for (int i = 1; i <= n; ++i) {
             acc += bernstein(i, n, t) * (control_points_[i] - control_points_[0]);
         }
@@ -95,7 +90,7 @@ public:
         const int n = degree();
         for (int k = 1; k <= n; ++k) {
             for (int i = 0; i <= n - k; ++i) {
-                work[i] = lerp(work[i], work[i + 1], t); // 点的仿射组合
+                work[i] = lerp(work[i], work[i + 1], t);  // 点的仿射组合
             }
         }
         return work[0];
@@ -126,8 +121,10 @@ public:
 
         // 2) 缩放因子 ∏_{k=0}^{order-1} (n - k)（Bezier Hodograph 公式）
         double scale = 1.0;
-        for (int k = 0; k < order; ++k) scale *= static_cast<double>(degree() - k);
-        for (auto& v : deriv) v = v * scale;
+        for (int k = 0; k < order; ++k)
+            scale *= static_cast<double>(degree() - k);
+        for (auto& v : deriv)
+            v = v * scale;
 
         // 3) 对向量控制点跑 De Casteljau（向量空间线性组合）
         const int deg = static_cast<int>(deriv.size()) - 1;
@@ -163,7 +160,7 @@ public:
             left.push_back(pyramid[k][0]);       // 每层首点
             right.push_back(pyramid[n - k][k]);  // 每层末点（下标 k 即该层最后一个）
         }
-        return {BezierCurveT(std::move(left)), BezierCurveT(std::move(right))};
+        return { BezierCurveT(std::move(left)), BezierCurveT(std::move(right)) };
     }
 
     /// 升阶：升 1 次。精确表示（同一条曲线，控制点多 1 个）。
@@ -192,23 +189,22 @@ public:
         // 以 P_0 为基准平移到向量空间（Point 不支持 Point·scalar，但 Vec 支持）
         const Point origin = control_points_[0];
         std::vector<Vec> cp(n + 1);
-        for (int i = 0; i <= n; ++i) cp[i] = control_points_[i] - origin;
+        for (int i = 0; i <= n; ++i)
+            cp[i] = control_points_[i] - origin;
 
         // 前向解（保左端）：fwd[0] = cp[0]；fwd[i] = (n·cp[i] - i·fwd[i-1]) / (n - i)
         std::vector<Vec> fwd(n);
         fwd[0] = cp[0];
         for (int i = 1; i < n; ++i) {
-            fwd[i] = (static_cast<double>(n) * cp[i]
-                      - static_cast<double>(i) * fwd[i - 1])
-                     / static_cast<double>(n - i);
+            fwd[i] =
+                    (static_cast<double>(n) * cp[i] - static_cast<double>(i) * fwd[i - 1]) / static_cast<double>(n - i);
         }
         // 后向解（保右端）：bwd[n-1] = cp[n]；bwd[i] = (n·cp[i+1] - (n-i-1)·bwd[i+1]) / (i+1)
         std::vector<Vec> bwd(n);
         bwd[n - 1] = cp[n];
         for (int i = n - 2; i >= 0; --i) {
-            bwd[i] = (static_cast<double>(n) * cp[i + 1]
-                      - static_cast<double>(n - i - 1) * bwd[i + 1])
-                     / static_cast<double>(i + 1);
+            bwd[i] = (static_cast<double>(n) * cp[i + 1] - static_cast<double>(n - i - 1) * bwd[i + 1]) /
+                     static_cast<double>(i + 1);
         }
         // 平均并平移回点空间
         PointList result;
@@ -223,9 +219,7 @@ private:
     PointList control_points_;
 
     /// 将 t clamp 到 [0,1]（Bezier 参数域）
-    static double clampT(double t) noexcept {
-        return t < 0.0 ? 0.0 : (t > 1.0 ? 1.0 : t);
-    }
+    static double clampT(double t) noexcept { return t < 0.0 ? 0.0 : (t > 1.0 ? 1.0 : t); }
 };
 
 // ============================================================
@@ -235,4 +229,4 @@ private:
 using BezierCurve2d = BezierCurveT<Point2>;
 using BezierCurve3d = BezierCurveT<Point3>;
 
-} // namespace mulan::math
+}  // namespace mulan::math

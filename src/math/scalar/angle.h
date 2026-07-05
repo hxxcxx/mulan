@@ -45,14 +45,20 @@ public:
     constexpr Angle operator/(double s) const { return Angle(value_ / s); }
     friend constexpr Angle operator*(double s, Angle a) { return a * s; }
 
-    Angle& operator+=(Angle o) { value_ += o.value_; return *this; }
-    Angle& operator-=(Angle o) { value_ -= o.value_; return *this; }
-    Angle  operator-() const { return Angle(-value_); }
+    Angle& operator+=(Angle o) {
+        value_ += o.value_;
+        return *this;
+    }
+    Angle& operator-=(Angle o) {
+        value_ -= o.value_;
+        return *this;
+    }
+    Angle operator-() const { return Angle(-value_); }
 
     constexpr bool operator==(Angle o) const { return value_ == o.value_; }
     constexpr bool operator!=(Angle o) const { return value_ != o.value_; }
-    constexpr bool operator<(Angle o)  const { return value_ < o.value_; }
-    constexpr bool operator>(Angle o)  const { return value_ > o.value_; }
+    constexpr bool operator<(Angle o) const { return value_ < o.value_; }
+    constexpr bool operator>(Angle o) const { return value_ > o.value_; }
     constexpr bool operator<=(Angle o) const { return value_ <= o.value_; }
     constexpr bool operator>=(Angle o) const { return value_ >= o.value_; }
 
@@ -68,14 +74,16 @@ public:
     Angle normalized() const {
         constexpr double twoPi = kPi2;
         double v = std::fmod(value_ + kPi, twoPi);
-        if (v < 0.0) v += twoPi;
+        if (v < 0.0)
+            v += twoPi;
         return Angle(v - kPi);
     }
 
     /// 归一化到 [0, 2π)
     Angle normalizedPositive() const {
         double v = std::fmod(value_, kPi2);
-        if (v < 0.0) v += kPi2;
+        if (v < 0.0)
+            v += kPi2;
         return Angle(v);
     }
 
@@ -100,12 +108,12 @@ private:
     constexpr explicit Angle(double rad) : value_(rad) {}
     double value_ = 0.0;
 
-    static constexpr double kDegToRad = 0.017453292519943295769; // pi/180
-    static constexpr double kRadToDeg = 57.29577951308232087679; // 180/pi
+    static constexpr double kDegToRad = 0.017453292519943295769;  // pi/180
+    static constexpr double kRadToDeg = 57.29577951308232087679;  // 180/pi
 };
 
 /// 便捷别名
 using Radian = Angle;
-using Degree = Angle;   // 语义标签；构造仍须用 Angle::fromDeg/fromRad
+using Degree = Angle;  // 语义标签；构造仍须用 Angle::fromDeg/fromRad
 
-} // namespace mulan::math
+}  // namespace mulan::math

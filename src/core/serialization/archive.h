@@ -47,7 +47,7 @@ public:
     // --- 批量写入（BinaryArchive 优化路径，其他格式退化为 beginArray/endArray）---
     virtual void beginBulkArray(uint32_t count, uint32_t elementStride) {
         beginArray(count);
-        (void)elementStride;
+        (void) elementStride;
     }
     virtual void endBulkArray() { endArray(); }
 
@@ -68,7 +68,7 @@ public:
 
     // --- 语法糖 ---
 
-    template<typename T>
+    template <typename T>
     OutputArchive& operator<<(const T& value);
 
 protected:
@@ -126,7 +126,7 @@ public:
 
     // --- 语法糖 ---
 
-    template<typename T>
+    template <typename T>
     InputArchive& operator>>(T& value);
 
 protected:
@@ -168,4 +168,4 @@ private:
     std::vector<PathEntry> path_stack_;
 };
 
-} // namespace mulan::core
+}  // namespace mulan::core

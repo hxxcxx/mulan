@@ -25,17 +25,14 @@ namespace mulan::engine {
 class DX12SwapChain final : public SwapChain {
 public:
     /// 创建 DX12SwapChain。失败返回 SwapChainCreateFailed。
-    static core::Result<std::unique_ptr<DX12SwapChain>>
-        create(const SwapChainDesc& desc, ID3D12Device* device,
-               IDXGIFactory4* factory, ID3D12CommandQueue* queue,
-               const NativeWindowHandle& window);
+    static core::Result<std::unique_ptr<DX12SwapChain>> create(const SwapChainDesc& desc, ID3D12Device* device,
+                                                               IDXGIFactory4* factory, ID3D12CommandQueue* queue,
+                                                               const NativeWindowHandle& window);
     ~DX12SwapChain();
 
     const SwapChainDesc& desc() const override { return desc_; }
     Texture* currentBackBuffer() override;
-    Texture* depthTexture() override {
-        return depth_texture_ ? depth_texture_.get() : nullptr;
-    }
+    Texture* depthTexture() override { return depth_texture_ ? depth_texture_.get() : nullptr; }
     void present() override;
     void resize(uint32_t width, uint32_t height) override;
 
@@ -43,8 +40,7 @@ public:
     DXGI_FORMAT rtvFormat() const { return toDXGIFormat(desc_.format); }
 
 private:
-    DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device,
-                  IDXGIFactory4* factory, ID3D12CommandQueue* queue,
+    DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device, IDXGIFactory4* factory, ID3D12CommandQueue* queue,
                   const NativeWindowHandle& window);
 
     void createRTVHeap();
@@ -52,21 +48,21 @@ private:
     void releaseBackBuffers();
     void logDeviceRemovedReason(HRESULT presentResult) const;
 
-    SwapChainDesc                       desc_;
-    ID3D12Device*                       device_;
-    ID3D12CommandQueue*                 queue_;
-    ComPtr<IDXGISwapChain3>             swap_chain_;
+    SwapChainDesc desc_;
+    ID3D12Device* device_;
+    ID3D12CommandQueue* queue_;
+    ComPtr<IDXGISwapChain3> swap_chain_;
 
     std::unique_ptr<DX12DescriptorAllocator> rtv_heap_;
-    std::vector<ComPtr<ID3D12Resource>>      back_buffers_;
+    std::vector<ComPtr<ID3D12Resource>> back_buffers_;
     std::vector<std::unique_ptr<DX12Texture>> back_buffer_textures_;
 
     // DS
-    std::unique_ptr<DX12Texture>       depth_texture_;
+    std::unique_ptr<DX12Texture> depth_texture_;
     std::unique_ptr<DX12DescriptorAllocator> dsv_heap_;
 
-    uint32_t                           frame_index_ = 0;
-    float                              clear_color_[4] = { 0.15f, 0.15f, 0.15f, 1.0f };
+    uint32_t frame_index_ = 0;
+    float clear_color_[4] = { 0.15f, 0.15f, 0.15f, 1.0f };
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

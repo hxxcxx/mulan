@@ -18,9 +18,7 @@ namespace mulan::engine {
 
 class RenderCompiler {
 public:
-    void compile(const RenderWorldSnapshot& snapshot,
-                 const RenderWorkload& workload,
-                 RenderCompileContext& context);
+    void compile(const RenderWorldSnapshot& snapshot, const RenderWorkload& workload, RenderCompileContext& context);
 
     void clear();
 
@@ -32,4 +30,4 @@ private:
     std::vector<MeshDrawCommand> edge_commands_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

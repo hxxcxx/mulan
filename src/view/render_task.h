@@ -29,10 +29,7 @@ public:
 
     RenderTask() = default;
     RenderTask(RenderTaskKind kind, std::string label, Work work)
-        : kind_(kind)
-        , label_(std::move(label))
-        , work_(std::move(work)) {
-    }
+        : kind_(kind), label_(std::move(label)), work_(std::move(work)) {}
 
     RenderTaskKind kind() const { return kind_; }
     const std::string& label() const { return label_; }
@@ -50,4 +47,4 @@ private:
     Work work_;
 };
 
-} // namespace mulan::view
+}  // namespace mulan::view

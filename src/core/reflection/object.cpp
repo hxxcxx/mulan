@@ -17,7 +17,8 @@ void ObjectFactory::registerType(std::string_view typeName, Creator fn) {
 std::unique_ptr<Object> ObjectFactory::create(std::string_view typeName) const {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = creators_.find(std::string(typeName));
-    if (it == creators_.end()) return nullptr;
+    if (it == creators_.end())
+        return nullptr;
     return it->second();
 }
 
@@ -43,8 +44,7 @@ std::vector<std::string> ObjectFactory::registeredTypes() const {
 // 读模式：读 typeName → factory create → serialize(InputArchive&)
 // ============================================================
 
-void Serializer<std::unique_ptr<Object>>::write(OutputArchive& ar,
-                                                  const std::unique_ptr<Object>& obj) {
+void Serializer<std::unique_ptr<Object>>::write(OutputArchive& ar, const std::unique_ptr<Object>& obj) {
     if (!obj) {
         ar.write(false);
         return;
@@ -54,11 +54,11 @@ void Serializer<std::unique_ptr<Object>>::write(OutputArchive& ar,
     obj->serialize(ar);  // 虚函数分发到具体类型
 }
 
-ArchiveResult Serializer<std::unique_ptr<Object>>::read(InputArchive& ar,
-                                                         std::unique_ptr<Object>& out) {
+ArchiveResult Serializer<std::unique_ptr<Object>>::read(InputArchive& ar, std::unique_ptr<Object>& out) {
     bool hasValue = false;
     auto result = Serializer<bool>::read(ar, hasValue);
-    if (!result) return result;
+    if (!result)
+        return result;
 
     if (!hasValue) {
         out.reset();
@@ -67,24 +67,21 @@ ArchiveResult Serializer<std::unique_ptr<Object>>::read(InputArchive& ar,
 
     std::string typeName;
     result = Serializer<std::string>::read(ar, typeName);
-    if (!result) return result;
+    if (!result)
+        return result;
 
     auto obj = ObjectFactory::instance().create(typeName);
     if (!obj) {
-        return std::unexpected(
-            ArchiveError::make(ArchiveError::Code::MissingKey,
-                               "Unknown object type: " + typeName));
+        return std::unexpected(ArchiveError::make(ArchiveError::Code::MissingKey, "Unknown object type: " + typeName));
     }
 
     obj->serialize(ar);  // 虚函数分发到具体类型的读方向
     if (ar.hasError()) {
-        return std::unexpected(
-            ArchiveError::make(ArchiveError::Code::CorruptedData,
-                               ar.errorMessage()));
+        return std::unexpected(ArchiveError::make(ArchiveError::Code::CorruptedData, ar.errorMessage()));
     }
 
     out = std::move(obj);
     return {};
 }
 
-} // namespace mulan::core
+}  // namespace mulan::core

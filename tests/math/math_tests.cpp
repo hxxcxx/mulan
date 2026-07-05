@@ -20,21 +20,21 @@ void fail(const char* expr, const char* file, int line, const std::string& messa
     std::cerr << '\n';
 }
 
-#define CHECK(expr) \
-    do { \
-        if (!(expr)) fail(#expr, __FILE__, __LINE__); \
+#define CHECK(expr)                          \
+    do {                                     \
+        if (!(expr))                         \
+            fail(#expr, __FILE__, __LINE__); \
     } while (false)
 
-#define CHECK_NEAR(actual, expected, eps) \
-    do { \
-        const double actual_value = static_cast<double>(actual); \
-        const double expected_value = static_cast<double>(expected); \
-        const double eps_value = static_cast<double>(eps); \
-        if (std::abs(actual_value - expected_value) > eps_value) { \
-            fail(#actual " ~= " #expected, __FILE__, __LINE__, \
-                 "actual=" + std::to_string(actual_value) + \
-                 ", expected=" + std::to_string(expected_value)); \
-        } \
+#define CHECK_NEAR(actual, expected, eps)                                                                    \
+    do {                                                                                                     \
+        const double actual_value = static_cast<double>(actual);                                             \
+        const double expected_value = static_cast<double>(expected);                                         \
+        const double eps_value = static_cast<double>(eps);                                                   \
+        if (std::abs(actual_value - expected_value) > eps_value) {                                           \
+            fail(#actual " ~= " #expected, __FILE__, __LINE__,                                               \
+                 "actual=" + std::to_string(actual_value) + ", expected=" + std::to_string(expected_value)); \
+        }                                                                                                    \
     } while (false)
 
 void checkVec2Near(const Vec2& actual, const Vec2& expected, double eps = 1e-9) {
@@ -175,19 +175,15 @@ void testIntersections() {
     CHECK_NEAR(hit.t, 3.0, 1e-12);
 
     Vec3 bary;
-    hit = intersect(Ray3(Point3(0.25, 0.25, -1.0), Vec3::unitZ()),
-                    Point3(0.0, 0.0, 0.0),
-                    Point3(1.0, 0.0, 0.0),
-                    Point3(0.0, 1.0, 0.0),
-                    &bary);
+    hit = intersect(Ray3(Point3(0.25, 0.25, -1.0), Vec3::unitZ()), Point3(0.0, 0.0, 0.0), Point3(1.0, 0.0, 0.0),
+                    Point3(0.0, 1.0, 0.0), &bary);
     CHECK(hit.hit);
     checkVec3Near(bary, Vec3(0.5, 0.25, 0.25));
 
     double sa = -1.0;
     double sb = -1.0;
-    CHECK(intersect(Segment2(Point2(0.0, 0.0), Point2(1.0, 1.0)),
-                    Segment2(Point2(0.0, 1.0), Point2(1.0, 0.0)),
-                    &sa, &sb));
+    CHECK(intersect(Segment2(Point2(0.0, 0.0), Point2(1.0, 1.0)), Segment2(Point2(0.0, 1.0), Point2(1.0, 0.0)), &sa,
+                    &sb));
     CHECK_NEAR(sa, 0.5, 1e-12);
     CHECK_NEAR(sb, 0.5, 1e-12);
 
@@ -204,7 +200,7 @@ void testFrustum() {
     CHECK(!clip.intersects(Sphere3(Point3(3.0, 0.0, 0.0), 0.5)));
 }
 
-} // namespace
+}  // namespace
 
 int main() {
     testVectors();

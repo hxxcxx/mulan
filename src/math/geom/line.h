@@ -21,7 +21,7 @@ namespace mulan::math {
 /// 无限直线：点 + 单位方向
 struct Line3 {
     Point3 origin{};
-    Vec3   direction{};   // 调用方应保证归一化
+    Vec3 direction{};  // 调用方应保证归一化
 
     constexpr Line3() = default;
     constexpr Line3(const Point3& o, const Vec3& dir) : origin(o), direction(dir) {}
@@ -30,8 +30,7 @@ struct Line3 {
 
     /// 经矩阵变换：origin 按点变换，direction 按方向变换
     Line3 transformed(const Mat4& m) const {
-        return Line3(origin.transformedBy(m),
-                     direction.transformedAsDir(m).normalized());
+        return Line3(origin.transformedBy(m), direction.transformedAsDir(m).normalized());
     }
 };
 
@@ -49,15 +48,13 @@ struct Segment3 {
     Point3 pointAt(double t) const { return start + direction() * t; }  // t∈[0,1]
 
     /// 经矩阵变换（两端点按点变换）
-    Segment3 transformed(const Mat4& m) const {
-        return Segment3(start.transformedBy(m), end.transformedBy(m));
-    }
+    Segment3 transformed(const Mat4& m) const { return Segment3(start.transformedBy(m), end.transformedBy(m)); }
 };
 
 /// 射线：原点 + 单位方向
 struct Ray3 {
     Point3 origin{};
-    Vec3   direction{};   // 调用方应保证归一化
+    Vec3 direction{};  // 调用方应保证归一化
 
     constexpr Ray3() = default;
     constexpr Ray3(const Point3& o, const Vec3& dir) : origin(o), direction(dir) {}
@@ -66,8 +63,7 @@ struct Ray3 {
 
     /// 经矩阵变换：origin 按点变换，direction 按方向变换
     Ray3 transformed(const Mat4& m) const {
-        return Ray3(origin.transformedBy(m),
-                    direction.transformedAsDir(m).normalized());
+        return Ray3(origin.transformedBy(m), direction.transformedAsDir(m).normalized());
     }
 };
 
@@ -77,7 +73,7 @@ struct Ray3 {
 
 struct Line2 {
     Point2 origin{};
-    Vec2   direction{};
+    Vec2 direction{};
 
     constexpr Line2() = default;
     constexpr Line2(const Point2& o, const Vec2& dir) : origin(o), direction(dir) {}
@@ -112,4 +108,4 @@ struct Segment2 {
     }
 };
 
-} // namespace mulan::math
+}  // namespace mulan::math

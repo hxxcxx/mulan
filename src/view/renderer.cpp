@@ -17,26 +17,26 @@ Renderer::~Renderer() {
     // 资源由 shutdown() 显式释放。
 }
 
-bool Renderer::init(engine::RHIDevice& device,
-                    engine::LightEnvironment& lightEnv,
-                    engine::TextureFormat colorFmt,
+bool Renderer::init(engine::RHIDevice& device, engine::LightEnvironment& lightEnv, engine::TextureFormat colorFmt,
                     engine::TextureFormat depthFmt) {
-    if (initialized_) return true;
+    if (initialized_)
+        return true;
 
-    if (!render_renderer_.init(device, lightEnv, colorFmt, depthFmt)) return false;
+    if (!render_renderer_.init(device, lightEnv, colorFmt, depthFmt))
+        return false;
 
     initialized_ = true;
     return true;
 }
 
 void Renderer::shutdown(engine::RHIDevice& device) {
-    if (!initialized_) return;
+    if (!initialized_)
+        return;
     render_renderer_.shutdown(device);
     initialized_ = false;
 }
 
-void Renderer::setScene(const RenderScene* scene,
-                        const asset::AssetLibrary* assets) {
+void Renderer::setScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
     scene_ = scene;
     assets_ = assets;
 }
@@ -45,10 +45,9 @@ void Renderer::enableIBL(engine::RHIDevice& device, const std::string& hdrPath) 
     render_renderer_.enableIBL(device, hdrPath);
 }
 
-void Renderer::render(engine::RHIDevice& device,
-                      RenderSurface& surface,
-                      const ViewState& viewState) {
-    if (!initialized_) return;
+void Renderer::render(engine::RHIDevice& device, RenderSurface& surface, const ViewState& viewState) {
+    if (!initialized_)
+        return;
 
     if (scene_ && assets_) {
         render_world_sync_.rebuild(*scene_, *assets_, render_world_);
@@ -67,20 +66,16 @@ engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewS
     request.view.cameraPosition = viewState.cameraPosition;
     request.view.width = static_cast<uint32_t>(viewState.width);
     request.view.height = static_cast<uint32_t>(viewState.height);
-    request.output.mode = surface.isOffscreen()
-        ? engine::RenderTargetMode::Capture
-        : engine::RenderTargetMode::Present;
+    request.output.mode = surface.isOffscreen() ? engine::RenderTargetMode::Capture : engine::RenderTargetMode::Present;
     request.output.width = request.view.width;
     request.output.height = request.view.height;
     request.output.readback = surface.isOffscreen();
     request.output.capture.width = request.output.width;
     request.output.capture.height = request.output.height;
-    request.output.capture.format = surface.renderTarget()
-        ? surface.renderTarget()->colorFormat()
-        : surface.swapChain()->colorFormat();
-    request.output.capture.depthFormat = surface.renderTarget()
-        ? surface.renderTarget()->depthFormat()
-        : surface.swapChain()->depthFormat();
+    request.output.capture.format =
+            surface.renderTarget() ? surface.renderTarget()->colorFormat() : surface.swapChain()->colorFormat();
+    request.output.capture.depthFormat =
+            surface.renderTarget() ? surface.renderTarget()->depthFormat() : surface.swapChain()->depthFormat();
     request.output.capture.readback = request.output.readback;
     request.options.showSurfaces = viewState.showFaces;
     request.options.showEdges = viewState.showEdges;
@@ -96,4 +91,4 @@ engine::RenderSurfaceBinding Renderer::surfaceBinding(RenderSurface& surface) co
     };
 }
 
-} // namespace mulan::view
+}  // namespace mulan::view

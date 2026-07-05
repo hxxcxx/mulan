@@ -12,11 +12,7 @@
 
 namespace mulan::view {
 
-enum class RenderMode {
-    Shaded,
-    ShadedWithEdges,
-    Wireframe
-};
+enum class RenderMode { Shaded, ShadedWithEdges, Wireframe };
 
 struct ViewState {
     math::Mat4 viewMatrix = math::Mat4(1.0);
@@ -34,4 +30,4 @@ struct ViewState {
     bool showViewCube = true;
 };
 
-} // namespace mulan::view
+}  // namespace mulan::view

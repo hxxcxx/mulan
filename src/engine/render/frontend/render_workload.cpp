@@ -6,7 +6,8 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
     clear();
 
     for (const auto& object : snapshot.objects()) {
-        if (!object.desc.visible) continue;
+        if (!object.desc.visible)
+            continue;
 
         for (const auto& drawable : object.desc.drawables) {
             RenderWorkItem item;
@@ -20,15 +21,16 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
 
             switch (drawable.bucket) {
             case RenderBucket::Surface:
-                if (options.showSurfaces) surfaces_.push_back(item);
+                if (options.showSurfaces)
+                    surfaces_.push_back(item);
                 break;
             case RenderBucket::Edge:
-                if (options.showEdges) edges_.push_back(item);
+                if (options.showEdges)
+                    edges_.push_back(item);
                 break;
             case RenderBucket::Overlay:
             case RenderBucket::Gizmo:
-            case RenderBucket::Text:
-                break;
+            case RenderBucket::Text: break;
             }
         }
     }
@@ -39,4 +41,4 @@ void RenderWorkload::clear() {
     edges_.clear();
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

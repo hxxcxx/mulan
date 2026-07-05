@@ -28,7 +28,7 @@ public:
     AssetLibrary(const AssetLibrary&) = delete;
     AssetLibrary& operator=(const AssetLibrary&) = delete;
 
-    template<typename T, typename... Args>
+    template <typename T, typename... Args>
     T* create(std::string name, Args&&... args) {
         static_assert(std::is_base_of_v<Asset, T>);
         AssetId id = allocateId();
@@ -55,4 +55,4 @@ private:
     std::unordered_map<AssetId, std::unique_ptr<Asset>> assets_;
 };
 
-} // namespace mulan::asset
+}  // namespace mulan::asset

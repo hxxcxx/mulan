@@ -18,10 +18,8 @@ class RenderWorldSnapshot {
 public:
     RenderWorldSnapshot() = default;
 
-    RenderWorldSnapshot(std::vector<RenderGeometryRecord> geometries,
-                        std::vector<RenderMaterialRecord> materials,
-                        std::vector<RenderObjectRecord> objects,
-                        math::AABB3 bounds);
+    RenderWorldSnapshot(std::vector<RenderGeometryRecord> geometries, std::vector<RenderMaterialRecord> materials,
+                        std::vector<RenderObjectRecord> objects, math::AABB3 bounds);
 
     std::span<const RenderGeometryRecord> geometries() const { return geometries_; }
     std::span<const RenderMaterialRecord> materials() const { return materials_; }
@@ -38,4 +36,4 @@ private:
     math::AABB3 bounds_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

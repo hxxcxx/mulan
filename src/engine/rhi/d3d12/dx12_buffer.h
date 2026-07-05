@@ -20,8 +20,7 @@ namespace mulan::engine {
 class DX12Buffer final : public Buffer {
 public:
     /// 创建 DX12Buffer。失败返回 BufferCreateFailed。
-    static core::Result<std::unique_ptr<DX12Buffer>>
-        create(const BufferDesc& desc, ID3D12Device* device);
+    static core::Result<std::unique_ptr<DX12Buffer>> create(const BufferDesc& desc, ID3D12Device* device);
     ~DX12Buffer();
 
     const BufferDesc& desc() const override { return desc_; }
@@ -36,16 +35,19 @@ public:
 
     const void* pendingData() const { return pending_data_.data(); }
     bool needsUpload() const { return !pending_data_.empty(); }
-    void markUploaded() { pending_data_.clear(); pending_data_.shrink_to_fit(); }
+    void markUploaded() {
+        pending_data_.clear();
+        pending_data_.shrink_to_fit();
+    }
 
 private:
     DX12Buffer(const BufferDesc& desc, ID3D12Device* device);
 
-    BufferDesc           desc_;
+    BufferDesc desc_;
     ComPtr<ID3D12Resource> resource_;
-    void*                mapped_data_ = nullptr;
-    uint64_t             upload_fence_value_ = 0;
+    void* mapped_data_ = nullptr;
+    uint64_t upload_fence_value_ = 0;
     std::vector<uint8_t> pending_data_;  // Immutable buffer 的待上传数据
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

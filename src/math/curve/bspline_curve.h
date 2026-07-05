@@ -40,7 +40,7 @@
 
 namespace mulan::math {
 
-template<typename Point>
+template <typename Point>
 class BSplineCurveT {
 public:
     using PointList = std::vector<Point>;
@@ -52,17 +52,15 @@ public:
     /// 用控制点 + 次数构造，自动生成 clamped 节点向量。
     /// 前置条件：degree ≥ 1，controlPoints.size() > degree。
     BSplineCurveT(int degree, PointList controlPoints)
-        : degree_(degree)
-        , control_points_(std::move(controlPoints))
-        , knots_(clampedKnotVector(degree, static_cast<int>(control_points_.size()))) {
+        : degree_(degree),
+          control_points_(std::move(controlPoints)),
+          knots_(clampedKnotVector(degree, static_cast<int>(control_points_.size()))) {
         validateInvariants();
     }
 
     /// 完整构造（控制点 + 显式节点向量）。前置条件：三者长度匹配。
     BSplineCurveT(int degree, PointList controlPoints, KnotVector knots)
-        : degree_(degree)
-        , control_points_(std::move(controlPoints))
-        , knots_(std::move(knots)) {
+        : degree_(degree), control_points_(std::move(controlPoints)), knots_(std::move(knots)) {
         validateInvariants();
     }
 
@@ -72,8 +70,8 @@ public:
     int controlPointCount() const noexcept { return static_cast<int>(control_points_.size()); }
     int knotCount() const noexcept { return static_cast<int>(knots_.size()); }
 
-    const PointList&   controlPoints() const noexcept { return control_points_; }
-    const KnotVector&  knots()         const noexcept { return knots_; }
+    const PointList& controlPoints() const noexcept { return control_points_; }
+    const KnotVector& knots() const noexcept { return knots_; }
 
     /// 有效参数域 [U[p], U[m-p]]。曲线在此区间内有定义。
     std::pair<double, double> domain() const noexcept {
@@ -83,9 +81,8 @@ public:
 
     /// 结构有效性（节点数 = 控制点数 + 次数 + 1）。
     bool isValid() const noexcept {
-        return degree_ >= 1
-            && !control_points_.empty()
-            && static_cast<int>(knots_.size()) == controlPointCount() + degree_ + 1;
+        return degree_ >= 1 && !control_points_.empty() &&
+               static_cast<int>(knots_.size()) == controlPointCount() + degree_ + 1;
     }
 
     // ---------- 求值 ----------
@@ -137,7 +134,8 @@ public:
         // 第 1 阶导：C_i 是 Point，Q_i 是 Vec；后续阶全部在 Vec 上做。
 
         // 第一阶：Point → Vec
-        if (degree_ < 1) return Vec{};
+        if (degree_ < 1)
+            return Vec{};
         std::vector<Vec> curCp = derivativeControlPoints(control_points_, knots_, degree_);
         KnotVector curKnots = knots_;
         curKnots.erase(curKnots.begin());
@@ -146,7 +144,8 @@ public:
 
         // 后续阶：Vec → Vec
         for (int d = 1; d < order; ++d) {
-            if (curDeg < 1) return Vec{};
+            if (curDeg < 1)
+                return Vec{};
             curCp = derivativeControlPoints(curCp, curKnots, curDeg);
             curKnots.erase(curKnots.begin());
             curKnots.pop_back();
@@ -177,7 +176,8 @@ public:
             // 中间 Q_{k-p+1}..Q_{k-s} 由仿射组合产生（p-s 个）。
             int s = 0;
             for (size_t i = 0; i < knots_.size(); ++i) {
-                if (std::abs(knots_[i] - u) <= Tolerance::defaultValue().paramEps) ++s;
+                if (std::abs(knots_[i] - u) <= Tolerance::defaultValue().paramEps)
+                    ++s;
             }
             // 注：s 是全局重数；NURBS Book 用的是 span 内重数，但新点计数公式
             //     (k-p+1) + (p-s_new) + ... 这里 s_new 取当前重数即可让总数正确。
@@ -185,16 +185,17 @@ public:
             PointList nw;
             nw.reserve(control_points_.size() + 1);
             // 前段不变：P_0..P_{k-p}
-            for (int i = 0; i <= k - p; ++i) nw.push_back(control_points_[i]);
+            for (int i = 0; i <= k - p; ++i)
+                nw.push_back(control_points_[i]);
             // 中间新点：Q_i = (1-a)·P_{i-1} + a·P_i
             for (int i = k - p + 1; i <= k - s; ++i) {
                 double denom = knots_[i + p] - knots_[i];
-                double a = std::abs(denom) > Tolerance::defaultValue().paramEps
-                         ? (u - knots_[i]) / denom : 0.0;
+                double a = std::abs(denom) > Tolerance::defaultValue().paramEps ? (u - knots_[i]) / denom : 0.0;
                 nw.push_back(mulan::math::lerp(control_points_[i - 1], control_points_[i], a));
             }
             // 后段不变：P_{k-s}..P_n
-            for (int i = k - s; i <= n; ++i) nw.push_back(control_points_[i]);
+            for (int i = k - s; i <= n; ++i)
+                nw.push_back(control_points_[i]);
 
             // 插入节点
             knots_.insert(knots_.begin() + k + 1, u);
@@ -203,32 +204,33 @@ public:
     }
 
 private:
-    int        degree_;
-    PointList  control_points_;
+    int degree_;
+    PointList control_points_;
     KnotVector knots_;
 
     void validateInvariants() const {
         assert(degree_ >= 1 && "BSplineCurve: degree must be >= 1");
-        assert(controlPointCount() > degree_ &&
-               "BSplineCurve: control point count must be > degree");
+        assert(controlPointCount() > degree_ && "BSplineCurve: control point count must be > degree");
         assert(knotCount() == controlPointCount() + degree_ + 1 &&
                "BSplineCurve: knot count must equal controlPointCount + degree + 1");
     }
 
     static double clampToDomain(double u, double umin, double umax) noexcept {
-        if (u < umin) return umin;
-        if (u > umax) return umax;
+        if (u < umin)
+            return umin;
+        if (u > umax)
+            return umax;
         return u;
     }
 
     // ---- 通用 de Boor 求值：对 Point 或 Vec 控制点都适用 ----
-    template<typename T>
-    static T deBoorGeneric(const std::vector<T>& cp, const KnotVector& U,
-                           int p, double u) {
+    template <typename T>
+    static T deBoorGeneric(const std::vector<T>& cp, const KnotVector& U, int p, double u) {
         const int n = static_cast<int>(cp.size()) - 1;
         const int k = bsplineFindSpan(n, p, u, U);
         std::vector<T> d(p + 1);
-        for (int j = 0; j <= p; ++j) d[j] = cp[k - p + j];
+        for (int j = 0; j <= p; ++j)
+            d[j] = cp[k - p + j];
         for (int r = 1; r <= p; ++r) {
             for (int j = p; j >= r; --j) {
                 const int idx = k - p + j;
@@ -245,28 +247,21 @@ private:
 
     // ---- NURBS Book A3.4 导数曲线控制点 ----
     // 入参 C_i 类型可以是 Point 或 Vec；出参恒为 Vec（差分 + 缩放）。
-    template<typename T>
-    static std::vector<Vec> derivativeControlPoints(const std::vector<T>& cp,
-                                                    const KnotVector& U,
-                                                    int p) {
+    template <typename T>
+    static std::vector<Vec> derivativeControlPoints(const std::vector<T>& cp, const KnotVector& U, int p) {
         std::vector<Vec> q;
         q.reserve(cp.size() - 1);
         for (size_t i = 0; i + 1 < cp.size(); ++i) {
             double denom = U[i + p + 1] - U[i + 1];
-            double scale = std::abs(denom) > Tolerance::defaultValue().paramEps
-                         ? static_cast<double>(p) / denom : 0.0;
+            double scale = std::abs(denom) > Tolerance::defaultValue().paramEps ? static_cast<double>(p) / denom : 0.0;
             q.push_back(scale * (cp[i + 1] - cp[i]));
         }
         return q;
     }
 
     // ---- 通用 lerp：Point 用 mulan::math::lerp（仿射），Vec 用向量插值 ----
-    static Point lerpT(const Point& a, const Point& b, double t) {
-        return mulan::math::lerp(a, b, t);
-    }
-    static Vec lerpT(const Vec& a, const Vec& b, double t) {
-        return a + (b - a) * t;
-    }
+    static Point lerpT(const Point& a, const Point& b, double t) { return mulan::math::lerp(a, b, t); }
+    static Vec lerpT(const Vec& a, const Vec& b, double t) { return a + (b - a) * t; }
 };
 
 // ============================================================
@@ -276,4 +271,4 @@ private:
 using BSplineCurve2d = BSplineCurveT<Point2>;
 using BSplineCurve3d = BSplineCurveT<Point3>;
 
-} // namespace mulan::math
+}  // namespace mulan::math

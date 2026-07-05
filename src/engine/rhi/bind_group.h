@@ -30,11 +30,11 @@ class Sampler;
 
 struct BindGroupEntry {
     uint32_t binding = 0;
-    Buffer*  buffer  = nullptr;
+    Buffer* buffer = nullptr;
     Texture* texture = nullptr;
     Sampler* sampler = nullptr;
-    uint32_t offset  = 0;
-    uint32_t size    = 0;
+    uint32_t offset = 0;
+    uint32_t size = 0;
 };
 
 // ============================================================
@@ -46,22 +46,21 @@ struct BindGroupDesc {
     BindGroupEntry entries[kMaxEntries]{};
     uint8_t count = 0;
 
-    BindGroupDesc& addUBO(uint32_t binding, Buffer* buf,
-                          uint32_t offset, uint32_t size) noexcept {
+    BindGroupDesc& addUBO(uint32_t binding, Buffer* buf, uint32_t offset, uint32_t size) noexcept {
         if (count < kMaxEntries)
-            entries[count++] = {binding, buf, nullptr, nullptr, offset, size};
+            entries[count++] = { binding, buf, nullptr, nullptr, offset, size };
         return *this;
     }
 
     BindGroupDesc& addTexture(uint32_t binding, Texture* tex) noexcept {
         if (count < kMaxEntries)
-            entries[count++] = {binding, nullptr, tex, nullptr, 0, 0};
+            entries[count++] = { binding, nullptr, tex, nullptr, 0, 0 };
         return *this;
     }
 
     BindGroupDesc& addSampler(uint32_t binding, Sampler* s) noexcept {
         if (count < kMaxEntries)
-            entries[count++] = {binding, nullptr, nullptr, s, 0, 0};
+            entries[count++] = { binding, nullptr, nullptr, s, 0, 0 };
         return *this;
     }
 
@@ -77,14 +76,21 @@ public:
     virtual ~BindGroup() = default;
 
     virtual const BindGroupLayout& layout() const = 0;
-    virtual const BindGroupEntry*  entries() const = 0;
-    virtual uint8_t                entryCount() const = 0;
+    virtual const BindGroupEntry* entries() const = 0;
+    virtual uint8_t entryCount() const = 0;
 
     /// 更新已有 binding 的 UBO offset/size（标脏，下次 bind 重新写入）
-    virtual bool updateUBO(uint32_t binding, Buffer* buf,
-                           uint32_t offset, uint32_t size) = 0;
-    virtual bool updateTexture(uint32_t binding, Texture* tex) { (void)binding; (void)tex; return false; }
-    virtual bool updateSampler(uint32_t binding, Sampler* s) { (void)binding; (void)s; return false; }
+    virtual bool updateUBO(uint32_t binding, Buffer* buf, uint32_t offset, uint32_t size) = 0;
+    virtual bool updateTexture(uint32_t binding, Texture* tex) {
+        (void) binding;
+        (void) tex;
+        return false;
+    }
+    virtual bool updateSampler(uint32_t binding, Sampler* s) {
+        (void) binding;
+        (void) s;
+        return false;
+    }
 
     /// 是否有任意 binding 处于脏状态。
     bool dirty() const { return dirty_mask_ != 0; }
@@ -106,15 +112,15 @@ public:
     static constexpr uint64_t kInvalidFrameToken = 0;
 
     uint64_t frameToken() const { return frame_token_; }
-    void     setFrameToken(uint64_t token) { frame_token_ = token; }
+    void setFrameToken(uint64_t token) { frame_token_ = token; }
 
 protected:
     BindGroup() = default;
     BindGroup(const BindGroup&) = delete;
     BindGroup& operator=(const BindGroup&) = delete;
 
-    uint16_t  dirty_mask_  = 0xFFFF;  // 初次 bind 视为整体脏，确保首帧完整写入
-    uint64_t  frame_token_ = kInvalidFrameToken;
+    uint16_t dirty_mask_ = 0xFFFF;  // 初次 bind 视为整体脏，确保首帧完整写入
+    uint64_t frame_token_ = kInvalidFrameToken;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

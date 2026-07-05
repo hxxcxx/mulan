@@ -7,10 +7,9 @@
 #pragma once
 
 #ifdef BUILDING_CORE
-    #define CORE_API __declspec(dllexport)
+#define CORE_API __declspec(dllexport)
 #elif defined(BUILDING_CORE_DLL)
-    #define CORE_API __declspec(dllimport)
+#define CORE_API __declspec(dllimport)
 #else
-    #define CORE_API
+#define CORE_API
 #endif
-

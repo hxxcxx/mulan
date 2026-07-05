@@ -15,10 +15,7 @@ namespace mulan::core {
 // ============================================================
 
 Image::Image(uint32_t w, uint32_t h, PixelFormat fmt, std::vector<uint8_t> pixels)
-    : width_(w)
-    , height_(h)
-    , format_(fmt)
-    , pixels_(std::move(pixels)) {
+    : width_(w), height_(h), format_(fmt), pixels_(std::move(pixels)) {
 }
 
 // ============================================================
@@ -26,13 +23,13 @@ Image::Image(uint32_t w, uint32_t h, PixelFormat fmt, std::vector<uint8_t> pixel
 // ============================================================
 
 bool Image::valid() const {
-    return width_ > 0 && height_ > 0
-        && format_ != PixelFormat::Unknown
-        && pixels_.size() == static_cast<size_t>(width_) * height_ * bytesPerPixel(format_);
+    return width_ > 0 && height_ > 0 && format_ != PixelFormat::Unknown &&
+           pixels_.size() == static_cast<size_t>(width_) * height_ * bytesPerPixel(format_);
 }
 
 const uint8_t* Image::scanline(uint32_t row) const {
-    if (row >= height_) return nullptr;
+    if (row >= height_)
+        return nullptr;
     return pixels_.data() + static_cast<size_t>(row) * rowBytes();
 }
 
@@ -41,7 +38,8 @@ const uint8_t* Image::scanline(uint32_t row) const {
 // ============================================================
 
 void Image::flipVertically() {
-    if (!valid()) return;
+    if (!valid())
+        return;
     uint32_t rb = rowBytes();
     std::vector<uint8_t> tmp(rb);
     for (uint32_t top = 0, bot = height_ - 1; top < bot; ++top, --bot) {
@@ -57,14 +55,15 @@ std::shared_ptr<Image> Image::toRGBA() const {
     if (format_ == PixelFormat::RGBA8) {
         // 已经是 RGBA8，返回 copy
         auto copy = std::make_shared<Image>();
-        copy->width_  = width_;
+        copy->width_ = width_;
         copy->height_ = height_;
         copy->format_ = format_;
         copy->pixels_ = pixels_;
         return copy;
     }
 
-    if (!valid()) return nullptr;
+    if (!valid())
+        return nullptr;
 
     const uint32_t srcBPP = bytesPerPixel(format_);
     const size_t pixelCount = static_cast<size_t>(width_) * height_;
@@ -72,7 +71,7 @@ std::shared_ptr<Image> Image::toRGBA() const {
 
     for (size_t i = 0; i < pixelCount; ++i) {
         const uint8_t* src = pixels_.data() + i * srcBPP;
-        uint8_t*       dst = rgba.data() + i * 4;
+        uint8_t* dst = rgba.data() + i * 4;
 
         switch (format_) {
         case PixelFormat::R8:
@@ -84,11 +83,12 @@ std::shared_ptr<Image> Image::toRGBA() const {
             dst[3] = src[1];
             break;
         case PixelFormat::RGB8:
-            dst[0] = src[0]; dst[1] = src[1]; dst[2] = src[2];
+            dst[0] = src[0];
+            dst[1] = src[1];
+            dst[2] = src[2];
             dst[3] = 255;
             break;
-        default:
-            break;
+        default: break;
         }
     }
 
@@ -96,7 +96,7 @@ std::shared_ptr<Image> Image::toRGBA() const {
 }
 
 std::vector<uint8_t> Image::detachPixels() {
-    width_  = 0;
+    width_ = 0;
     height_ = 0;
     format_ = PixelFormat::Unknown;
     auto out = std::move(pixels_);
@@ -118,10 +118,9 @@ core::Result<void> Image::savePNGExpected(std::string_view path) const {
     }
     std::string p(path);
     int stride = static_cast<int>(rowBytes());
-    int comps  = static_cast<int>(bytesPerPixel(format_));
-    const int ok = stbi_write_png(p.c_str(),
-        static_cast<int>(width_), static_cast<int>(height_),
-        comps, pixels_.data(), stride);
+    int comps = static_cast<int>(bytesPerPixel(format_));
+    const int ok = stbi_write_png(p.c_str(), static_cast<int>(width_), static_cast<int>(height_), comps, pixels_.data(),
+                                  stride);
     if (ok == 0) {
         return std::unexpected(Error::make(ErrorCode::Io, "Failed to save PNG image."));
     }
@@ -129,30 +128,28 @@ core::Result<void> Image::savePNGExpected(std::string_view path) const {
 }
 
 bool Image::saveBMP(std::string_view path) const {
-    if (!valid()) return false;
+    if (!valid())
+        return false;
     std::string p(path);
     int comps = static_cast<int>(bytesPerPixel(format_));
-    return stbi_write_bmp(p.c_str(),
-        static_cast<int>(width_), static_cast<int>(height_),
-        comps, pixels_.data()) != 0;
+    return stbi_write_bmp(p.c_str(), static_cast<int>(width_), static_cast<int>(height_), comps, pixels_.data()) != 0;
 }
 
 bool Image::saveTGA(std::string_view path) const {
-    if (!valid()) return false;
+    if (!valid())
+        return false;
     std::string p(path);
     int comps = static_cast<int>(bytesPerPixel(format_));
-    return stbi_write_tga(p.c_str(),
-        static_cast<int>(width_), static_cast<int>(height_),
-        comps, pixels_.data()) != 0;
+    return stbi_write_tga(p.c_str(), static_cast<int>(width_), static_cast<int>(height_), comps, pixels_.data()) != 0;
 }
 
 bool Image::saveJPG(std::string_view path, int quality) const {
-    if (!valid()) return false;
+    if (!valid())
+        return false;
     std::string p(path);
     int comps = static_cast<int>(bytesPerPixel(format_));
-    return stbi_write_jpg(p.c_str(),
-        static_cast<int>(width_), static_cast<int>(height_),
-        comps, pixels_.data(), quality) != 0;
+    return stbi_write_jpg(p.c_str(), static_cast<int>(width_), static_cast<int>(height_), comps, pixels_.data(),
+                          quality) != 0;
 }
 
 // ============================================================
@@ -178,25 +175,24 @@ std::shared_ptr<Image> Image::load(std::string_view path, int forceChannels) {
     stbi_set_flip_vertically_on_load(true);
 
     unsigned char* raw = stbi_load(p.c_str(), &w, &h, &ch, forceChannels);
-    if (!raw) return nullptr;
+    if (!raw)
+        return nullptr;
 
     int outCh = (forceChannels > 0) ? forceChannels : ch;
     size_t total = static_cast<size_t>(w) * h * outCh;
 
     PixelFormat fmt = PixelFormat::Unknown;
     switch (outCh) {
-    case 1: fmt = PixelFormat::R8;    break;
-    case 2: fmt = PixelFormat::RG8;   break;
-    case 3: fmt = PixelFormat::RGB8;  break;
+    case 1: fmt = PixelFormat::R8; break;
+    case 2: fmt = PixelFormat::RG8; break;
+    case 3: fmt = PixelFormat::RGB8; break;
     case 4: fmt = PixelFormat::RGBA8; break;
     }
 
     std::vector<uint8_t> pixels(raw, raw + total);
     stbi_image_free(raw);
 
-    return createFromBuffer(static_cast<uint32_t>(w),
-                            static_cast<uint32_t>(h),
-                            fmt, std::move(pixels));
+    return createFromBuffer(static_cast<uint32_t>(w), static_cast<uint32_t>(h), fmt, std::move(pixels));
 }
 
 std::shared_ptr<Image> Image::loadFromMemory(const uint8_t* data, size_t size) {
@@ -204,40 +200,38 @@ std::shared_ptr<Image> Image::loadFromMemory(const uint8_t* data, size_t size) {
 }
 
 std::shared_ptr<Image> Image::loadFromMemory(const uint8_t* data, size_t size, int forceChannels) {
-    if (!data || size == 0) return nullptr;
+    if (!data || size == 0)
+        return nullptr;
 
     int w = 0, h = 0, ch = 0;
     stbi_set_flip_vertically_on_load(true);
 
-    unsigned char* raw = stbi_load_from_memory(
-        data, static_cast<int>(size), &w, &h, &ch, forceChannels);
-    if (!raw) return nullptr;
+    unsigned char* raw = stbi_load_from_memory(data, static_cast<int>(size), &w, &h, &ch, forceChannels);
+    if (!raw)
+        return nullptr;
 
     int outCh = (forceChannels > 0) ? forceChannels : ch;
     size_t total = static_cast<size_t>(w) * h * outCh;
 
     PixelFormat fmt = PixelFormat::Unknown;
     switch (outCh) {
-    case 1: fmt = PixelFormat::R8;    break;
-    case 2: fmt = PixelFormat::RG8;   break;
-    case 3: fmt = PixelFormat::RGB8;  break;
+    case 1: fmt = PixelFormat::R8; break;
+    case 2: fmt = PixelFormat::RG8; break;
+    case 3: fmt = PixelFormat::RGB8; break;
     case 4: fmt = PixelFormat::RGBA8; break;
     }
 
     std::vector<uint8_t> pixels(raw, raw + total);
     stbi_image_free(raw);
 
-    return createFromBuffer(static_cast<uint32_t>(w),
-                            static_cast<uint32_t>(h),
-                            fmt, std::move(pixels));
+    return createFromBuffer(static_cast<uint32_t>(w), static_cast<uint32_t>(h), fmt, std::move(pixels));
 }
 
 // ============================================================
 // 工厂：从缓冲区构建
 // ============================================================
 
-std::shared_ptr<Image> Image::createFromBuffer(
-    uint32_t w, uint32_t h, PixelFormat fmt, std::vector<uint8_t> pixels) {
+std::shared_ptr<Image> Image::createFromBuffer(uint32_t w, uint32_t h, PixelFormat fmt, std::vector<uint8_t> pixels) {
     return std::shared_ptr<Image>(new Image(w, h, fmt, std::move(pixels)));
 }
 
@@ -254,16 +248,13 @@ bool Image::isSupportedFile(std::string_view path) {
     namespace fs = std::filesystem;
     fs::path p(path);
     auto ext = p.extension().string();
-    for (auto& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    return ext == ".png" || ext == ".jpg" || ext == ".jpeg"
-        || ext == ".bmp" || ext == ".tga" || ext == ".hdr";
+    for (auto& c : ext)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga" || ext == ".hdr";
 }
 
 FloatImage::FloatImage(uint32_t w, uint32_t h, uint32_t channels, std::vector<float> pixels)
-    : width_(w)
-    , height_(h)
-    , channels_(channels)
-    , pixels_(std::move(pixels)) {
+    : width_(w), height_(h), channels_(channels), pixels_(std::move(pixels)) {
 }
 
 bool FloatImage::valid() const {
@@ -276,8 +267,7 @@ std::shared_ptr<FloatImage> FloatImage::loadHDR(std::string_view path, int force
     return result ? *result : nullptr;
 }
 
-core::Result<std::shared_ptr<FloatImage>>
-FloatImage::loadHDRExpected(std::string_view path, int forceChannels) {
+core::Result<std::shared_ptr<FloatImage>> FloatImage::loadHDRExpected(std::string_view path, int forceChannels) {
     std::string p(path);
     int w = 0, h = 0, ch = 0;
     float* raw = stbi_loadf(p.c_str(), &w, &h, &ch, forceChannels);
@@ -294,10 +284,8 @@ FloatImage::loadHDRExpected(std::string_view path, int forceChannels) {
     std::vector<float> pixels(raw, raw + total);
     stbi_image_free(raw);
 
-    return std::make_shared<FloatImage>(static_cast<uint32_t>(w),
-                                        static_cast<uint32_t>(h),
-                                        static_cast<uint32_t>(outCh),
-                                        std::move(pixels));
+    return std::make_shared<FloatImage>(static_cast<uint32_t>(w), static_cast<uint32_t>(h),
+                                        static_cast<uint32_t>(outCh), std::move(pixels));
 }
 
-} // namespace mulan::core
+}  // namespace mulan::core

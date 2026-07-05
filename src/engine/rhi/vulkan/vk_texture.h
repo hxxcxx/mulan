@@ -20,8 +20,8 @@ namespace mulan::engine {
 class VKTexture : public Texture {
 public:
     /// 创建常规纹理（拥有 image/view 资源）。失败返回 TextureCreateFailed。
-    static core::Result<std::unique_ptr<VKTexture>>
-        create(const TextureDesc& desc, vk::Device device, VmaAllocator allocator);
+    static core::Result<std::unique_ptr<VKTexture>> create(const TextureDesc& desc, vk::Device device,
+                                                           VmaAllocator allocator);
 
     /// Swapchain backbuffer 包装构造（不拥有 image/view，仅持有句柄）。
     /// 不可失败，保持 public。
@@ -42,19 +42,18 @@ public:
 
 private:
     // 主构造：仅 create() 使用
-    VKTexture(const TextureDesc& desc, vk::Device device, VmaAllocator allocator,
-              vk::Image image, VmaAllocation allocation, vk::ImageView view)
-        : desc_(desc), device_(device), allocator_(allocator),
-          image_(image), allocation_(allocation), view_(view) {}
+    VKTexture(const TextureDesc& desc, vk::Device device, VmaAllocator allocator, vk::Image image,
+              VmaAllocation allocation, vk::ImageView view)
+        : desc_(desc), device_(device), allocator_(allocator), image_(image), allocation_(allocation), view_(view) {}
 
-    TextureDesc     desc_;
-    vk::Device      device_;
-    VmaAllocator    allocator_ = nullptr;
-    vk::Image       image_;
-    VmaAllocation   allocation_ = nullptr;
-    vk::ImageView   view_;
+    TextureDesc desc_;
+    vk::Device device_;
+    VmaAllocator allocator_ = nullptr;
+    vk::Image image_;
+    VmaAllocation allocation_ = nullptr;
+    vk::ImageView view_;
     vk::ImageLayout current_layout_ = vk::ImageLayout::eUndefined;
-    bool            owns_resources_ = true;
+    bool owns_resources_ = true;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

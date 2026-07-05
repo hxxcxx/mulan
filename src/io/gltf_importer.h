@@ -16,12 +16,11 @@ namespace mulan::io {
 
 class IO_API GltfImporter : public IFileImporter {
 public:
-    core::Result<ImportResult> import(const std::string& path,
-           mulan::io::Document& doc,
-           const ImportOptions& options = {}) override;
+    core::Result<ImportResult> import(const std::string& path, mulan::io::Document& doc,
+                                      const ImportOptions& options = {}) override;
 
     std::vector<std::string> supportedExtensions() const override;
     std::string name() const override;
 };
 
-} // namespace mulan::io
+}  // namespace mulan::io

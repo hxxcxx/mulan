@@ -57,12 +57,12 @@ private:
     void save();
     void load();
 
-    QSettings qsettings_{"mulan", "Engine"};
+    QSettings qsettings_{ "mulan", "Engine" };
 
-    mulan::engine::GraphicsBackend           backend_ = mulan::engine::GraphicsBackend::Vulkan;
-    mulan::engine::RenderConfig::MSAALevel   msaa_    = mulan::engine::RenderConfig::MSAALevel::x4;
-    bool                                        vsync_   = true;
-    QColor                                     bgcolor_;
-    bool                                        ibl_enabled_ = false;  // 默认关
-    QString                                     hdr_path_{"assets/envmap.hdr"};
+    mulan::engine::GraphicsBackend backend_ = mulan::engine::GraphicsBackend::Vulkan;
+    mulan::engine::RenderConfig::MSAALevel msaa_ = mulan::engine::RenderConfig::MSAALevel::x4;
+    bool vsync_ = true;
+    QColor bgcolor_;
+    bool ibl_enabled_ = false;  // 默认关
+    QString hdr_path_{ "assets/envmap.hdr" };
 };

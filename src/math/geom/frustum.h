@@ -18,26 +18,14 @@
 
 namespace mulan::math {
 
-enum class FrustumPlane : int {
-    Left = 0,
-    Right,
-    Bottom,
-    Top,
-    Near,
-    Far,
-    Count
-};
+enum class FrustumPlane : int { Left = 0, Right, Bottom, Top, Near, Far, Count };
 
 struct Frustum3 {
     Plane3 planes[static_cast<int>(FrustumPlane::Count)]{};
 
-    Plane3& operator[](FrustumPlane plane) {
-        return planes[static_cast<int>(plane)];
-    }
+    Plane3& operator[](FrustumPlane plane) { return planes[static_cast<int>(plane)]; }
 
-    const Plane3& operator[](FrustumPlane plane) const {
-        return planes[static_cast<int>(plane)];
-    }
+    const Plane3& operator[](FrustumPlane plane) const { return planes[static_cast<int>(plane)]; }
 
     static Frustum3 fromViewProjection(const Mat4& vp) {
         Frustum3 f;
@@ -55,12 +43,12 @@ struct Frustum3 {
             return Plane3(normal, -p.w / len);
         };
 
-        f[FrustumPlane::Left]   = extract(row(3) + row(0));
-        f[FrustumPlane::Right]  = extract(row(3) - row(0));
+        f[FrustumPlane::Left] = extract(row(3) + row(0));
+        f[FrustumPlane::Right] = extract(row(3) - row(0));
         f[FrustumPlane::Bottom] = extract(row(3) + row(1));
-        f[FrustumPlane::Top]    = extract(row(3) - row(1));
-        f[FrustumPlane::Near]   = extract(row(3) + row(2));
-        f[FrustumPlane::Far]    = extract(row(3) - row(2));
+        f[FrustumPlane::Top] = extract(row(3) - row(1));
+        f[FrustumPlane::Near] = extract(row(3) + row(2));
+        f[FrustumPlane::Far] = extract(row(3) - row(2));
 
         return f;
     }
@@ -75,13 +63,17 @@ struct Frustum3 {
     }
 
     bool intersects(const AABB3& box, const Tolerance& tol = defaultTolerance()) const {
-        if (box.isEmpty(tol)) return false;
+        if (box.isEmpty(tol))
+            return false;
 
         for (const Plane3& plane : planes) {
             Point3 p = box.min;
-            if (plane.normal.x >= 0.0) p.x = box.max.x;
-            if (plane.normal.y >= 0.0) p.y = box.max.y;
-            if (plane.normal.z >= 0.0) p.z = box.max.z;
+            if (plane.normal.x >= 0.0)
+                p.x = box.max.x;
+            if (plane.normal.y >= 0.0)
+                p.y = box.max.y;
+            if (plane.normal.z >= 0.0)
+                p.z = box.max.z;
 
             if (plane.signedDistance(p) < -tol.lengthEps) {
                 return false;
@@ -91,7 +83,8 @@ struct Frustum3 {
     }
 
     bool intersects(const Sphere3& sphere, const Tolerance& tol = defaultTolerance()) const {
-        if (!sphere.isValid()) return false;
+        if (!sphere.isValid())
+            return false;
 
         for (const Plane3& plane : planes) {
             if (plane.signedDistance(sphere.center) < -sphere.radius - tol.lengthEps) {
@@ -104,4 +97,4 @@ struct Frustum3 {
 
 using Frustum = Frustum3;
 
-} // namespace mulan::math
+}  // namespace mulan::math

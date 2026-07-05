@@ -38,7 +38,7 @@ struct ImportedTextureDesc {
 
 struct ImportedMaterialDesc {
     std::string name;
-    math::Vec4 baseColorFactor{0.8, 0.8, 0.8, 1.0};
+    math::Vec4 baseColorFactor{ 0.8, 0.8, 0.8, 1.0 };
     double roughness = 0.5;
     double metallic = 0.0;
     asset::AssetId baseColorTexture = asset::AssetId::invalid();
@@ -46,7 +46,7 @@ struct ImportedMaterialDesc {
     asset::AssetId metallicRoughnessTexture = asset::AssetId::invalid();
     asset::AssetId emissiveTexture = asset::AssetId::invalid();
     asset::AssetId occlusionTexture = asset::AssetId::invalid();
-    math::Vec3 emissiveFactor{0.0, 0.0, 0.0};
+    math::Vec3 emissiveFactor{ 0.0, 0.0, 0.0 };
     asset::AlphaMode alphaMode = asset::AlphaMode::Opaque;
     bool doubleSided = false;
 };
@@ -76,9 +76,7 @@ public:
     asset::AssetId createMaterial(const ImportedMaterialDesc& desc);
 
     void addPrimitive(asset::MeshPrimitive primitive);
-    void addPrimitive(graphics::Mesh mesh,
-                      asset::AssetId material = asset::AssetId::invalid(),
-                      std::string name = {});
+    void addPrimitive(graphics::Mesh mesh, asset::AssetId material = asset::AssetId::invalid(), std::string name = {});
 
     bool empty() const { return primitives_.empty(); }
     size_t primitiveCount() const { return primitives_.size(); }
@@ -94,4 +92,4 @@ private:
     ImportReport report_;
 };
 
-} // namespace mulan::io
+}  // namespace mulan::io

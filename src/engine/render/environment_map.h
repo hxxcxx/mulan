@@ -29,8 +29,8 @@ class IBLPipeline {
 public:
     static constexpr uint32_t kIrradianceW = 256;
     static constexpr uint32_t kIrradianceH = 128;
-    static constexpr uint32_t kPrefilterW  = 512;
-    static constexpr uint32_t kPrefilterH  = 256;
+    static constexpr uint32_t kPrefilterW = 512;
+    static constexpr uint32_t kPrefilterH = 256;
     static constexpr uint32_t kBrdfLUTSize = 512;
 
     IBLPipeline() = default;
@@ -45,8 +45,8 @@ public:
     bool isValid() const { return irradiance_ != nullptr; }
 
     Texture* irradiance() const { return irradiance_.get(); }
-    Texture* prefilter()  const { return prefilter_.get(); }
-    Texture* brdfLUT()    const { return brdf_lut_.get(); }
+    Texture* prefilter() const { return prefilter_.get(); }
+    Texture* brdfLUT() const { return brdf_lut_.get(); }
 
 private:
     std::unique_ptr<Texture> irradiance_;
@@ -55,4 +55,4 @@ private:
     std::unique_ptr<Sampler> linear_sampler_;  // 仅 bake 期间持有
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

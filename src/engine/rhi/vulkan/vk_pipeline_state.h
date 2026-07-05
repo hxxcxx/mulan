@@ -24,8 +24,7 @@ class VKPipelineState : public PipelineState {
 public:
     /// 创建 VKPipelineState（dynamic rendering，无需 RenderPass）。
     /// 失败返回 PipelineCreateFailed。
-    static core::Result<std::unique_ptr<VKPipelineState>>
-        create(const GraphicsPipelineDesc& desc, vk::Device device);
+    static core::Result<std::unique_ptr<VKPipelineState>> create(const GraphicsPipelineDesc& desc, vk::Device device);
     ~VKPipelineState();
 
     const GraphicsPipelineDesc& desc() const override { return desc_; }
@@ -35,21 +34,20 @@ public:
     vk::DescriptorSetLayout descriptorSetLayout() const { return descriptor_set_layout_; }
 
 private:
-    VKPipelineState(const GraphicsPipelineDesc& desc, vk::Device device)
-        : desc_(desc), device_(device) {}
+    VKPipelineState(const GraphicsPipelineDesc& desc, vk::Device device) : desc_(desc), device_(device) {}
 
     core::Error build();
     core::Error createRootSignature();
     vk::PipelineVertexInputStateCreateInfo buildVertexInputState();
 
     GraphicsPipelineDesc desc_;
-    vk::Device           device_;
-    vk::Pipeline         pipeline_;
-    vk::PipelineLayout   layout_;
+    vk::Device device_;
+    vk::Pipeline pipeline_;
+    vk::PipelineLayout layout_;
     vk::DescriptorSetLayout descriptor_set_layout_;
 
-    std::vector<vk::VertexInputBindingDescription>   binding_descriptions_;
+    std::vector<vk::VertexInputBindingDescription> binding_descriptions_;
     std::vector<vk::VertexInputAttributeDescription> attribute_descriptions_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

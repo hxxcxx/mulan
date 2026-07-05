@@ -46,32 +46,21 @@ public:
     // ---------- 构造 ----------
 
     /// 用控制点网格构造。前置条件：非空矩形网格。
-    explicit BezierSurface(ControlGrid grid)
-        : control_points_(std::move(grid)) {
-        validate();
-    }
+    explicit BezierSurface(ControlGrid grid) : control_points_(std::move(grid)) { validate(); }
 
     // ---------- 维度查询 ----------
 
     /// u 方向次数 = 列数 - 1
-    int degreeU() const noexcept {
-        return static_cast<int>(control_points_[0].size()) - 1;
-    }
+    int degreeU() const noexcept { return static_cast<int>(control_points_[0].size()) - 1; }
     /// v 方向次数 = 行数 - 1
-    int degreeV() const noexcept {
-        return static_cast<int>(control_points_.size()) - 1;
-    }
+    int degreeV() const noexcept { return static_cast<int>(control_points_.size()) - 1; }
     int numRows() const noexcept { return static_cast<int>(control_points_.size()); }
     int numCols() const noexcept { return static_cast<int>(control_points_[0].size()); }
 
     const ControlGrid& controlPoints() const noexcept { return control_points_; }
 
-    Point3 controlPoint(int row, int col) const {
-        return control_points_[row][col];
-    }
-    void setControlPoint(int row, int col, const Point3& p) {
-        control_points_[row][col] = p;
-    }
+    Point3 controlPoint(int row, int col) const { return control_points_[row][col]; }
+    void setControlPoint(int row, int col, const Point3& p) { control_points_[row][col] = p; }
 
     // ---------- 求值 ----------
 
@@ -150,7 +139,7 @@ public:
             dSdv += bernstein(i, n, u) * dvCol[i];
         }
 
-        return {dSdu, dSdv};
+        return { dSdu, dSdv };
     }
 
     /// 单位法向 = normalize(dS/du × dS/dv)。退化曲面（叉积≈0）回退 UnitZ()。
@@ -192,7 +181,7 @@ public:
 
         ControlGrid grid;
         grid.reserve(m + 2);
-        grid.push_back(control_points_[0]); // j = 0
+        grid.push_back(control_points_[0]);  // j = 0
         for (int j = 1; j <= m; ++j) {
             double a = static_cast<double>(j) / (m + 1);
             Row row;
@@ -202,7 +191,7 @@ public:
             }
             grid.push_back(std::move(row));
         }
-        grid.push_back(control_points_[m]); // j = m+1
+        grid.push_back(control_points_[m]);  // j = m+1
         return BezierSurface(std::move(grid));
     }
 
@@ -219,9 +208,7 @@ private:
         }
     }
 
-    static double clampParam(double t) noexcept {
-        return t < 0.0 ? 0.0 : (t > 1.0 ? 1.0 : t);
-    }
+    static double clampParam(double t) noexcept { return t < 0.0 ? 0.0 : (t > 1.0 ? 1.0 : t); }
 
     /// 对一条 Bezier 控制点序列在 t 处做 De Casteljau 求值（点仿射组合）。
     static Point3 deCasteljauRow(const Row& row, double t) {
@@ -236,4 +223,4 @@ private:
     }
 };
 
-} // namespace mulan::math
+}  // namespace mulan::math

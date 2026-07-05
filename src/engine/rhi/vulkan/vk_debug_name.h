@@ -23,17 +23,18 @@
 namespace mulan::engine {
 
 /// 为任意 Vulkan 句柄挂调试名（仅在启用 VK_EXT_debug_utils 扩展时生效，零其它开销）
-inline void setDebugName(vk::Device device, vk::ObjectType type,
-                         uint64_t handle, std::string_view name) {
+inline void setDebugName(vk::Device device, vk::ObjectType type, uint64_t handle, std::string_view name) {
     // 仅当 instance 启用了 VK_EXT_debug_utils 时 dispatcher 才有此函数指针；
     // 否则跳过（validation 关闭时扩展未启用）
-    if (!VULKAN_HPP_DEFAULT_DISPATCHER.vkSetDebugUtilsObjectNameEXT) return;
-    if (name.empty() || handle == 0) return;
+    if (!VULKAN_HPP_DEFAULT_DISPATCHER.vkSetDebugUtilsObjectNameEXT)
+        return;
+    if (name.empty() || handle == 0)
+        return;
     vk::DebugUtilsObjectNameInfoEXT info;
-    info.objectType   = type;
+    info.objectType = type;
     info.objectHandle = handle;
-    info.pObjectName  = name.data();
+    info.pObjectName = name.data();
     device.setDebugUtilsObjectNameEXT(info);
 }
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

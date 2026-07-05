@@ -25,9 +25,7 @@ namespace {
 
 class NumericLocaleGuard {
 public:
-    NumericLocaleGuard()
-        : old_(std::setlocale(LC_NUMERIC, nullptr) ? std::setlocale(LC_NUMERIC, nullptr) : "")
-    {
+    NumericLocaleGuard() : old_(std::setlocale(LC_NUMERIC, nullptr) ? std::setlocale(LC_NUMERIC, nullptr) : "") {
         std::setlocale(LC_NUMERIC, "C");
     }
 
@@ -78,10 +76,13 @@ TopoDS_Shape readIGES(const std::string& path) {
 
 TopoDS_Shape readFile(const std::string& path) {
     std::string ext = std::filesystem::path(path).extension().string();
-    for (auto& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (auto& c : ext)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
-    if (ext == ".step" || ext == ".stp") return readSTEP(path);
-    if (ext == ".iges" || ext == ".igs") return readIGES(path);
+    if (ext == ".step" || ext == ".stp")
+        return readSTEP(path);
+    if (ext == ".iges" || ext == ".igs")
+        return readIGES(path);
 
     throw std::runtime_error("Unsupported format: " + ext);
 }
@@ -121,11 +122,10 @@ ImportResult populateDocument(const TopoDS_Shape& shape, mulan::io::Document& do
     return result;
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
-core::Result<ImportResult> OCCTImporter::import(const std::string& path,
-                     mulan::io::Document& doc,
-                     const ImportOptions& /*options*/) {
+core::Result<ImportResult> OCCTImporter::import(const std::string& path, mulan::io::Document& doc,
+                                                const ImportOptions& /*options*/) {
     try {
         NumericLocaleGuard locale;
 
@@ -139,12 +139,11 @@ core::Result<ImportResult> OCCTImporter::import(const std::string& path,
 }
 
 std::vector<std::string> OCCTImporter::supportedExtensions() const {
-    return {"step", "stp", "iges", "igs"};
+    return { "step", "stp", "iges", "igs" };
 }
 
 std::string OCCTImporter::name() const {
     return "OCCT Importer";
 }
 
-} // namespace mulan::io
-
+}  // namespace mulan::io

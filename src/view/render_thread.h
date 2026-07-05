@@ -41,7 +41,7 @@ public:
 
     template <class Fn>
     auto submit(RenderTaskKind kind, std::string label, Fn&& fn)
-        -> core::Result<std::future<std::invoke_result_t<Fn&>>> {
+            -> core::Result<std::future<std::invoke_result_t<Fn&>>> {
         return queue_.submit(kind, std::move(label), std::forward<Fn>(fn));
     }
 
@@ -53,4 +53,4 @@ private:
     std::atomic_bool running_ = false;
 };
 
-} // namespace mulan::view
+}  // namespace mulan::view

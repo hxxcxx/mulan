@@ -21,8 +21,8 @@ namespace mulan::engine {
 class DX12PipelineState final : public PipelineState {
 public:
     /// 创建 DX12PipelineState。失败返回 PipelineCreateFailed。
-    static core::Result<std::unique_ptr<DX12PipelineState>>
-        create(const GraphicsPipelineDesc& desc, ID3D12Device* device);
+    static core::Result<std::unique_ptr<DX12PipelineState>> create(const GraphicsPipelineDesc& desc,
+                                                                   ID3D12Device* device);
     ~DX12PipelineState();
 
     const GraphicsPipelineDesc& desc() const override { return desc_; }
@@ -37,12 +37,12 @@ private:
     void createRootSignature();
     D3D12_INPUT_LAYOUT_DESC buildInputLayout();
 
-    GraphicsPipelineDesc         desc_;
-    ID3D12Device*                device_;
-    ComPtr<ID3D12RootSignature>  root_signature_;
-    ComPtr<ID3D12PipelineState>  pipeline_;
+    GraphicsPipelineDesc desc_;
+    ID3D12Device* device_;
+    ComPtr<ID3D12RootSignature> root_signature_;
+    ComPtr<ID3D12PipelineState> pipeline_;
 
     std::vector<D3D12_INPUT_ELEMENT_DESC> input_elements_;
 };
 
-} // namespace mulan::engine
+}  // namespace mulan::engine

@@ -35,9 +35,11 @@ namespace mulan::math {
 /// 整数版二项式系数。k ∈ [0,n] 返回 C(n,k)；越界返回 0。
 /// n ≤ 30 时结果在 int 范围内安全。
 inline int binomial(int n, int k) noexcept {
-    if (k < 0 || k > n) return 0;
-    if (k == 0 || k == n) return 1;
-    k = k < n - k ? k : n - k; // 对称性：C(n,k) = C(n,n-k)
+    if (k < 0 || k > n)
+        return 0;
+    if (k == 0 || k == n)
+        return 1;
+    k = k < n - k ? k : n - k;  // 对称性：C(n,k) = C(n,n-k)
 
     int64_t result = 1;
     for (int i = 1; i <= k; ++i) {
@@ -56,17 +58,20 @@ inline int binomial(int n, int k) noexcept {
 /// 注意：t 不做 clamp，调用方负责约束 t ∈ [0,1]（基函数本身在域外也有定义，
 ///       但 Bezier 语义只关心 [0,1]）。
 inline double bernstein(int i, int n, double t) noexcept {
-    if (i < 0 || i > n) return 0.0;
+    if (i < 0 || i > n)
+        return 0.0;
 
     // 边界：t = 0 或 1 时 pow(0,0) 在标准库返回 1，恰好符合
     // B_{0,n}(0)=1, B_{i>0,n}(0)=0, B_{n,n}(1)=1 等
     double ti = 1.0;
-    for (int e = 0; e < i; ++e) ti *= t;            // t^i（避免 pow 的浮点误差）
+    for (int e = 0; e < i; ++e)
+        ti *= t;  // t^i（避免 pow 的浮点误差）
     double mt = 1.0 - t;
     double mt1 = 1.0;
-    for (int e = 0; e < n - i; ++e) mt1 *= mt;       // (1-t)^(n-i)
+    for (int e = 0; e < n - i; ++e)
+        mt1 *= mt;  // (1-t)^(n-i)
 
     return binomial(n, i) * ti * mt1;
 }
 
-} // namespace mulan::math
+}  // namespace mulan::math
