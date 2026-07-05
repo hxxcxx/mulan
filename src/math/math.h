@@ -55,5 +55,7 @@
 #include "basis/bspline_basis.h"
 #include "curve/bezier_curve.h"
 #include "curve/bspline_curve.h"
+#include "curve/nurbs_curve.h"
 #include "surface/bezier_surface.h"
 #include "surface/bspline_surface.h"
+#include "surface/nurbs_surface.h"

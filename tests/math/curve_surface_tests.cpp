@@ -339,6 +339,122 @@ void testBSplineSurface() {
             checkPoint3Near(bss.evaluate(u, v), bz.evaluate(u, v), 1e-10);
 }
 
+// ============================================================
+// NURBS 曲线
+// ============================================================
+
+void testNURBSCurve() {
+    // ---- 权重全 1 时 NURBS == B-spline ----
+    NURBSCurve2d::PointList cp = {
+        Point2(0,0), Point2(1,2), Point2(3,2), Point2(4,0), Point2(5,2)
+    };
+    NURBSCurve2d nurbs(3, cp); // 权重默认 1
+    BSplineCurve2d bspl(3, cp);
+    for (double t : {0.1, 0.3, 0.5, 0.7, 0.9}) {
+        checkPoint2Near(nurbs.evaluate(t), bspl.evaluate(t), 1e-10);
+    }
+
+    // clamped → 穿过首末控制点
+    checkPoint2Near(nurbs.evaluate(0.0), Point2(0, 0), 1e-12);
+    checkPoint2Near(nurbs.evaluate(1.0), Point2(5, 2), 1e-12);
+
+    // ---- 【金标准】2 次有理 Bezier 精确表示 90° 单位圆弧 ----
+    // 控制点：(1,0), (1,1), (0,1)；权重 1, √2/2, 1；节点 {0,0,0,1,1,1}
+    // 注意：NURBS 圆弧的参数 t 与角度 θ 不是线性关系（非均匀参数化），
+    //       所以验证手段是【点在单位圆上 |C(t)| = 1】，并校验端点位置/切向。
+    const double r2_2 = 0.5 * std::sqrt(2.0);
+    NURBSCurve2d::PointList arcCp = { Point2(1,0), Point2(1,1), Point2(0,1) };
+    NURBSCurve2d arc(2, arcCp, {1.0, r2_2, 1.0}, {0,0,0,1,1,1});
+
+    // 端点精确
+    checkPoint2Near(arc.evaluate(0.0), Point2(1, 0), 1e-12);
+    checkPoint2Near(arc.evaluate(1.0), Point2(0, 1), 1e-12);
+    // 中点（对称）应在 θ=π/4
+    checkPoint2Near(arc.evaluate(0.5), Point2(r2_2, r2_2), 1e-10);
+    // 所有点在单位圆上
+    for (double t : {0.0, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9, 1.0}) {
+        Point2 c = arc.evaluate(t);
+        CHECK_NEAR(c.x * c.x + c.y * c.y, 1.0, 1e-10);
+    }
+
+    // 端点切向：在 (1,0) 处切向 = (0,1)（沿 +y），长度由参数化决定。
+    // 经典结论：2 次有理 Bezier 表达的单位圆弧，t=0 处 |C'(0)| = 2·w1/w0·tan(Δθ/2)·...
+    //   化简为 2·(√2/2)·... ；直接验证切向【方向】（单位化后 = (0,1)）
+    Vec2 d0 = arc.derivative(0.0);
+    Vec2 d0n = d0.normalized();
+    checkVec2Near(d0n, Vec2(0.0, 1.0), 1e-9);
+
+    // 节点插入：几何不变
+    NURBSCurve2d arc2(2, arcCp, {1.0, r2_2, 1.0}, {0,0,0,1,1,1});
+    Point2 beforeEval = arc2.evaluate(0.5);
+    arc2.insertKnot(0.5, 1);
+    checkPoint2Near(arc2.evaluate(0.5), beforeEval, 1e-10);
+    CHECK(arc2.controlPointCount() == 4); // 3 → 4
+
+    // 解析导数 vs 数值差分（B-spline 退化情形，便于检验商法则实现）
+    for (double t : {0.2, 0.5, 0.8}) {
+        Vec2 analytic = nurbs.derivative(t);
+        double hh = 1e-6;
+        Point2 fp = nurbs.evaluate(t + hh);
+        Point2 fm = nurbs.evaluate(t - hh);
+        Vec2 numeric = (fp - fm) * (1.0 / (2.0 * hh));
+        checkVec2Near(analytic, numeric, 1e-3);
+    }
+    // 圆弧的解析导数 vs 数值（真正有理情形，验证商法则）
+    for (double t : {0.25, 0.5, 0.75}) {
+        Vec2 analytic = arc.derivative(t);
+        double hh = 1e-6;
+        Point2 fp = arc.evaluate(t + hh);
+        Point2 fm = arc.evaluate(t - hh);
+        Vec2 numeric = (fp - fm) * (1.0 / (2.0 * hh));
+        checkVec2Near(analytic, numeric, 1e-3);
+    }
+
+    // 3D NURBS：权重全 1 时 == 3D B-spline
+    NURBSCurve3d::PointList cp3 = {
+        Point3(0,0,0), Point3(1,1,0), Point3(2,0,1), Point3(3,1,1), Point3(4,0,0)
+    };
+    NURBSCurve3d nurbs3(3, cp3);
+    BSplineCurve3d bspl3(3, cp3);
+    for (double t : {0.1, 0.5, 0.9}) {
+        checkPoint3Near(nurbs3.evaluate(t), bspl3.evaluate(t), 1e-10);
+    }
+}
+
+// ============================================================
+// NURBS 曲面
+// ============================================================
+
+void testNURBSSurface() {
+    // ---- 权重全 1 时 NURBS 曲面 == B-spline 曲面 ----
+    NURBSSurface::ControlGrid grid = {
+        { Point3(0,0,0), Point3(1,0,0), Point3(2,0,0) },
+        { Point3(0,1,0), Point3(1,1,1), Point3(2,1,0) },
+        { Point3(0,2,0), Point3(1,2,0), Point3(2,2,0) },
+    };
+    NURBSSurface ns(2, 2, grid);
+    BSplineSurface bss(2, 2, BSplineSurface::ControlGrid(grid));
+    for (double u : {0.1, 0.4, 0.7})
+        for (double v : {0.2, 0.5, 0.9})
+            checkPoint3Near(ns.evaluate(u, v), bss.evaluate(u, v), 1e-10);
+
+    // clamped → 四角
+    checkPoint3Near(ns.evaluate(0, 0), Point3(0,0,0));
+    checkPoint3Near(ns.evaluate(1, 1), Point3(2,2,0));
+
+    // 偏导 vs 中心差分（权重全 1 的退化情形）
+    auto [du, dv] = ns.derivatives(0.5, 0.5);
+    double h = 1e-6;
+    Vec3 du_num = (ns.evaluate(0.5 + h, 0.5) - ns.evaluate(0.5 - h, 0.5)) * (1.0 / (2.0 * h));
+    Vec3 dv_num = (ns.evaluate(0.5, 0.5 + h) - ns.evaluate(0.5, 0.5 - h)) * (1.0 / (2.0 * h));
+    checkVec3Near(du, du_num, 1e-3);
+    checkVec3Near(dv, dv_num, 1e-3);
+
+    // 法向单位长
+    Vec3 n = ns.normal(0.5, 0.5);
+    CHECK_NEAR(n.length(), 1.0, 1e-9);
+}
+
 } // namespace
 
 int main() {
@@ -348,6 +464,8 @@ int main() {
     testBSplineBasis();
     testBSplineCurve();
     testBSplineSurface();
+    testNURBSCurve();
+    testNURBSSurface();
 
     if (g_failures != 0) {
         std::cerr << g_failures << " curve/surface test failure(s)\n";
