@@ -113,8 +113,14 @@ bool ViewContext::initRendering() {
 
     return renderer_.init(*device_, light_env_,
                           surface_.colorFormat(*device_),
-                          surface_.depthFormat(*device_),
-                          ibl_enabled_, hdr_path_);
+                          surface_.depthFormat(*device_));
+}
+
+void ViewContext::enableIBL() {
+    // 两层门控：全局开关 + HDR 路径有效
+    if (!ibl_enabled_) return;
+    if (!device_ || hdr_path_.empty()) return;
+    renderer_.enableIBL(*device_, hdr_path_);
 }
 
 void ViewContext::cleanup() {

@@ -56,6 +56,12 @@ public:
     /// 在 attachViewContext 时应用到相机。
     bool preferOrthographic() const { return prefer_ortho_; }
 
+    /// 该文档是否值得启用 IBL（环境光反射）。
+    /// CAD/BREP 模型 → false（工程视图无需环境反射）；
+    /// 纯 mesh（glTF/OBJ/FBX...）→ true（仍受全局开关与 HDR 文件存在性约束）。
+    /// 在 attachViewContext 时按需触发烘焙。
+    bool preferIBL() const { return prefer_ibl_; }
+
     mulan::scene::EntityId resolvePickId(uint32_t pickId) const;
 
 private:
@@ -64,4 +70,5 @@ private:
     mulan::view::ViewContext* view_context_ = nullptr;
     std::unordered_map<uint32_t, mulan::scene::EntityId> pick_id_map_;
     bool prefer_ortho_ = true;  // 默认正交；纯 mesh 文档构造时按 report 推翻为透视
+    bool prefer_ibl_   = true;  // 默认开；CAD/BREP 文档构造时按 report 推翻为关
 };

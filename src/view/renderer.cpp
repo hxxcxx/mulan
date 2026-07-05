@@ -30,9 +30,7 @@ Renderer::~Renderer() {
 bool Renderer::init(engine::RHIDevice& device,
                     engine::LightEnvironment& lightEnv,
                     engine::TextureFormat colorFmt,
-                    engine::TextureFormat depthFmt,
-                    bool iblEnabled,
-                    const std::string& hdrPath) {
+                    engine::TextureFormat depthFmt) {
     if (initialized_) return true;
 
     // 纹理缓存 + 材质缓存（去单例化，由 Renderer 持有）
@@ -51,26 +49,8 @@ bool Renderer::init(engine::RHIDevice& device,
     if (!solid_pass_->init(colorFmt, depthFmt, true))
         return false;
 
-    // IBL（环境光反射）烘焙：开关关闭时完全跳过（零开销，shader 走黑色 fallback）。
-    // 开关开启时进一步检查 HDR 文件存在性，缺失则静默降级（不刷屏 stderr）。
-    if (iblEnabled) {
-        FILE* test = nullptr;
-#ifdef _WIN32
-        fopen_s(&test, hdrPath.c_str(), "rb");
-#else
-        test = fopen(hdrPath.c_str(), "rb");
-#endif
-        if (!test) {
-            std::fprintf(stderr, "[Renderer] IBL enabled but HDR not found: %s "
-                                 "(place a .hdr file there or disable IBL)\n", hdrPath.c_str());
-        } else {
-            fclose(test);
-            ibl_ = std::make_unique<engine::IBLPipeline>();
-            if (ibl_->bake(device, hdrPath)) {
-                solid_pass_->setIBLTextures(ibl_->irradiance(), ibl_->prefilter(), ibl_->brdfLUT());
-            }
-        }
-    }
+    // IBL 烘焙不在 init 发生：按需由 enableIBL() 触发，
+    // 让调用方（DocumentSession）根据模型类型决定是否启用。
 
     wire_pass_ = std::make_unique<engine::GeometryPass>(
         device, *resources_, matCache, lightEnv,
@@ -103,6 +83,34 @@ void Renderer::shutdown(engine::RHIDevice& device) {
 void Renderer::setScene(const render_scene::RenderScene* scene,
                         const asset::AssetLibrary* assets) {
     builder_.setScene(scene, assets);
+}
+
+void Renderer::enableIBL(engine::RHIDevice& device, const std::string& hdrPath) {
+    // 幂等：已烘焙过直接返回（同一个 Renderer 实例生命周期内只烘一次）
+    if (ibl_) return;
+
+    // HDR 文件存在性检查：缺失则静默降级，给一行清晰提示
+    FILE* test = nullptr;
+#ifdef _WIN32
+    fopen_s(&test, hdrPath.c_str(), "rb");
+#else
+    test = fopen(hdrPath.c_str(), "rb");
+#endif
+    if (!test) {
+        std::fprintf(stderr, "[Renderer] IBL requested but HDR not found: %s "
+                             "(place a .hdr file there)\n", hdrPath.c_str());
+        return;
+    }
+    fclose(test);
+
+    ibl_ = std::make_unique<engine::IBLPipeline>();
+    if (ibl_->bake(device, hdrPath)) {
+        if (solid_pass_) {
+            solid_pass_->setIBLTextures(ibl_->irradiance(), ibl_->prefilter(), ibl_->brdfLUT());
+        }
+    } else {
+        ibl_.reset();  // 烘焙失败，回归 fallback
+    }
 }
 
 void Renderer::render(engine::RHIDevice& device,

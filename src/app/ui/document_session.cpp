@@ -6,10 +6,14 @@ DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc,
                                  mulan::io::ImportReport report)
     : document_(std::move(doc))
 {
-    // 推导默认相机投影：含 BREP（CAD 几何）→ 正交；纯网格（glTF / OBJ / ...）→ 透视。
-    // 阈值：只要 brepAssetCount > 0 就视为 CAD 模型；否则 mesh 主导则透视。
-    prefer_ortho_ = (report.brepAssetCount > 0) && (report.meshAssetCount == 0
-                   || report.brepAssetCount >= report.meshAssetCount);
+    // 推导默认相机投影与 IBL 偏好：含 BREP（CAD 几何）→ 正交 + 不开 IBL（工程视图）；
+    // 纯网格（glTF / OBJ / ...）→ 透视 + 允许 IBL。
+    // 阈值：只要 brepAssetCount > 0 且不少于 meshAssetCount 就视为 CAD 主导。
+    const bool is_cad = (report.brepAssetCount > 0)
+                        && (report.meshAssetCount == 0
+                            || report.brepAssetCount >= report.meshAssetCount);
+    prefer_ortho_ = is_cad;
+    prefer_ibl_   = !is_cad;
 
     syncRenderScene();
 
@@ -57,6 +61,12 @@ void DocumentSession::attachViewContext(mulan::view::ViewContext* runtime) {
     // 按模型类型应用相机投影模式（CAD→正交，glTF/mesh→透视），
     // 必须在 fitToBox 之前设置：正交/透视下 fitToBox 推导 distance / orthoSize 的公式不同。
     runtime->camera().setOrthographic(prefer_ortho_);
+
+    // 按模型类型决定是否烘焙 IBL（CAD→不开，mesh→按全局开关与 HDR 存在性）。
+    // enableIBL 内部幂等：重复 attach（如切回 tab）不会重烘。
+    if (prefer_ibl_) {
+        runtime->enableIBL();
+    }
 
     const auto& bounds = render_scene_.sceneBounds();
     if (!bounds.isEmpty())

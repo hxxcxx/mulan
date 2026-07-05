@@ -79,6 +79,14 @@ public:
 
     Renderer& renderer() { return renderer_; }
 
+    /// 按需烘焙 IBL（转发给 Renderer）。HDR 路径来自 ViewConfig::hdrPath。
+    /// 通常由 DocumentSession 在 attachViewContext 时根据模型类型决定是否调用。
+    /// 内部会再检查全局开关 iblEnabled()：关则不烘。
+    void enableIBL();
+
+    /// 全局 IBL 总开关（来自 ViewConfig::iblEnabled）。关闭时 enableIBL 不烘。
+    bool iblEnabled() const { return ibl_enabled_; }
+
 private:
     bool initRendering();
     ViewState buildViewState() const;
@@ -104,7 +112,9 @@ private:
     int height_ = 600;
     bool initialized_ = false;
 
-    // IBL 配置（由 ViewConfig::iblEnabled / hdrPath 填充，initRendering 时传给 Renderer）
+    // HDR 路径（由 ViewConfig::hdrPath 填充，enableIBL() 时使用）。
+    // 是否实际启用由两层决定：(1) 全局开关 ibl_enabled_，(2) DocumentSession 按模型类型
+    // 决定是否调用 enableIBL()——CAD 文档即使全局开关开了也不会调用。
     bool ibl_enabled_ = false;
     std::string hdr_path_ = "assets/envmap.hdr";
 };
