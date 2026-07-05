@@ -73,6 +73,9 @@ engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewS
     request.output.width = request.view.width;
     request.output.height = request.view.height;
     request.output.readback = surface.isOffscreen();
+    request.output.capture.width = request.output.width;
+    request.output.capture.height = request.output.height;
+    request.output.capture.readback = request.output.readback;
     request.options.showSurfaces = viewState.showFaces;
     request.options.showEdges = viewState.showEdges;
     request.options.showOverlays = true;

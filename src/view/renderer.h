@@ -68,8 +68,6 @@ public:
                 RenderSurface& surface,
                 const ViewState& viewState);
 
-    engine::RenderResourceCache& resources() { return render_renderer_.resources(); }
-
     bool isInitialized() const { return initialized_; }
 
 private:

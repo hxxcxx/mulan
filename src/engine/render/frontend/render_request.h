@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "render_capture.h"
 #include "render_view_desc.h"
 #include "render_world_snapshot.h"
 
@@ -32,6 +33,7 @@ struct RenderOutputDesc {
     uint32_t width = 0;
     uint32_t height = 0;
     bool readback = false;
+    RenderCaptureDesc capture;
 };
 
 struct RenderRequest {

@@ -78,8 +78,6 @@ public:
     RenderSurface& surface() { return surface_; }
     const RenderSurface& surface() const { return surface_; }
 
-    Renderer& renderer() { return renderer_; }
-
     /// 按需烘焙 IBL（转发给 Renderer）。HDR 路径来自 ViewConfig::hdrPath。
     /// 通常由 DocumentSession 在 attachViewContext 时根据模型类型决定是否调用。
     /// 内部会再检查全局开关 iblEnabled()：关则不烘。
