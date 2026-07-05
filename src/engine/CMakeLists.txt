@@ -16,6 +16,7 @@ add_library(engine STATIC
     render/frontend/render_world.cpp
     render/frontend/render_workload.cpp
     render/backend/render_compiler.cpp
+    render/backend/render_renderer.cpp
     # Draw executors / stages
     render/draw/geometry_draw_executor.cpp
     render/forward/face_stage.cpp

@@ -3,9 +3,8 @@
  * @brief Renderer —— 一帧渲染执行入口
  * @date 2026-07-03
  *
- * 从 ViewContext 抽出的渲染执行层。持有 Forward stages（实体面 / 边线）、
- * RenderWorldSync、RenderCompiler 和 RenderResourceCache。把 RenderScene + camera
- * 转换为 engine frontend/backend 可消费的数据，调用 RHI begin frame、execute stages、present。
+ * 从 ViewContext 抽出的视图渲染适配层。负责把 RenderScene + camera 同步为
+ * engine frontend 的 RenderRequest，并交给 engine backend 执行。
  *
  * 不处理 Qt 事件，不修改 Document，不持有 UI widget。
  * lightEnv 由 ViewContext 拥有，init 时绑定引用；相机数据来自每帧 ViewState 快照。
@@ -16,26 +15,14 @@
 #include "render_world_sync.h"
 #include "view_state.h"
 
-#include "mulan/engine/render/backend/render_compiler.h"
+#include "mulan/engine/render/backend/render_renderer.h"
 #include "mulan/engine/render/frontend/render_world.h"
-#include "mulan/engine/render/frontend/render_workload.h"
-#include "mulan/engine/render/render_resource_cache.h"
-#include "mulan/engine/render/forward/edge_stage.h"
-#include "mulan/engine/render/forward/face_stage.h"
 #include "mulan/engine/render/light_environment.h"
-#include "mulan/engine/render/texture_cache.h"
-#include "mulan/engine/render/material/material_cache.h"
-#include "mulan/engine/render/environment_map.h"
 
-#include <memory>
 #include <string>
 
 namespace mulan::engine {
-class CommandList;
 class RHIDevice;
-class PipelineState;
-struct RenderFrame;
-class ViewCubeStage;
 } // namespace mulan::engine
 
 namespace mulan::render_scene {
@@ -80,25 +67,13 @@ public:
                 RenderSurface& surface,
                 const ViewState& viewState);
 
-    engine::RenderResourceCache& resources() { return *resources_; }
+    engine::RenderResourceCache& resources() { return render_renderer_.resources(); }
 
     bool isInitialized() const { return initialized_; }
 
 private:
-    void prepareDrawCommands(engine::RHIDevice& device, const ViewState& viewState);
-    engine::CommandList* beginRenderFrame(engine::RHIDevice& device,
-                                          RenderSurface& surface,
-                                          const ViewState& viewState);
-    void executeStages(engine::RenderFrame& frame);
-    void endRenderFrame(engine::RHIDevice& device, RenderSurface& surface);
-
-    // cache 在最前声明（C++ 按声明逆序析构 → cache 最后析构，
-    // 此时 passes/resources 已释放，但 device 仍活，GPU 纹理可安全销毁）
-    std::unique_ptr<engine::TextureCache>  texture_cache_;
-    std::unique_ptr<engine::MaterialCache> material_cache_;
-    std::unique_ptr<engine::IBLPipeline> ibl_;
-
-    std::unique_ptr<engine::RenderResourceCache> resources_;
+    engine::RenderRequest buildRequest(RenderSurface& surface, const ViewState& viewState);
+    engine::RenderSurfaceBinding surfaceBinding(RenderSurface& surface) const;
 
     const render_scene::RenderScene* scene_ = nullptr;
     const asset::AssetLibrary* assets_ = nullptr;
@@ -106,12 +81,7 @@ private:
     RenderWorldSync render_world_sync_;
     engine::RenderWorld render_world_;
     engine::RenderWorldSnapshot world_snapshot_;
-    engine::RenderWorkload workload_;
-    engine::RenderCompiler compiler_;
-
-    std::unique_ptr<engine::FaceStage> face_stage_;
-    std::unique_ptr<engine::EdgeStage> edge_stage_;
-    std::unique_ptr<engine::ViewCubeStage> view_cube_stage_;
+    engine::RenderRenderer render_renderer_;
 
     bool initialized_ = false;
 };
