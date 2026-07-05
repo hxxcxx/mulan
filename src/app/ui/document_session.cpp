@@ -2,9 +2,15 @@
 
 #include <mulan/view/view_context.h>
 
-DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc)
+DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc,
+                                 mulan::io::ImportReport report)
     : document_(std::move(doc))
 {
+    // 推导默认相机投影：含 BREP（CAD 几何）→ 正交；纯网格（glTF / OBJ / ...）→ 透视。
+    // 阈值：只要 brepAssetCount > 0 就视为 CAD 模型；否则 mesh 主导则透视。
+    prefer_ortho_ = (report.brepAssetCount > 0) && (report.meshAssetCount == 0
+                   || report.brepAssetCount >= report.meshAssetCount);
+
     syncRenderScene();
 
     render_scene_.forEachProxy([&](const mulan::render_scene::SceneProxy& proxy) {
@@ -47,6 +53,10 @@ void DocumentSession::attachViewContext(mulan::view::ViewContext* runtime) {
     view_context_ = runtime;
 
     runtime->setRenderScene(&render_scene_, document_ ? document_->assets() : nullptr);
+
+    // 按模型类型应用相机投影模式（CAD→正交，glTF/mesh→透视），
+    // 必须在 fitToBox 之前设置：正交/透视下 fitToBox 推导 distance / orthoSize 的公式不同。
+    runtime->camera().setOrthographic(prefer_ortho_);
 
     const auto& bounds = render_scene_.sceneBounds();
     if (!bounds.isEmpty())
