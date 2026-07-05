@@ -46,11 +46,11 @@ private:
                          uint32_t height);
 
     static std::optional<CaptureResult>
-    configureCaptureSurface(ViewContext& context,
-                            const engine::RenderCaptureDesc& desc,
-                            std::string name,
-                            uint32_t width,
-                            uint32_t height);
+    configureCaptureTarget(ViewContext& context,
+                           const engine::RenderCaptureDesc& desc,
+                           std::string name,
+                           uint32_t width,
+                           uint32_t height);
 
     static std::expected<engine::RenderCaptureResult, core::Error>
     readCaptureResult(ViewContext& context,

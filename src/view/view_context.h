@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "render_runtime.h"
+#include "render_runtime_host.h"
 #include "view_config.h"
 #include "view_state.h"
 
@@ -47,19 +47,12 @@ public:
     bool initOffscreen(int width, int height);
     void shutdown();
 
-    bool isInitialized() const { return runtime_.isInitialized(); }
+    bool isInitialized() const { return runtime_host_.isInitialized(); }
 
     void setRenderScene(const render_scene::RenderScene* scene,
                         const asset::AssetLibrary* assets);
 
     void renderFrame();
-    void renderFrame(const ViewState& viewState);
-    ViewState snapshotViewState() const;
-    ViewState snapshotViewState(const engine::Camera& camera,
-                                const CaptureVisual& visual,
-                                uint32_t width,
-                                uint32_t height) const;
-    void onFrameEnd();
     void resize(int width, int height);
 
     void handleInput(const engine::InputEvent& event);
@@ -102,16 +95,25 @@ private:
     friend class CaptureService;
 
     ViewState buildViewState() const;
+    void renderFrame(const ViewState& viewState);
+    ViewState snapshotViewState() const;
+    ViewState snapshotViewState(const engine::Camera& camera,
+                                const CaptureVisual& visual,
+                                uint32_t width,
+                                uint32_t height) const;
+    void onFrameEnd();
+
+    bool isOffscreenSurface() const;
+    uint32_t surfaceWidth() const;
+    uint32_t surfaceHeight() const;
     bool readbackPixels(std::vector<uint8_t>& pixels);
     bool configureCaptureSurface(const engine::RenderCaptureDesc& desc,
                                  uint32_t width,
                                  uint32_t height);
-    std::optional<RenderSurfaceDesc> captureSurfaceDesc() const;
-    bool configureCaptureSurface(const RenderSurfaceDesc& desc);
-    RenderSurface& surface() { return runtime_.surface(); }
-    const RenderSurface& surface() const { return runtime_.surface(); }
+    std::optional<RenderSurfaceDesc> captureSurfaceSnapshot() const;
+    bool restoreCaptureSurface(const RenderSurfaceDesc& desc);
 
-    RenderRuntime runtime_;
+    RenderRuntimeHost runtime_host_;
     engine::Camera camera_{engine::CameraMode::Trackball};
 
     std::unique_ptr<engine::Operator> default_op_;

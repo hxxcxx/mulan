@@ -23,7 +23,9 @@ DocWidget::DocWidget(QWidget* parent)
     setMinimumSize(320, 240);
 }
 
-DocWidget::~DocWidget() = default;
+DocWidget::~DocWidget() {
+    binding_.unbind();
+}
 
 void DocWidget::init() {
     if (view_context_.isInitialized()) return;
@@ -43,7 +45,7 @@ void DocWidget::init() {
     if (!view_context_.init(view_config_, pw, ph)) return;
 
     if (session_) {
-        session_->attachViewContext(&view_context_);
+        binding_.bind(*session_, view_context_);
     }
 }
 
@@ -131,11 +133,11 @@ void DocWidget::keyReleaseEvent(QKeyEvent* e) {
 }
 
 void DocWidget::setDocumentSession(DocumentSession* session) {
-    if (session_) session_->detachViewContext();
+    binding_.unbind();
     session_ = session;
 
     if (view_context_.isInitialized() && session_) {
-        session_->attachViewContext(&view_context_);
+        binding_.bind(*session_, view_context_);
         requestFrame();
     }
 }
@@ -150,16 +152,7 @@ void DocWidget::fitAll() {
     if (!view_context_.isInitialized()) return;
     if (!session_) return;
 
-    if (session_) {
-        const auto& sceneBounds = session_->renderScene().sceneBounds();
-        if (!sceneBounds.isEmpty()) {
-            view_context_.camera().fitToBox(sceneBounds);
-            requestFrame();
-            return;
-        }
-    }
-
-    requestFrame();
+    binding_.fitAll();
 }
 
 mulan::engine::MouseButton DocWidget::translateButton(Qt::MouseButton btn) {

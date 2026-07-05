@@ -7,6 +7,8 @@ add_executable(${PROJECT_NAME}
     resource/icon.qrc
     ui/document_session.h
     ui/document_session.cpp
+    ui/document_view_binding.h
+    ui/document_view_binding.cpp
     ui/document_area.h
     ui/document_area.cpp
     ui/main_window.h

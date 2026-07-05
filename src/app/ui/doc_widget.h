@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include "document_view_binding.h"
+
 #include <QWidget>
 
 #include <mulan/engine/interaction/input_event.h>
@@ -53,4 +55,5 @@ private:
     mulan::view::ViewContext view_context_;
     mulan::view::ViewConfig view_config_;
     DocumentSession* session_ = nullptr;
+    DocumentViewBinding binding_;
 };

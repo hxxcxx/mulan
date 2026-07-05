@@ -7,6 +7,7 @@ add_library(view STATIC
     view_context.cpp
     render_queue.cpp
     render_runtime.cpp
+    render_runtime_host.cpp
     render_surface.cpp
     render_thread.cpp
     renderer.cpp

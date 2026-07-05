@@ -19,19 +19,19 @@ ViewContext::~ViewContext() {
 }
 
 bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
-    if (runtime_.isInitialized()) return true;
+    if (runtime_host_.isInitialized()) return true;
 
     width_  = width;
     height_ = height;
     ibl_enabled_ = cfg.iblEnabled;
     hdr_path_    = cfg.hdrPath;
 
-    if (!runtime_.initWindow(cfg, width, height, light_env_)) {
+    if (!runtime_host_.initWindow(cfg, width, height, light_env_)) {
         return false;
     }
 
-    width_ = runtime_.surface().width();
-    height_ = runtime_.surface().height();
+    width_ = static_cast<int>(runtime_host_.surfaceWidth());
+    height_ = static_cast<int>(runtime_host_.surfaceHeight());
 
     camera_.setViewport(width_, height_);
     camera_.fitToBox(math::AABB3(math::Point3(-1, -1, -1), math::Point3(1, 1, 1)));
@@ -40,17 +40,17 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
 }
 
 bool ViewContext::initOffscreen(int width, int height) {
-    if (runtime_.isInitialized()) return true;
+    if (runtime_host_.isInitialized()) return true;
 
     width_  = width;
     height_ = height;
 
-    if (!runtime_.initOffscreen(width, height, light_env_)) {
+    if (!runtime_host_.initOffscreen(width, height, light_env_)) {
         return false;
     }
 
-    width_ = runtime_.surface().width();
-    height_ = runtime_.surface().height();
+    width_ = static_cast<int>(runtime_host_.surfaceWidth());
+    height_ = static_cast<int>(runtime_host_.surfaceHeight());
 
     camera_.setViewport(width_, height_);
     camera_.fitToBox(math::AABB3(math::Point3(-1, -1, -1), math::Point3(1, 1, 1)));
@@ -59,30 +59,30 @@ bool ViewContext::initOffscreen(int width, int height) {
 }
 
 void ViewContext::shutdown() {
-    runtime_.shutdown();
+    runtime_host_.shutdown();
 }
 
 void ViewContext::setRenderScene(const render_scene::RenderScene* scene,
                                  const asset::AssetLibrary* assets) {
-    runtime_.setRenderScene(scene, assets);
+    runtime_host_.setRenderScene(scene, assets);
 }
 
 void ViewContext::enableIBL() {
     // 两层门控：全局开关 + HDR 路径有效
     if (!ibl_enabled_) return;
-    runtime_.enableIBL(hdr_path_);
+    runtime_host_.enableIBL(hdr_path_);
 }
 
 void ViewContext::renderFrame() {
-    if (!runtime_.isInitialized()) return;
+    if (!runtime_host_.isInitialized()) return;
 
     renderFrame(buildViewState());
 }
 
 void ViewContext::renderFrame(const ViewState& viewState) {
-    if (!runtime_.isInitialized()) return;
+    if (!runtime_host_.isInitialized()) return;
 
-    runtime_.render(viewState);
+    runtime_host_.render(viewState);
     onFrameEnd();
 }
 
@@ -130,10 +130,10 @@ void ViewContext::onFrameEnd() {
 void ViewContext::resize(int width, int height) {
     width_  = width;
     height_ = height;
-    if (runtime_.isInitialized()) {
-        runtime_.resize(width, height);
-        width_ = runtime_.surface().width();
-        height_ = runtime_.surface().height();
+    if (runtime_host_.isInitialized()) {
+        runtime_host_.resize(width, height);
+        width_ = static_cast<int>(runtime_host_.surfaceWidth());
+        height_ = static_cast<int>(runtime_host_.surfaceHeight());
     }
     camera_.setViewport(width_, height_);
 }
@@ -185,31 +185,43 @@ engine::Operator* ViewContext::activeOperator() const {
 }
 
 bool ViewContext::readbackPixels(std::vector<uint8_t>& pixels) {
-    return runtime_.readbackPixels(pixels);
+    return runtime_host_.readbackPixels(pixels);
+}
+
+bool ViewContext::isOffscreenSurface() const {
+    return runtime_host_.isOffscreenSurface();
+}
+
+uint32_t ViewContext::surfaceWidth() const {
+    return runtime_host_.surfaceWidth();
+}
+
+uint32_t ViewContext::surfaceHeight() const {
+    return runtime_host_.surfaceHeight();
 }
 
 bool ViewContext::configureCaptureSurface(const engine::RenderCaptureDesc& desc,
                                           uint32_t width,
                                           uint32_t height) {
-    if (!runtime_.configureCaptureSurface(desc, width, height)) {
+    if (!runtime_host_.configureCaptureSurface(desc, width, height)) {
         return false;
     }
-    width_ = runtime_.surface().width();
-    height_ = runtime_.surface().height();
+    width_ = static_cast<int>(runtime_host_.surfaceWidth());
+    height_ = static_cast<int>(runtime_host_.surfaceHeight());
     camera_.setViewport(width_, height_);
     return true;
 }
 
-std::optional<RenderSurfaceDesc> ViewContext::captureSurfaceDesc() const {
-    return runtime_.offscreenSurfaceDesc();
+std::optional<RenderSurfaceDesc> ViewContext::captureSurfaceSnapshot() const {
+    return runtime_host_.offscreenSurfaceDesc();
 }
 
-bool ViewContext::configureCaptureSurface(const RenderSurfaceDesc& desc) {
-    if (!runtime_.configureOffscreenSurface(desc)) {
+bool ViewContext::restoreCaptureSurface(const RenderSurfaceDesc& desc) {
+    if (!runtime_host_.configureOffscreenSurface(desc)) {
         return false;
     }
-    width_ = runtime_.surface().width();
-    height_ = runtime_.surface().height();
+    width_ = static_cast<int>(runtime_host_.surfaceWidth());
+    height_ = static_cast<int>(runtime_host_.surfaceHeight());
     camera_.setViewport(width_, height_);
     return true;
 }

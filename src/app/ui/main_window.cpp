@@ -7,8 +7,6 @@
 #include <mulan/io/file_manager.h>
 #include <mulan/io/import_result.h>
 #include <mulan/core/log/log.h>
-#include <mulan/view/render_scene.h>
-#include <mulan/scene/scene.h>
 
 #include <QFileDialog>
 #include <QStatusBar>
