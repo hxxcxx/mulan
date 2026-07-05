@@ -14,15 +14,12 @@
 #include "asset.h"
 #include "asset_id.h"
 
+#include <mulan/graphics/mesh.h>
 #include <mulan/math/math.h>
 
 #include <cstdint>
 #include <utility>
 #include <vector>
-
-namespace mulan::engine {
-class Mesh;
-}
 
 namespace mulan::asset {
 
@@ -37,7 +34,7 @@ enum class DrawableRole : uint8_t {
 /// 一段可绘制网格：网格本体（资产持有，不拥有）+ 材质 + 渲染角色。
 /// material 为 invalid 表示该段无专属材质（如 TessellatedAsset 的线框），由调用方回退默认。
 struct Drawable {
-    const engine::Mesh* mesh = nullptr;
+    const graphics::Mesh* mesh = nullptr;
     AssetId             material = AssetId::invalid();
     DrawableRole        role = DrawableRole::Solid;
 };

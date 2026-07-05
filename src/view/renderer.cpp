@@ -11,6 +11,7 @@
 #include "mulan/engine/rhi/render_target.h"
 #include "mulan/engine/rhi/render_types.h"
 #include "mulan/engine/rhi/swap_chain.h"
+#include "mulan/engine/render/frame/render_frame.h"
 #include "mulan/engine/render/material/material_cache.h"
 #include "mulan/engine/render/texture_cache.h"
 #include "mulan/engine/render/viewcube/view_cube_renderer.h"
@@ -41,22 +42,20 @@ bool Renderer::init(engine::RHIDevice& device,
 
     auto& matCache = *material_cache_;
 
-    solid_pass_ = std::make_unique<engine::GeometryPass>(
-        device, *resources_, matCache, lightEnv,
-        engine::GeometryPassConfig{
-            "pbr", engine::PrimitiveTopology::TriangleList,
-            /*depthWrite=*/true, "Forward", /*sampleTextures=*/true});
-    if (!solid_pass_->init(colorFmt, depthFmt, true))
+    engine::RenderTargetInfo targetInfo;
+    targetInfo.colorFormat = colorFmt;
+    targetInfo.depthFormat = depthFmt;
+    targetInfo.hasDepth = true;
+
+    face_stage_ = std::make_unique<engine::FaceStage>(device, *resources_, matCache, lightEnv);
+    if (!face_stage_->init(device, targetInfo))
         return false;
 
     // IBL 烘焙不在 init 发生：按需由 enableIBL() 触发，
     // 让调用方（DocumentSession）根据模型类型决定是否启用。
 
-    wire_pass_ = std::make_unique<engine::GeometryPass>(
-        device, *resources_, matCache, lightEnv,
-        engine::GeometryPassConfig{
-            "edge", engine::PrimitiveTopology::LineList, /*depthWrite=*/false, "Edge"});
-    if (!wire_pass_->init(colorFmt, depthFmt, true))
+    edge_stage_ = std::make_unique<engine::EdgeStage>(device, *resources_, matCache, lightEnv);
+    if (!edge_stage_->init(device, targetInfo))
         return false;
 
     if (!initViewCube(&device, colorFmt, depthFmt)) {
@@ -71,8 +70,8 @@ void Renderer::shutdown(engine::RHIDevice& device) {
     if (!initialized_) return;
     device.waitIdle();
     view_cube_renderer_.reset();
-    wire_pass_.reset();
-    solid_pass_.reset();
+    edge_stage_.reset();
+    face_stage_.reset();
     resources_.reset();
     material_cache_.reset();
     texture_cache_.reset();
@@ -105,8 +104,8 @@ void Renderer::enableIBL(engine::RHIDevice& device, const std::string& hdrPath) 
 
     ibl_ = std::make_unique<engine::IBLPipeline>();
     if (ibl_->bake(device, hdrPath)) {
-        if (solid_pass_) {
-            solid_pass_->setIBLTextures(ibl_->irradiance(), ibl_->prefilter(), ibl_->brdfLUT());
+        if (face_stage_) {
+            face_stage_->setIBLTextures(ibl_->irradiance(), ibl_->prefilter(), ibl_->brdfLUT());
         }
     } else {
         ibl_.reset();  // 烘焙失败，回归 fallback
@@ -121,18 +120,18 @@ void Renderer::render(engine::RHIDevice& device,
     if (resources_) {
         device.beginUploadBatch();
         builder_.rebuild(*resources_,
-                         solid_pass_ ? solid_pass_->pipelineState() : nullptr,
-                         wire_pass_ ? wire_pass_->pipelineState() : nullptr,
+                         face_stage_ ? face_stage_->pipelineState() : nullptr,
+                         edge_stage_ ? edge_stage_->pipelineState() : nullptr,
                          *texture_cache_,
                          *material_cache_);
         device.flushUploadBatch();
     }
 
     const std::span<const engine::MeshDrawCommand> emptyCommands;
-    if (solid_pass_)
-        solid_pass_->setDrawCommands(viewState.showFaces ? builder_.solidCommands() : emptyCommands);
-    if (wire_pass_)
-        wire_pass_->setDrawCommands(viewState.showEdges ? builder_.wireCommands() : emptyCommands);
+    if (face_stage_)
+        face_stage_->setDrawCommands(viewState.showFaces ? builder_.solidCommands() : emptyCommands);
+    if (edge_stage_)
+        edge_stage_->setDrawCommands(viewState.showEdges ? builder_.wireCommands() : emptyCommands);
 
     auto* sc = surface.swapChain();
     auto* rt = surface.renderTarget();
@@ -161,29 +160,39 @@ void Renderer::render(engine::RHIDevice& device,
     scRect.height = static_cast<int32_t>(viewState.height);
     cmd->setScissorRect(scRect);
 
-    engine::PassContext ctx;
-    ctx.cmd    = cmd;
-    ctx.width  = viewState.width;
-    ctx.height = viewState.height;
-    ctx.camera.viewMatrix       = viewState.viewMatrix;
-    ctx.camera.projectionMatrix = viewState.projectionMatrix;
-    ctx.camera.eyePosition      = viewState.cameraPosition;
-    if (solid_pass_) solid_pass_->execute(ctx);
-    if (wire_pass_) wire_pass_->execute(ctx);
+    engine::RenderView renderView;
+    renderView.viewMatrix = viewState.viewMatrix;
+    renderView.projectionMatrix = viewState.projectionMatrix;
+    renderView.cameraPosition = viewState.cameraPosition;
+    renderView.width = static_cast<uint32_t>(viewState.width);
+    renderView.height = static_cast<uint32_t>(viewState.height);
+    renderView.showFaces = viewState.showFaces;
+    renderView.showEdges = viewState.showEdges;
+    renderView.showViewCube = viewState.showViewCube;
+
+    engine::RenderTargetInfo frameTargetInfo;
+    frameTargetInfo.width = renderView.width;
+    frameTargetInfo.height = renderView.height;
+    frameTargetInfo.hasDepth = true;
+    frameTargetInfo.presentable = sc != nullptr;
+
+    engine::RenderFrame frame{device, *cmd, renderView, frameTargetInfo};
+    if (face_stage_) face_stage_->execute(frame);
+    if (edge_stage_) edge_stage_->execute(frame);
     // 两个 pass 各持有独立的 material UBO，uploadDirtyMaterials 不再自行清空脏集合，
     // 故在此处（所有 pass 都上传完毕后）统一清空，避免下帧重复全量上传。
-    if (solid_pass_ || wire_pass_)
+    if (face_stage_ || edge_stage_)
         material_cache_->clearDirtyMaterials();
 
     if (viewState.showViewCube && view_cube_renderer_) {
         view_cube_renderer_->render(cmd,
-                                    solid_pass_ ? solid_pass_->pipelineState() : nullptr,
-                                    wire_pass_ ? wire_pass_->pipelineState() : nullptr,
+                                    face_stage_ ? face_stage_->pipelineState() : nullptr,
+                                    edge_stage_ ? edge_stage_->pipelineState() : nullptr,
                                     viewState.viewMatrix,
                                     static_cast<uint32_t>(viewState.width),
                                     static_cast<uint32_t>(viewState.height),
-                                    solid_pass_ ? solid_pass_->defaultWhiteTexture() : nullptr,
-                                    solid_pass_ ? solid_pass_->defaultSampler() : nullptr);
+                                    face_stage_ ? face_stage_->defaultWhiteTexture() : nullptr,
+                                    face_stage_ ? face_stage_->defaultSampler() : nullptr);
     }
 
     cmd->endRenderPass();

@@ -7,9 +7,9 @@
 #include <mulan/io/document.h>
 #include <mulan/scene/scene.h>
 #include <mulan/math/linalg/transform.h>
-#include <mulan/engine/geometry/mesh.h>
-#include <mulan/engine/vertex/vertex_layout.h>
-#include <mulan/engine/vertex/vertex_buffer.h>
+#include <mulan/graphics/mesh.h>
+#include <mulan/graphics/vertex/vertex_layout.h>
+#include <mulan/graphics/vertex/vertex_buffer.h>
 #include <mulan/core/result/error.h>
 
 #include <fastgltf/core.hpp>
@@ -301,7 +301,7 @@ GltfImporter::import(const std::string& path,
             src.normals   = std::span(geomData.normals);
             src.texcoords = std::span(geomData.texcoords);
             src.indices   = std::span(geomData.indices);
-            src.topology  = engine::PrimitiveTopology::TriangleList;
+            src.topology  = graphics::PrimitiveTopology::TriangleList;
 
             auto engineMesh = buildStandardMesh(src);
             if (engineMesh.empty()) continue;

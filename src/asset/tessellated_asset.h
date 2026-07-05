@@ -13,7 +13,7 @@
 
 #include "geometry_asset.h"
 
-#include <mulan/engine/geometry/mesh.h>
+#include <mulan/graphics/mesh.h>
 
 #include <utility>
 
@@ -25,10 +25,10 @@ public:
     explicit TessellatedAsset(AssetId id, std::string name)
         : GeometryAsset(id, AssetKind::Tessellated, std::move(name)) {}
 
-    const engine::Mesh& solidMesh() const { return solid_mesh_; }
-    const engine::Mesh& wireMesh() const { return wire_mesh_; }
+    const graphics::Mesh& solidMesh() const { return solid_mesh_; }
+    const graphics::Mesh& wireMesh() const { return wire_mesh_; }
 
-    void setRenderMeshes(engine::Mesh solidMesh, engine::Mesh wireMesh) {
+    void setRenderMeshes(graphics::Mesh solidMesh, graphics::Mesh wireMesh) {
         solid_mesh_ = std::move(solidMesh);
         wire_mesh_ = std::move(wireMesh);
     }
@@ -50,8 +50,8 @@ public:
     }
 
 private:
-    engine::Mesh solid_mesh_;
-    engine::Mesh wire_mesh_;
+    graphics::Mesh solid_mesh_;
+    graphics::Mesh wire_mesh_;
 };
 
 } // namespace mulan::asset

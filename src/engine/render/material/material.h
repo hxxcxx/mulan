@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <mulan/graphics/material_types.h>
 #include <mulan/math/math.h>
 
 #include <cstdint>
@@ -55,26 +56,9 @@ inline MaterialType materialTypeFromString(const std::string& s) {
 // Alpha 模式 — 透明度处理策略
 // ============================================================
 
-enum class AlphaMode : uint8_t {
-    Opaque,         // 完全不透明
-    Mask,           // 二值蒙版（alpha < cutoff 则丢弃）
-    Blend,          // 半透明混合
-};
-
-inline const char* alphaModeToString(AlphaMode m) {
-    switch (m) {
-    case AlphaMode::Opaque: return "Opaque";
-    case AlphaMode::Mask:   return "Mask";
-    case AlphaMode::Blend:  return "Blend";
-    }
-    return "Opaque";
-}
-
-inline AlphaMode alphaModeFromString(const std::string& s) {
-    if (s == "Mask" || s == "mask")   return AlphaMode::Mask;
-    if (s == "Blend" || s == "blend") return AlphaMode::Blend;
-    return AlphaMode::Opaque;
-}
+using graphics::AlphaMode;
+using graphics::alphaModeToString;
+using graphics::alphaModeFromString;
 
 // ============================================================
 // 纹理槽位 — 统一索引

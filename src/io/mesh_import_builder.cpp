@@ -3,7 +3,7 @@
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/texture_asset.h>
 #include <mulan/io/document.h>
-#include <mulan/engine/vertex/vertex_buffer.h>
+#include <mulan/graphics/vertex/vertex_buffer.h>
 #include <mulan/scene/scene.h>
 
 #include <algorithm>
@@ -24,15 +24,15 @@ void appendValue(std::vector<std::byte>& bytes, const T& value) {
 
 } // namespace
 
-engine::Mesh buildStandardMesh(const StandardMeshSource& source) {
+graphics::Mesh buildStandardMesh(const StandardMeshSource& source) {
     if (source.positions.empty()) return {};
 
-    engine::Mesh mesh;
-    mesh.layout = engine::layouts::surface();
+    graphics::Mesh mesh;
+    mesh.layout = graphics::layouts::surface();
     mesh.topology = source.topology;
 
-    engine::VertexBufferBuilder vertices(mesh.layout,
-                                         static_cast<uint32_t>(source.positions.size()));
+    graphics::VertexBufferBuilder vertices(mesh.layout,
+                                           static_cast<uint32_t>(source.positions.size()));
     for (uint32_t i = 0; i < source.positions.size(); ++i) {
         const math::FVec3& position = source.positions[i];
         vertices.setPosition(i, position.x, position.y, position.z);
@@ -43,7 +43,7 @@ engine::Mesh buildStandardMesh(const StandardMeshSource& source) {
 
         const math::FVec2 uv = i < source.texcoords.size() ? source.texcoords[i] : math::FVec2(0.0f);
         float uvData[2] = {uv.x, uv.y};
-        vertices.write(i, engine::VertexSemantic::TexCoord0, uvData);
+        vertices.write(i, graphics::VertexSemantic::TexCoord0, uvData);
     }
 
     auto vertexBytes = vertices.data();
@@ -54,8 +54,8 @@ engine::Mesh buildStandardMesh(const StandardMeshSource& source) {
                                            [](uint32_t index) { return index > 0xFFFFu; });
     const bool use32Bit = source.force32BitIndices || source.positions.size() > 0xFFFFu
                        || hasLargeIndex;
-    mesh.indexType = use32Bit ? engine::IndexType::UInt32 : engine::IndexType::UInt16;
-    mesh.indices.reserve(indexCount * engine::indexTypeSize(mesh.indexType));
+    mesh.indexType = use32Bit ? graphics::IndexType::UInt32 : graphics::IndexType::UInt16;
+    mesh.indices.reserve(indexCount * graphics::indexTypeSize(mesh.indexType));
 
     for (size_t i = 0; i < indexCount; ++i) {
         const uint32_t index = source.indices.empty() ? static_cast<uint32_t>(i) : source.indices[i];
@@ -114,7 +114,7 @@ void MeshImportBuilder::addPrimitive(asset::MeshPrimitive primitive) {
     ++report_.primitiveCount;
 }
 
-void MeshImportBuilder::addPrimitive(engine::Mesh mesh, asset::AssetId material, std::string name) {
+void MeshImportBuilder::addPrimitive(graphics::Mesh mesh, asset::AssetId material, std::string name) {
     addPrimitive(asset::MeshPrimitive{std::move(mesh), material, std::move(name)});
 }
 

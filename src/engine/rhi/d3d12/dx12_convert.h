@@ -10,7 +10,11 @@
 #include "../device.h"
 #include "dx12_common.h"
 
+#include <mulan/graphics/vertex/vertex_format.h>
+
 namespace mulan::engine {
+
+using graphics::VertexFormat;
 
 // ============================================================
 // TextureFormat → DXGI_FORMAT

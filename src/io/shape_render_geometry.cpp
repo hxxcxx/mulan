@@ -1,6 +1,6 @@
 #include "shape_render_geometry.h"
 
-#include <mulan/engine/vertex/vertex_buffer.h>
+#include <mulan/graphics/vertex/vertex_buffer.h>
 
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Face.hxx>
@@ -40,7 +40,7 @@ math::AABB3 buildBounds(const TopoDS_Shape& shape) {
     return result;
 }
 
-engine::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bounds) {
+graphics::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bounds) {
     if (shape.IsNull() || bounds.isEmpty()) return {};
 
     const double dx = bounds.max.x - bounds.min.x;
@@ -66,12 +66,12 @@ engine::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bounds)
     }
     if (totalVerts == 0) return {};
 
-    engine::Mesh mesh;
-    mesh.layout    = engine::layouts::surface();
-    mesh.topology  = engine::PrimitiveTopology::TriangleList;
-    mesh.indexType = engine::IndexType::UInt32;
+    graphics::Mesh mesh;
+    mesh.layout    = graphics::layouts::surface();
+    mesh.topology  = graphics::PrimitiveTopology::TriangleList;
+    mesh.indexType = graphics::IndexType::UInt32;
 
-    engine::VertexBufferBuilder vb(mesh.layout, totalVerts);
+    graphics::VertexBufferBuilder vb(mesh.layout, totalVerts);
     mesh.indices.resize(static_cast<size_t>(totalTris) * 3 * sizeof(uint32_t));
     auto* idxOut = reinterpret_cast<uint32_t*>(mesh.indices.data());
 
@@ -102,7 +102,7 @@ engine::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bounds)
             vb.setPosition(v, static_cast<float>(p.X()), static_cast<float>(p.Y()), static_cast<float>(p.Z()));
             vb.setNormal  (v, static_cast<float>(n.X()), static_cast<float>(n.Y()), static_cast<float>(n.Z()));
             float uv[2] = {0.f, 0.f};
-            vb.write(v, engine::VertexSemantic::TexCoord0, uv);
+            vb.write(v, graphics::VertexSemantic::TexCoord0, uv);
         }
 
         for (int i = 1; i <= nt; ++i) {
@@ -122,7 +122,7 @@ engine::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bounds)
     return mesh;
 }
 
-engine::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
+graphics::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
     if (shape.IsNull()) return {};
 
     uint32_t totalVerts = 0;
@@ -141,12 +141,12 @@ engine::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
     }
     if (totalVerts == 0) return {};
 
-    engine::Mesh mesh;
-    mesh.layout    = engine::layouts::surface();
-    mesh.topology  = engine::PrimitiveTopology::LineList;
-    mesh.indexType = engine::IndexType::UInt32;
+    graphics::Mesh mesh;
+    mesh.layout    = graphics::layouts::surface();
+    mesh.topology  = graphics::PrimitiveTopology::LineList;
+    mesh.indexType = graphics::IndexType::UInt32;
 
-    engine::VertexBufferBuilder vb(mesh.layout, totalVerts);
+    graphics::VertexBufferBuilder vb(mesh.layout, totalVerts);
     mesh.indices.resize(static_cast<size_t>(totalIdx) * sizeof(uint32_t));
     auto* idxOut = reinterpret_cast<uint32_t*>(mesh.indices.data());
 
@@ -165,7 +165,7 @@ engine::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
                 vb.setPosition(vi, static_cast<float>(pt.X()), static_cast<float>(pt.Y()), static_cast<float>(pt.Z()));
                 vb.setNormal  (vi, 0.f, 0.f, 0.f);
                 float uv[2] = {0.f, 0.f};
-                vb.write(vi, engine::VertexSemantic::TexCoord0, uv);
+                vb.write(vi, graphics::VertexSemantic::TexCoord0, uv);
 
                 if (i > 1) {
                     idxOut[idxSlot++] = vi - 1;

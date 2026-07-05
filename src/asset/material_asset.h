@@ -8,15 +8,15 @@
 
 #include "asset.h"
 
+#include <mulan/graphics/material_types.h>
 #include <mulan/math/math.h>
-#include <mulan/engine/render/material/material.h>  // engine::AlphaMode（统一枚举，分层清理待后续）
 
 #include <cstdint>
 #include <utility>
 
 namespace mulan::asset {
 
-using AlphaMode = mulan::engine::AlphaMode;  // 统一使用 engine::AlphaMode
+using AlphaMode = mulan::graphics::AlphaMode;
 
 class MaterialAsset : public Asset {
 public:

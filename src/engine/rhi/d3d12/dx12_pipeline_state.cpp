@@ -2,6 +2,7 @@
 #include "dx12_shader.h"
 
 #include <mulan/core/result/error.h>
+#include <mulan/graphics/vertex/vertex_semantic.h>
 #include "../../engine_error_code.h"
 
 #include <deque>
@@ -31,6 +32,8 @@ D3D12_PRIMITIVE_TOPOLOGY_TYPE toDX12TopologyType(mulan::engine::PrimitiveTopolog
 } // namespace
 
 namespace mulan::engine {
+
+using graphics::VertexSemantic;
 
 std::expected<std::unique_ptr<DX12PipelineState>, core::Error>
 DX12PipelineState::create(const GraphicsPipelineDesc& desc, ID3D12Device* device) {

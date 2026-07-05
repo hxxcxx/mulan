@@ -3,7 +3,7 @@
  * @brief Renderer —— 一帧渲染执行入口
  * @date 2026-07-03
  *
- * 从 ViewContext 抽出的渲染执行层。持有 GeometryPass（实体面 / 边线两个配置实例）、
+ * 从 ViewContext 抽出的渲染执行层。持有 Forward stages（实体面 / 边线）、
  * DrawCommandBuilder 和 RenderResourceCache。把 RenderScene + camera
  * 转换为 render pass 可消费的 commands，调用 RHI begin frame、execute passes、present。
  *
@@ -17,7 +17,8 @@
 #include "view_state.h"
 
 #include "mulan/engine/render/render_resource_cache.h"
-#include "mulan/engine/render/graph/geometry_pass.h"
+#include "mulan/engine/render/forward/edge_stage.h"
+#include "mulan/engine/render/forward/face_stage.h"
 #include "mulan/engine/render/light_environment.h"
 #include "mulan/engine/render/texture_cache.h"
 #include "mulan/engine/render/material/material_cache.h"
@@ -92,8 +93,8 @@ private:
     std::unique_ptr<engine::RenderResourceCache> resources_;
 
     DrawCommandBuilder builder_;
-    std::unique_ptr<engine::GeometryPass> solid_pass_;   // solid / 三角 / 写深度
-    std::unique_ptr<engine::GeometryPass> wire_pass_;    // edge  / 线   / 不写深度
+    std::unique_ptr<engine::FaceStage> face_stage_;
+    std::unique_ptr<engine::EdgeStage> edge_stage_;
     std::unique_ptr<engine::ViewCubeRenderer> view_cube_renderer_;
 
     bool initialized_ = false;

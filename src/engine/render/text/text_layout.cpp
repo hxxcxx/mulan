@@ -1,6 +1,7 @@
 #include "text_layout.h"
 #include "font_manager.h"
 #include "../../vertex/vertex_buffer.h"
+#include "../../vertex/vertex_semantic.h"
 
 #include <cmath>
 #include <cstdint>

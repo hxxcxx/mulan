@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <mulan/engine/geometry/mesh.h>
+#include <mulan/graphics/mesh.h>
 #include <mulan/math/math.h>
 
 class TopoDS_Shape;
@@ -14,8 +14,8 @@ class TopoDS_Shape;
 namespace mulan::io {
 
 struct ShapeRenderGeometry {
-    engine::Mesh solidMesh;
-    engine::Mesh wireMesh;
+    graphics::Mesh solidMesh;
+    graphics::Mesh wireMesh;
     math::AABB3 bounds = math::AABB3::empty();
 };
 

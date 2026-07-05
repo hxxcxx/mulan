@@ -15,11 +15,10 @@ target_include_directories(scene PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
 )
 
-target_link_libraries(scene PUBLIC asset engine)
+target_link_libraries(scene PUBLIC asset graphics math)
 
 set_target_properties(scene PROPERTIES OUTPUT_NAME mulan_scene)
 
 target_compile_definitions(scene PRIVATE
     $<$<CONFIG:Debug>:_DEBUG>
 )
-

@@ -13,6 +13,8 @@ add_library(engine STATIC
     render/mesh_draw_command.cpp
     # Render passes
     render/graph/geometry_pass.cpp
+    render/forward/face_stage.cpp
+    render/forward/edge_stage.cpp
     # Text rendering (MSDF)
     render/text/font_atlas.cpp
     render/text/text_layout.cpp
@@ -80,6 +82,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 target_link_libraries(engine PUBLIC
     core
     math
+    graphics
     Vulkan::Vulkan
     GPUOpen::VulkanMemoryAllocator
     nlohmann_json::nlohmann_json

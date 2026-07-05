@@ -178,7 +178,7 @@ std::vector<asset::AssetId> importMaterials(const aiScene& scene,
     return materials;
 }
 
-engine::Mesh buildMesh(const aiMesh& source) {
+graphics::Mesh buildMesh(const aiMesh& source) {
     std::vector<math::FVec3> positions;
     std::vector<math::FVec3> normals;
     std::vector<math::FVec2> texcoords;
@@ -214,7 +214,7 @@ engine::Mesh buildMesh(const aiMesh& source) {
         .normals = std::span<const math::FVec3>{normals},
         .texcoords = std::span<const math::FVec2>{texcoords},
         .indices = std::span<const uint32_t>{indices},
-        .topology = engine::PrimitiveTopology::TriangleList,
+        .topology = graphics::PrimitiveTopology::TriangleList,
     });
 }
 
@@ -234,7 +234,7 @@ std::vector<std::optional<ImportedMeshRecord>> importMeshAssets(
         const aiMesh* source = scene.mMeshes[i];
         if (!source || !source->HasPositions()) continue;
 
-        engine::Mesh mesh = buildMesh(*source);
+        graphics::Mesh mesh = buildMesh(*source);
         if (mesh.empty()) {
             report.warnings.push_back("Skipped empty imported mesh: " + std::to_string(i));
             continue;

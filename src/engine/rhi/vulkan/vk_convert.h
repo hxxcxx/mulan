@@ -11,7 +11,11 @@
 #include "../device.h"
 #include "vk_common.h"
 
+#include <mulan/graphics/vertex/vertex_format.h>
+
 namespace mulan::engine {
+
+using graphics::VertexFormat;
 
 inline vk::Format toVkFormat(TextureFormat fmt) {
     switch (fmt) {

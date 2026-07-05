@@ -12,7 +12,7 @@
 #include <mulan/asset/material_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/core/result/error.h>
-#include <mulan/engine/geometry/mesh.h>
+#include <mulan/graphics/mesh.h>
 #include <mulan/math/math.h>
 
 #include <cstddef>
@@ -56,11 +56,11 @@ struct StandardMeshSource {
     std::span<const math::FVec3> normals;
     std::span<const math::FVec2> texcoords;
     std::span<const uint32_t> indices;
-    engine::PrimitiveTopology topology = engine::PrimitiveTopology::TriangleList;
+    graphics::PrimitiveTopology topology = graphics::PrimitiveTopology::TriangleList;
     bool force32BitIndices = false;
 };
 
-engine::Mesh buildStandardMesh(const StandardMeshSource& source);
+graphics::Mesh buildStandardMesh(const StandardMeshSource& source);
 
 struct ImportedMeshAsset {
     asset::AssetId geometry = asset::AssetId::invalid();
@@ -76,7 +76,7 @@ public:
     asset::AssetId createMaterial(const ImportedMaterialDesc& desc);
 
     void addPrimitive(asset::MeshPrimitive primitive);
-    void addPrimitive(engine::Mesh mesh,
+    void addPrimitive(graphics::Mesh mesh,
                       asset::AssetId material = asset::AssetId::invalid(),
                       std::string name = {});
 

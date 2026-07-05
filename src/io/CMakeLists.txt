@@ -32,8 +32,8 @@ target_include_directories(io PRIVATE
 find_package(assimp CONFIG REQUIRED)
 find_package(fastgltf CONFIG REQUIRED)
 
-# 依赖 core、engine、scene、asset（Document 使用）
-target_link_libraries(io PUBLIC core engine scene asset
+# 依赖 core、graphics、scene、asset（Document 使用）
+target_link_libraries(io PUBLIC core graphics scene asset
                       PRIVATE assimp::assimp fastgltf::fastgltf)
 
 # OCCT 头文件路径（仅编译期需要）

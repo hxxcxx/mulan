@@ -8,7 +8,7 @@
 
 #include "geometry_asset.h"
 
-#include <mulan/engine/geometry/mesh.h>
+#include <mulan/graphics/mesh.h>
 
 #include <string>
 #include <utility>
@@ -17,14 +17,14 @@
 namespace mulan::asset {
 
 struct MeshPrimitive {
-    engine::Mesh mesh;
+    graphics::Mesh mesh;
     AssetId material = AssetId::invalid();
     std::string name;
 };
 
 class MeshAsset : public GeometryAsset {
 public:
-    MeshAsset(AssetId id, std::string name, engine::Mesh mesh = {})
+    MeshAsset(AssetId id, std::string name, graphics::Mesh mesh = {})
         : GeometryAsset(id, AssetKind::Mesh, std::move(name))
     {
         if (!mesh.empty()) {
@@ -61,15 +61,15 @@ public:
         return b;
     }
 
-    MeshPrimitive& addPrimitive(engine::Mesh mesh,
+    MeshPrimitive& addPrimitive(graphics::Mesh mesh,
                                 AssetId material = AssetId::invalid(),
                                 std::string name = {}) {
         primitives_.push_back(MeshPrimitive{std::move(mesh), material, std::move(name)});
         return primitives_.back();
     }
 
-    const engine::Mesh& mesh() const { return primitives_.front().mesh; }
-    engine::Mesh& mesh() { return ensureDefaultPrimitive().mesh; }
+    const graphics::Mesh& mesh() const { return primitives_.front().mesh; }
+    graphics::Mesh& mesh() { return ensureDefaultPrimitive().mesh; }
 
 private:
     MeshPrimitive& ensureDefaultPrimitive() {

@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <mulan/graphics/primitive_types.h>
+
 #include <cstdint>
 #include <string_view>
 
@@ -16,19 +18,7 @@ namespace mulan::engine {
 // 图元拓扑
 // ============================================================
 
-enum class PrimitiveTopology : uint8_t {
-    PointList,
-    LineList,
-    LineStrip,
-    TriangleList,
-    TriangleStrip,
-
-    // 带邻接信息（用于 geometry shader）
-    LineListAdj,
-    LineStripAdj,
-    TriangleListAdj,
-    TriangleStripAdj,
-};
+using graphics::PrimitiveTopology;
 
 // ============================================================
 // 光栅化状态
