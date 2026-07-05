@@ -5,7 +5,9 @@ add_library(view STATIC
     capture_request.cpp
     capture_service.cpp
     view_context.cpp
+    render_queue.cpp
     render_surface.cpp
+    render_thread.cpp
     renderer.cpp
     render_world_sync.cpp
     render_scene.cpp
