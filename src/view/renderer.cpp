@@ -204,8 +204,8 @@ engine::CommandList* Renderer::beginRenderFrame(engine::RHIDevice& device,
 void Renderer::executeStages(engine::RenderFrame& frame) {
     if (face_stage_) face_stage_->execute(frame);
     if (edge_stage_) edge_stage_->execute(frame);
-    // 两个 pass 各持有独立的 material UBO，uploadDirtyMaterials 不再自行清空脏集合，
-    // 故在此处（所有 pass 都上传完毕后）统一清空，避免下帧重复全量上传。
+    // Face/Edge 各持有独立的 material UBO，uploadDirtyMaterials 不再自行清空脏集合，
+    // 故在此处（所有几何 stage 都上传完毕后）统一清空，避免下帧重复全量上传。
     if (face_stage_ || edge_stage_)
         material_cache_->clearDirtyMaterials();
 

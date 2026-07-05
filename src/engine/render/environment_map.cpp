@@ -7,8 +7,8 @@
 
 #include "environment_map.h"
 
-#include "graph/shader_util.h"
-#include "graph/fullscreen_pass.h"
+#include "shader/shader_loader.h"
+#include "fullscreen/fullscreen_blit.h"
 #include "../rhi/render_state.h"
 #include "../rhi/sampler.h"
 #include "../rhi/buffer.h"

@@ -1,5 +1,5 @@
-#include "geometry_pass.h"
-#include "shader_util.h"
+#include "geometry_draw_executor.h"
+#include "../shader/shader_loader.h"
 #include "../../rhi/bind_group.h"
 #include "../../rhi/render_types.h"
 #include "../../rhi/render_state.h"
@@ -13,16 +13,16 @@ namespace mulan::engine {
 
 // ─── 构造 / init ───────────────────────────────────────────────
 
-GeometryPass::GeometryPass(RHIDevice& device, RenderResourceCache& gpu,
-                           MaterialCache& matCache,
-                           const LightEnvironment& lightEnv,
-                           RenderTechnique technique)
+GeometryDrawExecutor::GeometryDrawExecutor(RHIDevice& device, RenderResourceCache& gpu,
+                                           MaterialCache& matCache,
+                                           const LightEnvironment& lightEnv,
+                                           RenderTechnique technique)
     : device_(device), gpu_(gpu), mat_cache_(matCache), light_env_(lightEnv),
       technique_(TechniqueRegistry::builtin(technique)) {
 }
 
 
-bool GeometryPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
+bool GeometryDrawExecutor::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
     if (!loadShaders()) return false;
     if (!createPSO(colorFmt, depthFmt, hasDepth)) return false;
 
@@ -52,7 +52,7 @@ bool GeometryPass::init(TextureFormat colorFmt, TextureFormat depthFmt, bool has
 
 // ─── Shader ────────────────────────────────────────────────────
 
-bool GeometryPass::loadShaders() {
+bool GeometryDrawExecutor::loadShaders() {
     auto vs = loadShader(device_, ShaderType::Vertex, technique_.shader.vertex);
     auto fs = loadShader(device_, ShaderType::Pixel,  technique_.shader.pixel);
     if (!vs) { return false; }
@@ -64,8 +64,8 @@ bool GeometryPass::loadShaders() {
 
 // ─── PSO ───────────────────────────────────────────────────────
 
-bool GeometryPass::createPSO(TextureFormat colorFmt, TextureFormat depthFmt,
-                              bool hasDepth) {
+bool GeometryDrawExecutor::createPSO(TextureFormat colorFmt, TextureFormat depthFmt,
+                                     bool hasDepth) {
     GraphicsPipelineDesc desc{};
     desc.name             = technique_.debugName;
     desc.vs               = vs_.get();
@@ -149,11 +149,11 @@ bool GeometryPass::createPSO(TextureFormat colorFmt, TextureFormat depthFmt,
 
 // ─── Execute ───────────────────────────────────────────────────
 
-bool GeometryPass::createDefaultResources() {
+bool GeometryDrawExecutor::createDefaultResources() {
     // 默认线性 sampler（Linear 过滤 + Repeat 寻址）
     auto samplerResult = device_.createSampler(SamplerDesc::linear());
     if (!samplerResult) {
-        std::fprintf(stderr, "[GeometryPass] createSampler failed\n");
+        std::fprintf(stderr, "[GeometryDrawExecutor] createSampler failed\n");
         return false;
     }
     default_sampler_ = std::move(*samplerResult);
@@ -170,7 +170,7 @@ bool GeometryPass::createDefaultResources() {
     texDesc.usage     = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
     auto texResult = device_.createTexture(texDesc);
     if (!texResult) {
-        std::fprintf(stderr, "[GeometryPass] create default white texture failed\n");
+        std::fprintf(stderr, "[GeometryDrawExecutor] create default white texture failed\n");
         return false;
     }
     default_white_tex_ = std::move(*texResult);
@@ -189,7 +189,7 @@ bool GeometryPass::createDefaultResources() {
         iblDesc.depth     = 1;
         auto iblR = device_.createTexture(iblDesc);
         if (!iblR) {
-            std::fprintf(stderr, "[GeometryPass] create default IBL texture failed\n");
+            std::fprintf(stderr, "[GeometryDrawExecutor] create default IBL texture failed\n");
             return false;
         }
         default_ibl_tex_ = std::move(*iblR);
@@ -208,7 +208,7 @@ bool GeometryPass::createDefaultResources() {
         lutDesc.depth     = 1;
         auto lutR = device_.createTexture(lutDesc);
         if (!lutR) {
-            std::fprintf(stderr, "[GeometryPass] create default brdf LUT failed\n");
+            std::fprintf(stderr, "[GeometryDrawExecutor] create default brdf LUT failed\n");
             return false;
         }
         default_brdf_lut_ = std::move(*lutR);
@@ -220,7 +220,7 @@ bool GeometryPass::createDefaultResources() {
     return true;
 }
 
-bool GeometryPass::createFrameBindGroup(TextureFormat, TextureFormat, bool) {
+bool GeometryDrawExecutor::createFrameBindGroup(TextureFormat, TextureFormat, bool) {
     // 构建初始 BindGroupDesc：静态 binding（scene=0）在此绑定；
     // object=1 / material=2 offset 在每 draw 通过 updateUBO 刷新（首帧必脏）；
     // 纹理槽先用 defaultWhite 占位，每 draw 由 MeshDrawCommand::execute 更新。
@@ -248,7 +248,7 @@ bool GeometryPass::createFrameBindGroup(TextureFormat, TextureFormat, bool) {
 
     auto result = device_.createBindGroup(pso_->bindGroupLayout(), bg);
     if (!result) {
-        std::fprintf(stderr, "[GeometryPass] createBindGroup failed: %s\n",
+        std::fprintf(stderr, "[GeometryDrawExecutor] createBindGroup failed: %s\n",
                      result.error().message.c_str());
         return false;
     }
@@ -256,7 +256,7 @@ bool GeometryPass::createFrameBindGroup(TextureFormat, TextureFormat, bool) {
     return true;
 }
 
-void GeometryPass::uploadSceneUBO(const PassContext& ctx) {
+void GeometryDrawExecutor::uploadSceneUBO(const DrawExecutionContext& ctx) {
     // 应用 Vulkan clip space 修正（Z:[-1,1]→[0,1], Y 翻转）
     math::Mat4 clip = device_.clipSpaceCorrectionMatrix();
     math::Mat4 view = ctx.camera.viewMatrix;
@@ -280,7 +280,7 @@ void GeometryPass::uploadSceneUBO(const PassContext& ctx) {
     ctx.cmd->updateBuffer(scene_ubo_.get(), 0, sizeof(ubo), &ubo);
 }
 
-void GeometryPass::execute(const PassContext& ctx) {
+void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
     if (!initialized_ || !pso_ || !ctx.cmd || !frame_bg_) return;
 
     uploadSceneUBO(ctx);

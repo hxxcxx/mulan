@@ -7,7 +7,7 @@
  * 无材质模型绑定默认 1×1 白纹理 → sampled=(1,1,1) → 退化为纯色，
  * 与改造前 solid.frag 数学等价，保证零回归。
  *
- * binding 约定（与 GeometryPass PSO descriptorBindings 一致）：
+ * binding 约定（与 GeometryDrawExecutor PSO descriptorBindings 一致）：
  *   binding 0/1/2 = Scene/Object/Material UBO（隐式 set 0）
  *   binding 3 = TextureSRV (albedo)
  *   binding 4 = Sampler

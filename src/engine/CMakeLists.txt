@@ -12,8 +12,8 @@ add_library(engine STATIC
     render/render_resource_cache.cpp
     render/mesh_draw_command.cpp
     render/technique/render_technique.cpp
-    # Render passes
-    render/graph/geometry_pass.cpp
+    # Draw executors / stages
+    render/draw/geometry_draw_executor.cpp
     render/forward/face_stage.cpp
     render/forward/edge_stage.cpp
     # Text rendering (MSDF)
@@ -59,12 +59,14 @@ add_library(engine STATIC
 )
 
 # 构建时将头文件复制到 build/include/mulan/engine/...
+set(ENGINE_GENERATED_INCLUDE_DIR "${CMAKE_BINARY_DIR}/include/mulan/engine")
+file(REMOVE_RECURSE "${ENGINE_GENERATED_INCLUDE_DIR}")
 file(GLOB_RECURSE ENGINE_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
 )
 foreach(hdr ${ENGINE_HEADERS})
     file(RELATIVE_PATH rel "${CMAKE_CURRENT_SOURCE_DIR}" "${hdr}")
-    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/engine/${rel}" COPYONLY)
+    configure_file("${hdr}" "${ENGINE_GENERATED_INCLUDE_DIR}/${rel}" COPYONLY)
 endforeach()
 
 target_include_directories(engine PUBLIC
@@ -162,10 +164,6 @@ if(DXC_EXECUTABLE)
     set(WIREFRAME_VERT_ENTRY main)
     set(WIREFRAME_FRAG_STAGE ps)
     set(WIREFRAME_FRAG_ENTRY main)
-    set(PICK_VERT_STAGE     vs)
-    set(PICK_VERT_ENTRY     main)
-    set(PICK_FRAG_STAGE     ps)
-    set(PICK_FRAG_ENTRY     main)
     set(EDGE_VERT_STAGE     vs)
     set(EDGE_VERT_ENTRY     main)
     set(EDGE_FRAG_STAGE     ps)

@@ -30,7 +30,7 @@ class Texture;
 
 /// 导航立方体渲染阶段
 ///
-/// 不拥有 PSO / Shader —— 由 Renderer 注入 GeometryPass 的 PSO。
+/// 不拥有 PSO / Shader —— 由 Renderer 注入几何绘制执行器的 PSO。
 /// 只拥有 CPU 几何体 + 面材质 + 小尺寸 UBO（与主场景布局不同）。
 /// render() 从主相机提取旋转、设置角落视口、借用 PSO + BindGroupDesc 录制命令。
 class ViewCubeStage final : public RenderStage {

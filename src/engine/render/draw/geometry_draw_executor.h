@@ -1,6 +1,6 @@
 /**
- * @file geometry_pass.h
- * @brief GeometryPass —— 通用几何绘制通道
+ * @file geometry_draw_executor.h
+ * @brief GeometryDrawExecutor —— 通用几何绘制执行器
  * @author hxxcxx
  * @date 2026-07-03
  *
@@ -8,13 +8,13 @@
  * 由 TechniqueDesc 在构造时指定；绘制逻辑（上传 Scene/Object/Material
  * UBO、遍历命令、执行 MeshDrawCommand）对所有配置完全相同。
  *
- * 因此同一个 GeometryPass 类可表达多种“画法”：实体面、边线、线框、拾取、
+ * 因此同一个 GeometryDrawExecutor 类可表达多种“画法”：实体面、边线、线框、
  * 选中高亮等，只需不同的配置，无需复制 pass 代码。
  */
 
 #pragma once
 
-#include "render_pass.h"
+#include "draw_execution_context.h"
 #include "../render_resource_cache.h"
 #include "../mesh_draw_command.h"
 #include "../light_environment.h"
@@ -37,16 +37,16 @@ namespace mulan::engine {
 
 class MaterialCache;
 
-class GeometryPass : public RenderPass {
+class GeometryDrawExecutor : public DrawExecutor {
 public:
-    GeometryPass(RHIDevice& device, RenderResourceCache& gpu,
-                 MaterialCache& matCache, const LightEnvironment& lightEnv,
-                 RenderTechnique technique);
+    GeometryDrawExecutor(RHIDevice& device, RenderResourceCache& gpu,
+                         MaterialCache& matCache, const LightEnvironment& lightEnv,
+                         RenderTechnique technique);
 
     const char* name() const override { return technique_.debugName; }
 
     bool init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
-    void execute(const PassContext& ctx) override;
+    void execute(const DrawExecutionContext& ctx) override;
 
     void setDrawCommands(std::span<const MeshDrawCommand> cmds) { commands_ = cmds; }
 
@@ -71,7 +71,7 @@ private:
     bool createPSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
     bool createDefaultResources();
     bool createFrameBindGroup(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
-    void uploadSceneUBO(const PassContext& ctx);
+    void uploadSceneUBO(const DrawExecutionContext& ctx);
 
     RHIDevice&              device_;
     RenderResourceCache&    gpu_;

@@ -1,6 +1,6 @@
 /**
- * @file fullscreen_pass.h
- * @brief 全屏三角形 pass — 用于 IBL 烘焙等离屏后处理
+ * @file fullscreen_blit.h
+ * @brief 全屏三角形 blit 工具 — 用于 IBL 烘焙等离屏处理
  * @author hxxcxx
  * @date 2026-07-05
  *
@@ -23,7 +23,7 @@
 namespace mulan::engine {
 
 /// 渲染一个全屏三角形到 colorTarget。viewport/scissor 自动按 w/h 设置。
-/// 用于 IBL 烘焙等离屏 fullscreen pass（colorTarget 是普通 2D 纹理，mip/face 参数保留兼容但未使用）。
+/// 用于 IBL 烘焙等离屏 fullscreen blit（colorTarget 是普通 2D 纹理，mip/face 参数保留兼容但未使用）。
 inline void blitToSlice(CommandList& cmd, PipelineState& pso, BindGroup& bg,
                         Texture& colorTarget, TextureFormat /*targetFormat*/,
                         uint32_t /*mipLevel*/, uint32_t /*arrayLayer*/,

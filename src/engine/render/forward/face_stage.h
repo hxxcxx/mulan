@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render_stage.h"
-#include "../graph/geometry_pass.h"
+#include "../draw/geometry_draw_executor.h"
 
 #include <span>
 
@@ -28,7 +28,7 @@ public:
     Sampler* defaultSampler() const;
 
 private:
-    GeometryPass pass_;
+    GeometryDrawExecutor draw_executor_;
 };
 
 } // namespace mulan::engine

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render_stage.h"
-#include "../graph/geometry_pass.h"
+#include "../draw/geometry_draw_executor.h"
 
 #include <span>
 
@@ -24,7 +24,7 @@ public:
     PipelineState* pipelineState() const;
 
 private:
-    GeometryPass pass_;
+    GeometryDrawExecutor draw_executor_;
 };
 
 } // namespace mulan::engine

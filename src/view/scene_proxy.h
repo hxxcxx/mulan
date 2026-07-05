@@ -10,7 +10,6 @@
 #include <mulan/asset/asset.h>
 #include <mulan/asset/asset_id.h>
 #include <mulan/math/math.h>
-#include <mulan/math/math.h>
 #include <mulan/scene/entity_id.h>
 
 #include <vector>

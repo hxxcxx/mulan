@@ -4,12 +4,12 @@ namespace mulan::engine {
 
 EdgeStage::EdgeStage(RHIDevice& device, RenderResourceCache& gpu,
                      MaterialCache& matCache, const LightEnvironment& lightEnv)
-    : pass_(device, gpu, matCache, lightEnv, RenderTechnique::EdgeLine) {
+    : draw_executor_(device, gpu, matCache, lightEnv, RenderTechnique::EdgeLine) {
 }
 
 std::expected<void, core::Error>
 EdgeStage::init(RHIDevice&, const RenderTargetInfo& target) {
-    if (!pass_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
+    if (!draw_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
         return std::unexpected(core::Error::make(core::ErrorCode::Internal,
                                                 "EdgeStage init failed"));
     }
@@ -20,22 +20,22 @@ void EdgeStage::shutdown(RHIDevice&) {
 }
 
 void EdgeStage::execute(RenderFrame& frame) {
-    PassContext ctx;
+    DrawExecutionContext ctx;
     ctx.cmd = &frame.cmd;
     ctx.width = static_cast<int>(frame.view.width);
     ctx.height = static_cast<int>(frame.view.height);
     ctx.camera.viewMatrix = frame.view.viewMatrix;
     ctx.camera.projectionMatrix = frame.view.projectionMatrix;
     ctx.camera.eyePosition = frame.view.cameraPosition;
-    pass_.execute(ctx);
+    draw_executor_.execute(ctx);
 }
 
 void EdgeStage::setDrawCommands(std::span<const MeshDrawCommand> commands) {
-    pass_.setDrawCommands(commands);
+    draw_executor_.setDrawCommands(commands);
 }
 
 PipelineState* EdgeStage::pipelineState() const {
-    return pass_.pipelineState();
+    return draw_executor_.pipelineState();
 }
 
 } // namespace mulan::engine

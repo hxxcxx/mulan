@@ -1,5 +1,5 @@
 /**
- * @file shader_util.h
+ * @file shader_loader.h
  * @brief Shader 加载工具 — readFile + loadShader 公共逻辑
  * @author hxxcxx
  * @date 2026-05-29

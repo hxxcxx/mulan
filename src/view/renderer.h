@@ -5,10 +5,10 @@
  *
  * 从 ViewContext 抽出的渲染执行层。持有 Forward stages（实体面 / 边线）、
  * DrawCommandBuilder 和 RenderResourceCache。把 RenderScene + camera
- * 转换为 render pass 可消费的 commands，调用 RHI begin frame、execute passes、present。
+ * 转换为 draw stages 可消费的 commands，调用 RHI begin frame、execute stages、present。
  *
  * 不处理 Qt 事件，不修改 Document，不持有 UI widget。
- * camera/lightEnv 由 ViewContext 拥有，init 时绑定引用（阶段 4 将由 ViewState 取代）。
+ * lightEnv 由 ViewContext 拥有，init 时绑定引用；相机数据来自每帧 ViewState 快照。
  */
 
 #pragma once
@@ -55,7 +55,7 @@ public:
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
 
-    /// 初始化 passes 与资源缓存。lightEnv 引用在 ViewContext 生命周期内稳定。
+    /// 初始化 stages 与资源缓存。lightEnv 引用在 ViewContext 生命周期内稳定。
     /// IBL 烘焙不在此处发生——按需通过 enableIBL() 触发，由调用方根据模型类型决定。
     bool init(engine::RHIDevice& device,
               engine::LightEnvironment& lightEnv,
