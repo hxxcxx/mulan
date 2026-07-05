@@ -13,7 +13,7 @@
  * 范围说明：
  *  本模块覆盖基础数值（标量/容差/角度）、线性代数（向量/矩阵/四元数/变换）、
  *  基础解析几何（直线/平面/球/AABB/多边形）与基础求交（闭式解）。
- *  参数曲线（NURBS/Bezier/圆弧）及其数值求交见 curve 子目录或独立模块。
+ *  参数曲线（NURBS/Bezier/圆弧）及其数值求交见 curve/、surface/、basis/ 子目录或独立模块。
  */
 #pragma once
 
@@ -49,3 +49,11 @@
 // 求交
 #include "algo/hit.h"
 #include "algo/intersect.h"
+
+// 参数曲线曲面（Bezier / B-spline / NURBS）
+#include "basis/bernstein.h"
+#include "basis/bspline_basis.h"
+#include "curve/bezier_curve.h"
+#include "curve/bspline_curve.h"
+#include "surface/bezier_surface.h"
+#include "surface/bspline_surface.h"
