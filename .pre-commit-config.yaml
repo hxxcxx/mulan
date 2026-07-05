@@ -1,0 +1,30 @@
+# pre-commit 配置：提交时自动用 clang-format 格式化本次改动的源文件
+#
+# 首次使用（每个开发者各跑一次）:
+#   pip install pre-commit
+#   pre-commit install
+#
+# 之后每次 git commit 会自动对本次改动的 .cpp/.h/.cc/.hpp 等运行 clang-format -i
+# 如果格式化改了文件，本次提交会被取消，重新 git add 后再 commit 即可。
+#
+# 手动全量检查（不提交也能跑）:
+#   pre-commit run --all-files
+#   pre-commit run clang-format --all-files
+#
+# 规则文件: .clang-format （项目根目录）
+# 使用本机 clang-format（不下载二进制，要求 PATH 里有 clang-format，
+# 或设 CLANG_FORMAT 环境变量指向其绝对路径）。
+
+repos:
+  - repo: local
+    hooks:
+      - id: clang-format
+        name: clang-format (本次改动的源文件)
+        description: 用 .clang-format 规则格式化 C/C++ 源文件
+        language: system
+        # 选 PATH 上的 clang-format；CLANG_FORMAT 环境变量可覆盖
+        entry: bash -c 'command -v "${CLANG_FORMAT:-clang-format}" >/dev/null 2>&1 || { echo "clang-format 未找到，请装 LLVM 或设 CLANG_FORMAT" >&2; exit 1; }; exec "${CLANG_FORMAT:-clang-format}" -i "$@"' --
+        types_or: [c, c++, c#, cuda, json, proto]
+        # 只处理常见 C/C++ 扩展名，排除 build/、3rdparty/ 等
+        files: ^src/.*\.(c|h|cc|hh|cpp|hpp|cxx|hxx|inl)$|^tests/.*\.(c|h|cc|hh|cpp|hpp|cxx|hxx|inl)$
+        exclude: ^(build|3rdparty|vcpkg_installed)/
