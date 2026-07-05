@@ -307,7 +307,7 @@ void GeometryPass::uploadSceneUBO(const PassContext& ctx) {
     storeVec3(ubo.cameraPos,   eye);
     storeVec3(ubo.lightDir,    ldir);
     storeVec3(ubo.lightColor,  math::Vec3(0.8));    // 主光稍弱
-    storeVec3(ubo.ambientColor,math::Vec3(0.15));   // 环境光弱，避免 ×3.5 后过曝
+    storeVec3(ubo.ambientColor,math::Vec3(0.35));   // 环境光：既给无 IBL 时背光面底色，又给 IBL 一个合理倍率
     storeVec3(ubo.edgeColor,   math::Vec3(0.08, 0.08, 0.08));
     storeVec3(ubo.highlightColor, math::Vec3(1.0, 0.5, 0.0));
 
