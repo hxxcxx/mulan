@@ -12,8 +12,7 @@
 
 namespace mulan::io {
 
-std::expected<OpenDocumentResult, core::Error>
-FileManager::openFile(const std::string& path, const ImportOptions& options) {
+core::Result<OpenDocumentResult> FileManager::openFile(const std::string& path, const ImportOptions& options) {
     std::string ext = std::filesystem::path(path).extension().string();
     if (!ext.empty() && ext[0] == '.') ext = ext.substr(1);
     for (auto& c : ext)

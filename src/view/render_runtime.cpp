@@ -18,8 +18,7 @@ RenderRuntime::~RenderRuntime() {
     shutdown();
 }
 
-std::expected<void, core::Error>
-RenderRuntime::initWindow(const ViewConfig& cfg,
+core::Result<void> RenderRuntime::initWindow(const ViewConfig& cfg,
                           int width,
                           int height,
                           engine::LightEnvironment& lightEnv) {
@@ -61,8 +60,7 @@ RenderRuntime::initWindow(const ViewConfig& cfg,
     return {};
 }
 
-std::expected<void, core::Error>
-RenderRuntime::initOffscreen(int width,
+core::Result<void> RenderRuntime::initOffscreen(int width,
                              int height,
                              engine::LightEnvironment& lightEnv) {
     if (initialized_) {
@@ -172,8 +170,7 @@ std::optional<RenderSurfaceDesc> RenderRuntime::offscreenSurfaceDesc() const {
     return surface_.offscreenDesc();
 }
 
-std::expected<void, core::Error>
-RenderRuntime::initRendering(engine::LightEnvironment& lightEnv) {
+core::Result<void> RenderRuntime::initRendering(engine::LightEnvironment& lightEnv) {
     if (!device_) {
         return std::unexpected(runtimeError(core::ErrorCode::InvalidArg,
                                            "RenderRuntime cannot initialize without a device."));

@@ -66,8 +66,7 @@ ViewCubeStage::~ViewCubeStage() {
 // 初始化
 // ============================================================
 
-std::expected<void, core::Error>
-ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo&) {
+core::Result<void> ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo&) {
     device_ = &device;
 
     // --- UBO ---

@@ -19,7 +19,7 @@ namespace mulan::engine {
 class DX12Fence final : public Fence {
 public:
     /// 创建 DX12Fence。失败返回 FenceCreateFailed。
-    static std::expected<std::unique_ptr<DX12Fence>, core::Error>
+    static core::Result<std::unique_ptr<DX12Fence>>
         create(ID3D12Device* device, uint64_t initialValue);
 
     DX12Fence(ID3D12Device* device, uint64_t initialValue);

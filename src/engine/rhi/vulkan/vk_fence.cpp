@@ -7,7 +7,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::unique_ptr<VKFence>, core::Error>
+core::Result<std::unique_ptr<VKFence>>
 VKFence::create(vk::Device device, uint64_t initialValue) {
     auto obj = std::unique_ptr<VKFence>(new VKFence(device));
 

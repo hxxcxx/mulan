@@ -5,7 +5,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::unique_ptr<DX12Buffer>, core::Error>
+core::Result<std::unique_ptr<DX12Buffer>>
 DX12Buffer::create(const BufferDesc& desc, ID3D12Device* device) {
     try {
         return std::unique_ptr<DX12Buffer>(new DX12Buffer(desc, device));

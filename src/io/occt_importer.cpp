@@ -123,8 +123,7 @@ ImportResult populateDocument(const TopoDS_Shape& shape, mulan::io::Document& do
 
 } // anonymous namespace
 
-std::expected<ImportResult, core::Error>
-OCCTImporter::import(const std::string& path,
+core::Result<ImportResult> OCCTImporter::import(const std::string& path,
                      mulan::io::Document& doc,
                      const ImportOptions& /*options*/) {
     try {

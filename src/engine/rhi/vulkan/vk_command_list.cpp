@@ -12,7 +12,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::unique_ptr<VKCommandList>, core::Error>
+core::Result<std::unique_ptr<VKCommandList>>
 VKCommandList::create(vk::Device device, uint32_t queueFamilyIndex,
                       VKDescriptorAllocator* allocator) {
     vk::CommandPoolCreateInfo poolCI;

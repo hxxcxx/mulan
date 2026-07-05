@@ -22,7 +22,7 @@ namespace mulan::engine {
 class VKRenderTarget : public RenderTarget {
 public:
     /// 创建 VKRenderTarget。失败返回 RenderTargetCreateFailed。
-    static std::expected<std::unique_ptr<VKRenderTarget>, core::Error>
+    static core::Result<std::unique_ptr<VKRenderTarget>>
         create(const RenderTargetDesc& desc,
                vk::Device device, VmaAllocator allocator);
     ~VKRenderTarget();

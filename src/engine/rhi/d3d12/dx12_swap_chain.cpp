@@ -10,7 +10,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::unique_ptr<DX12SwapChain>, core::Error>
+core::Result<std::unique_ptr<DX12SwapChain>>
 DX12SwapChain::create(const SwapChainDesc& desc, ID3D12Device* device,
                       IDXGIFactory4* factory, ID3D12CommandQueue* queue,
                       const NativeWindowHandle& window) {

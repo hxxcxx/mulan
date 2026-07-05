@@ -21,7 +21,7 @@ namespace mulan::engine {
 class DX12PipelineState final : public PipelineState {
 public:
     /// 创建 DX12PipelineState。失败返回 PipelineCreateFailed。
-    static std::expected<std::unique_ptr<DX12PipelineState>, core::Error>
+    static core::Result<std::unique_ptr<DX12PipelineState>>
         create(const GraphicsPipelineDesc& desc, ID3D12Device* device);
     ~DX12PipelineState();
 

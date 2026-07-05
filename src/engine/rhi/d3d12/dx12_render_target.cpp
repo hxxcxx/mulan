@@ -11,7 +11,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::unique_ptr<DX12RenderTarget>, core::Error>
+core::Result<std::unique_ptr<DX12RenderTarget>>
 DX12RenderTarget::create(const RenderTargetDesc& desc, ID3D12Device* device) {
     auto obj = std::unique_ptr<DX12RenderTarget>(new DX12RenderTarget(desc, device));
     try {

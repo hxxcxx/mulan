@@ -7,8 +7,7 @@ FaceStage::FaceStage(RHIDevice& device, RenderResourceCache& gpu,
     : draw_executor_(device, gpu, matCache, lightEnv, RenderTechnique::SurfacePBR) {
 }
 
-std::expected<void, core::Error>
-FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
+core::Result<void> FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
     if (!draw_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
         return std::unexpected(core::Error::make(core::ErrorCode::Internal,
                                                 "FaceStage init failed"));

@@ -35,8 +35,7 @@ public:
     FileManager(const FileManager&) = delete;
     FileManager& operator=(const FileManager&) = delete;
 
-    std::expected<OpenDocumentResult, core::Error>
-    openFile(const std::string& path, const ImportOptions& options = {});
+    core::Result<OpenDocumentResult> openFile(const std::string& path, const ImportOptions& options = {});
 
     std::vector<std::string> supportedExtensions() const;
 };

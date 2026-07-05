@@ -195,7 +195,7 @@ math::Mat4 DX12Device::clipSpaceCorrectionMatrix() const {
 // 资源创建
 // ============================================================
 
-std::expected<std::unique_ptr<Buffer>, core::Error> DX12Device::createBuffer(const BufferDesc& desc) {
+core::Result<std::unique_ptr<Buffer>> DX12Device::createBuffer(const BufferDesc& desc) {
     HRESULT reason = device_->GetDeviceRemovedReason();
     if (FAILED(reason)) {
         std::fprintf(stderr, "[DX12 ERROR] createBuffer: device already removed! Reason=0x%08lX\n",
@@ -216,7 +216,7 @@ std::expected<std::unique_ptr<Buffer>, core::Error> DX12Device::createBuffer(con
     return result;
 }
 
-std::expected<std::unique_ptr<Texture>, core::Error> DX12Device::createTexture(const TextureDesc& desc) {
+core::Result<std::unique_ptr<Texture>> DX12Device::createTexture(const TextureDesc& desc) {
     auto result = DX12Texture::create(desc, device_.Get());
     if (!result) return std::unexpected(result.error());
     auto& tex = *result;
@@ -224,14 +224,14 @@ std::expected<std::unique_ptr<Texture>, core::Error> DX12Device::createTexture(c
     return result;
 }
 
-std::expected<std::unique_ptr<Shader>, core::Error> DX12Device::createShader(const ShaderDesc& desc) {
+core::Result<std::unique_ptr<Shader>> DX12Device::createShader(const ShaderDesc& desc) {
     auto result = DX12Shader::create(desc);
     if (!result) return std::unexpected(result.error());
     // DX12Shader 仅持有 DXIL 字节码（无 COM 对象），无需命名
     return result;
 }
 
-std::expected<std::unique_ptr<PipelineState>, core::Error>
+core::Result<std::unique_ptr<PipelineState>>
 DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
     HRESULT reason = device_->GetDeviceRemovedReason();
     if (FAILED(reason)) {
@@ -250,13 +250,13 @@ DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
     return result;
 }
 
-std::expected<std::unique_ptr<ComputePipelineState>, core::Error>
+core::Result<std::unique_ptr<ComputePipelineState>>
 DX12Device::createComputePipelineState(const ComputePipelineDesc& /*desc*/) {
     return std::unexpected(core::Error::make(
         core::ErrorCode::NotSupported, "DX12 compute pipeline not yet implemented"));
 }
 
-std::expected<std::unique_ptr<CommandList>, core::Error> DX12Device::createCommandList() {
+core::Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
     auto allocator = ComPtr<ID3D12CommandAllocator>();
     device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
                                      IID_PPV_ARGS(&allocator));
@@ -270,25 +270,25 @@ std::expected<std::unique_ptr<CommandList>, core::Error> DX12Device::createComma
     return result;
 }
 
-std::expected<std::unique_ptr<SwapChain>, core::Error>
+core::Result<std::unique_ptr<SwapChain>>
 DX12Device::createSwapChain(const SwapChainDesc& desc) {
     return DX12SwapChain::create(desc, device_.Get(), factory_.Get(),
                                  command_queue_.Get(), window_);
 }
 
-std::expected<std::unique_ptr<RenderTarget>, core::Error>
+core::Result<std::unique_ptr<RenderTarget>>
 DX12Device::createRenderTarget(const RenderTargetDesc& desc) {
     return DX12RenderTarget::create(desc, device_.Get());
 }
 
-std::expected<std::unique_ptr<Sampler>, core::Error>
+core::Result<std::unique_ptr<Sampler>>
 DX12Device::createSampler(const SamplerDesc& desc) {
     // Sampler 仅持有 descriptor handle（非 COM 对象），无需命名。
     // 传 nullptr samplerHeap 会被 create() 拒绝并返回错误。
     return DX12Sampler::create(desc, device_.Get(), nullptr);
 }
 
-std::expected<std::unique_ptr<Fence>, core::Error>
+core::Result<std::unique_ptr<Fence>>
 DX12Device::createFence(uint64_t initialValue) {
     auto result = DX12Fence::create(device_.Get(), initialValue);
     if (!result) return std::unexpected(result.error());
@@ -299,7 +299,7 @@ DX12Device::createFence(uint64_t initialValue) {
     return result;
 }
 
-std::expected<std::unique_ptr<BindGroup>, core::Error>
+core::Result<std::unique_ptr<BindGroup>>
 DX12Device::createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) {
     return std::unique_ptr<BindGroup>(
         std::make_unique<DX12BindGroup>(layout, desc.entries, desc.count));

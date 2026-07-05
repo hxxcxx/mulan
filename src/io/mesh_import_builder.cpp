@@ -118,7 +118,7 @@ void MeshImportBuilder::addPrimitive(graphics::Mesh mesh, asset::AssetId materia
     addPrimitive(asset::MeshPrimitive{std::move(mesh), material, std::move(name)});
 }
 
-std::expected<ImportedMeshAsset, core::Error> MeshImportBuilder::commitAsset(std::string name) {
+core::Result<ImportedMeshAsset> MeshImportBuilder::commitAsset(std::string name) {
     if (primitives_.empty()) {
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg,
                                                 "Mesh import contains no primitives"));
@@ -155,7 +155,7 @@ std::expected<ImportedMeshAsset, core::Error> MeshImportBuilder::commitAsset(std
     return result;
 }
 
-std::expected<scene::EntityId, core::Error> MeshImportBuilder::commit(std::string name) {
+core::Result<scene::EntityId> MeshImportBuilder::commit(std::string name) {
     auto asset = commitAsset(name);
     if (!asset) {
         return std::unexpected(asset.error());

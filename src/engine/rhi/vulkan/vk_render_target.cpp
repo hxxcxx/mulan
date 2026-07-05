@@ -8,7 +8,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::unique_ptr<VKRenderTarget>, core::Error>
+core::Result<std::unique_ptr<VKRenderTarget>>
 VKRenderTarget::create(const RenderTargetDesc& desc,
                        vk::Device device, VmaAllocator allocator) {
     auto obj = std::unique_ptr<VKRenderTarget>(

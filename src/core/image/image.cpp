@@ -112,7 +112,7 @@ bool Image::savePNG(std::string_view path) const {
     return savePNGExpected(path).has_value();
 }
 
-std::expected<void, Error> Image::savePNGExpected(std::string_view path) const {
+core::Result<void> Image::savePNGExpected(std::string_view path) const {
     if (!valid()) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Cannot save an invalid image."));
     }
@@ -164,7 +164,7 @@ std::shared_ptr<Image> Image::load(std::string_view path) {
     return result ? *result : nullptr;
 }
 
-std::expected<std::shared_ptr<Image>, Error> Image::loadExpected(std::string_view path) {
+core::Result<std::shared_ptr<Image>> Image::loadExpected(std::string_view path) {
     auto image = load(path, 0);
     if (!image || !image->valid()) {
         return std::unexpected(Error::make(ErrorCode::Io, "Failed to load image."));
@@ -276,7 +276,7 @@ std::shared_ptr<FloatImage> FloatImage::loadHDR(std::string_view path, int force
     return result ? *result : nullptr;
 }
 
-std::expected<std::shared_ptr<FloatImage>, Error>
+core::Result<std::shared_ptr<FloatImage>>
 FloatImage::loadHDRExpected(std::string_view path, int forceChannels) {
     std::string p(path);
     int w = 0, h = 0, ch = 0;

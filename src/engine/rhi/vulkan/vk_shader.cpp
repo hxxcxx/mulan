@@ -9,7 +9,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::unique_ptr<VKShader>, core::Error>
+core::Result<std::unique_ptr<VKShader>>
 VKShader::create(const ShaderDesc& desc, vk::Device device) {
     // 收集 SPIR-V 字节码：优先 byteCode，否则从 filePath 读取
     std::vector<uint32_t> codeOwned;

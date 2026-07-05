@@ -22,7 +22,7 @@ class DX12CommandList final : public CommandList {
 public:
     /// 创建独立的 CommandList（拥有自己的 cmd allocator 和 cmd list）。
     /// 失败返回 CommandListCreateFailed。
-    static std::expected<std::unique_ptr<DX12CommandList>, core::Error>
+    static core::Result<std::unique_ptr<DX12CommandList>>
         create(ID3D12Device* device, ID3D12CommandAllocator* allocator);
     /// 包装已有的 cmd list（帧循环用，不拥有）
     DX12CommandList(ID3D12GraphicsCommandList* existingCmdList);

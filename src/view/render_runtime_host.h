@@ -20,14 +20,12 @@ public:
     RenderRuntimeHost(const RenderRuntimeHost&) = delete;
     RenderRuntimeHost& operator=(const RenderRuntimeHost&) = delete;
 
-    std::expected<void, core::Error>
-    initWindow(const ViewConfig& config,
+    core::Result<void> initWindow(const ViewConfig& config,
                int width,
                int height,
                engine::LightEnvironment& lightEnv);
 
-    std::expected<void, core::Error>
-    initOffscreen(int width,
+    core::Result<void> initOffscreen(int width,
                   int height,
                   engine::LightEnvironment& lightEnv);
 

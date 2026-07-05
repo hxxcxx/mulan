@@ -109,8 +109,7 @@ CaptureService::configureCaptureTarget(ViewContext& context,
     return std::nullopt;
 }
 
-std::expected<engine::RenderCaptureResult, core::Error>
-CaptureService::readCaptureResult(ViewContext& context,
+core::Result<engine::RenderCaptureResult> CaptureService::readCaptureResult(ViewContext& context,
                                   const engine::RenderCaptureDesc& desc,
                                   uint32_t width,
                                   uint32_t height) {
@@ -128,8 +127,7 @@ CaptureService::readCaptureResult(ViewContext& context,
     return result;
 }
 
-std::expected<engine::RenderCaptureResult, core::Error>
-CaptureService::capture(ViewContext& context, const engine::RenderCaptureDesc& desc) const {
+core::Result<engine::RenderCaptureResult> CaptureService::capture(ViewContext& context, const engine::RenderCaptureDesc& desc) const {
     const uint32_t width = captureWidth(context, desc);
     const uint32_t height = captureHeight(context, desc);
     if (auto failure = validateCaptureInput(context, {}, width, height)) {
@@ -145,8 +143,7 @@ CaptureService::capture(ViewContext& context, const engine::RenderCaptureDesc& d
     return readCaptureResult(context, desc, width, height);
 }
 
-std::expected<CaptureImage, core::Error>
-CaptureService::capture(ViewContext& context, const CaptureRequest& request) const {
+core::Result<CaptureImage> CaptureService::capture(ViewContext& context, const CaptureRequest& request) const {
     const uint32_t width = captureWidth(context, request.desc);
     const uint32_t height = captureHeight(context, request.desc);
     if (auto failure = validateCaptureInput(context, request.name, width, height)) {

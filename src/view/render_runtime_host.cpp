@@ -6,16 +6,14 @@ RenderRuntimeHost::~RenderRuntimeHost() {
     shutdown();
 }
 
-std::expected<void, core::Error>
-RenderRuntimeHost::initWindow(const ViewConfig& config,
+core::Result<void> RenderRuntimeHost::initWindow(const ViewConfig& config,
                               int width,
                               int height,
                               engine::LightEnvironment& lightEnv) {
     return runtime_.initWindow(config, width, height, lightEnv);
 }
 
-std::expected<void, core::Error>
-RenderRuntimeHost::initOffscreen(int width,
+core::Result<void> RenderRuntimeHost::initOffscreen(int width,
                                  int height,
                                  engine::LightEnvironment& lightEnv) {
     return runtime_.initOffscreen(width, height, lightEnv);

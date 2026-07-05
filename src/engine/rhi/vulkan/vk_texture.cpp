@@ -14,7 +14,7 @@ bool VKTexture::isDepthFormat(TextureFormat f) {
         || f == TextureFormat::D32_Float_S8X24_UInt;
 }
 
-std::expected<std::unique_ptr<VKTexture>, core::Error>
+core::Result<std::unique_ptr<VKTexture>>
 VKTexture::create(const TextureDesc& desc, vk::Device device, VmaAllocator allocator) {
     // 创建 Image
     vk::ImageCreateInfo ci;

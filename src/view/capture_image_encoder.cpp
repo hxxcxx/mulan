@@ -29,7 +29,7 @@ bool isBGRA(engine::TextureFormat format) {
 
 } // namespace
 
-std::expected<std::shared_ptr<core::Image>, core::Error>
+core::Result<std::shared_ptr<core::Image>>
 CaptureImageEncoder::toImage(const engine::RenderCaptureResult& result) {
     const auto pixelFormat = capturePixelFormat(result.format);
     if (pixelFormat == core::PixelFormat::Unknown || result.width == 0 || result.height == 0) {
@@ -66,16 +66,14 @@ CaptureImageEncoder::toImage(const engine::RenderCaptureResult& result) {
     return core::Image::createFromBuffer(result.width, result.height, pixelFormat, std::move(pixels));
 }
 
-std::expected<void, core::Error>
-CaptureImageEncoder::savePNG(const engine::RenderCaptureResult& result,
+core::Result<void> CaptureImageEncoder::savePNG(const engine::RenderCaptureResult& result,
                              std::string_view path) {
     auto image = toImage(result);
     if (!image) return std::unexpected(image.error());
     return (*image)->savePNGExpected(path);
 }
 
-std::expected<void, core::Error>
-CaptureImageEncoder::savePNG(const CaptureImage& image, std::string_view path) {
+core::Result<void> CaptureImageEncoder::savePNG(const CaptureImage& image, std::string_view path) {
     return savePNG(image.result, path);
 }
 

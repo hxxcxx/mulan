@@ -101,7 +101,7 @@ public:
 
     /// 保存为 PNG（自动根据 format 选择通道数）
     bool savePNG(std::string_view path) const;
-    std::expected<void, Error> savePNGExpected(std::string_view path) const;
+    core::Result<void> savePNGExpected(std::string_view path) const;
 
     /// 保存为 BMP
     bool saveBMP(std::string_view path) const;
@@ -116,7 +116,7 @@ public:
 
     /// 从文件加载图像（自动检测格式，返回 nullptr 表示失败）
     static std::shared_ptr<Image> load(std::string_view path);
-    static std::expected<std::shared_ptr<Image>, Error> loadExpected(std::string_view path);
+    static core::Result<std::shared_ptr<Image>> loadExpected(std::string_view path);
 
     /// 从文件加载，强制指定通道数
     static std::shared_ptr<Image> load(std::string_view path, int forceChannels);
@@ -162,7 +162,7 @@ public:
     size_t totalBytes() const { return pixels_.size() * sizeof(float); }
 
     static std::shared_ptr<FloatImage> loadHDR(std::string_view path, int forceChannels = 4);
-    static std::expected<std::shared_ptr<FloatImage>, Error>
+    static core::Result<std::shared_ptr<FloatImage>>
     loadHDRExpected(std::string_view path, int forceChannels = 4);
 
 private:

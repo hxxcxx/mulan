@@ -69,8 +69,7 @@ void RenderResourceCache::clear() {
     wire_geos_.clear();
 }
 
-std::expected<GpuGeometry, core::Error>
-RenderResourceCache::createGpuBuffer(RHIDevice& device, const graphics::Mesh& mesh) {
+core::Result<GpuGeometry> RenderResourceCache::createGpuBuffer(RHIDevice& device, const graphics::Mesh& mesh) {
     GpuGeometry geo;
     if (mesh.empty()) return geo;
 

@@ -7,8 +7,7 @@ EdgeStage::EdgeStage(RHIDevice& device, RenderResourceCache& gpu,
     : draw_executor_(device, gpu, matCache, lightEnv, RenderTechnique::EdgeLine) {
 }
 
-std::expected<void, core::Error>
-EdgeStage::init(RHIDevice&, const RenderTargetInfo& target) {
+core::Result<void> EdgeStage::init(RHIDevice&, const RenderTargetInfo& target) {
     if (!draw_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
         return std::unexpected(core::Error::make(core::ErrorCode::Internal,
                                                 "EdgeStage init failed"));

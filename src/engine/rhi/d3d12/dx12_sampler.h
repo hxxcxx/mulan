@@ -21,7 +21,7 @@ namespace mulan::engine {
 class DX12Sampler : public Sampler {
 public:
     /// 创建 DX12Sampler。heap 为空或分配失败 → SamplerCreateFailed。
-    static std::expected<std::unique_ptr<DX12Sampler>, core::Error>
+    static core::Result<std::unique_ptr<DX12Sampler>>
         create(const SamplerDesc& desc, ID3D12Device* device,
                DX12DescriptorAllocator* samplerHeap);
     ~DX12Sampler();

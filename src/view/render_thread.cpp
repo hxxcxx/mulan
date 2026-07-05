@@ -6,7 +6,7 @@ RenderThread::~RenderThread() {
     stop();
 }
 
-std::expected<void, core::Error> RenderThread::start(std::string /*name*/) {
+core::Result<void> RenderThread::start(std::string /*name*/) {
     if (running_.load()) {
         return {};
     }
@@ -29,7 +29,7 @@ std::expected<void, core::Error> RenderThread::start(std::string /*name*/) {
     return {};
 }
 
-std::expected<void, core::Error> RenderThread::requestShutdown() {
+core::Result<void> RenderThread::requestShutdown() {
     return queue_.submit(RenderTask{
         RenderTaskKind::Shutdown,
         "Shutdown",

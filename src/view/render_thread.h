@@ -31,8 +31,8 @@ public:
     RenderThread(const RenderThread&) = delete;
     RenderThread& operator=(const RenderThread&) = delete;
 
-    std::expected<void, core::Error> start(std::string name = "RenderThread");
-    std::expected<void, core::Error> requestShutdown();
+    core::Result<void> start(std::string name = "RenderThread");
+    core::Result<void> requestShutdown();
     void stop();
 
     bool running() const { return running_.load(); }
@@ -41,7 +41,7 @@ public:
 
     template <class Fn>
     auto submit(RenderTaskKind kind, std::string label, Fn&& fn)
-        -> std::expected<std::future<std::invoke_result_t<Fn&>>, core::Error> {
+        -> core::Result<std::future<std::invoke_result_t<Fn&>>> {
         return queue_.submit(kind, std::move(label), std::forward<Fn>(fn));
     }
 

@@ -342,8 +342,7 @@ void importNodeRecursive(const aiNode& node,
 
 } // namespace
 
-std::expected<ImportResult, core::Error>
-AssimpImporter::import(const std::string& path,
+core::Result<ImportResult> AssimpImporter::import(const std::string& path,
                        mulan::io::Document& doc,
                        const ImportOptions& options) {
     Assimp::Importer importer;

@@ -22,7 +22,7 @@ namespace mulan::engine {
 // 资源创建
 // ============================================================
 
-std::expected<std::unique_ptr<Buffer>, core::Error> VKDevice::createBuffer(const BufferDesc& desc) {
+core::Result<std::unique_ptr<Buffer>> VKDevice::createBuffer(const BufferDesc& desc) {
     auto result = VKBuffer::create(desc, allocator_);
     if (!result) return std::unexpected(result.error());
     auto& buf = *result;
@@ -35,7 +35,7 @@ std::expected<std::unique_ptr<Buffer>, core::Error> VKDevice::createBuffer(const
     return result;
 }
 
-std::expected<std::unique_ptr<Texture>, core::Error> VKDevice::createTexture(const TextureDesc& desc) {
+core::Result<std::unique_ptr<Texture>> VKDevice::createTexture(const TextureDesc& desc) {
     auto result = VKTexture::create(desc, device_, allocator_);
     if (!result) return std::unexpected(result.error());
     auto& tex = *result;
@@ -48,7 +48,7 @@ std::expected<std::unique_ptr<Texture>, core::Error> VKDevice::createTexture(con
     return result;
 }
 
-std::expected<std::unique_ptr<Shader>, core::Error> VKDevice::createShader(const ShaderDesc& desc) {
+core::Result<std::unique_ptr<Shader>> VKDevice::createShader(const ShaderDesc& desc) {
     auto result = VKShader::create(desc, device_);
     if (!result) return std::unexpected(result.error());
     auto& sh = *result;
@@ -58,7 +58,7 @@ std::expected<std::unique_ptr<Shader>, core::Error> VKDevice::createShader(const
     return result;
 }
 
-std::expected<std::unique_ptr<PipelineState>, core::Error>
+core::Result<std::unique_ptr<PipelineState>>
 VKDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
     auto result = VKPipelineState::create(desc, device_);
     if (!result) return std::unexpected(result.error());
@@ -69,12 +69,12 @@ VKDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
     return result;
 }
 
-std::expected<std::unique_ptr<ComputePipelineState>, core::Error>
+core::Result<std::unique_ptr<ComputePipelineState>>
 VKDevice::createComputePipelineState(const ComputePipelineDesc& desc) {
     return VKComputePipelineState::create(desc, device_);
 }
 
-std::expected<std::unique_ptr<CommandList>, core::Error> VKDevice::createCommandList() {
+core::Result<std::unique_ptr<CommandList>> VKDevice::createCommandList() {
     // 独立命令列表需要独立的 descriptor allocator
     auto* allocator = new VKDescriptorAllocator(device_);
     auto result = VKCommandList::create(device_, graphics_queue_family_, allocator);
@@ -86,7 +86,7 @@ std::expected<std::unique_ptr<CommandList>, core::Error> VKDevice::createCommand
     return result;
 }
 
-std::expected<std::unique_ptr<SwapChain>, core::Error>
+core::Result<std::unique_ptr<SwapChain>>
 VKDevice::createSwapChain(const SwapChainDesc& desc) {
     VKSwapChain::InitParams params;
     params.instance            = instance_;
@@ -116,7 +116,7 @@ VKDevice::createSwapChain(const SwapChainDesc& desc) {
     return result;
 }
 
-std::expected<std::unique_ptr<Fence>, core::Error>
+core::Result<std::unique_ptr<Fence>>
 VKDevice::createFence(uint64_t initialValue) {
     auto result = VKFence::create(device_, initialValue);
     if (!result) return std::unexpected(result.error());
@@ -128,7 +128,7 @@ VKDevice::createFence(uint64_t initialValue) {
     return result;
 }
 
-std::expected<std::unique_ptr<BindGroup>, core::Error>
+core::Result<std::unique_ptr<BindGroup>>
 VKDevice::createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) {
     return std::unique_ptr<BindGroup>(
         std::make_unique<VKBindGroup>(layout, desc.entries, desc.count));
@@ -149,7 +149,7 @@ void VKDevice::flushUploadBatch() {
     upload_context_->flushUploadBatch();
 }
 
-std::expected<std::unique_ptr<RenderTarget>, core::Error>
+core::Result<std::unique_ptr<RenderTarget>>
 VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
     // 如果 frame contexts 还未初始化（无 SwapChain 时），在此初始化
     if (frame_contexts_.empty()) {
@@ -160,7 +160,7 @@ VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
     return result;
 }
 
-std::expected<std::unique_ptr<Sampler>, core::Error>
+core::Result<std::unique_ptr<Sampler>>
 VKDevice::createSampler(const SamplerDesc& desc) {
     auto result = VKSampler::create(desc, device_);
     if (!result) return std::unexpected(result.error());

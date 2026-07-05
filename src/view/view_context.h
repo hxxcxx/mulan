@@ -63,9 +63,8 @@ public:
     engine::Operator* activeOperator() const;
     engine::Operator* defaultOperator() const { return default_op_.get(); }
 
-    std::expected<engine::RenderCaptureResult, core::Error>
-    capture(const engine::RenderCaptureDesc& desc);
-    std::expected<CaptureImage, core::Error> capture(const CaptureRequest& request);
+    core::Result<engine::RenderCaptureResult> capture(const engine::RenderCaptureDesc& desc);
+    core::Result<CaptureImage> capture(const CaptureRequest& request);
     CaptureBatchResult capture(const CaptureBatch& batch);
 
     engine::Camera& camera() { return camera_; }

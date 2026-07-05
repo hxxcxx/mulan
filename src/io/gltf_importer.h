@@ -16,8 +16,7 @@ namespace mulan::io {
 
 class IO_API GltfImporter : public IFileImporter {
 public:
-    std::expected<ImportResult, core::Error>
-    import(const std::string& path,
+    core::Result<ImportResult> import(const std::string& path,
            mulan::io::Document& doc,
            const ImportOptions& options = {}) override;
 

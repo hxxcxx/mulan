@@ -38,8 +38,7 @@ public:
     void clear();
 
 private:
-    static std::expected<GpuGeometry, core::Error>
-        createGpuBuffer(RHIDevice& device, const graphics::Mesh& mesh);
+    static core::Result<GpuGeometry> createGpuBuffer(RHIDevice& device, const graphics::Mesh& mesh);
 
     RHIDevice& device_;
     std::unordered_map<uint64_t, GpuGeometry> solid_geos_;

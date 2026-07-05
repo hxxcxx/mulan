@@ -84,7 +84,7 @@ public:
     virtual ~RHIDevice() = default;
 
     // --- 工厂函数（根据 backend 创建具体实现）---
-    static std::expected<std::shared_ptr<RHIDevice>, core::Error> create(const DeviceCreateInfo& ci);
+    static core::Result<std::shared_ptr<RHIDevice>> create(const DeviceCreateInfo& ci);
 
     // --- 设备信息 ---
 
@@ -101,22 +101,22 @@ public:
     virtual math::Mat4 clipSpaceCorrectionMatrix() const = 0;
 
     // --- 资源创建 ---
-    // 全部返回 std::expected<unique_ptr<T>, core::Error>：失败时调用方拿到
+    // 全部返回 core::Result<unique_ptr<T>>：失败时调用方拿到
     // 失败原因（含 EngineErrorCode），可据此决策。参见 core/result/error.h。
-    virtual std::expected<std::unique_ptr<Buffer>,        core::Error> createBuffer(const BufferDesc& desc) = 0;
-    virtual std::expected<std::unique_ptr<Texture>,       core::Error> createTexture(const TextureDesc& desc) = 0;
-    virtual std::expected<std::unique_ptr<Shader>,        core::Error> createShader(const ShaderDesc& desc) = 0;
-    virtual std::expected<std::unique_ptr<PipelineState>, core::Error> createPipelineState(const GraphicsPipelineDesc& desc) = 0;
-    virtual std::expected<std::unique_ptr<ComputePipelineState>, core::Error> createComputePipelineState(const ComputePipelineDesc& desc) = 0;
-    virtual std::expected<std::unique_ptr<CommandList>,   core::Error> createCommandList() = 0;
-    virtual std::expected<std::unique_ptr<SwapChain>,     core::Error> createSwapChain(const SwapChainDesc& desc) = 0;
-    virtual std::expected<std::unique_ptr<RenderTarget>,  core::Error> createRenderTarget(const RenderTargetDesc& desc) = 0;
-    virtual std::expected<std::unique_ptr<Sampler>,       core::Error> createSampler(const SamplerDesc& desc) = 0;
-    virtual std::expected<std::unique_ptr<Fence>,         core::Error> createFence(uint64_t initialValue = 0) = 0;
+    virtual core::Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc) = 0;
+    virtual core::Result<std::unique_ptr<Texture>> createTexture(const TextureDesc& desc) = 0;
+    virtual core::Result<std::unique_ptr<Shader>> createShader(const ShaderDesc& desc) = 0;
+    virtual core::Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc& desc) = 0;
+    virtual core::Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(const ComputePipelineDesc& desc) = 0;
+    virtual core::Result<std::unique_ptr<CommandList>> createCommandList() = 0;
+    virtual core::Result<std::unique_ptr<SwapChain>> createSwapChain(const SwapChainDesc& desc) = 0;
+    virtual core::Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc& desc) = 0;
+    virtual core::Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc& desc) = 0;
+    virtual core::Result<std::unique_ptr<Fence>> createFence(uint64_t initialValue = 0) = 0;
 
     /// 创建 BindGroup 对象（从 layout + desc，缓存后端 descriptor 句柄）。
     /// layout 从 PipelineState::bindGroupLayout() 获取。
-    virtual std::expected<std::unique_ptr<BindGroup>, core::Error>
+    virtual core::Result<std::unique_ptr<BindGroup>>
         createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) = 0;
 
     // --- 资源上传 ---

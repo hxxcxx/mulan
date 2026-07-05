@@ -45,17 +45,17 @@ public:
     math::Mat4 clipSpaceCorrectionMatrix() const override;
 
     // --- 资源创建 ---
-    std::expected<std::unique_ptr<Buffer>,        core::Error> createBuffer(const BufferDesc& desc) override;
-    std::expected<std::unique_ptr<Texture>,       core::Error> createTexture(const TextureDesc& desc) override;
-    std::expected<std::unique_ptr<Shader>,        core::Error> createShader(const ShaderDesc& desc) override;
-    std::expected<std::unique_ptr<PipelineState>, core::Error> createPipelineState(const GraphicsPipelineDesc& desc) override;
-    std::expected<std::unique_ptr<ComputePipelineState>, core::Error> createComputePipelineState(const ComputePipelineDesc& desc) override;
-    std::expected<std::unique_ptr<CommandList>,   core::Error> createCommandList() override;
-    std::expected<std::unique_ptr<SwapChain>,     core::Error> createSwapChain(const SwapChainDesc& desc) override;
-    std::expected<std::unique_ptr<RenderTarget>,  core::Error> createRenderTarget(const RenderTargetDesc& desc) override;
-    std::expected<std::unique_ptr<Sampler>,       core::Error> createSampler(const SamplerDesc& desc) override;
-    std::expected<std::unique_ptr<Fence>,         core::Error> createFence(uint64_t initialValue = 0) override;
-    std::expected<std::unique_ptr<BindGroup>,     core::Error> createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) override;
+    core::Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc) override;
+    core::Result<std::unique_ptr<Texture>> createTexture(const TextureDesc& desc) override;
+    core::Result<std::unique_ptr<Shader>> createShader(const ShaderDesc& desc) override;
+    core::Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc& desc) override;
+    core::Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(const ComputePipelineDesc& desc) override;
+    core::Result<std::unique_ptr<CommandList>> createCommandList() override;
+    core::Result<std::unique_ptr<SwapChain>> createSwapChain(const SwapChainDesc& desc) override;
+    core::Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc& desc) override;
+    core::Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc& desc) override;
+    core::Result<std::unique_ptr<Fence>> createFence(uint64_t initialValue = 0) override;
+    core::Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) override;
 
     // --- 资源上传 ---
     void uploadTextureData(Texture* dst, const void* data,

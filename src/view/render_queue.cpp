@@ -6,7 +6,7 @@ RenderQueue::~RenderQueue() {
     close();
 }
 
-std::expected<void, core::Error> RenderQueue::submit(RenderTask task) {
+core::Result<void> RenderQueue::submit(RenderTask task) {
     if (!task) {
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg,
                                                 "Cannot submit an empty render task."));

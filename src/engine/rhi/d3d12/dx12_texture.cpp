@@ -8,7 +8,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::unique_ptr<DX12Texture>, core::Error>
+core::Result<std::unique_ptr<DX12Texture>>
 DX12Texture::create(const TextureDesc& desc, ID3D12Device* device,
                     D3D12_RESOURCE_STATES initialState) {
     try {

@@ -21,7 +21,7 @@ namespace mulan::engine {
 class VKBuffer : public Buffer {
 public:
     /// 创建 VKBuffer。失败返回 EngineErrorCode::BufferCreateFailed。
-    static std::expected<std::unique_ptr<VKBuffer>, core::Error>
+    static core::Result<std::unique_ptr<VKBuffer>>
         create(const BufferDesc& desc, VmaAllocator allocator);
     ~VKBuffer();
 

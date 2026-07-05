@@ -226,12 +226,11 @@ bool ViewContext::restoreCaptureSurface(const RenderSurfaceDesc& desc) {
     return true;
 }
 
-std::expected<engine::RenderCaptureResult, core::Error>
-ViewContext::capture(const engine::RenderCaptureDesc& desc) {
+core::Result<engine::RenderCaptureResult> ViewContext::capture(const engine::RenderCaptureDesc& desc) {
     return CaptureService{}.capture(*this, desc);
 }
 
-std::expected<CaptureImage, core::Error> ViewContext::capture(const CaptureRequest& request) {
+core::Result<CaptureImage> ViewContext::capture(const CaptureRequest& request) {
     return CaptureService{}.capture(*this, request);
 }
 

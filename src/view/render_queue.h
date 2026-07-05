@@ -37,11 +37,11 @@ public:
     RenderQueue(const RenderQueue&) = delete;
     RenderQueue& operator=(const RenderQueue&) = delete;
 
-    std::expected<void, core::Error> submit(RenderTask task);
+    core::Result<void> submit(RenderTask task);
 
     template <class Fn>
     auto submit(RenderTaskKind kind, std::string label, Fn&& fn)
-        -> std::expected<std::future<std::invoke_result_t<Fn&>>, core::Error>;
+        -> core::Result<std::future<std::invoke_result_t<Fn&>>>;
 
     std::optional<RenderTask> waitPop(std::stop_token stopToken);
     void close();
@@ -58,7 +58,7 @@ private:
 
 template <class Fn>
 auto RenderQueue::submit(RenderTaskKind kind, std::string label, Fn&& fn)
-    -> std::expected<std::future<std::invoke_result_t<Fn&>>, core::Error> {
+    -> core::Result<std::future<std::invoke_result_t<Fn&>>> {
     using Result = std::invoke_result_t<Fn&>;
 
     auto promise = std::make_shared<std::promise<Result>>();

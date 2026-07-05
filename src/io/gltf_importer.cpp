@@ -237,8 +237,7 @@ PrimitiveGeomData extractPrimitiveData(const Asset& gltf, const Primitive& prim)
 // GltfImporter
 // ============================================================
 
-std::expected<ImportResult, core::Error>
-GltfImporter::import(const std::string& path,
+core::Result<ImportResult> GltfImporter::import(const std::string& path,
                      mulan::io::Document& doc,
                      const ImportOptions& options) {
     ImportResult result{};

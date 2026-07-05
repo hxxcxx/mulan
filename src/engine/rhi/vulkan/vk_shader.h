@@ -20,7 +20,7 @@ namespace mulan::engine {
 class VKShader : public Shader {
 public:
     /// 创建 VKShader。文件读失败 → ShaderFileNotFound；编译失败 → ShaderCompileFailed。
-    static std::expected<std::unique_ptr<VKShader>, core::Error>
+    static core::Result<std::unique_ptr<VKShader>>
         create(const ShaderDesc& desc, vk::Device device);
     ~VKShader();
 

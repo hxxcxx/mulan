@@ -12,7 +12,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::unique_ptr<DX12CommandList>, core::Error>
+core::Result<std::unique_ptr<DX12CommandList>>
 DX12CommandList::create(ID3D12Device* device, ID3D12CommandAllocator* allocator) {
     try {
         return std::unique_ptr<DX12CommandList>(new DX12CommandList(device, allocator));

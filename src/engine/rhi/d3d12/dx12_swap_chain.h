@@ -25,7 +25,7 @@ namespace mulan::engine {
 class DX12SwapChain final : public SwapChain {
 public:
     /// 创建 DX12SwapChain。失败返回 SwapChainCreateFailed。
-    static std::expected<std::unique_ptr<DX12SwapChain>, core::Error>
+    static core::Result<std::unique_ptr<DX12SwapChain>>
         create(const SwapChainDesc& desc, ID3D12Device* device,
                IDXGIFactory4* factory, ID3D12CommandQueue* queue,
                const NativeWindowHandle& window);

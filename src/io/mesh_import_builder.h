@@ -83,8 +83,8 @@ public:
     bool empty() const { return primitives_.empty(); }
     size_t primitiveCount() const { return primitives_.size(); }
 
-    std::expected<ImportedMeshAsset, core::Error> commitAsset(std::string name);
-    std::expected<scene::EntityId, core::Error> commit(std::string name);
+    core::Result<ImportedMeshAsset> commitAsset(std::string name);
+    core::Result<scene::EntityId> commit(std::string name);
 
     const ImportReport& report() const { return report_; }
 

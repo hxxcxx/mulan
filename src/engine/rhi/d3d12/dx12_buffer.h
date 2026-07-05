@@ -20,7 +20,7 @@ namespace mulan::engine {
 class DX12Buffer final : public Buffer {
 public:
     /// 创建 DX12Buffer。失败返回 BufferCreateFailed。
-    static std::expected<std::unique_ptr<DX12Buffer>, core::Error>
+    static core::Result<std::unique_ptr<DX12Buffer>>
         create(const BufferDesc& desc, ID3D12Device* device);
     ~DX12Buffer();
 

@@ -21,7 +21,7 @@ namespace mulan::engine {
 class DX12RenderTarget final : public RenderTarget {
 public:
     /// 创建 DX12RenderTarget。失败返回 RenderTargetCreateFailed。
-    static std::expected<std::unique_ptr<DX12RenderTarget>, core::Error>
+    static core::Result<std::unique_ptr<DX12RenderTarget>>
         create(const RenderTargetDesc& desc, ID3D12Device* device);
     ~DX12RenderTarget();
 

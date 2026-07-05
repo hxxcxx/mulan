@@ -38,7 +38,7 @@ public:
     };
 
     /// 创建 VKSwapChain。失败返回 SwapChainCreateFailed / SurfaceNotSupported。
-    static std::expected<std::unique_ptr<VKSwapChain>, core::Error>
+    static core::Result<std::unique_ptr<VKSwapChain>>
         create(const SwapChainDesc& desc, const InitParams& params,
                const RenderConfig& renderConfig);
     ~VKSwapChain();

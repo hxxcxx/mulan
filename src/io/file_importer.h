@@ -25,10 +25,9 @@ class IO_API IFileImporter {
 public:
     virtual ~IFileImporter() = default;
 
-    virtual std::expected<ImportResult, core::Error>
-    import(const std::string& path,
-           Document& doc,
-           const ImportOptions& options = {}) = 0;
+    virtual core::Result<ImportResult> import(const std::string& path,
+                                              Document& doc,
+                                              const ImportOptions& options = {}) = 0;
 
     virtual std::vector<std::string> supportedExtensions() const = 0;
     virtual std::string name() const = 0;

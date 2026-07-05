@@ -24,11 +24,9 @@ class ViewContext;
 
 class CaptureService {
 public:
-    std::expected<engine::RenderCaptureResult, core::Error>
-    capture(ViewContext& context, const engine::RenderCaptureDesc& desc) const;
+    core::Result<engine::RenderCaptureResult> capture(ViewContext& context, const engine::RenderCaptureDesc& desc) const;
 
-    std::expected<CaptureImage, core::Error>
-    capture(ViewContext& context, const CaptureRequest& request) const;
+    core::Result<CaptureImage> capture(ViewContext& context, const CaptureRequest& request) const;
 
     CaptureBatchResult
     capture(ViewContext& context, const CaptureBatch& batch) const;
@@ -52,8 +50,7 @@ private:
                            uint32_t width,
                            uint32_t height);
 
-    static std::expected<engine::RenderCaptureResult, core::Error>
-    readCaptureResult(ViewContext& context,
+    static core::Result<engine::RenderCaptureResult> readCaptureResult(ViewContext& context,
                       const engine::RenderCaptureDesc& desc,
                       uint32_t width,
                       uint32_t height);

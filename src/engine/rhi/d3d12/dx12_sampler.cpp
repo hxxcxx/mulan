@@ -66,7 +66,7 @@ static D3D12_COMPARISON_FUNC toDX12ComparisonFunc(CompareFunc f) {
 // DX12Sampler
 // ============================================================
 
-std::expected<std::unique_ptr<DX12Sampler>, core::Error>
+core::Result<std::unique_ptr<DX12Sampler>>
 DX12Sampler::create(const SamplerDesc& desc, ID3D12Device* device,
                     DX12DescriptorAllocator* samplerHeap) {
     if (!samplerHeap) {

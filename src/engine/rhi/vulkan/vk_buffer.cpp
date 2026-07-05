@@ -8,7 +8,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::unique_ptr<VKBuffer>, core::Error>
+core::Result<std::unique_ptr<VKBuffer>>
 VKBuffer::create(const BufferDesc& desc, VmaAllocator allocator) {
     auto obj = std::unique_ptr<VKBuffer>(new VKBuffer(desc));
     obj->allocator_ = allocator;

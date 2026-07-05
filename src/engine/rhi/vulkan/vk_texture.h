@@ -20,7 +20,7 @@ namespace mulan::engine {
 class VKTexture : public Texture {
 public:
     /// 创建常规纹理（拥有 image/view 资源）。失败返回 TextureCreateFailed。
-    static std::expected<std::unique_ptr<VKTexture>, core::Error>
+    static core::Result<std::unique_ptr<VKTexture>>
         create(const TextureDesc& desc, vk::Device device, VmaAllocator allocator);
 
     /// Swapchain backbuffer 包装构造（不拥有 image/view，仅持有句柄）。

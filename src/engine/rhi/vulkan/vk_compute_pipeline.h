@@ -18,7 +18,7 @@ namespace mulan::engine {
 
 class VKComputePipelineState : public ComputePipelineState {
 public:
-    static std::expected<std::unique_ptr<VKComputePipelineState>, core::Error>
+    static core::Result<std::unique_ptr<VKComputePipelineState>>
         create(const ComputePipelineDesc& desc, vk::Device device);
     ~VKComputePipelineState();
 

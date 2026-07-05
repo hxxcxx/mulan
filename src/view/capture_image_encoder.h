@@ -22,14 +22,12 @@ namespace mulan::view {
 
 class CaptureImageEncoder {
 public:
-    static std::expected<std::shared_ptr<core::Image>, core::Error>
+    static core::Result<std::shared_ptr<core::Image>>
     toImage(const engine::RenderCaptureResult& result);
 
-    static std::expected<void, core::Error>
-    savePNG(const engine::RenderCaptureResult& result, std::string_view path);
+    static core::Result<void> savePNG(const engine::RenderCaptureResult& result, std::string_view path);
 
-    static std::expected<void, core::Error>
-    savePNG(const CaptureImage& image, std::string_view path);
+    static core::Result<void> savePNG(const CaptureImage& image, std::string_view path);
 };
 
 } // namespace mulan::view

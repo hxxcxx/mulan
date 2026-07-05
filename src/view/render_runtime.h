@@ -46,14 +46,12 @@ public:
     RenderRuntime(const RenderRuntime&) = delete;
     RenderRuntime& operator=(const RenderRuntime&) = delete;
 
-    std::expected<void, core::Error>
-    initWindow(const ViewConfig& config,
+    core::Result<void> initWindow(const ViewConfig& config,
                int width,
                int height,
                engine::LightEnvironment& lightEnv);
 
-    std::expected<void, core::Error>
-    initOffscreen(int width,
+    core::Result<void> initOffscreen(int width,
                   int height,
                   engine::LightEnvironment& lightEnv);
 
@@ -79,8 +77,7 @@ public:
     const RenderSurface& surface() const { return surface_; }
 
 private:
-    std::expected<void, core::Error>
-    initRendering(engine::LightEnvironment& lightEnv);
+    core::Result<void> initRendering(engine::LightEnvironment& lightEnv);
 
     std::shared_ptr<engine::RHIDevice> device_;
     RenderSurface surface_;

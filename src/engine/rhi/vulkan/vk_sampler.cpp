@@ -42,7 +42,7 @@ static vk::SamplerAddressMode toVkAddressMode(SamplerAddressMode m) {
 
 // ============================================================
 
-std::expected<std::unique_ptr<VKSampler>, core::Error>
+core::Result<std::unique_ptr<VKSampler>>
 VKSampler::create(const SamplerDesc& desc, vk::Device device) {
     auto obj = std::unique_ptr<VKSampler>(new VKSampler(desc, device));
 

@@ -9,7 +9,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::unique_ptr<VKPipelineState>, core::Error>
+core::Result<std::unique_ptr<VKPipelineState>>
 VKPipelineState::create(const GraphicsPipelineDesc& desc, vk::Device device) {
     auto obj = std::unique_ptr<VKPipelineState>(new VKPipelineState(desc, device));
 

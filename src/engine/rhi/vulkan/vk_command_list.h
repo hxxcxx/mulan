@@ -29,7 +29,7 @@ class VKCommandList : public CommandList {
 public:
     /// 独立模式：自建 command pool + buffer（可选 descriptor allocator）。
     /// 失败返回 CommandListCreateFailed。
-    static std::expected<std::unique_ptr<VKCommandList>, core::Error>
+    static core::Result<std::unique_ptr<VKCommandList>>
         create(vk::Device device, uint32_t queueFamilyIndex,
                VKDescriptorAllocator* allocator = nullptr);
 

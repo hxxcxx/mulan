@@ -24,7 +24,7 @@ class VKPipelineState : public PipelineState {
 public:
     /// 创建 VKPipelineState（dynamic rendering，无需 RenderPass）。
     /// 失败返回 PipelineCreateFailed。
-    static std::expected<std::unique_ptr<VKPipelineState>, core::Error>
+    static core::Result<std::unique_ptr<VKPipelineState>>
         create(const GraphicsPipelineDesc& desc, vk::Device device);
     ~VKPipelineState();
 

@@ -7,7 +7,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::unique_ptr<DX12Fence>, core::Error>
+core::Result<std::unique_ptr<DX12Fence>>
 DX12Fence::create(ID3D12Device* device, uint64_t initialValue) {
     try {
         return std::unique_ptr<DX12Fence>(new DX12Fence(device, initialValue));

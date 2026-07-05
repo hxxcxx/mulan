@@ -9,7 +9,7 @@
 
 namespace mulan::engine {
 
-std::expected<std::unique_ptr<VKComputePipelineState>, core::Error>
+core::Result<std::unique_ptr<VKComputePipelineState>>
 VKComputePipelineState::create(const ComputePipelineDesc& desc, vk::Device device) {
     auto obj = std::unique_ptr<VKComputePipelineState>(new VKComputePipelineState(desc, device));
     if (auto e = obj->build(); e.code != 0)
