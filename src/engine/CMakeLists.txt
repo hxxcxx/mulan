@@ -12,6 +12,10 @@ add_library(engine STATIC
     render/render_resource_cache.cpp
     render/mesh_draw_command.cpp
     render/technique/render_technique.cpp
+    # Render frontend / backend
+    render/frontend/render_world.cpp
+    render/frontend/render_workload.cpp
+    render/backend/render_compiler.cpp
     # Draw executors / stages
     render/draw/geometry_draw_executor.cpp
     render/forward/face_stage.cpp

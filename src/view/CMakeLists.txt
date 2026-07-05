@@ -3,17 +3,18 @@ add_library(view STATIC
     view_context.cpp
     render_surface.cpp
     renderer.cpp
-    draw_command_builder.cpp
-    render_material_resolver.cpp
+    render_world_sync.cpp
     render_scene.cpp
 )
 
+set(VIEW_GENERATED_INCLUDE_DIR "${CMAKE_BINARY_DIR}/include/mulan/view")
+file(REMOVE_RECURSE "${VIEW_GENERATED_INCLUDE_DIR}")
 file(GLOB_RECURSE VIEW_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
 )
 foreach(hdr ${VIEW_HEADERS})
     file(RELATIVE_PATH rel "${CMAKE_CURRENT_SOURCE_DIR}" "${hdr}")
-    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/view/${rel}" COPYONLY)
+    configure_file("${hdr}" "${VIEW_GENERATED_INCLUDE_DIR}/${rel}" COPYONLY)
 endforeach()
 
 target_include_directories(view PUBLIC

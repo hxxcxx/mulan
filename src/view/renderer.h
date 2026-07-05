@@ -4,8 +4,8 @@
  * @date 2026-07-03
  *
  * 从 ViewContext 抽出的渲染执行层。持有 Forward stages（实体面 / 边线）、
- * DrawCommandBuilder 和 RenderResourceCache。把 RenderScene + camera
- * 转换为 draw stages 可消费的 commands，调用 RHI begin frame、execute stages、present。
+ * RenderWorldSync、RenderCompiler 和 RenderResourceCache。把 RenderScene + camera
+ * 转换为 engine frontend/backend 可消费的数据，调用 RHI begin frame、execute stages、present。
  *
  * 不处理 Qt 事件，不修改 Document，不持有 UI widget。
  * lightEnv 由 ViewContext 拥有，init 时绑定引用；相机数据来自每帧 ViewState 快照。
@@ -13,9 +13,12 @@
 
 #pragma once
 
-#include "draw_command_builder.h"
+#include "render_world_sync.h"
 #include "view_state.h"
 
+#include "mulan/engine/render/backend/render_compiler.h"
+#include "mulan/engine/render/frontend/render_world.h"
+#include "mulan/engine/render/frontend/render_workload.h"
 #include "mulan/engine/render/render_resource_cache.h"
 #include "mulan/engine/render/forward/edge_stage.h"
 #include "mulan/engine/render/forward/face_stage.h"
@@ -97,7 +100,15 @@ private:
 
     std::unique_ptr<engine::RenderResourceCache> resources_;
 
-    DrawCommandBuilder builder_;
+    const render_scene::RenderScene* scene_ = nullptr;
+    const asset::AssetLibrary* assets_ = nullptr;
+
+    RenderWorldSync render_world_sync_;
+    engine::RenderWorld render_world_;
+    engine::RenderWorldSnapshot world_snapshot_;
+    engine::RenderWorkload workload_;
+    engine::RenderCompiler compiler_;
+
     std::unique_ptr<engine::FaceStage> face_stage_;
     std::unique_ptr<engine::EdgeStage> edge_stage_;
     std::unique_ptr<engine::ViewCubeStage> view_cube_stage_;

@@ -5,7 +5,7 @@
  * @date 2026-07-02
  *
  * collectDrawables 是统一展开接口：每种子类（Tessellated / Mesh / 未来的自研格式）
- * 自行决定如何把自身拆成可绘制网格段，调用方（DrawCommandBuilder）无需知道
+ * 自行决定如何把自身拆成可绘制网格段，调用方无需知道
  * 具体子类结构，从而消除对 TessellatedAsset/MeshAsset 的 dynamic_cast 分支。
  */
 

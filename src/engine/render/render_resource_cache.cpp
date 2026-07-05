@@ -26,6 +26,22 @@ void RenderResourceCache::uploadWireGeometry(uint64_t key, const graphics::Mesh&
     wire_geos_[key] = std::move(*result);
 }
 
+const GpuGeometry* RenderResourceCache::ensureSolidGeometry(uint64_t key,
+                                                            const graphics::Mesh& mesh) {
+    if (!solidGeometry(key)) {
+        uploadSolidGeometry(key, mesh);
+    }
+    return solidGeometry(key);
+}
+
+const GpuGeometry* RenderResourceCache::ensureWireGeometry(uint64_t key,
+                                                           const graphics::Mesh& mesh) {
+    if (!wireGeometry(key)) {
+        uploadWireGeometry(key, mesh);
+    }
+    return wireGeometry(key);
+}
+
 void RenderResourceCache::releaseResource(uint64_t key) {
     solid_geos_.erase(key);
     wire_geos_.erase(key);

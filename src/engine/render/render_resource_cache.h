@@ -25,6 +25,8 @@ public:
 
     void uploadSolidGeometry(uint64_t key, const graphics::Mesh& mesh);
     void uploadWireGeometry(uint64_t key, const graphics::Mesh& mesh);
+    const GpuGeometry* ensureSolidGeometry(uint64_t key, const graphics::Mesh& mesh);
+    const GpuGeometry* ensureWireGeometry(uint64_t key, const graphics::Mesh& mesh);
     void releaseResource(uint64_t key);
 
     bool hasResource(uint64_t key) const;

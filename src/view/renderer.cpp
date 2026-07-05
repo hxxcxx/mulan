@@ -83,7 +83,8 @@ void Renderer::shutdown(engine::RHIDevice& device) {
 
 void Renderer::setScene(const render_scene::RenderScene* scene,
                         const asset::AssetLibrary* assets) {
-    builder_.setScene(scene, assets);
+    scene_ = scene;
+    assets_ = assets;
 }
 
 void Renderer::enableIBL(engine::RHIDevice& device, const std::string& hdrPath) {
@@ -149,21 +150,36 @@ void Renderer::render(engine::RHIDevice& device,
 }
 
 void Renderer::prepareDrawCommands(engine::RHIDevice& device, const ViewState& viewState) {
-    if (resources_) {
+    if (resources_ && scene_ && assets_) {
         device.beginUploadBatch();
-        builder_.rebuild(*resources_,
-                         face_stage_ ? face_stage_->pipelineState() : nullptr,
-                         edge_stage_ ? edge_stage_->pipelineState() : nullptr,
-                         *texture_cache_,
-                         *material_cache_);
+        render_world_sync_.rebuild(*scene_, *assets_, render_world_);
+        world_snapshot_ = render_world_.snapshot();
+
+        engine::RenderOptions options;
+        options.showSurfaces = viewState.showFaces;
+        options.showEdges = viewState.showEdges;
+        options.showOverlays = true;
+        options.showViewCube = viewState.showViewCube;
+        workload_.build(world_snapshot_, options);
+
+        engine::RenderCompileContext compileContext{
+            .resources = *resources_,
+            .textures = *texture_cache_,
+            .materials = *material_cache_,
+            .surfacePipeline = face_stage_ ? face_stage_->pipelineState() : nullptr,
+            .edgePipeline = edge_stage_ ? edge_stage_->pipelineState() : nullptr,
+        };
+        compiler_.compile(world_snapshot_, workload_, compileContext);
         device.flushUploadBatch();
+    } else {
+        compiler_.clear();
     }
 
     const std::span<const engine::MeshDrawCommand> emptyCommands;
     if (face_stage_)
-        face_stage_->setDrawCommands(viewState.showFaces ? builder_.solidCommands() : emptyCommands);
+        face_stage_->setDrawCommands(viewState.showFaces ? compiler_.surfaceCommands() : emptyCommands);
     if (edge_stage_)
-        edge_stage_->setDrawCommands(viewState.showEdges ? builder_.wireCommands() : emptyCommands);
+        edge_stage_->setDrawCommands(viewState.showEdges ? compiler_.edgeCommands() : emptyCommands);
 }
 
 engine::CommandList* Renderer::beginRenderFrame(engine::RHIDevice& device,

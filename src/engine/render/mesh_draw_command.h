@@ -1,9 +1,10 @@
 /**
  * @file mesh_draw_command.h
- * @brief 完全绑定的 GPU 绘制命令 — Pipeline + Buffers + UBO offsets + instancing
+ * @brief 已编译 GPU 绘制命令 — Pipeline + Buffers + UBO offsets + instancing
  *
  * 对应 UE5 的 FMeshDrawCommand。
- * 一旦构建完成，GPU 提交时无需查表，直接 execute() 即可。
+ * 一旦由 backend compiler 构建完成，GPU 提交时无需访问 asset/view/scene，
+ * 直接 execute() 即可。
  *
  * @author hxxcxx
  * @date 2026-06-01
@@ -43,7 +44,7 @@ struct MeshDrawCommand {
     uint32_t materialUboOffset = 0;
 
     // 纹理（binding 3~7, binding 8=sampler）。
-    // 由 DrawCommandBuilder 解析材质填充。空纹理由 execute 用 default* 退化。
+    // 由 RenderCompiler 解析材质填充。空纹理由 execute 用 default* 退化。
     Texture* albedoTex = nullptr;    // binding 3
     Texture* normalTex = nullptr;    // binding 4
     Texture* mrTex     = nullptr;    // binding 5 (metallicRoughness)
