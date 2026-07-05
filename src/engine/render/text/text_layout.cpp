@@ -176,10 +176,10 @@ float TextLayout::measureWidth(
 // buildTextMesh — 公开 API
 // ============================================================
 
-Mesh TextLayout::buildTextMesh(std::string_view text,
+graphics::Mesh TextLayout::buildTextMesh(std::string_view text,
                                 float fontSize,
                                 const float color[4]) {
-    Mesh mesh;
+    graphics::Mesh mesh;
     mesh.layout    = layouts::surface();
     mesh.topology  = PrimitiveTopology::TriangleList;
     mesh.indexType = IndexType::UInt32;

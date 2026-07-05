@@ -10,7 +10,7 @@
 #include "text_types.h"
 #include "font_atlas.h"
 #include <mulan/math/math.h>
-#include "../../geometry/mesh.h"
+#include <mulan/graphics/mesh.h>
 
 #include <string_view>
 #include <vector>
@@ -52,7 +52,7 @@ public:
     /// @param fontSize 目标字号（世界单位）
     /// @param color    RGBA（0~1），预留（暂通过 Material 传递）
     /// @return         标准 Mesh，可上传 GPU 或存入 Entity
-    static Mesh buildTextMesh(std::string_view text,
+    static graphics::Mesh buildTextMesh(std::string_view text,
                                float fontSize,
                                const float color[4] = nullptr);
 
