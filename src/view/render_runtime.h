@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -71,6 +72,8 @@ public:
     bool configureCaptureSurface(const engine::RenderCaptureDesc& desc,
                                  uint32_t width,
                                  uint32_t height);
+    bool configureOffscreenSurface(const RenderSurfaceDesc& desc);
+    std::optional<RenderSurfaceDesc> offscreenSurfaceDesc() const;
 
     RenderSurface& surface() { return surface_; }
     const RenderSurface& surface() const { return surface_; }

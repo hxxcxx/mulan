@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -53,6 +54,11 @@ public:
 
     void renderFrame();
     void renderFrame(const ViewState& viewState);
+    ViewState snapshotViewState() const;
+    ViewState snapshotViewState(const engine::Camera& camera,
+                                const CaptureVisual& visual,
+                                uint32_t width,
+                                uint32_t height) const;
     void onFrameEnd();
     void resize(int width, int height);
 
@@ -64,10 +70,6 @@ public:
     engine::Operator* activeOperator() const;
     engine::Operator* defaultOperator() const { return default_op_.get(); }
 
-    bool readbackPixels(std::vector<uint8_t>& pixels);
-    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc,
-                                 uint32_t width,
-                                 uint32_t height);
     std::expected<engine::RenderCaptureResult, core::Error>
     capture(const engine::RenderCaptureDesc& desc);
     std::expected<CaptureImage, core::Error> capture(const CaptureRequest& request);
@@ -88,9 +90,6 @@ public:
     bool showOverlays() const { return show_overlays_; }
     void setShowOverlays(bool show) { show_overlays_ = show; }
 
-    RenderSurface& surface() { return runtime_.surface(); }
-    const RenderSurface& surface() const { return runtime_.surface(); }
-
     /// 按需烘焙 IBL（转发给 Renderer）。HDR 路径来自 ViewConfig::hdrPath。
     /// 通常由 DocumentSession 在 attachViewContext 时根据模型类型决定是否调用。
     /// 内部会再检查全局开关 iblEnabled()：关则不烘。
@@ -100,7 +99,17 @@ public:
     bool iblEnabled() const { return ibl_enabled_; }
 
 private:
+    friend class CaptureService;
+
     ViewState buildViewState() const;
+    bool readbackPixels(std::vector<uint8_t>& pixels);
+    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc,
+                                 uint32_t width,
+                                 uint32_t height);
+    std::optional<RenderSurfaceDesc> captureSurfaceDesc() const;
+    bool configureCaptureSurface(const RenderSurfaceDesc& desc);
+    RenderSurface& surface() { return runtime_.surface(); }
+    const RenderSurface& surface() const { return runtime_.surface(); }
 
     RenderRuntime runtime_;
     engine::Camera camera_{engine::CameraMode::Trackball};

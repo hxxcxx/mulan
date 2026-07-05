@@ -161,6 +161,17 @@ bool RenderRuntime::configureCaptureSurface(const engine::RenderCaptureDesc& des
     return surface_.configureOffscreenSurface(*device_, surfaceDesc);
 }
 
+bool RenderRuntime::configureOffscreenSurface(const RenderSurfaceDesc& desc) {
+    if (!device_) {
+        return false;
+    }
+    return surface_.configureOffscreenSurface(*device_, desc);
+}
+
+std::optional<RenderSurfaceDesc> RenderRuntime::offscreenSurfaceDesc() const {
+    return surface_.offscreenDesc();
+}
+
 std::expected<void, core::Error>
 RenderRuntime::initRendering(engine::LightEnvironment& lightEnv) {
     if (!device_) {

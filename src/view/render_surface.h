@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace mulan::engine {
@@ -69,6 +70,7 @@ public:
     int height() const { return height_; }
     uint32_t bytesPerPixel() const { return bytes_per_pixel_; }
     uint32_t rowBytes() const { return row_bytes_; }
+    std::optional<RenderSurfaceDesc> offscreenDesc() const;
 
     engine::TextureFormat colorFormat(engine::RHIDevice& device) const;
     engine::TextureFormat depthFormat(engine::RHIDevice& device) const;

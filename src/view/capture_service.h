@@ -12,7 +12,10 @@
 #include <mulan/core/result/error.h>
 #include <mulan/engine/render/frontend/render_capture.h>
 
+#include <cstdint>
 #include <expected>
+#include <optional>
+#include <string>
 #include <vector>
 
 namespace mulan::view {
@@ -29,6 +32,31 @@ public:
 
     CaptureBatchResult
     capture(ViewContext& context, const CaptureBatch& batch) const;
+
+private:
+    class CaptureScope;
+
+    static uint32_t captureWidth(ViewContext& context, const engine::RenderCaptureDesc& desc);
+    static uint32_t captureHeight(ViewContext& context, const engine::RenderCaptureDesc& desc);
+
+    static std::optional<CaptureResult>
+    validateCaptureInput(ViewContext& context,
+                         std::string name,
+                         uint32_t width,
+                         uint32_t height);
+
+    static std::optional<CaptureResult>
+    configureCaptureSurface(ViewContext& context,
+                            const engine::RenderCaptureDesc& desc,
+                            std::string name,
+                            uint32_t width,
+                            uint32_t height);
+
+    static std::expected<engine::RenderCaptureResult, core::Error>
+    readCaptureResult(ViewContext& context,
+                      const engine::RenderCaptureDesc& desc,
+                      uint32_t width,
+                      uint32_t height);
 };
 
 } // namespace mulan::view
