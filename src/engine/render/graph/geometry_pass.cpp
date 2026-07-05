@@ -258,10 +258,14 @@ bool GeometryPass::createFrameBindGroup(TextureFormat, TextureFormat, bool) {
         bg.addTexture(6, default_white_tex_.get());
         bg.addTexture(7, default_white_tex_.get());
         bg.addSampler(8, default_sampler_.get());
-        // IBL 三件套：先用 fallback，每帧 execute 时刷新为真实烘焙产物
-        bg.addTexture(9,  default_ibl_tex_.get());
-        bg.addTexture(10, default_ibl_tex_.get());
-        bg.addTexture(11, default_brdf_lut_.get());
+        // IBL 三件套：先用 fallback，每帧 execute 时刷新为真实烘焙产物。
+        // 若 IBL fallback 未创建（创建失败），退化到 defaultWhite 以保证 descriptor 非 null
+        // —— 避免 Vulkan 验证层 "descriptor never updated" 错误。
+        Texture* iblFallback = default_ibl_tex_ ? default_ibl_tex_.get() : default_white_tex_.get();
+        Texture* lutFallback = default_brdf_lut_ ? default_brdf_lut_.get() : default_white_tex_.get();
+        bg.addTexture(9,  iblFallback);
+        bg.addTexture(10, iblFallback);
+        bg.addTexture(11, lutFallback);
     }
 
     auto result = device_.createBindGroup(pso_->bindGroupLayout(), bg);

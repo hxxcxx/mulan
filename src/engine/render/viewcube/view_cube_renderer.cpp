@@ -311,7 +311,12 @@ void ViewCubeRenderer::render(CommandList* cmd,
                   .addTexture(6, defaultWhite)
                   .addTexture(7, defaultWhite);
                 if (defaultSampler) bg.addSampler(8, defaultSampler);
-                bg.addTexture(9, defaultWhite);
+                // IBL 三件套（binding 9/10/11）：ViewCube 是 UI 元素，不需要真实 IBL，
+                // 但 PSO layout 声明了这些 binding，必须填上避免 "descriptor never updated"。
+                // 用 defaultWhite 占位即可（shader 采到白色，影响微乎其微）。
+                bg.addTexture(9,  defaultWhite);
+                bg.addTexture(10, defaultWhite);
+                bg.addTexture(11, defaultWhite);
             }
             auto r = device_->createBindGroup(solidPso->bindGroupLayout(), bg);
             if (r) {
