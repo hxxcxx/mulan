@@ -65,6 +65,7 @@ MeshDrawCommand makeCommand(const RenderWorldSnapshot& snapshot, const RenderWor
     command.worldTransform = item.worldTransform;
     command.pickId = item.pickId;
     command.selected = item.selected;
+    command.hovered = item.hovered;
     command.isWire = isEdge;
     return command;
 }

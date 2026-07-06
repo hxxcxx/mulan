@@ -22,6 +22,7 @@ struct RenderWorkItem {
     uint32_t pickId = 0;
     size_t sourceDrawableIndex = 0;
     bool selected = false;
+    bool hovered = false;
 };
 
 class RenderWorkload {

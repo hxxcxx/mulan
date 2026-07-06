@@ -32,6 +32,8 @@ cbuffer Object : register(b1) {
     float3x3 NormalMatrix;
     uint     PickId;
     uint     Selected;    // 0=未选中, 1=选中
+    uint     Hovered;     // 0=未悬停, 1=鼠标悬停
+    uint     _o0;
 };
 
 // ============================================================

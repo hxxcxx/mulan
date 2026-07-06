@@ -9,6 +9,7 @@
 #include "document_view_binding.h"
 
 #include <QWidget>
+#include <QPoint>
 
 #include <mulan/engine/interaction/input_event.h>
 #include <mulan/view/view_context.h>
@@ -45,6 +46,7 @@ protected:
     void wheelEvent(QWheelEvent* e) override;
     void keyPressEvent(QKeyEvent* e) override;
     void keyReleaseEvent(QKeyEvent* e) override;
+    void leaveEvent(QEvent* e) override;
 
 private:
     static mulan::engine::MouseButton translateButton(Qt::MouseButton btn);
@@ -52,8 +54,16 @@ private:
     static mulan::engine::KeyModifier translateModifiers(Qt::KeyboardModifiers mods);
     static mulan::engine::Key translateKey(int qtKey);
 
+    QPoint devicePixelPosition(const QPoint& pos) const;
+    void updateHoverAt(const QPoint& pos);
+    void selectAt(const QPoint& pos);
+
     mulan::view::ViewContext view_context_;
     mulan::view::ViewConfig view_config_;
     DocumentSession* session_ = nullptr;
     DocumentViewBinding binding_;
+
+    QPoint press_pos_;
+    bool left_press_pending_ = false;
+    bool left_press_dragged_ = false;
 };

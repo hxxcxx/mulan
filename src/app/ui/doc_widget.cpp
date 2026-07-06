@@ -18,6 +18,7 @@ DocWidget::DocWidget(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_PaintOnScreen);
     setAttribute(Qt::WA_NoSystemBackground);
     setFocusPolicy(Qt::StrongFocus);
+    setMouseTracking(true);
     setMinimumSize(320, 240);
 }
 
@@ -66,6 +67,12 @@ void DocWidget::paintEvent(QPaintEvent*) {
 }
 
 void DocWidget::mousePressEvent(QMouseEvent* e) {
+    if (e->button() == Qt::LeftButton) {
+        press_pos_ = e->pos();
+        left_press_pending_ = true;
+        left_press_dragged_ = false;
+    }
+
     auto ev = InputEvent::mousePress(e->pos().x(), e->pos().y(), translateButton(e->button()),
                                      translateButtons(e->buttons()), translateModifiers(e->modifiers()));
     view_context_.handleInput(ev);
@@ -76,13 +83,29 @@ void DocWidget::mouseReleaseEvent(QMouseEvent* e) {
     auto ev = InputEvent::mouseRelease(e->pos().x(), e->pos().y(), translateButton(e->button()),
                                        translateButtons(e->buttons()), translateModifiers(e->modifiers()));
     view_context_.handleInput(ev);
+
+    if (e->button() == Qt::LeftButton && left_press_pending_) {
+        if (!left_press_dragged_) {
+            selectAt(e->pos());
+        }
+        left_press_pending_ = false;
+        left_press_dragged_ = false;
+    }
     requestFrame();
 }
 
 void DocWidget::mouseMoveEvent(QMouseEvent* e) {
+    if (left_press_pending_ && (e->pos() - press_pos_).manhattanLength() > 4) {
+        left_press_dragged_ = true;
+    }
+
     auto ev = InputEvent::mouseMove(e->pos().x(), e->pos().y(), translateButtons(e->buttons()),
                                     translateModifiers(e->modifiers()));
     view_context_.handleInput(ev);
+
+    if (e->buttons() == Qt::NoButton) {
+        updateHoverAt(e->pos());
+    }
     requestFrame();
 }
 
@@ -118,6 +141,12 @@ void DocWidget::keyReleaseEvent(QKeyEvent* e) {
     requestFrame();
 }
 
+void DocWidget::leaveEvent(QEvent* e) {
+    QWidget::leaveEvent(e);
+    view_context_.clearHoveredPickId();
+    requestFrame();
+}
+
 void DocWidget::setDocumentSession(DocumentSession* session) {
     binding_.unbind();
     session_ = session;
@@ -141,6 +170,42 @@ void DocWidget::fitAll() {
         return;
 
     binding_.fitAll();
+}
+
+QPoint DocWidget::devicePixelPosition(const QPoint& pos) const {
+    const qreal dpr = devicePixelRatioF();
+    return QPoint(static_cast<int>(pos.x() * dpr), static_cast<int>(pos.y() * dpr));
+}
+
+void DocWidget::updateHoverAt(const QPoint& pos) {
+    if (!binding_.isBound()) {
+        view_context_.clearHoveredPickId();
+        return;
+    }
+
+    const QPoint pixel = devicePixelPosition(pos);
+    const auto hit = binding_.pickEntityAt(view_context_.camera(), pixel.x(), pixel.y());
+    if (hit) {
+        view_context_.setHoveredPickId(hit->pickId);
+    } else {
+        view_context_.clearHoveredPickId();
+    }
+}
+
+void DocWidget::selectAt(const QPoint& pos) {
+    if (!binding_.isBound()) {
+        return;
+    }
+
+    const QPoint pixel = devicePixelPosition(pos);
+    const auto hit = binding_.pickEntityAt(view_context_.camera(), pixel.x(), pixel.y());
+    if (hit) {
+        view_context_.setHoveredPickId(hit->pickId);
+        binding_.selectSingle(hit->entity);
+    } else {
+        view_context_.clearHoveredPickId();
+        binding_.clearSelection();
+    }
 }
 
 mulan::engine::MouseButton DocWidget::translateButton(Qt::MouseButton btn) {

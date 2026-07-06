@@ -15,7 +15,7 @@ void MeshDrawCommand::execute(CommandList& cmd, BindGroup& frameBg, Buffer* scen
 
     // 上传 per-object UBO
     if (objectUBO) {
-        const ObjectUniforms obj = makeObjectUniforms(worldTransform, pickId, selected);
+        const ObjectUniforms obj = makeObjectUniforms(worldTransform, pickId, selected, hovered);
         objectUBO->update(objectUboOffset, sizeof(ObjectUniforms), &obj);
     }
 

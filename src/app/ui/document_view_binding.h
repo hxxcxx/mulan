@@ -8,6 +8,11 @@
 #pragma once
 
 #include <memory>
+#include <optional>
+
+#include <mulan/engine/render/camera/camera.h>
+#include <mulan/scene/entity_id.h>
+#include <mulan/view/render_scene.h>
 
 class DocumentSession;
 
@@ -29,6 +34,9 @@ public:
 
     void refresh();
     void fitAll();
+    std::optional<mulan::view::RenderScene::PickResult> pickEntityAt(const mulan::engine::Camera& camera, int x, int y);
+    bool selectSingle(mulan::scene::EntityId entity);
+    bool clearSelection();
 
 private:
     struct RenderCache;

@@ -8,6 +8,7 @@
 #include <mulan/scene/components/transform_component.h>
 #include <mulan/scene/entity_dirty.h>
 #include <mulan/scene/scene.h>
+#include <mulan/math/algo/intersect.h>
 
 namespace mulan::view {
 
@@ -142,6 +143,29 @@ void RenderScene::clear() {
 const SceneProxy* RenderScene::proxy(scene::EntityId id) const {
     auto it = proxies_.find(id);
     return it != proxies_.end() ? &it->second : nullptr;
+}
+
+std::optional<RenderScene::PickResult> RenderScene::pick(const math::Ray3& ray) const {
+    std::optional<PickResult> best;
+    for (const auto& [id, proxy] : proxies_) {
+        if (!proxy.visible) {
+            continue;
+        }
+
+        const auto hit = math::intersect(ray, proxy.worldBounds);
+        if (!hit.hit) {
+            continue;
+        }
+
+        if (!best || hit.t < best->distance) {
+            best = PickResult{
+                .entity = id,
+                .pickId = proxy.entity.index(),
+                .distance = hit.t,
+            };
+        }
+    }
+    return best;
 }
 
 }  // namespace mulan::view

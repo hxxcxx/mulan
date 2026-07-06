@@ -236,6 +236,37 @@ bool Scene::setSelected(EntityId id, bool selected) {
     return true;
 }
 
+bool Scene::clearSelection() {
+    bool changed = false;
+    for (auto id : entities_) {
+        if (auto* c = mutableSelection(id); c && c->selected) {
+            c->selected = false;
+            markDirty(id, EntityDirty::Selection);
+            changed = true;
+        }
+    }
+    return changed;
+}
+
+bool Scene::selectSingle(EntityId id) {
+    bool changed = clearSelection();
+    if (!isValid(id)) {
+        return changed;
+    }
+
+    auto* c = mutableSelection(id);
+    if (!c) {
+        return changed;
+    }
+
+    if (!c->selected) {
+        c->selected = true;
+        markDirty(id, EntityDirty::Selection);
+        changed = true;
+    }
+    return changed;
+}
+
 bool Scene::setWorldBounds(EntityId id, const math::AABB3& bounds) {
     auto* c = mutableBounds(id);
     if (!c)

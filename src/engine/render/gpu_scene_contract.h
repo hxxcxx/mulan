@@ -33,7 +33,8 @@ struct alignas(16) ObjectUniforms {
     float normalMat[12];
     uint32_t pickId;
     uint32_t selected;
-    float _pad[2];
+    uint32_t hovered;
+    uint32_t _pad;
 };
 static_assert(sizeof(ObjectUniforms) == 128);
 
@@ -60,7 +61,8 @@ inline void storeGpuVec3(float* dst, const math::Vec3& v) {
     dst[3] = 0.0f;
 }
 
-inline ObjectUniforms makeObjectUniforms(const math::Mat4& world, uint32_t pickId = 0, bool selected = false) {
+inline ObjectUniforms makeObjectUniforms(const math::Mat4& world, uint32_t pickId = 0, bool selected = false,
+                                         bool hovered = false) {
     ObjectUniforms ubo{};
     storeGpuMat4(ubo.world, world);
 
@@ -70,6 +72,7 @@ inline ObjectUniforms makeObjectUniforms(const math::Mat4& world, uint32_t pickI
 
     ubo.pickId = pickId;
     ubo.selected = selected ? 1u : 0u;
+    ubo.hovered = hovered ? 1u : 0u;
     return ubo;
 }
 

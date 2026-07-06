@@ -10,6 +10,7 @@
 #include "scene_proxy.h"
 
 #include <cstddef>
+#include <optional>
 #include <unordered_map>
 
 namespace mulan::asset {
@@ -24,6 +25,12 @@ namespace mulan::view {
 
 class RenderScene {
 public:
+    struct PickResult {
+        scene::EntityId entity;
+        uint32_t pickId = 0;
+        double distance = 0.0;
+    };
+
     struct SyncStats {
         size_t entityCount = 0;
         size_t assetCount = 0;
@@ -50,6 +57,7 @@ public:
     const SyncStats& lastSyncStats() const { return last_sync_stats_; }
     size_t proxyCount() const { return proxies_.size(); }
     const SceneProxy* proxy(scene::EntityId id) const;
+    std::optional<PickResult> pick(const math::Ray3& ray) const;
     const math::AABB3& sceneBounds() const { return scene_bounds_; }
 
     template <typename Func>

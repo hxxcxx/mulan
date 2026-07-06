@@ -44,5 +44,9 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
     // Gamma 编码：linear → sRGB 输出
     color = pow(color, float3(1.0/2.2, 1.0/2.2, 1.0/2.2));
 
+    if (Selected > 0) {
+        color = lerp(color, HighlightColor, 0.35);
+    }
+
     return float4(color, 1.0);
 }

@@ -18,6 +18,7 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
             item.pickId = static_cast<uint32_t>(object.desc.externalId);
             item.sourceDrawableIndex = drawable.sourceDrawableIndex;
             item.selected = object.desc.selected;
+            item.hovered = options.hasHoveredPickId && item.pickId == options.hoveredPickId;
 
             switch (drawable.bucket) {
             case RenderBucket::Surface:
@@ -25,7 +26,7 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
                     surfaces_.push_back(item);
                 break;
             case RenderBucket::Edge:
-                if (renderEdgesEnabled(options))
+                if (renderEdgesEnabled(options) || item.hovered)
                     edges_.push_back(item);
                 break;
             case RenderBucket::Overlay:

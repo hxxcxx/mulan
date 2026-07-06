@@ -59,6 +59,7 @@ struct MeshDrawCommand {
     uint64_t sortKey = 0;
     uint32_t pickId = 0;
     bool selected = false;
+    bool hovered = false;
     bool visible = true;
     bool isWire = false;
     bool translucent = false;

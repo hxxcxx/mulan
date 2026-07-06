@@ -26,6 +26,8 @@ struct ViewState {
 
     RenderMode renderMode = RenderMode::ShadedWithEdges;
     SurfaceShading surfaceShading = SurfaceShading::SolidLit;
+    uint32_t hoveredPickId = 0;
+    bool hasHoveredPickId = false;
     bool showFaces = true;
     bool showEdges = true;
     bool showOverlays = true;

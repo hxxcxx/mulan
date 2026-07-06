@@ -104,6 +104,8 @@ engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewS
     request.output.capture.readback = request.output.readback;
     request.options.displayMode = toDisplayMode(viewState.renderMode);
     request.options.surfaceTechnique = toSurfaceTechnique(viewState.surfaceShading);
+    request.options.hoveredPickId = viewState.hoveredPickId;
+    request.options.hasHoveredPickId = viewState.hasHoveredPickId;
     request.options.showSurfaces = viewState.showFaces;
     request.options.showEdges = viewState.showEdges;
     request.options.showOverlays = viewState.showOverlays;

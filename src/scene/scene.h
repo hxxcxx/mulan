@@ -63,6 +63,8 @@ public:
     bool setVisible(EntityId id, bool visible);
     bool setMaterialSlots(EntityId id, std::vector<asset::AssetId> materials);
     bool setSelected(EntityId id, bool selected);
+    bool clearSelection();
+    bool selectSingle(EntityId id);
     bool setWorldBounds(EntityId id, const math::AABB3& bounds);
 
     void markDirty(EntityId id, EntityDirty dirty);

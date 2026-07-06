@@ -164,5 +164,9 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
     color = acesTonemap(color);
     color = pow(color, 1.0 / 2.2);
 
+    if (Selected > 0) {
+        color = lerp(color, HighlightColor, 0.32);
+    }
+
     return float4(color, Alpha);
 }

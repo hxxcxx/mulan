@@ -79,6 +79,9 @@ public:
     SurfaceShading surfaceShading() const { return surface_shading_; }
     void setSurfaceShading(SurfaceShading shading) { surface_shading_ = shading; }
 
+    void setHoveredPickId(uint32_t pickId);
+    void clearHoveredPickId();
+
     bool showViewCube() const { return show_view_cube_; }
     void setShowViewCube(bool show) { show_view_cube_ = show; }
 
@@ -122,6 +125,8 @@ private:
     engine::LightEnvironment light_env_;
     RenderMode render_mode_ = RenderMode::ShadedWithEdges;
     SurfaceShading surface_shading_ = SurfaceShading::SolidLit;
+    uint32_t hovered_pick_id_ = 0;
+    bool has_hovered_pick_id_ = false;
     bool show_overlays_ = true;
     bool show_view_cube_ = true;
     bool consuming_view_cube_click_ = false;

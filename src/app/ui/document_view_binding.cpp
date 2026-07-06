@@ -3,6 +3,7 @@
 #include "document_session.h"
 
 #include <mulan/io/document.h>
+#include <mulan/scene/scene.h>
 #include <mulan/view/render_scene.h>
 #include <mulan/view/view_context.h>
 
@@ -53,6 +54,44 @@ void DocumentViewBinding::fitAll() {
         view_->camera().fitToBox(bounds);
     }
     view_->renderFrame();
+}
+
+std::optional<mulan::view::RenderScene::PickResult> DocumentViewBinding::pickEntityAt(
+        const mulan::engine::Camera& camera, int x, int y) {
+    if (!isBound()) {
+        return std::nullopt;
+    }
+
+    syncRenderCache();
+    if (!render_cache_) {
+        return std::nullopt;
+    }
+
+    return render_cache_->renderScene.pick(camera.screenRay(x, y));
+}
+
+bool DocumentViewBinding::selectSingle(mulan::scene::EntityId entity) {
+    if (!isBound() || !session_->document() || !session_->document()->scene()) {
+        return false;
+    }
+
+    const bool changed = session_->document()->scene()->selectSingle(entity);
+    if (changed) {
+        refresh();
+    }
+    return changed;
+}
+
+bool DocumentViewBinding::clearSelection() {
+    if (!isBound() || !session_->document() || !session_->document()->scene()) {
+        return false;
+    }
+
+    const bool changed = session_->document()->scene()->clearSelection();
+    if (changed) {
+        refresh();
+    }
+    return changed;
 }
 
 void DocumentViewBinding::syncRenderCache() {
