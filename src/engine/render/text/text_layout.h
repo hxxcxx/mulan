@@ -32,6 +32,7 @@ public:
 
     /// 测量文字宽度（用于对齐计算）
     static float measureWidth(const FontAtlas& font, std::string_view text, float fontSize);
+    static TextMetrics measure(const FontAtlas& font, std::string_view text, float fontSize);
 
 private:
     /// UTF-8 解码，返回单个 Unicode 码点，ptr 自动前进

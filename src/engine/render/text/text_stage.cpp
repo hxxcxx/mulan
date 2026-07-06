@@ -148,9 +148,8 @@ core::Result<void> TextStage::init(RHIDevice& device, const RenderTargetInfo& ta
         return std::unexpected(makeError(EngineErrorCode::BufferCreateFailed, "TextStage buffer creation failed"));
     }
 
-    if (loadDefaultFont()) {
-        createBindGroup();
-    } else {
+    font_manager_ = std::make_unique<FontManager>(device);
+    if (!loadDefaultFont()) {
         std::fprintf(stderr, "[TextStage] default font load failed; text draws will be skipped\n");
     }
 
@@ -159,17 +158,19 @@ core::Result<void> TextStage::init(RHIDevice& device, const RenderTargetInfo& ta
 }
 
 void TextStage::shutdown(RHIDevice&) {
-    bind_group_.reset();
+    font_bind_groups_.clear();
     index_buffer_.reset();
     vertex_buffer_.reset();
     params_ubo_.reset();
-    default_font_.reset();
+    default_font_ = nullptr;
+    font_manager_.reset();
     pso_.reset();
     fs_.reset();
     vs_.reset();
     items_.clear();
     vertices_.clear();
     indices_.clear();
+    batches_.clear();
     vertex_capacity_ = 0;
     index_capacity_ = 0;
     initialized_ = false;
@@ -183,6 +184,7 @@ void TextStage::beginFrame(uint32_t width, uint32_t height) {
 
 void TextStage::clear() {
     items_.clear();
+    batches_.clear();
 }
 
 void TextStage::addText(const TextDrawDesc& desc) {
@@ -199,6 +201,29 @@ void TextStage::addTextList(const TextDrawList& list) {
     for (const TextDrawDesc& item : list.items()) {
         addText(item);
     }
+}
+
+bool TextStage::hasFont() const {
+    return default_font_ && default_font_->isLoaded();
+}
+
+bool TextStage::hasFont(std::string_view fontKey) const {
+    if (fontKey.empty() || fontKey == "default") {
+        return hasFont();
+    }
+    if (!font_manager_) {
+        return false;
+    }
+    FontAtlas* font = font_manager_->font(std::string(fontKey).c_str());
+    return font && font->isLoaded();
+}
+
+TextMetrics TextStage::measureText(std::string_view fontKey, std::string_view text, float sizePx) const {
+    const FontAtlas* font = resolveFont(fontKey);
+    if (!font) {
+        return {};
+    }
+    return TextLayout::measure(*font, text, std::max(sizePx, 1.0f));
 }
 
 bool TextStage::loadShaders() {
@@ -304,6 +329,10 @@ bool TextStage::ensureCapacity(uint32_t vertexCount, uint32_t indexCount) {
 }
 
 bool TextStage::loadDefaultFont() {
+    if (!font_manager_) {
+        return false;
+    }
+
     static constexpr const char* kCandidates[] = {
 #ifdef _WIN32
         "C:/Windows/Fonts/segoeui.ttf",
@@ -323,44 +352,66 @@ bool TextStage::loadDefaultFont() {
         if (!path || !fileExists(path)) {
             continue;
         }
-        auto font = std::make_unique<FontAtlas>(device_);
-        if (font->load(path, 48.0f, 1024, 1024)) {
-            default_font_ = std::move(font);
+        if (font_manager_->loadFont("default", path, 48.0f, 1024)) {
+            default_font_ = font_manager_->defaultFont();
             return true;
         }
     }
     return false;
 }
 
-bool TextStage::createBindGroup() {
-    if (!pso_ || !params_ubo_ || !default_font_ || !default_font_->atlasTexture()) {
-        return false;
+FontAtlas* TextStage::resolveFont(std::string_view fontKey) const {
+    if (!font_manager_) {
+        return nullptr;
     }
 
-    if (!default_font_->atlasSampler() && device_->backend() != GraphicsBackend::D3D12) {
+    FontAtlas* font = nullptr;
+    if (!fontKey.empty()) {
+        font = font_manager_->font(std::string(fontKey).c_str());
+    }
+    if (!font) {
+        font = default_font_ ? default_font_ : font_manager_->defaultFont();
+    }
+    return font && font->isLoaded() ? font : nullptr;
+}
+
+BindGroup* TextStage::bindGroupForFont(std::string_view fontKey, FontAtlas& font) {
+    if (!pso_ || !params_ubo_ || !font.atlasTexture()) {
+        return nullptr;
+    }
+
+    if (!font.atlasSampler() && device_->backend() != GraphicsBackend::D3D12) {
         std::fprintf(stderr, "[TextStage] atlas sampler is required by this backend\n");
-        return false;
+        return nullptr;
+    }
+
+    std::string key(fontKey.empty() ? "default" : fontKey);
+    auto it = font_bind_groups_.find(key);
+    if (it != font_bind_groups_.end()) {
+        return it->second.get();
     }
 
     BindGroupDesc bg;
     bg.addUBO(0, params_ubo_.get(), 0, sizeof(TextParamsGPU));
-    bg.addTexture(1, default_font_->atlasTexture());
-    if (default_font_->atlasSampler()) {
-        bg.addSampler(2, default_font_->atlasSampler());
+    bg.addTexture(1, font.atlasTexture());
+    if (font.atlasSampler()) {
+        bg.addSampler(2, font.atlasSampler());
     }
 
     auto bindGroup = device_->createBindGroup(pso_->bindGroupLayout(), bg);
     if (!bindGroup) {
         std::fprintf(stderr, "[TextStage] createBindGroup: %s\n", bindGroup.error().message.c_str());
-        return false;
+        return nullptr;
     }
-    bind_group_ = std::move(*bindGroup);
-    return true;
+
+    auto result = font_bind_groups_.emplace(std::move(key), std::move(*bindGroup));
+    return result.first->second.get();
 }
 
 void TextStage::buildGeometry() {
     vertices_.clear();
     indices_.clear();
+    batches_.clear();
 
     if (!default_font_ || !default_font_->isLoaded()) {
         return;
@@ -370,11 +421,15 @@ void TextStage::buildGeometry() {
         if (item.space != TextSpace::Screen && item.space != TextSpace::WorldPlanar) {
             continue;
         }
+        FontAtlas* font = resolveFont(item.font);
+        if (!font) {
+            continue;
+        }
 
         const float fontSize = std::max(item.sizePx, 1.0f);
         float x = item.space == TextSpace::Screen ? static_cast<float>(item.positionPx.x) : 0.0f;
         float y = item.space == TextSpace::Screen ? static_cast<float>(item.positionPx.y) : 0.0f;
-        const float textWidth = TextLayout::measureWidth(*default_font_, item.text, fontSize);
+        const float textWidth = TextLayout::measureWidth(*font, item.text, fontSize);
         const float textHeight = fontSize;
 
         if (item.space == TextSpace::Screen) {
@@ -396,15 +451,27 @@ void TextStage::buildGeometry() {
                                  clamp01(static_cast<float>(item.color.z)), clamp01(static_cast<float>(item.color.w)) };
         const uint32_t firstVertex = static_cast<uint32_t>(vertices_.size());
         const uint32_t firstIndex = static_cast<uint32_t>(indices_.size());
-        TextLayout::layout(*default_font_, item.text, x, y, fontSize, color, vertices_, indices_);
+        TextLayout::layout(*font, item.text, x, y, fontSize, color, vertices_, indices_);
         if (item.space == TextSpace::WorldPlanar) {
             alignLocalTextBounds(vertices_, firstVertex, item.anchor);
             applyWorldPlanarBasis(vertices_, indices_, firstVertex, firstIndex, item);
         }
+        const uint32_t indexCount = static_cast<uint32_t>(indices_.size()) - firstIndex;
+        if (indexCount == 0) {
+            continue;
+        }
+        const std::string fontKey = font == default_font_ ? std::string("default")
+                                                          : (item.font.empty() ? std::string("default") : item.font);
+        if (!batches_.empty() && batches_.back().font == fontKey && batches_.back().atlas == font &&
+            batches_.back().firstIndex + batches_.back().indexCount == firstIndex) {
+            batches_.back().indexCount += indexCount;
+        } else {
+            batches_.push_back(TextBatch{ fontKey, font, firstIndex, indexCount });
+        }
     }
 }
 
-void TextStage::updateParams() {
+void TextStage::updateParams(const FontAtlas& font) {
     TextParamsGPU params{};
     const math::Mat4 projection =
             device_->backend() == GraphicsBackend::Vulkan
@@ -415,28 +482,27 @@ void TextStage::updateParams() {
     params.bgColor[1] = 0.0f;
     params.bgColor[2] = 0.0f;
     params.bgColor[3] = 0.0f;
-    params.pxRange = default_font_ ? default_font_->pxRange() : 4.0f;
-    params.atlasSize[0] = default_font_ ? static_cast<float>(default_font_->atlasWidth()) : 1.0f;
-    params.atlasSize[1] = default_font_ ? static_cast<float>(default_font_->atlasHeight()) : 1.0f;
+    params.pxRange = font.pxRange();
+    params.atlasSize[0] = static_cast<float>(font.atlasWidth());
+    params.atlasSize[1] = static_cast<float>(font.atlasHeight());
     params_ubo_->update(0, sizeof(TextParamsGPU), &params);
 }
 
 void TextStage::execute(RenderFrame& frame) {
-    if (!initialized_ || !pso_ || !bind_group_ || !vertex_buffer_ || !index_buffer_ || items_.empty()) {
+    if (!initialized_ || !pso_ || !vertex_buffer_ || !index_buffer_ || items_.empty()) {
         return;
     }
 
     width_ = frame.view.width;
     height_ = frame.view.height;
     buildGeometry();
-    if (vertices_.empty() || indices_.empty()) {
+    if (vertices_.empty() || indices_.empty() || batches_.empty()) {
         return;
     }
     if (!ensureCapacity(static_cast<uint32_t>(vertices_.size()), static_cast<uint32_t>(indices_.size()))) {
         return;
     }
 
-    updateParams();
     vertex_buffer_->update(0, static_cast<uint32_t>(sizeof(TextVertex) * vertices_.size()), vertices_.data());
     index_buffer_->update(0, static_cast<uint32_t>(sizeof(uint32_t) * indices_.size()), indices_.data());
 
@@ -444,10 +510,20 @@ void TextStage::execute(RenderFrame& frame) {
     cmd.setViewport({ 0.0f, 0.0f, static_cast<float>(width_), static_cast<float>(height_), 0.0f, 1.0f });
     cmd.setScissorRect({ 0, 0, static_cast<int32_t>(width_), static_cast<int32_t>(height_) });
     cmd.setPipelineState(pso_.get());
-    cmd.bindGroup(*bind_group_);
     cmd.setVertexBuffer(0, vertex_buffer_.get());
     cmd.setIndexBuffer(index_buffer_.get());
-    cmd.drawIndexed(DrawIndexedAttribs{ static_cast<uint32_t>(indices_.size()), 1, 0 });
+    for (const TextBatch& batch : batches_) {
+        if (!batch.atlas) {
+            continue;
+        }
+        BindGroup* bindGroup = bindGroupForFont(batch.font, *batch.atlas);
+        if (!bindGroup) {
+            continue;
+        }
+        updateParams(*batch.atlas);
+        cmd.bindGroup(*bindGroup);
+        cmd.drawIndexed(DrawIndexedAttribs{ batch.indexCount, 1, batch.firstIndex });
+    }
 }
 
 }  // namespace mulan::engine

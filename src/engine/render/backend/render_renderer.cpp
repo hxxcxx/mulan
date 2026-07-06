@@ -162,7 +162,7 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     if (geometry_resources_) {
         geometry_resources_->uploadFrameData(buildDrawContext(*cmd, frame));
     }
-    executeStages(frame);
+    executeStages(frame, request.textDraws);
 
     cmd->endRenderPass();
     cmd->end();
@@ -303,10 +303,11 @@ CommandList* RenderRenderer::beginFrame(RHIDevice& device, const RenderSurfaceBi
     return cmd;
 }
 
-void RenderRenderer::executeStages(RenderFrame& frame) {
+void RenderRenderer::executeStages(RenderFrame& frame, const TextDrawList& requestTextDraws) {
     if (text_stage_)
         text_stage_->beginFrame(frame.view.width, frame.view.height);
     TextDrawList textDraws;
+    textDraws.append(requestTextDraws);
     if (face_stage_)
         face_stage_->execute(frame);
     if (edge_stage_)

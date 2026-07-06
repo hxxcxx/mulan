@@ -12,6 +12,7 @@
 #include "render_view_desc.h"
 #include "render_world_snapshot.h"
 #include "../overlay/view_cube_model.h"
+#include "../text/text_types.h"
 
 #include <cstdint>
 
@@ -85,6 +86,7 @@ struct RenderRequest {
     RenderViewDesc view;
     RenderOutputDesc output;
     RenderOptions options;
+    TextDrawList textDraws;
 };
 
 }  // namespace mulan::engine

@@ -56,7 +56,7 @@ private:
     void compile(const RenderRequest& request);
     DrawExecutionContext buildDrawContext(CommandList& cmd, const RenderFrame& frame) const;
     CommandList* beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
-    void executeStages(RenderFrame& frame);
+    void executeStages(RenderFrame& frame, const TextDrawList& requestTextDraws);
     void endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
 
     std::unique_ptr<MaterialCache> material_cache_;

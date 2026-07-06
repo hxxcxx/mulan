@@ -50,6 +50,16 @@ struct TextVertex {
     uint32_t color;  ///< 打包 RGBA8
 };
 
+struct TextMetrics {
+    float width = 0.0f;
+    float height = 0.0f;
+    float minX = 0.0f;
+    float minY = 0.0f;
+    float maxX = 0.0f;
+    float maxY = 0.0f;
+    float baseline = 0.0f;
+};
+
 // ============================================================
 // 文字绘制请求 — 由上层调用 addText() 时内部暂存
 // ============================================================
@@ -146,6 +156,7 @@ public:
             items_.push_back(desc);
         }
     }
+    void append(const TextDrawList& other) { items_.insert(items_.end(), other.items_.begin(), other.items_.end()); }
     bool empty() const { return items_.empty(); }
     const std::vector<TextDrawDesc>& items() const { return items_; }
 

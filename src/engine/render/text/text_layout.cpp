@@ -171,4 +171,32 @@ float TextLayout::measureWidth(const FontAtlas& font, std::string_view text, flo
     return width;
 }
 
+TextMetrics TextLayout::measure(const FontAtlas& font, std::string_view text, float fontSize) {
+    const float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    std::vector<TextVertex> vertices;
+    std::vector<uint32_t> indices;
+    layout(font, text, 0.0f, 0.0f, fontSize, color, vertices, indices);
+
+    TextMetrics metrics;
+    metrics.width = measureWidth(font, text, fontSize);
+    metrics.baseline = 0.0f;
+    if (vertices.empty()) {
+        return metrics;
+    }
+
+    metrics.minX = vertices[0].x;
+    metrics.maxX = vertices[0].x;
+    metrics.minY = vertices[0].y;
+    metrics.maxY = vertices[0].y;
+    for (const TextVertex& v : vertices) {
+        metrics.minX = std::min(metrics.minX, v.x);
+        metrics.maxX = std::max(metrics.maxX, v.x);
+        metrics.minY = std::min(metrics.minY, v.y);
+        metrics.maxY = std::max(metrics.maxY, v.y);
+    }
+    metrics.width = metrics.maxX - metrics.minX;
+    metrics.height = metrics.maxY - metrics.minY;
+    return metrics;
+}
+
 }  // namespace mulan::engine
