@@ -3,6 +3,7 @@
 #include <mulan/math/math.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cmath>
 
@@ -29,6 +30,24 @@ enum class ViewCubeFace : uint8_t {
     Right,
     Top,
     Bottom,
+};
+
+struct ViewCubePart {
+    ViewCubePartType type = ViewCubePartType::None;
+    int8_t x = 0;
+    int8_t y = 0;
+    int8_t z = 0;
+    uint32_t index = 0;
+
+    friend constexpr bool operator==(const ViewCubePart& a, const ViewCubePart& b) {
+        return a.type == b.type && a.x == b.x && a.y == b.y && a.z == b.z && a.index == b.index;
+    }
+};
+
+struct ViewCubePartShape {
+    ViewCubePart part;
+    std::array<math::Vec3, 4> vertices{};
+    uint32_t vertexCount = 0;
 };
 
 struct ViewCubeRect {
@@ -80,6 +99,7 @@ struct ViewCubeLayout {
 struct ViewCubeHit {
     ViewCubePartType type = ViewCubePartType::None;
     ViewCubeFace face = ViewCubeFace::Front;
+    ViewCubePart part;
     int32_t localX = 0;
     int32_t localY = 0;
 
@@ -87,16 +107,18 @@ struct ViewCubeHit {
 };
 
 struct ViewCubeInteractionState {
-    ViewCubeFace hoveredFace = ViewCubeFace::Front;
-    ViewCubeFace pressedFace = ViewCubeFace::Front;
-    bool hasHoveredFace = false;
-    bool hasPressedFace = false;
+    ViewCubePart hoveredPart;
+    ViewCubePart pressedPart;
+    bool hasHoveredPart = false;
+    bool hasPressedPart = false;
 };
 
 class ViewCubeModel {
 public:
     static constexpr double kCubeHalfExtent = 0.58;
+    static constexpr double kCenterHalfExtent = 0.46;
     static constexpr double kOrthoExtent = 1.36;
+    static constexpr uint32_t kPartCount = 26;
 
     explicit ViewCubeModel(ViewCubeLayout layout = {}) : layout_(layout) {}
 
@@ -105,6 +127,106 @@ public:
 
     ViewCubeRect viewportRect(uint32_t viewportWidth, uint32_t viewportHeight) const {
         return layout_.rect(viewportWidth, viewportHeight);
+    }
+
+    static const std::array<ViewCubePart, kPartCount>& parts() {
+        static constexpr std::array<ViewCubePart, kPartCount> kParts = {
+            ViewCubePart{ ViewCubePartType::Face, 0, 0, 1, 0 },
+            ViewCubePart{ ViewCubePartType::Face, 0, 0, -1, 1 },
+            ViewCubePart{ ViewCubePartType::Face, -1, 0, 0, 2 },
+            ViewCubePart{ ViewCubePartType::Face, 1, 0, 0, 3 },
+            ViewCubePart{ ViewCubePartType::Face, 0, 1, 0, 4 },
+            ViewCubePart{ ViewCubePartType::Face, 0, -1, 0, 5 },
+            ViewCubePart{ ViewCubePartType::Edge, -1, -1, 0, 6 },
+            ViewCubePart{ ViewCubePartType::Edge, -1, 1, 0, 7 },
+            ViewCubePart{ ViewCubePartType::Edge, 1, -1, 0, 8 },
+            ViewCubePart{ ViewCubePartType::Edge, 1, 1, 0, 9 },
+            ViewCubePart{ ViewCubePartType::Edge, -1, 0, -1, 10 },
+            ViewCubePart{ ViewCubePartType::Edge, -1, 0, 1, 11 },
+            ViewCubePart{ ViewCubePartType::Edge, 1, 0, -1, 12 },
+            ViewCubePart{ ViewCubePartType::Edge, 1, 0, 1, 13 },
+            ViewCubePart{ ViewCubePartType::Edge, 0, -1, -1, 14 },
+            ViewCubePart{ ViewCubePartType::Edge, 0, -1, 1, 15 },
+            ViewCubePart{ ViewCubePartType::Edge, 0, 1, -1, 16 },
+            ViewCubePart{ ViewCubePartType::Edge, 0, 1, 1, 17 },
+            ViewCubePart{ ViewCubePartType::Corner, -1, -1, -1, 18 },
+            ViewCubePart{ ViewCubePartType::Corner, -1, -1, 1, 19 },
+            ViewCubePart{ ViewCubePartType::Corner, -1, 1, -1, 20 },
+            ViewCubePart{ ViewCubePartType::Corner, -1, 1, 1, 21 },
+            ViewCubePart{ ViewCubePartType::Corner, 1, -1, -1, 22 },
+            ViewCubePart{ ViewCubePartType::Corner, 1, -1, 1, 23 },
+            ViewCubePart{ ViewCubePartType::Corner, 1, 1, -1, 24 },
+            ViewCubePart{ ViewCubePartType::Corner, 1, 1, 1, 25 },
+        };
+        return kParts;
+    }
+
+    static math::Vec3 partNormal(const ViewCubePart& part) {
+        return math::Vec3(static_cast<double>(part.x), static_cast<double>(part.y), static_cast<double>(part.z))
+                .normalized();
+    }
+
+    static ViewCubeFace faceForPart(const ViewCubePart& part) {
+        if (part.z > 0)
+            return ViewCubeFace::Front;
+        if (part.z < 0)
+            return ViewCubeFace::Back;
+        if (part.x < 0)
+            return ViewCubeFace::Left;
+        if (part.x > 0)
+            return ViewCubeFace::Right;
+        if (part.y > 0)
+            return ViewCubeFace::Top;
+        return ViewCubeFace::Bottom;
+    }
+
+    static ViewCubePartShape partShape(const ViewCubePart& part) {
+        ViewCubePartShape shape;
+        shape.part = part;
+
+        const double h = kCubeHalfExtent;
+        const double c = kCenterHalfExtent;
+        auto makePoint = [](double x, double y, double z) {
+            return math::Vec3(x, y, z);
+        };
+
+        if (part.type == ViewCubePartType::Face) {
+            shape.vertexCount = 4;
+            if (part.x != 0) {
+                const double x = part.x * h;
+                shape.vertices = { makePoint(x, -c, -c), makePoint(x, c, -c), makePoint(x, c, c), makePoint(x, -c, c) };
+            } else if (part.y != 0) {
+                const double y = part.y * h;
+                shape.vertices = { makePoint(-c, y, -c), makePoint(c, y, -c), makePoint(c, y, c), makePoint(-c, y, c) };
+            } else {
+                const double z = part.z * h;
+                shape.vertices = { makePoint(-c, -c, z), makePoint(c, -c, z), makePoint(c, c, z), makePoint(-c, c, z) };
+            }
+            return shape;
+        }
+
+        if (part.type == ViewCubePartType::Edge) {
+            shape.vertexCount = 4;
+            if (part.z == 0) {
+                shape.vertices = { makePoint(part.x * h, part.y * c, -c), makePoint(part.x * h, part.y * c, c),
+                                   makePoint(part.x * c, part.y * h, c), makePoint(part.x * c, part.y * h, -c) };
+            } else if (part.y == 0) {
+                shape.vertices = { makePoint(part.x * h, -c, part.z * c), makePoint(part.x * h, c, part.z * c),
+                                   makePoint(part.x * c, c, part.z * h), makePoint(part.x * c, -c, part.z * h) };
+            } else {
+                shape.vertices = { makePoint(-c, part.y * h, part.z * c), makePoint(c, part.y * h, part.z * c),
+                                   makePoint(c, part.y * c, part.z * h), makePoint(-c, part.y * c, part.z * h) };
+            }
+            return shape;
+        }
+
+        if (part.type == ViewCubePartType::Corner) {
+            shape.vertexCount = 3;
+            shape.vertices[0] = makePoint(part.x * h, part.y * c, part.z * c);
+            shape.vertices[1] = makePoint(part.x * c, part.y * h, part.z * c);
+            shape.vertices[2] = makePoint(part.x * c, part.y * c, part.z * h);
+        }
+        return shape;
     }
 
     ViewCubeHit hitTest(int32_t screenX, int32_t screenY, uint32_t viewportWidth, uint32_t viewportHeight) const {
@@ -120,7 +242,7 @@ public:
         return hit;
     }
 
-    ViewCubeHit pickFace(int32_t screenX, int32_t screenY, uint32_t viewportWidth, uint32_t viewportHeight,
+    ViewCubeHit pickPart(int32_t screenX, int32_t screenY, uint32_t viewportWidth, uint32_t viewportHeight,
                          const math::Mat4& mainViewMatrix) const {
         ViewCubeHit hit = hitTest(screenX, screenY, viewportWidth, viewportHeight);
         if (!hit) {
@@ -147,41 +269,69 @@ public:
         const math::Vec3 rayDir = (math::Vec3(farPt) - rayOrigin).normalized();
 
         double bestT = 1.0e100;
-        ViewCubeFace bestFace = ViewCubeFace::Front;
-        auto testPlane = [&](double plane, int axis, ViewCubeFace face) {
-            const double dir = rayDir[axis];
-            if (std::abs(dir) < 1.0e-9) {
-                return;
+        ViewCubePart bestPart;
+        auto intersectTriangle = [&](const math::Vec3& a, const math::Vec3& b, const math::Vec3& c,
+                                     double& tOut) -> bool {
+            const math::Vec3 e1 = b - a;
+            const math::Vec3 e2 = c - a;
+            const math::Vec3 p = rayDir.cross(e2);
+            const double det = e1.dot(p);
+            if (std::abs(det) < 1.0e-10) {
+                return false;
             }
-            const double t = (plane - rayOrigin[axis]) / dir;
-            if (t < 0.0 || t >= bestT) {
-                return;
+
+            const double invDet = 1.0 / det;
+            const math::Vec3 tv = rayOrigin - a;
+            const double u = tv.dot(p) * invDet;
+            if (u < 0.0 || u > 1.0) {
+                return false;
             }
-            const math::Vec3 p = rayOrigin + rayDir * t;
-            constexpr double eps = 1.0e-5;
-            if (p.x < -kCubeHalfExtent - eps || p.x > kCubeHalfExtent + eps || p.y < -kCubeHalfExtent - eps ||
-                p.y > kCubeHalfExtent + eps || p.z < -kCubeHalfExtent - eps || p.z > kCubeHalfExtent + eps) {
+
+            const math::Vec3 q = tv.cross(e1);
+            const double v = rayDir.dot(q) * invDet;
+            if (v < 0.0 || u + v > 1.0) {
+                return false;
+            }
+
+            const double t = e2.dot(q) * invDet;
+            if (t < 0.0) {
+                return false;
+            }
+            tOut = t;
+            return true;
+        };
+
+        auto testShape = [&](const ViewCubePartShape& shape) {
+            double t = 0.0;
+            bool matched = intersectTriangle(shape.vertices[0], shape.vertices[1], shape.vertices[2], t);
+            if (!matched && shape.vertexCount == 4) {
+                matched = intersectTriangle(shape.vertices[0], shape.vertices[2], shape.vertices[3], t);
+            }
+            if (!matched || t >= bestT) {
                 return;
             }
             bestT = t;
-            bestFace = face;
+            bestPart = shape.part;
         };
 
-        testPlane(kCubeHalfExtent, 2, ViewCubeFace::Front);
-        testPlane(-kCubeHalfExtent, 2, ViewCubeFace::Back);
-        testPlane(-kCubeHalfExtent, 0, ViewCubeFace::Left);
-        testPlane(kCubeHalfExtent, 0, ViewCubeFace::Right);
-        testPlane(kCubeHalfExtent, 1, ViewCubeFace::Top);
-        testPlane(-kCubeHalfExtent, 1, ViewCubeFace::Bottom);
+        for (const auto& part : parts()) {
+            testShape(partShape(part));
+        }
 
         if (bestT == 1.0e100) {
             hit.type = ViewCubePartType::None;
             return hit;
         }
 
-        hit.type = ViewCubePartType::Face;
-        hit.face = bestFace;
+        hit.type = bestPart.type;
+        hit.face = faceForPart(bestPart);
+        hit.part = bestPart;
         return hit;
+    }
+
+    ViewCubeHit pickFace(int32_t screenX, int32_t screenY, uint32_t viewportWidth, uint32_t viewportHeight,
+                         const math::Mat4& mainViewMatrix) const {
+        return pickPart(screenX, screenY, viewportWidth, viewportHeight, mainViewMatrix);
     }
 
 private:

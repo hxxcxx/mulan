@@ -13,7 +13,6 @@
 #include <cmath>
 #include <string>
 #include <vector>
-#include <array>
 
 namespace mulan::engine {
 
@@ -36,29 +35,6 @@ bool hasLayoutBinding(const BindGroupLayout& layout, uint32_t binding) {
 // 立方体几何常量
 // ============================================================
 
-static constexpr float kHalf = static_cast<float>(ViewCubeModel::kCubeHalfExtent);  // 半边长
-
-/// 6个面定义：normal, up, 面颜色(线性), 边线颜色
-static const struct {
-    float normal[3];
-    float up[3];
-    float color[3];
-} kFaces[6] = {
-    // Front  (+Z)
-    { { 0, 0, 1 }, { 0, 1, 0 }, { 0.58f, 0.58f, 0.58f } },
-    // Back   (-Z)
-    { { 0, 0, -1 }, { 0, 1, 0 }, { 0.58f, 0.58f, 0.58f } },
-    // Left   (-X)
-    { { -1, 0, 0 }, { 0, 1, 0 }, { 0.58f, 0.58f, 0.58f } },
-    // Right  (+X)
-    { { 1, 0, 0 }, { 0, 1, 0 }, { 0.58f, 0.58f, 0.58f } },
-    // Top    (+Y)
-    { { 0, 1, 0 }, { 0, 0, -1 }, { 0.58f, 0.58f, 0.58f } },
-    // Bottom (-Y)
-    { { 0, -1, 0 }, { 0, 0, 1 }, { 0.58f, 0.58f, 0.58f } },
-};
-
-static constexpr float kLineColor[3] = { 0.06f, 0.07f, 0.08f };
 static constexpr float kHoverColor[3] = { 0.98f, 0.62f, 0.18f };
 static constexpr float kPressedColor[3] = { 1.0f, 0.78f, 0.28f };
 static constexpr float kAxisColors[3][3] = {
@@ -66,6 +42,31 @@ static constexpr float kAxisColors[3][3] = {
     { 0.18f, 0.68f, 0.22f },  // +Y
     { 0.18f, 0.38f, 0.95f },  // +Z
 };
+
+void viewCubePartBaseColor(const ViewCubePart& part, float out[3]) {
+    switch (part.type) {
+    case ViewCubePartType::Face:
+        out[0] = 0.58f;
+        out[1] = 0.58f;
+        out[2] = 0.58f;
+        break;
+    case ViewCubePartType::Edge:
+        out[0] = 0.50f;
+        out[1] = 0.50f;
+        out[2] = 0.50f;
+        break;
+    case ViewCubePartType::Corner:
+        out[0] = 0.44f;
+        out[1] = 0.44f;
+        out[2] = 0.44f;
+        break;
+    case ViewCubePartType::None:
+        out[0] = 0.58f;
+        out[1] = 0.58f;
+        out[2] = 0.58f;
+        break;
+    }
+}
 
 // ============================================================
 // 构造 / 析构
@@ -77,8 +78,6 @@ ViewCubeStage::ViewCubeStage(RHIDevice& device) : device_(&device) {
 ViewCubeStage::~ViewCubeStage() {
     axis_ib_.reset();
     axis_vb_.reset();
-    edge_ib_.reset();
-    edge_vb_.reset();
     face_ib_.reset();
     face_vb_.reset();
     material_ubo_.reset();
@@ -133,14 +132,9 @@ core::Result<void> ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo
         m.materialType = 0;
     }
 
-    for (uint32_t i = 0; i < kFaceCount; ++i) {
-        materials_[i].baseColor[0] = kFaces[i].color[0];
-        materials_[i].baseColor[1] = kFaces[i].color[1];
-        materials_[i].baseColor[2] = kFaces[i].color[2];
+    for (uint32_t i = 0; i < kPartCount; ++i) {
+        viewCubePartBaseColor(ViewCubeModel::parts()[i], materials_[i].baseColor);
     }
-    materials_[kLineMaterialOffset].baseColor[0] = kLineColor[0];
-    materials_[kLineMaterialOffset].baseColor[1] = kLineColor[1];
-    materials_[kLineMaterialOffset].baseColor[2] = kLineColor[2];
     for (uint32_t axis = 0; axis < kAxisCount; ++axis) {
         materials_[kAxisMaterialOffset + axis].baseColor[0] = kAxisColors[axis][0];
         materials_[kAxisMaterialOffset + axis].baseColor[1] = kAxisColors[axis][1];
@@ -161,12 +155,9 @@ core::Result<void> ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo
 }
 
 void ViewCubeStage::shutdown(RHIDevice&) {
-    edge_bg_.reset();
     face_bg_.reset();
     axis_ib_.reset();
     axis_vb_.reset();
-    edge_ib_.reset();
-    edge_vb_.reset();
     face_ib_.reset();
     face_vb_.reset();
     material_ubo_.reset();
@@ -177,7 +168,7 @@ void ViewCubeStage::shutdown(RHIDevice&) {
 
 void ViewCubeStage::setPipelines(PipelineState* solidPso, PipelineState* edgePso) {
     solid_pso_ = solidPso;
-    edge_pso_ = edgePso;
+    (void) edgePso;
 }
 
 void ViewCubeStage::setFallbackResources(Texture* defaultWhite, Sampler* defaultSampler) {
@@ -232,69 +223,56 @@ void ViewCubeStage::execute(RenderFrame& frame) {
 bool ViewCubeStage::createGeometry() {
     if (!createFaceGeometry())
         return false;
-    if (!createEdgeGeometry())
-        return false;
     if (!createAxisGeometry())
         return false;
     return true;
 }
 
 bool ViewCubeStage::createFaceGeometry() {
-    // 每个面 4 个顶点，6 个面 = 24 个顶点
-    // 每个面 6 个索引（2个三角形），6 个面 = 36 个索引
-    std::array<CubeVertex, 24> verts;
-    std::array<uint32_t, 36> indices;
+    // 6个面中心 + 12个共享边区 + 8个角区均来自 ViewCubeModel::partShape()。
+    // 绘制几何和拾取几何共用同一份拓扑定义，避免屏幕命中区域与实际显示区域不一致。
+    std::vector<CubeVertex> verts;
+    std::vector<uint32_t> indices;
+    verts.reserve(ViewCubeModel::kPartCount * 4);
+    indices.reserve(ViewCubeModel::kPartCount * 6);
+    part_index_offsets_.fill(0);
+    part_index_counts_.fill(0);
 
-    float h = kHalf;
+    auto makeVert = [](const math::Vec3& p, const math::Vec3& n) -> CubeVertex {
+        return { static_cast<float>(p.x),
+                 static_cast<float>(p.y),
+                 static_cast<float>(p.z),
+                 static_cast<float>(n.x),
+                 static_cast<float>(n.y),
+                 static_cast<float>(n.z),
+                 0.0f,
+                 0.0f };
+    };
 
-    for (int f = 0; f < 6; ++f) {
-        float nx = kFaces[f].normal[0];
-        float ny = kFaces[f].normal[1];
-        float nz = kFaces[f].normal[2];
-        float ux = kFaces[f].up[0];
-        float uy = kFaces[f].up[1];
-        float uz = kFaces[f].up[2];
+    for (const auto& part : ViewCubeModel::parts()) {
+        const ViewCubePartShape shape = ViewCubeModel::partShape(part);
+        if (shape.vertexCount < 3 || shape.vertexCount > 4)
+            continue;
 
-        // 计算 right = cross(normal, up)
-        float rx = ny * uz - nz * uy;
-        float ry = nz * ux - nx * uz;
-        float rz = nx * uy - ny * ux;
+        const math::Vec3 normal = ViewCubeModel::partNormal(part);
+        const uint32_t base = static_cast<uint32_t>(verts.size());
+        const uint32_t start = static_cast<uint32_t>(indices.size());
 
-        // 4 个角的中心偏移
-        // 中心 = normal * h
-        float cx = nx * h, cy = ny * h, cz = nz * h;
+        for (uint32_t i = 0; i < shape.vertexCount; ++i) {
+            verts.push_back(makeVert(shape.vertices[i], normal));
+        }
 
-        // v0 = center - right*h - up*h
-        // v1 = center + right*h - up*h
-        // v2 = center + right*h + up*h
-        // v3 = center - right*h + up*h
-        auto makeVert = [&](float sr, float su) -> CubeVertex {
-            return { cx + rx * sr * h + ux * su * h,
-                     cy + ry * sr * h + uy * su * h,
-                     cz + rz * sr * h + uz * su * h,
-                     nx,
-                     ny,
-                     nz,
-                     sr * 0.5f + 0.5f,
-                     su * 0.5f + 0.5f };
-        };
+        if (shape.vertexCount == 3) {
+            indices.insert(indices.end(), { base, base + 1, base + 2 });
+        } else {
+            indices.insert(indices.end(), { base, base + 1, base + 2, base, base + 2, base + 3 });
+        }
 
-        int base = f * 4;
-        verts[base + 0] = makeVert(-1, -1);
-        verts[base + 1] = makeVert(1, -1);
-        verts[base + 2] = makeVert(1, 1);
-        verts[base + 3] = makeVert(-1, 1);
-
-        int ib = f * 6;
-        indices[ib + 0] = base + 0;
-        indices[ib + 1] = base + 1;
-        indices[ib + 2] = base + 2;
-        indices[ib + 3] = base + 0;
-        indices[ib + 4] = base + 2;
-        indices[ib + 5] = base + 3;
+        part_index_offsets_[part.index] = start;
+        part_index_counts_[part.index] = static_cast<uint32_t>(indices.size()) - start;
     }
 
-    face_index_count_ = 36;
+    face_index_count_ = static_cast<uint32_t>(indices.size());
 
     {
         auto r = device_->createBuffer(
@@ -313,62 +291,6 @@ bool ViewCubeStage::createFaceGeometry() {
             return false;
         }
         face_ib_ = std::move(*r);
-    }
-    return true;
-}
-
-bool ViewCubeStage::createEdgeGeometry() {
-    // 12 条边，每条边 2 个顶点 = 24 个顶点
-    // 12 条边，每条边 2 个索引 = 24 个索引
-    float h = kHalf;
-
-    // 8 个角点
-    float corners[8][3] = {
-        { -h, -h, -h }, { h, -h, -h }, { h, h, -h }, { -h, h, -h },  // back face
-        { -h, -h, h },  { h, -h, h },  { h, h, h },  { -h, h, h },   // front face
-    };
-
-    // 12 条边的索引对
-    static constexpr int edgePairs[12][2] = {
-        { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 },  // back
-        { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 },  // front
-        { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 },  // connecting
-    };
-
-    std::array<CubeVertex, 24> verts;
-    std::array<uint32_t, 24> indices;
-
-    for (int i = 0; i < 12; ++i) {
-        int a = edgePairs[i][0];
-        int b = edgePairs[i][1];
-
-        // 使用一个默认法线（边线渲染不依赖法线）
-        verts[i * 2 + 0] = { corners[a][0], corners[a][1], corners[a][2], 0, 1, 0, 0, 0 };
-        verts[i * 2 + 1] = { corners[b][0], corners[b][1], corners[b][2], 0, 1, 0, 1, 0 };
-
-        indices[i * 2 + 0] = i * 2 + 0;
-        indices[i * 2 + 1] = i * 2 + 1;
-    }
-
-    edge_index_count_ = 24;
-
-    {
-        auto r = device_->createBuffer(
-                BufferDesc::vertex(sizeof(CubeVertex) * verts.size(), verts.data(), "ViewCube_EdgeVB"));
-        if (!r) {
-            std::fprintf(stderr, "[ViewCube] createBuffer EdgeVB: %s\n", r.error().message.c_str());
-            return false;
-        }
-        edge_vb_ = std::move(*r);
-    }
-    {
-        auto r = device_->createBuffer(
-                BufferDesc::index(sizeof(uint32_t) * indices.size(), indices.data(), "ViewCube_EdgeIB"));
-        if (!r) {
-            std::fprintf(stderr, "[ViewCube] createBuffer EdgeIB: %s\n", r.error().message.c_str());
-            return false;
-        }
-        edge_ib_ = std::move(*r);
     }
     return true;
 }
@@ -493,13 +415,11 @@ void ViewCubeStage::updateInteractionMaterials() {
         dst[2] = a[2] * (1.0f - t) + b[2] * t;
     };
 
-    const uint32_t hovered = interaction_.hasHoveredFace ? static_cast<uint32_t>(interaction_.hoveredFace) : kFaceCount;
-    const uint32_t pressed = interaction_.hasPressedFace ? static_cast<uint32_t>(interaction_.pressedFace) : kFaceCount;
+    const uint32_t hovered = interaction_.hasHoveredPart ? interaction_.hoveredPart.index : kPartCount;
+    const uint32_t pressed = interaction_.hasPressedPart ? interaction_.pressedPart.index : kPartCount;
 
-    for (uint32_t i = 0; i < kFaceCount; ++i) {
-        materials_[i].baseColor[0] = kFaces[i].color[0];
-        materials_[i].baseColor[1] = kFaces[i].color[1];
-        materials_[i].baseColor[2] = kFaces[i].color[2];
+    for (uint32_t i = 0; i < kPartCount; ++i) {
+        viewCubePartBaseColor(ViewCubeModel::parts()[i], materials_[i].baseColor);
 
         if (i == hovered) {
             mixColor(materials_[i].baseColor, materials_[i].baseColor, kHoverColor, 0.58f);
@@ -597,15 +517,19 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
         }
     }
 
-    for (int f = 0; f < kFaceCount; ++f) {
+    for (uint32_t partIndex = 0; partIndex < kPartCount; ++partIndex) {
+        const uint32_t indexCount = part_index_counts_[partIndex];
+        if (indexCount == 0)
+            continue;
+
         if (face_bg_)
-            face_bg_->updateUBO(2, material_ubo_.get(), f * material_stride_, sizeof(MaterialGPU));
+            face_bg_->updateUBO(2, material_ubo_.get(), partIndex * material_stride_, sizeof(MaterialGPU));
         if (face_bg_)
             cmd->bindGroup(*face_bg_);
 
         cmd->setVertexBuffer(0, face_vb_.get());
         cmd->setIndexBuffer(face_ib_.get());
-        cmd->drawIndexed(DrawIndexedAttribs{ 6, 1, static_cast<uint32_t>(f * 6) });
+        cmd->drawIndexed(DrawIndexedAttribs{ indexCount, 1, part_index_offsets_[partIndex] });
     }
 
     if (axis_vb_ && axis_ib_ && face_bg_) {
@@ -619,31 +543,7 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
         }
     }
 
-    // --- 6. 渲染边线 ---
-    if (edge_pso_ && edge_vb_ && edge_ib_) {
-        cmd->setPipelineState(edge_pso_);
-        const uint64_t hash = edge_pso_->bindGroupLayout().hash();
-        if (!edge_bg_ || edge_bg_layout_hash_ != hash) {
-            BindGroupDesc bg;
-            bg.addUBO(0, scene_ubo_.get(), 0, sizeof(SceneUniforms))
-                    .addUBO(1, object_ubo_.get(), 0, sizeof(ObjectUniforms))
-                    .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
-            auto r = device_->createBindGroup(edge_pso_->bindGroupLayout(), bg);
-            if (r) {
-                edge_bg_ = std::move(*r);
-                edge_bg_layout_hash_ = hash;
-            }
-        }
-        if (edge_bg_)
-            edge_bg_->updateUBO(2, material_ubo_.get(), kLineMaterialOffset * material_stride_, sizeof(MaterialGPU));
-        if (edge_bg_)
-            cmd->bindGroup(*edge_bg_);
-        cmd->setVertexBuffer(0, edge_vb_.get());
-        cmd->setIndexBuffer(edge_ib_.get());
-        cmd->drawIndexed(DrawIndexedAttribs{ edge_index_count_ });
-    }
-
-    // --- 7. 恢复全屏视口 ---
+    // --- 6. 恢复全屏视口 ---
     cmd->setViewport({ 0.0f, 0.0f, static_cast<float>(vpWidth), static_cast<float>(vpHeight), 0.0f, 1.0f });
     cmd->setScissorRect({ 0, 0, static_cast<int32_t>(vpWidth), static_cast<int32_t>(vpHeight) });
 }

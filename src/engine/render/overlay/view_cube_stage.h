@@ -5,11 +5,11 @@
  * @date 2026-05-26
  *
  * 职责：
- *  - 生成带面颜色的立方体几何体（6面 + 12边）
+ *  - 生成带面颜色的导航立方体几何体（6个面中心 + 12个共享边区 + 8个角区）
  *  - 从主相机提取旋转，以正交投影渲染
  *  - 使用视口裁剪将渲染限定在角落小区域
  *
- * 不负责：点击交互（预留接口，空实现）
+ * 不负责：上层输入分发，只接收并渲染 ViewCubeInteractionState
  */
 
 #pragma once
@@ -22,6 +22,7 @@
 #include "../material/material.h"  // MaterialGPU
 
 #include <cstdint>
+#include <array>
 #include <memory>
 
 namespace mulan::engine {
@@ -92,7 +93,6 @@ private:
     // --- 内部方法 ---
     bool createGeometry();
     bool createFaceGeometry();
-    bool createEdgeGeometry();
     bool createAxisGeometry();
     void updateInteractionMaterials();
 
@@ -101,7 +101,6 @@ private:
     // --- 设备 ---
     RHIDevice* device_;
     PipelineState* solid_pso_ = nullptr;
-    PipelineState* edge_pso_ = nullptr;
     Texture* default_white_ = nullptr;
     Sampler* default_sampler_ = nullptr;
 
@@ -109,9 +108,8 @@ private:
     std::unique_ptr<Buffer> face_vb_;  // 面顶点
     std::unique_ptr<Buffer> face_ib_;  // 面索引
     uint32_t face_index_count_ = 0;
-    std::unique_ptr<Buffer> edge_vb_;  // 边顶点
-    std::unique_ptr<Buffer> edge_ib_;  // 边索引
-    uint32_t edge_index_count_ = 0;
+    std::array<uint32_t, ViewCubeModel::kPartCount> part_index_offsets_{};
+    std::array<uint32_t, ViewCubeModel::kPartCount> part_index_counts_{};
     std::unique_ptr<Buffer> axis_vb_;
     std::unique_ptr<Buffer> axis_ib_;
     static constexpr uint32_t kAxisCount = 3;
@@ -121,18 +119,14 @@ private:
     // --- UBO（ViewCube 的 Scene/Object UB 布局与主场景不同，独立持有）---
     std::unique_ptr<Buffer> scene_ubo_;     // b0 — 正交投影 + 提取旋转
     std::unique_ptr<Buffer> object_ubo_;    // b1 — 单位矩阵
-    std::unique_ptr<Buffer> material_ubo_;  // b2 — 6面各一份材质
-    static constexpr uint32_t kFaceCount = 6;
-    static constexpr uint32_t kLineMaterialOffset = kFaceCount;
-    static constexpr uint32_t kAxisMaterialOffset = kLineMaterialOffset + 1;
-    static constexpr uint32_t kLineMaterialCount = 4;
-    static constexpr uint32_t kMaterialCount = kFaceCount + kLineMaterialCount;
+    std::unique_ptr<Buffer> material_ubo_;  // b2 — 26个可交互部件 + 坐标轴材质
+    static constexpr uint32_t kPartCount = ViewCubeModel::kPartCount;
+    static constexpr uint32_t kAxisMaterialOffset = kPartCount;
+    static constexpr uint32_t kMaterialCount = kPartCount + kAxisCount;
 
     // --- per-frame BindGroup（按借用 PSO 的 layout 创建，缓存在 PSO 不变期间复用）---
     std::unique_ptr<BindGroup> face_bg_;  // solid PSO (10 binding)
-    std::unique_ptr<BindGroup> edge_bg_;  // edge PSO (3 UBO)
     uint64_t face_bg_layout_hash_ = 0;
-    uint64_t edge_bg_layout_hash_ = 0;
 
     // --- 面材质数据 ---
     MaterialGPU materials_[kMaterialCount];

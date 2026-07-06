@@ -218,13 +218,13 @@ bool ViewContext::handleViewCubeInput(const engine::InputEvent& event) {
 
     if (event.type == engine::InputEvent::Type::MouseMove && event.buttons == engine::MouseButton::None) {
         updateViewCubeHover(event);
-        return view_cube_interaction_.hasHoveredFace;
+        return view_cube_interaction_.hasHoveredPart;
     }
 
     if (consuming_view_cube_click_) {
         if (event.type == engine::InputEvent::Type::MouseRelease) {
             consuming_view_cube_click_ = false;
-            view_cube_interaction_.hasPressedFace = false;
+            view_cube_interaction_.hasPressedPart = false;
         }
         return event.isMouseEvent();
     }
@@ -232,60 +232,43 @@ bool ViewContext::handleViewCubeInput(const engine::InputEvent& event) {
     if (event.type != engine::InputEvent::Type::MousePress || event.button != engine::MouseButton::Left)
         return false;
 
-    const auto hit = view_cube_model_.pickFace(event.x, event.y, static_cast<uint32_t>(width_),
+    const auto hit = view_cube_model_.pickPart(event.x, event.y, static_cast<uint32_t>(width_),
                                                static_cast<uint32_t>(height_), camera_.viewMatrix());
     if (!hit)
         return false;
 
-    setCameraToViewCubeFace(hit.face);
-    view_cube_interaction_.pressedFace = hit.face;
-    view_cube_interaction_.hasPressedFace = true;
-    view_cube_interaction_.hoveredFace = hit.face;
-    view_cube_interaction_.hasHoveredFace = true;
+    setCameraToViewCubePart(hit.part);
+    view_cube_interaction_.pressedPart = hit.part;
+    view_cube_interaction_.hasPressedPart = true;
+    view_cube_interaction_.hoveredPart = hit.part;
+    view_cube_interaction_.hasHoveredPart = true;
     consuming_view_cube_click_ = true;
     return true;
 }
 
 void ViewContext::updateViewCubeHover(const engine::InputEvent& event) {
-    const auto hit = view_cube_model_.pickFace(event.x, event.y, static_cast<uint32_t>(width_),
+    const auto hit = view_cube_model_.pickPart(event.x, event.y, static_cast<uint32_t>(width_),
                                                static_cast<uint32_t>(height_), camera_.viewMatrix());
     if (hit) {
-        view_cube_interaction_.hoveredFace = hit.face;
-        view_cube_interaction_.hasHoveredFace = true;
+        view_cube_interaction_.hoveredPart = hit.part;
+        view_cube_interaction_.hasHoveredPart = true;
     } else {
-        view_cube_interaction_.hasHoveredFace = false;
+        view_cube_interaction_.hasHoveredPart = false;
     }
 }
 
-void ViewContext::setCameraToViewCubeFace(engine::ViewCubeFace face) {
-    math::Vec3 forward(0, -1, 0);
-    math::Vec3 up(0, 0, 1);
+void ViewContext::setCameraToViewCubePart(const engine::ViewCubePart& part) {
+    math::Vec3 normal = engine::ViewCubeModel::partNormal(part);
+    if (normal.lengthSq() < 1.0e-12) {
+        return;
+    }
 
-    switch (face) {
-    case engine::ViewCubeFace::Front:
-        forward = math::Vec3(0, 0, -1);
-        up = math::Vec3(0, 1, 0);
-        break;
-    case engine::ViewCubeFace::Back:
-        forward = math::Vec3(0, 0, 1);
-        up = math::Vec3(0, 1, 0);
-        break;
-    case engine::ViewCubeFace::Left:
-        forward = math::Vec3(1, 0, 0);
+    const math::Vec3 forward = -normal;
+    math::Vec3 up(0, 1, 0);
+    if (part.x != 0 && part.y == 0 && part.z == 0) {
         up = math::Vec3(0, 0, 1);
-        break;
-    case engine::ViewCubeFace::Right:
-        forward = math::Vec3(-1, 0, 0);
+    } else if (std::abs(forward.dot(up)) > 0.92) {
         up = math::Vec3(0, 0, 1);
-        break;
-    case engine::ViewCubeFace::Top:
-        forward = math::Vec3(0, -1, 0);
-        up = math::Vec3(0, 0, 1);
-        break;
-    case engine::ViewCubeFace::Bottom:
-        forward = math::Vec3(0, 1, 0);
-        up = math::Vec3(0, 0, 1);
-        break;
     }
 
     camera_.setMode(engine::CameraMode::Trackball);

@@ -84,7 +84,7 @@ public:
 
     bool showViewCube() const { return show_view_cube_; }
     void setShowViewCube(bool show) { show_view_cube_ = show; }
-    bool hasHoveredViewCubeFace() const { return view_cube_interaction_.hasHoveredFace; }
+    bool hasHoveredViewCubeFace() const { return view_cube_interaction_.hasHoveredPart; }
     void clearViewCubeInteraction() { view_cube_interaction_ = {}; }
 
     const engine::ViewCubeLayout& viewCubeLayout() const { return view_cube_model_.layout(); }
@@ -115,7 +115,7 @@ private:
     void onFrameEnd();
     bool handleViewCubeInput(const engine::InputEvent& event);
     void updateViewCubeHover(const engine::InputEvent& event);
-    void setCameraToViewCubeFace(engine::ViewCubeFace face);
+    void setCameraToViewCubePart(const engine::ViewCubePart& part);
 
     bool isOffscreenSurface() const;
     uint32_t surfaceWidth() const;
