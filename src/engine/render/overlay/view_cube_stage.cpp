@@ -50,6 +50,21 @@ float smoothstep(float edge0, float edge1, float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
+void viewCubeFaceTextAxes(const ViewCubePart& part, math::Vec3& right, math::Vec3& up) {
+    if (part.z != 0) {
+        right = math::Vec3(static_cast<double>(part.z), 0.0, 0.0);
+        up = math::Vec3(0.0, 1.0, 0.0);
+        return;
+    }
+    if (part.x != 0) {
+        right = math::Vec3(0.0, 0.0, static_cast<double>(-part.x));
+        up = math::Vec3(0.0, 1.0, 0.0);
+        return;
+    }
+    right = math::Vec3(1.0, 0.0, 0.0);
+    up = math::Vec3(0.0, 0.0, static_cast<double>(-part.y));
+}
+
 }  // namespace
 
 // ============================================================
@@ -260,27 +275,28 @@ void ViewCubeStage::collectLabels(TextStage& textStage, const math::Mat4& mainVi
         const math::Vec4 viewCenter4 = cubeView * math::Vec4(center, 1.0);
         const math::Vec3 viewCenter(viewCenter4.x, viewCenter4.y, viewCenter4.z);
         const math::Vec3 toCamera = (-viewCenter).normalizedOr(math::Vec3::unitZ());
-        const float alpha = smoothstep(0.16f, 0.52f, static_cast<float>(viewNormal.dot(toCamera)));
+        const float facing = static_cast<float>(viewNormal.dot(toCamera));
+        const float alpha = smoothstep(-0.02f, 0.18f, facing);
         if (alpha <= 0.01f) {
             continue;
         }
 
-        math::Vec4 clip = cubeVP * math::Vec4(center, 1.0);
-        if (std::abs(clip.w) < 1.0e-8) {
-            continue;
-        }
-        clip /= clip.w;
-
-        const double sx = static_cast<double>(cubeRect.x) + (clip.x * 0.5 + 0.5) * static_cast<double>(cubeRect.width);
-        const double sy =
-                static_cast<double>(cubeRect.y) + (1.0 - (clip.y * 0.5 + 0.5)) * static_cast<double>(cubeRect.height);
+        math::Vec3 faceRight;
+        math::Vec3 faceUp;
+        viewCubeFaceTextAxes(part, faceRight, faceUp);
 
         TextDrawDesc label;
         label.text = viewCubeFaceLabel(part);
-        label.space = TextSpace::Screen;
+        label.space = TextSpace::WorldPlanar;
         label.anchor = TextAnchor::Center;
-        label.positionPx = math::Point2(sx, sy);
-        label.sizePx = 13.0f;
+        label.positionWorld = math::Point3(center);
+        label.rightWorld = faceRight;
+        label.upWorld = faceUp;
+        label.clipFromWorld = cubeVP;
+        label.viewportOriginPx = math::Point2(static_cast<double>(cubeRect.x), static_cast<double>(cubeRect.y));
+        label.viewportSizePx = math::Vec2(static_cast<double>(cubeRect.width), static_cast<double>(cubeRect.height));
+        label.sizePx = 48.0f;
+        label.sizeWorld = 0.145f;
         label.color = math::Vec4(0.05, 0.055, 0.06, alpha);
         textStage.addText(label);
     }
@@ -372,11 +388,11 @@ bool ViewCubeStage::createFaceGeometry() {
 }
 
 bool ViewCubeStage::createAxisGeometry() {
-    constexpr float frameMin = -0.78f;
+    constexpr float frameMin = -0.68f;
     constexpr float frameMax = 0.62f;
     constexpr float coneLength = 0.14f;
-    constexpr float shaftRadius = 0.014f;
-    constexpr float coneRadius = 0.045f;
+    constexpr float shaftRadius = 0.020f;
+    constexpr float coneRadius = 0.058f;
 
     const math::FVec3 starts[kAxisCount] = {
         math::FVec3(frameMin, frameMin, frameMin),

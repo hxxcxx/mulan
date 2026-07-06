@@ -11,6 +11,7 @@
 #include <mulan/graphics/vertex/vertex_layout.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 namespace mulan::engine {
@@ -36,6 +37,87 @@ bool fileExists(const char* path) {
 
 float clamp01(float v) {
     return std::max(0.0f, std::min(1.0f, v));
+}
+
+bool projectToViewport(const math::Mat4& clipFromWorld, const math::Point2& viewportOrigin,
+                       const math::Vec2& viewportSize, const math::Point3& world, math::Point2& out) {
+    math::Vec4 clip = clipFromWorld * math::Vec4(world.x, world.y, world.z, 1.0);
+    if (std::abs(clip.w) < 1.0e-8) {
+        return false;
+    }
+
+    clip /= clip.w;
+    out.x = viewportOrigin.x + (clip.x * 0.5 + 0.5) * viewportSize.x;
+    out.y = viewportOrigin.y + (1.0 - (clip.y * 0.5 + 0.5)) * viewportSize.y;
+    return true;
+}
+
+bool applyWorldPlanarBasis(std::vector<TextVertex>& vertices, std::vector<uint32_t>& indices, uint32_t firstVertex,
+                           uint32_t firstIndex, const TextDrawDesc& item) {
+    const math::Vec3 right = item.rightWorld.normalizedOr(math::Vec3::unitX());
+    const math::Vec3 up = item.upWorld.normalizedOr(math::Vec3::unitY());
+    const double worldPerPixel = static_cast<double>(item.sizeWorld) / std::max(static_cast<double>(item.sizePx), 1.0);
+
+    for (uint32_t i = firstVertex; i < vertices.size(); ++i) {
+        const double localX = static_cast<double>(vertices[i].x);
+        const double localY = static_cast<double>(vertices[i].y);
+        const math::Point3 world =
+                item.positionWorld + right * (localX * worldPerPixel) - up * (localY * worldPerPixel);
+
+        math::Point2 screen;
+        if (!projectToViewport(item.clipFromWorld, item.viewportOriginPx, item.viewportSizePx, world, screen)) {
+            vertices.resize(firstVertex);
+            indices.resize(firstIndex);
+            return false;
+        }
+
+        vertices[i].x = static_cast<float>(screen.x);
+        vertices[i].y = static_cast<float>(screen.y);
+    }
+    return true;
+}
+
+void alignLocalTextBounds(std::vector<TextVertex>& vertices, uint32_t firstVertex, TextAnchor anchor) {
+    if (firstVertex >= vertices.size()) {
+        return;
+    }
+
+    float minX = vertices[firstVertex].x;
+    float maxX = vertices[firstVertex].x;
+    float minY = vertices[firstVertex].y;
+    float maxY = vertices[firstVertex].y;
+    for (uint32_t i = firstVertex + 1; i < vertices.size(); ++i) {
+        minX = std::min(minX, vertices[i].x);
+        maxX = std::max(maxX, vertices[i].x);
+        minY = std::min(minY, vertices[i].y);
+        maxY = std::max(maxY, vertices[i].y);
+    }
+
+    float dx = 0.0f;
+    float dy = 0.0f;
+    switch (anchor) {
+    case TextAnchor::TopLeft:
+        dx = -minX;
+        dy = -minY;
+        break;
+    case TextAnchor::Center:
+        dx = -(minX + maxX) * 0.5f;
+        dy = -(minY + maxY) * 0.5f;
+        break;
+    case TextAnchor::CenterLeft:
+        dx = -minX;
+        dy = -(minY + maxY) * 0.5f;
+        break;
+    case TextAnchor::CenterRight:
+        dx = -maxX;
+        dy = -(minY + maxY) * 0.5f;
+        break;
+    }
+
+    for (uint32_t i = firstVertex; i < vertices.size(); ++i) {
+        vertices[i].x += dx;
+        vertices[i].y += dy;
+    }
 }
 
 }  // namespace
@@ -274,49 +356,57 @@ void TextStage::buildGeometry() {
     }
 
     for (const TextDrawDesc& item : items_) {
-        if (item.space != TextSpace::Screen) {
+        if (item.space != TextSpace::Screen && item.space != TextSpace::WorldPlanar) {
             continue;
         }
 
         const float fontSize = std::max(item.sizePx, 1.0f);
-        float x = static_cast<float>(item.positionPx.x);
-        float y = static_cast<float>(item.positionPx.y);
+        float x = item.space == TextSpace::Screen ? static_cast<float>(item.positionPx.x) : 0.0f;
+        float y = item.space == TextSpace::Screen ? static_cast<float>(item.positionPx.y) : 0.0f;
         const float textWidth = TextLayout::measureWidth(*default_font_, item.text, fontSize);
         const float textHeight = fontSize;
 
-        switch (item.anchor) {
-        case TextAnchor::TopLeft: break;
-        case TextAnchor::Center:
-            x -= textWidth * 0.5f;
-            y -= textHeight * 0.5f;
-            break;
-        case TextAnchor::CenterLeft: y -= textHeight * 0.5f; break;
-        case TextAnchor::CenterRight:
-            x -= textWidth;
-            y -= textHeight * 0.5f;
-            break;
+        if (item.space == TextSpace::Screen) {
+            switch (item.anchor) {
+            case TextAnchor::TopLeft: break;
+            case TextAnchor::Center:
+                x -= textWidth * 0.5f;
+                y -= textHeight * 0.5f;
+                break;
+            case TextAnchor::CenterLeft: y -= textHeight * 0.5f; break;
+            case TextAnchor::CenterRight:
+                x -= textWidth;
+                y -= textHeight * 0.5f;
+                break;
+            }
         }
 
         const float color[4] = { clamp01(static_cast<float>(item.color.x)), clamp01(static_cast<float>(item.color.y)),
                                  clamp01(static_cast<float>(item.color.z)), clamp01(static_cast<float>(item.color.w)) };
+        const uint32_t firstVertex = static_cast<uint32_t>(vertices_.size());
+        const uint32_t firstIndex = static_cast<uint32_t>(indices_.size());
         TextLayout::layout(*default_font_, item.text, x, y, fontSize, color, vertices_, indices_);
+        if (item.space == TextSpace::WorldPlanar) {
+            alignLocalTextBounds(vertices_, firstVertex, item.anchor);
+            applyWorldPlanarBasis(vertices_, indices_, firstVertex, firstIndex, item);
+        }
     }
 }
 
 void TextStage::updateParams() {
     TextParamsGPU params{};
-    const bool vulkanLike = device_->backend() == GraphicsBackend::Vulkan;
-    const math::Mat4 ortho =
-            vulkanLike
+    const math::Mat4 projection =
+            device_->backend() == GraphicsBackend::Vulkan
                     ? math::Mat4::ortho(0.0, static_cast<double>(width_), 0.0, static_cast<double>(height_), -1.0, 1.0)
                     : math::Mat4::ortho(0.0, static_cast<double>(width_), static_cast<double>(height_), 0.0, -1.0, 1.0);
-    const math::Mat4 projection = device_->clipSpaceCorrectionMatrix() * ortho;
     storeGpuMat4(params.orthoProjection, projection);
     params.bgColor[0] = 0.0f;
     params.bgColor[1] = 0.0f;
     params.bgColor[2] = 0.0f;
     params.bgColor[3] = 0.0f;
     params.pxRange = default_font_ ? default_font_->pxRange() : 4.0f;
+    params.atlasSize[0] = default_font_ ? static_cast<float>(default_font_->atlasWidth()) : 1.0f;
+    params.atlasSize[1] = default_font_ ? static_cast<float>(default_font_->atlasHeight()) : 1.0f;
     params_ubo_->update(0, sizeof(TextParamsGPU), &params);
 }
 

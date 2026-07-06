@@ -60,7 +60,7 @@ struct ViewCubeRect {
 };
 
 struct ViewCubeLayout {
-    uint32_t size = 168;
+    uint32_t size = 208;
     uint32_t margin = 16;
     ViewCubeCorner corner = ViewCubeCorner::BottomRight;
 
@@ -116,7 +116,7 @@ struct ViewCubeInteractionState {
 class ViewCubeModel {
 public:
     static constexpr double kCubeHalfExtent = 0.58;
-    static constexpr double kCenterHalfExtent = 0.46;
+    static constexpr double kCenterHalfExtent = 0.44;
     static constexpr double kOrthoExtent = 1.36;
     static constexpr uint32_t kPartCount = 26;
 

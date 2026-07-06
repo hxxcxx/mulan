@@ -12,7 +12,8 @@ cbuffer TextParams : register(b0) {
     float4x4 OrthoProjection;
     float4   BgColor;
     float    PxRange;
-    float3   _pad;
+    float2   AtlasSize;
+    float    _pad;
 };
 
 [[vk::binding(1, 0)]] Texture2D    msdfAtlas : register(t1);
@@ -29,6 +30,12 @@ float median(float r, float g, float b) {
     return max(min(r, g), min(max(r, g), b));
 }
 
+float screenPxRange(float2 texcoord) {
+    float2 unitRange = float2(PxRange, PxRange) / AtlasSize;
+    float2 screenTexSize = 1.0 / max(fwidth(texcoord), float2(1.0e-6, 1.0e-6));
+    return max(0.5 * dot(unitRange, screenTexSize), 1.0);
+}
+
 float4 main(PS_INPUT input) : SV_TARGET {
     // 采样 MSDF 纹理（RGB 三通道编码距离）
     float3 msdf = msdfAtlas.Sample(sampler0, input.texcoord).rgb;
@@ -37,7 +44,7 @@ float4 main(PS_INPUT input) : SV_TARGET {
     float dist = median(msdf.r, msdf.g, msdf.b);
 
     // 将距离转换为屏幕空间像素距离
-    float screenPxDistance = PxRange * (dist - 0.5);
+    float screenPxDistance = screenPxRange(input.texcoord) * (dist - 0.5);
 
     // Smoothstep 抗锯齿（屏幕空间约 1 像素过渡）
     float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);

@@ -89,6 +89,9 @@ struct TextDrawDesc {
     math::Point3 positionWorld{};
     math::Vec3 rightWorld{ 1.0, 0.0, 0.0 };
     math::Vec3 upWorld{ 0.0, 1.0, 0.0 };
+    math::Mat4 clipFromWorld = math::Mat4::identity();
+    math::Point2 viewportOriginPx{};
+    math::Vec2 viewportSizePx{};
     float sizePx = 14.0f;
     float sizeWorld = 1.0f;
     math::Vec4 color{ 1.0, 1.0, 1.0, 1.0 };

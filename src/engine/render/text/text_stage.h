@@ -46,7 +46,8 @@ private:
         float orthoProjection[16];
         float bgColor[4];
         float pxRange = 4.0f;
-        float _pad[3]{};
+        float atlasSize[2]{};
+        float _pad{};
     };
 
     static_assert(sizeof(TextParamsGPU) == 96);
