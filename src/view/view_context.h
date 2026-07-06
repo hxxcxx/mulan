@@ -17,6 +17,7 @@
 #include "mulan/engine/interaction/operator.h"
 #include "mulan/engine/render/light_environment.h"
 #include "mulan/engine/render/camera/camera.h"
+#include "mulan/engine/render/overlay/view_cube_model.h"
 
 #include <cstdint>
 #include <expected>
@@ -101,6 +102,8 @@ private:
     ViewState snapshotViewState(const engine::Camera& camera, const CaptureVisual& visual, uint32_t width,
                                 uint32_t height) const;
     void onFrameEnd();
+    bool handleViewCubeInput(const engine::InputEvent& event);
+    void setCameraToViewCubeFace(engine::ViewCubeFace face);
 
     bool isOffscreenSurface() const;
     uint32_t surfaceWidth() const;
@@ -121,6 +124,8 @@ private:
     SurfaceShading surface_shading_ = SurfaceShading::SolidLit;
     bool show_overlays_ = true;
     bool show_view_cube_ = true;
+    bool consuming_view_cube_click_ = false;
+    engine::ViewCubeModel view_cube_model_;
 
     int width_ = 800;
     int height_ = 600;

@@ -112,7 +112,8 @@ private:
     std::unique_ptr<Buffer> axis_vb_;
     std::unique_ptr<Buffer> axis_ib_;
     static constexpr uint32_t kAxisCount = 3;
-    static constexpr uint32_t kAxisIndexCount = 6;
+    static constexpr uint32_t kAxisSegments = 16;
+    uint32_t axis_index_count_ = 0;
 
     // --- UBO（ViewCube 的 Scene/Object UB 布局与主场景不同，独立持有）---
     std::unique_ptr<Buffer> scene_ubo_;     // b0 — 正交投影 + 提取旋转

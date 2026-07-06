@@ -2,7 +2,27 @@
 
 #include "capture_service.h"
 
+#include <algorithm>
+
 namespace mulan::view {
+namespace {
+
+math::Quat makeCameraRotation(const math::Vec3& forward, const math::Vec3& preferredUp) {
+    const math::Vec3 f = forward.normalized();
+    math::Vec3 up = preferredUp.normalized();
+    if (std::abs(f.dot(up)) > 0.98) {
+        up = math::Vec3(0, 0, 1);
+        if (std::abs(f.dot(up)) > 0.98) {
+            up = math::Vec3(0, 1, 0);
+        }
+    }
+
+    const math::Vec3 right = f.cross(up).normalized();
+    const math::Vec3 trueUp = right.cross(f).normalized();
+    return math::Quat::fromMat3(math::Mat3(right, f, trueUp));
+}
+
+}  // namespace
 
 ViewContext::ViewContext() : default_op_(std::make_unique<engine::CameraManipulator>()) {
     default_op_->setState(engine::Operator::State::Active);
@@ -140,6 +160,9 @@ void ViewContext::resize(int width, int height) {
 }
 
 void ViewContext::handleInput(const engine::InputEvent& event) {
+    if (handleViewCubeInput(event))
+        return;
+
     engine::Operator* op = activeOperator();
     if (!op)
         return;
@@ -152,6 +175,65 @@ void ViewContext::handleInput(const engine::InputEvent& event) {
             finishedHook(*op);
         popOperator();
     }
+}
+
+bool ViewContext::handleViewCubeInput(const engine::InputEvent& event) {
+    if (!show_overlays_ || !show_view_cube_)
+        return false;
+
+    if (consuming_view_cube_click_) {
+        if (event.type == engine::InputEvent::Type::MouseRelease) {
+            consuming_view_cube_click_ = false;
+        }
+        return event.isMouseEvent();
+    }
+
+    if (event.type != engine::InputEvent::Type::MousePress || event.button != engine::MouseButton::Left)
+        return false;
+
+    const auto hit = view_cube_model_.pickFace(event.x, event.y, static_cast<uint32_t>(width_),
+                                               static_cast<uint32_t>(height_), camera_.viewMatrix());
+    if (!hit)
+        return false;
+
+    setCameraToViewCubeFace(hit.face);
+    consuming_view_cube_click_ = true;
+    return true;
+}
+
+void ViewContext::setCameraToViewCubeFace(engine::ViewCubeFace face) {
+    math::Vec3 forward(0, -1, 0);
+    math::Vec3 up(0, 0, 1);
+
+    switch (face) {
+    case engine::ViewCubeFace::Front:
+        forward = math::Vec3(0, 0, -1);
+        up = math::Vec3(0, 1, 0);
+        break;
+    case engine::ViewCubeFace::Back:
+        forward = math::Vec3(0, 0, 1);
+        up = math::Vec3(0, 1, 0);
+        break;
+    case engine::ViewCubeFace::Left:
+        forward = math::Vec3(1, 0, 0);
+        up = math::Vec3(0, 0, 1);
+        break;
+    case engine::ViewCubeFace::Right:
+        forward = math::Vec3(-1, 0, 0);
+        up = math::Vec3(0, 0, 1);
+        break;
+    case engine::ViewCubeFace::Top:
+        forward = math::Vec3(0, -1, 0);
+        up = math::Vec3(0, 0, 1);
+        break;
+    case engine::ViewCubeFace::Bottom:
+        forward = math::Vec3(0, 1, 0);
+        up = math::Vec3(0, 0, 1);
+        break;
+    }
+
+    camera_.setMode(engine::CameraMode::Trackball);
+    camera_.setRotation(makeCameraRotation(forward, up));
 }
 
 void ViewContext::pushOperator(std::unique_ptr<engine::Operator> op) {

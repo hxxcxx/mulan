@@ -10,6 +10,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <cmath>
 #include <string>
 #include <vector>
 #include <array>
@@ -35,7 +36,7 @@ bool hasLayoutBinding(const BindGroupLayout& layout, uint32_t binding) {
 // 立方体几何常量
 // ============================================================
 
-static constexpr float kHalf = 0.58f;  // 半边长
+static constexpr float kHalf = static_cast<float>(ViewCubeModel::kCubeHalfExtent);  // 半边长
 
 /// 6个面定义：normal, up, 面颜色(线性), 边线颜色
 static const struct {
@@ -44,17 +45,17 @@ static const struct {
     float color[3];
 } kFaces[6] = {
     // Front  (+Z)
-    { { 0, 0, 1 }, { 0, 1, 0 }, { 0.35f, 0.65f, 0.35f } },
+    { { 0, 0, 1 }, { 0, 1, 0 }, { 0.58f, 0.58f, 0.58f } },
     // Back   (-Z)
-    { { 0, 0, -1 }, { 0, 1, 0 }, { 0.65f, 0.35f, 0.35f } },
+    { { 0, 0, -1 }, { 0, 1, 0 }, { 0.58f, 0.58f, 0.58f } },
     // Left   (-X)
-    { { -1, 0, 0 }, { 0, 1, 0 }, { 0.35f, 0.35f, 0.65f } },
+    { { -1, 0, 0 }, { 0, 1, 0 }, { 0.58f, 0.58f, 0.58f } },
     // Right  (+X)
-    { { 1, 0, 0 }, { 0, 1, 0 }, { 0.65f, 0.65f, 0.35f } },
+    { { 1, 0, 0 }, { 0, 1, 0 }, { 0.58f, 0.58f, 0.58f } },
     // Top    (+Y)
-    { { 0, 1, 0 }, { 0, 0, -1 }, { 0.85f, 0.85f, 0.85f } },
+    { { 0, 1, 0 }, { 0, 0, -1 }, { 0.58f, 0.58f, 0.58f } },
     // Bottom (-Y)
-    { { 0, -1, 0 }, { 0, 0, 1 }, { 0.45f, 0.45f, 0.45f } },
+    { { 0, -1, 0 }, { 0, 0, 1 }, { 0.58f, 0.58f, 0.58f } },
 };
 
 static constexpr float kLineColor[3] = { 0.06f, 0.07f, 0.08f };
@@ -363,13 +364,11 @@ bool ViewCubeStage::createEdgeGeometry() {
 }
 
 bool ViewCubeStage::createAxisGeometry() {
-    std::array<CubeVertex, kAxisCount * kAxisIndexCount> verts;
-    std::array<uint32_t, kAxisCount * kAxisIndexCount> indices;
-
     constexpr float frameMin = -0.78f;
     constexpr float frameMax = 1.06f;
-    constexpr float headBack = 0.16f;
-    constexpr float headSize = 0.08f;
+    constexpr float coneLength = 0.18f;
+    constexpr float shaftRadius = 0.018f;
+    constexpr float coneRadius = 0.065f;
 
     const math::FVec3 starts[kAxisCount] = {
         math::FVec3(frameMin, frameMin, frameMin),
@@ -397,6 +396,11 @@ bool ViewCubeStage::createAxisGeometry() {
         math::FVec3(0.0f, 1.0f, 0.0f),
     };
 
+    std::vector<CubeVertex> verts;
+    std::vector<uint32_t> indices;
+    verts.reserve(kAxisCount * kAxisSegments * 5);
+    indices.reserve(kAxisCount * kAxisSegments * 9);
+
     auto makeVert = [](const math::FVec3& p, const math::FVec3& n) -> CubeVertex {
         return { { p.x, p.y, p.z }, { n.x, n.y, n.z }, { 0.0f, 0.0f } };
     };
@@ -408,21 +412,44 @@ bool ViewCubeStage::createAxisGeometry() {
 
         const math::FVec3 start = starts[axis];
         const math::FVec3 end = ends[axis];
-        const math::FVec3 neck = end - dir * headBack;
-        const math::FVec3 headA = neck + a * headSize;
-        const math::FVec3 headB = neck + b * headSize;
+        const math::FVec3 coneBase = end - dir * coneLength;
 
-        const uint32_t base = axis * kAxisIndexCount;
-        verts[base + 0] = makeVert(start, dir);
-        verts[base + 1] = makeVert(end, dir);
-        verts[base + 2] = makeVert(end, dir);
-        verts[base + 3] = makeVert(headA, dir);
-        verts[base + 4] = makeVert(end, dir);
-        verts[base + 5] = makeVert(headB, dir);
+        const uint32_t shaftBase = static_cast<uint32_t>(verts.size());
+        for (uint32_t i = 0; i < kAxisSegments; ++i) {
+            const float t =
+                    (static_cast<float>(i) / static_cast<float>(kAxisSegments)) * 2.0f * static_cast<float>(math::kPi);
+            const math::FVec3 radial = a * std::cos(t) + b * std::sin(t);
+            verts.push_back(makeVert(start + radial * shaftRadius, radial));
+            verts.push_back(makeVert(coneBase + radial * shaftRadius, radial));
+        }
 
-        for (uint32_t i = 0; i < kAxisIndexCount; ++i)
-            indices[base + i] = base + i;
+        for (uint32_t i = 0; i < kAxisSegments; ++i) {
+            const uint32_t next = (i + 1) % kAxisSegments;
+            const uint32_t i0 = shaftBase + i * 2;
+            const uint32_t i1 = shaftBase + i * 2 + 1;
+            const uint32_t n0 = shaftBase + next * 2;
+            const uint32_t n1 = shaftBase + next * 2 + 1;
+            indices.insert(indices.end(), { i0, i1, n1, i0, n1, n0 });
+        }
+
+        const uint32_t coneBaseIndex = static_cast<uint32_t>(verts.size());
+        for (uint32_t i = 0; i < kAxisSegments; ++i) {
+            const float t =
+                    (static_cast<float>(i) / static_cast<float>(kAxisSegments)) * 2.0f * static_cast<float>(math::kPi);
+            const math::FVec3 radial = a * std::cos(t) + b * std::sin(t);
+            const math::FVec3 normal = (radial * coneLength + dir * coneRadius).normalized();
+            verts.push_back(makeVert(coneBase + radial * coneRadius, normal));
+        }
+        const uint32_t tipIndex = static_cast<uint32_t>(verts.size());
+        verts.push_back(makeVert(end, dir));
+
+        for (uint32_t i = 0; i < kAxisSegments; ++i) {
+            const uint32_t next = (i + 1) % kAxisSegments;
+            indices.insert(indices.end(), { coneBaseIndex + i, tipIndex, coneBaseIndex + next });
+        }
     }
+
+    axis_index_count_ = static_cast<uint32_t>(indices.size() / kAxisCount);
 
     {
         auto r = device_->createBuffer(
@@ -471,7 +498,7 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
     math::Mat4 cubeView = math::Mat4(rotOnly);
     cubeView[3] = math::Vec4(0, 0, -3.5, 1);
 
-    double orthoSize = 1.36;
+    double orthoSize = ViewCubeModel::kOrthoExtent;
     math::Mat4 cubeProj = math::Mat4::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, 0.1, 10.0);
     math::Mat4 corrProj = device_->clipSpaceCorrectionMatrix() * cubeProj;
     math::Mat4 cubeVP_mat = corrProj * cubeView;
@@ -540,6 +567,17 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
         cmd->drawIndexed(DrawIndexedAttribs{ 6, 1, static_cast<uint32_t>(f * 6) });
     }
 
+    if (axis_vb_ && axis_ib_ && face_bg_) {
+        cmd->setVertexBuffer(0, axis_vb_.get());
+        cmd->setIndexBuffer(axis_ib_.get());
+        for (uint32_t axis = 0; axis < kAxisCount; ++axis) {
+            face_bg_->updateUBO(2, material_ubo_.get(), (kAxisMaterialOffset + axis) * material_stride_,
+                                sizeof(MaterialGPU));
+            cmd->bindGroup(*face_bg_);
+            cmd->drawIndexed(DrawIndexedAttribs{ axis_index_count_, 1, axis * axis_index_count_ });
+        }
+    }
+
     // --- 6. 渲染边线 ---
     if (edge_pso_ && edge_vb_ && edge_ib_) {
         cmd->setPipelineState(edge_pso_);
@@ -562,19 +600,6 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
         cmd->setVertexBuffer(0, edge_vb_.get());
         cmd->setIndexBuffer(edge_ib_.get());
         cmd->drawIndexed(DrawIndexedAttribs{ edge_index_count_ });
-
-        if (axis_vb_ && axis_ib_) {
-            cmd->setVertexBuffer(0, axis_vb_.get());
-            cmd->setIndexBuffer(axis_ib_.get());
-            for (uint32_t axis = 0; axis < kAxisCount; ++axis) {
-                if (edge_bg_) {
-                    edge_bg_->updateUBO(2, material_ubo_.get(), (kAxisMaterialOffset + axis) * material_stride_,
-                                        sizeof(MaterialGPU));
-                    cmd->bindGroup(*edge_bg_);
-                }
-                cmd->drawIndexed(DrawIndexedAttribs{ kAxisIndexCount, 1, axis * kAxisIndexCount });
-            }
-        }
     }
 
     // --- 7. 恢复全屏视口 ---
