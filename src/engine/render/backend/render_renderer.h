@@ -36,7 +36,8 @@ public:
     RenderRenderer(const RenderRenderer&) = delete;
     RenderRenderer& operator=(const RenderRenderer&) = delete;
 
-    bool init(RHIDevice& device, LightEnvironment& lightEnv, TextureFormat colorFmt, TextureFormat depthFmt);
+    bool init(RHIDevice& device, LightEnvironment& lightEnv, TextureFormat colorFmt, TextureFormat depthFmt,
+              uint32_t sampleCount);
     void shutdown(RHIDevice& device);
 
     void enableIBL(RHIDevice& device, const std::string& hdrPath);

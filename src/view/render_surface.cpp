@@ -28,7 +28,7 @@ bool RenderSurface::initWindowSurface(engine::RHIDevice& device, const ViewConfi
     if (!window.valid())
         return false;
 
-    engine::RenderConfig renderCfg = config.toRenderConfig();
+    engine::RenderConfig renderCfg = device.renderConfig();
 
     engine::SwapChainDesc scDesc;
     scDesc.width = static_cast<uint32_t>(width);
@@ -51,6 +51,7 @@ bool RenderSurface::initOffscreenSurface(engine::RHIDevice& device, int width, i
     RenderSurfaceDesc desc;
     desc.width = width;
     desc.height = height;
+    desc.sampleCount = device.renderConfig().sampleCount();
     return initOffscreenSurface(device, desc);
 }
 
@@ -75,6 +76,7 @@ bool RenderSurface::initOffscreenSurface(engine::RHIDevice& device, const Render
     rtDesc.colorFormat = desc.colorFormat;
     rtDesc.depthFormat = desc.depthFormat;
     rtDesc.hasDepth = desc.hasDepth;
+    rtDesc.sampleCount = desc.sampleCount;
 
     auto rt = device.createRenderTarget(rtDesc);
     if (!rt)
@@ -102,9 +104,9 @@ bool RenderSurface::configureOffscreenSurface(engine::RHIDevice& device, const R
     if (desc.readback && nextBytesPerPixel == 0)
         return false;
 
-    const bool formatChanged = offscreen_desc_.colorFormat != desc.colorFormat ||
-                               offscreen_desc_.depthFormat != desc.depthFormat ||
-                               offscreen_desc_.hasDepth != desc.hasDepth;
+    const bool formatChanged =
+            offscreen_desc_.colorFormat != desc.colorFormat || offscreen_desc_.depthFormat != desc.depthFormat ||
+            offscreen_desc_.hasDepth != desc.hasDepth || offscreen_desc_.sampleCount != desc.sampleCount;
     const bool readbackChanged = offscreen_desc_.readback != desc.readback;
 
     device.waitIdle();
@@ -212,7 +214,8 @@ bool RenderSurface::createReadbackBuffer(engine::RHIDevice& device) {
 bool RenderSurface::offscreenDescMatches(const RenderSurfaceDesc& desc) const {
     return render_target_ && offscreen_desc_.width == desc.width && offscreen_desc_.height == desc.height &&
            offscreen_desc_.colorFormat == desc.colorFormat && offscreen_desc_.depthFormat == desc.depthFormat &&
-           offscreen_desc_.hasDepth == desc.hasDepth && offscreen_desc_.readback == desc.readback;
+           offscreen_desc_.hasDepth == desc.hasDepth && offscreen_desc_.sampleCount == desc.sampleCount &&
+           offscreen_desc_.readback == desc.readback;
 }
 
 engine::TextureFormat RenderSurface::colorFormat(engine::RHIDevice& /*device*/) const {
@@ -223,6 +226,14 @@ engine::TextureFormat RenderSurface::colorFormat(engine::RHIDevice& /*device*/) 
 engine::TextureFormat RenderSurface::depthFormat(engine::RHIDevice& /*device*/) const {
     return render_target_ ? render_target_->depthFormat()
                           : (swapchain_ ? swapchain_->depthFormat() : engine::TextureFormat::D32_Float);
+}
+
+uint32_t RenderSurface::sampleCount() const {
+    if (render_target_)
+        return render_target_->desc().sampleCount;
+    if (swapchain_)
+        return swapchain_->desc().sampleCount;
+    return 1;
 }
 
 }  // namespace mulan::view

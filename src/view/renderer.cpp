@@ -38,11 +38,11 @@ Renderer::~Renderer() {
 }
 
 bool Renderer::init(engine::RHIDevice& device, engine::LightEnvironment& lightEnv, engine::TextureFormat colorFmt,
-                    engine::TextureFormat depthFmt) {
+                    engine::TextureFormat depthFmt, uint32_t sampleCount) {
     if (initialized_)
         return true;
 
-    if (!render_renderer_.init(device, lightEnv, colorFmt, depthFmt))
+    if (!render_renderer_.init(device, lightEnv, colorFmt, depthFmt, sampleCount))
         return false;
 
     initialized_ = true;

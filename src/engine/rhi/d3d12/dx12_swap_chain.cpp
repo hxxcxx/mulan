@@ -24,10 +24,11 @@ core::Result<std::unique_ptr<DX12SwapChain>> DX12SwapChain::create(const SwapCha
 DX12SwapChain::DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device, IDXGIFactory4* factory,
                              ID3D12CommandQueue* queue, const NativeWindowHandle& window)
     : desc_(desc), device_(device), queue_(queue) {
-    clear_color_[0] = 0.15f;
-    clear_color_[1] = 0.15f;
-    clear_color_[2] = 0.15f;
-    clear_color_[3] = 1.0f;
+    desc_.sampleCount = desc_.sampleCount > 1 ? desc_.sampleCount : 1;
+    clear_color_[0] = desc.clearColor[0];
+    clear_color_[1] = desc.clearColor[1];
+    clear_color_[2] = desc.clearColor[2];
+    clear_color_[3] = desc.clearColor[3];
 
     DXGI_SWAP_CHAIN_DESC1 scDesc = {};
     scDesc.Width = desc.width;
@@ -58,8 +59,9 @@ DX12SwapChain::~DX12SwapChain() {
 }
 
 void DX12SwapChain::createRTVHeap() {
+    const uint32_t rtvCount = desc_.bufferCount + (desc_.sampleCount > 1 ? 1 : 0);
     rtv_heap_ = std::make_unique<DX12DescriptorAllocator>(device_, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-                                                          D3D12_DESCRIPTOR_HEAP_FLAG_NONE, desc_.bufferCount);
+                                                          D3D12_DESCRIPTOR_HEAP_FLAG_NONE, rtvCount);
 
     dsv_heap_ = std::make_unique<DX12DescriptorAllocator>(device_, D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
                                                           D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 1);
@@ -82,10 +84,13 @@ void DX12SwapChain::createBackBuffers() {
         back_buffer_textures_[i]->setRTV(rtvDesc.cpu);
     }
 
+    createMsaaColor();
+
     // Depth stencil —— 纯 DSV 用途，不带 ShaderResource：
     // 深度缓冲从不被 shader 采样，且带 SRV 会触发对 typed 深度格式
     // 创建非法 SRV，导致 device removed。
-    auto depthDesc = TextureDesc::depthStencil(desc_.width, desc_.height);
+    auto depthDesc =
+            TextureDesc::depthStencil(desc_.width, desc_.height, desc_.depthFormat, "DepthBuffer", desc_.sampleCount);
     depthDesc.usage = TextureUsageFlags::DepthStencil;  // 剥离 ShaderResource
     auto depthResult = DX12Texture::create(depthDesc, device_, D3D12_RESOURCE_STATE_DEPTH_WRITE);
     if (!depthResult) {
@@ -100,12 +105,58 @@ void DX12SwapChain::createBackBuffers() {
     depth_texture_->setDSV(dsvDesc.cpu);
 }
 
+void DX12SwapChain::createMsaaColor() {
+    msaa_color_texture_.reset();
+    if (desc_.sampleCount <= 1)
+        return;
+
+    TextureDesc colorDesc =
+            TextureDesc::renderTarget(desc_.width, desc_.height, desc_.format, "SwapchainMSAAColor", desc_.sampleCount);
+    colorDesc.usage = TextureUsageFlags::RenderTarget;
+    auto colorResult = DX12Texture::create(colorDesc, device_, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    if (!colorResult)
+        throw std::runtime_error(colorResult.error().message);
+    msaa_color_texture_ = std::move(*colorResult);
+
+    auto rtvDesc = rtv_heap_->allocate();
+    device_->CreateRenderTargetView(msaa_color_texture_->resource(), nullptr, rtvDesc.cpu);
+    msaa_color_texture_->setRTV(rtvDesc.cpu);
+}
+
 void DX12SwapChain::releaseBackBuffers() {
     back_buffer_textures_.clear();
     back_buffers_.clear();
+    msaa_color_texture_.reset();
     depth_texture_.reset();
     rtv_heap_.reset();
     dsv_heap_.reset();
+}
+
+RenderPassBeginInfo DX12SwapChain::renderPassBeginInfo() {
+    RenderPassBeginInfo info;
+    auto* backBuffer = currentBackBuffer();
+    auto* color = msaa_color_texture_ ? static_cast<Texture*>(msaa_color_texture_.get()) : backBuffer;
+    if (color) {
+        info.colorAttachments[0].target = color;
+        info.colorAttachments[0].resolveTarget = msaa_color_texture_ ? backBuffer : nullptr;
+        info.colorAttachments[0].loadAction = LoadAction::Clear;
+        info.colorAttachments[0].storeAction = msaa_color_texture_ ? StoreAction::DontCare : StoreAction::Store;
+        info.colorCount = 1;
+    }
+    if (depth_texture_) {
+        info.depthAttachment.target = depth_texture_.get();
+        info.depthAttachment.loadAction = LoadAction::Clear;
+        info.depthAttachment.storeAction = StoreAction::DontCare;
+    }
+    info.clearColor[0] = clear_color_[0];
+    info.clearColor[1] = clear_color_[1];
+    info.clearColor[2] = clear_color_[2];
+    info.clearColor[3] = clear_color_[3];
+    info.clearDepth = desc_.clearDepth;
+    info.presentSource = true;
+    info.width = desc_.width;
+    info.height = desc_.height;
+    return info;
 }
 
 Texture* DX12SwapChain::currentBackBuffer() {

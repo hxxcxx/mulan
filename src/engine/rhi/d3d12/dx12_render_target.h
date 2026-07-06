@@ -29,6 +29,7 @@ public:
     Texture* depthTexture() override { return depth_texture_.get(); }
 
     void resize(uint32_t width, uint32_t height) override;
+    RenderPassBeginInfo renderPassBeginInfo() override;
 
 private:
     DX12RenderTarget(const RenderTargetDesc& desc, ID3D12Device* device) : desc_(desc), device_(device) {}
@@ -39,6 +40,7 @@ private:
     ID3D12Device* device_;
     std::unique_ptr<DX12Texture> color_texture_;
     std::unique_ptr<DX12Texture> depth_texture_;
+    std::unique_ptr<DX12Texture> msaa_color_texture_;
 
     std::unique_ptr<DX12DescriptorAllocator> rtv_heap_;
     std::unique_ptr<DX12DescriptorAllocator> dsv_heap_;

@@ -32,6 +32,7 @@ public:
     Texture* depthTexture() override { return depth_texture_.get(); }
 
     void resize(uint32_t width, uint32_t height) override;
+    RenderPassBeginInfo renderPassBeginInfo() override;
 
 private:
     VKRenderTarget(const RenderTargetDesc& desc, vk::Device device, VmaAllocator allocator)
@@ -47,6 +48,7 @@ private:
 
     std::unique_ptr<VKTexture> color_texture_;
     std::unique_ptr<VKTexture> depth_texture_;
+    std::unique_ptr<VKTexture> msaa_color_texture_;
 };
 
 }  // namespace mulan::engine

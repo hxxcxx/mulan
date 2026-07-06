@@ -17,10 +17,10 @@ GeometryDrawExecutor::GeometryDrawExecutor(RHIDevice& device, GeometryDrawShared
     : device_(device), shared_resources_(sharedResources), technique_(TechniqueRegistry::builtin(technique)) {
 }
 
-bool GeometryDrawExecutor::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
+bool GeometryDrawExecutor::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth, uint32_t sampleCount) {
     if (!loadShaders())
         return false;
-    if (!createPSO(colorFmt, depthFmt, hasDepth))
+    if (!createPSO(colorFmt, depthFmt, hasDepth, sampleCount))
         return false;
 
     if (!createFrameBindGroup(colorFmt, depthFmt, hasDepth))
@@ -48,7 +48,8 @@ bool GeometryDrawExecutor::loadShaders() {
 
 // ─── PSO ───────────────────────────────────────────────────────
 
-bool GeometryDrawExecutor::createPSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth) {
+bool GeometryDrawExecutor::createPSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth,
+                                     uint32_t sampleCount) {
     GraphicsPipelineDesc desc{};
     desc.name = technique_.debugName;
     desc.vs = vs_.get();
@@ -111,6 +112,7 @@ bool GeometryDrawExecutor::createPSO(TextureFormat colorFmt, TextureFormat depth
     desc.colorTargetCount = 1;
     desc.depthStencilFormat = depthFmt;
     desc.depthEnable = hasDepth;
+    desc.sampleCount = sampleCount;
 
     auto psoResult = device_.createPipelineState(desc);
     if (!psoResult) {

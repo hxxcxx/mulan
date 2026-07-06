@@ -33,6 +33,7 @@ public:
     const SwapChainDesc& desc() const override { return desc_; }
     Texture* currentBackBuffer() override;
     Texture* depthTexture() override { return depth_texture_ ? depth_texture_.get() : nullptr; }
+    RenderPassBeginInfo renderPassBeginInfo() override;
     void present() override;
     void resize(uint32_t width, uint32_t height) override;
 
@@ -45,6 +46,7 @@ private:
 
     void createRTVHeap();
     void createBackBuffers();
+    void createMsaaColor();
     void releaseBackBuffers();
     void logDeviceRemovedReason(HRESULT presentResult) const;
 
@@ -56,6 +58,7 @@ private:
     std::unique_ptr<DX12DescriptorAllocator> rtv_heap_;
     std::vector<ComPtr<ID3D12Resource>> back_buffers_;
     std::vector<std::unique_ptr<DX12Texture>> back_buffer_textures_;
+    std::unique_ptr<DX12Texture> msaa_color_texture_;
 
     // DS
     std::unique_ptr<DX12Texture> depth_texture_;

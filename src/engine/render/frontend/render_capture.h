@@ -19,6 +19,7 @@ struct RenderCaptureDesc {
     uint32_t height = 0;
     TextureFormat format = TextureFormat::RGBA8_UNorm;
     TextureFormat depthFormat = TextureFormat::D24_UNorm_S8_UInt;
+    uint32_t sampleCount = 0;
     bool readback = true;
 };
 

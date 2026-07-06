@@ -117,7 +117,7 @@ core::Error VKPipelineState::build() {
     // --- Multisample ---
     vk::PipelineMultisampleStateCreateInfo multisample;
     multisample.sampleShadingEnable = false;
-    multisample.rasterizationSamples = vk::SampleCountFlagBits::e1;
+    multisample.rasterizationSamples = toVkSampleCount(desc_.sampleCount);
 
     // --- Depth/Stencil ---
     vk::PipelineDepthStencilStateCreateInfo depthStencil;

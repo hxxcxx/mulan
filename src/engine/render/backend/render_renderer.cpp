@@ -36,8 +36,8 @@ void prepareMaterialTextures(AssetGpuRegistry& assets, const RenderMaterialDesc&
 RenderRenderer::RenderRenderer() = default;
 RenderRenderer::~RenderRenderer() = default;
 
-bool RenderRenderer::init(RHIDevice& device, LightEnvironment& lightEnv, TextureFormat colorFmt,
-                          TextureFormat depthFmt) {
+bool RenderRenderer::init(RHIDevice& device, LightEnvironment& lightEnv, TextureFormat colorFmt, TextureFormat depthFmt,
+                          uint32_t sampleCount) {
     if (initialized_)
         return true;
 
@@ -52,6 +52,7 @@ bool RenderRenderer::init(RHIDevice& device, LightEnvironment& lightEnv, Texture
     targetInfo.colorFormat = colorFmt;
     targetInfo.depthFormat = depthFmt;
     targetInfo.hasDepth = true;
+    targetInfo.sampleCount = sampleCount;
 
     face_stage_ = std::make_unique<FaceStage>(device, *geometry_resources_);
     if (!face_stage_->init(device, targetInfo)) {

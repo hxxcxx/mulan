@@ -34,6 +34,7 @@ struct RenderTargetDesc {
     TextureFormat colorFormat = TextureFormat::RGBA8_UNorm;
     TextureFormat depthFormat = TextureFormat::D24_UNorm_S8_UInt;
     bool hasDepth = true;
+    uint32_t sampleCount = 1;
 
     float clearColor[4] = { 0.15f, 0.15f, 0.15f, 1.0f };
     float clearDepth = 1.0f;
@@ -59,7 +60,7 @@ public:
     virtual void resize(uint32_t width, uint32_t height) = 0;
 
     /// 构建 RenderPassBeginInfo（供 CommandList::beginRenderPass 使用）
-    RenderPassBeginInfo renderPassBeginInfo() {
+    virtual RenderPassBeginInfo renderPassBeginInfo() {
         RenderPassBeginInfo info;
         auto* color = colorTexture();
         if (color) {

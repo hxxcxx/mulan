@@ -343,7 +343,9 @@ void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
 
     // Track swapchain color image for present transition in endRenderPass
     if (rp_present_source_ && info.colorCount > 0 && info.colorAttachments[0].target) {
-        swapchain_color_image_ = static_cast<VKTexture*>(info.colorAttachments[0].target)->image();
+        Texture* presentTexture = info.colorAttachments[0].resolveTarget ? info.colorAttachments[0].resolveTarget
+                                                                         : info.colorAttachments[0].target;
+        swapchain_color_image_ = static_cast<VKTexture*>(presentTexture)->image();
     }
 
     // Color attachment barriers: transition to COLOR_ATTACHMENT_OPTIMAL
@@ -361,6 +363,25 @@ void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
 
         cmd_buffer_.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,
                                     vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, nullptr, nullptr, barrier);
+        tex->setCurrentLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+        if (info.colorAttachments[i].resolveTarget) {
+            auto* resolveTex = static_cast<VKTexture*>(info.colorAttachments[i].resolveTarget);
+            vk::ImageMemoryBarrier resolveBarrier;
+            resolveBarrier.image = resolveTex->image();
+            resolveBarrier.oldLayout = vk::ImageLayout::eUndefined;
+            resolveBarrier.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
+            resolveBarrier.srcAccessMask = {};
+            resolveBarrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+            resolveBarrier.subresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+            resolveBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            resolveBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+            cmd_buffer_.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,
+                                        vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, nullptr, nullptr,
+                                        resolveBarrier);
+            resolveTex->setCurrentLayout(vk::ImageLayout::eColorAttachmentOptimal);
+        }
     }
 
     // Depth attachment barrier: transition to DEPTH_STENCIL_ATTACHMENT_OPTIMAL
@@ -379,6 +400,7 @@ void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
 
         cmd_buffer_.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,
                                     vk::PipelineStageFlagBits::eEarlyFragmentTests, {}, nullptr, nullptr, barrier);
+        depthTex->setCurrentLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
     }
 
     // Build dynamic rendering attachments
@@ -390,7 +412,13 @@ void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
         att.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
         att.loadOp = (info.colorAttachments[i].loadAction == LoadAction::Clear) ? vk::AttachmentLoadOp::eClear
                                                                                 : vk::AttachmentLoadOp::eLoad;
-        att.storeOp = vk::AttachmentStoreOp::eStore;
+        att.storeOp = toVkStoreOp(info.colorAttachments[i].storeAction);
+        if (info.colorAttachments[i].resolveTarget) {
+            auto* resolveTex = static_cast<VKTexture*>(info.colorAttachments[i].resolveTarget);
+            att.resolveMode = vk::ResolveModeFlagBits::eAverage;
+            att.resolveImageView = resolveTex->view();
+            att.resolveImageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        }
         att.clearValue.color = vk::ClearColorValue(
                 std::array<float, 4>{ info.clearColor[0], info.clearColor[1], info.clearColor[2], info.clearColor[3] });
     }
@@ -402,7 +430,7 @@ void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
         depthAtt.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
         depthAtt.loadOp = (info.depthAttachment.loadAction == LoadAction::Clear) ? vk::AttachmentLoadOp::eClear
                                                                                  : vk::AttachmentLoadOp::eLoad;
-        depthAtt.storeOp = vk::AttachmentStoreOp::eStore;
+        depthAtt.storeOp = toVkStoreOp(info.depthAttachment.storeAction);
         depthAtt.clearValue.depthStencil = vk::ClearDepthStencilValue(info.clearDepth, info.clearStencil);
     }
 

@@ -21,7 +21,7 @@ core::Result<std::unique_ptr<VKTexture>> VKTexture::create(const TextureDesc& de
     ci.extent = vk::Extent3D(desc.width, desc.height, desc.depth);
     ci.mipLevels = desc.mipLevels;
     ci.arrayLayers = desc.arraySize;
-    ci.samples = vk::SampleCountFlagBits::e1;
+    ci.samples = toVkSampleCount(desc.sampleCount);
     ci.tiling = vk::ImageTiling::eOptimal;
     ci.initialLayout = vk::ImageLayout::eUndefined;
 

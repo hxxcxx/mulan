@@ -253,7 +253,7 @@ void DX12PipelineState::build(DXGI_FORMAT rtFormat, DXGI_FORMAT dsFormat) {
     rasterizer.DepthBiasClamp = desc_.depthStencil.depthBiasClamp;
     rasterizer.SlopeScaledDepthBias = desc_.depthStencil.slopeScaledDepthBias;
     rasterizer.DepthClipEnable = TRUE;
-    rasterizer.MultisampleEnable = FALSE;
+    rasterizer.MultisampleEnable = desc_.sampleCount > 1 ? TRUE : FALSE;
     rasterizer.AntialiasedLineEnable = FALSE;
     rasterizer.ForcedSampleCount = 0;
     rasterizer.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
@@ -295,7 +295,7 @@ void DX12PipelineState::build(DXGI_FORMAT rtFormat, DXGI_FORMAT dsFormat) {
     psoDesc.NumRenderTargets = 1;
     psoDesc.RTVFormats[0] = rtFormat;
     psoDesc.DSVFormat = dsFormat;
-    psoDesc.SampleDesc = { 1, 0 };
+    psoDesc.SampleDesc = { desc_.sampleCount, 0 };
     psoDesc.SampleMask = UINT_MAX;
     psoDesc.RasterizerState = rasterizer;
     psoDesc.BlendState = blend;

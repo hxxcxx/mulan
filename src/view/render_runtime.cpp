@@ -147,6 +147,7 @@ bool RenderRuntime::configureCaptureSurface(const engine::RenderCaptureDesc& des
     surfaceDesc.colorFormat = desc.format;
     surfaceDesc.depthFormat = desc.depthFormat;
     surfaceDesc.hasDepth = true;
+    surfaceDesc.sampleCount = desc.sampleCount ? desc.sampleCount : surface_.sampleCount();
     surfaceDesc.readback = desc.readback;
     return surface_.configureOffscreenSurface(*device_, surfaceDesc);
 }
@@ -168,7 +169,8 @@ core::Result<void> RenderRuntime::initRendering(engine::LightEnvironment& lightE
                 runtimeError(core::ErrorCode::InvalidArg, "RenderRuntime cannot initialize without a device."));
     }
 
-    if (!renderer_.init(*device_, lightEnv, surface_.colorFormat(*device_), surface_.depthFormat(*device_))) {
+    if (!renderer_.init(*device_, lightEnv, surface_.colorFormat(*device_), surface_.depthFormat(*device_),
+                        surface_.sampleCount())) {
         return std::unexpected(runtimeError(core::ErrorCode::Internal, "Failed to initialize renderer."));
     }
     return {};

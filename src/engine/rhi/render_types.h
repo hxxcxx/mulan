@@ -42,6 +42,7 @@ enum class StoreAction : uint8_t {
 
 struct RenderPassAttachmentInfo {
     Texture* target = nullptr;
+    Texture* resolveTarget = nullptr;
     LoadAction loadAction = LoadAction::Clear;
     StoreAction storeAction = StoreAction::Store;
 };

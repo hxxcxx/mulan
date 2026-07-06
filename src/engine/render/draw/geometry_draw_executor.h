@@ -37,7 +37,7 @@ public:
 
     const char* name() const override { return technique_.debugName; }
 
-    bool init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
+    bool init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth, uint32_t sampleCount);
     void execute(const DrawExecutionContext& ctx) override;
 
     void setDrawCommands(std::span<const MeshDrawCommand> cmds) { commands_ = cmds; }
@@ -60,7 +60,7 @@ public:
 
 private:
     bool loadShaders();
-    bool createPSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
+    bool createPSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth, uint32_t sampleCount);
     bool createFrameBindGroup(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
 
     RHIDevice& device_;

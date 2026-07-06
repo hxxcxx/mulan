@@ -96,7 +96,14 @@ void VKDevice::flushUploadBatch() {
 
 core::Result<std::unique_ptr<RenderTarget>> VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
     frame_scheduler_->ensureSwapchainImageSync(1);
-    return resource_factory_->createRenderTarget(desc);
+    RenderTargetDesc resolvedDesc = desc;
+    if (resolvedDesc.sampleCount > caps_.maxSampleCount)
+        resolvedDesc.sampleCount = caps_.maxSampleCount;
+    if (resolvedDesc.sampleCount != 1 && resolvedDesc.sampleCount != 2 && resolvedDesc.sampleCount != 4 &&
+        resolvedDesc.sampleCount != 8) {
+        resolvedDesc.sampleCount = 1;
+    }
+    return resource_factory_->createRenderTarget(resolvedDesc);
 }
 
 core::Result<std::unique_ptr<Sampler>> VKDevice::createSampler(const SamplerDesc& desc) {

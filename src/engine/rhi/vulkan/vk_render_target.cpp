@@ -2,9 +2,6 @@
 
 #include <mulan/core/result/error.h>
 #include "../../engine_error_code.h"
-#include <mulan/core/log/log.h>
-
-#include <string>
 
 namespace mulan::engine {
 
@@ -25,35 +22,39 @@ void VKRenderTarget::resize(uint32_t width, uint32_t height) {
     cleanup();
     desc_.width = width;
     desc_.height = height;
-    // resize 是基类 void 热路径契约，内部消化错误。
     if (auto e = createResources(); e.code != 0) {}
 }
 
-// ============================================================
-// 内部资源创建
-// ============================================================
-
 core::Error VKRenderTarget::createResources() {
-    // --- Color 纹理 ---
-    TextureDesc colorDesc;
-    colorDesc.name = "OffscreenColor";
-    colorDesc.format = desc_.colorFormat;
-    colorDesc.dimension = TextureDimension::Texture2D;
+    const uint32_t samples = desc_.sampleCount > 1 ? desc_.sampleCount : 1;
+
+    TextureDesc colorDesc = TextureDesc::renderTarget(desc_.width, desc_.height, desc_.colorFormat, "OffscreenColor");
     colorDesc.usage =
             TextureUsageFlags::RenderTarget | TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
-    colorDesc.width = desc_.width;
-    colorDesc.height = desc_.height;
 
     auto colorResult = VKTexture::create(colorDesc, device_, allocator_);
     if (!colorResult)
         return colorResult.error();
     color_texture_ = std::move(*colorResult);
 
-    // --- Depth 纹理 ---
+    if (samples > 1) {
+        TextureDesc msaaColorDesc =
+                TextureDesc::renderTarget(desc_.width, desc_.height, desc_.colorFormat, "OffscreenMSAAColor", samples);
+        msaaColorDesc.usage = TextureUsageFlags::RenderTarget;
+        auto msaaColorResult = VKTexture::create(msaaColorDesc, device_, allocator_);
+        if (!msaaColorResult) {
+            color_texture_.reset();
+            return msaaColorResult.error();
+        }
+        msaa_color_texture_ = std::move(*msaaColorResult);
+    }
+
     if (desc_.hasDepth) {
-        auto depthDesc = TextureDesc::depthStencil(desc_.width, desc_.height, desc_.depthFormat, "OffscreenDepth");
+        auto depthDesc =
+                TextureDesc::depthStencil(desc_.width, desc_.height, desc_.depthFormat, "OffscreenDepth", samples);
         auto depthResult = VKTexture::create(depthDesc, device_, allocator_);
         if (!depthResult) {
+            msaa_color_texture_.reset();
             color_texture_.reset();
             return depthResult.error();
         }
@@ -64,8 +65,38 @@ core::Error VKRenderTarget::createResources() {
 }
 
 void VKRenderTarget::cleanup() {
+    msaa_color_texture_.reset();
     depth_texture_.reset();
     color_texture_.reset();
+}
+
+RenderPassBeginInfo VKRenderTarget::renderPassBeginInfo() {
+    RenderPassBeginInfo info;
+    Texture* color = msaa_color_texture_ ? static_cast<Texture*>(msaa_color_texture_.get()) : color_texture_.get();
+    if (color) {
+        info.colorAttachments[0].target = color;
+        info.colorAttachments[0].resolveTarget = msaa_color_texture_ ? color_texture_.get() : nullptr;
+        info.colorAttachments[0].loadAction = LoadAction::Clear;
+        info.colorAttachments[0].storeAction = msaa_color_texture_ ? StoreAction::DontCare : StoreAction::Store;
+        info.colorCount = 1;
+    }
+    if (depth_texture_) {
+        info.depthAttachment.target = depth_texture_.get();
+        info.depthAttachment.loadAction = LoadAction::Clear;
+        info.depthAttachment.storeAction = StoreAction::DontCare;
+    }
+
+    auto& cc = desc_.clearColor;
+    info.clearColor[0] = cc[0];
+    info.clearColor[1] = cc[1];
+    info.clearColor[2] = cc[2];
+    info.clearColor[3] = cc[3];
+    info.clearDepth = desc_.clearDepth;
+    info.presentSource = false;
+    info.width = desc_.width;
+    info.height = desc_.height;
+    info.nativeHandle = nativeRenderPassHandle();
+    return info;
 }
 
 }  // namespace mulan::engine

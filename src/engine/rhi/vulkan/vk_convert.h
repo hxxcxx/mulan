@@ -59,6 +59,15 @@ inline TextureFormat fromVkFormat(vk::Format fmt) {
     }
 }
 
+inline vk::SampleCountFlagBits toVkSampleCount(uint32_t count) {
+    switch (count) {
+    case 8: return vk::SampleCountFlagBits::e8;
+    case 4: return vk::SampleCountFlagBits::e4;
+    case 2: return vk::SampleCountFlagBits::e2;
+    default: return vk::SampleCountFlagBits::e1;
+    }
+}
+
 inline vk::PrimitiveTopology toVkTopology(PrimitiveTopology topo) {
     switch (topo) {
     case PrimitiveTopology::PointList: return vk::PrimitiveTopology::ePointList;

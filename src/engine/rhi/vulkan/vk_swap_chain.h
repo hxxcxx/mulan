@@ -52,6 +52,8 @@ public:
 
     Texture* depthTexture() override { return depth_texture_ ? depth_texture_.get() : nullptr; }
 
+    RenderPassBeginInfo renderPassBeginInfo() override;
+
     bool acquireNextImage(vk::Semaphore imageAvailable);
     void presentWithSemaphores(vk::Semaphore renderFinished);
     void present() override;
@@ -70,6 +72,7 @@ private:
     /// 创建/重建 swapchain 与子资源。成功返回默认 Error(code=0)。
     /// 被 create() 与 resize() 共用。
     core::Error createSwapChain();
+    core::Error createMsaaResources();
     void cleanup();
 
     SwapChainDesc desc_;
@@ -83,6 +86,7 @@ private:
     vk::Extent2D swapchain_extent_;
 
     std::unique_ptr<VKTexture> depth_texture_;
+    std::unique_ptr<VKTexture> msaa_color_texture_;
     std::vector<std::unique_ptr<VKTexture>> back_buffers_;
 
     uint32_t current_image_index_ = 0;

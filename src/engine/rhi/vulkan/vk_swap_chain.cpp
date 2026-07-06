@@ -60,6 +60,23 @@ void VKSwapChain::resize(uint32_t width, uint32_t height) {
     if (auto e = createSwapChain(); e.code != 0) {}
 }
 
+core::Error VKSwapChain::createMsaaResources() {
+    msaa_color_texture_.reset();
+    if (desc_.sampleCount <= 1)
+        return {};
+
+    TextureDesc colorDesc =
+            TextureDesc::renderTarget(swapchain_extent_.width, swapchain_extent_.height,
+                                      fromVkFormat(swapchain_format_), "SwapchainMSAAColor", desc_.sampleCount);
+    colorDesc.usage = TextureUsageFlags::RenderTarget;
+    auto colorResult = VKTexture::create(colorDesc, params_.device, params_.allocator);
+    if (!colorResult) {
+        return colorResult.error();
+    }
+    msaa_color_texture_ = std::move(*colorResult);
+    return {};
+}
+
 // --------------------------------------------------------
 // SwapChain 创建
 // --------------------------------------------------------
@@ -141,6 +158,7 @@ core::Error VKSwapChain::createSwapChain() {
         desc_.format = fromVkFormat(swapchain_format_);
         desc_.width = extent.width;
         desc_.height = extent.height;
+        desc_.sampleCount = desc_.sampleCount > 1 ? desc_.sampleCount : 1;
 
         // 创建 ImageViews + VKTexture wrappers for backbuffers
         image_views_.resize(swapchain_images_.size());
@@ -168,8 +186,12 @@ core::Error VKSwapChain::createSwapChain() {
     }
 
     // 深度缓冲（用 VKTexture::create）
+    if (auto e = createMsaaResources(); e.code != 0) {
+        return e;
+    }
+
     TextureDesc depthDesc = TextureDesc::depthStencil(swapchain_extent_.width, swapchain_extent_.height,
-                                                      desc_.depthFormat, "DepthBuffer");
+                                                      desc_.depthFormat, "DepthBuffer", desc_.sampleCount);
     auto depthResult = VKTexture::create(depthDesc, params_.device, params_.allocator);
     if (!depthResult) {
         return depthResult.error();
@@ -185,12 +207,42 @@ void VKSwapChain::cleanup() {
     image_views_.clear();
 
     back_buffers_.clear();
+    msaa_color_texture_.reset();
     depth_texture_.reset();
 
     if (swapchain_) {
         params_.device.destroySwapchainKHR(swapchain_);
         swapchain_ = nullptr;
     }
+}
+
+RenderPassBeginInfo VKSwapChain::renderPassBeginInfo() {
+    RenderPassBeginInfo info;
+    auto* backBuffer = currentBackBuffer();
+    auto* color = msaa_color_texture_ ? static_cast<Texture*>(msaa_color_texture_.get()) : backBuffer;
+    if (color) {
+        info.colorAttachments[0].target = color;
+        info.colorAttachments[0].resolveTarget = msaa_color_texture_ ? backBuffer : nullptr;
+        info.colorAttachments[0].loadAction = LoadAction::Clear;
+        info.colorAttachments[0].storeAction = msaa_color_texture_ ? StoreAction::DontCare : StoreAction::Store;
+        info.colorCount = 1;
+    }
+    auto* depth = depthTexture();
+    if (depth) {
+        info.depthAttachment.target = depth;
+        info.depthAttachment.loadAction = LoadAction::Clear;
+        info.depthAttachment.storeAction = StoreAction::DontCare;
+    }
+    auto& cc = desc().clearColor;
+    info.clearColor[0] = cc[0];
+    info.clearColor[1] = cc[1];
+    info.clearColor[2] = cc[2];
+    info.clearColor[3] = cc[3];
+    info.clearDepth = desc().clearDepth;
+    info.presentSource = true;
+    info.width = desc().width;
+    info.height = desc().height;
+    return info;
 }
 
 }  // namespace mulan::engine

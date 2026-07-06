@@ -30,6 +30,32 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vkDebugCallback(VkDebugUtilsMessageSeverit
     return VK_FALSE;
 }
 
+static uint32_t sampleCountFromFlags(vk::SampleCountFlags flags, uint32_t requested) {
+    const uint32_t candidates[] = { 8, 4, 2, 1 };
+    for (uint32_t sample : candidates) {
+        if (sample > requested)
+            continue;
+        if (sample == 8 && (flags & vk::SampleCountFlagBits::e8))
+            return 8;
+        if (sample == 4 && (flags & vk::SampleCountFlagBits::e4))
+            return 4;
+        if (sample == 2 && (flags & vk::SampleCountFlagBits::e2))
+            return 2;
+        if (sample == 1)
+            return 1;
+    }
+    return 1;
+}
+
+static RenderConfig::MSAALevel toMsaaLevel(uint32_t samples) {
+    switch (samples) {
+    case 8: return RenderConfig::MSAALevel::x8;
+    case 4: return RenderConfig::MSAALevel::x4;
+    case 2: return RenderConfig::MSAALevel::x2;
+    default: return RenderConfig::MSAALevel::None;
+    }
+}
+
 // ============================================================
 // 构造 / 析构
 // ============================================================
@@ -324,6 +350,10 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     auto features = physical_device_.getFeatures();
     caps_.maxTextureSize = props.limits.maxImageDimension2D;
     caps_.maxTextureAniso = static_cast<uint32_t>(props.limits.maxSamplerAnisotropy);
+    const auto framebufferSampleCounts =
+            props.limits.framebufferColorSampleCounts & props.limits.framebufferDepthSampleCounts;
+    caps_.maxSampleCount = sampleCountFromFlags(framebufferSampleCounts, 8);
+    render_config_.msaa = toMsaaLevel(sampleCountFromFlags(framebufferSampleCounts, render_config_.sampleCount()));
     caps_.minUniformBufferOffsetAlignment = props.limits.minUniformBufferOffsetAlignment;
     caps_.depthClamp = features.depthClamp;
     caps_.geometryShader = features.geometryShader;

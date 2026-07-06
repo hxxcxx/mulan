@@ -96,6 +96,7 @@ private:
     uint32_t cached_stride_ = 0;           // 从 PSO vertexLayout 缓存的 stride
     bool rp_present_source_ = false;       // endRenderPass 中决定 barrier 目标状态（PRESENT vs SRV）
     DX12Texture* rp_color_tex_ = nullptr;  // 当前 render pass 的颜色附件
+    DX12Texture* rp_resolve_tex_ = nullptr;
 
     // 纹理绑定用：当前帧的描述符堆
     ID3D12DescriptorHeap* desc_heap_ = nullptr;

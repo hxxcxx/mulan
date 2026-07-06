@@ -128,7 +128,7 @@ struct TextureDesc {
     // 便捷构造
 
     static TextureDesc renderTarget(uint32_t w, uint32_t h, TextureFormat fmt = TextureFormat::RGBA8_UNorm,
-                                    std::string_view debugName = {}) {
+                                    std::string_view debugName = {}, uint32_t samples = 1) {
         return { debugName,
                  fmt,
                  TextureDimension::Texture2D,
@@ -138,11 +138,11 @@ struct TextureDesc {
                  1,
                  1,
                  1,
-                 1 };
+                 samples };
     }
 
     static TextureDesc depthStencil(uint32_t w, uint32_t h, TextureFormat fmt = TextureFormat::D24_UNorm_S8_UInt,
-                                    std::string_view debugName = {}) {
+                                    std::string_view debugName = {}, uint32_t samples = 1) {
         return { debugName,
                  fmt,
                  TextureDimension::Texture2D,
@@ -152,7 +152,7 @@ struct TextureDesc {
                  1,
                  1,
                  1,
-                 1 };
+                 samples };
     }
 };
 

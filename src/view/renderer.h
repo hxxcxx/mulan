@@ -49,7 +49,7 @@ public:
     /// 初始化 stages 与资源缓存。lightEnv 引用在 ViewContext 生命周期内稳定。
     /// IBL 烘焙不在此处发生——按需通过 enableIBL() 触发，由调用方根据模型类型决定。
     bool init(engine::RHIDevice& device, engine::LightEnvironment& lightEnv, engine::TextureFormat colorFmt,
-              engine::TextureFormat depthFmt);
+              engine::TextureFormat depthFmt, uint32_t sampleCount);
 
     void shutdown(engine::RHIDevice& device);
 

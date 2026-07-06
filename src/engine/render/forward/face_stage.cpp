@@ -9,13 +9,13 @@ FaceStage::FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResou
 }
 
 core::Result<void> FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
-    if (!solid_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
+    if (!solid_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
         return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage SolidLit init failed"));
     }
-    if (!pbr_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
+    if (!pbr_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
         return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage SurfacePBR init failed"));
     }
-    if (!view_cube_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
+    if (!view_cube_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
         return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage ViewCube init failed"));
     }
     return {};

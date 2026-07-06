@@ -7,8 +7,42 @@
 #include <string>
 #include <vector>
 #include <cstring>
+#include <algorithm>
 
 namespace mulan::engine {
+
+namespace {
+
+uint32_t dx12SupportedSamples(ID3D12Device* device, DXGI_FORMAT format, uint32_t requested) {
+    const uint32_t candidates[] = { 8, 4, 2, 1 };
+    for (uint32_t sample : candidates) {
+        if (sample > requested)
+            continue;
+        if (sample == 1)
+            return 1;
+
+        D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS levels{};
+        levels.Format = format;
+        levels.SampleCount = sample;
+        levels.Flags = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
+        if (SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &levels, sizeof(levels))) &&
+            levels.NumQualityLevels > 0) {
+            return sample;
+        }
+    }
+    return 1;
+}
+
+RenderConfig::MSAALevel toMsaaLevel(uint32_t samples) {
+    switch (samples) {
+    case 8: return RenderConfig::MSAALevel::x8;
+    case 4: return RenderConfig::MSAALevel::x4;
+    case 2: return RenderConfig::MSAALevel::x2;
+    default: return RenderConfig::MSAALevel::None;
+    }
+}
+
+}  // namespace
 
 // ============================================================
 // 构造 / 析构
@@ -62,6 +96,12 @@ void DX12Device::init(const DeviceCreateInfo& ci) {
     caps_.computeShader = true;
     caps_.maxTextureSize = D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION;  // 16384
     caps_.maxTextureAniso = D3D12_DEFAULT_MAX_ANISOTROPY;         // 16
+    const uint32_t colorSamples =
+            dx12SupportedSamples(device_.Get(), DXGI_FORMAT_B8G8R8A8_UNORM, render_config_.sampleCount());
+    const uint32_t depthSamples =
+            dx12SupportedSamples(device_.Get(), DXGI_FORMAT_D24_UNORM_S8_UINT, render_config_.sampleCount());
+    caps_.maxSampleCount = dx12SupportedSamples(device_.Get(), DXGI_FORMAT_B8G8R8A8_UNORM, 8);
+    render_config_.msaa = toMsaaLevel((std::min) (colorSamples, depthSamples));
     // minUniformBufferOffsetAlignment 保持默认 256（D3D12 常量缓冲对齐）
 }
 
@@ -279,7 +319,9 @@ core::Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
 }
 
 core::Result<std::unique_ptr<SwapChain>> DX12Device::createSwapChain(const SwapChainDesc& desc) {
-    auto result = DX12SwapChain::create(desc, device_.Get(), factory_.Get(), command_queue_.Get(), window_);
+    SwapChainDesc resolvedDesc = desc;
+    resolvedDesc.sampleCount = render_config_.sampleCount();
+    auto result = DX12SwapChain::create(resolvedDesc, device_.Get(), factory_.Get(), command_queue_.Get(), window_);
     if (!result)
         return std::unexpected(result.error());
     (*result)->trackResource(*this, RHIResourceKind::SwapChain, "SwapChain");
@@ -287,7 +329,14 @@ core::Result<std::unique_ptr<SwapChain>> DX12Device::createSwapChain(const SwapC
 }
 
 core::Result<std::unique_ptr<RenderTarget>> DX12Device::createRenderTarget(const RenderTargetDesc& desc) {
-    auto result = DX12RenderTarget::create(desc, device_.Get());
+    RenderTargetDesc resolvedDesc = desc;
+    if (resolvedDesc.sampleCount > caps_.maxSampleCount)
+        resolvedDesc.sampleCount = caps_.maxSampleCount;
+    if (resolvedDesc.sampleCount != 1 && resolvedDesc.sampleCount != 2 && resolvedDesc.sampleCount != 4 &&
+        resolvedDesc.sampleCount != 8) {
+        resolvedDesc.sampleCount = 1;
+    }
+    auto result = DX12RenderTarget::create(resolvedDesc, device_.Get());
     if (!result)
         return std::unexpected(result.error());
     (*result)->trackResource(*this, RHIResourceKind::RenderTarget, "RenderTarget");

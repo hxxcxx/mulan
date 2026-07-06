@@ -20,6 +20,7 @@ struct RenderTargetInfo {
     TextureFormat depthFormat = TextureFormat::Unknown;
     bool hasDepth = false;
     bool presentable = false;
+    uint32_t sampleCount = 1;
 };
 
 }  // namespace mulan::engine

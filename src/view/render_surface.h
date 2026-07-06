@@ -33,6 +33,7 @@ struct RenderSurfaceDesc {
     engine::TextureFormat colorFormat = engine::TextureFormat::RGBA8_UNorm;
     engine::TextureFormat depthFormat = engine::TextureFormat::D24_UNorm_S8_UInt;
     bool hasDepth = true;
+    uint32_t sampleCount = 1;
     bool readback = true;
 };
 
@@ -73,6 +74,7 @@ public:
 
     engine::TextureFormat colorFormat(engine::RHIDevice& device) const;
     engine::TextureFormat depthFormat(engine::RHIDevice& device) const;
+    uint32_t sampleCount() const;
 
 private:
     bool createReadbackBuffer(engine::RHIDevice& device);

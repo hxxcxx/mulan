@@ -396,6 +396,22 @@ void DX12CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
         if (info.colorAttachments[i].loadAction == LoadAction::Clear) {
             cl->ClearRenderTargetView(tex->rtv(), info.clearColor, 0, nullptr);
         }
+
+        if (info.colorAttachments[i].resolveTarget) {
+            auto* resolveTex = static_cast<DX12Texture*>(info.colorAttachments[i].resolveTarget);
+            D3D12_RESOURCE_STATES resolveBefore = resolveTex->state();
+            D3D12_RESOURCE_STATES resolveAfter = D3D12_RESOURCE_STATE_RESOLVE_DEST;
+            if (resolveTex->resource() && resolveBefore != resolveAfter) {
+                D3D12_RESOURCE_BARRIER barrier = {};
+                barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                barrier.Transition.pResource = resolveTex->resource();
+                barrier.Transition.StateBefore = resolveBefore;
+                barrier.Transition.StateAfter = resolveAfter;
+                barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+                cl->ResourceBarrier(1, &barrier);
+                resolveTex->setState(resolveAfter);
+            }
+        }
     }
 
     // Depth attachment
@@ -434,6 +450,9 @@ void DX12CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
     }
 
     rp_color_tex_ = colorTex;
+    rp_resolve_tex_ = (info.colorCount > 0 && info.colorAttachments[0].resolveTarget)
+                              ? static_cast<DX12Texture*>(info.colorAttachments[0].resolveTarget)
+                              : nullptr;
 }
 
 void DX12CommandList::endRenderPass() {
@@ -441,23 +460,42 @@ void DX12CommandList::endRenderPass() {
         return;
     auto* cl = cmd_list_.Get();
 
+    DX12Texture* finalColorTex = rp_resolve_tex_ ? rp_resolve_tex_ : rp_color_tex_;
+    if (rp_resolve_tex_) {
+        D3D12_RESOURCE_STATES beforeResolve = rp_color_tex_->state();
+        if (rp_color_tex_->resource() && beforeResolve != D3D12_RESOURCE_STATE_RESOLVE_SOURCE) {
+            D3D12_RESOURCE_BARRIER barrier = {};
+            barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            barrier.Transition.pResource = rp_color_tex_->resource();
+            barrier.Transition.StateBefore = beforeResolve;
+            barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RESOLVE_SOURCE;
+            barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            cl->ResourceBarrier(1, &barrier);
+            rp_color_tex_->setState(D3D12_RESOURCE_STATE_RESOLVE_SOURCE);
+        }
+
+        cl->ResolveSubresource(rp_resolve_tex_->resource(), 0, rp_color_tex_->resource(), 0,
+                               toDXGIFormat(rp_resolve_tex_->format()));
+    }
+
     D3D12_RESOURCE_STATES targetState =
             rp_present_source_ ? D3D12_RESOURCE_STATE_PRESENT : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 
-    D3D12_RESOURCE_STATES before = rp_color_tex_->state();
+    D3D12_RESOURCE_STATES before = finalColorTex->state();
     D3D12_RESOURCE_STATES after = targetState;
-    if (rp_color_tex_->resource() && before != after) {
+    if (finalColorTex->resource() && before != after) {
         D3D12_RESOURCE_BARRIER barrier = {};
         barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrier.Transition.pResource = rp_color_tex_->resource();
+        barrier.Transition.pResource = finalColorTex->resource();
         barrier.Transition.StateBefore = before;
         barrier.Transition.StateAfter = after;
         barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
         cl->ResourceBarrier(1, &barrier);
-        rp_color_tex_->setState(after);
+        finalColorTex->setState(after);
     }
 
     rp_color_tex_ = nullptr;
+    rp_resolve_tex_ = nullptr;
 }
 
 }  // namespace mulan::engine
