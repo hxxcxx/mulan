@@ -560,7 +560,9 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
     storeGpuMat4(sceneUbo.view, cubeView);
     storeGpuMat4(sceneUbo.projection, corrProj);
     storeGpuMat4(sceneUbo.viewProjection, cubeVP_mat);
-    storeGpuVec3(sceneUbo.lightDir, math::Vec3(-0.3, -1.0, -0.4));
+    const math::Vec3 viewLightDir = math::Vec3(0.0, 0.0, -1.0);
+    const math::Vec3 cubeLightDir = (rotOnly.transposed() * viewLightDir).normalizedOr(math::Vec3::unitZ());
+    storeGpuVec3(sceneUbo.lightDir, cubeLightDir);
     storeGpuVec3(sceneUbo.lightColor, math::Vec3(1.0));
     storeGpuVec3(sceneUbo.ambientColor, math::Vec3(0.85));
     storeGpuVec3(sceneUbo.edgeColor, math::Vec3(0.08, 0.08, 0.08));
