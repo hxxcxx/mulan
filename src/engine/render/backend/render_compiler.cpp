@@ -15,8 +15,10 @@ uint32_t materialOffset(const RenderWorldSnapshot& snapshot, RenderMaterialHandl
         return cache.materialGpuOffset(0);
     }
 
-    const std::string name =
-            "render-material:" + std::to_string(handle.generation) + ":" + std::to_string(handle.index);
+    const std::string name = record->desc.resourceKey
+                                     ? "render-material:" + std::to_string(record->desc.resourceKey.value)
+                                     : "render-material-handle:" + std::to_string(handle.generation) + ":" +
+                                               std::to_string(handle.index);
     const auto materialHandle = cache.registerMaterial(name, record->desc.material);
     return cache.materialGpuOffset(materialHandle);
 }

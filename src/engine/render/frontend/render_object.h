@@ -37,6 +37,7 @@ struct RenderTextureDesc {
 };
 
 struct RenderMaterialDesc {
+    AssetGpuKey resourceKey;
     Material material = Material::defaultPBR();
     RenderTextureDesc baseColorTexture;
     RenderTextureDesc normalTexture;

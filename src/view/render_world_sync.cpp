@@ -50,6 +50,7 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
         return desc;
     }
 
+    desc.resourceKey = engine::makeAssetGpuKey(materialId.value);
     desc.material = engine::Material::defaultPBR();
     desc.material.name = material->name();
     const auto& color = material->baseColorFactor();
