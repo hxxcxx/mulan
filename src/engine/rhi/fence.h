@@ -7,11 +7,13 @@
 
 #pragma once
 
+#include "resource.h"
+
 #include <cstdint>
 
 namespace mulan::engine {
 
-class Fence {
+class Fence : public RHITrackedResource {
 public:
     virtual ~Fence() = default;
 

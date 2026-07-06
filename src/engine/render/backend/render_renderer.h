@@ -49,6 +49,7 @@ public:
 private:
     bool validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const;
     void clearCompiledCommands();
+    void prepareResources(const RenderRequest& request);
     void compile(const RenderRequest& request);
     CommandList* beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
     void executeStages(RenderFrame& frame);

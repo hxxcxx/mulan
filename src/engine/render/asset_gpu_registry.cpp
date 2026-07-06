@@ -18,7 +18,11 @@ AssetGpuRegistry::GpuTextureResource::GpuTextureResource(std::unique_ptr<Texture
     }
 }
 
-const GpuGeometry* AssetGpuRegistry::acquireGeometry(uint64_t key, const graphics::Mesh& mesh) {
+const GpuGeometry* AssetGpuRegistry::acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh) {
+    if (!key) {
+        return nullptr;
+    }
+
     if (auto it = geometries_.find(key); it != geometries_.end()) {
         if (it->second.isValid()) {
             return &it->second;
@@ -40,8 +44,9 @@ const GpuGeometry* AssetGpuRegistry::acquireGeometry(uint64_t key, const graphic
     return &inserted->second;
 }
 
-Texture* AssetGpuRegistry::acquireTexture(uint64_t key, const core::Image& image, const TextureLoadOptions& options) {
-    if (key == 0 || !image.valid()) {
+Texture* AssetGpuRegistry::acquireTexture(AssetGpuKey key, const core::Image& image,
+                                          const TextureLoadOptions& options) {
+    if (!key || !image.valid()) {
         return nullptr;
     }
 
@@ -57,8 +62,26 @@ Texture* AssetGpuRegistry::acquireTexture(uint64_t key, const core::Image& image
         return nullptr;
     }
 
-    auto [inserted, _] = textures_.emplace(cacheKey, GpuTextureResource{ std::move(texture), std::to_string(key) });
+    auto [inserted, _] =
+            textures_.emplace(cacheKey, GpuTextureResource{ std::move(texture), std::to_string(key.value) });
     return inserted->second.get();
+}
+
+const GpuGeometry* AssetGpuRegistry::findGeometry(AssetGpuKey key) const {
+    if (!key) {
+        return nullptr;
+    }
+    auto it = geometries_.find(key);
+    return it != geometries_.end() && it->second.isValid() ? &it->second : nullptr;
+}
+
+Texture* AssetGpuRegistry::findTexture(AssetGpuKey key, const TextureLoadOptions& options) {
+    if (!key) {
+        return nullptr;
+    }
+    const auto cacheKey = textureKey(key, options);
+    auto it = textures_.find(cacheKey);
+    return it != textures_.end() ? it->second.get() : nullptr;
 }
 
 Texture* AssetGpuRegistry::createTexture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage,
@@ -122,11 +145,11 @@ core::Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(RHIDevice& device, c
     return geo;
 }
 
-std::string AssetGpuRegistry::textureKey(uint64_t resourceKey, const TextureLoadOptions& options) {
+std::string AssetGpuRegistry::textureKey(AssetGpuKey resourceKey, const TextureLoadOptions& options) {
     std::string key;
     key.reserve(64);
     key.append("asset:");
-    key.append(std::to_string(resourceKey));
+    key.append(std::to_string(resourceKey.value));
     key.append("|srgb=");
     key.push_back(options.sRGB ? '1' : '0');
     key.append("|mips=");

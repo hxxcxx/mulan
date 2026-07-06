@@ -14,6 +14,7 @@
 #pragma once
 
 #include "bind_group_layout.h"
+#include "resource.h"
 
 #include <array>
 #include <cstdint>
@@ -71,7 +72,7 @@ struct BindGroupDesc {
 // BindGroup — 抽象基类（后端实现 VKBindGroup / DX12BindGroup）
 // ============================================================
 
-class BindGroup {
+class BindGroup : public RHITrackedResource {
 public:
     virtual ~BindGroup() = default;
 

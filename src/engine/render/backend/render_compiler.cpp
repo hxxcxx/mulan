@@ -22,13 +22,13 @@ uint32_t materialOffset(const RenderWorldSnapshot& snapshot, RenderMaterialHandl
 }
 
 Texture* loadTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
-    if (desc.resourceKey == 0 || !desc.image || !desc.image->valid())
+    if (!desc.resourceKey || !desc.image || !desc.image->valid())
         return nullptr;
 
     TextureLoadOptions options;
     options.sRGB = desc.srgb;
 
-    return assets.acquireTexture(desc.resourceKey, *desc.image, options);
+    return assets.findTexture(desc.resourceKey, options);
 }
 
 void populateSurfaceTextures(const RenderWorldSnapshot& snapshot, const RenderWorkItem& item, AssetGpuRegistry& assets,
@@ -86,8 +86,7 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
         if (!geometryRecord || geometryRecord->desc.empty || !geometryRecord->desc.mesh)
             continue;
 
-        const auto* gpuGeometry =
-                context.assets.acquireGeometry(geometryRecord->desc.resourceKey, *geometryRecord->desc.mesh);
+        const auto* gpuGeometry = context.assets.findGeometry(geometryRecord->desc.resourceKey);
         if (!gpuGeometry)
             continue;
 
@@ -106,8 +105,7 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
         if (!geometryRecord || geometryRecord->desc.empty || !geometryRecord->desc.mesh)
             continue;
 
-        const auto* gpuGeometry =
-                context.assets.acquireGeometry(geometryRecord->desc.resourceKey, *geometryRecord->desc.mesh);
+        const auto* gpuGeometry = context.assets.findGeometry(geometryRecord->desc.resourceKey);
         if (!gpuGeometry)
             continue;
 

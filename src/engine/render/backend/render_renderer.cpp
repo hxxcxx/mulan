@@ -12,6 +12,26 @@
 #include <span>
 
 namespace mulan::engine {
+namespace {
+
+void prepareTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
+    if (!desc.resourceKey || !desc.image || !desc.image->valid())
+        return;
+
+    TextureLoadOptions options;
+    options.sRGB = desc.srgb;
+    assets.acquireTexture(desc.resourceKey, *desc.image, options);
+}
+
+void prepareMaterialTextures(AssetGpuRegistry& assets, const RenderMaterialDesc& material) {
+    prepareTexture(assets, material.baseColorTexture);
+    prepareTexture(assets, material.normalTexture);
+    prepareTexture(assets, material.metallicRoughnessTexture);
+    prepareTexture(assets, material.emissiveTexture);
+    prepareTexture(assets, material.ambientOcclusionTexture);
+}
+
+}  // namespace
 
 RenderRenderer::RenderRenderer() = default;
 RenderRenderer::~RenderRenderer() = default;
@@ -122,7 +142,7 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     frameTargetInfo.hasDepth = true;
     frameTargetInfo.presentable = request.output.mode == RenderTargetMode::Present;
 
-    RenderFrame frame{ device, *cmd, renderView, frameTargetInfo };
+    RenderFrame frame{ *cmd, renderView, frameTargetInfo };
     executeStages(frame);
 
     cmd->endRenderPass();
@@ -184,6 +204,7 @@ void RenderRenderer::compile(const RenderRequest& request) {
     }
 
     workload_.build(*request.world, request.options);
+    prepareResources(request);
 
     RenderCompileContext compileContext{
         .assets = *asset_gpu_registry_,
@@ -199,6 +220,32 @@ void RenderRenderer::compile(const RenderRequest& request) {
     }
     if (edge_stage_) {
         edge_stage_->setDrawCommands(request.options.showEdges ? compiler_.edgeCommands() : emptyCommands);
+    }
+}
+
+void RenderRenderer::prepareResources(const RenderRequest& request) {
+    if (!request.world || !asset_gpu_registry_)
+        return;
+
+    auto prepareGeometry = [&](const RenderWorkItem& item) {
+        const auto* geometry = request.world->geometry(item.geometry);
+        if (!geometry || geometry->desc.empty || !geometry->desc.mesh)
+            return;
+
+        asset_gpu_registry_->acquireGeometry(geometry->desc.resourceKey, *geometry->desc.mesh);
+    };
+
+    for (const auto& item : workload_.surfaces()) {
+        prepareGeometry(item);
+
+        const auto* material = request.world->material(item.material);
+        if (material) {
+            prepareMaterialTextures(*asset_gpu_registry_, material->desc);
+        }
+    }
+
+    for (const auto& item : workload_.edges()) {
+        prepareGeometry(item);
     }
 }
 

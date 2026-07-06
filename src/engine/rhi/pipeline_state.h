@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "resource.h"
 #include "render_state.h"
 #include "shader.h"
 #include "texture.h"
@@ -118,7 +119,7 @@ struct ComputePipelineDesc {
 // 管线状态基类
 // ============================================================
 
-class PipelineState {
+class PipelineState : public RHITrackedResource {
 public:
     virtual ~PipelineState();
 
@@ -145,7 +146,7 @@ private:
 // Compute 管线状态基类
 // ============================================================
 
-class ComputePipelineState {
+class ComputePipelineState : public RHITrackedResource {
 public:
     virtual ~ComputePipelineState() = default;
 

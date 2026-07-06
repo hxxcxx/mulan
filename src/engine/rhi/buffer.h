@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "resource.h"
+
 #include <cstdint>
 #include <string_view>
 
@@ -86,7 +88,7 @@ struct BufferDesc {
 // 不提供 bind()、update() 等操作 — 由 CommandList 负责。
 // ============================================================
 
-class Buffer {
+class Buffer : public RHITrackedResource {
 public:
     virtual ~Buffer() = default;
 

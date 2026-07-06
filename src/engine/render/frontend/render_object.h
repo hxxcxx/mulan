@@ -8,6 +8,7 @@
 #pragma once
 
 #include "render_handle.h"
+#include "../asset_gpu_key.h"
 #include "../material/material.h"
 
 #include <mulan/core/image/image.h>
@@ -30,7 +31,7 @@ enum class RenderBucket : uint8_t {
 };
 
 struct RenderTextureDesc {
-    uint64_t resourceKey = 0;                  ///< 资产身份 key，用作 GPU 贴图去重键
+    AssetGpuKey resourceKey;                   ///< 资产身份 key，用作 GPU 贴图去重键
     std::shared_ptr<const core::Image> image;  ///< 解码后的图片共享视图
     bool srgb = false;                         ///< sRGB 意图，由 material slot 决定
 };
@@ -45,9 +46,9 @@ struct RenderMaterialDesc {
 };
 
 struct RenderGeometryDesc {
-    /// 资产身份 key（由 view 层 RenderWorldSync 按资产身份生成，engine 透传不解释）。
+    /// 资产身份 key（由 view 层 RenderWorldSync 按资产身份生成，engine 只校验有效性并透传）。
     /// 用作 AssetGpuRegistry 的去重/查表 key，跨帧稳定。
-    uint64_t resourceKey = 0;
+    AssetGpuKey resourceKey;
 
     /// 非拥有指针，指向资产持有的 graphics::Mesh（文档存活期稳定，与 Drawable::mesh 同契约）。
     /// 仅 AssetGpuRegistry cache miss 时被读（上传 vertex/index 字节）；命中即返时不碰。

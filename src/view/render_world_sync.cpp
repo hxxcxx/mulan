@@ -33,7 +33,7 @@ engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::
         return {};
 
     engine::RenderTextureDesc desc;
-    desc.resourceKey = textureId.value;
+    desc.resourceKey = engine::makeAssetGpuKey(textureId.value);
     desc.image = texture->image();
     desc.srgb = (material->*srgbGetter)();
     return desc;
@@ -74,7 +74,7 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
     // shader 用 (flags & TF_*) 决定是否采样。未点亮则纹理虽绑定到 descriptor 但被跳过。
     // 真实纹理数据由上面的 RenderTextureDesc 槽位携带，这里仅是"有无"标志。
     auto hasTexture = [](const engine::RenderTextureDesc& texture) {
-        return texture.resourceKey != 0 && texture.image && texture.image->valid();
+        return static_cast<bool>(texture.resourceKey) && texture.image && texture.image->valid();
     };
 
     if (hasTexture(desc.baseColorTexture))
@@ -139,9 +139,9 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
             auto geometryIt = geometryHandles.find(geometryKey);
             if (geometryIt == geometryHandles.end()) {
                 engine::RenderGeometryDesc geometryDesc;
-                geometryDesc.resourceKey = geometryKey;           // 资产身份 key，跨帧稳定
-                geometryDesc.mesh = drawable.mesh;                // 非拥有指针，指向资产 Mesh
-                geometryDesc.topology = drawable.mesh->topology;  // 冗余标量，避免渲染端解引用
+                geometryDesc.resourceKey = engine::makeAssetGpuKey(geometryKey);  // 资产身份 key，跨帧稳定
+                geometryDesc.mesh = drawable.mesh;                                // 非拥有指针，指向资产 Mesh
+                geometryDesc.topology = drawable.mesh->topology;                  // 冗余标量，避免渲染端解引用
                 geometryDesc.empty = drawable.mesh->empty();
                 // 不再深拷贝 Mesh：渲染端 miss 时通过 mesh 指针读字节上传，命中即返不碰。
                 geometryIt = geometryHandles.emplace(geometryKey, world.addGeometry(std::move(geometryDesc))).first;

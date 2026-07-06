@@ -216,6 +216,7 @@ core::Result<std::unique_ptr<Buffer>> DX12Device::createBuffer(const BufferDesc&
         buf->markUploaded();
     }
 
+    buf->trackResource(*this, RHIResourceKind::Buffer, desc.name);
     return result;
 }
 
@@ -225,6 +226,7 @@ core::Result<std::unique_ptr<Texture>> DX12Device::createTexture(const TextureDe
         return std::unexpected(result.error());
     auto& tex = *result;
     setDebugName(tex->resource(), desc.name.empty() ? "Texture" : desc.name);
+    tex->trackResource(*this, RHIResourceKind::Texture, desc.name);
     return result;
 }
 
@@ -233,6 +235,7 @@ core::Result<std::unique_ptr<Shader>> DX12Device::createShader(const ShaderDesc&
     if (!result)
         return std::unexpected(result.error());
     // DX12Shader 仅持有 DXIL 字节码（无 COM 对象），无需命名
+    (*result)->trackResource(*this, RHIResourceKind::Shader, desc.name);
     return result;
 }
 
@@ -250,6 +253,7 @@ core::Result<std::unique_ptr<PipelineState>> DX12Device::createPipelineState(con
     setDebugName(pso->pipeline(), desc.name.empty() ? "Pipeline" : desc.name);
     setDebugName(pso->rootSignature(),
                  desc.name.empty() ? "RootSignature" : (std::string(desc.name) + "/RootSig").c_str());
+    pso->trackResource(*this, RHIResourceKind::PipelineState, desc.name);
     return result;
 }
 
@@ -270,21 +274,34 @@ core::Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
     char nm[64];
     std::snprintf(nm, sizeof(nm), "CommandList@%p", cmd.get());
     setDebugName(cmd->commandList(), nm);
+    cmd->trackResource(*this, RHIResourceKind::CommandList, nm);
     return result;
 }
 
 core::Result<std::unique_ptr<SwapChain>> DX12Device::createSwapChain(const SwapChainDesc& desc) {
-    return DX12SwapChain::create(desc, device_.Get(), factory_.Get(), command_queue_.Get(), window_);
+    auto result = DX12SwapChain::create(desc, device_.Get(), factory_.Get(), command_queue_.Get(), window_);
+    if (!result)
+        return std::unexpected(result.error());
+    (*result)->trackResource(*this, RHIResourceKind::SwapChain, "SwapChain");
+    return result;
 }
 
 core::Result<std::unique_ptr<RenderTarget>> DX12Device::createRenderTarget(const RenderTargetDesc& desc) {
-    return DX12RenderTarget::create(desc, device_.Get());
+    auto result = DX12RenderTarget::create(desc, device_.Get());
+    if (!result)
+        return std::unexpected(result.error());
+    (*result)->trackResource(*this, RHIResourceKind::RenderTarget, "RenderTarget");
+    return result;
 }
 
 core::Result<std::unique_ptr<Sampler>> DX12Device::createSampler(const SamplerDesc& desc) {
     // Sampler 仅持有 descriptor handle（非 COM 对象），无需命名。
     // 传 nullptr samplerHeap 会被 create() 拒绝并返回错误。
-    return DX12Sampler::create(desc, device_.Get(), nullptr);
+    auto result = DX12Sampler::create(desc, device_.Get(), nullptr);
+    if (!result)
+        return std::unexpected(result.error());
+    (*result)->trackResource(*this, RHIResourceKind::Sampler, "Sampler");
+    return result;
 }
 
 core::Result<std::unique_ptr<Fence>> DX12Device::createFence(uint64_t initialValue) {
@@ -295,12 +312,15 @@ core::Result<std::unique_ptr<Fence>> DX12Device::createFence(uint64_t initialVal
     char nm[64];
     std::snprintf(nm, sizeof(nm), "Fence@%p", f.get());
     setDebugName(f->fence(), nm);
+    f->trackResource(*this, RHIResourceKind::Fence, nm);
     return result;
 }
 
 core::Result<std::unique_ptr<BindGroup>> DX12Device::createBindGroup(const BindGroupLayout& layout,
                                                                      const BindGroupDesc& desc) {
-    return std::unique_ptr<BindGroup>(std::make_unique<DX12BindGroup>(layout, desc.entries, desc.count));
+    auto bindGroup = std::unique_ptr<BindGroup>(std::make_unique<DX12BindGroup>(layout, desc.entries, desc.count));
+    bindGroup->trackResource(*this, RHIResourceKind::BindGroup, "BindGroup");
+    return bindGroup;
 }
 
 void DX12Device::uploadTextureData(Texture* dst, const void* data, uint32_t width, uint32_t height,

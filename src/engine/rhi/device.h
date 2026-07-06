@@ -25,7 +25,10 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <mutex>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace mulan::engine {
 
@@ -81,10 +84,15 @@ struct DeviceCreateInfo {
 
 class RHIDevice {
 public:
-    virtual ~RHIDevice() = default;
+    virtual ~RHIDevice();
 
     // --- 工厂函数（根据 backend 创建具体实现）---
-    static core::Result<std::shared_ptr<RHIDevice>> create(const DeviceCreateInfo& ci);
+    static core::Result<std::unique_ptr<RHIDevice>> create(const DeviceCreateInfo& ci);
+
+    void registerLiveResource(const RHITrackedResource* resource, RHIResourceKind kind, std::string_view name);
+    void unregisterLiveResource(const RHITrackedResource* resource);
+    bool hasLiveResources() const;
+    void dumpLiveResources() const;
 
     // --- 设备信息 ---
 
@@ -190,6 +198,19 @@ protected:
     RHIDevice() = default;
     RHIDevice(const RHIDevice&) = delete;
     RHIDevice& operator=(const RHIDevice&) = delete;
+
+    void assertNoLiveResources() const;
+    void detachLiveResources();
+
+private:
+    struct LiveResourceInfo {
+        const RHITrackedResource* resource = nullptr;
+        RHIResourceKind kind = RHIResourceKind::Buffer;
+        std::string name;
+    };
+
+    mutable std::mutex live_resources_mutex_;
+    std::vector<LiveResourceInfo> live_resources_;
 };
 
 // ============================================================

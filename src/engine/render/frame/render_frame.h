@@ -1,6 +1,6 @@
 /**
  * @file render_frame.h
- * @brief RenderFrame 聚合 RHI 设备、命令列表、视图和目标信息。
+ * @brief RenderFrame 聚合当前帧命令列表、视图和目标信息。
  * @author hxxcxx
  * @date 2026-07-05
  */
@@ -13,10 +13,8 @@
 namespace mulan::engine {
 
 class CommandList;
-class RHIDevice;
 
 struct RenderFrame {
-    RHIDevice& device;
     CommandList& cmd;
     RenderView view;
     RenderTargetInfo target;

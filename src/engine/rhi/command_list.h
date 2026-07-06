@@ -9,6 +9,7 @@
 
 #include "buffer.h"
 #include "bind_group.h"
+#include "resource.h"
 #include "render_types.h"
 
 #include <cstdint>
@@ -27,7 +28,7 @@ class Texture;
 // 命令列表基类
 // ============================================================
 
-class CommandList {
+class CommandList : public RHITrackedResource {
 public:
     virtual ~CommandList() = default;
 

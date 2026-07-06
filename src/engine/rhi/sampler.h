@@ -7,13 +7,14 @@
 
 #pragma once
 
+#include "resource.h"
 #include "render_state.h"
 
 #include <cstdint>
 
 namespace mulan::engine {
 
-class Sampler {
+class Sampler : public RHITrackedResource {
 public:
     virtual ~Sampler() = default;
 

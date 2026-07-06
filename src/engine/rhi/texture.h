@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "resource.h"
+
 #include <cstdint>
 #include <string_view>
 
@@ -158,7 +160,7 @@ struct TextureDesc {
 // 纹理基类
 // ============================================================
 
-class Texture {
+class Texture : public RHITrackedResource {
 public:
     virtual ~Texture() = default;
 

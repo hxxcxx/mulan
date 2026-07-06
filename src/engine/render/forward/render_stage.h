@@ -32,6 +32,8 @@ public:
         (void) device;
         (void) target;
     }
+    /// 仅录制当前帧 draw/dispatch 命令，不创建或销毁持久 GPU 资源。
+    /// 持久资源准备应放在 init/resize 或 RenderRenderer::prepareResources 阶段。
     virtual void execute(RenderFrame& frame) = 0;
 };
 

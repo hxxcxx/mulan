@@ -7,8 +7,8 @@
  * 设计：
  *  - 只管"资产派生 + 创建后不可变 + 独立 GPU 资源对象"（几何 buffer、贴图）。
  *    材质 UBO 不在此（它是帧动态/偏移寻址/有上限，由 MaterialCache 管）。
- *  - key 对本层不透明：由 view 层（RenderWorldSync）按资产身份生成，
- *    engine 全程透传不解释。这样 engine 不依赖 asset 层。
+ *  - key 使用 AssetGpuKey 强类型封装：由 view 层（RenderWorldSync）按资产身份生成，
+ *    engine 只校验有效性并透传，不依赖 asset 层。
  *  - 懒加载：acquire 命中即返，miss 才上传。
  *  - 生命周期绑文档：文档切换时由 Renderer::setScene 触发 clear()，
  *    释放全部 GPU 资源（不做资产粒度 erase，因为 AssetLibrary::remove 当前零调用）。
@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include "asset_gpu_key.h"
 #include "render_geometry.h"
 #include "../rhi/texture.h"
 #include <mulan/core/image/image.h>
@@ -47,12 +48,18 @@ public:
     AssetGpuRegistry& operator=(const AssetGpuRegistry&) = delete;
 
     /// 几何：按 key 查询，命中即返；miss 才用 mesh 上传（mesh 仅 miss 时被读）。
-    /// key 由调用方（view 层）按资产身份生成，本层不解释。
+    /// key 由调用方（view 层）按资产身份生成，本层只校验有效性，不解释 asset 语义。
     /// mesh 指向资产持有的稳定存储（文档存活期有效），上传后本层不持有该指针。
-    const GpuGeometry* acquireGeometry(uint64_t key, const graphics::Mesh& mesh);
+    const GpuGeometry* acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh);
 
     /// 贴图：按资产身份 + 加载意图去重，命中即返；miss 时上传 decoded image。
-    Texture* acquireTexture(uint64_t key, const core::Image& image, const TextureLoadOptions& options = {});
+    Texture* acquireTexture(AssetGpuKey key, const core::Image& image, const TextureLoadOptions& options = {});
+
+    /// 查询已准备好的几何资源；不会触发 GPU 创建或上传。
+    const GpuGeometry* findGeometry(AssetGpuKey key) const;
+
+    /// 查询已准备好的贴图资源；不会触发 GPU 创建或上传。
+    Texture* findTexture(AssetGpuKey key, const TextureLoadOptions& options = {});
 
     /// 创建由 registry 持有的独立 GPU 贴图，主要用于资产派生的程序化资源。
     Texture* createTexture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage,
@@ -80,14 +87,14 @@ private:
     };
 
     static core::Result<GpuGeometry> createGpuBuffer(RHIDevice& device, const graphics::Mesh& mesh);
-    static std::string textureKey(uint64_t resourceKey, const TextureLoadOptions& options);
+    static std::string textureKey(AssetGpuKey resourceKey, const TextureLoadOptions& options);
     static TextureFormat toRHITextureFormat(core::PixelFormat pixelFmt, bool sRGB);
 
     std::unique_ptr<Texture> createRHITexture(const core::Image& image, TextureUsageFlags usage, bool sRGB,
                                               bool generateMips);
 
     RHIDevice& device_;
-    std::unordered_map<uint64_t, GpuGeometry> geometries_;
+    std::unordered_map<AssetGpuKey, GpuGeometry> geometries_;
     std::unordered_map<std::string, GpuTextureResource> textures_;
 };
 

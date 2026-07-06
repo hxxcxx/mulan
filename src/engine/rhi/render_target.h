@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include "resource.h"
 #include "texture.h"
 #include "render_types.h"
 
@@ -42,7 +43,7 @@ struct RenderTargetDesc {
 // RenderTarget 基类
 // ============================================================
 
-class RenderTarget {
+class RenderTarget : public RHITrackedResource {
 public:
     virtual ~RenderTarget() = default;
 

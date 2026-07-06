@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "resource.h"
+
 #include <cstdint>
 #include <string_view>
 
@@ -60,7 +62,7 @@ struct ShaderDesc {
 // 平台无关的着色器资源，由 Device 创建，PipelineState 持有。
 // ============================================================
 
-class Shader {
+class Shader : public RHITrackedResource {
 public:
     virtual ~Shader() = default;
 

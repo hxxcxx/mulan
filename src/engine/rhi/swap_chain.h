@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "resource.h"
 #include "texture.h"
 #include "render_types.h"
 
@@ -38,7 +39,7 @@ struct SwapChainDesc {
 // 交换链基类
 // ============================================================
 
-class SwapChain {
+class SwapChain : public RHITrackedResource {
 public:
     virtual ~SwapChain() = default;
 

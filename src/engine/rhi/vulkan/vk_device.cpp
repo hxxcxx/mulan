@@ -31,6 +31,7 @@ core::Result<std::unique_ptr<Buffer>> VKDevice::createBuffer(const BufferDesc& d
     if (buf->needsUpload()) {
         upload_context_->uploadBufferInit(buf.get());
     }
+    buf->trackResource(*this, RHIResourceKind::Buffer, desc.name);
     return result;
 }
 
@@ -43,6 +44,7 @@ core::Result<std::unique_ptr<Texture>> VKDevice::createTexture(const TextureDesc
                  desc.name.empty() ? "Texture" : desc.name);
     setDebugName(device_, vk::ObjectType::eImageView, reinterpret_cast<uint64_t>(VkImageView(tex->view())),
                  desc.name.empty() ? "TextureView" : (std::string(desc.name) + "/view").c_str());
+    tex->trackResource(*this, RHIResourceKind::Texture, desc.name);
     return result;
 }
 
@@ -53,6 +55,7 @@ core::Result<std::unique_ptr<Shader>> VKDevice::createShader(const ShaderDesc& d
     auto& sh = *result;
     setDebugName(device_, vk::ObjectType::eShaderModule, reinterpret_cast<uint64_t>(VkShaderModule(sh->module())),
                  desc.name.empty() ? "Shader" : desc.name);
+    sh->trackResource(*this, RHIResourceKind::Shader, desc.name);
     return result;
 }
 
@@ -63,12 +66,17 @@ core::Result<std::unique_ptr<PipelineState>> VKDevice::createPipelineState(const
     auto& pso = *result;
     setDebugName(device_, vk::ObjectType::ePipeline, reinterpret_cast<uint64_t>(VkPipeline(pso->pipeline())),
                  desc.name.empty() ? "Pipeline" : desc.name);
+    pso->trackResource(*this, RHIResourceKind::PipelineState, desc.name);
     return result;
 }
 
 core::Result<std::unique_ptr<ComputePipelineState>> VKDevice::createComputePipelineState(
         const ComputePipelineDesc& desc) {
-    return VKComputePipelineState::create(desc, device_);
+    auto result = VKComputePipelineState::create(desc, device_);
+    if (!result)
+        return std::unexpected(result.error());
+    (*result)->trackResource(*this, RHIResourceKind::ComputePipelineState, desc.name);
+    return result;
 }
 
 core::Result<std::unique_ptr<CommandList>> VKDevice::createCommandList() {
@@ -80,6 +88,7 @@ core::Result<std::unique_ptr<CommandList>> VKDevice::createCommandList() {
         return std::unexpected(result.error());
     }
     standalone_allocators_.emplace_back(allocator);
+    (*result)->trackResource(*this, RHIResourceKind::CommandList, "StandaloneCommandList");
     return result;
 }
 
@@ -109,6 +118,7 @@ core::Result<std::unique_ptr<SwapChain>> VKDevice::createSwapChain(const SwapCha
         initFrameContexts(frame_count_);
     }
 
+    (*result)->trackResource(*this, RHIResourceKind::SwapChain, "SwapChain");
     return result;
 }
 
@@ -120,12 +130,15 @@ core::Result<std::unique_ptr<Fence>> VKDevice::createFence(uint64_t initialValue
     char nm[64];
     std::snprintf(nm, sizeof(nm), "Fence@%p", f.get());
     setDebugName(device_, vk::ObjectType::eSemaphore, reinterpret_cast<uint64_t>(VkSemaphore(f->semaphore())), nm);
+    f->trackResource(*this, RHIResourceKind::Fence, nm);
     return result;
 }
 
 core::Result<std::unique_ptr<BindGroup>> VKDevice::createBindGroup(const BindGroupLayout& layout,
                                                                    const BindGroupDesc& desc) {
-    return std::unique_ptr<BindGroup>(std::make_unique<VKBindGroup>(layout, desc.entries, desc.count));
+    auto bindGroup = std::unique_ptr<BindGroup>(std::make_unique<VKBindGroup>(layout, desc.entries, desc.count));
+    bindGroup->trackResource(*this, RHIResourceKind::BindGroup, "BindGroup");
+    return bindGroup;
 }
 
 void VKDevice::uploadTextureData(Texture* dst, const void* data, uint32_t width, uint32_t height,
@@ -149,6 +162,7 @@ core::Result<std::unique_ptr<RenderTarget>> VKDevice::createRenderTarget(const R
     auto result = VKRenderTarget::create(desc, device_, allocator_);
     if (!result)
         return std::unexpected(result.error());
+    (*result)->trackResource(*this, RHIResourceKind::RenderTarget, "RenderTarget");
     return result;
 }
 
@@ -160,6 +174,7 @@ core::Result<std::unique_ptr<Sampler>> VKDevice::createSampler(const SamplerDesc
     char nm[64];
     std::snprintf(nm, sizeof(nm), "Sampler@%p", s.get());
     setDebugName(device_, vk::ObjectType::eSampler, reinterpret_cast<uint64_t>(VkSampler(s->handle())), nm);
+    s->trackResource(*this, RHIResourceKind::Sampler, nm);
     return result;
 }
 

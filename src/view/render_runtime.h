@@ -71,7 +71,7 @@ public:
 private:
     core::Result<void> initRendering(engine::LightEnvironment& lightEnv);
 
-    std::shared_ptr<engine::RHIDevice> device_;
+    std::unique_ptr<engine::RHIDevice> device_;
     RenderSurface surface_;
     Renderer renderer_;
     bool initialized_ = false;

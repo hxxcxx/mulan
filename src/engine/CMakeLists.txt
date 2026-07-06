@@ -1,6 +1,8 @@
 # Engine - 渲染后端与场景管理（静态库）
 add_library(engine STATIC
     platform/win32_window.cpp
+    rhi/resource.cpp
+    rhi/device.cpp
     rhi/device_factory.cpp
     rhi/bind_group_layout.cpp
     render/camera/camera.cpp

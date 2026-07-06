@@ -7,12 +7,12 @@
 
 namespace mulan::engine {
 
-core::Result<std::shared_ptr<RHIDevice>> RHIDevice::create(const DeviceCreateInfo& ci) {
+core::Result<std::unique_ptr<RHIDevice>> RHIDevice::create(const DeviceCreateInfo& ci) {
     try {
         switch (ci.backend) {
-        case GraphicsBackend::Vulkan: return std::make_shared<VKDevice>(ci);
+        case GraphicsBackend::Vulkan: return std::make_unique<VKDevice>(ci);
 
-        case GraphicsBackend::D3D12: return std::make_shared<DX12Device>(ci);
+        case GraphicsBackend::D3D12: return std::make_unique<DX12Device>(ci);
 
         default:
             return std::unexpected(makeError(EngineErrorCode::BackendNotSupported, "Graphics backend not implemented"));
