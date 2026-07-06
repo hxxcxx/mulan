@@ -17,6 +17,7 @@
 #include <QFileInfo>
 #include <QMenu>
 #include <QActionGroup>
+#include <QSignalBlocker>
 
 #include <sstream>
 
@@ -167,16 +168,21 @@ void MainWindow::buildRibbonViewCategory() {
 
     panel_display_->addSeparator();
 
-    // 显示坐标轴
-    auto* actionAxis = new QAction(QIcon(":/app/bright/icon/axis.svg"), tr("Show Axis"), this);
-    actionAxis->setCheckable(true);
-    actionAxis->setChecked(true);
-    panel_display_->addSmallAction(actionAxis);
+    action_show_cube_ = new QAction(QIcon(":/app/bright/icon/axis.svg"), tr("Show Cube"), this);
+    action_show_cube_->setCheckable(true);
+    action_show_cube_->setChecked(true);
+    connect(action_show_cube_, &QAction::toggled, this, [this](bool checked) {
+        auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
+        if (!doc) {
+            updateDisplayActions();
+            return;
+        }
 
-    // 显示网格
-    auto* actionGrid = new QAction(QIcon(":/app/bright/icon/grid.svg"), tr("Show Grid"), this);
-    actionGrid->setCheckable(true);
-    panel_display_->addSmallAction(actionGrid);
+        doc->viewContext().setShowViewCube(checked);
+        doc->requestFrame();
+        updateDisplayActions();
+    });
+    panel_display_->addSmallAction(action_show_cube_);
 
     category_view_->addPanel(panel_display_);
     ribbonBar()->addCategoryPage(category_view_);
@@ -258,6 +264,9 @@ void MainWindow::updateDisplayActions() {
     if (action_surface_material_) {
         action_surface_material_->setEnabled(hasDocument);
     }
+    if (action_show_cube_) {
+        action_show_cube_->setEnabled(hasDocument);
+    }
     if (!doc)
         return;
 
@@ -278,6 +287,10 @@ void MainWindow::updateDisplayActions() {
     }
     if (action_surface_material_) {
         action_surface_material_->setChecked(shading == mulan::view::SurfaceShading::SurfacePBR);
+    }
+    if (action_show_cube_) {
+        const QSignalBlocker blocker(action_show_cube_);
+        action_show_cube_->setChecked(doc->viewContext().showViewCube());
     }
 }
 

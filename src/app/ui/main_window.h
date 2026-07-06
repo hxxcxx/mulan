@@ -55,6 +55,7 @@ private:
     QAction* action_display_shaded_ = nullptr;
     QAction* action_surface_solid_ = nullptr;
     QAction* action_surface_material_ = nullptr;
+    QAction* action_show_cube_ = nullptr;
 
     // --- Ribbon 结构：Home ---
     SARibbonCategory* category_home_ = nullptr;
