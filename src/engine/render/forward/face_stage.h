@@ -9,6 +9,7 @@
 
 #include "render_stage.h"
 #include "../draw/geometry_draw_executor.h"
+#include "../frontend/render_request.h"
 
 #include <span>
 
@@ -28,14 +29,21 @@ public:
     void execute(RenderFrame& frame) override;
 
     void setDrawCommands(std::span<const MeshDrawCommand> commands);
+    void setSurfaceTechnique(SurfaceTechnique technique);
     void setIBLTextures(Texture* irradiance, Texture* prefilter, Texture* brdfLUT);
 
     PipelineState* pipelineState() const;
+    PipelineState* viewCubePipelineState() const;
     Texture* defaultWhiteTexture() const;
     Sampler* defaultSampler() const;
 
 private:
-    GeometryDrawExecutor draw_executor_;
+    GeometryDrawExecutor& activeExecutor();
+    const GeometryDrawExecutor& activeExecutor() const;
+
+    GeometryDrawExecutor solid_executor_;
+    GeometryDrawExecutor pbr_executor_;
+    SurfaceTechnique surface_technique_ = SurfaceTechnique::SolidLit;
 };
 
 }  // namespace mulan::engine

@@ -21,11 +21,11 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
 
             switch (drawable.bucket) {
             case RenderBucket::Surface:
-                if (options.showSurfaces)
+                if (renderSurfacesEnabled(options))
                     surfaces_.push_back(item);
                 break;
             case RenderBucket::Edge:
-                if (options.showEdges)
+                if (renderEdgesEnabled(options))
                     edges_.push_back(item);
                 break;
             case RenderBucket::Overlay:

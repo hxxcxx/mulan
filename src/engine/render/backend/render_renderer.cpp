@@ -136,8 +136,8 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     renderView.cameraPosition = request.view.cameraPosition;
     renderView.width = request.output.width ? request.output.width : request.view.width;
     renderView.height = request.output.height ? request.output.height : request.view.height;
-    renderView.showFaces = request.options.showSurfaces;
-    renderView.showEdges = request.options.showEdges;
+    renderView.showFaces = renderSurfacesEnabled(request.options);
+    renderView.showEdges = renderEdgesEnabled(request.options);
     renderView.showOverlay = request.options.showOverlays;
     renderView.showViewCube = request.options.showViewCube;
 
@@ -214,6 +214,10 @@ void RenderRenderer::compile(const RenderRequest& request) {
     workload_.build(*request.world, request.options);
     prepareResources(request);
 
+    if (face_stage_) {
+        face_stage_->setSurfaceTechnique(request.options.surfaceTechnique);
+    }
+
     RenderCompileContext compileContext{
         .assets = *asset_gpu_registry_,
         .materials = *material_cache_,
@@ -224,10 +228,11 @@ void RenderRenderer::compile(const RenderRequest& request) {
 
     const std::span<const MeshDrawCommand> emptyCommands;
     if (face_stage_) {
-        face_stage_->setDrawCommands(request.options.showSurfaces ? compiler_.surfaceCommands() : emptyCommands);
+        face_stage_->setDrawCommands(renderSurfacesEnabled(request.options) ? compiler_.surfaceCommands()
+                                                                            : emptyCommands);
     }
     if (edge_stage_) {
-        edge_stage_->setDrawCommands(request.options.showEdges ? compiler_.edgeCommands() : emptyCommands);
+        edge_stage_->setDrawCommands(renderEdgesEnabled(request.options) ? compiler_.edgeCommands() : emptyCommands);
     }
 }
 
@@ -243,10 +248,12 @@ void RenderRenderer::prepareResources(const RenderRequest& request) {
         }
     }
 
-    for (const auto& item : workload_.surfaces()) {
-        const auto* material = request.world->material(item.material);
-        if (material) {
-            prepareMaterialTextures(*asset_gpu_registry_, material->desc);
+    if (request.options.surfaceTechnique == SurfaceTechnique::SurfacePBR) {
+        for (const auto& item : workload_.surfaces()) {
+            const auto* material = request.world->material(item.material);
+            if (material) {
+                prepareMaterialTextures(*asset_gpu_registry_, material->desc);
+            }
         }
     }
 }
@@ -289,7 +296,7 @@ void RenderRenderer::executeStages(RenderFrame& frame) {
     if (edge_stage_)
         edge_stage_->execute(frame);
     if (view_cube_stage_ && frame.view.showOverlay && frame.view.showViewCube) {
-        view_cube_stage_->setPipelines(face_stage_ ? face_stage_->pipelineState() : nullptr,
+        view_cube_stage_->setPipelines(face_stage_ ? face_stage_->viewCubePipelineState() : nullptr,
                                        edge_stage_ ? edge_stage_->pipelineState() : nullptr);
         view_cube_stage_->setFallbackResources(face_stage_ ? face_stage_->defaultWhiteTexture() : nullptr,
                                                face_stage_ ? face_stage_->defaultSampler() : nullptr);

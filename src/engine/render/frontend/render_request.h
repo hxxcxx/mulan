@@ -22,12 +22,49 @@ enum class RenderTargetMode : uint8_t {
     Capture,
 };
 
+enum class DisplayMode : uint8_t {
+    Shaded,
+    ShadedWithEdges,
+    Wireframe,
+    HiddenLine,
+    XRay,
+};
+
+enum class SurfaceTechnique : uint8_t {
+    SolidLit,
+    SurfacePBR,
+};
+
 struct RenderOptions {
+    DisplayMode displayMode = DisplayMode::ShadedWithEdges;
+    SurfaceTechnique surfaceTechnique = SurfaceTechnique::SolidLit;
     bool showSurfaces = true;
     bool showEdges = true;
     bool showOverlays = true;
     bool showViewCube = true;
 };
+
+inline bool renderSurfacesEnabled(const RenderOptions& options) {
+    switch (options.displayMode) {
+    case DisplayMode::Shaded:
+    case DisplayMode::ShadedWithEdges:
+    case DisplayMode::HiddenLine:
+    case DisplayMode::XRay: return options.showSurfaces;
+    case DisplayMode::Wireframe: return false;
+    }
+    return options.showSurfaces;
+}
+
+inline bool renderEdgesEnabled(const RenderOptions& options) {
+    switch (options.displayMode) {
+    case DisplayMode::Shaded: return false;
+    case DisplayMode::ShadedWithEdges:
+    case DisplayMode::Wireframe:
+    case DisplayMode::HiddenLine:
+    case DisplayMode::XRay: return options.showEdges;
+    }
+    return options.showEdges;
+}
 
 struct RenderOutputDesc {
     RenderTargetMode mode = RenderTargetMode::Present;

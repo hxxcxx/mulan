@@ -10,6 +10,26 @@
 #include "mulan/engine/rhi/device.h"
 
 namespace mulan::view {
+namespace {
+
+engine::DisplayMode toDisplayMode(RenderMode mode) {
+    switch (mode) {
+    case RenderMode::Shaded: return engine::DisplayMode::Shaded;
+    case RenderMode::ShadedWithEdges: return engine::DisplayMode::ShadedWithEdges;
+    case RenderMode::Wireframe: return engine::DisplayMode::Wireframe;
+    }
+    return engine::DisplayMode::ShadedWithEdges;
+}
+
+engine::SurfaceTechnique toSurfaceTechnique(SurfaceShading shading) {
+    switch (shading) {
+    case SurfaceShading::SolidLit: return engine::SurfaceTechnique::SolidLit;
+    case SurfaceShading::SurfacePBR: return engine::SurfaceTechnique::SurfacePBR;
+    }
+    return engine::SurfaceTechnique::SolidLit;
+}
+
+}  // namespace
 
 Renderer::Renderer() = default;
 
@@ -83,6 +103,8 @@ engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewS
     request.output.capture.depthFormat =
             surface.renderTarget() ? surface.renderTarget()->depthFormat() : surface.swapChain()->depthFormat();
     request.output.capture.readback = request.output.readback;
+    request.options.displayMode = toDisplayMode(viewState.renderMode);
+    request.options.surfaceTechnique = toSurfaceTechnique(viewState.surfaceShading);
     request.options.showSurfaces = viewState.showFaces;
     request.options.showEdges = viewState.showEdges;
     request.options.showOverlays = viewState.showOverlays;

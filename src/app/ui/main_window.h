@@ -8,6 +8,7 @@
 
 #include <SARibbon.h>
 #include <mulan/io/file_manager.h>
+#include <mulan/view/view_state.h>
 
 class DocumentArea;
 class DocumentSession;
@@ -31,6 +32,8 @@ private:
     void buildRibbonViewCategory();
     void buildQuickAccessBar();
     void buildRightButtonBar();
+    void setCurrentRenderMode(mulan::view::RenderMode mode);
+    void updateDisplayActions();
 
     void dragEnterEvent(QDragEnterEvent* e) override;
     void dropEvent(QDropEvent* e) override;
@@ -46,6 +49,8 @@ private:
     QAction* action_exit_ = nullptr;
     QAction* action_fit_all_ = nullptr;
     QAction* action_engine_settings_ = nullptr;
+    QAction* action_display_wireframe_ = nullptr;
+    QAction* action_display_shaded_ = nullptr;
 
     // --- Ribbon 结构：Home ---
     SARibbonCategory* category_home_ = nullptr;

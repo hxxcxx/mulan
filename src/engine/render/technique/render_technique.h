@@ -17,6 +17,7 @@
 namespace mulan::engine {
 
 enum class RenderTechnique : uint8_t {
+    SolidLit,
     SurfacePBR,
     EdgeLine,
 };

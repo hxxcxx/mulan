@@ -75,6 +75,9 @@ public:
     RenderMode renderMode() const { return render_mode_; }
     void setRenderMode(RenderMode mode) { render_mode_ = mode; }
 
+    SurfaceShading surfaceShading() const { return surface_shading_; }
+    void setSurfaceShading(SurfaceShading shading) { surface_shading_ = shading; }
+
     bool showViewCube() const { return show_view_cube_; }
     void setShowViewCube(bool show) { show_view_cube_ = show; }
 
@@ -115,6 +118,7 @@ private:
 
     engine::LightEnvironment light_env_;
     RenderMode render_mode_ = RenderMode::ShadedWithEdges;
+    SurfaceShading surface_shading_ = SurfaceShading::SolidLit;
     bool show_overlays_ = true;
     bool show_view_cube_ = true;
 

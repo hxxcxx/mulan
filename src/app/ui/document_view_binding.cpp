@@ -75,6 +75,8 @@ void DocumentViewBinding::applyViewPreferences() {
 
     const auto& preferences = session_->renderPreferences();
     view_->camera().setOrthographic(preferences.preferOrthographic);
+    view_->setSurfaceShading(preferences.preferPBRSurface ? mulan::view::SurfaceShading::SurfacePBR
+                                                          : mulan::view::SurfaceShading::SolidLit);
     if (preferences.preferIBL) {
         view_->enableIBL();
     }

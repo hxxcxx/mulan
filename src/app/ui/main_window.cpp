@@ -121,20 +121,24 @@ void MainWindow::buildRibbonViewCategory() {
     panel_display_ = new SARibbonPanel(tr("Display"), category_view_);
 
     // 线框模式
-    auto* actionWireframe = new QAction(QIcon(":/app/bright/icon/wireframe.svg"), tr("Wireframe"), this);
-    actionWireframe->setCheckable(true);
-    panel_display_->addLargeAction(actionWireframe);
+    action_display_wireframe_ = new QAction(QIcon(":/app/bright/icon/wireframe.svg"), tr("Wireframe"), this);
+    action_display_wireframe_->setCheckable(true);
+    connect(action_display_wireframe_, &QAction::triggered, this,
+            [this]() { setCurrentRenderMode(mulan::view::RenderMode::Wireframe); });
+    panel_display_->addLargeAction(action_display_wireframe_);
 
     // 实体模式
-    auto* actionShaded = new QAction(QIcon(":/app/bright/icon/shaded.svg"), tr("Shaded"), this);
-    actionShaded->setCheckable(true);
-    actionShaded->setChecked(true);
-    panel_display_->addLargeAction(actionShaded);
+    action_display_shaded_ = new QAction(QIcon(":/app/bright/icon/shaded.svg"), tr("Shaded"), this);
+    action_display_shaded_->setCheckable(true);
+    action_display_shaded_->setChecked(true);
+    connect(action_display_shaded_, &QAction::triggered, this,
+            [this]() { setCurrentRenderMode(mulan::view::RenderMode::ShadedWithEdges); });
+    panel_display_->addLargeAction(action_display_shaded_);
 
     // 互斥
     auto* displayGroup = new QActionGroup(this);
-    displayGroup->addAction(actionWireframe);
-    displayGroup->addAction(actionShaded);
+    displayGroup->addAction(action_display_wireframe_);
+    displayGroup->addAction(action_display_shaded_);
 
     panel_display_->addSeparator();
 
@@ -151,6 +155,8 @@ void MainWindow::buildRibbonViewCategory() {
 
     category_view_->addPanel(panel_display_);
     ribbonBar()->addCategoryPage(category_view_);
+
+    updateDisplayActions();
 }
 
 void MainWindow::buildQuickAccessBar() {
@@ -180,6 +186,41 @@ void MainWindow::onCurrentDocumentChanged(const QString& name) {
         statusBar()->showMessage("Ready");
     } else {
         statusBar()->showMessage("Active: " + name);
+    }
+    updateDisplayActions();
+}
+
+void MainWindow::setCurrentRenderMode(mulan::view::RenderMode mode) {
+    auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
+    if (!doc) {
+        updateDisplayActions();
+        return;
+    }
+
+    doc->viewContext().setRenderMode(mode);
+    doc->requestFrame();
+    updateDisplayActions();
+}
+
+void MainWindow::updateDisplayActions() {
+    auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
+    const bool hasDocument = doc != nullptr;
+
+    if (action_display_wireframe_) {
+        action_display_wireframe_->setEnabled(hasDocument);
+    }
+    if (action_display_shaded_) {
+        action_display_shaded_->setEnabled(hasDocument);
+    }
+    if (!doc)
+        return;
+
+    const auto mode = doc->viewContext().renderMode();
+    if (action_display_wireframe_) {
+        action_display_wireframe_->setChecked(mode == mulan::view::RenderMode::Wireframe);
+    }
+    if (action_display_shaded_) {
+        action_display_shaded_->setChecked(mode != mulan::view::RenderMode::Wireframe);
     }
 }
 

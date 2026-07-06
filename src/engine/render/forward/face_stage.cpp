@@ -3,12 +3,16 @@
 namespace mulan::engine {
 
 FaceStage::FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources)
-    : draw_executor_(device, sharedResources, RenderTechnique::SurfacePBR) {
+    : solid_executor_(device, sharedResources, RenderTechnique::SolidLit),
+      pbr_executor_(device, sharedResources, RenderTechnique::SurfacePBR) {
 }
 
 core::Result<void> FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
-    if (!draw_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage init failed"));
+    if (!solid_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
+        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage SolidLit init failed"));
+    }
+    if (!pbr_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
+        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage SurfacePBR init failed"));
     }
     return {};
 }
@@ -24,27 +28,49 @@ void FaceStage::execute(RenderFrame& frame) {
     ctx.camera.viewMatrix = frame.view.viewMatrix;
     ctx.camera.projectionMatrix = frame.view.projectionMatrix;
     ctx.camera.eyePosition = frame.view.cameraPosition;
-    draw_executor_.execute(ctx);
+    activeExecutor().execute(ctx);
 }
 
 void FaceStage::setDrawCommands(std::span<const MeshDrawCommand> commands) {
-    draw_executor_.setDrawCommands(commands);
+    solid_executor_.setDrawCommands(std::span<const MeshDrawCommand>{});
+    pbr_executor_.setDrawCommands(std::span<const MeshDrawCommand>{});
+    activeExecutor().setDrawCommands(commands);
+}
+
+void FaceStage::setSurfaceTechnique(SurfaceTechnique technique) {
+    if (surface_technique_ == technique)
+        return;
+    surface_technique_ = technique;
+    solid_executor_.setDrawCommands(std::span<const MeshDrawCommand>{});
+    pbr_executor_.setDrawCommands(std::span<const MeshDrawCommand>{});
 }
 
 void FaceStage::setIBLTextures(Texture* irradiance, Texture* prefilter, Texture* brdfLUT) {
-    draw_executor_.setIBLTextures(irradiance, prefilter, brdfLUT);
+    pbr_executor_.setIBLTextures(irradiance, prefilter, brdfLUT);
 }
 
 PipelineState* FaceStage::pipelineState() const {
-    return draw_executor_.pipelineState();
+    return activeExecutor().pipelineState();
+}
+
+PipelineState* FaceStage::viewCubePipelineState() const {
+    return pbr_executor_.pipelineState();
 }
 
 Texture* FaceStage::defaultWhiteTexture() const {
-    return draw_executor_.defaultWhiteTexture();
+    return activeExecutor().defaultWhiteTexture();
 }
 
 Sampler* FaceStage::defaultSampler() const {
-    return draw_executor_.defaultSampler();
+    return activeExecutor().defaultSampler();
+}
+
+GeometryDrawExecutor& FaceStage::activeExecutor() {
+    return surface_technique_ == SurfaceTechnique::SurfacePBR ? pbr_executor_ : solid_executor_;
+}
+
+const GeometryDrawExecutor& FaceStage::activeExecutor() const {
+    return surface_technique_ == SurfaceTechnique::SurfacePBR ? pbr_executor_ : solid_executor_;
 }
 
 }  // namespace mulan::engine

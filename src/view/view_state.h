@@ -13,6 +13,7 @@
 namespace mulan::view {
 
 enum class RenderMode { Shaded, ShadedWithEdges, Wireframe };
+enum class SurfaceShading { SolidLit, SurfacePBR };
 
 struct ViewState {
     math::Mat4 viewMatrix = math::Mat4(1.0);
@@ -24,6 +25,7 @@ struct ViewState {
     float dpiScale = 1.0f;
 
     RenderMode renderMode = RenderMode::ShadedWithEdges;
+    SurfaceShading surfaceShading = SurfaceShading::SolidLit;
     bool showFaces = true;
     bool showEdges = true;
     bool showOverlays = true;

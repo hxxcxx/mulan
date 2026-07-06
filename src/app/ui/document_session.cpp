@@ -7,9 +7,11 @@ namespace {
 DocumentRenderPreferences makePreferences(const mulan::io::ImportReport& report) {
     const bool isCad =
             report.brepAssetCount > 0 && (report.meshAssetCount == 0 || report.brepAssetCount >= report.meshAssetCount);
+    const bool hasImportedMaterialData = report.materialCount > 0 || report.textureCount > 0;
     return DocumentRenderPreferences{
         .preferOrthographic = isCad,
         .preferIBL = !isCad,
+        .preferPBRSurface = !isCad && hasImportedMaterialData,
     };
 }
 

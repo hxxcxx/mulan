@@ -16,6 +16,7 @@
 struct DocumentRenderPreferences {
     bool preferOrthographic = true;
     bool preferIBL = true;
+    bool preferPBRSurface = false;
 };
 
 class DocumentSession {
@@ -34,6 +35,7 @@ public:
     const DocumentRenderPreferences& renderPreferences() const { return preferences_; }
     bool preferOrthographic() const { return preferences_.preferOrthographic; }
     bool preferIBL() const { return preferences_.preferIBL; }
+    bool preferPBRSurface() const { return preferences_.preferPBRSurface; }
 
 private:
     std::unique_ptr<mulan::io::Document> document_;

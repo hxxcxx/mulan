@@ -3,6 +3,18 @@
 namespace mulan::engine {
 namespace {
 
+consteval TechniqueDesc makeSolidLit() {
+    return TechniqueDesc{
+        .technique = RenderTechnique::SolidLit,
+        .debugName = "SolidLit",
+        .shader = { .vertex = "solid.vert", .pixel = "solid.frag" },
+        .vertexLayout = graphics::layouts::surface(),
+        .topology = PrimitiveTopology::TriangleList,
+        .depthWrite = true,
+        .sampleTextures = false,
+    };
+}
+
 consteval TechniqueDesc makeSurfacePBR() {
     return TechniqueDesc{
         .technique = RenderTechnique::SurfacePBR,
@@ -27,6 +39,7 @@ consteval TechniqueDesc makeEdgeLine() {
     };
 }
 
+constexpr TechniqueDesc kSolidLit = makeSolidLit();
 constexpr TechniqueDesc kSurfacePBR = makeSurfacePBR();
 constexpr TechniqueDesc kEdgeLine = makeEdgeLine();
 
@@ -34,6 +47,7 @@ constexpr TechniqueDesc kEdgeLine = makeEdgeLine();
 
 const TechniqueDesc& TechniqueRegistry::builtin(RenderTechnique technique) {
     switch (technique) {
+    case RenderTechnique::SolidLit: return kSolidLit;
     case RenderTechnique::SurfacePBR: return kSurfacePBR;
     case RenderTechnique::EdgeLine: return kEdgeLine;
     }
