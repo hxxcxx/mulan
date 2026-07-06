@@ -388,7 +388,7 @@ bool ViewCubeStage::createFaceGeometry() {
 }
 
 bool ViewCubeStage::createAxisGeometry() {
-    constexpr float frameMin = -0.68f;
+    constexpr float frameMin = -0.60f;
     constexpr float frameMax = 0.62f;
     constexpr float coneLength = 0.14f;
     constexpr float shaftRadius = 0.020f;
