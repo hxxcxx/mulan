@@ -43,18 +43,22 @@ bool RenderRenderer::init(RHIDevice& device, LightEnvironment& lightEnv, Texture
 
     material_cache_ = std::make_unique<MaterialCache>();
     asset_gpu_registry_ = std::make_unique<AssetGpuRegistry>(device);
+    geometry_resources_ = std::make_unique<GeometryDrawSharedResources>(device, *material_cache_, lightEnv);
+    if (!geometry_resources_->init()) {
+        return false;
+    }
 
     RenderTargetInfo targetInfo;
     targetInfo.colorFormat = colorFmt;
     targetInfo.depthFormat = depthFmt;
     targetInfo.hasDepth = true;
 
-    face_stage_ = std::make_unique<FaceStage>(device, *material_cache_, lightEnv);
+    face_stage_ = std::make_unique<FaceStage>(device, *geometry_resources_);
     if (!face_stage_->init(device, targetInfo)) {
         return false;
     }
 
-    edge_stage_ = std::make_unique<EdgeStage>(device, *material_cache_, lightEnv);
+    edge_stage_ = std::make_unique<EdgeStage>(device, *geometry_resources_);
     if (!edge_stage_->init(device, targetInfo)) {
         return false;
     }
@@ -76,6 +80,7 @@ void RenderRenderer::shutdown(RHIDevice& device) {
     view_cube_stage_.reset();
     edge_stage_.reset();
     face_stage_.reset();
+    geometry_resources_.reset();
     asset_gpu_registry_.reset();
     material_cache_.reset();
     ibl_.reset();
@@ -143,6 +148,9 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     frameTargetInfo.presentable = request.output.mode == RenderTargetMode::Present;
 
     RenderFrame frame{ *cmd, renderView, frameTargetInfo };
+    if (geometry_resources_) {
+        geometry_resources_->uploadFrameData(buildDrawContext(*cmd, frame));
+    }
     executeStages(frame);
 
     cmd->endRenderPass();
@@ -227,25 +235,19 @@ void RenderRenderer::prepareResources(const RenderRequest& request) {
     if (!request.world || !asset_gpu_registry_)
         return;
 
-    auto prepareGeometry = [&](const RenderWorkItem& item) {
-        const auto* geometry = request.world->geometry(item.geometry);
-        if (!geometry || geometry->desc.empty || !geometry->desc.mesh)
-            return;
-
-        asset_gpu_registry_->acquireGeometry(geometry->desc.resourceKey, *geometry->desc.mesh);
-    };
+    if (request.prepare) {
+        for (const auto& geometry : request.prepare->geometries()) {
+            if (geometry.mesh && !geometry.mesh->empty()) {
+                asset_gpu_registry_->acquireGeometry(geometry.resourceKey, *geometry.mesh);
+            }
+        }
+    }
 
     for (const auto& item : workload_.surfaces()) {
-        prepareGeometry(item);
-
         const auto* material = request.world->material(item.material);
         if (material) {
             prepareMaterialTextures(*asset_gpu_registry_, material->desc);
         }
-    }
-
-    for (const auto& item : workload_.edges()) {
-        prepareGeometry(item);
     }
 }
 
@@ -286,10 +288,6 @@ void RenderRenderer::executeStages(RenderFrame& frame) {
         face_stage_->execute(frame);
     if (edge_stage_)
         edge_stage_->execute(frame);
-    if (face_stage_ || edge_stage_) {
-        material_cache_->clearDirtyMaterials();
-    }
-
     if (view_cube_stage_ && frame.view.showOverlay && frame.view.showViewCube) {
         view_cube_stage_->setPipelines(face_stage_ ? face_stage_->pipelineState() : nullptr,
                                        edge_stage_ ? edge_stage_->pipelineState() : nullptr);
@@ -297,6 +295,17 @@ void RenderRenderer::executeStages(RenderFrame& frame) {
                                                face_stage_ ? face_stage_->defaultSampler() : nullptr);
         view_cube_stage_->execute(frame);
     }
+}
+
+DrawExecutionContext RenderRenderer::buildDrawContext(CommandList& cmd, const RenderFrame& frame) const {
+    DrawExecutionContext ctx;
+    ctx.cmd = &cmd;
+    ctx.width = static_cast<int>(frame.view.width);
+    ctx.height = static_cast<int>(frame.view.height);
+    ctx.camera.viewMatrix = frame.view.viewMatrix;
+    ctx.camera.projectionMatrix = frame.view.projectionMatrix;
+    ctx.camera.eyePosition = frame.view.cameraPosition;
+    return ctx;
 }
 
 void RenderRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request) {

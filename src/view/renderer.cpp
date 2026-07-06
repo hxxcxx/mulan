@@ -55,7 +55,7 @@ void Renderer::render(engine::RHIDevice& device, RenderSurface& surface, const V
         return;
 
     if (scene_ && assets_) {
-        render_world_sync_.rebuild(*scene_, *assets_, render_world_);
+        render_world_sync_.rebuild(*scene_, *assets_, render_world_, &resource_prepare_);
         world_snapshot_ = render_world_.snapshot();
     }
 
@@ -66,6 +66,7 @@ void Renderer::render(engine::RHIDevice& device, RenderSurface& surface, const V
 engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewState& viewState) {
     engine::RenderRequest request;
     request.world = (scene_ && assets_) ? &world_snapshot_ : nullptr;
+    request.prepare = (scene_ && assets_) ? &resource_prepare_ : nullptr;
     request.view.viewMatrix = viewState.viewMatrix;
     request.view.projectionMatrix = viewState.projectionMatrix;
     request.view.cameraPosition = viewState.cameraPosition;

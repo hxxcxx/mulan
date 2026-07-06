@@ -18,6 +18,7 @@ add_library(engine STATIC
     render/backend/render_compiler.cpp
     render/backend/render_renderer.cpp
     # Draw executors / stages
+    render/draw/geometry_draw_shared_resources.cpp
     render/draw/geometry_draw_executor.cpp
     render/forward/face_stage.cpp
     render/forward/edge_stage.cpp
@@ -37,12 +38,14 @@ add_library(engine STATIC
     rhi/vulkan/vk_shader.cpp
     rhi/vulkan/vk_fence.cpp
     rhi/vulkan/vk_frame_context.cpp
+    rhi/vulkan/vk_frame_scheduler.cpp
     rhi/vulkan/vk_command_list.cpp
     rhi/vulkan/vk_pipeline_state.cpp
     rhi/vulkan/vk_descriptor_allocator.cpp
     rhi/vulkan/vk_upload_context.cpp
     rhi/vulkan/vk_swap_chain.cpp
     rhi/vulkan/vk_render_target.cpp
+    rhi/vulkan/vk_resource_factory.cpp
     rhi/vulkan/vk_device.cpp
     rhi/vulkan/vk_device_init.cpp
     rhi/vulkan/vk_sampler.cpp

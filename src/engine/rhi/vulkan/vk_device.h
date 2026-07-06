@@ -21,8 +21,8 @@
 #include "vk_sampler.h"
 #include "vk_fence.h"
 #include "vk_upload_context.h"
-#include "vk_frame_context.h"
-#include "vk_descriptor_allocator.h"
+#include "vk_frame_scheduler.h"
+#include "vk_resource_factory.h"
 
 #include <vector>
 #include <memory>
@@ -88,9 +88,9 @@ public:
     VmaAllocator vmaAllocator() const { return allocator_; }
 
     VKUploadContext& uploadContext() { return *upload_context_; }
-    VKDescriptorAllocator& descriptorAllocator() { return *descriptor_allocators_[current_frame_]; }
-    VKFrameContext& currentFrameContext() { return *frame_contexts_[current_frame_]; }
-    uint32_t currentFrameIndex() const { return current_frame_; }
+    VKDescriptorAllocator& descriptorAllocator() { return frame_scheduler_->descriptorAllocator(); }
+    VKFrameContext& currentFrameContext() { return frame_scheduler_->currentFrameContext(); }
+    uint32_t currentFrameIndex() const { return frame_scheduler_->currentFrameIndex(); }
 
 private:
     void init(const DeviceCreateInfo& ci);
@@ -98,7 +98,6 @@ private:
     void pickPhysicalDevice(const std::vector<vk::PhysicalDevice>& devices);
     void createLogicalDevice(bool enableValidation);
     vk::SurfaceKHR createSurface(const NativeWindowHandle& window);
-    void initFrameContexts(uint32_t count);
 
     // --- Vulkan 核心 ---
     vk::Instance instance_;
@@ -119,24 +118,8 @@ private:
 
     // --- 私有组件 ---
     std::unique_ptr<VKUploadContext> upload_context_;
-    std::vector<std::unique_ptr<VKFrameContext>> frame_contexts_;
-    std::vector<std::unique_ptr<VKDescriptorAllocator>> descriptor_allocators_;       // per-frame
-    std::vector<std::unique_ptr<VKDescriptorAllocator>> standalone_allocators_;       // 当前帧的独立 cmd list
-    std::vector<std::unique_ptr<VKDescriptorAllocator>> standalone_allocators_prev_;  // 上一帧的（安全回收）
-    std::unique_ptr<VKCommandList> frame_cmd_list_;
-
-    uint32_t frame_count_ = 2;
-    uint32_t current_frame_ = 0;
-    uint64_t frame_token_ = 0;  // 单调递增，BindGroup 句柄版本化用
-
-    // per-swapchain-image 的信号量，替代 per-frame 的 renderFinished
-    // 按 acquired image index 索引，解决 present 异步持有信号量的问题
-    std::vector<vk::Semaphore> render_finished_semaphores_;
-    uint32_t acquired_image_index_ = 0;
-
-    // 分离 submit/present 所需状态
-    vk::Semaphore pending_render_finished_ = nullptr;
-    bool submitted_ = false;
+    std::unique_ptr<VKFrameScheduler> frame_scheduler_;
+    std::unique_ptr<VKResourceFactory> resource_factory_;
 };
 
 }  // namespace mulan::engine

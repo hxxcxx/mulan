@@ -95,14 +95,12 @@ public:
     /// 无效句柄回退到 index 0(DefaultPBR)。
     uint32_t materialGpuOffset(MaterialHandle handle) const;
 
-    /// 上传所有脏材质到 GPU（每帧调用一次）。
-    /// 注意：本函数不清空脏集合，以便同一帧内多个持有独立 material UBO 的
-    /// executor（如实体面与边线 GeometryDrawExecutor 实例）都能完整上传。
-    /// 调用方应在一帧内所有 executor 都执行完毕后调用 clearDirtyMaterials()。
-    /// @param materialUbo 由调用方（各 GeometryDrawExecutor 实例）持有和管理的 UBO
+    /// 上传所有脏材质到 GPU。由 per-frame draw shared resources 统一调用。
+    /// 本函数只写入指定 UBO，不清空脏集合；调用方在共享 UBO 上传完成后调用 clearDirtyMaterials()。
+    /// @param materialUbo 由 per-frame draw shared resources 持有和管理的 UBO
     void uploadDirtyMaterials(Buffer* materialUbo);
 
-    /// 清空脏材质集合（一帧内所有 executor 上传完毕后调用）。
+    /// 清空脏材质集合（一帧内共享 material UBO 上传完毕后调用）。
     void clearDirtyMaterials();
 
     /// 材质 UBO 尺寸常量

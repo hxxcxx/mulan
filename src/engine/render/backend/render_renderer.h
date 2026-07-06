@@ -17,6 +17,7 @@
 #include "../light_environment.h"
 #include "../material/material_cache.h"
 #include "../asset_gpu_registry.h"
+#include "../draw/geometry_draw_shared_resources.h"
 
 #include <memory>
 #include <string>
@@ -51,6 +52,7 @@ private:
     void clearCompiledCommands();
     void prepareResources(const RenderRequest& request);
     void compile(const RenderRequest& request);
+    DrawExecutionContext buildDrawContext(CommandList& cmd, const RenderFrame& frame) const;
     CommandList* beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
     void executeStages(RenderFrame& frame);
     void endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
@@ -58,6 +60,7 @@ private:
     std::unique_ptr<MaterialCache> material_cache_;
     std::unique_ptr<IBLPipeline> ibl_;
     std::unique_ptr<AssetGpuRegistry> asset_gpu_registry_;
+    std::unique_ptr<GeometryDrawSharedResources> geometry_resources_;
 
     RenderWorkload workload_;
     RenderCompiler compiler_;

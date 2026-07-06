@@ -8,6 +8,7 @@
 #pragma once
 
 #include <mulan/engine/render/frontend/render_world.h>
+#include <mulan/engine/render/frontend/render_resource_prepare.h>
 
 namespace mulan::asset {
 class AssetLibrary;
@@ -21,7 +22,8 @@ namespace mulan::view {
 
 class RenderWorldSync {
 public:
-    void rebuild(const RenderScene& scene, const asset::AssetLibrary& assets, engine::RenderWorld& world) const;
+    void rebuild(const RenderScene& scene, const asset::AssetLibrary& assets, engine::RenderWorld& world,
+                 engine::RenderResourcePrepareList* prepare = nullptr) const;
 };
 
 }  // namespace mulan::view

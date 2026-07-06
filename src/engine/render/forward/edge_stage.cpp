@@ -2,8 +2,8 @@
 
 namespace mulan::engine {
 
-EdgeStage::EdgeStage(RHIDevice& device, MaterialCache& matCache, const LightEnvironment& lightEnv)
-    : draw_executor_(device, matCache, lightEnv, RenderTechnique::EdgeLine) {
+EdgeStage::EdgeStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources)
+    : draw_executor_(device, sharedResources, RenderTechnique::EdgeLine) {
 }
 
 core::Result<void> EdgeStage::init(RHIDevice&, const RenderTargetInfo& target) {

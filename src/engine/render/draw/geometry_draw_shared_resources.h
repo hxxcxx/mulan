@@ -1,0 +1,61 @@
+/**
+ * @file geometry_draw_shared_resources.h
+ * @brief 用于管理几何绘制所需的共享资源，包括 UBO、默认纹理和采样器等。
+ * @author hxxcxx
+ * @date 2026-07-06
+ */
+
+#pragma once
+
+#include "../draw/draw_execution_context.h"
+#include "../gpu_scene_contract.h"
+#include "../../rhi/buffer.h"
+#include "../../rhi/sampler.h"
+#include "../../rhi/texture.h"
+
+#include <memory>
+
+namespace mulan::engine {
+
+class LightEnvironment;
+class MaterialCache;
+class RHIDevice;
+
+class GeometryDrawSharedResources {
+public:
+    GeometryDrawSharedResources(RHIDevice& device, MaterialCache& materialCache, const LightEnvironment& lightEnv);
+
+    GeometryDrawSharedResources(const GeometryDrawSharedResources&) = delete;
+    GeometryDrawSharedResources& operator=(const GeometryDrawSharedResources&) = delete;
+
+    bool init();
+    void uploadFrameData(const DrawExecutionContext& ctx);
+
+    Buffer* sceneUBO() const { return scene_ubo_.get(); }
+    Buffer* objectUBO() const { return object_ubo_.get(); }
+    Buffer* materialUBO() const { return material_ubo_.get(); }
+
+    Texture* defaultWhiteTexture() const { return default_white_tex_.get(); }
+    Sampler* defaultSampler() const { return default_sampler_.get(); }
+    Texture* defaultIBLTexture() const { return default_ibl_tex_.get(); }
+    Texture* defaultBrdfLUT() const { return default_brdf_lut_.get(); }
+
+private:
+    bool createBuffers();
+    bool createDefaultResources();
+    void uploadSceneUBO(const DrawExecutionContext& ctx);
+
+    RHIDevice& device_;
+    MaterialCache& material_cache_;
+    const LightEnvironment& light_env_;
+
+    std::unique_ptr<Buffer> scene_ubo_;
+    std::unique_ptr<Buffer> object_ubo_;
+    std::unique_ptr<Buffer> material_ubo_;
+    std::unique_ptr<Sampler> default_sampler_;
+    std::unique_ptr<Texture> default_white_tex_;
+    std::unique_ptr<Texture> default_ibl_tex_;
+    std::unique_ptr<Texture> default_brdf_lut_;
+};
+
+}  // namespace mulan::engine

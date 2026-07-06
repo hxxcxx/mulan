@@ -83,7 +83,7 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
             break;
 
         const auto* geometryRecord = snapshot.geometry(item.geometry);
-        if (!geometryRecord || geometryRecord->desc.empty || !geometryRecord->desc.mesh)
+        if (!geometryRecord || geometryRecord->desc.empty)
             continue;
 
         const auto* gpuGeometry = context.assets.findGeometry(geometryRecord->desc.resourceKey);
@@ -102,7 +102,7 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
             break;
 
         const auto* geometryRecord = snapshot.geometry(item.geometry);
-        if (!geometryRecord || geometryRecord->desc.empty || !geometryRecord->desc.mesh)
+        if (!geometryRecord || geometryRecord->desc.empty)
             continue;
 
         const auto* gpuGeometry = context.assets.findGeometry(geometryRecord->desc.resourceKey);

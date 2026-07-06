@@ -1,0 +1,132 @@
+#include "geometry_draw_shared_resources.h"
+
+#include "../light_environment.h"
+#include "../material/material_cache.h"
+#include "../mesh_draw_command.h"
+#include "../../rhi/device.h"
+
+#include <cstdio>
+
+namespace mulan::engine {
+
+GeometryDrawSharedResources::GeometryDrawSharedResources(RHIDevice& device, MaterialCache& materialCache,
+                                                         const LightEnvironment& lightEnv)
+    : device_(device), material_cache_(materialCache), light_env_(lightEnv) {
+}
+
+bool GeometryDrawSharedResources::init() {
+    return createBuffers() && createDefaultResources();
+}
+
+bool GeometryDrawSharedResources::createBuffers() {
+    auto sceneResult = device_.createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "SceneUBO"));
+    if (!sceneResult) {
+        return false;
+    }
+    scene_ubo_ = std::move(*sceneResult);
+
+    auto objResult = device_.createBuffer(BufferDesc::uniform(MeshDrawCommand::kObjectUboBytes, "ObjUBO"));
+    if (!objResult) {
+        return false;
+    }
+    object_ubo_ = std::move(*objResult);
+
+    auto matResult = device_.createBuffer(BufferDesc::uniform(MaterialCache::kMaxMaterials * 256, "MatUBO"));
+    if (!matResult) {
+        return false;
+    }
+    material_ubo_ = std::move(*matResult);
+    return true;
+}
+
+bool GeometryDrawSharedResources::createDefaultResources() {
+    auto samplerResult = device_.createSampler(SamplerDesc::linear());
+    if (!samplerResult) {
+        std::fprintf(stderr, "[GeometryDrawSharedResources] createSampler failed\n");
+        return false;
+    }
+    default_sampler_ = std::move(*samplerResult);
+
+    TextureDesc texDesc;
+    texDesc.name = "DefaultWhite";
+    texDesc.width = 1;
+    texDesc.height = 1;
+    texDesc.depth = 1;
+    texDesc.format = TextureFormat::RGBA8_UNorm;
+    texDesc.dimension = TextureDimension::Texture2D;
+    texDesc.usage = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
+    auto texResult = device_.createTexture(texDesc);
+    if (!texResult) {
+        std::fprintf(stderr, "[GeometryDrawSharedResources] create default white texture failed\n");
+        return false;
+    }
+    default_white_tex_ = std::move(*texResult);
+    const uint8_t white[4] = { 255, 255, 255, 255 };
+    device_.uploadTextureData(default_white_tex_.get(), white, 1, 1, TextureFormat::RGBA8_UNorm);
+
+    TextureDesc iblDesc;
+    iblDesc.name = "DefaultIBL";
+    iblDesc.format = TextureFormat::RGBA16_Float;
+    iblDesc.dimension = TextureDimension::Texture2D;
+    iblDesc.usage = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
+    iblDesc.width = 1;
+    iblDesc.height = 1;
+    iblDesc.depth = 1;
+    auto iblResult = device_.createTexture(iblDesc);
+    if (!iblResult) {
+        std::fprintf(stderr, "[GeometryDrawSharedResources] create default IBL texture failed\n");
+        return false;
+    }
+    default_ibl_tex_ = std::move(*iblResult);
+    const float black[4] = { 0.f, 0.f, 0.f, 1.f };
+    device_.uploadTextureData(default_ibl_tex_.get(), black, 1, 1, TextureFormat::RGBA16_Float);
+
+    TextureDesc lutDesc;
+    lutDesc.name = "DefaultBrdfLUT";
+    lutDesc.format = TextureFormat::RG16_Float;
+    lutDesc.dimension = TextureDimension::Texture2D;
+    lutDesc.usage = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
+    lutDesc.width = 1;
+    lutDesc.height = 1;
+    lutDesc.depth = 1;
+    auto lutResult = device_.createTexture(lutDesc);
+    if (!lutResult) {
+        std::fprintf(stderr, "[GeometryDrawSharedResources] create default brdf LUT failed\n");
+        return false;
+    }
+    default_brdf_lut_ = std::move(*lutResult);
+    const uint16_t lutData[2] = { 0x3C00, 0x0000 };
+    device_.uploadTextureData(default_brdf_lut_.get(), lutData, 1, 1, TextureFormat::RG16_Float);
+    return true;
+}
+
+void GeometryDrawSharedResources::uploadFrameData(const DrawExecutionContext& ctx) {
+    uploadSceneUBO(ctx);
+    material_cache_.uploadDirtyMaterials(material_ubo_.get());
+    material_cache_.clearDirtyMaterials();
+}
+
+void GeometryDrawSharedResources::uploadSceneUBO(const DrawExecutionContext& ctx) {
+    math::Mat4 clip = device_.clipSpaceCorrectionMatrix();
+    math::Mat4 view = ctx.camera.viewMatrix;
+    math::Mat4 proj = ctx.camera.projectionMatrix;
+    math::Mat4 vp = clip * proj * view;
+    math::Vec3 eye = ctx.camera.eyePosition;
+    auto* dl = light_env_.primaryDirectional();
+    math::Vec3 ldir = dl ? dl->direction.normalized() : math::Vec3(-0.3, -1.0, -0.4);
+
+    SceneUniforms ubo{};
+    storeGpuMat4(ubo.view, view);
+    storeGpuMat4(ubo.projection, proj);
+    storeGpuMat4(ubo.viewProjection, vp);
+    storeGpuVec3(ubo.cameraPos, eye);
+    storeGpuVec3(ubo.lightDir, ldir);
+    storeGpuVec3(ubo.lightColor, math::Vec3(0.8));
+    storeGpuVec3(ubo.ambientColor, math::Vec3(0.35));
+    storeGpuVec3(ubo.edgeColor, math::Vec3(0.08, 0.08, 0.08));
+    storeGpuVec3(ubo.highlightColor, math::Vec3(1.0, 0.5, 0.0));
+
+    ctx.cmd->updateBuffer(scene_ubo_.get(), 0, sizeof(ubo), &ubo);
+}
+
+}  // namespace mulan::engine

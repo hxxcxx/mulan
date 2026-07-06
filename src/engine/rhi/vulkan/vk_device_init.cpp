@@ -47,14 +47,9 @@ VKDevice::~VKDevice() {
         vmaCalculateStatistics(allocator_, &stats);
     }
 
-    standalone_allocators_.clear();
-
-    frame_cmd_list_.reset();
-    frame_contexts_.clear();
+    frame_scheduler_.reset();
+    resource_factory_.reset();
     upload_context_.reset();
-    descriptor_allocators_.clear();
-
-    // 销毁 per-image renderFinished 信号量
 }
 
 // ============================================================
@@ -209,7 +204,6 @@ vk::SurfaceKHR VKDevice::createSurface(const NativeWindowHandle& window) {
 void VKDevice::init(const DeviceCreateInfo& ci) {
     native_window_ = ci.window;
     render_config_ = ci.renderConfig;
-    frame_count_ = ci.renderConfig.bufferCount > 0 ? ci.renderConfig.bufferCount : 2;
 
     // --- Dynamic dispatch loader ---
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
@@ -338,13 +332,9 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
 
     // --- 私有组件 ---
     upload_context_ = std::make_unique<VKUploadContext>(device_, allocator_, graphics_queue_family_, graphics_queue_);
-
-    // per-frame descriptor allocators (will be properly sized in initFrameContexts)
-    descriptor_allocators_.clear();
-    descriptor_allocators_.push_back(std::make_unique<VKDescriptorAllocator>(device_));
-    descriptor_allocators_.push_back(std::make_unique<VKDescriptorAllocator>(device_));
-
-    // FrameContext 在 createSwapChain 时初始化（需要知道 swapchain image count）
+    frame_scheduler_ = std::make_unique<VKFrameScheduler>(device_, graphics_queue_, graphics_queue_family_);
+    frame_scheduler_->initFrameContexts(ci.renderConfig.bufferCount > 0 ? ci.renderConfig.bufferCount : 2);
+    resource_factory_ = std::make_unique<VKResourceFactory>(*this, device_, allocator_, *upload_context_);
 }
 
 // ============================================================

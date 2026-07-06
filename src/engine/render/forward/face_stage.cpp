@@ -2,8 +2,8 @@
 
 namespace mulan::engine {
 
-FaceStage::FaceStage(RHIDevice& device, MaterialCache& matCache, const LightEnvironment& lightEnv)
-    : draw_executor_(device, matCache, lightEnv, RenderTechnique::SurfacePBR) {
+FaceStage::FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources)
+    : draw_executor_(device, sharedResources, RenderTechnique::SurfacePBR) {
 }
 
 core::Result<void> FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {

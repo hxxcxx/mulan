@@ -101,9 +101,12 @@ uint64_t drawableGeometryKey(asset::AssetId geometry, size_t drawableIndex) {
 
 }  // namespace
 
-void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrary& assets,
-                              engine::RenderWorld& world) const {
+void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrary& assets, engine::RenderWorld& world,
+                              engine::RenderResourcePrepareList* prepare) const {
     world.clear();
+    if (prepare) {
+        prepare->clear();
+    }
 
     std::unordered_map<uint64_t, engine::GeometryHandle> geometryHandles;
     std::unordered_map<uint64_t, engine::RenderMaterialHandle> materialHandles;
@@ -140,10 +143,11 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
             if (geometryIt == geometryHandles.end()) {
                 engine::RenderGeometryDesc geometryDesc;
                 geometryDesc.resourceKey = engine::makeAssetGpuKey(geometryKey);  // 资产身份 key，跨帧稳定
-                geometryDesc.mesh = drawable.mesh;                                // 非拥有指针，指向资产 Mesh
                 geometryDesc.topology = drawable.mesh->topology;                  // 冗余标量，避免渲染端解引用
                 geometryDesc.empty = drawable.mesh->empty();
-                // 不再深拷贝 Mesh：渲染端 miss 时通过 mesh 指针读字节上传，命中即返不碰。
+                if (prepare) {
+                    prepare->addGeometry(geometryDesc.resourceKey, drawable.mesh);
+                }
                 geometryIt = geometryHandles.emplace(geometryKey, world.addGeometry(std::move(geometryDesc))).first;
             }
 

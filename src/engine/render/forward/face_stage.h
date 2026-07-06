@@ -14,9 +14,11 @@
 
 namespace mulan::engine {
 
+class GeometryDrawSharedResources;
+
 class FaceStage final : public RenderStage {
 public:
-    FaceStage(RHIDevice& device, MaterialCache& matCache, const LightEnvironment& lightEnv);
+    FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources);
 
     std::string_view name() const override { return "Face"; }
 

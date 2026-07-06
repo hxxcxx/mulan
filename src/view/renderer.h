@@ -75,6 +75,7 @@ private:
     RenderWorldSync render_world_sync_;
     engine::RenderWorld render_world_;
     engine::RenderWorldSnapshot world_snapshot_;
+    engine::RenderResourcePrepareList resource_prepare_;
     engine::RenderRenderer render_renderer_;
 
     bool initialized_ = false;

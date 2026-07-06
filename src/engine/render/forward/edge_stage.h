@@ -14,9 +14,11 @@
 
 namespace mulan::engine {
 
+class GeometryDrawSharedResources;
+
 class EdgeStage final : public RenderStage {
 public:
-    EdgeStage(RHIDevice& device, MaterialCache& matCache, const LightEnvironment& lightEnv);
+    EdgeStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources);
 
     std::string_view name() const override { return "Edge"; }
 
