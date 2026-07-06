@@ -7,10 +7,7 @@
 #include <mulan/view/render_scene.h>
 #include <mulan/view/scene_proxy.h>
 
-#include <span>
 #include <utility>
-#include <unordered_map>
-#include <vector>
 
 namespace mulan::view {
 namespace {

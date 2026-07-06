@@ -9,7 +9,6 @@
 #include "mulan/engine/rhi/device.h"
 
 #include <cstdio>
-#include <cstring>
 #include <utility>
 
 namespace mulan::view {
