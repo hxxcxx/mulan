@@ -73,20 +73,18 @@ void DocWidget::mousePressEvent(QMouseEvent* e) {
         left_press_dragged_ = false;
     }
 
-    auto ev = InputEvent::mousePress(e->pos().x(), e->pos().y(), translateButton(e->button()),
-                                     translateButtons(e->buttons()), translateModifiers(e->modifiers()));
+    auto ev = makeMousePressEvent(*e);
     view_context_.handleInput(ev);
     requestFrame();
 }
 
 void DocWidget::mouseReleaseEvent(QMouseEvent* e) {
-    auto ev = InputEvent::mouseRelease(e->pos().x(), e->pos().y(), translateButton(e->button()),
-                                       translateButtons(e->buttons()), translateModifiers(e->modifiers()));
+    auto ev = makeMouseReleaseEvent(*e);
     view_context_.handleInput(ev);
 
     if (e->button() == Qt::LeftButton && left_press_pending_) {
         if (!left_press_dragged_) {
-            selectAt(e->pos());
+            selectAtFramebuffer(framebufferPosition(e->pos()));
         }
         left_press_pending_ = false;
         left_press_dragged_ = false;
@@ -99,32 +97,27 @@ void DocWidget::mouseMoveEvent(QMouseEvent* e) {
         left_press_dragged_ = true;
     }
 
-    auto ev = InputEvent::mouseMove(e->pos().x(), e->pos().y(), translateButtons(e->buttons()),
-                                    translateModifiers(e->modifiers()));
+    auto ev = makeMouseMoveEvent(*e);
     view_context_.handleInput(ev);
 
     if (e->buttons() == Qt::NoButton) {
-        updateHoverAt(e->pos());
+        if (!view_context_.hasHoveredViewCubeFace()) {
+            updateHoverAtFramebuffer(framebufferPosition(e->pos()));
+        } else {
+            view_context_.clearHoveredPickId();
+        }
     }
     requestFrame();
 }
 
 void DocWidget::mouseDoubleClickEvent(QMouseEvent* e) {
-    InputEvent ev{};
-    ev.type = InputEvent::Type::MouseDoubleClick;
-    ev.x = e->pos().x();
-    ev.y = e->pos().y();
-    ev.button = translateButton(e->button());
-    ev.buttons = translateButtons(e->buttons());
-    ev.modifiers = translateModifiers(e->modifiers());
+    auto ev = makeMouseDoubleClickEvent(*e);
     view_context_.handleInput(ev);
     requestFrame();
 }
 
 void DocWidget::wheelEvent(QWheelEvent* e) {
-    float delta = e->angleDelta().y() / 120.0f;
-    auto ev = InputEvent::wheel(static_cast<int>(e->position().x()), static_cast<int>(e->position().y()), delta,
-                                translateModifiers(e->modifiers()));
+    auto ev = makeWheelEvent(*e);
     view_context_.handleInput(ev);
     requestFrame();
 }
@@ -144,6 +137,7 @@ void DocWidget::keyReleaseEvent(QKeyEvent* e) {
 void DocWidget::leaveEvent(QEvent* e) {
     QWidget::leaveEvent(e);
     view_context_.clearHoveredPickId();
+    view_context_.clearViewCubeInteraction();
     requestFrame();
 }
 
@@ -172,19 +166,59 @@ void DocWidget::fitAll() {
     binding_.fitAll();
 }
 
-QPoint DocWidget::devicePixelPosition(const QPoint& pos) const {
+QPoint DocWidget::framebufferPosition(const QPointF& pos) const {
+    // Qt 鼠标事件给的是 widget logical coordinates；RHI swapchain、Camera::screenRay()
+    // 和 ViewCubeModel::pickFace() 使用的是 framebuffer coordinates。
+    // 高 DPI 屏幕下两者不同，必须在进入 view/engine picking 前乘 devicePixelRatioF()。
+    //
+    // 注意：click-vs-drag 阈值仍然使用原始 Qt logical coordinates（press_pos_ / e->pos()），
+    // 这样相机交互手感不会随 DPI 改变；这里只服务于 ray picking / ViewCube hit test。
     const qreal dpr = devicePixelRatioF();
     return QPoint(static_cast<int>(pos.x() * dpr), static_cast<int>(pos.y() * dpr));
 }
 
-void DocWidget::updateHoverAt(const QPoint& pos) {
+InputEvent DocWidget::makeMousePressEvent(const QMouseEvent& e) const {
+    const QPoint p = framebufferPosition(e.position());
+    return InputEvent::mousePress(p.x(), p.y(), translateButton(e.button()), translateButtons(e.buttons()),
+                                  translateModifiers(e.modifiers()));
+}
+
+InputEvent DocWidget::makeMouseReleaseEvent(const QMouseEvent& e) const {
+    const QPoint p = framebufferPosition(e.position());
+    return InputEvent::mouseRelease(p.x(), p.y(), translateButton(e.button()), translateButtons(e.buttons()),
+                                    translateModifiers(e.modifiers()));
+}
+
+InputEvent DocWidget::makeMouseMoveEvent(const QMouseEvent& e) const {
+    const QPoint p = framebufferPosition(e.position());
+    return InputEvent::mouseMove(p.x(), p.y(), translateButtons(e.buttons()), translateModifiers(e.modifiers()));
+}
+
+InputEvent DocWidget::makeMouseDoubleClickEvent(const QMouseEvent& e) const {
+    const QPoint p = framebufferPosition(e.position());
+    InputEvent ev{};
+    ev.type = InputEvent::Type::MouseDoubleClick;
+    ev.x = p.x();
+    ev.y = p.y();
+    ev.button = translateButton(e.button());
+    ev.buttons = translateButtons(e.buttons());
+    ev.modifiers = translateModifiers(e.modifiers());
+    return ev;
+}
+
+InputEvent DocWidget::makeWheelEvent(const QWheelEvent& e) const {
+    const QPoint p = framebufferPosition(e.position());
+    const float delta = e.angleDelta().y() / 120.0f;
+    return InputEvent::wheel(p.x(), p.y(), delta, translateModifiers(e.modifiers()));
+}
+
+void DocWidget::updateHoverAtFramebuffer(const QPoint& framebufferPos) {
     if (!binding_.isBound()) {
         view_context_.clearHoveredPickId();
         return;
     }
 
-    const QPoint pixel = devicePixelPosition(pos);
-    const auto hit = binding_.pickEntityAt(view_context_.camera(), pixel.x(), pixel.y());
+    const auto hit = binding_.pickEntityAt(view_context_.camera(), framebufferPos.x(), framebufferPos.y());
     if (hit) {
         view_context_.setHoveredPickId(hit->pickId);
     } else {
@@ -192,13 +226,12 @@ void DocWidget::updateHoverAt(const QPoint& pos) {
     }
 }
 
-void DocWidget::selectAt(const QPoint& pos) {
+void DocWidget::selectAtFramebuffer(const QPoint& framebufferPos) {
     if (!binding_.isBound()) {
         return;
     }
 
-    const QPoint pixel = devicePixelPosition(pos);
-    const auto hit = binding_.pickEntityAt(view_context_.camera(), pixel.x(), pixel.y());
+    const auto hit = binding_.pickEntityAt(view_context_.camera(), framebufferPos.x(), framebufferPos.y());
     if (hit) {
         view_context_.setHoveredPickId(hit->pickId);
         binding_.selectSingle(hit->entity);

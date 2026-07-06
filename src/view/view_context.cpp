@@ -157,6 +157,7 @@ ViewState ViewContext::snapshotViewState(const engine::Camera& camera, const Cap
     state.showOverlays = visual.showOverlays;
     state.showViewCube = visual.showViewCube;
     state.viewCubeLayout = view_cube_model_.layout();
+    state.viewCubeInteraction = view_cube_interaction_;
 
     switch (visual.style) {
     case CaptureRenderStyle::Shaded:
@@ -215,9 +216,15 @@ bool ViewContext::handleViewCubeInput(const engine::InputEvent& event) {
     if (!show_overlays_ || !show_view_cube_)
         return false;
 
+    if (event.type == engine::InputEvent::Type::MouseMove && event.buttons == engine::MouseButton::None) {
+        updateViewCubeHover(event);
+        return view_cube_interaction_.hasHoveredFace;
+    }
+
     if (consuming_view_cube_click_) {
         if (event.type == engine::InputEvent::Type::MouseRelease) {
             consuming_view_cube_click_ = false;
+            view_cube_interaction_.hasPressedFace = false;
         }
         return event.isMouseEvent();
     }
@@ -231,8 +238,23 @@ bool ViewContext::handleViewCubeInput(const engine::InputEvent& event) {
         return false;
 
     setCameraToViewCubeFace(hit.face);
+    view_cube_interaction_.pressedFace = hit.face;
+    view_cube_interaction_.hasPressedFace = true;
+    view_cube_interaction_.hoveredFace = hit.face;
+    view_cube_interaction_.hasHoveredFace = true;
     consuming_view_cube_click_ = true;
     return true;
+}
+
+void ViewContext::updateViewCubeHover(const engine::InputEvent& event) {
+    const auto hit = view_cube_model_.pickFace(event.x, event.y, static_cast<uint32_t>(width_),
+                                               static_cast<uint32_t>(height_), camera_.viewMatrix());
+    if (hit) {
+        view_cube_interaction_.hoveredFace = hit.face;
+        view_cube_interaction_.hasHoveredFace = true;
+    } else {
+        view_cube_interaction_.hasHoveredFace = false;
+    }
 }
 
 void ViewContext::setCameraToViewCubeFace(engine::ViewCubeFace face) {
@@ -374,6 +396,7 @@ ViewState ViewContext::buildViewState() const {
     state.showOverlays = show_overlays_;
     state.showViewCube = show_view_cube_;
     state.viewCubeLayout = view_cube_model_.layout();
+    state.viewCubeInteraction = view_cube_interaction_;
     return state;
 }
 

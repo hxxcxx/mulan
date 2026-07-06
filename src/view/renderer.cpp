@@ -111,6 +111,7 @@ engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewS
     request.options.showOverlays = viewState.showOverlays;
     request.options.showViewCube = viewState.showViewCube;
     request.options.viewCubeLayout = viewState.viewCubeLayout;
+    request.options.viewCubeInteraction = viewState.viewCubeInteraction;
     return request;
 }
 

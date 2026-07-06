@@ -60,6 +60,7 @@ public:
     void setMargin(uint32_t margin);
 
     void setLayout(const ViewCubeLayout& layout);
+    void setInteraction(const ViewCubeInteractionState& interaction);
     void setCorner(ViewCubeCorner corner);
     ViewCubeRect viewportRect(uint32_t vpWidth, uint32_t vpHeight) const;
     ViewCubeHit pick(int screenX, int screenY, uint32_t vpWidth, uint32_t vpHeight) const;
@@ -93,6 +94,7 @@ private:
     bool createFaceGeometry();
     bool createEdgeGeometry();
     bool createAxisGeometry();
+    void updateInteractionMaterials();
 
     void render(CommandList* cmd, const math::Mat4& mainViewMatrix, uint32_t vpWidth, uint32_t vpHeight);
 
@@ -138,6 +140,7 @@ private:
 
     // --- 配置 ---
     ViewCubeModel model_;
+    ViewCubeInteractionState interaction_;
     bool initialized_ = false;
 };
 

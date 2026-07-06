@@ -84,6 +84,8 @@ public:
 
     bool showViewCube() const { return show_view_cube_; }
     void setShowViewCube(bool show) { show_view_cube_ = show; }
+    bool hasHoveredViewCubeFace() const { return view_cube_interaction_.hasHoveredFace; }
+    void clearViewCubeInteraction() { view_cube_interaction_ = {}; }
 
     const engine::ViewCubeLayout& viewCubeLayout() const { return view_cube_model_.layout(); }
     void setViewCubeLayout(const engine::ViewCubeLayout& layout);
@@ -112,6 +114,7 @@ private:
                                 uint32_t height) const;
     void onFrameEnd();
     bool handleViewCubeInput(const engine::InputEvent& event);
+    void updateViewCubeHover(const engine::InputEvent& event);
     void setCameraToViewCubeFace(engine::ViewCubeFace face);
 
     bool isOffscreenSurface() const;
@@ -136,6 +139,7 @@ private:
     bool show_overlays_ = true;
     bool show_view_cube_ = true;
     bool consuming_view_cube_click_ = false;
+    engine::ViewCubeInteractionState view_cube_interaction_;
     engine::ViewCubeModel view_cube_model_;
 
     int width_ = 800;

@@ -34,6 +34,7 @@ struct ViewState {
     bool showOverlays = true;
     bool showViewCube = true;
     engine::ViewCubeLayout viewCubeLayout;
+    engine::ViewCubeInteractionState viewCubeInteraction;
 };
 
 }  // namespace mulan::view

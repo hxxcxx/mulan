@@ -54,9 +54,14 @@ private:
     static mulan::engine::KeyModifier translateModifiers(Qt::KeyboardModifiers mods);
     static mulan::engine::Key translateKey(int qtKey);
 
-    QPoint devicePixelPosition(const QPoint& pos) const;
-    void updateHoverAt(const QPoint& pos);
-    void selectAt(const QPoint& pos);
+    QPoint framebufferPosition(const QPointF& pos) const;
+    mulan::engine::InputEvent makeMousePressEvent(const QMouseEvent& e) const;
+    mulan::engine::InputEvent makeMouseReleaseEvent(const QMouseEvent& e) const;
+    mulan::engine::InputEvent makeMouseMoveEvent(const QMouseEvent& e) const;
+    mulan::engine::InputEvent makeMouseDoubleClickEvent(const QMouseEvent& e) const;
+    mulan::engine::InputEvent makeWheelEvent(const QWheelEvent& e) const;
+    void updateHoverAtFramebuffer(const QPoint& framebufferPos);
+    void selectAtFramebuffer(const QPoint& framebufferPos);
 
     mulan::view::ViewContext view_context_;
     mulan::view::ViewConfig view_config_;

@@ -29,6 +29,7 @@ struct RenderView {
     bool showViewCube = true;
     bool showOverlay = true;
     ViewCubeLayout viewCubeLayout;
+    ViewCubeInteractionState viewCubeInteraction;
 };
 
 }  // namespace mulan::engine

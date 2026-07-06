@@ -142,6 +142,7 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     renderView.showOverlay = request.options.showOverlays;
     renderView.showViewCube = request.options.showViewCube;
     renderView.viewCubeLayout = request.options.viewCubeLayout;
+    renderView.viewCubeInteraction = request.options.viewCubeInteraction;
 
     RenderTargetInfo frameTargetInfo;
     frameTargetInfo.width = renderView.width;
@@ -305,6 +306,7 @@ void RenderRenderer::executeStages(RenderFrame& frame) {
         view_cube_stage_->setFallbackResources(face_stage_ ? face_stage_->defaultWhiteTexture() : nullptr,
                                                face_stage_ ? face_stage_->defaultSampler() : nullptr);
         view_cube_stage_->setLayout(frame.view.viewCubeLayout);
+        view_cube_stage_->setInteraction(frame.view.viewCubeInteraction);
         view_cube_stage_->execute(frame);
     }
 }

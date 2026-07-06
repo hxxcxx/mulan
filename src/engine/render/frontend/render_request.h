@@ -46,6 +46,7 @@ struct RenderOptions {
     bool showOverlays = true;
     bool showViewCube = true;
     ViewCubeLayout viewCubeLayout;
+    ViewCubeInteractionState viewCubeInteraction;
 };
 
 inline bool renderSurfacesEnabled(const RenderOptions& options) {

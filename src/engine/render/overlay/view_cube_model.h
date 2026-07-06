@@ -86,6 +86,13 @@ struct ViewCubeHit {
     explicit operator bool() const { return type != ViewCubePartType::None; }
 };
 
+struct ViewCubeInteractionState {
+    ViewCubeFace hoveredFace = ViewCubeFace::Front;
+    ViewCubeFace pressedFace = ViewCubeFace::Front;
+    bool hasHoveredFace = false;
+    bool hasPressedFace = false;
+};
+
 class ViewCubeModel {
 public:
     static constexpr double kCubeHalfExtent = 0.58;

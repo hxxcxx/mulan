@@ -59,6 +59,8 @@ static const struct {
 };
 
 static constexpr float kLineColor[3] = { 0.06f, 0.07f, 0.08f };
+static constexpr float kHoverColor[3] = { 0.98f, 0.62f, 0.18f };
+static constexpr float kPressedColor[3] = { 1.0f, 0.78f, 0.28f };
 static constexpr float kAxisColors[3][3] = {
     { 0.92f, 0.16f, 0.14f },  // +X
     { 0.18f, 0.68f, 0.22f },  // +Y
@@ -197,6 +199,10 @@ void ViewCubeStage::setMargin(uint32_t margin) {
 
 void ViewCubeStage::setLayout(const ViewCubeLayout& layout) {
     model_.setLayout(layout);
+}
+
+void ViewCubeStage::setInteraction(const ViewCubeInteractionState& interaction) {
+    interaction_ = interaction;
 }
 
 void ViewCubeStage::setCorner(ViewCubeCorner corner) {
@@ -476,6 +482,36 @@ bool ViewCubeStage::createAxisGeometry() {
     return true;
 }
 
+void ViewCubeStage::updateInteractionMaterials() {
+    if (!material_ubo_) {
+        return;
+    }
+
+    auto mixColor = [](float dst[3], const float a[3], const float b[3], float t) {
+        dst[0] = a[0] * (1.0f - t) + b[0] * t;
+        dst[1] = a[1] * (1.0f - t) + b[1] * t;
+        dst[2] = a[2] * (1.0f - t) + b[2] * t;
+    };
+
+    const uint32_t hovered = interaction_.hasHoveredFace ? static_cast<uint32_t>(interaction_.hoveredFace) : kFaceCount;
+    const uint32_t pressed = interaction_.hasPressedFace ? static_cast<uint32_t>(interaction_.pressedFace) : kFaceCount;
+
+    for (uint32_t i = 0; i < kFaceCount; ++i) {
+        materials_[i].baseColor[0] = kFaces[i].color[0];
+        materials_[i].baseColor[1] = kFaces[i].color[1];
+        materials_[i].baseColor[2] = kFaces[i].color[2];
+
+        if (i == hovered) {
+            mixColor(materials_[i].baseColor, materials_[i].baseColor, kHoverColor, 0.58f);
+        }
+        if (i == pressed) {
+            mixColor(materials_[i].baseColor, materials_[i].baseColor, kPressedColor, 0.78f);
+        }
+
+        material_ubo_->update(i * material_stride_, sizeof(MaterialGPU), &materials_[i]);
+    }
+}
+
 // ============================================================
 // 渲染
 // ============================================================
@@ -521,6 +557,7 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
     // --- 4. 上传 Object UBO（单位矩阵）---
     const ObjectUniforms objUbo = makeObjectUniforms(math::Mat4(1.0));
     object_ubo_->update(0, sizeof(ObjectUniforms), &objUbo);
+    updateInteractionMaterials();
 
     // --- 5. 渲染面（每面独立材质）---
     cmd->setPipelineState(solid_pso_);
