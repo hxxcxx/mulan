@@ -17,7 +17,6 @@
 #include "../light_environment.h"
 #include "../material/material_cache.h"
 #include "../asset_gpu_registry.h"
-#include "../texture_cache.h"
 
 #include <memory>
 #include <string>
@@ -54,7 +53,6 @@ private:
     void executeStages(RenderFrame& frame);
     void endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
 
-    std::unique_ptr<TextureCache> texture_cache_;
     std::unique_ptr<MaterialCache> material_cache_;
     std::unique_ptr<IBLPipeline> ibl_;
     std::unique_ptr<AssetGpuRegistry> asset_gpu_registry_;

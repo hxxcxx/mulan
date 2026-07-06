@@ -17,7 +17,7 @@ LoadedTexture TextureLoader::loadFromFile(const std::string& path, const Texture
     // 调用方未显式指定 sRGB 时，按扩展名推断（jpg/jpeg 是颜色贴图 → sRGB；
     // png 多为数据贴图如 normal/mr，默认 linear）。任一为真即用 sRGB 格式。
     TextureLoadOptions effective = options;
-    if (!effective.sRGB && inferSrgb(path))
+    if (effective.inferSrgbFromFile && !effective.sRGB && inferSrgb(path))
         effective.sRGB = true;
 
     return loadFromImage(image, effective);

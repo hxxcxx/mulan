@@ -13,21 +13,26 @@
  *  - 生命周期绑文档：文档切换时由 Renderer::setScene 触发 clear()，
  *    释放全部 GPU 资源（不做资产粒度 erase，因为 AssetLibrary::remove 当前零调用）。
  *
- * TODO(后续): 贴图并入 —— 增加 textures_ map + acquireTexture()，删除独立 TextureCache，
- *            让所有资产派生的不可变 GPU 资源统一在此管理。
+ *  - 贴图和几何同属资产派生的不可变 GPU 资源，统一在此管理。
  */
 #pragma once
 
 #include "render_geometry.h"
+#include "texture_loader.h"
 #include <mulan/core/result/error.h>
 #include <mulan/graphics/mesh.h>
 
+#include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <string>
+#include <string_view>
 #include <unordered_map>
 
 namespace mulan::engine {
 
 class RHIDevice;
+class Texture;
 
 class AssetGpuRegistry {
 public:
@@ -41,17 +46,45 @@ public:
     /// mesh 指向资产持有的稳定存储（文档存活期有效），上传后本层不持有该指针。
     const GpuGeometry* acquireGeometry(uint64_t key, const graphics::Mesh& mesh);
 
+    /// 贴图：按来源 + 加载意图去重，命中即返；miss 时解码并上传。
+    Texture* acquireTextureFromFile(const std::string& path, const TextureLoadOptions& options = {});
+    Texture* acquireTextureFromMemory(const std::string& key, const std::byte* data, size_t size,
+                                      const TextureLoadOptions& options = {});
+
+    /// 创建由 registry 持有的独立 GPU 贴图，主要用于资产派生的程序化资源。
+    Texture* createTexture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage,
+                           const std::string& name = {});
+
     /// 清空全部资产派生 GPU 资源（文档切换时调用）。
     void clear();
 
     size_t geometryCount() const { return geometries_.size(); }
+    size_t textureCount() const { return textures_.size(); }
 
 private:
+    struct GpuTextureResource {
+        std::unique_ptr<Texture> texture;
+        std::string source;
+        uint32_t width = 0;
+        uint32_t height = 0;
+
+        GpuTextureResource() = default;
+        explicit GpuTextureResource(std::unique_ptr<Texture> texture, std::string source);
+
+        Texture* get() { return texture.get(); }
+        const Texture* get() const { return texture.get(); }
+        explicit operator bool() const { return texture != nullptr; }
+    };
+
     static core::Result<GpuGeometry> createGpuBuffer(RHIDevice& device, const graphics::Mesh& mesh);
+    static std::string textureKey(std::string_view sourceKind, const std::string& source,
+                                  const TextureLoadOptions& options);
+
+    std::unique_ptr<Texture> createRHITexture(const LoadedTexture& loaded, TextureUsageFlags usage, bool generateMips);
 
     RHIDevice& device_;
     std::unordered_map<uint64_t, GpuGeometry> geometries_;
-    // TODO(后续): std::unordered_map<uint64_t, Texture> textures_;
+    std::unordered_map<std::string, GpuTextureResource> textures_;
 };
 
 }  // namespace mulan::engine

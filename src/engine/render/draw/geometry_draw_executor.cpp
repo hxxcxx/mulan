@@ -35,8 +35,7 @@ bool GeometryDrawExecutor::init(TextureFormat colorFmt, TextureFormat depthFmt, 
     }
     scene_ubo_ = std::move(*sceneResult);
 
-    auto objResult = device_.createBuffer(
-            BufferDesc::uniform(MeshDrawCommand::kObjectUboStride * 4096, "ObjUBO"));  // 4096 objects
+    auto objResult = device_.createBuffer(BufferDesc::uniform(MeshDrawCommand::kObjectUboBytes, "ObjUBO"));
     if (!objResult) {
         return false;
     }

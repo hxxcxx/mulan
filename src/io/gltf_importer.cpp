@@ -97,7 +97,7 @@ std::map<size_t, asset::AssetId> importTextures(const Asset& gltf, ImportBuilder
         ImportedTextureDesc desc;
         desc.name = image.name.empty() ? "Texture_" + std::to_string(i) : std::string(image.name);
 
-        // 缓存键（用于内嵌源的 TextureCache 去重）；文件源会被覆盖为绝对路径
+        // 缓存键（用于内嵌源的 GPU 贴图去重）；文件源会被覆盖为绝对路径
         const std::string embeddedKey = "gltf:" + importPath + "#image[" + std::to_string(i) + "]";
 
         std::visit(visitor{ [&](const sources::URI& uri) {

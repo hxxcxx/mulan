@@ -17,6 +17,9 @@ MaterialHandle MaterialCache::registerMaterial(Material material) {
     if (material.name.empty()) {
         material.name = "Material_" + std::to_string(materials_.size());
     }
+    if (materials_.size() >= kMaxMaterials) {
+        return 0;
+    }
     const auto handle = materials_.size();
     name_to_index_[material.name] = handle;
     materials_.push_back(std::move(material));
@@ -30,11 +33,17 @@ MaterialHandle MaterialCache::registerMaterial(const std::string& name, Material
     if (it != name_to_index_.end()) {
         const auto handle = it->second;
         material.name = name;
+        if (materials_[handle] == material) {
+            return handle;
+        }
         materials_[handle] = std::move(material);
         dirty_materials_.insert(handle);
         return handle;
     }
     // 新增
+    if (materials_.size() >= kMaxMaterials) {
+        return 0;
+    }
     material.name = name;
     const auto handle = materials_.size();
     name_to_index_[name] = handle;
@@ -80,6 +89,8 @@ void MaterialCache::forEach(const std::function<void(const Material&)>& fn) cons
 bool MaterialCache::updateMaterial(MaterialHandle handle, const Material& material) {
     if (handle >= materials_.size())
         return false;
+    if (materials_[handle] == material)
+        return true;
     materials_[handle] = material;
     dirty_materials_.insert(handle);
     return true;
@@ -90,6 +101,8 @@ bool MaterialCache::updateMaterial(const std::string& name, const Material& mate
     if (it == name_to_index_.end())
         return false;
     const auto handle = it->second;
+    if (materials_[handle] == material)
+        return true;
     materials_[handle] = material;
     dirty_materials_.insert(handle);
     return true;

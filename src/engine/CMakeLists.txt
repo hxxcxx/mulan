@@ -7,7 +7,6 @@ add_library(engine STATIC
     render/camera/turntable_rotation.cpp
     render/camera/trackball_rotation.cpp
     render/texture_loader.cpp
-    render/texture_cache.cpp
     render/asset_gpu_registry.cpp
     render/environment_map.cpp
     render/mesh_draw_command.cpp

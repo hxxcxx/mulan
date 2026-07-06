@@ -80,6 +80,8 @@ struct MeshDrawCommand {
     /// 故 slot 步进取 256，尾随 128 字节 padding（shader 不读取），
     /// 保证两个后端的多 object offset 都合法，避免 device removed。
     static constexpr uint32_t kObjectUboStride = 256;
+    static constexpr uint32_t kMaxObjectCount = 4096;
+    static constexpr uint32_t kObjectUboBytes = kObjectUboStride * kMaxObjectCount;
 };
 
 }  // namespace mulan::engine

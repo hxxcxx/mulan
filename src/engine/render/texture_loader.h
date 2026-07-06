@@ -34,6 +34,7 @@ struct TextureLoadOptions {
     /// 适用于 albedo/color 类贴图；normal/mr/ao 等数据贴图应设 false。
     /// 不设置时由 loadFromImage 按文件扩展名推断（.jpg/.jpeg → sRGB）。
     bool sRGB = false;
+    bool inferSrgbFromFile = true;
     TextureFormat format = TextureFormat::RGBA8_UNorm;
 };
 

@@ -21,7 +21,6 @@ bool RenderRenderer::init(RHIDevice& device, LightEnvironment& lightEnv, Texture
     if (initialized_)
         return true;
 
-    texture_cache_ = std::make_unique<TextureCache>(&device);
     material_cache_ = std::make_unique<MaterialCache>();
     asset_gpu_registry_ = std::make_unique<AssetGpuRegistry>(device);
 
@@ -59,7 +58,6 @@ void RenderRenderer::shutdown(RHIDevice& device) {
     face_stage_.reset();
     asset_gpu_registry_.reset();
     material_cache_.reset();
-    texture_cache_.reset();
     ibl_.reset();
     initialized_ = false;
 }
@@ -137,7 +135,6 @@ void RenderRenderer::clearAssetResources() {
     if (asset_gpu_registry_) {
         asset_gpu_registry_->clear();
     }
-    // TODO(后续): 贴图并入 Registry 后，texture_cache_->clear() 也移到这里
 }
 
 bool RenderRenderer::validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const {
@@ -172,8 +169,7 @@ void RenderRenderer::compile(const RenderRequest& request) {
         workload_.build(*request.world, request.options);
 
         RenderCompileContext compileContext{
-            .geometry = *asset_gpu_registry_,
-            .textures = *texture_cache_,
+            .assets = *asset_gpu_registry_,
             .materials = *material_cache_,
             .surfacePipeline = face_stage_ ? face_stage_->pipelineState() : nullptr,
             .edgePipeline = edge_stage_ ? edge_stage_->pipelineState() : nullptr,

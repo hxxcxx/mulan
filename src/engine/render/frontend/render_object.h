@@ -30,6 +30,7 @@ enum class RenderBucket : uint8_t {
 };
 
 struct RenderTextureDesc {
+    uint64_t resourceKey = 0;                 ///< 资产身份 key，用作无路径内嵌源的稳定去重键
     std::string sourcePath;                   ///< 文件路径（文件源）或缓存键（内嵌源）
     std::span<const std::byte> embeddedData;  ///< 内嵌编码字节的非拥有视图，指向 asset::TextureAsset 的字节
     bool srgb = false;                        ///< sRGB 意图，由 material slot 决定

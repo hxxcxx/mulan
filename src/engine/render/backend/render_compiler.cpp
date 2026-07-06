@@ -3,7 +3,6 @@
 #include "../asset_gpu_registry.h"
 #include "../material/material_cache.h"
 #include "../render_geometry.h"
-#include "../texture_cache.h"
 #include "../texture_loader.h"
 
 #include <string>
@@ -23,34 +22,34 @@ uint32_t materialOffset(const RenderWorldSnapshot& snapshot, RenderMaterialHandl
     return cache.materialGpuOffset(materialHandle);
 }
 
-Texture* loadTexture(TextureCache& cache, const RenderTextureDesc& desc) {
+Texture* loadTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
     if (desc.embeddedData.empty() && desc.sourcePath.empty())
         return nullptr;
 
     TextureLoadOptions options;
     options.sRGB = desc.srgb;
+    options.inferSrgbFromFile = false;
 
     // 内嵌字节优先（GLB bufferView / data: URI / 已加载内存字节）
     if (!desc.embeddedData.empty()) {
-        auto* loaded =
-                cache.loadFromMemory(desc.sourcePath, desc.embeddedData.data(), desc.embeddedData.size(), options);
-        return loaded ? loaded->get() : nullptr;
+        const std::string memoryKey =
+                !desc.sourcePath.empty() ? desc.sourcePath : ("texture-asset:" + std::to_string(desc.resourceKey));
+        return assets.acquireTextureFromMemory(memoryKey, desc.embeddedData.data(), desc.embeddedData.size(), options);
     }
-    auto* loaded = cache.load(desc.sourcePath, options);
-    return loaded ? loaded->get() : nullptr;
+    return assets.acquireTextureFromFile(desc.sourcePath, options);
 }
 
-void populateSurfaceTextures(const RenderWorldSnapshot& snapshot, const RenderWorkItem& item, TextureCache& cache,
+void populateSurfaceTextures(const RenderWorldSnapshot& snapshot, const RenderWorkItem& item, AssetGpuRegistry& assets,
                              MeshDrawCommand& command) {
     const auto* material = snapshot.material(item.material);
     if (!material)
         return;
 
-    command.albedoTex = loadTexture(cache, material->desc.baseColorTexture);
-    command.normalTex = loadTexture(cache, material->desc.normalTexture);
-    command.mrTex = loadTexture(cache, material->desc.metallicRoughnessTexture);
-    command.emissiveTex = loadTexture(cache, material->desc.emissiveTexture);
-    command.aoTex = loadTexture(cache, material->desc.ambientOcclusionTexture);
+    command.albedoTex = loadTexture(assets, material->desc.baseColorTexture);
+    command.normalTex = loadTexture(assets, material->desc.normalTexture);
+    command.mrTex = loadTexture(assets, material->desc.metallicRoughnessTexture);
+    command.emissiveTex = loadTexture(assets, material->desc.emissiveTexture);
+    command.aoTex = loadTexture(assets, material->desc.ambientOcclusionTexture);
 }
 
 MeshDrawCommand makeCommand(const RenderWorldSnapshot& snapshot, const RenderWorkItem& item,
@@ -83,31 +82,40 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
     clear();
 
     uint32_t nextObjectOffset = 0;
+    const auto hasObjectUboSlot = [&]() {
+        return nextObjectOffset < MeshDrawCommand::kObjectUboBytes;
+    };
 
     for (const auto& item : workload.surfaces()) {
+        if (!hasObjectUboSlot())
+            break;
+
         const auto* geometryRecord = snapshot.geometry(item.geometry);
         if (!geometryRecord || geometryRecord->desc.empty || !geometryRecord->desc.mesh)
             continue;
 
         const auto* gpuGeometry =
-                context.geometry.acquireGeometry(geometryRecord->desc.resourceKey, *geometryRecord->desc.mesh);
+                context.assets.acquireGeometry(geometryRecord->desc.resourceKey, *geometryRecord->desc.mesh);
         if (!gpuGeometry)
             continue;
 
         auto command = makeCommand(snapshot, item, *gpuGeometry, context.surfacePipeline, nextObjectOffset,
                                    materialOffset(snapshot, item.material, context.materials), false);
-        populateSurfaceTextures(snapshot, item, context.textures, command);
+        populateSurfaceTextures(snapshot, item, context.assets, command);
         surface_commands_.push_back(std::move(command));
         nextObjectOffset += MeshDrawCommand::kObjectUboStride;
     }
 
     for (const auto& item : workload.edges()) {
+        if (!hasObjectUboSlot())
+            break;
+
         const auto* geometryRecord = snapshot.geometry(item.geometry);
         if (!geometryRecord || geometryRecord->desc.empty || !geometryRecord->desc.mesh)
             continue;
 
         const auto* gpuGeometry =
-                context.geometry.acquireGeometry(geometryRecord->desc.resourceKey, *geometryRecord->desc.mesh);
+                context.assets.acquireGeometry(geometryRecord->desc.resourceKey, *geometryRecord->desc.mesh);
         if (!gpuGeometry)
             continue;
 

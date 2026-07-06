@@ -31,6 +31,7 @@ engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::
         return {};
 
     engine::RenderTextureDesc desc;
+    desc.resourceKey = textureId.value;
     desc.sourcePath = texture->sourcePath();
     // 非拥有视图，指向 asset::TextureAsset 的字节。生命周期安全：assets_ 在文档存活期间稳定，
     // TextureAsset::embeddedBytes() 仅 import 时 mutate，渲染帧内不可变；snapshot 在同步 render() 内消费。
@@ -74,15 +75,19 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
     // 点亮 Material::textureSlots —— MaterialGPU::fromMaterial 据此生成 textureFlags 位掩码，
     // shader 用 (flags & TF_*) 决定是否采样。未点亮则纹理虽绑定到 descriptor 但被跳过。
     // 真实纹理数据由上面的 RenderTextureDesc 槽位携带，这里仅是"有无"标志。
-    if (!desc.baseColorTexture.sourcePath.empty())
+    auto hasTexture = [](const engine::RenderTextureDesc& texture) {
+        return texture.resourceKey != 0 || !texture.sourcePath.empty() || !texture.embeddedData.empty();
+    };
+
+    if (hasTexture(desc.baseColorTexture))
         desc.material.textureSlots |= engine::TextureSlotFlags::HasAlbedo;
-    if (!desc.normalTexture.sourcePath.empty())
+    if (hasTexture(desc.normalTexture))
         desc.material.textureSlots |= engine::TextureSlotFlags::HasNormal;
-    if (!desc.metallicRoughnessTexture.sourcePath.empty())
+    if (hasTexture(desc.metallicRoughnessTexture))
         desc.material.textureSlots |= engine::TextureSlotFlags::HasMetallicRough;
-    if (!desc.emissiveTexture.sourcePath.empty())
+    if (hasTexture(desc.emissiveTexture))
         desc.material.textureSlots |= engine::TextureSlotFlags::HasEmissive;
-    if (!desc.ambientOcclusionTexture.sourcePath.empty())
+    if (hasTexture(desc.ambientOcclusionTexture))
         desc.material.textureSlots |= engine::TextureSlotFlags::HasAO;
 
     return desc;
