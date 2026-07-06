@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "../overlay/view_cube_model.h"
+
 #include <mulan/math/math.h>
 
 #include <cstdint>
@@ -26,6 +28,7 @@ struct RenderView {
     bool showEdges = true;
     bool showViewCube = true;
     bool showOverlay = true;
+    ViewCubeLayout viewCubeLayout;
 };
 
 }  // namespace mulan::engine

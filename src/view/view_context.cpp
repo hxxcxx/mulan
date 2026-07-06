@@ -104,6 +104,28 @@ void ViewContext::clearHoveredPickId() {
     has_hovered_pick_id_ = false;
 }
 
+void ViewContext::setViewCubeLayout(const engine::ViewCubeLayout& layout) {
+    view_cube_model_.setLayout(layout);
+}
+
+void ViewContext::setViewCubeSize(uint32_t size) {
+    auto layout = view_cube_model_.layout();
+    layout.size = size;
+    view_cube_model_.setLayout(layout);
+}
+
+void ViewContext::setViewCubeMargin(uint32_t margin) {
+    auto layout = view_cube_model_.layout();
+    layout.margin = margin;
+    view_cube_model_.setLayout(layout);
+}
+
+void ViewContext::setViewCubeCorner(engine::ViewCubeCorner corner) {
+    auto layout = view_cube_model_.layout();
+    layout.corner = corner;
+    view_cube_model_.setLayout(layout);
+}
+
 void ViewContext::renderFrame() {
     if (!runtime_host_.isInitialized())
         return;
@@ -134,6 +156,7 @@ ViewState ViewContext::snapshotViewState(const engine::Camera& camera, const Cap
     state.surfaceShading = surface_shading_;
     state.showOverlays = visual.showOverlays;
     state.showViewCube = visual.showViewCube;
+    state.viewCubeLayout = view_cube_model_.layout();
 
     switch (visual.style) {
     case CaptureRenderStyle::Shaded:
@@ -350,6 +373,7 @@ ViewState ViewContext::buildViewState() const {
     state.showEdges = render_mode_ != RenderMode::Shaded;
     state.showOverlays = show_overlays_;
     state.showViewCube = show_view_cube_;
+    state.viewCubeLayout = view_cube_model_.layout();
     return state;
 }
 

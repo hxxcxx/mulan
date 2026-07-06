@@ -85,6 +85,12 @@ public:
     bool showViewCube() const { return show_view_cube_; }
     void setShowViewCube(bool show) { show_view_cube_ = show; }
 
+    const engine::ViewCubeLayout& viewCubeLayout() const { return view_cube_model_.layout(); }
+    void setViewCubeLayout(const engine::ViewCubeLayout& layout);
+    void setViewCubeSize(uint32_t size);
+    void setViewCubeMargin(uint32_t margin);
+    void setViewCubeCorner(engine::ViewCubeCorner corner);
+
     bool showOverlays() const { return show_overlays_; }
     void setShowOverlays(bool show) { show_overlays_ = show; }
 

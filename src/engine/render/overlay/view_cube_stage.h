@@ -59,6 +59,7 @@ public:
     /// 设置边距（像素，距右下角）
     void setMargin(uint32_t margin);
 
+    void setLayout(const ViewCubeLayout& layout);
     void setCorner(ViewCubeCorner corner);
     ViewCubeRect viewportRect(uint32_t vpWidth, uint32_t vpHeight) const;
     ViewCubeHit pick(int screenX, int screenY, uint32_t vpWidth, uint32_t vpHeight) const;

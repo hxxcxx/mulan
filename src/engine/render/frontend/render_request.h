@@ -11,6 +11,7 @@
 #include "render_resource_prepare.h"
 #include "render_view_desc.h"
 #include "render_world_snapshot.h"
+#include "../overlay/view_cube_model.h"
 
 #include <cstdint>
 
@@ -44,6 +45,7 @@ struct RenderOptions {
     bool showEdges = true;
     bool showOverlays = true;
     bool showViewCube = true;
+    ViewCubeLayout viewCubeLayout;
 };
 
 inline bool renderSurfacesEnabled(const RenderOptions& options) {

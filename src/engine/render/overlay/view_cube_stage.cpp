@@ -195,6 +195,10 @@ void ViewCubeStage::setMargin(uint32_t margin) {
     model_.setLayout(layout);
 }
 
+void ViewCubeStage::setLayout(const ViewCubeLayout& layout) {
+    model_.setLayout(layout);
+}
+
 void ViewCubeStage::setCorner(ViewCubeCorner corner) {
     ViewCubeLayout layout = model_.layout();
     layout.corner = corner;

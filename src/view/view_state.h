@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <mulan/engine/render/overlay/view_cube_model.h>
 #include <mulan/math/math.h>
 
 #include <cstdint>
@@ -32,6 +33,7 @@ struct ViewState {
     bool showEdges = true;
     bool showOverlays = true;
     bool showViewCube = true;
+    engine::ViewCubeLayout viewCubeLayout;
 };
 
 }  // namespace mulan::view

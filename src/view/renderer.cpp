@@ -110,6 +110,7 @@ engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewS
     request.options.showEdges = viewState.showEdges;
     request.options.showOverlays = viewState.showOverlays;
     request.options.showViewCube = viewState.showViewCube;
+    request.options.viewCubeLayout = viewState.viewCubeLayout;
     return request;
 }
 

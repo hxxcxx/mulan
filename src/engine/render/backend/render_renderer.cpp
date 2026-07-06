@@ -141,6 +141,7 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     renderView.showEdges = renderEdgesEnabled(request.options);
     renderView.showOverlay = request.options.showOverlays;
     renderView.showViewCube = request.options.showViewCube;
+    renderView.viewCubeLayout = request.options.viewCubeLayout;
 
     RenderTargetInfo frameTargetInfo;
     frameTargetInfo.width = renderView.width;
@@ -233,7 +234,9 @@ void RenderRenderer::compile(const RenderRequest& request) {
                                                                             : emptyCommands);
     }
     if (edge_stage_) {
-        edge_stage_->setDrawCommands(renderEdgesEnabled(request.options) ? compiler_.edgeCommands() : emptyCommands);
+        edge_stage_->setDrawCommands((renderEdgesEnabled(request.options) || request.options.hasHoveredPickId)
+                                             ? compiler_.edgeCommands()
+                                             : emptyCommands);
     }
 }
 
@@ -301,6 +304,7 @@ void RenderRenderer::executeStages(RenderFrame& frame) {
                                        edge_stage_ ? edge_stage_->viewCubePipelineState() : nullptr);
         view_cube_stage_->setFallbackResources(face_stage_ ? face_stage_->defaultWhiteTexture() : nullptr,
                                                face_stage_ ? face_stage_->defaultSampler() : nullptr);
+        view_cube_stage_->setLayout(frame.view.viewCubeLayout);
         view_cube_stage_->execute(frame);
     }
 }
