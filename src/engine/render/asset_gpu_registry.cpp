@@ -40,58 +40,24 @@ const GpuGeometry* AssetGpuRegistry::acquireGeometry(uint64_t key, const graphic
     return &inserted->second;
 }
 
-Texture* AssetGpuRegistry::acquireTextureFromFile(const std::string& path, const TextureLoadOptions& options) {
-    if (path.empty()) {
+Texture* AssetGpuRegistry::acquireTexture(uint64_t key, const core::Image& image, const TextureLoadOptions& options) {
+    if (key == 0 || !image.valid()) {
         return nullptr;
     }
 
-    const auto key = textureKey("file", path, options);
-    if (auto it = textures_.find(key); it != textures_.end()) {
-        return it->second.get();
-    }
-
-    TextureLoader loader;
-    LoadedTexture loaded = loader.loadFromFile(path, options);
-    if (loaded.pixels.empty()) {
-        return nullptr;
-    }
-
-    const TextureUsageFlags usage = TextureUsageFlags::ShaderResource |
-                                    (options.generateMips ? TextureUsageFlags::GenerateMips : TextureUsageFlags::None);
-    auto texture = createRHITexture(loaded, usage, options.generateMips);
-    if (!texture) {
-        return nullptr;
-    }
-
-    auto [inserted, _] = textures_.emplace(key, GpuTextureResource{ std::move(texture), path });
-    return inserted->second.get();
-}
-
-Texture* AssetGpuRegistry::acquireTextureFromMemory(const std::string& key, const std::byte* data, size_t size,
-                                                    const TextureLoadOptions& options) {
-    if (key.empty() || !data || size == 0) {
-        return nullptr;
-    }
-
-    const auto cacheKey = textureKey("memory", key, options);
+    const auto cacheKey = textureKey(key, options);
     if (auto it = textures_.find(cacheKey); it != textures_.end()) {
         return it->second.get();
     }
 
-    TextureLoader loader;
-    LoadedTexture loaded = loader.loadFromMemory(reinterpret_cast<const uint8_t*>(data), size, options);
-    if (loaded.pixels.empty()) {
-        return nullptr;
-    }
-
     const TextureUsageFlags usage = TextureUsageFlags::ShaderResource |
                                     (options.generateMips ? TextureUsageFlags::GenerateMips : TextureUsageFlags::None);
-    auto texture = createRHITexture(loaded, usage, options.generateMips);
+    auto texture = createRHITexture(image, usage, options.sRGB, options.generateMips);
     if (!texture) {
         return nullptr;
     }
 
-    auto [inserted, _] = textures_.emplace(cacheKey, GpuTextureResource{ std::move(texture), key });
+    auto [inserted, _] = textures_.emplace(cacheKey, GpuTextureResource{ std::move(texture), std::to_string(key) });
     return inserted->second.get();
 }
 
@@ -112,7 +78,7 @@ Texture* AssetGpuRegistry::createTexture(uint32_t width, uint32_t height, Textur
 
     auto texture = std::move(*result);
     const auto key = name.empty() ? ("generated:" + std::to_string(reinterpret_cast<uintptr_t>(texture.get())))
-                                  : textureKey("generated", name, {});
+                                  : ("generated:" + name);
     auto [inserted, _] = textures_.emplace(key, GpuTextureResource{ std::move(texture), name });
     return inserted->second.get();
 }
@@ -156,31 +122,45 @@ core::Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(RHIDevice& device, c
     return geo;
 }
 
-std::string AssetGpuRegistry::textureKey(std::string_view sourceKind, const std::string& source,
-                                         const TextureLoadOptions& options) {
+std::string AssetGpuRegistry::textureKey(uint64_t resourceKey, const TextureLoadOptions& options) {
     std::string key;
-    key.reserve(sourceKind.size() + source.size() + 48);
-    key.append(sourceKind);
-    key.push_back(':');
-    key.append(source);
+    key.reserve(64);
+    key.append("asset:");
+    key.append(std::to_string(resourceKey));
     key.append("|srgb=");
     key.push_back(options.sRGB ? '1' : '0');
-    key.append("|infer=");
-    key.push_back(options.inferSrgbFromFile ? '1' : '0');
     key.append("|mips=");
     key.push_back(options.generateMips ? '1' : '0');
-    key.append("|fmt=");
-    key.append(std::to_string(static_cast<int>(options.format)));
     return key;
 }
 
-std::unique_ptr<Texture> AssetGpuRegistry::createRHITexture(const LoadedTexture& loaded, TextureUsageFlags usage,
-                                                            bool generateMips) {
+TextureFormat AssetGpuRegistry::toRHITextureFormat(core::PixelFormat pixelFmt, bool sRGB) {
+    switch (pixelFmt) {
+    case core::PixelFormat::R8: return TextureFormat::R8_UNorm;
+    case core::PixelFormat::RG8: return TextureFormat::RGBA8_UNorm;
+    case core::PixelFormat::RGB8:
+    case core::PixelFormat::RGBA8: return sRGB ? TextureFormat::RGBA8_sRGB : TextureFormat::RGBA8_UNorm;
+    default: return sRGB ? TextureFormat::RGBA8_sRGB : TextureFormat::RGBA8_UNorm;
+    }
+}
+
+std::unique_ptr<Texture> AssetGpuRegistry::createRHITexture(const core::Image& image, TextureUsageFlags usage,
+                                                            bool sRGB, bool generateMips) {
+    std::shared_ptr<core::Image> rgbaImage;
+    const core::Image* uploadImage = &image;
+    if (image.format() != core::PixelFormat::RGBA8) {
+        rgbaImage = image.toRGBA();
+        if (!rgbaImage || !rgbaImage->valid()) {
+            return nullptr;
+        }
+        uploadImage = rgbaImage.get();
+    }
+
     TextureDesc desc;
-    desc.width = static_cast<uint32_t>(loaded.width);
-    desc.height = static_cast<uint32_t>(loaded.height);
+    desc.width = uploadImage->width();
+    desc.height = uploadImage->height();
     desc.depth = 1;
-    desc.format = loaded.format;
+    desc.format = toRHITextureFormat(uploadImage->format(), sRGB);
     desc.dimension = TextureDimension::Texture2D;
     desc.usage = usage;
 
@@ -189,9 +169,9 @@ std::unique_ptr<Texture> AssetGpuRegistry::createRHITexture(const LoadedTexture&
         return nullptr;
     }
 
-    if (!loaded.pixels.empty()) {
-        device_.uploadTextureData(result->get(), loaded.pixels.data(), static_cast<uint32_t>(loaded.width),
-                                  static_cast<uint32_t>(loaded.height), loaded.format);
+    if (uploadImage->data() && uploadImage->totalBytes() > 0) {
+        device_.uploadTextureData(result->get(), uploadImage->data(), uploadImage->width(), uploadImage->height(),
+                                  desc.format);
     }
 
     // TODO: Generate the mip chain on GPU when RHIDevice exposes a portable path.

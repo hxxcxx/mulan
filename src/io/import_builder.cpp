@@ -8,6 +8,8 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstring>
+#include <fstream>
 #include <utility>
 
 namespace mulan::io {
@@ -18,6 +20,30 @@ void appendValue(std::vector<std::byte>& bytes, const T& value) {
     const auto oldSize = bytes.size();
     bytes.resize(oldSize + sizeof(T));
     std::memcpy(bytes.data() + oldSize, &value, sizeof(T));
+}
+
+std::vector<std::byte> readBinaryFile(const std::string& path) {
+    if (path.empty()) {
+        return {};
+    }
+
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file) {
+        return {};
+    }
+
+    const auto size = file.tellg();
+    if (size <= 0) {
+        return {};
+    }
+
+    std::vector<std::byte> bytes(static_cast<size_t>(size));
+    file.seekg(0, std::ios::beg);
+    file.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(size));
+    if (!file) {
+        return {};
+    }
+    return bytes;
 }
 
 }  // namespace
@@ -78,11 +104,30 @@ asset::AssetId ImportBuilder::createTexture(const ImportedTextureDesc& desc) {
     if (!texture)
         return asset::AssetId::invalid();
 
+    std::vector<std::byte> encodedBytes = desc.data.empty() ? readBinaryFile(desc.sourcePath) : desc.data;
+    std::shared_ptr<core::Image> image;
     if (!desc.data.empty()) {
-        texture->setEmbeddedBytes(std::move(desc.data));
-        texture->setMimeType(desc.mimeType);
+        image = core::Image::loadFromMemory(reinterpret_cast<const uint8_t*>(desc.data.data()), desc.data.size());
+    } else if (!desc.sourcePath.empty()) {
+        image = core::Image::load(desc.sourcePath);
     }
-    texture->setSize(desc.width, desc.height);
+
+    if (image && image->valid()) {
+        texture->setImage(std::move(image));
+    } else if (!desc.sourcePath.empty() || !desc.data.empty()) {
+        const std::string source = desc.sourcePath.empty() ? desc.name : desc.sourcePath;
+        report_.warnings.push_back("Failed to decode texture image: " + source);
+    }
+
+    if (!encodedBytes.empty()) {
+        texture->setEmbeddedBytes(std::move(encodedBytes));
+        texture->setMimeType(desc.mimeType);
+    } else if (!desc.sourcePath.empty()) {
+        report_.warnings.push_back("Failed to read texture bytes: " + desc.sourcePath);
+    }
+    if (desc.width > 0 && desc.height > 0) {
+        texture->setSize(desc.width, desc.height);
+    }
     ++report_.textureCount;
     return texture->id();
 }

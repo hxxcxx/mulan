@@ -92,7 +92,7 @@ inline const char* textureSlotName(TextureSlot slot) {
 // 与 shader 的 TF_* 常量及 MaterialGPU::textureFlags 位定义一致（单一来源）：
 //   bit0=albedo, bit1=normal, bit2=mr, bit3=emissive, bit4=ao
 // 这里用枚举 + 位运算符替代旧的 Material::textures[]（uint16_t 数组当 bool 用，语义不清）。
-// 真实纹理数据由 RenderMaterialDesc 的 RenderTextureDesc 槽位携带，本标志仅驱动 shader
+// 真实纹理图像由 RenderMaterialDesc 的 RenderTextureDesc 槽位携带，本标志仅驱动 shader
 // 的 (textureFlags & TF_*) 采样开关。
 // ============================================================
 
@@ -156,7 +156,7 @@ struct Material {
     bool doubleSided = false;
 
     // --- 纹理槽位掩码：标记哪些槽位有数据，驱动 shader 的 textureFlags 采样开关 ---
-    // 注：真实纹理数据（路径/内嵌字节/srgb）由 RenderMaterialDesc 的 RenderTextureDesc 槽位携带，
+    // 注：真实纹理图像与 sRGB 意图由 RenderMaterialDesc 的 RenderTextureDesc 槽位携带，
     // 这里仅是"有无"标志。详见 TextureSlotFlags。
     TextureSlotFlags textureSlots = TextureSlotFlags::None;
 

@@ -3,7 +3,6 @@
 #include "../asset_gpu_registry.h"
 #include "../material/material_cache.h"
 #include "../render_geometry.h"
-#include "../texture_loader.h"
 
 #include <string>
 
@@ -23,20 +22,13 @@ uint32_t materialOffset(const RenderWorldSnapshot& snapshot, RenderMaterialHandl
 }
 
 Texture* loadTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
-    if (desc.embeddedData.empty() && desc.sourcePath.empty())
+    if (desc.resourceKey == 0 || !desc.image || !desc.image->valid())
         return nullptr;
 
     TextureLoadOptions options;
     options.sRGB = desc.srgb;
-    options.inferSrgbFromFile = false;
 
-    // 内嵌字节优先（GLB bufferView / data: URI / 已加载内存字节）
-    if (!desc.embeddedData.empty()) {
-        const std::string memoryKey =
-                !desc.sourcePath.empty() ? desc.sourcePath : ("texture-asset:" + std::to_string(desc.resourceKey));
-        return assets.acquireTextureFromMemory(memoryKey, desc.embeddedData.data(), desc.embeddedData.size(), options);
-    }
-    return assets.acquireTextureFromFile(desc.sourcePath, options);
+    return assets.acquireTexture(desc.resourceKey, *desc.image, options);
 }
 
 void populateSurfaceTextures(const RenderWorldSnapshot& snapshot, const RenderWorkItem& item, AssetGpuRegistry& assets,

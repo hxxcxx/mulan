@@ -18,7 +18,8 @@
 #pragma once
 
 #include "render_geometry.h"
-#include "texture_loader.h"
+#include "../rhi/texture.h"
+#include <mulan/core/image/image.h>
 #include <mulan/core/result/error.h>
 #include <mulan/graphics/mesh.h>
 
@@ -26,13 +27,17 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 
 namespace mulan::engine {
 
 class RHIDevice;
 class Texture;
+
+struct TextureLoadOptions {
+    bool generateMips = true;
+    bool sRGB = false;
+};
 
 class AssetGpuRegistry {
 public:
@@ -46,10 +51,8 @@ public:
     /// mesh 指向资产持有的稳定存储（文档存活期有效），上传后本层不持有该指针。
     const GpuGeometry* acquireGeometry(uint64_t key, const graphics::Mesh& mesh);
 
-    /// 贴图：按来源 + 加载意图去重，命中即返；miss 时解码并上传。
-    Texture* acquireTextureFromFile(const std::string& path, const TextureLoadOptions& options = {});
-    Texture* acquireTextureFromMemory(const std::string& key, const std::byte* data, size_t size,
-                                      const TextureLoadOptions& options = {});
+    /// 贴图：按资产身份 + 加载意图去重，命中即返；miss 时上传 decoded image。
+    Texture* acquireTexture(uint64_t key, const core::Image& image, const TextureLoadOptions& options = {});
 
     /// 创建由 registry 持有的独立 GPU 贴图，主要用于资产派生的程序化资源。
     Texture* createTexture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage,
@@ -77,10 +80,11 @@ private:
     };
 
     static core::Result<GpuGeometry> createGpuBuffer(RHIDevice& device, const graphics::Mesh& mesh);
-    static std::string textureKey(std::string_view sourceKind, const std::string& source,
-                                  const TextureLoadOptions& options);
+    static std::string textureKey(uint64_t resourceKey, const TextureLoadOptions& options);
+    static TextureFormat toRHITextureFormat(core::PixelFormat pixelFmt, bool sRGB);
 
-    std::unique_ptr<Texture> createRHITexture(const LoadedTexture& loaded, TextureUsageFlags usage, bool generateMips);
+    std::unique_ptr<Texture> createRHITexture(const core::Image& image, TextureUsageFlags usage, bool sRGB,
+                                              bool generateMips);
 
     RHIDevice& device_;
     std::unordered_map<uint64_t, GpuGeometry> geometries_;

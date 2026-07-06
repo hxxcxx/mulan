@@ -10,13 +10,13 @@
 #include "render_handle.h"
 #include "../material/material.h"
 
+#include <mulan/core/image/image.h>
 #include <mulan/graphics/mesh.h>
 #include <mulan/math/math.h>
 
 #include <cstddef>
 #include <cstdint>
-#include <span>
-#include <string>
+#include <memory>
 #include <vector>
 
 namespace mulan::engine {
@@ -30,10 +30,9 @@ enum class RenderBucket : uint8_t {
 };
 
 struct RenderTextureDesc {
-    uint64_t resourceKey = 0;                 ///< 资产身份 key，用作无路径内嵌源的稳定去重键
-    std::string sourcePath;                   ///< 文件路径（文件源）或缓存键（内嵌源）
-    std::span<const std::byte> embeddedData;  ///< 内嵌编码字节的非拥有视图，指向 asset::TextureAsset 的字节
-    bool srgb = false;                        ///< sRGB 意图，由 material slot 决定
+    uint64_t resourceKey = 0;                  ///< 资产身份 key，用作 GPU 贴图去重键
+    std::shared_ptr<const core::Image> image;  ///< 解码后的图片共享视图
+    bool srgb = false;                         ///< sRGB 意图，由 material slot 决定
 };
 
 struct RenderMaterialDesc {

@@ -29,14 +29,12 @@ engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::
     const auto* texture = dynamic_cast<const asset::TextureAsset*>(assets.asset(textureId));
     if (!texture)
         return {};
+    if (!texture->hasImage())
+        return {};
 
     engine::RenderTextureDesc desc;
     desc.resourceKey = textureId.value;
-    desc.sourcePath = texture->sourcePath();
-    // 非拥有视图，指向 asset::TextureAsset 的字节。生命周期安全：assets_ 在文档存活期间稳定，
-    // TextureAsset::embeddedBytes() 仅 import 时 mutate，渲染帧内不可变；snapshot 在同步 render() 内消费。
-    // 与 Drawable::mesh (const Mesh* 裸指针) 同契约。
-    desc.embeddedData = std::span<const std::byte>(texture->embeddedBytes());
+    desc.image = texture->image();
     desc.srgb = (material->*srgbGetter)();
     return desc;
 }
@@ -76,7 +74,7 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
     // shader 用 (flags & TF_*) 决定是否采样。未点亮则纹理虽绑定到 descriptor 但被跳过。
     // 真实纹理数据由上面的 RenderTextureDesc 槽位携带，这里仅是"有无"标志。
     auto hasTexture = [](const engine::RenderTextureDesc& texture) {
-        return texture.resourceKey != 0 || !texture.sourcePath.empty() || !texture.embeddedData.empty();
+        return texture.resourceKey != 0 && texture.image && texture.image->valid();
     };
 
     if (hasTexture(desc.baseColorTexture))

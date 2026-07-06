@@ -16,6 +16,7 @@
 #include <array>
 #include <cstddef>
 #include <expected>
+#include <string>
 #include <utility>
 
 namespace mulan::io {
@@ -98,7 +99,7 @@ asset::AlphaMode alphaModeFromAssimp(const aiMaterial& material) {
     return asset::AlphaMode::Opaque;
 }
 
-asset::AssetId importTexture(aiMaterial& material, aiTextureType type, ImportBuilder& builder,
+asset::AssetId importTexture(const aiScene& scene, aiMaterial& material, aiTextureType type, ImportBuilder& builder,
                              const std::filesystem::path& baseDirectory) {
     if (material.GetTextureCount(type) == 0)
         return asset::AssetId::invalid();
@@ -112,11 +113,30 @@ asset::AssetId importTexture(aiMaterial& material, aiTextureType type, ImportBui
     std::filesystem::path texturePath(path.C_Str());
     const std::string texturePathString = texturePath.string();
     if (!texturePathString.empty() && texturePathString.front() == '*') {
-        // TODO(assimp-embedded): 当前未读取 aiScene::mTextures 中的内嵌像素字节。
-        //      渲染端会因找不到文件加载失败；后续应从 scene.mTextures[idx].pcData 取出
-        //      (mWidth*mHeight*bpp 或 mHeight=compressed size) 字节填入 desc.data。
         desc.name = "EmbeddedTexture_" + texturePathString.substr(1);
-        desc.sourcePath = "assimp:embedded#" + texturePathString;  // 缓存键占位，避免空路径误判
+        desc.sourcePath = "assimp:embedded#" + texturePathString;
+
+        size_t textureIndex = 0;
+        try {
+            textureIndex = static_cast<size_t>(std::stoull(texturePathString.substr(1)));
+        } catch (...) {
+            return asset::AssetId::invalid();
+        }
+
+        if (textureIndex >= scene.mNumTextures || !scene.mTextures[textureIndex]) {
+            return asset::AssetId::invalid();
+        }
+
+        const aiTexture& embedded = *scene.mTextures[textureIndex];
+        if (!embedded.pcData || embedded.mWidth == 0 || embedded.mHeight != 0) {
+            return asset::AssetId::invalid();
+        }
+
+        const auto* begin = reinterpret_cast<const std::byte*>(embedded.pcData);
+        desc.data.assign(begin, begin + embedded.mWidth);
+        if (embedded.achFormatHint[0] != '\0') {
+            desc.mimeType = std::string("image/") + embedded.achFormatHint;
+        }
     } else {
         desc.name = texturePath.filename().string();
         desc.sourcePath = texturePath.is_relative() ? (baseDirectory / texturePath).string() : texturePath.string();
@@ -167,12 +187,13 @@ std::vector<asset::AssetId> importMaterials(const aiScene& scene, ImportBuilder&
         desc.metallicRoughnessTextureSrgb = false;
 
         if (options.importTextures) {
-            desc.baseColorTexture = importTexture(*source, aiTextureType_BASE_COLOR, builder, baseDirectory);
+            desc.baseColorTexture = importTexture(scene, *source, aiTextureType_BASE_COLOR, builder, baseDirectory);
             if (!desc.baseColorTexture.valid()) {
-                desc.baseColorTexture = importTexture(*source, aiTextureType_DIFFUSE, builder, baseDirectory);
+                desc.baseColorTexture = importTexture(scene, *source, aiTextureType_DIFFUSE, builder, baseDirectory);
             }
-            desc.normalTexture = importTexture(*source, aiTextureType_NORMALS, builder, baseDirectory);
-            desc.metallicRoughnessTexture = importTexture(*source, aiTextureType_METALNESS, builder, baseDirectory);
+            desc.normalTexture = importTexture(scene, *source, aiTextureType_NORMALS, builder, baseDirectory);
+            desc.metallicRoughnessTexture =
+                    importTexture(scene, *source, aiTextureType_METALNESS, builder, baseDirectory);
         }
 
         materials[i] = builder.createMaterial(desc);

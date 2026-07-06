@@ -31,8 +31,8 @@ namespace mulan::io {
 
 struct ImportedTextureDesc {
     std::string name;
-    std::string sourcePath;       ///< 文件源（与 data 二选一）。内嵌源时填缓存键
-    std::vector<std::byte> data;  ///< 内嵌编码字节（PNG/JPG/...，未解码）；非空时优先于 sourcePath
+    std::string sourcePath;       ///< 文件源或调试来源；ImportBuilder 会在导入层读成 data
+    std::vector<std::byte> data;  ///< 编码图片字节（PNG/JPG/...，未解码）；非空时优先于 sourcePath
     std::string mimeType;         ///< 可选 MIME 提示（"image/png" 等）
     int width = 0;
     int height = 0;

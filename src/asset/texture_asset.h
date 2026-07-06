@@ -7,8 +7,10 @@
 #pragma once
 
 #include "asset.h"
+#include <mulan/core/image/image.h>
 
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -23,8 +25,18 @@ public:
     const std::string& sourcePath() const { return source_path_; }
     void setSourcePath(std::string path) { source_path_ = std::move(path); }
 
-    /// 内嵌编码字节（PNG/JPG/...，未解码）。非空时优先于 sourcePath，
-    /// 用于 GLB bufferView / data: URI / LoadExternalImages 已加载到内存的图像。
+    /// Decoded image used by the render pipeline. sourcePath is only provenance.
+    const std::shared_ptr<core::Image>& image() const { return image_; }
+    void setImage(std::shared_ptr<core::Image> image) {
+        image_ = std::move(image);
+        if (image_ && image_->valid()) {
+            width_ = static_cast<int>(image_->width());
+            height_ = static_cast<int>(image_->height());
+        }
+    }
+    bool hasImage() const { return image_ && image_->valid(); }
+
+    /// Encoded source bytes (PNG/JPG/...), kept for persistence/re-export/provenance.
     /// 注：sRGB 不再存于 TextureAsset，而由使用方（material slot）决定。
     const std::vector<std::byte>& embeddedBytes() const { return embedded_bytes_; }
     void setEmbeddedBytes(std::vector<std::byte> bytes) { embedded_bytes_ = std::move(bytes); }
@@ -43,6 +55,7 @@ public:
 
 private:
     std::string source_path_;
+    std::shared_ptr<core::Image> image_;
     std::vector<std::byte> embedded_bytes_;
     std::string mime_type_;
     int width_ = 0;
