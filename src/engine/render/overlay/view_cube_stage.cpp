@@ -372,11 +372,11 @@ bool ViewCubeStage::createFaceGeometry() {
 }
 
 bool ViewCubeStage::createAxisGeometry() {
-    constexpr float frameMin = -0.52f;
-    constexpr float frameMax = 0.52f;
-    constexpr float coneLength = 0.12f;
-    constexpr float shaftRadius = 0.012f;
-    constexpr float coneRadius = 0.04f;
+    constexpr float frameMin = -0.78f;
+    constexpr float frameMax = 0.62f;
+    constexpr float coneLength = 0.14f;
+    constexpr float shaftRadius = 0.014f;
+    constexpr float coneRadius = 0.045f;
 
     const math::FVec3 starts[kAxisCount] = {
         math::FVec3(frameMin, frameMin, frameMin),
