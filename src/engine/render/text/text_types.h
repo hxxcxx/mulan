@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace mulan::engine {
@@ -76,10 +77,50 @@ enum class TextSpace : uint8_t {
 
 enum class TextDepthMode : uint8_t {
     AlwaysOnTop,
+    // Reserved for a future depth-tested text pipeline; current TextStage downgrades it to AlwaysOnTop.
     TestDepth,
 };
 
 struct TextDrawDesc {
+    static TextDrawDesc screen(std::string_view text, const math::Point2& positionPx, float sizePx,
+                               const math::Vec4& color = math::Vec4(1.0, 1.0, 1.0, 1.0),
+                               TextAnchor anchor = TextAnchor::Center, std::string_view font = "default") {
+        TextDrawDesc desc;
+        desc.text = std::string(text);
+        desc.font = std::string(font);
+        desc.space = TextSpace::Screen;
+        desc.anchor = anchor;
+        desc.depthMode = TextDepthMode::AlwaysOnTop;
+        desc.positionPx = positionPx;
+        desc.sizePx = sizePx;
+        desc.color = color;
+        return desc;
+    }
+
+    static TextDrawDesc worldPlanar(std::string_view text, const math::Point3& positionWorld,
+                                    const math::Vec3& rightWorld, const math::Vec3& upWorld,
+                                    const math::Mat4& clipFromWorld, const math::Point2& viewportOriginPx,
+                                    const math::Vec2& viewportSizePx, float sizePx, float sizeWorld,
+                                    const math::Vec4& color = math::Vec4(1.0, 1.0, 1.0, 1.0),
+                                    TextAnchor anchor = TextAnchor::Center, std::string_view font = "default") {
+        TextDrawDesc desc;
+        desc.text = std::string(text);
+        desc.font = std::string(font);
+        desc.space = TextSpace::WorldPlanar;
+        desc.anchor = anchor;
+        desc.depthMode = TextDepthMode::AlwaysOnTop;
+        desc.positionWorld = positionWorld;
+        desc.rightWorld = rightWorld;
+        desc.upWorld = upWorld;
+        desc.clipFromWorld = clipFromWorld;
+        desc.viewportOriginPx = viewportOriginPx;
+        desc.viewportSizePx = viewportSizePx;
+        desc.sizePx = sizePx;
+        desc.sizeWorld = sizeWorld;
+        desc.color = color;
+        return desc;
+    }
+
     std::string text;
     std::string font = "default";
     TextSpace space = TextSpace::Screen;
@@ -95,6 +136,21 @@ struct TextDrawDesc {
     float sizePx = 14.0f;
     float sizeWorld = 1.0f;
     math::Vec4 color{ 1.0, 1.0, 1.0, 1.0 };
+};
+
+class TextDrawList {
+public:
+    void clear() { items_.clear(); }
+    void add(const TextDrawDesc& desc) {
+        if (!desc.text.empty()) {
+            items_.push_back(desc);
+        }
+    }
+    bool empty() const { return items_.empty(); }
+    const std::vector<TextDrawDesc>& items() const { return items_; }
+
+private:
+    std::vector<TextDrawDesc> items_;
 };
 
 }  // namespace mulan::engine

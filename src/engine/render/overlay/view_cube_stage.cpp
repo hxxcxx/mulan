@@ -1,5 +1,5 @@
 #include "view_cube_stage.h"
-#include "../text/text_stage.h"
+#include "../text/text_types.h"
 #include "../../rhi/command_list.h"
 #include "../../rhi/device.h"
 #include "../../engine_error_code.h"
@@ -246,7 +246,7 @@ ViewCubeHit ViewCubeStage::pick(int screenX, int screenY, uint32_t vpWidth, uint
     return model_.hitTest(screenX, screenY, vpWidth, vpHeight);
 }
 
-void ViewCubeStage::collectLabels(TextStage& textStage, const math::Mat4& mainViewMatrix, uint32_t vpWidth,
+void ViewCubeStage::collectLabels(TextDrawList& textDraws, const math::Mat4& mainViewMatrix, uint32_t vpWidth,
                                   uint32_t vpHeight) const {
     if (!initialized_) {
         return;
@@ -259,8 +259,8 @@ void ViewCubeStage::collectLabels(TextStage& textStage, const math::Mat4& mainVi
 
     const math::Mat3 rotOnly(mainViewMatrix);
     math::Mat4 cubeView(rotOnly);
-    cubeView[3] = math::Vec4(0, 0, -3.5, 1);
-    const double orthoSize = ViewCubeModel::kOrthoExtent;
+    cubeView[3] = math::Vec4(0, 0, -ViewCubeStyle::ViewDistance, 1);
+    const double orthoSize = ViewCubeStyle::OrthoExtent;
     const math::Mat4 cubeProj = math::Mat4::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, 0.1, 10.0);
     const math::Mat4 cubeVP = cubeProj * cubeView;
 
@@ -270,13 +270,13 @@ void ViewCubeStage::collectLabels(TextStage& textStage, const math::Mat4& mainVi
         }
 
         const math::Vec3 normal = ViewCubeModel::partNormal(part);
-        const math::Vec3 center = normal * (ViewCubeModel::kCubeHalfExtent + 0.004);
+        const math::Vec3 center = normal * (ViewCubeStyle::CubeHalfExtent + ViewCubeStyle::LabelSurfaceOffset);
         const math::Vec3 viewNormal = rotOnly * normal;
         const math::Vec4 viewCenter4 = cubeView * math::Vec4(center, 1.0);
         const math::Vec3 viewCenter(viewCenter4.x, viewCenter4.y, viewCenter4.z);
         const math::Vec3 toCamera = (-viewCenter).normalizedOr(math::Vec3::unitZ());
         const float facing = static_cast<float>(viewNormal.dot(toCamera));
-        const float alpha = smoothstep(-0.02f, 0.18f, facing);
+        const float alpha = smoothstep(ViewCubeStyle::LabelFacingFadeStart, ViewCubeStyle::LabelFacingFadeEnd, facing);
         if (alpha <= 0.01f) {
             continue;
         }
@@ -285,20 +285,11 @@ void ViewCubeStage::collectLabels(TextStage& textStage, const math::Mat4& mainVi
         math::Vec3 faceUp;
         viewCubeFaceTextAxes(part, faceRight, faceUp);
 
-        TextDrawDesc label;
-        label.text = viewCubeFaceLabel(part);
-        label.space = TextSpace::WorldPlanar;
-        label.anchor = TextAnchor::Center;
-        label.positionWorld = math::Point3(center);
-        label.rightWorld = faceRight;
-        label.upWorld = faceUp;
-        label.clipFromWorld = cubeVP;
-        label.viewportOriginPx = math::Point2(static_cast<double>(cubeRect.x), static_cast<double>(cubeRect.y));
-        label.viewportSizePx = math::Vec2(static_cast<double>(cubeRect.width), static_cast<double>(cubeRect.height));
-        label.sizePx = 48.0f;
-        label.sizeWorld = 0.145f;
-        label.color = math::Vec4(0.05, 0.055, 0.06, alpha);
-        textStage.addText(label);
+        textDraws.add(TextDrawDesc::worldPlanar(
+                viewCubeFaceLabel(part), math::Point3(center), faceRight, faceUp, cubeVP,
+                math::Point2(static_cast<double>(cubeRect.x), static_cast<double>(cubeRect.y)),
+                math::Vec2(static_cast<double>(cubeRect.width), static_cast<double>(cubeRect.height)),
+                ViewCubeStyle::LabelSizePx, ViewCubeStyle::LabelSizeWorld, math::Vec4(0.05, 0.055, 0.06, alpha)));
     }
 }
 
@@ -388,11 +379,11 @@ bool ViewCubeStage::createFaceGeometry() {
 }
 
 bool ViewCubeStage::createAxisGeometry() {
-    constexpr float frameMin = -0.60f;
-    constexpr float frameMax = 0.62f;
-    constexpr float coneLength = 0.14f;
-    constexpr float shaftRadius = 0.020f;
-    constexpr float coneRadius = 0.058f;
+    constexpr float frameMin = ViewCubeStyle::AxisOrigin;
+    constexpr float frameMax = ViewCubeStyle::AxisEnd;
+    constexpr float coneLength = ViewCubeStyle::AxisConeLength;
+    constexpr float shaftRadius = ViewCubeStyle::AxisShaftRadius;
+    constexpr float coneRadius = ViewCubeStyle::AxisConeRadius;
 
     const math::FVec3 starts[kAxisCount] = {
         math::FVec3(frameMin, frameMin, frameMin),
@@ -548,9 +539,9 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
     // --- 2. 从主相机提取纯旋转 + 正交投影 ---
     math::Mat3 rotOnly = math::Mat3(mainViewMatrix);
     math::Mat4 cubeView = math::Mat4(rotOnly);
-    cubeView[3] = math::Vec4(0, 0, -3.5, 1);
+    cubeView[3] = math::Vec4(0, 0, -ViewCubeStyle::ViewDistance, 1);
 
-    double orthoSize = ViewCubeModel::kOrthoExtent;
+    double orthoSize = ViewCubeStyle::OrthoExtent;
     math::Mat4 cubeProj = math::Mat4::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, 0.1, 10.0);
     math::Mat4 corrProj = device_->clipSpaceCorrectionMatrix() * cubeProj;
     math::Mat4 cubeVP_mat = corrProj * cubeView;

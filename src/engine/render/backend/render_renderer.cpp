@@ -306,6 +306,7 @@ CommandList* RenderRenderer::beginFrame(RHIDevice& device, const RenderSurfaceBi
 void RenderRenderer::executeStages(RenderFrame& frame) {
     if (text_stage_)
         text_stage_->beginFrame(frame.view.width, frame.view.height);
+    TextDrawList textDraws;
     if (face_stage_)
         face_stage_->execute(frame);
     if (edge_stage_)
@@ -318,12 +319,12 @@ void RenderRenderer::executeStages(RenderFrame& frame) {
         view_cube_stage_->setLayout(frame.view.viewCubeLayout);
         view_cube_stage_->setInteraction(frame.view.viewCubeInteraction);
         view_cube_stage_->execute(frame);
-        if (text_stage_) {
-            view_cube_stage_->collectLabels(*text_stage_, frame.view.viewMatrix, frame.view.width, frame.view.height);
-        }
+        view_cube_stage_->collectLabels(textDraws, frame.view.viewMatrix, frame.view.width, frame.view.height);
     }
-    if (text_stage_)
+    if (text_stage_) {
+        text_stage_->addTextList(textDraws);
         text_stage_->execute(frame);
+    }
 }
 
 DrawExecutionContext RenderRenderer::buildDrawContext(CommandList& cmd, const RenderFrame& frame) const {

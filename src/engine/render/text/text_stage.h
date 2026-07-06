@@ -37,6 +37,7 @@ public:
     void beginFrame(uint32_t width, uint32_t height);
     void clear();
     void addText(const TextDrawDesc& desc);
+    void addTextList(const TextDrawList& list);
 
     bool isInitialized() const { return initialized_; }
     bool hasFont() const { return default_font_ && default_font_->isLoaded(); }

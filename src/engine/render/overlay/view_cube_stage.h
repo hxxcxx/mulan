@@ -29,7 +29,7 @@ namespace mulan::engine {
 
 class CommandList;
 class Sampler;
-class TextStage;
+class TextDrawList;
 class Texture;
 
 /// 导航立方体渲染阶段
@@ -66,7 +66,7 @@ public:
     void setCorner(ViewCubeCorner corner);
     ViewCubeRect viewportRect(uint32_t vpWidth, uint32_t vpHeight) const;
     ViewCubeHit pick(int screenX, int screenY, uint32_t vpWidth, uint32_t vpHeight) const;
-    void collectLabels(TextStage& textStage, const math::Mat4& mainViewMatrix, uint32_t vpWidth,
+    void collectLabels(TextDrawList& textDraws, const math::Mat4& mainViewMatrix, uint32_t vpWidth,
                        uint32_t vpHeight) const;
 
     /// 检测屏幕坐标是否在 ViewCube 区域内（交互预留，当前空实现）

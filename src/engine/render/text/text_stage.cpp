@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <utility>
 
 namespace mulan::engine {
 
@@ -186,7 +187,17 @@ void TextStage::clear() {
 
 void TextStage::addText(const TextDrawDesc& desc) {
     if (!desc.text.empty()) {
-        items_.push_back(desc);
+        TextDrawDesc item = desc;
+        if (item.depthMode == TextDepthMode::TestDepth) {
+            item.depthMode = TextDepthMode::AlwaysOnTop;
+        }
+        items_.push_back(std::move(item));
+    }
+}
+
+void TextStage::addTextList(const TextDrawList& list) {
+    for (const TextDrawDesc& item : list.items()) {
+        addText(item);
     }
 }
 
