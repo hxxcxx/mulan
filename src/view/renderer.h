@@ -66,6 +66,7 @@ public:
     bool isInitialized() const { return initialized_; }
 
 private:
+    void syncEngineWorld();
     engine::RenderRequest buildRequest(RenderSurface& surface, const ViewState& viewState);
     engine::RenderSurfaceBinding surfaceBinding(RenderSurface& surface) const;
 
@@ -78,6 +79,8 @@ private:
     engine::RenderResourcePrepareList resource_prepare_;
     engine::RenderRenderer render_renderer_;
 
+    bool world_dirty_ = true;
+    bool resource_prepare_pending_ = false;
     bool initialized_ = false;
 };
 

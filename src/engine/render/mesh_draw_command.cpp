@@ -8,7 +8,8 @@
 namespace mulan::engine {
 
 void MeshDrawCommand::execute(CommandList& cmd, BindGroup& frameBg, Buffer* sceneUBO, Buffer* objectUBO,
-                              Buffer* materialUBO, Texture* defaultWhite, Sampler* defaultSampler) const {
+                              Buffer* materialUBO, Texture* defaultWhite, Texture* defaultNormal,
+                              Texture* defaultMetallicRoughness, Texture* defaultBlack, Sampler* defaultSampler) const {
     if (instanceCount == 0 || !pipelineState || !vertexBuffer)
         return;
 
@@ -32,9 +33,9 @@ void MeshDrawCommand::execute(CommandList& cmd, BindGroup& frameBg, Buffer* scen
     // 空纹理由 default* 退化：albedo→白, normal→(0,0,1)平面, mr→(1,1,0), emissive→黑, ao→白。
     if (defaultWhite) {
         frameBg.updateTexture(3, albedoTex ? albedoTex : defaultWhite);
-        frameBg.updateTexture(4, normalTex ? normalTex : defaultWhite);
-        frameBg.updateTexture(5, mrTex ? mrTex : defaultWhite);
-        frameBg.updateTexture(6, emissiveTex ? emissiveTex : defaultWhite);
+        frameBg.updateTexture(4, normalTex ? normalTex : (defaultNormal ? defaultNormal : defaultWhite));
+        frameBg.updateTexture(5, mrTex ? mrTex : (defaultMetallicRoughness ? defaultMetallicRoughness : defaultWhite));
+        frameBg.updateTexture(6, emissiveTex ? emissiveTex : (defaultBlack ? defaultBlack : defaultWhite));
         frameBg.updateTexture(7, aoTex ? aoTex : defaultWhite);
         frameBg.updateSampler(8, sampler ? sampler : defaultSampler);
     }

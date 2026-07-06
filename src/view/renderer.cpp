@@ -64,6 +64,7 @@ void Renderer::setScene(engine::RHIDevice* device, const RenderScene* scene, con
     }
     scene_ = scene;
     assets_ = assets;
+    world_dirty_ = true;
 }
 
 void Renderer::enableIBL(engine::RHIDevice& device, const std::string& hdrPath) {
@@ -74,19 +75,17 @@ void Renderer::render(engine::RHIDevice& device, RenderSurface& surface, const V
     if (!initialized_)
         return;
 
-    if (scene_ && assets_) {
-        render_world_sync_.rebuild(*scene_, *assets_, render_world_, &resource_prepare_);
-        world_snapshot_ = render_world_.snapshot();
-    }
+    syncEngineWorld();
 
     auto request = buildRequest(surface, viewState);
     render_renderer_.render(device, surfaceBinding(surface), request);
+    resource_prepare_pending_ = false;
 }
 
 engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewState& viewState) {
     engine::RenderRequest request;
     request.world = (scene_ && assets_) ? &world_snapshot_ : nullptr;
-    request.prepare = (scene_ && assets_) ? &resource_prepare_ : nullptr;
+    request.prepare = (scene_ && assets_ && resource_prepare_pending_) ? &resource_prepare_ : nullptr;
     request.view.viewMatrix = viewState.viewMatrix;
     request.view.projectionMatrix = viewState.projectionMatrix;
     request.view.cameraPosition = viewState.cameraPosition;
@@ -110,6 +109,26 @@ engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewS
     request.options.showOverlays = viewState.showOverlays;
     request.options.showViewCube = viewState.showViewCube;
     return request;
+}
+
+void Renderer::syncEngineWorld() {
+    if (!world_dirty_) {
+        return;
+    }
+
+    if (!scene_ || !assets_) {
+        render_world_.clear();
+        world_snapshot_ = {};
+        resource_prepare_.clear();
+        resource_prepare_pending_ = false;
+        world_dirty_ = false;
+        return;
+    }
+
+    render_world_sync_.rebuild(*scene_, *assets_, render_world_, &resource_prepare_);
+    world_snapshot_ = render_world_.snapshot();
+    resource_prepare_pending_ = true;
+    world_dirty_ = false;
 }
 
 engine::RenderSurfaceBinding Renderer::surfaceBinding(RenderSurface& surface) const {

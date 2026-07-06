@@ -133,9 +133,13 @@ bool GeometryDrawExecutor::createFrameBindGroup(TextureFormat, TextureFormat, bo
 
     if (technique_.sampleTextures && shared_resources_.defaultWhiteTexture() && shared_resources_.defaultSampler()) {
         bg.addTexture(3, shared_resources_.defaultWhiteTexture());
-        bg.addTexture(4, shared_resources_.defaultWhiteTexture());
-        bg.addTexture(5, shared_resources_.defaultWhiteTexture());
-        bg.addTexture(6, shared_resources_.defaultWhiteTexture());
+        bg.addTexture(4, shared_resources_.defaultNormalTexture() ? shared_resources_.defaultNormalTexture()
+                                                                  : shared_resources_.defaultWhiteTexture());
+        bg.addTexture(5, shared_resources_.defaultMetallicRoughnessTexture()
+                                 ? shared_resources_.defaultMetallicRoughnessTexture()
+                                 : shared_resources_.defaultWhiteTexture());
+        bg.addTexture(6, shared_resources_.defaultBlackTexture() ? shared_resources_.defaultBlackTexture()
+                                                                 : shared_resources_.defaultWhiteTexture());
         bg.addTexture(7, shared_resources_.defaultWhiteTexture());
         bg.addSampler(8, shared_resources_.defaultSampler());
         // IBL 三件套：先用 fallback，每帧 execute 时刷新为真实烘焙产物。
@@ -177,7 +181,8 @@ void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
             continue;
         cmd.execute(*ctx.cmd, *frame_bg_, shared_resources_.sceneUBO(), shared_resources_.objectUBO(),
                     shared_resources_.materialUBO(), shared_resources_.defaultWhiteTexture(),
-                    shared_resources_.defaultSampler());
+                    shared_resources_.defaultNormalTexture(), shared_resources_.defaultMetallicRoughnessTexture(),
+                    shared_resources_.defaultBlackTexture(), shared_resources_.defaultSampler());
     }
 }
 

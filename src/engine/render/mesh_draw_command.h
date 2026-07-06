@@ -71,7 +71,9 @@ struct MeshDrawCommand {
     /// 刷新 object UBO offset 与纹理槽，随后调用 cmd.bindGroup(frameBg)。
     /// 后端据此走局部重写路径，非变化的 binding 复用缓存 descriptor。
     void execute(CommandList& cmd, BindGroup& frameBg, Buffer* sceneUBO, Buffer* objectUBO, Buffer* materialUBO,
-                 Texture* defaultWhite = nullptr, Sampler* defaultSampler = nullptr) const;
+                 Texture* defaultWhite = nullptr, Texture* defaultNormal = nullptr,
+                 Texture* defaultMetallicRoughness = nullptr, Texture* defaultBlack = nullptr,
+                 Sampler* defaultSampler = nullptr) const;
 
     /// Object UBO slot 步进（字节）。
     /// 单条 ObjectUniforms 记录为 128 字节，但 D3D12 要求 root CBV 偏移

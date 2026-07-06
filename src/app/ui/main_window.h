@@ -33,6 +33,7 @@ private:
     void buildQuickAccessBar();
     void buildRightButtonBar();
     void setCurrentRenderMode(mulan::view::RenderMode mode);
+    void setCurrentSurfaceShading(mulan::view::SurfaceShading shading);
     void updateDisplayActions();
 
     void dragEnterEvent(QDragEnterEvent* e) override;
@@ -49,8 +50,11 @@ private:
     QAction* action_exit_ = nullptr;
     QAction* action_fit_all_ = nullptr;
     QAction* action_engine_settings_ = nullptr;
+    QAction* action_display_edges_ = nullptr;
     QAction* action_display_wireframe_ = nullptr;
     QAction* action_display_shaded_ = nullptr;
+    QAction* action_surface_solid_ = nullptr;
+    QAction* action_surface_material_ = nullptr;
 
     // --- Ribbon 结构：Home ---
     SARibbonCategory* category_home_ = nullptr;

@@ -132,13 +132,38 @@ void MainWindow::buildRibbonViewCategory() {
     action_display_shaded_->setCheckable(true);
     action_display_shaded_->setChecked(true);
     connect(action_display_shaded_, &QAction::triggered, this,
-            [this]() { setCurrentRenderMode(mulan::view::RenderMode::ShadedWithEdges); });
+            [this]() { setCurrentRenderMode(mulan::view::RenderMode::Shaded); });
     panel_display_->addLargeAction(action_display_shaded_);
+
+    action_display_edges_ = new QAction(QIcon(":/app/bright/icon/wireframe.svg"), tr("Edges"), this);
+    action_display_edges_->setCheckable(true);
+    connect(action_display_edges_, &QAction::triggered, this,
+            [this]() { setCurrentRenderMode(mulan::view::RenderMode::ShadedWithEdges); });
+    panel_display_->addLargeAction(action_display_edges_);
 
     // 互斥
     auto* displayGroup = new QActionGroup(this);
     displayGroup->addAction(action_display_wireframe_);
     displayGroup->addAction(action_display_shaded_);
+    displayGroup->addAction(action_display_edges_);
+
+    panel_display_->addSeparator();
+
+    action_surface_solid_ = new QAction(QIcon(":/app/bright/icon/shaded.svg"), tr("Solid"), this);
+    action_surface_solid_->setCheckable(true);
+    connect(action_surface_solid_, &QAction::triggered, this,
+            [this]() { setCurrentSurfaceShading(mulan::view::SurfaceShading::SolidLit); });
+    panel_display_->addSmallAction(action_surface_solid_);
+
+    action_surface_material_ = new QAction(QIcon(":/app/bright/icon/showInfomation.svg"), tr("Material"), this);
+    action_surface_material_->setCheckable(true);
+    connect(action_surface_material_, &QAction::triggered, this,
+            [this]() { setCurrentSurfaceShading(mulan::view::SurfaceShading::SurfacePBR); });
+    panel_display_->addSmallAction(action_surface_material_);
+
+    auto* surfaceGroup = new QActionGroup(this);
+    surfaceGroup->addAction(action_surface_solid_);
+    surfaceGroup->addAction(action_surface_material_);
 
     panel_display_->addSeparator();
 
@@ -202,6 +227,18 @@ void MainWindow::setCurrentRenderMode(mulan::view::RenderMode mode) {
     updateDisplayActions();
 }
 
+void MainWindow::setCurrentSurfaceShading(mulan::view::SurfaceShading shading) {
+    auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
+    if (!doc) {
+        updateDisplayActions();
+        return;
+    }
+
+    doc->viewContext().setSurfaceShading(shading);
+    doc->requestFrame();
+    updateDisplayActions();
+}
+
 void MainWindow::updateDisplayActions() {
     auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
     const bool hasDocument = doc != nullptr;
@@ -212,6 +249,15 @@ void MainWindow::updateDisplayActions() {
     if (action_display_shaded_) {
         action_display_shaded_->setEnabled(hasDocument);
     }
+    if (action_display_edges_) {
+        action_display_edges_->setEnabled(hasDocument);
+    }
+    if (action_surface_solid_) {
+        action_surface_solid_->setEnabled(hasDocument);
+    }
+    if (action_surface_material_) {
+        action_surface_material_->setEnabled(hasDocument);
+    }
     if (!doc)
         return;
 
@@ -220,7 +266,18 @@ void MainWindow::updateDisplayActions() {
         action_display_wireframe_->setChecked(mode == mulan::view::RenderMode::Wireframe);
     }
     if (action_display_shaded_) {
-        action_display_shaded_->setChecked(mode != mulan::view::RenderMode::Wireframe);
+        action_display_shaded_->setChecked(mode == mulan::view::RenderMode::Shaded);
+    }
+    if (action_display_edges_) {
+        action_display_edges_->setChecked(mode == mulan::view::RenderMode::ShadedWithEdges);
+    }
+
+    const auto shading = doc->viewContext().surfaceShading();
+    if (action_surface_solid_) {
+        action_surface_solid_->setChecked(shading == mulan::view::SurfaceShading::SolidLit);
+    }
+    if (action_surface_material_) {
+        action_surface_material_->setChecked(shading == mulan::view::SurfaceShading::SurfacePBR);
     }
 }
 

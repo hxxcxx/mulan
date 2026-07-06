@@ -36,6 +36,9 @@ public:
     Buffer* materialUBO() const { return material_ubo_.get(); }
 
     Texture* defaultWhiteTexture() const { return default_white_tex_.get(); }
+    Texture* defaultBlackTexture() const { return default_black_tex_.get(); }
+    Texture* defaultNormalTexture() const { return default_normal_tex_.get(); }
+    Texture* defaultMetallicRoughnessTexture() const { return default_mr_tex_.get(); }
     Sampler* defaultSampler() const { return default_sampler_.get(); }
     Texture* defaultIBLTexture() const { return default_ibl_tex_.get(); }
     Texture* defaultBrdfLUT() const { return default_brdf_lut_.get(); }
@@ -54,6 +57,9 @@ private:
     std::unique_ptr<Buffer> material_ubo_;
     std::unique_ptr<Sampler> default_sampler_;
     std::unique_ptr<Texture> default_white_tex_;
+    std::unique_ptr<Texture> default_black_tex_;
+    std::unique_ptr<Texture> default_normal_tex_;
+    std::unique_ptr<Texture> default_mr_tex_;
     std::unique_ptr<Texture> default_ibl_tex_;
     std::unique_ptr<Texture> default_brdf_lut_;
 };

@@ -8,6 +8,29 @@
 #include <cstdio>
 
 namespace mulan::engine {
+namespace {
+
+std::unique_ptr<Texture> createDefaultRGBA8Texture(RHIDevice& device, const char* name, const uint8_t rgba[4]) {
+    TextureDesc texDesc;
+    texDesc.name = name;
+    texDesc.width = 1;
+    texDesc.height = 1;
+    texDesc.depth = 1;
+    texDesc.format = TextureFormat::RGBA8_UNorm;
+    texDesc.dimension = TextureDimension::Texture2D;
+    texDesc.usage = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
+
+    auto result = device.createTexture(texDesc);
+    if (!result) {
+        return nullptr;
+    }
+
+    auto texture = std::move(*result);
+    device.uploadTextureData(texture.get(), rgba, 1, 1, TextureFormat::RGBA8_UNorm);
+    return texture;
+}
+
+}  // namespace
 
 GeometryDrawSharedResources::GeometryDrawSharedResources(RHIDevice& device, MaterialCache& materialCache,
                                                          const LightEnvironment& lightEnv)
@@ -47,22 +70,33 @@ bool GeometryDrawSharedResources::createDefaultResources() {
     }
     default_sampler_ = std::move(*samplerResult);
 
-    TextureDesc texDesc;
-    texDesc.name = "DefaultWhite";
-    texDesc.width = 1;
-    texDesc.height = 1;
-    texDesc.depth = 1;
-    texDesc.format = TextureFormat::RGBA8_UNorm;
-    texDesc.dimension = TextureDimension::Texture2D;
-    texDesc.usage = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
-    auto texResult = device_.createTexture(texDesc);
-    if (!texResult) {
+    const uint8_t white[4] = { 255, 255, 255, 255 };
+    default_white_tex_ = createDefaultRGBA8Texture(device_, "DefaultWhite", white);
+    if (!default_white_tex_) {
         std::fprintf(stderr, "[GeometryDrawSharedResources] create default white texture failed\n");
         return false;
     }
-    default_white_tex_ = std::move(*texResult);
-    const uint8_t white[4] = { 255, 255, 255, 255 };
-    device_.uploadTextureData(default_white_tex_.get(), white, 1, 1, TextureFormat::RGBA8_UNorm);
+
+    const uint8_t blackRGBA8[4] = { 0, 0, 0, 255 };
+    default_black_tex_ = createDefaultRGBA8Texture(device_, "DefaultBlack", blackRGBA8);
+    if (!default_black_tex_) {
+        std::fprintf(stderr, "[GeometryDrawSharedResources] create default black texture failed\n");
+        return false;
+    }
+
+    const uint8_t normal[4] = { 128, 128, 255, 255 };
+    default_normal_tex_ = createDefaultRGBA8Texture(device_, "DefaultNormal", normal);
+    if (!default_normal_tex_) {
+        std::fprintf(stderr, "[GeometryDrawSharedResources] create default normal texture failed\n");
+        return false;
+    }
+
+    const uint8_t metallicRoughness[4] = { 255, 255, 0, 255 };
+    default_mr_tex_ = createDefaultRGBA8Texture(device_, "DefaultMetallicRoughness", metallicRoughness);
+    if (!default_mr_tex_) {
+        std::fprintf(stderr, "[GeometryDrawSharedResources] create default metallic-roughness texture failed\n");
+        return false;
+    }
 
     TextureDesc iblDesc;
     iblDesc.name = "DefaultIBL";
