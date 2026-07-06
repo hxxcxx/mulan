@@ -10,7 +10,6 @@
 #include "text_types.h"
 #include "font_atlas.h"
 #include <mulan/math/math.h>
-#include <mulan/graphics/mesh.h>
 
 #include <string_view>
 #include <vector>
@@ -33,17 +32,6 @@ public:
 
     /// 测量文字宽度（用于对齐计算）
     static float measureWidth(const FontAtlas& font, std::string_view text, float fontSize);
-
-    // ============================================================
-    // 公开 API：文字 → 标准 Mesh
-    // ============================================================
-
-    /// 将文字离散化为标准 Mesh（position3 + normal3 + texcoord2）
-    /// @param text     UTF-8 文本
-    /// @param fontSize 目标字号（世界单位）
-    /// @param color    RGBA（0~1），预留（暂通过 Material 传递）
-    /// @return         标准 Mesh，可上传 GPU 或存入 Entity
-    static graphics::Mesh buildTextMesh(std::string_view text, float fontSize, const float color[4] = nullptr);
 
 private:
     /// UTF-8 解码，返回单个 Unicode 码点，ptr 自动前进

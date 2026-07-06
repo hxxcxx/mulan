@@ -1,6 +1,6 @@
 /**
  * @file font_manager.h
- * @brief 字体管理器 — 全局管理多个 FontAtlas 实例
+ * @brief Renderer-owned font atlas manager.
  * @author hxxcxx
  * @date 2026-06-30
  */
@@ -19,10 +19,11 @@ class RHIDevice;
 
 class FontManager {
 public:
-    static FontManager& instance();
+    explicit FontManager(RHIDevice& device);
+    ~FontManager() = default;
 
-    /// 设置 RHIDevice（创建 atlas 纹理前必须调用）
-    void setDevice(RHIDevice* device) { device_ = device; }
+    FontManager(const FontManager&) = delete;
+    FontManager& operator=(const FontManager&) = delete;
 
     /// 加载字体
     /// @param key       字体标识（如 "default", "consolas", "simhei"）
@@ -42,12 +43,6 @@ public:
     bool hasFonts() const { return !fonts_.empty(); }
 
 private:
-    FontManager() = default;
-    ~FontManager() = default;
-
-    FontManager(const FontManager&) = delete;
-    FontManager& operator=(const FontManager&) = delete;
-
     RHIDevice* device_ = nullptr;
     std::unordered_map<std::string, std::unique_ptr<FontAtlas>> fonts_;
     std::string default_key_;

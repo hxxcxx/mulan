@@ -2,9 +2,7 @@
 
 namespace mulan::engine {
 
-FontManager& FontManager::instance() {
-    static FontManager inst;
-    return inst;
+FontManager::FontManager(RHIDevice& device) : device_(&device) {
 }
 
 bool FontManager::loadFont(const char* key, const char* fontPath, float fontSize, uint32_t atlasSize) {

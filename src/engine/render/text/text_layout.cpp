@@ -1,17 +1,10 @@
 #include "text_layout.h"
-#include "font_manager.h"
-#include <mulan/graphics/vertex/vertex_buffer.h>
-#include <mulan/graphics/vertex/vertex_semantic.h>
 
 #include <cmath>
 #include <cstdint>
 #include <algorithm>
 
 namespace mulan::engine {
-
-using graphics::VertexBufferBuilder;
-using graphics::VertexSemantic;
-namespace layouts = graphics::layouts;
 
 // ============================================================
 // UTF-8 解码
@@ -176,51 +169,6 @@ float TextLayout::measureWidth(const FontAtlas& font, std::string_view text, flo
     }
 
     return width;
-}
-
-// ============================================================
-// buildTextMesh — 公开 API
-// ============================================================
-
-graphics::Mesh TextLayout::buildTextMesh(std::string_view text, float fontSize, const float color[4]) {
-    graphics::Mesh mesh;
-    mesh.layout = layouts::surface();
-    mesh.topology = PrimitiveTopology::TriangleList;
-    mesh.indexType = IndexType::UInt32;
-
-    auto* font = FontManager::instance().defaultFont();
-    if (!font || !font->isLoaded())
-        return mesh;
-
-    // 排版得到 TextVertex 列表
-    float defaultColor[4] = { 1, 1, 1, 1 };
-    const float* c = color ? color : defaultColor;
-
-    std::vector<TextVertex> textVerts;
-    std::vector<uint32_t> textIndices;
-    layout(*font, text, 0, 0, fontSize, c, textVerts, textIndices);
-
-    if (textVerts.empty())
-        return mesh;
-
-    // 按 surface 布局写入：pos(3f) + normal(3f) + uv(2f)
-    VertexBufferBuilder vb(mesh.layout, static_cast<uint32_t>(textVerts.size()));
-    for (uint32_t i = 0; i < textVerts.size(); ++i) {
-        const auto& tv = textVerts[i];
-        vb.setPosition(i, tv.x, tv.y, 0.0f);  // pos.z = 0 (flat)
-        vb.setNormal(i, 0.0f, 0.0f, 1.0f);    // normal 朝 +Z
-        float uv[2] = { tv.u, tv.v };
-        vb.write(i, VertexSemantic::TexCoord0, uv);
-    }
-    auto vertBytes = vb.data();
-    mesh.vertices.assign(vertBytes.begin(), vertBytes.end());
-
-    // 索引直接搬字节
-    const std::byte* ib = reinterpret_cast<const std::byte*>(textIndices.data());
-    mesh.indices.assign(ib, ib + textIndices.size() * sizeof(uint32_t));
-
-    mesh.computeBounds();
-    return mesh;
 }
 
 }  // namespace mulan::engine
