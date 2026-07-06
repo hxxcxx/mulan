@@ -29,9 +29,11 @@ public:
 
     void setDrawCommands(std::span<const MeshDrawCommand> commands);
     PipelineState* pipelineState() const;
+    PipelineState* viewCubePipelineState() const;
 
 private:
     GeometryDrawExecutor draw_executor_;
+    GeometryDrawExecutor view_cube_executor_;
 };
 
 }  // namespace mulan::engine

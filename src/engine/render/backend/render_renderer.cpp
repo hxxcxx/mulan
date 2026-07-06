@@ -297,7 +297,7 @@ void RenderRenderer::executeStages(RenderFrame& frame) {
         edge_stage_->execute(frame);
     if (view_cube_stage_ && frame.view.showOverlay && frame.view.showViewCube) {
         view_cube_stage_->setPipelines(face_stage_ ? face_stage_->viewCubePipelineState() : nullptr,
-                                       edge_stage_ ? edge_stage_->pipelineState() : nullptr);
+                                       edge_stage_ ? edge_stage_->viewCubePipelineState() : nullptr);
         view_cube_stage_->setFallbackResources(face_stage_ ? face_stage_->defaultWhiteTexture() : nullptr,
                                                face_stage_ ? face_stage_->defaultSampler() : nullptr);
         view_cube_stage_->execute(frame);

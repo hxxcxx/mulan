@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "view_cube_model.h"
 #include "../forward/render_stage.h"
 #include "../../rhi/buffer.h"
 #include "../../rhi/bind_group.h"
@@ -53,10 +54,14 @@ public:
     void setFallbackResources(Texture* defaultWhite, Sampler* defaultSampler);
 
     /// 设置 ViewCube 显示大小（像素）
-    void setSize(uint32_t size) { cube_size_ = size; }
+    void setSize(uint32_t size);
 
     /// 设置边距（像素，距右下角）
-    void setMargin(uint32_t margin) { margin_ = margin; }
+    void setMargin(uint32_t margin);
+
+    void setCorner(ViewCubeCorner corner);
+    ViewCubeRect viewportRect(uint32_t vpWidth, uint32_t vpHeight) const;
+    ViewCubeHit pick(int screenX, int screenY, uint32_t vpWidth, uint32_t vpHeight) const;
 
     /// 检测屏幕坐标是否在 ViewCube 区域内（交互预留，当前空实现）
     /// @return true 如果在区域内
@@ -86,6 +91,7 @@ private:
     bool createGeometry();
     bool createFaceGeometry();
     bool createEdgeGeometry();
+    bool createAxisGeometry();
 
     void render(CommandList* cmd, const math::Mat4& mainViewMatrix, uint32_t vpWidth, uint32_t vpHeight);
 
@@ -103,12 +109,20 @@ private:
     std::unique_ptr<Buffer> edge_vb_;  // 边顶点
     std::unique_ptr<Buffer> edge_ib_;  // 边索引
     uint32_t edge_index_count_ = 0;
+    std::unique_ptr<Buffer> axis_vb_;
+    std::unique_ptr<Buffer> axis_ib_;
+    static constexpr uint32_t kAxisCount = 3;
+    static constexpr uint32_t kAxisIndexCount = 6;
 
     // --- UBO（ViewCube 的 Scene/Object UB 布局与主场景不同，独立持有）---
     std::unique_ptr<Buffer> scene_ubo_;     // b0 — 正交投影 + 提取旋转
     std::unique_ptr<Buffer> object_ubo_;    // b1 — 单位矩阵
     std::unique_ptr<Buffer> material_ubo_;  // b2 — 6面各一份材质
     static constexpr uint32_t kFaceCount = 6;
+    static constexpr uint32_t kLineMaterialOffset = kFaceCount;
+    static constexpr uint32_t kAxisMaterialOffset = kLineMaterialOffset + 1;
+    static constexpr uint32_t kLineMaterialCount = 4;
+    static constexpr uint32_t kMaterialCount = kFaceCount + kLineMaterialCount;
 
     // --- per-frame BindGroup（按借用 PSO 的 layout 创建，缓存在 PSO 不变期间复用）---
     std::unique_ptr<BindGroup> face_bg_;  // solid PSO (10 binding)
@@ -117,12 +131,11 @@ private:
     uint64_t edge_bg_layout_hash_ = 0;
 
     // --- 面材质数据 ---
-    MaterialGPU face_materials_[kFaceCount];
+    MaterialGPU materials_[kMaterialCount];
     uint32_t material_stride_ = sizeof(MaterialGPU);
 
     // --- 配置 ---
-    uint32_t cube_size_ = 128;
-    uint32_t margin_ = 16;
+    ViewCubeModel model_;
     bool initialized_ = false;
 };
 

@@ -10,7 +10,9 @@ consteval TechniqueDesc makeSolidLit() {
         .shader = { .vertex = "solid.vert", .pixel = "solid.frag" },
         .vertexLayout = graphics::layouts::surface(),
         .topology = PrimitiveTopology::TriangleList,
+        .depthTest = true,
         .depthWrite = true,
+        .depthFunc = CompareFunc::LessEqual,
         .sampleTextures = false,
     };
 }
@@ -22,7 +24,9 @@ consteval TechniqueDesc makeSurfacePBR() {
         .shader = { .vertex = "pbr.vert", .pixel = "pbr.frag" },
         .vertexLayout = graphics::layouts::surface(),
         .topology = PrimitiveTopology::TriangleList,
+        .depthTest = true,
         .depthWrite = true,
+        .depthFunc = CompareFunc::LessEqual,
         .sampleTextures = true,
     };
 }
@@ -34,7 +38,37 @@ consteval TechniqueDesc makeEdgeLine() {
         .shader = { .vertex = "edge.vert", .pixel = "edge.frag" },
         .vertexLayout = graphics::layouts::surface(),
         .topology = PrimitiveTopology::LineList,
+        .depthTest = true,
         .depthWrite = false,
+        .depthFunc = CompareFunc::LessEqual,
+        .sampleTextures = false,
+    };
+}
+
+consteval TechniqueDesc makeViewCube() {
+    return TechniqueDesc{
+        .technique = RenderTechnique::ViewCube,
+        .debugName = "ViewCube",
+        .shader = { .vertex = "solid.vert", .pixel = "viewcube.frag" },
+        .vertexLayout = graphics::layouts::surface(),
+        .topology = PrimitiveTopology::TriangleList,
+        .depthTest = true,
+        .depthWrite = true,
+        .depthFunc = CompareFunc::LessEqual,
+        .sampleTextures = false,
+    };
+}
+
+consteval TechniqueDesc makeViewCubeLine() {
+    return TechniqueDesc{
+        .technique = RenderTechnique::ViewCubeLine,
+        .debugName = "ViewCubeLine",
+        .shader = { .vertex = "edge.vert", .pixel = "viewcube_line.frag" },
+        .vertexLayout = graphics::layouts::surface(),
+        .topology = PrimitiveTopology::LineList,
+        .depthTest = true,
+        .depthWrite = false,
+        .depthFunc = CompareFunc::LessEqual,
         .sampleTextures = false,
     };
 }
@@ -42,6 +76,8 @@ consteval TechniqueDesc makeEdgeLine() {
 constexpr TechniqueDesc kSolidLit = makeSolidLit();
 constexpr TechniqueDesc kSurfacePBR = makeSurfacePBR();
 constexpr TechniqueDesc kEdgeLine = makeEdgeLine();
+constexpr TechniqueDesc kViewCube = makeViewCube();
+constexpr TechniqueDesc kViewCubeLine = makeViewCubeLine();
 
 }  // namespace
 
@@ -50,6 +86,8 @@ const TechniqueDesc& TechniqueRegistry::builtin(RenderTechnique technique) {
     case RenderTechnique::SolidLit: return kSolidLit;
     case RenderTechnique::SurfacePBR: return kSurfacePBR;
     case RenderTechnique::EdgeLine: return kEdgeLine;
+    case RenderTechnique::ViewCube: return kViewCube;
+    case RenderTechnique::ViewCubeLine: return kViewCubeLine;
     }
     return kSurfacePBR;
 }

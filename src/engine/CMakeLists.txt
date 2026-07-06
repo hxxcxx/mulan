@@ -146,6 +146,8 @@ if(DXC_EXECUTABLE)
         wireframe.frag.hlsl
         edge.vert.hlsl
         edge.frag.hlsl
+        viewcube.frag.hlsl
+        viewcube_line.frag.hlsl
         text.vert.hlsl
         text.frag.hlsl
         ibl.vert.hlsl

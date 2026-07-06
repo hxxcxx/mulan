@@ -3,12 +3,16 @@
 namespace mulan::engine {
 
 EdgeStage::EdgeStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources)
-    : draw_executor_(device, sharedResources, RenderTechnique::EdgeLine) {
+    : draw_executor_(device, sharedResources, RenderTechnique::EdgeLine),
+      view_cube_executor_(device, sharedResources, RenderTechnique::ViewCubeLine) {
 }
 
 core::Result<void> EdgeStage::init(RHIDevice&, const RenderTargetInfo& target) {
     if (!draw_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
         return std::unexpected(core::Error::make(core::ErrorCode::Internal, "EdgeStage init failed"));
+    }
+    if (!view_cube_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
+        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "EdgeStage ViewCubeLine init failed"));
     }
     return {};
 }
@@ -33,6 +37,10 @@ void EdgeStage::setDrawCommands(std::span<const MeshDrawCommand> commands) {
 
 PipelineState* EdgeStage::pipelineState() const {
     return draw_executor_.pipelineState();
+}
+
+PipelineState* EdgeStage::viewCubePipelineState() const {
+    return view_cube_executor_.pipelineState();
 }
 
 }  // namespace mulan::engine

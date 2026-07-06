@@ -4,7 +4,8 @@ namespace mulan::engine {
 
 FaceStage::FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources)
     : solid_executor_(device, sharedResources, RenderTechnique::SolidLit),
-      pbr_executor_(device, sharedResources, RenderTechnique::SurfacePBR) {
+      pbr_executor_(device, sharedResources, RenderTechnique::SurfacePBR),
+      view_cube_executor_(device, sharedResources, RenderTechnique::ViewCube) {
 }
 
 core::Result<void> FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
@@ -13,6 +14,9 @@ core::Result<void> FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
     }
     if (!pbr_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
         return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage SurfacePBR init failed"));
+    }
+    if (!view_cube_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth)) {
+        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage ViewCube init failed"));
     }
     return {};
 }
@@ -54,7 +58,7 @@ PipelineState* FaceStage::pipelineState() const {
 }
 
 PipelineState* FaceStage::viewCubePipelineState() const {
-    return pbr_executor_.pipelineState();
+    return view_cube_executor_.pipelineState();
 }
 
 Texture* FaceStage::defaultWhiteTexture() const {

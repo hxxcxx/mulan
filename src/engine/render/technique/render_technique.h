@@ -20,6 +20,8 @@ enum class RenderTechnique : uint8_t {
     SolidLit,
     SurfacePBR,
     EdgeLine,
+    ViewCube,
+    ViewCubeLine,
 };
 
 struct ShaderProgramId {
@@ -33,7 +35,9 @@ struct TechniqueDesc {
     ShaderProgramId shader;
     graphics::VertexLayout vertexLayout;
     PrimitiveTopology topology = PrimitiveTopology::TriangleList;
+    bool depthTest = true;
     bool depthWrite = true;
+    CompareFunc depthFunc = CompareFunc::LessEqual;
     bool sampleTextures = false;
 };
 

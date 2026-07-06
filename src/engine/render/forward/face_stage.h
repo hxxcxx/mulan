@@ -43,6 +43,7 @@ private:
 
     GeometryDrawExecutor solid_executor_;
     GeometryDrawExecutor pbr_executor_;
+    GeometryDrawExecutor view_cube_executor_;
     SurfaceTechnique surface_technique_ = SurfaceTechnique::SolidLit;
 };
 

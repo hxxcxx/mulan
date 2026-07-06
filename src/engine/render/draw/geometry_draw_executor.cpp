@@ -58,9 +58,9 @@ bool GeometryDrawExecutor::createPSO(TextureFormat colorFmt, TextureFormat depth
     desc.cullMode = CullMode::None;
     desc.frontFace = FrontFace::CounterClockwise;
     desc.fillMode = FillMode::Solid;
-    desc.depthStencil.depthEnable = true;
+    desc.depthStencil.depthEnable = technique_.depthTest;
     desc.depthStencil.depthWrite = technique_.depthWrite;
-    desc.depthStencil.depthFunc = CompareFunc::LessEqual;
+    desc.depthStencil.depthFunc = technique_.depthFunc;
 
     using PB = PipelineBinding;
     desc.descriptorBindings[0] = {
