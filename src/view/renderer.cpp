@@ -36,11 +36,11 @@ void Renderer::shutdown(engine::RHIDevice& device) {
     initialized_ = false;
 }
 
-void Renderer::setScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
+void Renderer::setScene(engine::RHIDevice* device, const RenderScene* scene, const asset::AssetLibrary* assets) {
     // 文档切换：assets 指针变化时，释放旧文档派生的 GPU 资源（几何 buffer 等）。
     // 资产身份 key 与旧文档绑定，新文档的资产身份不同，必须清空避免悬垂 + 释放显存。
-    if (assets_ != assets && initialized_) {
-        render_renderer_.clearAssetResources();
+    if (assets_ != assets && initialized_ && device) {
+        render_renderer_.clearAssetResources(*device);
     }
     scene_ = scene;
     assets_ = assets;

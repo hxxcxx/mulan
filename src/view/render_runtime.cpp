@@ -106,7 +106,7 @@ void RenderRuntime::shutdown() {
 }
 
 void RenderRuntime::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
-    renderer_.setScene(scene, assets);
+    renderer_.setScene(device_.get(), scene, assets);
 }
 
 void RenderRuntime::render(const ViewState& viewState) {

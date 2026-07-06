@@ -131,7 +131,9 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     endFrame(device, surface, request);
 }
 
-void RenderRenderer::clearAssetResources() {
+void RenderRenderer::clearAssetResources(RHIDevice& device) {
+    device.waitIdle();
+    clearCompiledCommands();
     if (asset_gpu_registry_) {
         asset_gpu_registry_->clear();
     }
@@ -164,20 +166,32 @@ bool RenderRenderer::validateOutput(const RenderSurfaceBinding& surface, const R
     return false;
 }
 
-void RenderRenderer::compile(const RenderRequest& request) {
-    if (request.world) {
-        workload_.build(*request.world, request.options);
-
-        RenderCompileContext compileContext{
-            .assets = *asset_gpu_registry_,
-            .materials = *material_cache_,
-            .surfacePipeline = face_stage_ ? face_stage_->pipelineState() : nullptr,
-            .edgePipeline = edge_stage_ ? edge_stage_->pipelineState() : nullptr,
-        };
-        compiler_.compile(*request.world, workload_, compileContext);
-    } else {
-        compiler_.clear();
+void RenderRenderer::clearCompiledCommands() {
+    const std::span<const MeshDrawCommand> emptyCommands;
+    if (face_stage_) {
+        face_stage_->setDrawCommands(emptyCommands);
     }
+    if (edge_stage_) {
+        edge_stage_->setDrawCommands(emptyCommands);
+    }
+    compiler_.clear();
+}
+
+void RenderRenderer::compile(const RenderRequest& request) {
+    if (!request.world) {
+        clearCompiledCommands();
+        return;
+    }
+
+    workload_.build(*request.world, request.options);
+
+    RenderCompileContext compileContext{
+        .assets = *asset_gpu_registry_,
+        .materials = *material_cache_,
+        .surfacePipeline = face_stage_ ? face_stage_->pipelineState() : nullptr,
+        .edgePipeline = edge_stage_ ? edge_stage_->pipelineState() : nullptr,
+    };
+    compiler_.compile(*request.world, workload_, compileContext);
 
     const std::span<const MeshDrawCommand> emptyCommands;
     if (face_stage_) {

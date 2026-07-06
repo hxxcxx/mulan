@@ -53,7 +53,7 @@ public:
 
     void shutdown(engine::RHIDevice& device);
 
-    void setScene(const RenderScene* scene, const asset::AssetLibrary* assets);
+    void setScene(engine::RHIDevice* device, const RenderScene* scene, const asset::AssetLibrary* assets);
 
     /// 按需烘焙 IBL 三件套（irradiance/prefilter/BRDF LUT）。
     /// 已烘焙过则跳过（幂等）。HDR 文件不存在则静默失败。

@@ -42,12 +42,13 @@ public:
     void render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
 
     /// 释放全部资产派生 GPU 资源（文档切换时由 Renderer::setScene 触发）。
-    void clearAssetResources();
+    void clearAssetResources(RHIDevice& device);
 
     bool isInitialized() const { return initialized_; }
 
 private:
     bool validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const;
+    void clearCompiledCommands();
     void compile(const RenderRequest& request);
     CommandList* beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
     void executeStages(RenderFrame& frame);
