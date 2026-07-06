@@ -280,7 +280,7 @@ void ViewCubeStage::collectLabels(TextStage& textStage, const math::Mat4& mainVi
         label.space = TextSpace::Screen;
         label.anchor = TextAnchor::Center;
         label.positionPx = math::Point2(sx, sy);
-        label.sizePx = 11.0f;
+        label.sizePx = 13.0f;
         label.color = math::Vec4(0.05, 0.055, 0.06, alpha);
         textStage.addText(label);
     }
