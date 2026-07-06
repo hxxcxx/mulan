@@ -2,6 +2,7 @@
 
 #include "../frame/render_frame.h"
 #include "../overlay/view_cube_stage.h"
+#include "../text/text_stage.h"
 #include "../../rhi/command_list.h"
 #include "../../rhi/device.h"
 #include "../../rhi/render_target.h"
@@ -70,6 +71,12 @@ bool RenderRenderer::init(RHIDevice& device, LightEnvironment& lightEnv, Texture
         view_cube_stage_.reset();
     }
 
+    text_stage_ = std::make_unique<TextStage>(device);
+    if (!text_stage_->init(device, targetInfo)) {
+        std::fprintf(stderr, "[RenderRenderer] TextStage init failed (non-fatal)\n");
+        text_stage_.reset();
+    }
+
     initialized_ = true;
     return true;
 }
@@ -78,6 +85,7 @@ void RenderRenderer::shutdown(RHIDevice& device) {
     if (!initialized_)
         return;
     device.waitIdle();
+    text_stage_.reset();
     view_cube_stage_.reset();
     edge_stage_.reset();
     face_stage_.reset();
@@ -296,6 +304,8 @@ CommandList* RenderRenderer::beginFrame(RHIDevice& device, const RenderSurfaceBi
 }
 
 void RenderRenderer::executeStages(RenderFrame& frame) {
+    if (text_stage_)
+        text_stage_->beginFrame(frame.view.width, frame.view.height);
     if (face_stage_)
         face_stage_->execute(frame);
     if (edge_stage_)
@@ -308,7 +318,12 @@ void RenderRenderer::executeStages(RenderFrame& frame) {
         view_cube_stage_->setLayout(frame.view.viewCubeLayout);
         view_cube_stage_->setInteraction(frame.view.viewCubeInteraction);
         view_cube_stage_->execute(frame);
+        if (text_stage_) {
+            view_cube_stage_->collectLabels(*text_stage_, frame.view.viewMatrix, frame.view.width, frame.view.height);
+        }
     }
+    if (text_stage_)
+        text_stage_->execute(frame);
 }
 
 DrawExecutionContext RenderRenderer::buildDrawContext(CommandList& cmd, const RenderFrame& frame) const {

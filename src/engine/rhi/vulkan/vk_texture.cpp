@@ -32,6 +32,10 @@ core::Result<std::unique_ptr<VKTexture>> VKTexture::create(const TextureDesc& de
         ci.usage |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
     if (desc.usage & TextureUsageFlags::UnorderedAccess)
         ci.usage |= vk::ImageUsageFlagBits::eStorage;
+    if (desc.usage & TextureUsageFlags::TransferDst)
+        ci.usage |= vk::ImageUsageFlagBits::eTransferDst;
+    if (desc.usage & TextureUsageFlags::TransferSrc)
+        ci.usage |= vk::ImageUsageFlagBits::eTransferSrc;
     if (desc.usage & TextureUsageFlags::GenerateMips)
         ci.usage |= vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
 

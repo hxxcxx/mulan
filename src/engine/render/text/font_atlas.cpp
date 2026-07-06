@@ -126,7 +126,7 @@ bool FontAtlas::load(const char* fontPath, float fontSize, uint32_t atlasWidth, 
 
         GlyphInfo info;
         info.unicode = glyph.getCodepoint();
-        info.advanceX = (float) glyph.getAdvance();
+        info.advanceX = static_cast<float>(glyph.getAdvance() * base_font_size_);
 
         // 平面边界（字形相对基线的位置）
         double pl, pb, pr, pt;
@@ -134,10 +134,10 @@ bool FontAtlas::load(const char* fontPath, float fontSize, uint32_t atlasWidth, 
         // planeBounds: Y-up 坐标，转换为 Y-down
         // pl=left, pb=bottom(up), pr=right, pt=top(up)
         // 在 Y-down 屏幕空间：top 是向下的
-        info.planeLeft = (float) pl;
-        info.planeTop = (float) pt;  // 基线到字形顶部的偏移（Y-up 正值）
-        info.width = (float) (pr - pl);
-        info.height = (float) (pt - pb);
+        info.planeLeft = static_cast<float>(pl * base_font_size_);
+        info.planeTop = static_cast<float>(pt * base_font_size_);  // 基线到字形顶部的偏移（Y-up 正值）
+        info.width = static_cast<float>((pr - pl) * base_font_size_);
+        info.height = static_cast<float>((pt - pb) * base_font_size_);
 
         // Atlas 中的 UV 边界
         double al, ab, ar, at;
@@ -191,11 +191,16 @@ const GlyphInfo* FontAtlas::getGlyph(uint32_t unicode) const {
 // ============================================================
 
 bool FontAtlas::uploadAtlas(const std::vector<uint8_t>& rgbaData) {
+    if (!device_ || rgbaData.empty() || atlas_width_ == 0 || atlas_height_ == 0) {
+        std::fprintf(stderr, "[FontAtlas] Invalid atlas upload request\n");
+        return false;
+    }
+
     TextureDesc texDesc;
     texDesc.name = "MSDF_Atlas";
     texDesc.format = TextureFormat::RGBA8_UNorm;
     texDesc.dimension = TextureDimension::Texture2D;
-    texDesc.usage = TextureUsageFlags::ShaderResource;
+    texDesc.usage = TextureUsageFlags::ShaderResource | TextureUsageFlags::TransferDst;
     texDesc.width = atlas_width_;
     texDesc.height = atlas_height_;
     texDesc.depth = 1;
@@ -209,11 +214,10 @@ bool FontAtlas::uploadAtlas(const std::vector<uint8_t>& rgbaData) {
     }
     texture_ = std::move(*result);
 
-    // TODO: 实际的纹理上传需要通过各后端的 UploadContext 完成
-    // 当前引擎的 TextureDesc 没有 initData 字段，
-    // 后续激活时需在此处调用后端相关的 upload 命令。
-    // 当前状态：纹理已创建但内容为空，编译通过即可。
-    (void) rgbaData;
+    // 当前引擎的 TextureDesc 没有 initData 字段，纹理内容通过 RHIDevice 的统一上传入口写入。
+    // 后端相关的 UploadContext 与布局转换细节留在 RHI 层，FontAtlas 不直接依赖具体后端。
+    device_->uploadTextureData(texture_.get(), rgbaData.data(), atlas_width_, atlas_height_,
+                               TextureFormat::RGBA8_UNorm);
 
     return true;
 }

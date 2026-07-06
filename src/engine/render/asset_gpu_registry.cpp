@@ -55,7 +55,7 @@ Texture* AssetGpuRegistry::acquireTexture(AssetGpuKey key, const core::Image& im
         return it->second.get();
     }
 
-    const TextureUsageFlags usage = TextureUsageFlags::ShaderResource |
+    const TextureUsageFlags usage = TextureUsageFlags::ShaderResource | TextureUsageFlags::TransferDst |
                                     (options.generateMips ? TextureUsageFlags::GenerateMips : TextureUsageFlags::None);
     auto texture = createRHITexture(image, usage, options.sRGB, options.generateMips);
     if (!texture) {

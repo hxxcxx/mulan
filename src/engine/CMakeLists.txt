@@ -26,6 +26,7 @@ add_library(engine STATIC
     render/text/font_atlas.cpp
     render/text/text_layout.cpp
     render/text/font_manager.cpp
+    render/text/text_stage.cpp
     # Overlay / navigation stages
     render/overlay/view_cube_stage.cpp
     # Material system

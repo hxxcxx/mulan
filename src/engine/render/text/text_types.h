@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <mulan/math/math.h>
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -57,6 +59,39 @@ struct TextDrawItem {
     float y = 0;                      ///< 起始 Y（像素，上起）
     float fontSize = 32.0f;           ///< 字号（像素）
     float color[4] = { 1, 1, 1, 1 };  ///< RGBA（线性空间）
+};
+
+enum class TextAnchor : uint8_t {
+    TopLeft,
+    Center,
+    CenterLeft,
+    CenterRight,
+};
+
+enum class TextSpace : uint8_t {
+    Screen,
+    WorldBillboard,
+    WorldPlanar,
+};
+
+enum class TextDepthMode : uint8_t {
+    AlwaysOnTop,
+    TestDepth,
+};
+
+struct TextDrawDesc {
+    std::string text;
+    std::string font = "default";
+    TextSpace space = TextSpace::Screen;
+    TextAnchor anchor = TextAnchor::Center;
+    TextDepthMode depthMode = TextDepthMode::AlwaysOnTop;
+    math::Point2 positionPx{};
+    math::Point3 positionWorld{};
+    math::Vec3 rightWorld{ 1.0, 0.0, 0.0 };
+    math::Vec3 upWorld{ 0.0, 1.0, 0.0 };
+    float sizePx = 14.0f;
+    float sizeWorld = 1.0f;
+    math::Vec4 color{ 1.0, 1.0, 1.0, 1.0 };
 };
 
 }  // namespace mulan::engine

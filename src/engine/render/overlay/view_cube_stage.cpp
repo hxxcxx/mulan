@@ -1,4 +1,5 @@
 #include "view_cube_stage.h"
+#include "../text/text_stage.h"
 #include "../../rhi/command_list.h"
 #include "../../rhi/device.h"
 #include "../../engine_error_code.h"
@@ -11,6 +12,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cmath>
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -27,6 +29,25 @@ bool hasLayoutBinding(const BindGroupLayout& layout, uint32_t binding) {
         }
     }
     return false;
+}
+
+const char* viewCubeFaceLabel(const ViewCubePart& part) {
+    if (part.z > 0)
+        return "FRONT";
+    if (part.z < 0)
+        return "BACK";
+    if (part.x < 0)
+        return "LEFT";
+    if (part.x > 0)
+        return "RIGHT";
+    if (part.y > 0)
+        return "TOP";
+    return "BOTTOM";
+}
+
+float smoothstep(float edge0, float edge1, float x) {
+    const float t = std::clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
 }
 
 }  // namespace
@@ -210,6 +231,61 @@ ViewCubeHit ViewCubeStage::pick(int screenX, int screenY, uint32_t vpWidth, uint
     return model_.hitTest(screenX, screenY, vpWidth, vpHeight);
 }
 
+void ViewCubeStage::collectLabels(TextStage& textStage, const math::Mat4& mainViewMatrix, uint32_t vpWidth,
+                                  uint32_t vpHeight) const {
+    if (!initialized_) {
+        return;
+    }
+
+    const ViewCubeRect cubeRect = viewportRect(vpWidth, vpHeight);
+    if (cubeRect.width <= 0 || cubeRect.height <= 0) {
+        return;
+    }
+
+    const math::Mat3 rotOnly(mainViewMatrix);
+    math::Mat4 cubeView(rotOnly);
+    cubeView[3] = math::Vec4(0, 0, -3.5, 1);
+    const double orthoSize = ViewCubeModel::kOrthoExtent;
+    const math::Mat4 cubeProj = math::Mat4::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, 0.1, 10.0);
+    const math::Mat4 cubeVP = cubeProj * cubeView;
+
+    for (const auto& part : ViewCubeModel::parts()) {
+        if (part.type != ViewCubePartType::Face) {
+            continue;
+        }
+
+        const math::Vec3 normal = ViewCubeModel::partNormal(part);
+        const math::Vec3 center = normal * (ViewCubeModel::kCubeHalfExtent + 0.004);
+        const math::Vec3 viewNormal = rotOnly * normal;
+        const math::Vec4 viewCenter4 = cubeView * math::Vec4(center, 1.0);
+        const math::Vec3 viewCenter(viewCenter4.x, viewCenter4.y, viewCenter4.z);
+        const math::Vec3 toCamera = (-viewCenter).normalizedOr(math::Vec3::unitZ());
+        const float alpha = smoothstep(0.16f, 0.52f, static_cast<float>(viewNormal.dot(toCamera)));
+        if (alpha <= 0.01f) {
+            continue;
+        }
+
+        math::Vec4 clip = cubeVP * math::Vec4(center, 1.0);
+        if (std::abs(clip.w) < 1.0e-8) {
+            continue;
+        }
+        clip /= clip.w;
+
+        const double sx = static_cast<double>(cubeRect.x) + (clip.x * 0.5 + 0.5) * static_cast<double>(cubeRect.width);
+        const double sy =
+                static_cast<double>(cubeRect.y) + (1.0 - (clip.y * 0.5 + 0.5)) * static_cast<double>(cubeRect.height);
+
+        TextDrawDesc label;
+        label.text = viewCubeFaceLabel(part);
+        label.space = TextSpace::Screen;
+        label.anchor = TextAnchor::Center;
+        label.positionPx = math::Point2(sx, sy);
+        label.sizePx = 11.0f;
+        label.color = math::Vec4(0.05, 0.055, 0.06, alpha);
+        textStage.addText(label);
+    }
+}
+
 void ViewCubeStage::execute(RenderFrame& frame) {
     if (!frame.view.showViewCube)
         return;
@@ -296,11 +372,11 @@ bool ViewCubeStage::createFaceGeometry() {
 }
 
 bool ViewCubeStage::createAxisGeometry() {
-    constexpr float frameMin = -0.78f;
-    constexpr float frameMax = 1.06f;
-    constexpr float coneLength = 0.18f;
-    constexpr float shaftRadius = 0.018f;
-    constexpr float coneRadius = 0.065f;
+    constexpr float frameMin = -0.52f;
+    constexpr float frameMax = 0.52f;
+    constexpr float coneLength = 0.12f;
+    constexpr float shaftRadius = 0.012f;
+    constexpr float coneRadius = 0.04f;
 
     const math::FVec3 starts[kAxisCount] = {
         math::FVec3(frameMin, frameMin, frameMin),

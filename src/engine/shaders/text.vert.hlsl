@@ -1,7 +1,7 @@
 /*
  * MSDF 文字渲染 — 顶点着色器
  *
- * 输入: pos(2f) + uv(2f) + color(packed uint)
+ * 输入: pos(2f) + uv(2f) + color(ubyte4n packed)
  * 输出: 屏幕空间位置 + Atlas UV + 颜色
  *
  * @author hxxcxx
@@ -18,7 +18,7 @@ cbuffer TextParams : register(b0) {
 struct VS_INPUT {
     float2 position : POSITION;
     float2 texcoord : TEXCOORD;
-    uint   color    : COLOR0;    // 打包 RGBA8
+    float4 color    : COLOR0;    // normalized RGBA8
 };
 
 struct VS_OUTPUT {
@@ -32,14 +32,7 @@ VS_OUTPUT main(VS_INPUT input) {
     output.position = mul(OrthoProjection, float4(input.position, 0.0, 1.0));
     output.texcoord = input.texcoord;
 
-    // 解包 RGBA8 → float4
-    uint c = input.color;
-    output.color = float4(
-        float((c >>  0) & 0xFF) / 255.0,
-        float((c >>  8) & 0xFF) / 255.0,
-        float((c >> 16) & 0xFF) / 255.0,
-        float((c >> 24) & 0xFF) / 255.0
-    );
+    output.color = input.color;
 
     return output;
 }

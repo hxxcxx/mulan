@@ -76,6 +76,8 @@ enum class TextureUsageFlags : uint8_t {
     DepthStencil = 1 << 2,     // DSV
     UnorderedAccess = 1 << 3,  // UAV
     GenerateMips = 1 << 4,
+    TransferDst = 1 << 5,      // CPU/upload copy destination
+    TransferSrc = 1 << 6,      // copy/readback or mip generation source
 };
 
 constexpr TextureUsageFlags operator|(TextureUsageFlags a, TextureUsageFlags b) {

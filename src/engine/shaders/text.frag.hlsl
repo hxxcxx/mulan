@@ -15,8 +15,8 @@ cbuffer TextParams : register(b0) {
     float3   _pad;
 };
 
-Texture2D    msdfAtlas : register(t0);
-SamplerState sampler0  : register(s0);
+[[vk::binding(1, 0)]] Texture2D    msdfAtlas : register(t1);
+[[vk::binding(2, 0)]] SamplerState sampler0  : register(s2);
 
 struct PS_INPUT {
     float4 position : SV_POSITION;
@@ -42,10 +42,7 @@ float4 main(PS_INPUT input) : SV_TARGET {
     // Smoothstep 抗锯齿（屏幕空间约 1 像素过渡）
     float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
 
-    // 合成：文字颜色 × opacity + 背景色
+    // Output straight alpha; blend state handles compositing with the render target.
     float4 textColor = input.color;
-    float3 finalColor = lerp(BgColor.rgb, textColor.rgb, opacity);
-    float  finalAlpha = textColor.a * opacity + BgColor.a * (1.0 - opacity);
-
-    return float4(finalColor, finalAlpha);
+    return float4(textColor.rgb, textColor.a * opacity);
 }

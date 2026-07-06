@@ -237,6 +237,18 @@ consteval VertexLayout overlay2D() {
     return l;
 }
 
+// 布局 H2: MSDF text
+// position(f2) + texcoord0(f2) + color(ubyte4n packed), 20 bytes
+consteval VertexLayout text() {
+    VertexLayout l;
+    l.begin(1)
+            .add(VertexSemantic::Position, VertexFormat::Float2)
+            .add(VertexSemantic::TexCoord0, VertexFormat::Float2)
+            .add(VertexSemantic::Color0, VertexFormat::UByte4N)
+            .end();
+    return l;
+}
+
 // 布局 I: SoA multi-buffer
 consteval VertexLayout soaSolid() {
     VertexLayout l;
@@ -324,6 +336,7 @@ static_assert(validateLayout(layouts::pbr()));
 static_assert(validateLayout(layouts::pointCloud()));
 static_assert(validateLayout(layouts::objectMetadata()));
 static_assert(validateLayout(layouts::overlay2D()));
+static_assert(validateLayout(layouts::text()));
 static_assert(validateLayout(layouts::soaSolid()));
 static_assert(validateLayout(layouts::solidMaterial()));
 static_assert(validateLayout(layouts::skinned()));
@@ -341,5 +354,6 @@ static_assert(layouts::skinned().stride() == 68);
 static_assert(layouts::solidTextured().stride() == 40);
 static_assert(layouts::lightmap().stride() == 56);
 static_assert(layouts::surface().stride() == 32);
+static_assert(layouts::text().stride() == 20);
 
 }  // namespace mulan::graphics

@@ -60,7 +60,7 @@ struct ViewCubeRect {
 };
 
 struct ViewCubeLayout {
-    uint32_t size = 148;
+    uint32_t size = 168;
     uint32_t margin = 16;
     ViewCubeCorner corner = ViewCubeCorner::BottomRight;
 
