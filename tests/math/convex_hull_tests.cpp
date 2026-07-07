@@ -10,8 +10,9 @@
  *  - contains 查询
  *  - 退化输入（< 3 点）返回空凸包
  *
- * 复用 math_tests.cpp 的 CHECK/CHECK_NEAR 宏风格。
+ * GTest 移植。
  */
+#include <gtest/gtest.h>
 #include <mulan/math/math.h>
 
 #include <algorithm>
@@ -25,34 +26,6 @@
 namespace {
 
 using namespace mulan::math;
-
-int g_failures = 0;
-
-void fail(const char* expr, const char* file, int line, const std::string& message = {}) {
-    ++g_failures;
-    std::cerr << file << ':' << line << ": CHECK failed: " << expr;
-    if (!message.empty()) {
-        std::cerr << " (" << message << ')';
-    }
-    std::cerr << '\n';
-}
-
-#define CHECK(expr)                          \
-    do {                                     \
-        if (!(expr))                         \
-            fail(#expr, __FILE__, __LINE__); \
-    } while (false)
-
-#define CHECK_NEAR(actual, expected, eps)                                              \
-    do {                                                                               \
-        const double av = static_cast<double>(actual);                                 \
-        const double ev = static_cast<double>(expected);                               \
-        const double ep = static_cast<double>(eps);                                    \
-        if (std::abs(av - ev) > ep) {                                                  \
-            fail(#actual " ~= " #expected, __FILE__, __LINE__,                         \
-                 "actual=" + std::to_string(av) + ", expected=" + std::to_string(ev)); \
-        }                                                                              \
-    } while (false)
 
 // ----- 测试用点集 -----
 
@@ -106,100 +79,84 @@ bool isCCW(const ConvexHull& h) {
     return sum > 0.0;
 }
 
+}  // namespace
+
 // ----- 用例 -----
 
-void testSquareWithInterior() {
+TEST(ConvexHullTest, SquareWithInterior) {
     const auto pts = squareWithInterior();
     const std::vector<Point2> expectedCorners = { Point2(0, 0), Point2(1, 0), Point2(1, 1), Point2(0, 1) };
 
     for (auto algo :
          { ConvexHullAlgorithm::JarvisMarch, ConvexHullAlgorithm::GrahamScan, ConvexHullAlgorithm::MonotoneChain }) {
         ConvexHull h = convexHull(pts, algo);
-        CHECK(h.size() == 4);
-        CHECK(sameVertexSet(h, expectedCorners));
-        CHECK(isCCW(h));
-        CHECK_NEAR(h.area(), 1.0, 1e-9);
-        CHECK_NEAR(h.perimeter(), 4.0, 1e-9);
+        EXPECT_TRUE(h.size() == 4);
+        EXPECT_TRUE(sameVertexSet(h, expectedCorners));
+        EXPECT_TRUE(isCCW(h));
+        EXPECT_NEAR(h.area(), 1.0, 1e-9);
+        EXPECT_NEAR(h.perimeter(), 4.0, 1e-9);
         // 内点应在凸包内
-        CHECK(h.contains(Point2(0.5, 0.5)));
+        EXPECT_TRUE(h.contains(Point2(0.5, 0.5)));
         // 外点不在内
-        CHECK(!h.contains(Point2(2.0, 2.0)));
+        EXPECT_FALSE(h.contains(Point2(2.0, 2.0)));
     }
 }
 
-void testCollinearOnEdges() {
+TEST(ConvexHullTest, CollinearOnEdges) {
     const auto pts = squareWithCollinearOnEdges();
     const std::vector<Point2> expectedCorners = { Point2(0, 0), Point2(1, 0), Point2(1, 1), Point2(0, 1) };
 
     for (auto algo :
          { ConvexHullAlgorithm::JarvisMarch, ConvexHullAlgorithm::GrahamScan, ConvexHullAlgorithm::MonotoneChain }) {
         ConvexHull h = convexHull(pts, algo);
-        CHECK(h.size() == 4);
-        CHECK(sameVertexSet(h, expectedCorners));
-        CHECK(isCCW(h));
+        EXPECT_TRUE(h.size() == 4);
+        EXPECT_TRUE(sameVertexSet(h, expectedCorners));
+        EXPECT_TRUE(isCCW(h));
     }
 }
 
-void testDegenerateInput() {
+TEST(ConvexHullTest, DegenerateInput) {
     // 少于 3 点 → 空凸包
     ConvexHull h = convexHull(degenerateSegment());
-    CHECK(h.isEmpty());
-    CHECK(h.size() == 0);
-    CHECK(h.vertices().empty());
-    CHECK(h.edges().empty());
-    CHECK_NEAR(h.area(), 0.0, 1e-12);
-    CHECK_NEAR(h.perimeter(), 0.0, 1e-12);
+    EXPECT_TRUE(h.isEmpty());
+    EXPECT_TRUE(h.size() == 0);
+    EXPECT_TRUE(h.vertices().empty());
+    EXPECT_TRUE(h.edges().empty());
+    EXPECT_NEAR(h.area(), 0.0, 1e-12);
+    EXPECT_NEAR(h.perimeter(), 0.0, 1e-12);
 }
 
-void testTriangle() {
+TEST(ConvexHullTest, Triangle) {
     std::vector<Point2> tri = { Point2(0, 0), Point2(4, 0), Point2(0, 3) };
     for (auto algo :
          { ConvexHullAlgorithm::JarvisMarch, ConvexHullAlgorithm::GrahamScan, ConvexHullAlgorithm::MonotoneChain }) {
         ConvexHull h = convexHull(tri, algo);
-        CHECK(h.size() == 3);
-        CHECK(isCCW(h));
-        CHECK_NEAR(h.area(), 6.0, 1e-9);        // 1/2 * 4 * 3
-        CHECK_NEAR(h.perimeter(), 12.0, 1e-9);  // 4 + 3 + 5
+        EXPECT_TRUE(h.size() == 3);
+        EXPECT_TRUE(isCCW(h));
+        EXPECT_NEAR(h.area(), 6.0, 1e-9);        // 1/2 * 4 * 3
+        EXPECT_NEAR(h.perimeter(), 12.0, 1e-9);  // 4 + 3 + 5
     }
 }
 
-void testOrientation() {
+TEST(ConvexHullTest, Orientation) {
     Point2 p(0, 0), q(1, 0);
-    CHECK(orientation(p, q, Point2(0.5, 0.5)) == Orientation::Left);
-    CHECK(orientation(p, q, Point2(0.5, -0.5)) == Orientation::Right);
-    CHECK(orientation(p, q, Point2(0.5, 0.0)) == Orientation::Collinear);
-    CHECK(toLeft(p, q, Point2(0.5, 0.5)));
-    CHECK(toLeftOrOn(p, q, Point2(0.5, 0.0)));
-    CHECK(!toLeft(p, q, Point2(0.5, 0.0)));
+    EXPECT_TRUE(orientation(p, q, Point2(0.5, 0.5)) == Orientation::Left);
+    EXPECT_TRUE(orientation(p, q, Point2(0.5, -0.5)) == Orientation::Right);
+    EXPECT_TRUE(orientation(p, q, Point2(0.5, 0.0)) == Orientation::Collinear);
+    EXPECT_TRUE(toLeft(p, q, Point2(0.5, 0.5)));
+    EXPECT_TRUE(toLeftOrOn(p, q, Point2(0.5, 0.0)));
+    EXPECT_FALSE(toLeft(p, q, Point2(0.5, 0.0)));
 }
 
-void testEdgesAndWraparound() {
+TEST(ConvexHullTest, EdgesAndWraparound) {
     ConvexHull h = convexHull(squareWithInterior());
     // 4 条边
-    CHECK(h.edges().size() == 4);
+    EXPECT_TRUE(h.edges().size() == 4);
     // 环绕访问
-    CHECK(h.vertexAt(0) == h.vertexAt(4));  // 取模
+    EXPECT_TRUE(h.vertexAt(0) == h.vertexAt(4));  // 取模
     // prev/next
     const Point2 v0 = h.vertices()[0];
     const Point2 v1 = h.vertices()[1];
-    CHECK(h.next(0) == v1);
-    CHECK(h.prev(1) == v0);
-}
-
-}  // namespace
-
-int main() {
-    testSquareWithInterior();
-    testCollinearOnEdges();
-    testDegenerateInput();
-    testTriangle();
-    testOrientation();
-    testEdgesAndWraparound();
-
-    if (g_failures == 0) {
-        std::cout << "convex_hull_tests: all passed\n";
-        return EXIT_SUCCESS;
-    }
-    std::cerr << "convex_hull_tests: " << g_failures << " failure(s)\n";
-    return EXIT_FAILURE;
+    EXPECT_TRUE(h.next(0) == v1);
+    EXPECT_TRUE(h.prev(1) == v0);
 }

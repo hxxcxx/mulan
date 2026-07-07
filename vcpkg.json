@@ -11,6 +11,7 @@
         "assimp",
         "spdlog",
         "freetype",
-        "tomlplusplus"
+        "tomlplusplus",
+        "gtest"
     ]
 }
