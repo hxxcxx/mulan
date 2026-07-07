@@ -143,6 +143,8 @@ if(DXC_EXECUTABLE)
         albedo.frag.hlsl
         pbr.vert.hlsl
         pbr.frag.hlsl
+        pbr_tangent.vert.hlsl
+        pbr_tangent.frag.hlsl
         wireframe.vert.hlsl
         wireframe.frag.hlsl
         edge.vert.hlsl

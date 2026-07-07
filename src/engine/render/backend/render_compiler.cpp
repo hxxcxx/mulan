@@ -33,6 +33,10 @@ Texture* loadTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
     return assets.findTexture(desc.resourceKey, options);
 }
 
+bool hasTangentLayout(const GpuGeometry& geometry) {
+    return geometry.layout.has(graphics::VertexSemantic::Tangent);
+}
+
 void populateSurfaceTextures(const RenderWorldSnapshot& snapshot, const RenderWorkItem& item, AssetGpuRegistry& assets,
                              MeshDrawCommand& command) {
     const auto* material = snapshot.material(item.material);
@@ -93,7 +97,10 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
         if (!gpuGeometry)
             continue;
 
-        auto command = makeCommand(snapshot, item, *gpuGeometry, context.surfacePipeline, nextObjectOffset,
+        PipelineState* surfacePipeline = hasTangentLayout(*gpuGeometry) && context.surfaceTangentPipeline
+                                                 ? context.surfaceTangentPipeline
+                                                 : context.surfacePipeline;
+        auto command = makeCommand(snapshot, item, *gpuGeometry, surfacePipeline, nextObjectOffset,
                                    materialOffset(snapshot, item.material, context.materials), false);
         populateSurfaceTextures(snapshot, item, context.assets, command);
         surface_commands_.push_back(std::move(command));

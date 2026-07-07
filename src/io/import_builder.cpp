@@ -53,7 +53,8 @@ graphics::Mesh buildStandardMesh(const StandardMeshSource& source) {
         return {};
 
     graphics::Mesh mesh;
-    mesh.layout = graphics::layouts::surface();
+    const bool useTangents = source.tangents.size() >= source.positions.size();
+    mesh.layout = useTangents ? graphics::layouts::pbr() : graphics::layouts::surface();
     mesh.topology = source.topology;
 
     graphics::VertexBufferBuilder vertices(mesh.layout, static_cast<uint32_t>(source.positions.size()));
@@ -67,6 +68,12 @@ graphics::Mesh buildStandardMesh(const StandardMeshSource& source) {
         const math::FVec2 uv = i < source.texcoords.size() ? source.texcoords[i] : math::FVec2(0.0f);
         float uvData[2] = { uv.x, uv.y };
         vertices.write(i, graphics::VertexSemantic::TexCoord0, uvData);
+
+        if (useTangents) {
+            const math::FVec4& tangent = source.tangents[i];
+            float tangentData[4] = { tangent.x, tangent.y, tangent.z, tangent.w };
+            vertices.write(i, graphics::VertexSemantic::Tangent, tangentData);
+        }
     }
 
     auto vertexBytes = vertices.data();

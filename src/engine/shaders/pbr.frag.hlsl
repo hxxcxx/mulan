@@ -59,12 +59,38 @@ float smithGeometry(float NdotV, float NdotL, float roughness) {
 
 // ─── 切线空间法线 ─────────────────────────────────────────────
 
-float3 perturbNormal(float3 N, float3 V, float2 uv, float3 tangent, float3 bitangent) {
+float3 perturbNormal(float3 N, float3 worldPos, float2 uv) {
     float3 tn = NormalTex.Sample(PbrSampler, uv).rgb * 2.0 - 1.0;
-    float3 T = normalize(tangent - N * dot(tangent, N));
-    float3 B = cross(N, T);
+    float3 dp1 = ddx(worldPos);
+    float3 dp2 = ddy(worldPos);
+    float2 duv1 = ddx(uv);
+    float2 duv2 = ddy(uv);
+
+    float det = duv1.x * duv2.y - duv1.y * duv2.x;
+    if (abs(det) < 1e-8) {
+        return N;
+    }
+
+    float3 T = duv2.y * dp1 - duv1.y * dp2;
+    float3 B = -duv2.x * dp1 + duv1.x * dp2;
+
+    T = normalize(T - N * dot(N, T));
+    B = normalize(B - N * dot(N, B));
+    if (dot(cross(T, B), N) < 0.0) {
+        B = -B;
+    }
+
     return normalize(tn.x * T + tn.y * B + tn.z * N);
 }
+
+#ifdef MULAN_USE_VERTEX_TANGENT
+float3 perturbNormal(float3 N, float2 uv, float4 tangent) {
+    float3 tn = NormalTex.Sample(PbrSampler, uv).rgb * 2.0 - 1.0;
+    float3 T = normalize(tangent.xyz - N * dot(N, tangent.xyz));
+    float3 B = normalize(cross(N, T) * tangent.w);
+    return normalize(tn.x * T + tn.y * B + tn.z * N);
+}
+#endif
 
 // ─── IBL: 已烘焙的 irradiance/prefilter equirect + BRDF LUT ──────
 // irradiance/prefilter 用 equirect 表示，需把方向转回 uv（与烘焙时一致）。
@@ -83,7 +109,11 @@ float3 acesTonemap(float3 x) {
 
 // ─── Main ─────────────────────────────────────────────────────
 
+#ifdef MULAN_USE_VERTEX_TANGENT
+float4 main(VS_OUTPUT_TANGENT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
+#else
 float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
+#endif
     float3 N = normalize(input.normal);
     float3 V = normalize(CameraPos - input.worldPos);
 
@@ -98,11 +128,13 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
         : float3(1, 1, 1);
     albedo *= BaseColor;
 
-    // 法线贴图（简化版：无切线时跳过 TBN）
     if (flags & TF_NORMAL) {
-        float3 tn = NormalTex.Sample(PbrSampler, input.texcoord).rgb * 2.0 - 1.0;
-        N = normalize(N + tn.x * normalize(cross(N, float3(0,1,0)))
-                       + tn.y * normalize(cross(float3(0,1,0), N)));
+#ifdef MULAN_USE_VERTEX_TANGENT
+        N = perturbNormal(N, input.texcoord, input.tangent);
+#else
+        // Fallback path for surface meshes that do not carry tangent data.
+        N = perturbNormal(N, input.worldPos, input.texcoord);
+#endif
     }
 
     float metallic  = (flags & TF_MR) ? MRTex.Sample(PbrSampler, input.texcoord).b : Metallic;

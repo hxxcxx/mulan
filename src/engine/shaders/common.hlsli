@@ -60,6 +60,14 @@ struct VS_INPUT {
     float2 texcoord : TEXCOORD;
 };
 
+// Surface vertex with glTF-style tangent.xyz + bitangent sign in tangent.w.
+struct VS_INPUT_TANGENT {
+    float3 position : POSITION;
+    float3 normal   : NORMAL;
+    float2 texcoord : TEXCOORD;
+    float4 tangent  : TANGENT;
+};
+
 // 仅有位置的顶点（wireframe / pick）
 struct VS_INPUT_POS {
     float3 position : POSITION;
@@ -71,6 +79,14 @@ struct VS_OUTPUT {
     float3 worldPos : POSITION;
     float3 normal   : NORMAL;
     float2 texcoord : TEXCOORD;
+};
+
+struct VS_OUTPUT_TANGENT {
+    float4 position : SV_POSITION;
+    float3 worldPos : POSITION;
+    float3 normal   : NORMAL;
+    float2 texcoord : TEXCOORD;
+    float4 tangent  : TANGENT;
 };
 
 // wireframe / pick 用的简化输出

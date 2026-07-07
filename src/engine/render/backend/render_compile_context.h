@@ -17,6 +17,7 @@ struct RenderCompileContext {
     AssetGpuRegistry& assets;
     MaterialCache& materials;
     PipelineState* surfacePipeline = nullptr;
+    PipelineState* surfaceTangentPipeline = nullptr;
     PipelineState* edgePipeline = nullptr;
 };
 

@@ -57,6 +57,13 @@ std::vector<math::FVec2> readTexcoords(const Asset& asset, const Accessor& acc) 
     return result;
 }
 
+std::vector<math::FVec4> readTangents(const Asset& asset, const Accessor& acc) {
+    std::vector<math::FVec4> result(acc.count);
+    iterateAccessorWithIndex<fastgltf::math::fvec4>(
+            asset, acc, [&](fastgltf::math::fvec4 v, size_t i) { result[i] = { v[0], v[1], v[2], v[3] }; });
+    return result;
+}
+
 /// fastgltf MimeType → 字符串提示（让 core::Image 自检测，仅作辅助）
 std::string mimeTypeString(MimeType mt) {
     switch (mt) {
@@ -159,16 +166,36 @@ std::map<size_t, asset::AssetId> importTextures(const Asset& gltf, ImportBuilder
 }
 
 /// 导入材质，返回 {gltfMaterialIndex → AssetId}
+struct TextureSlotResolve {
+    asset::AssetId asset = asset::AssetId::invalid();
+    size_t textureIndex = 0;
+    size_t imageIndex = 0;
+    bool hasTextureIndex = false;
+    bool hasImageIndex = false;
+};
+
 std::map<size_t, asset::AssetId> importMaterials(const Asset& gltf, ImportBuilder& builder,
-                                                 const std::map<size_t, asset::AssetId>& texMap) {
+                                                 const std::map<size_t, asset::AssetId>& texMap,
+                                                 std::vector<std::string>& warnings) {
     std::map<size_t, asset::AssetId> matMap;
 
-    auto mapTex = [&](std::optional<size_t> texIdx) -> asset::AssetId {
-        if (!texIdx.has_value() || *texIdx >= gltf.textures.size())
-            return asset::AssetId::invalid();
-        size_t imgIdx = gltf.textures[*texIdx].imageIndex.value_or(0);
-        auto it = texMap.find(imgIdx);
-        return it != texMap.end() ? it->second : asset::AssetId::invalid();
+    auto resolveTexture = [&](size_t texIdx) -> TextureSlotResolve {
+        TextureSlotResolve result;
+        result.textureIndex = texIdx;
+        result.hasTextureIndex = true;
+        if (texIdx >= gltf.textures.size())
+            return result;
+
+        const auto& texture = gltf.textures[texIdx];
+        if (!texture.imageIndex.has_value())
+            return result;
+
+        result.imageIndex = *texture.imageIndex;
+        result.hasImageIndex = true;
+        auto it = texMap.find(result.imageIndex);
+        if (it != texMap.end())
+            result.asset = it->second;
+        return result;
     };
 
     for (size_t i = 0; i < gltf.materials.size(); ++i) {
@@ -183,23 +210,39 @@ std::map<size_t, asset::AssetId> importMaterials(const Asset& gltf, ImportBuilde
         desc.roughness = static_cast<double>(pbr.roughnessFactor);
         desc.metallic = static_cast<double>(pbr.metallicFactor);
 
-        // sRGB 由 material slot 决定：albedo/emissive → sRGB；normal/mr/ao → linear（数据贴图）
+        // sRGB 由 material slot 决定：albedo/emissive -> sRGB；normal/mr/ao -> linear 数据贴图。
+        // sRGB is decided by the material slot: albedo/emissive use sRGB; normal/mr/ao are linear data maps.
         desc.baseColorTextureSrgb = true;
         desc.normalTextureSrgb = false;
         desc.metallicRoughnessTextureSrgb = false;
         desc.emissiveTextureSrgb = true;
         desc.occlusionTextureSrgb = false;
 
-        if (pbr.baseColorTexture.has_value())
-            desc.baseColorTexture = mapTex(pbr.baseColorTexture->textureIndex);
+        TextureSlotResolve baseColorSlot;
+        TextureSlotResolve normalSlot;
+
+        if (pbr.baseColorTexture.has_value()) {
+            baseColorSlot = resolveTexture(pbr.baseColorTexture->textureIndex);
+            desc.baseColorTexture = baseColorSlot.asset;
+        }
         if (pbr.metallicRoughnessTexture.has_value())
-            desc.metallicRoughnessTexture = mapTex(pbr.metallicRoughnessTexture->textureIndex);
-        if (mat.normalTexture.has_value())
-            desc.normalTexture = mapTex(mat.normalTexture->textureIndex);
+            desc.metallicRoughnessTexture = resolveTexture(pbr.metallicRoughnessTexture->textureIndex).asset;
+        if (mat.normalTexture.has_value()) {
+            normalSlot = resolveTexture(mat.normalTexture->textureIndex);
+            desc.normalTexture = normalSlot.asset;
+        }
         if (mat.emissiveTexture.has_value())
-            desc.emissiveTexture = mapTex(mat.emissiveTexture->textureIndex);
+            desc.emissiveTexture = resolveTexture(mat.emissiveTexture->textureIndex).asset;
         if (mat.occlusionTexture.has_value())
-            desc.occlusionTexture = mapTex(mat.occlusionTexture->textureIndex);
+            desc.occlusionTexture = resolveTexture(mat.occlusionTexture->textureIndex).asset;
+
+        if (baseColorSlot.asset && normalSlot.asset && baseColorSlot.asset == normalSlot.asset) {
+            warnings.push_back("glTF material '" + desc.name +
+                               "' maps baseColor and normal to the same imported texture asset");
+        } else if (baseColorSlot.hasImageIndex && normalSlot.hasImageIndex &&
+                   baseColorSlot.imageIndex == normalSlot.imageIndex) {
+            warnings.push_back("glTF material '" + desc.name + "' maps baseColor and normal to the same image index");
+        }
 
         desc.emissiveFactor = { mat.emissiveFactor[0], mat.emissiveFactor[1], mat.emissiveFactor[2] };
 
@@ -219,14 +262,100 @@ std::map<size_t, asset::AssetId> importMaterials(const Asset& gltf, ImportBuilde
     return matMap;
 }
 
+// Checks whether the primitive material has a successfully imported normal texture.
+bool hasUsableNormalTexture(const Asset& gltf, const Primitive& primitive,
+                            const std::map<size_t, asset::AssetId>& texMap) {
+    if (!primitive.materialIndex.has_value() || *primitive.materialIndex >= gltf.materials.size())
+        return false;
+
+    const auto& material = gltf.materials[*primitive.materialIndex];
+    if (!material.normalTexture.has_value())
+        return false;
+
+    const size_t textureIndex = material.normalTexture->textureIndex;
+    if (textureIndex >= gltf.textures.size())
+        return false;
+
+    const auto& texture = gltf.textures[textureIndex];
+    if (!texture.imageIndex.has_value())
+        return false;
+
+    auto it = texMap.find(*texture.imageIndex);
+    return it != texMap.end() && static_cast<bool>(it->second);
+}
+
 /// 从 glTF primitive 构建 StandardMeshSource
 /// 返回的 source 中 span 指向函数内的静态/局部数据——调用方必须在 source 生命周期内保持数据有效。
 struct PrimitiveGeomData {
     std::vector<math::FVec3> positions;
     std::vector<math::FVec3> normals;
     std::vector<math::FVec2> texcoords;
+    std::vector<math::FVec4> tangents;
     std::vector<uint32_t> indices;
 };
+
+math::FVec3 fallbackTangent(const math::FVec3& normal) {
+    const math::FVec3 n = normal.normalizedOr(math::FVec3::unitZ());
+    const math::FVec3 axis = std::abs(n.z) < 0.9f ? math::FVec3::unitZ() : math::FVec3::unitY();
+    return axis.cross(n).normalizedOr(math::FVec3::unitX());
+}
+
+std::vector<math::FVec4> generateTangents(const PrimitiveGeomData& geom) {
+    std::vector<math::FVec3> tangentSum(geom.positions.size(), math::FVec3(0.0f));
+    std::vector<math::FVec3> bitangentSum(geom.positions.size(), math::FVec3(0.0f));
+
+    const auto indexAt = [&](size_t i) -> uint32_t {
+        return geom.indices.empty() ? static_cast<uint32_t>(i) : geom.indices[i];
+    };
+    const size_t indexCount = geom.indices.empty() ? geom.positions.size() : geom.indices.size();
+
+    for (size_t i = 0; i + 2 < indexCount; i += 3) {
+        const uint32_t i0 = indexAt(i + 0);
+        const uint32_t i1 = indexAt(i + 1);
+        const uint32_t i2 = indexAt(i + 2);
+        if (i0 >= geom.positions.size() || i1 >= geom.positions.size() || i2 >= geom.positions.size())
+            continue;
+
+        const math::FVec3& p0 = geom.positions[i0];
+        const math::FVec3& p1 = geom.positions[i1];
+        const math::FVec3& p2 = geom.positions[i2];
+        const math::FVec2& uv0 = geom.texcoords[i0];
+        const math::FVec2& uv1 = geom.texcoords[i1];
+        const math::FVec2& uv2 = geom.texcoords[i2];
+
+        const math::FVec3 e1 = p1 - p0;
+        const math::FVec3 e2 = p2 - p0;
+        const math::FVec2 duv1 = uv1 - uv0;
+        const math::FVec2 duv2 = uv2 - uv0;
+
+        const float det = duv1.x * duv2.y - duv1.y * duv2.x;
+        if (std::abs(det) < 1e-8f)
+            continue;
+
+        const float invDet = 1.0f / det;
+        const math::FVec3 tangent = (e1 * duv2.y - e2 * duv1.y) * invDet;
+        const math::FVec3 bitangent = (e2 * duv1.x - e1 * duv2.x) * invDet;
+
+        tangentSum[i0] += tangent;
+        tangentSum[i1] += tangent;
+        tangentSum[i2] += tangent;
+        bitangentSum[i0] += bitangent;
+        bitangentSum[i1] += bitangent;
+        bitangentSum[i2] += bitangent;
+    }
+
+    std::vector<math::FVec4> tangents(geom.positions.size(), math::FVec4(1.0f, 0.0f, 0.0f, 1.0f));
+    for (size_t i = 0; i < geom.positions.size(); ++i) {
+        const math::FVec3 normal =
+                i < geom.normals.size() ? geom.normals[i].normalizedOr(math::FVec3::unitZ()) : math::FVec3::unitZ();
+        math::FVec3 tangent = tangentSum[i] - normal * normal.dot(tangentSum[i]);
+        tangent = tangent.normalizedOr(fallbackTangent(normal));
+
+        const float sign = normal.cross(tangent).dot(bitangentSum[i]) < 0.0f ? -1.0f : 1.0f;
+        tangents[i] = math::FVec4(tangent, sign);
+    }
+    return tangents;
+}
 
 /// 检查 accessor 是否可安全读取：
 /// - accessorIndex 有效
@@ -279,6 +408,12 @@ PrimitiveGeomData extractPrimitiveData(const Asset& gltf, const Primitive& prim)
     if (uvAttr && isAccessorReadable(gltf, uvAttr->accessorIndex, AccessorType::Vec2, ComponentType::Float)) {
         auto& acc = gltf.accessors[uvAttr->accessorIndex];
         geom.texcoords = readTexcoords(gltf, acc);
+    }
+
+    auto* tangentAttr = prim.findAttribute("TANGENT");
+    if (tangentAttr && isAccessorReadable(gltf, tangentAttr->accessorIndex, AccessorType::Vec4, ComponentType::Float)) {
+        auto& acc = gltf.accessors[tangentAttr->accessorIndex];
+        geom.tangents = readTangents(gltf, acc);
     }
 
     if (prim.indicesAccessor.has_value() && isAccessorReadable(gltf, *prim.indicesAccessor, AccessorType::Scalar)) {
@@ -343,7 +478,7 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path, mulan::
     result.report.textureCount = texMap.size();
 
     // --- 3. 导入材质 ---
-    auto matMap = importMaterials(gltf, builder, texMap);
+    auto matMap = importMaterials(gltf, builder, texMap, result.report.warnings);
     result.report.materialCount = matMap.size();
 
     // --- 4. 收集所有 mesh → MeshAsset ---
@@ -366,10 +501,19 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path, mulan::
             if (geomData.texcoords.empty())
                 geomData.texcoords.resize(geomData.positions.size(), math::FVec2(0.0f, 0.0f));
 
+            if (hasUsableNormalTexture(gltf, primitive, texMap)) {
+                if (geomData.tangents.size() != geomData.positions.size()) {
+                    geomData.tangents = generateTangents(geomData);
+                }
+            } else {
+                geomData.tangents.clear();
+            }
+
             StandardMeshSource src;
             src.positions = std::span(geomData.positions);
             src.normals = std::span(geomData.normals);
             src.texcoords = std::span(geomData.texcoords);
+            src.tangents = std::span(geomData.tangents);
             src.indices = std::span(geomData.indices);
             src.topology = graphics::PrimitiveTopology::TriangleList;
 

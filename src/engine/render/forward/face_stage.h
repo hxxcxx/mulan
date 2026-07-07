@@ -12,6 +12,7 @@
 #include "../frontend/render_request.h"
 
 #include <span>
+#include <vector>
 
 namespace mulan::engine {
 
@@ -33,6 +34,7 @@ public:
     void setIBLTextures(Texture* irradiance, Texture* prefilter, Texture* brdfLUT);
 
     PipelineState* pipelineState() const;
+    PipelineState* tangentPipelineState() const;
     PipelineState* viewCubePipelineState() const;
     Texture* defaultWhiteTexture() const;
     Sampler* defaultSampler() const;
@@ -43,7 +45,10 @@ private:
 
     GeometryDrawExecutor solid_executor_;
     GeometryDrawExecutor pbr_executor_;
+    GeometryDrawExecutor pbr_tangent_executor_;
     GeometryDrawExecutor view_cube_executor_;
+    std::vector<MeshDrawCommand> pbr_commands_;
+    std::vector<MeshDrawCommand> pbr_tangent_commands_;
     SurfaceTechnique surface_technique_ = SurfaceTechnique::SolidLit;
 };
 

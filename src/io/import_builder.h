@@ -62,6 +62,7 @@ struct StandardMeshSource {
     std::span<const math::FVec3> positions;
     std::span<const math::FVec3> normals;
     std::span<const math::FVec2> texcoords;
+    std::span<const math::FVec4> tangents;
     std::span<const uint32_t> indices;
     graphics::PrimitiveTopology topology = graphics::PrimitiveTopology::TriangleList;
     bool force32BitIndices = false;

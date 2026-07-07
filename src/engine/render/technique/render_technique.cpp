@@ -31,6 +31,20 @@ consteval TechniqueDesc makeSurfacePBR() {
     };
 }
 
+consteval TechniqueDesc makeSurfacePBRTangent() {
+    return TechniqueDesc{
+        .technique = RenderTechnique::SurfacePBRTangent,
+        .debugName = "SurfacePBRTangent",
+        .shader = { .vertex = "pbr_tangent.vert", .pixel = "pbr_tangent.frag" },
+        .vertexLayout = graphics::layouts::pbr(),
+        .topology = PrimitiveTopology::TriangleList,
+        .depthTest = true,
+        .depthWrite = true,
+        .depthFunc = CompareFunc::LessEqual,
+        .sampleTextures = true,
+    };
+}
+
 consteval TechniqueDesc makeEdgeLine() {
     return TechniqueDesc{
         .technique = RenderTechnique::EdgeLine,
@@ -75,6 +89,7 @@ consteval TechniqueDesc makeViewCubeLine() {
 
 constexpr TechniqueDesc kSolidLit = makeSolidLit();
 constexpr TechniqueDesc kSurfacePBR = makeSurfacePBR();
+constexpr TechniqueDesc kSurfacePBRTangent = makeSurfacePBRTangent();
 constexpr TechniqueDesc kEdgeLine = makeEdgeLine();
 constexpr TechniqueDesc kViewCube = makeViewCube();
 constexpr TechniqueDesc kViewCubeLine = makeViewCubeLine();
@@ -85,6 +100,7 @@ const TechniqueDesc& TechniqueRegistry::builtin(RenderTechnique technique) {
     switch (technique) {
     case RenderTechnique::SolidLit: return kSolidLit;
     case RenderTechnique::SurfacePBR: return kSurfacePBR;
+    case RenderTechnique::SurfacePBRTangent: return kSurfacePBRTangent;
     case RenderTechnique::EdgeLine: return kEdgeLine;
     case RenderTechnique::ViewCube: return kViewCube;
     case RenderTechnique::ViewCubeLine: return kViewCubeLine;

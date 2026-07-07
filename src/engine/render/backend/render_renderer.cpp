@@ -233,6 +233,9 @@ void RenderRenderer::compile(const RenderRequest& request) {
         .assets = *asset_gpu_registry_,
         .materials = *material_cache_,
         .surfacePipeline = face_stage_ ? face_stage_->pipelineState() : nullptr,
+        .surfaceTangentPipeline = face_stage_ && request.options.surfaceTechnique == SurfaceTechnique::SurfacePBR
+                                          ? face_stage_->tangentPipelineState()
+                                          : nullptr,
         .edgePipeline = edge_stage_ ? edge_stage_->pipelineState() : nullptr,
     };
     compiler_.compile(*request.world, workload_, compileContext);

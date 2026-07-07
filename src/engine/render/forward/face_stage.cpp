@@ -5,6 +5,7 @@ namespace mulan::engine {
 FaceStage::FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources)
     : solid_executor_(device, sharedResources, RenderTechnique::SolidLit),
       pbr_executor_(device, sharedResources, RenderTechnique::SurfacePBR),
+      pbr_tangent_executor_(device, sharedResources, RenderTechnique::SurfacePBRTangent),
       view_cube_executor_(device, sharedResources, RenderTechnique::ViewCube) {
 }
 
@@ -14,6 +15,9 @@ core::Result<void> FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
     }
     if (!pbr_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
         return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage SurfacePBR init failed"));
+    }
+    if (!pbr_tangent_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
+        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage SurfacePBRTangent init failed"));
     }
     if (!view_cube_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
         return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage ViewCube init failed"));
@@ -32,13 +36,35 @@ void FaceStage::execute(RenderFrame& frame) {
     ctx.camera.viewMatrix = frame.view.viewMatrix;
     ctx.camera.projectionMatrix = frame.view.projectionMatrix;
     ctx.camera.eyePosition = frame.view.cameraPosition;
-    activeExecutor().execute(ctx);
+    if (surface_technique_ == SurfaceTechnique::SurfacePBR) {
+        pbr_executor_.execute(ctx);
+        pbr_tangent_executor_.execute(ctx);
+    } else {
+        solid_executor_.execute(ctx);
+    }
 }
 
 void FaceStage::setDrawCommands(std::span<const MeshDrawCommand> commands) {
     solid_executor_.setDrawCommands(std::span<const MeshDrawCommand>{});
     pbr_executor_.setDrawCommands(std::span<const MeshDrawCommand>{});
-    activeExecutor().setDrawCommands(commands);
+    pbr_tangent_executor_.setDrawCommands(std::span<const MeshDrawCommand>{});
+
+    if (surface_technique_ != SurfaceTechnique::SurfacePBR) {
+        solid_executor_.setDrawCommands(commands);
+        return;
+    }
+
+    pbr_commands_.clear();
+    pbr_tangent_commands_.clear();
+    for (const auto& command : commands) {
+        if (command.pipelineState == pbr_tangent_executor_.pipelineState()) {
+            pbr_tangent_commands_.push_back(command);
+        } else {
+            pbr_commands_.push_back(command);
+        }
+    }
+    pbr_executor_.setDrawCommands(pbr_commands_);
+    pbr_tangent_executor_.setDrawCommands(pbr_tangent_commands_);
 }
 
 void FaceStage::setSurfaceTechnique(SurfaceTechnique technique) {
@@ -47,14 +73,20 @@ void FaceStage::setSurfaceTechnique(SurfaceTechnique technique) {
     surface_technique_ = technique;
     solid_executor_.setDrawCommands(std::span<const MeshDrawCommand>{});
     pbr_executor_.setDrawCommands(std::span<const MeshDrawCommand>{});
+    pbr_tangent_executor_.setDrawCommands(std::span<const MeshDrawCommand>{});
 }
 
 void FaceStage::setIBLTextures(Texture* irradiance, Texture* prefilter, Texture* brdfLUT) {
     pbr_executor_.setIBLTextures(irradiance, prefilter, brdfLUT);
+    pbr_tangent_executor_.setIBLTextures(irradiance, prefilter, brdfLUT);
 }
 
 PipelineState* FaceStage::pipelineState() const {
     return activeExecutor().pipelineState();
+}
+
+PipelineState* FaceStage::tangentPipelineState() const {
+    return pbr_tangent_executor_.pipelineState();
 }
 
 PipelineState* FaceStage::viewCubePipelineState() const {
