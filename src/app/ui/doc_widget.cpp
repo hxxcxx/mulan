@@ -2,17 +2,11 @@
 #include "document_session.h"
 #include "engine_settings.h"
 
-#include <mulan/engine/interaction/draw_line_operator.h>
-#include <mulan/io/document_editor.h>
-
 #include <QShowEvent>
 #include <QResizeEvent>
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
-
-#include <memory>
-#include <string>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -176,19 +170,7 @@ void DocWidget::fitAll() {
 }
 
 void DocWidget::startDrawLine() {
-    if (!view_context_.isInitialized() || !session_ || !session_->document()) {
-        return;
-    }
-
-    auto op = std::make_unique<mulan::engine::DrawLineOperator>();
-    op->setPreviewCallback([this](const mulan::math::Point3& start, const mulan::math::Point3& end) {
-        updatePreviewSegment(start, end);
-    });
-    op->setClearPreviewCallback([this]() { clearPreviewSegment(); });
-    op->setCommitCallback([this](const mulan::math::Point3& start, const mulan::math::Point3& end) {
-        commitCurveSegment(start, end);
-    });
-    view_context_.pushOperator(std::move(op));
+    clearPreviewSegment(false);
 }
 
 QPoint DocWidget::framebufferEventPosition(const QPointF& pos) const {
@@ -273,29 +255,11 @@ void DocWidget::selectAtFramebuffer(const QPointF& framebufferPos) {
     }
 }
 
-void DocWidget::updatePreviewSegment(const mulan::math::Point3& start, const mulan::math::Point3& end) {
-    const mulan::math::Segment3 segment(start, end);
-    view_context_.previewLayer().setCurve(mulan::asset::CurvePrimitive::segment(segment));
-    requestFrame();
-}
-
 void DocWidget::clearPreviewSegment(bool refresh) {
     view_context_.clearPreview();
     if (refresh) {
         requestFrame();
     }
-}
-
-void DocWidget::commitCurveSegment(const mulan::math::Point3& start, const mulan::math::Point3& end) {
-    if (!session_ || !session_->document()) {
-        return;
-    }
-
-    clearPreviewSegment(false);
-    const std::string name = "Curve " + std::to_string(curve_segment_counter_++);
-    mulan::io::DocumentEditor editor(*session_->document());
-    editor.createCurve(name, mulan::asset::CurvePrimitive::segment(mulan::math::Segment3(start, end)));
-    binding_.refresh();
 }
 
 bool DocWidget::hasModalOperator() const {

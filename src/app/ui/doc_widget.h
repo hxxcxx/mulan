@@ -12,7 +12,6 @@
 #include <QPoint>
 #include <QPointF>
 
-#include <mulan/asset/curve_asset.h>
 #include <mulan/engine/interaction/input_event.h>
 #include <mulan/scene/entity_id.h>
 #include <mulan/view/view_context.h>
@@ -67,9 +66,7 @@ private:
     mulan::engine::InputEvent makeWheelEvent(const QWheelEvent& e) const;
     void updateHoverAtFramebuffer(const QPointF& framebufferPos);
     void selectAtFramebuffer(const QPointF& framebufferPos);
-    void updatePreviewSegment(const mulan::math::Point3& start, const mulan::math::Point3& end);
     void clearPreviewSegment(bool refresh = true);
-    void commitCurveSegment(const mulan::math::Point3& start, const mulan::math::Point3& end);
     bool hasModalOperator() const;
 
     mulan::view::ViewContext view_context_;
@@ -80,6 +77,4 @@ private:
     QPoint press_pos_;
     bool left_press_pending_ = false;
     bool left_press_dragged_ = false;
-
-    int curve_segment_counter_ = 1;
 };
