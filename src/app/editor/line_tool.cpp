@@ -27,6 +27,10 @@ bool isMouseMove(const engine::InputEvent& event) {
     return event.type == engine::InputEvent::Type::MouseMove;
 }
 
+bool isLineEvent(const engine::InputEvent& event) {
+    return isLeftPress(event) || isRightPress(event) || isMouseMove(event);
+}
+
 }  // namespace
 
 void LineTool::begin(ToolContext& context) {
@@ -40,8 +44,12 @@ ToolInputResult LineTool::handleInput(ToolContext& context, const EditorInput& i
         return ToolInputResult::Cancelled;
     }
 
+    if (!isLineEvent(input.event)) {
+        return ToolInputResult::Ignored;
+    }
+
     if (!input.workPoint) {
-        return input.event.isMouseEvent() ? ToolInputResult::Consumed : ToolInputResult::Ignored;
+        return ToolInputResult::Consumed;
     }
 
     if (isMouseMove(input.event) && step_ == Step::SecondPoint) {
@@ -53,7 +61,7 @@ ToolInputResult LineTool::handleInput(ToolContext& context, const EditorInput& i
         return acceptPoint(context, *input.workPoint);
     }
 
-    return input.event.isMouseEvent() ? ToolInputResult::Consumed : ToolInputResult::Ignored;
+    return ToolInputResult::Consumed;
 }
 
 void LineTool::end(ToolContext& context, ToolFinishReason reason) {
