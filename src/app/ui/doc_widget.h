@@ -6,15 +6,14 @@
  */
 #pragma once
 
-#include "document_view_binding.h"
+#include "document_view.h"
 
 #include <QWidget>
 #include <QPoint>
 #include <QPointF>
 
 #include <mulan/engine/interaction/input_event.h>
-#include <mulan/scene/entity_id.h>
-#include <mulan/view/view_context.h>
+#include <mulan/view/view_config.h>
 
 class DocumentSession;
 
@@ -32,10 +31,10 @@ public:
 
     void init();
     void requestFrame();
-    void fitAll();
-    void startDrawLine();
 
-    mulan::view::ViewContext& viewContext() { return view_context_; }
+    DocumentView& documentView() { return document_view_; }
+    const DocumentView& documentView() const { return document_view_; }
+    mulan::view::ViewContext& viewContext() { return document_view_.viewContext(); }
 
 protected:
     void resizeEvent(QResizeEvent* e) override;
@@ -66,13 +65,11 @@ private:
     mulan::engine::InputEvent makeWheelEvent(const QWheelEvent& e) const;
     void updateHoverAtFramebuffer(const QPointF& framebufferPos);
     void selectAtFramebuffer(const QPointF& framebufferPos);
-    void clearPreviewSegment(bool refresh = true);
+    void clearPreview(bool refresh = true);
     bool hasModalOperator() const;
 
-    mulan::view::ViewContext view_context_;
+    DocumentView document_view_;
     mulan::view::ViewConfig view_config_;
-    DocumentSession* session_ = nullptr;
-    DocumentViewBinding binding_;
 
     QPoint press_pos_;
     bool left_press_pending_ = false;

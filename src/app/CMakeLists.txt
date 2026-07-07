@@ -4,9 +4,16 @@ set(CMAKE_AUTORCC ON)
 
 add_executable(${PROJECT_NAME}
     main.cpp
+    command/command.h
+    command/command_manager.h
+    command/command_manager.cpp
+    command/builtin_commands.h
+    command/builtin_commands.cpp
     resource/icon.qrc
     ui/document_session.h
     ui/document_session.cpp
+    ui/document_view.h
+    ui/document_view.cpp
     ui/document_view_binding.h
     ui/document_view_binding.cpp
     ui/document_area.h

@@ -23,12 +23,11 @@ DocWidget::DocWidget(QWidget* parent) : QWidget(parent) {
 }
 
 DocWidget::~DocWidget() {
-    clearPreviewSegment(false);
-    binding_.unbind();
+    clearPreview(false);
 }
 
 void DocWidget::init() {
-    if (view_context_.isInitialized())
+    if (document_view_.isInitialized())
         return;
 
     // 从全局设置读取后端 / MSAA / VSync 等配置。
@@ -43,27 +42,22 @@ void DocWidget::init() {
     const qreal dpr = devicePixelRatioF();
     const int pw = static_cast<int>(width() * dpr);
     const int ph = static_cast<int>(height() * dpr);
-    if (!view_context_.init(view_config_, pw, ph))
-        return;
-
-    if (session_) {
-        binding_.bind(*session_, view_context_);
-    }
+    document_view_.init(view_config_, pw, ph);
 }
 
 void DocWidget::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);
-    if (view_context_.isInitialized()) {
+    if (document_view_.isInitialized()) {
         const qreal dpr = devicePixelRatioF();
         const int pw = static_cast<int>(width() * dpr);
         const int ph = static_cast<int>(height() * dpr);
-        view_context_.resize(pw, ph);
+        document_view_.resize(pw, ph);
         requestFrame();
     }
 }
 
 void DocWidget::paintEvent(QPaintEvent*) {
-    if (view_context_.isInitialized())
+    if (document_view_.isInitialized())
         requestFrame();
 }
 
@@ -75,14 +69,14 @@ void DocWidget::mousePressEvent(QMouseEvent* e) {
     }
 
     auto ev = makeMousePressEvent(*e);
-    view_context_.handleInput(ev);
+    document_view_.handleInput(ev);
     requestFrame();
 }
 
 void DocWidget::mouseReleaseEvent(QMouseEvent* e) {
     const bool modalWasActive = hasModalOperator();
     auto ev = makeMouseReleaseEvent(*e);
-    view_context_.handleInput(ev);
+    document_view_.handleInput(ev);
 
     if (e->button() == Qt::LeftButton && left_press_pending_) {
         if (!left_press_dragged_ && !modalWasActive) {
@@ -100,13 +94,13 @@ void DocWidget::mouseMoveEvent(QMouseEvent* e) {
     }
 
     auto ev = makeMouseMoveEvent(*e);
-    view_context_.handleInput(ev);
+    document_view_.handleInput(ev);
 
     if (e->buttons() == Qt::NoButton && !hasModalOperator()) {
-        if (!view_context_.hasHoveredViewCubeFace()) {
+        if (!document_view_.viewContext().hasHoveredViewCubeFace()) {
             updateHoverAtFramebuffer(framebufferPosition(e->pos()));
         } else {
-            view_context_.clearHoveredPickId();
+            document_view_.viewContext().clearHoveredPickId();
         }
     }
     requestFrame();
@@ -114,63 +108,46 @@ void DocWidget::mouseMoveEvent(QMouseEvent* e) {
 
 void DocWidget::mouseDoubleClickEvent(QMouseEvent* e) {
     auto ev = makeMouseDoubleClickEvent(*e);
-    view_context_.handleInput(ev);
+    document_view_.handleInput(ev);
     requestFrame();
 }
 
 void DocWidget::wheelEvent(QWheelEvent* e) {
     auto ev = makeWheelEvent(*e);
-    view_context_.handleInput(ev);
+    document_view_.handleInput(ev);
     requestFrame();
 }
 
 void DocWidget::keyPressEvent(QKeyEvent* e) {
     auto ev = InputEvent::keyPress(translateKey(e->key()), translateModifiers(e->modifiers()));
-    view_context_.handleInput(ev);
+    document_view_.handleInput(ev);
     requestFrame();
 }
 
 void DocWidget::keyReleaseEvent(QKeyEvent* e) {
     auto ev = InputEvent::keyRelease(translateKey(e->key()), translateModifiers(e->modifiers()));
-    view_context_.handleInput(ev);
+    document_view_.handleInput(ev);
     requestFrame();
 }
 
 void DocWidget::leaveEvent(QEvent* e) {
     QWidget::leaveEvent(e);
-    view_context_.clearHoveredPickId();
-    view_context_.clearViewCubeInteraction();
+    document_view_.viewContext().clearHoveredPickId();
+    document_view_.viewContext().clearViewCubeInteraction();
     requestFrame();
 }
 
 void DocWidget::setDocumentSession(DocumentSession* session) {
-    clearPreviewSegment(false);
-    binding_.unbind();
-    session_ = session;
-
-    if (view_context_.isInitialized() && session_) {
-        binding_.bind(*session_, view_context_);
+    document_view_.setDocumentSession(session);
+    if (document_view_.isInitialized() && session) {
         requestFrame();
     }
 }
 
 void DocWidget::requestFrame() {
-    if (view_context_.isInitialized() && isVisible()) {
-        view_context_.renderFrame();
+    if (document_view_.isInitialized() && isVisible()) {
+        document_view_.renderFrame();
     }
-}
-
-void DocWidget::fitAll() {
-    if (!view_context_.isInitialized())
-        return;
-    if (!session_)
-        return;
-
-    binding_.fitAll();
-}
-
-void DocWidget::startDrawLine() {
-    clearPreviewSegment(false);
 }
 
 QPoint DocWidget::framebufferEventPosition(const QPointF& pos) const {
@@ -227,43 +204,22 @@ InputEvent DocWidget::makeWheelEvent(const QWheelEvent& e) const {
 }
 
 void DocWidget::updateHoverAtFramebuffer(const QPointF& framebufferPos) {
-    if (!binding_.isBound()) {
-        view_context_.clearHoveredPickId();
-        return;
-    }
-
-    const auto hit = binding_.pickEntityAt(view_context_.camera(), framebufferPos.x(), framebufferPos.y());
-    if (hit) {
-        view_context_.setHoveredPickId(hit->pickId);
-    } else {
-        view_context_.clearHoveredPickId();
-    }
+    document_view_.updateHoverAtFramebuffer(framebufferPos.x(), framebufferPos.y());
 }
 
 void DocWidget::selectAtFramebuffer(const QPointF& framebufferPos) {
-    if (!binding_.isBound()) {
-        return;
-    }
-
-    const auto hit = binding_.pickEntityAt(view_context_.camera(), framebufferPos.x(), framebufferPos.y());
-    if (hit) {
-        view_context_.setHoveredPickId(hit->pickId);
-        binding_.selectSingle(hit->entity);
-    } else {
-        view_context_.clearHoveredPickId();
-        binding_.clearSelection();
-    }
+    document_view_.selectAtFramebuffer(framebufferPos.x(), framebufferPos.y());
 }
 
-void DocWidget::clearPreviewSegment(bool refresh) {
-    view_context_.clearPreview();
+void DocWidget::clearPreview(bool refresh) {
+    document_view_.viewContext().clearPreview();
     if (refresh) {
         requestFrame();
     }
 }
 
 bool DocWidget::hasModalOperator() const {
-    return view_context_.activeOperator() != view_context_.defaultOperator();
+    return document_view_.hasModalOperator();
 }
 
 mulan::engine::MouseButton DocWidget::translateButton(Qt::MouseButton btn) {

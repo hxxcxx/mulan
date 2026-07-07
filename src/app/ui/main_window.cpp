@@ -3,6 +3,7 @@
 #include "doc_widget.h"
 #include "document_session.h"
 #include "engine_settings_dialog.h"
+#include "command/builtin_commands.h"
 
 #include <mulan/io/file_manager.h>
 #include <mulan/io/import_result.h>
@@ -51,6 +52,7 @@ MainWindow::MainWindow(QWidget* parent) : SARibbonMainWindow(parent) {
     // 中央多文档区
     doc_area_ = new DocumentArea(this);
     setCentralWidget(doc_area_);
+    mulan::app::registerBuiltinCommands(command_manager_);
 
     connect(doc_area_, &DocumentArea::currentDocumentChanged, this, &MainWindow::onCurrentDocumentChanged);
 
@@ -96,10 +98,8 @@ void MainWindow::buildRibbonHomeCategory() {
 
     panel_draw_ = new SARibbonPanel(tr("Draw"), category_home_);
     action_draw_line_ = new QAction(QIcon(":/app/bright/icon/link.svg"), tr("Line"), this);
-    connect(action_draw_line_, &QAction::triggered, this, [this]() {
-        if (auto* doc = doc_area_->currentDocWidget())
-            doc->startDrawLine();
-    });
+    connect(action_draw_line_, &QAction::triggered, this,
+            [this]() { command_manager_.execute("draw.line", currentCommandHost()); });
     panel_draw_->addLargeAction(action_draw_line_);
     category_home_->addPanel(panel_draw_);
 
@@ -107,10 +107,8 @@ void MainWindow::buildRibbonHomeCategory() {
     panel_view_ = new SARibbonPanel(tr("Navigation"), category_home_);
     action_fit_all_ = new QAction(QIcon(":/app/bright/icon/fitall.svg"), tr("Fit All"), this);
     action_fit_all_->setShortcut(Qt::Key_F);
-    connect(action_fit_all_, &QAction::triggered, this, [this]() {
-        if (auto* doc = doc_area_->currentDocWidget())
-            doc->fitAll();
-    });
+    connect(action_fit_all_, &QAction::triggered, this,
+            [this]() { command_manager_.execute("view.fitAll", currentCommandHost()); });
     panel_view_->addLargeAction(action_fit_all_);
     category_home_->addPanel(panel_view_);
 
@@ -226,6 +224,11 @@ void MainWindow::buildRightButtonBar() {
 //===================================================
 // 文档操作
 //===================================================
+
+mulan::app::CommandHost MainWindow::currentCommandHost() const {
+    auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
+    return mulan::app::CommandHost(doc ? &doc->documentView() : nullptr);
+}
 
 void MainWindow::onCurrentDocumentChanged(const QString& name) {
     if (name.isEmpty()) {

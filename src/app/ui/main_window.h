@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include "command/command_manager.h"
+
 #include <SARibbon.h>
 #include <mulan/io/file_manager.h>
 #include <mulan/view/view_state.h>
@@ -36,6 +38,7 @@ private:
     void setCurrentRenderMode(mulan::view::RenderMode mode);
     void setCurrentSurfaceShading(mulan::view::SurfaceShading shading);
     void updateDisplayActions();
+    mulan::app::CommandHost currentCommandHost() const;
 
     void dragEnterEvent(QDragEnterEvent* e) override;
     void dropEvent(QDropEvent* e) override;
@@ -45,6 +48,7 @@ private:
 
     // --- 文档管理 ---
     mulan::io::FileManager doc_manager_;
+    mulan::app::CommandManager command_manager_;
 
     // --- Actions ---
     QAction* action_new_ = nullptr;
