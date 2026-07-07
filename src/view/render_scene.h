@@ -74,6 +74,7 @@ private:
     math::AABB3 scene_bounds_;
     std::unordered_map<scene::EntityId, SceneProxy> proxies_;
     std::vector<engine::Light> lights_;
+    const asset::AssetLibrary* assets_ = nullptr;
     bool initialized_ = false;  // 首次 sync 全量，之后增量
 };
 

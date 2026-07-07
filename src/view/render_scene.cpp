@@ -1,6 +1,8 @@
 #include "render_scene.h"
 
 #include <mulan/asset/asset_library.h>
+#include <mulan/asset/mesh_asset.h>
+#include <mulan/asset/tessellated_asset.h>
 #include <mulan/scene/components/bounds_component.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/components/light_component.h>
@@ -10,6 +12,9 @@
 #include <mulan/scene/entity_dirty.h>
 #include <mulan/scene/scene.h>
 #include <mulan/math/algo/intersect.h>
+
+#include <cstring>
+#include <limits>
 
 namespace mulan::view {
 
@@ -51,6 +56,137 @@ void collectLights(const scene::Scene& scene, std::vector<engine::Light>& lights
     });
 }
 
+struct MeshPickResult {
+    bool tested = false;
+    std::optional<double> distance;
+};
+
+bool readPosition(const graphics::Mesh& mesh, uint32_t vertexIndex, math::Point3& out) {
+    const auto* position = mesh.layout.find(graphics::VertexSemantic::Position);
+    if (!position ||
+        (position->format != graphics::VertexFormat::Float3 && position->format != graphics::VertexFormat::Float4)) {
+        return false;
+    }
+
+    const uint32_t stride = mesh.vertexStride();
+    if (stride == 0 || vertexIndex >= mesh.vertexCount()) {
+        return false;
+    }
+
+    const size_t byteOffset = static_cast<size_t>(vertexIndex) * stride + position->offset;
+    if (byteOffset + position->size() > mesh.vertices.size()) {
+        return false;
+    }
+
+    float data[4]{};
+    std::memcpy(data, mesh.vertices.data() + byteOffset, position->size());
+    out = math::Point3(static_cast<double>(data[0]), static_cast<double>(data[1]), static_cast<double>(data[2]));
+    return true;
+}
+
+bool readIndex(const graphics::Mesh& mesh, uint32_t indexIndex, uint32_t& out) {
+    const uint32_t indexSize = graphics::indexTypeSize(mesh.indexType);
+    const size_t byteOffset = static_cast<size_t>(indexIndex) * indexSize;
+    if (indexSize == 0 || byteOffset + indexSize > mesh.indices.size()) {
+        return false;
+    }
+
+    if (mesh.indexType == graphics::IndexType::UInt16) {
+        uint16_t value = 0;
+        std::memcpy(&value, mesh.indices.data() + byteOffset, sizeof(value));
+        out = value;
+        return true;
+    }
+
+    uint32_t value = 0;
+    std::memcpy(&value, mesh.indices.data() + byteOffset, sizeof(value));
+    out = value;
+    return true;
+}
+
+bool readTriangle(const graphics::Mesh& mesh, uint32_t triangleIndex, math::Point3& v0, math::Point3& v1,
+                  math::Point3& v2) {
+    if (mesh.topology != graphics::PrimitiveTopology::TriangleList) {
+        return false;
+    }
+
+    uint32_t i0 = triangleIndex * 3;
+    uint32_t i1 = i0 + 1;
+    uint32_t i2 = i0 + 2;
+    if (!mesh.indices.empty()) {
+        if (!readIndex(mesh, i0, i0) || !readIndex(mesh, i1, i1) || !readIndex(mesh, i2, i2)) {
+            return false;
+        }
+    }
+
+    return readPosition(mesh, i0, v0) && readPosition(mesh, i1, v1) && readPosition(mesh, i2, v2);
+}
+
+MeshPickResult pickMesh(const math::Ray3& worldRay, const graphics::Mesh& mesh, const math::Mat4& worldTransform) {
+    MeshPickResult result;
+    if (mesh.empty() || mesh.topology != graphics::PrimitiveTopology::TriangleList ||
+        !mesh.layout.has(graphics::VertexSemantic::Position)) {
+        return result;
+    }
+
+    const uint32_t triangleCount = !mesh.indices.empty() ? mesh.indexCount() / 3 : mesh.vertexCount() / 3;
+    if (triangleCount == 0) {
+        return result;
+    }
+
+    result.tested = true;
+    const math::Ray3 localRay = worldRay.transformed(worldTransform.inverse());
+
+    double bestDistance = std::numeric_limits<double>::max();
+    for (uint32_t tri = 0; tri < triangleCount; ++tri) {
+        math::Point3 v0;
+        math::Point3 v1;
+        math::Point3 v2;
+        if (!readTriangle(mesh, tri, v0, v1, v2)) {
+            continue;
+        }
+
+        const auto hit = math::intersect(localRay, v0, v1, v2);
+        if (!hit.hit) {
+            continue;
+        }
+
+        const math::Point3 worldPoint = hit.point.transformedBy(worldTransform);
+        const double worldDistance = (worldPoint - worldRay.origin).length();
+        if (worldDistance < bestDistance) {
+            bestDistance = worldDistance;
+        }
+    }
+
+    if (bestDistance < std::numeric_limits<double>::max()) {
+        result.distance = bestDistance;
+    }
+    return result;
+}
+
+MeshPickResult pickMeshAsset(const math::Ray3& ray, const asset::MeshAsset& asset, const math::Mat4& worldTransform) {
+    MeshPickResult result;
+    for (const auto& primitive : asset.primitives()) {
+        const MeshPickResult primitiveHit = pickMesh(ray, primitive.mesh, worldTransform);
+        result.tested = result.tested || primitiveHit.tested;
+        if (primitiveHit.distance && (!result.distance || *primitiveHit.distance < *result.distance)) {
+            result.distance = primitiveHit.distance;
+        }
+    }
+    return result;
+}
+
+MeshPickResult pickGeometryAsset(const math::Ray3& ray, const asset::Asset& asset, const math::Mat4& worldTransform) {
+    if (const auto* meshAsset = dynamic_cast<const asset::MeshAsset*>(&asset)) {
+        return pickMeshAsset(ray, *meshAsset, worldTransform);
+    }
+
+    if (const auto* tessellated = dynamic_cast<const asset::TessellatedAsset*>(&asset)) {
+        return pickMesh(ray, tessellated->solidMesh(), worldTransform);
+    }
+
+    return {};
+}
 /// 从 Scene 单个 entity 的组件派生一份 SceneProxy（不参与 bounds 累加）。
 /// geometry 缺失时返回 std::nullopt（该 entity 不可渲染）。
 /// worldBounds 由 asset 的 localBounds 经 world 矩阵变换重算 —— 这样 transform
@@ -93,6 +229,7 @@ std::optional<SceneProxy> buildProxy(const scene::Scene& scene, const asset::Ass
 // ============================================================
 
 void RenderScene::sync(scene::Scene& scene, const asset::AssetLibrary& assets) {
+    assets_ = &assets;
     collectLights(scene, lights_);
 
     if (!initialized_) {
@@ -177,6 +314,7 @@ void RenderScene::clear() {
     scene_bounds_.reset();
     proxies_.clear();
     lights_.clear();
+    assets_ = nullptr;
     initialized_ = false;
 }
 
@@ -192,16 +330,30 @@ std::optional<RenderScene::PickResult> RenderScene::pick(const math::Ray3& ray) 
             continue;
         }
 
-        const auto hit = math::intersect(ray, proxy.worldBounds);
-        if (!hit.hit) {
+        const auto boundsHit = math::intersect(ray, proxy.worldBounds);
+        if (!boundsHit.hit) {
             continue;
         }
 
-        if (!best || hit.t < best->distance) {
+        double distance = boundsHit.t;
+        if (assets_) {
+            const asset::Asset* geometryAsset = assets_->asset(proxy.geometry);
+            if (geometryAsset) {
+                const MeshPickResult meshHit = pickGeometryAsset(ray, *geometryAsset, proxy.worldTransform);
+                if (meshHit.tested) {
+                    if (!meshHit.distance) {
+                        continue;
+                    }
+                    distance = *meshHit.distance;
+                }
+            }
+        }
+
+        if (!best || distance < best->distance) {
             best = PickResult{
                 .entity = id,
                 .pickId = proxy.entity.index(),
-                .distance = hit.t,
+                .distance = distance,
             };
         }
     }
