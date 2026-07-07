@@ -9,6 +9,13 @@ add_executable(${PROJECT_NAME}
     command/command_manager.cpp
     command/builtin_commands.h
     command/builtin_commands.cpp
+    editor/editor_input.h
+    editor/editor_tool.h
+    editor/editor_tool.cpp
+    editor/tool_controller.h
+    editor/tool_controller.cpp
+    editor/line_tool.h
+    editor/line_tool.cpp
     resource/icon.qrc
     ui/document_session.h
     ui/document_session.cpp

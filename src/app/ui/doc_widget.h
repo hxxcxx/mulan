@@ -74,4 +74,5 @@ private:
     QPoint press_pos_;
     bool left_press_pending_ = false;
     bool left_press_dragged_ = false;
+    bool left_press_started_modal_ = false;
 };

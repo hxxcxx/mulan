@@ -66,6 +66,7 @@ void DocWidget::mousePressEvent(QMouseEvent* e) {
         press_pos_ = e->pos();
         left_press_pending_ = true;
         left_press_dragged_ = false;
+        left_press_started_modal_ = hasModalOperator();
     }
 
     auto ev = makeMousePressEvent(*e);
@@ -79,11 +80,12 @@ void DocWidget::mouseReleaseEvent(QMouseEvent* e) {
     document_view_.handleInput(ev);
 
     if (e->button() == Qt::LeftButton && left_press_pending_) {
-        if (!left_press_dragged_ && !modalWasActive) {
+        if (!left_press_dragged_ && !modalWasActive && !left_press_started_modal_) {
             selectAtFramebuffer(framebufferPosition(e->pos()));
         }
         left_press_pending_ = false;
         left_press_dragged_ = false;
+        left_press_started_modal_ = false;
     }
     requestFrame();
 }

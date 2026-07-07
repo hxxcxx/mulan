@@ -10,6 +10,8 @@
 
 #include "command_manager.h"
 
+#include "editor/line_tool.h"
+
 #include "ui/document_view.h"
 
 #include <memory>
@@ -42,11 +44,11 @@ public:
 protected:
     CommandOutcome perform(CommandHost& host) override {
         DocumentView* view = host.documentView();
-        if (!view || !view->isInitialized()) {
+        if (!view || !view->isInitialized() || !view->session()) {
             return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active document view"));
         }
 
-        view->viewContext().clearPreview();
+        view->startTool(std::make_unique<LineTool>());
         return {};
     }
 };

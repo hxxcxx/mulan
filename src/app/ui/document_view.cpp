@@ -13,6 +13,8 @@
 DocumentView::DocumentView() = default;
 
 DocumentView::~DocumentView() {
+    auto context = toolContext();
+    tool_controller_.clear(context, mulan::app::ToolFinishReason::Cancelled);
     view_context_.clearPreview();
     binding_.unbind();
 }
@@ -45,6 +47,8 @@ void DocumentView::renderFrame() {
 }
 
 void DocumentView::setDocumentSession(DocumentSession* session) {
+    auto context = toolContext();
+    tool_controller_.clear(context, mulan::app::ToolFinishReason::Cancelled);
     view_context_.clearPreview();
     binding_.unbind();
     session_ = session;
@@ -54,7 +58,19 @@ void DocumentView::setDocumentSession(DocumentSession* session) {
     }
 }
 
+void DocumentView::startTool(std::unique_ptr<mulan::app::EditorTool> tool) {
+    auto context = toolContext();
+    tool_controller_.start(std::move(tool), context);
+}
+
 void DocumentView::handleInput(const mulan::engine::InputEvent& event) {
+    if (tool_controller_.hasActiveTool()) {
+        auto context = toolContext();
+        if (tool_controller_.handleInput(context, makeEditorInput(event))) {
+            return;
+        }
+    }
+
     view_context_.handleInput(event);
 }
 
@@ -88,5 +104,23 @@ void DocumentView::selectAtFramebuffer(double x, double y) {
 }
 
 bool DocumentView::hasModalOperator() const {
-    return view_context_.activeOperator() != view_context_.defaultOperator();
+    return tool_controller_.hasActiveTool() || view_context_.activeOperator() != view_context_.defaultOperator();
+}
+
+mulan::app::ToolContext DocumentView::toolContext() {
+    return mulan::app::ToolContext(session_, &view_context_, &binding_);
+}
+
+mulan::app::EditorInput DocumentView::makeEditorInput(const mulan::engine::InputEvent& event) const {
+    mulan::app::EditorInput input;
+    input.event = event;
+    input.cursorRay = view_context_.camera().screenRay(event.x, event.y);
+    input.workPlane = mulan::math::Plane3::fromPointNormal(mulan::math::Point3::origin(), mulan::math::Vec3::unitZ());
+
+    const mulan::math::Hit3 hit = mulan::math::intersect(input.cursorRay, input.workPlane);
+    if (hit.hit) {
+        input.workPoint = hit.point;
+    }
+
+    return input;
 }
