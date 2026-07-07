@@ -8,6 +8,7 @@
 #include "render_runtime_host.h"
 #include "view_config.h"
 #include "view_state.h"
+#include "preview_layer.h"
 
 #include "capture_batch.h"
 
@@ -75,6 +76,10 @@ public:
     const engine::LightEnvironment& lightEnvironment() const { return light_env_; }
     void setSceneLights(std::span<const engine::Light> lights);
 
+    PreviewLayer& previewLayer() { return preview_layer_; }
+    const PreviewLayer& previewLayer() const { return preview_layer_; }
+    void clearPreview();
+
     RenderMode renderMode() const { return render_mode_; }
     void setRenderMode(RenderMode mode) { render_mode_ = mode; }
 
@@ -134,6 +139,7 @@ private:
     std::vector<std::unique_ptr<engine::Operator>> op_stack_;
 
     engine::LightEnvironment light_env_;
+    PreviewLayer preview_layer_;
     RenderMode render_mode_ = RenderMode::ShadedWithEdges;
     SurfaceShading surface_shading_ = SurfaceShading::SolidLit;
     uint32_t hovered_pick_id_ = 0;

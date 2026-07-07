@@ -50,7 +50,7 @@ public:
     /// 几何：按 key 查询，命中即返；miss 才用 mesh 上传（mesh 仅 miss 时被读）。
     /// key 由调用方（view 层）按资产身份生成，本层只校验有效性，不解释 asset 语义。
     /// mesh 指向资产持有的稳定存储（文档存活期有效），上传后本层不持有该指针。
-    const GpuGeometry* acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh);
+    const GpuGeometry* acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh, bool forceUpdate = false);
 
     /// 贴图：按资产身份 + 加载意图去重，命中即返；miss 时上传 decoded image。
     Texture* acquireTexture(AssetGpuKey key, const core::Image& image, const TextureLoadOptions& options = {});

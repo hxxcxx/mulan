@@ -16,14 +16,16 @@ class AssetLibrary;
 
 namespace mulan::view {
 class RenderScene;
-}
+class PreviewLayer;
+}  // namespace mulan::view
 
 namespace mulan::view {
 
 class RenderWorldSync {
 public:
-    void rebuild(const RenderScene& scene, const asset::AssetLibrary& assets, engine::RenderWorld& world,
-                 engine::RenderResourcePrepareList* prepare = nullptr) const;
+    void rebuild(const RenderScene& scene, const asset::AssetLibrary& assets, const PreviewLayer* preview,
+                 engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare = nullptr,
+                 bool forceSceneGeometryUpdate = false) const;
 };
 
 }  // namespace mulan::view

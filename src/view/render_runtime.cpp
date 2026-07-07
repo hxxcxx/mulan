@@ -109,6 +109,10 @@ void RenderRuntime::setRenderScene(const RenderScene* scene, const asset::AssetL
     renderer_.setScene(device_.get(), scene, assets);
 }
 
+void RenderRuntime::setPreviewLayer(const PreviewLayer* preview) {
+    renderer_.setPreviewLayer(preview);
+}
+
 void RenderRuntime::render(const ViewState& viewState) {
     if (!initialized_ || !device_) {
         return;

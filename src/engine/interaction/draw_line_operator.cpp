@@ -14,7 +14,7 @@ void DrawLineOperator::onDeactivate(Camera& cam) {
     clearPreview();
     camera_op_.onDeactivate(cam);
     camera_op_.setState(State::Inactive);
-    first_point_.reset();
+    draft_.reset();
 }
 
 bool DrawLineOperator::onMousePress(const InputEvent& e, Camera& cam) {
@@ -27,22 +27,24 @@ bool DrawLineOperator::onMousePress(const InputEvent& e, Camera& cam) {
         return true;
     }
 
-    if (!first_point_) {
-        first_point_ = *point;
+    if (!draft_.hasStart()) {
+        draft_.begin(*point);
         updatePreview(*point);
         return true;
     }
 
+    draft_.update(*point);
+    const auto segment = draft_.segment();
     clearPreview();
-    if (commit_callback_) {
-        commit_callback_(*first_point_, *point);
+    if (commit_callback_ && segment) {
+        commit_callback_(segment->start, segment->end);
     }
     finish(true);
     return true;
 }
 
 bool DrawLineOperator::onMouseMove(const InputEvent& e, Camera& cam) {
-    if (!first_point_) {
+    if (!draft_.hasStart()) {
         return false;
     }
 
@@ -87,8 +89,10 @@ std::optional<math::Point3> DrawLineOperator::resolvePoint(const InputEvent& e, 
 }
 
 void DrawLineOperator::updatePreview(const math::Point3& current) {
-    if (preview_callback_ && first_point_) {
-        preview_callback_(*first_point_, current);
+    draft_.update(current);
+    const auto segment = draft_.segment();
+    if (preview_callback_ && segment) {
+        preview_callback_(segment->start, segment->end);
     }
 }
 
@@ -100,7 +104,7 @@ void DrawLineOperator::clearPreview() {
 
 void DrawLineOperator::cancel() {
     clearPreview();
-    first_point_.reset();
+    draft_.reset();
     finish(false);
 }
 

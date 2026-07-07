@@ -30,6 +30,9 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
                     edges_.push_back(item);
                 break;
             case RenderBucket::Overlay:
+                if (options.showOverlays)
+                    edges_.push_back(item);
+                break;
             case RenderBucket::Gizmo:
             case RenderBucket::Text: break;
             }

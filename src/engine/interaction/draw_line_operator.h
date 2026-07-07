@@ -10,6 +10,7 @@
 #pragma once
 
 #include "camera_manipulator.h"
+#include "draft.h"
 #include "operator.h"
 #include "work_plane.h"
 
@@ -58,7 +59,7 @@ private:
 
     CameraManipulator camera_op_;
     WorkPlane work_plane_ = WorkPlane::worldXY();
-    std::optional<math::Point3> first_point_;
+    LineDraft draft_;
 };
 
 }  // namespace mulan::engine

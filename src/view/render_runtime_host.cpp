@@ -27,6 +27,10 @@ void RenderRuntimeHost::setRenderScene(const RenderScene* scene, const asset::As
     runtime_.setRenderScene(scene, assets);
 }
 
+void RenderRuntimeHost::setPreviewLayer(const PreviewLayer* preview) {
+    runtime_.setPreviewLayer(preview);
+}
+
 void RenderRuntimeHost::render(const ViewState& viewState) {
     runtime_.render(viewState);
 }

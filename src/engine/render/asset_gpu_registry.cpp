@@ -18,13 +18,13 @@ AssetGpuRegistry::GpuTextureResource::GpuTextureResource(std::unique_ptr<Texture
     }
 }
 
-const GpuGeometry* AssetGpuRegistry::acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh) {
+const GpuGeometry* AssetGpuRegistry::acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh, bool forceUpdate) {
     if (!key) {
         return nullptr;
     }
 
     if (auto it = geometries_.find(key); it != geometries_.end()) {
-        if (it->second.isValid()) {
+        if (!forceUpdate) {
             return &it->second;
         }
 

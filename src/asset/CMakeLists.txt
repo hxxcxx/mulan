@@ -2,7 +2,8 @@
 add_library(asset STATIC
     asset.cpp
     asset_library.cpp
-    sketch_asset.cpp
+    curve_asset.cpp
+    curve_mesh_builder.cpp
 )
 
 file(GLOB_RECURSE ASSET_HEADERS

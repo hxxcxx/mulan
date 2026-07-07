@@ -4,6 +4,7 @@
 # 形态：STATIC 库。模板类/轻量 inline 保留在头文件，非模板重型实现移至 .cpp。
 add_library(math STATIC
     # 非模板重型实现分离编译
+    geom/curve_geometry.h
     algo/intersect.cpp
     algo2d/convex_hull.cpp
     algo2d/triangulation.cpp

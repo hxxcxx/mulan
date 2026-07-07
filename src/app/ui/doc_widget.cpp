@@ -3,6 +3,7 @@
 #include "engine_settings.h"
 
 #include <mulan/engine/interaction/draw_line_operator.h>
+#include <mulan/io/document_editor.h>
 
 #include <QShowEvent>
 #include <QResizeEvent>
@@ -28,7 +29,7 @@ DocWidget::DocWidget(QWidget* parent) : QWidget(parent) {
 }
 
 DocWidget::~DocWidget() {
-    clearPreviewLine(false);
+    clearPreviewSegment(false);
     binding_.unbind();
 }
 
@@ -149,7 +150,7 @@ void DocWidget::leaveEvent(QEvent* e) {
 }
 
 void DocWidget::setDocumentSession(DocumentSession* session) {
-    clearPreviewLine(false);
+    clearPreviewSegment(false);
     binding_.unbind();
     session_ = session;
 
@@ -181,11 +182,12 @@ void DocWidget::startDrawLine() {
 
     auto op = std::make_unique<mulan::engine::DrawLineOperator>();
     op->setPreviewCallback([this](const mulan::math::Point3& start, const mulan::math::Point3& end) {
-        updatePreviewLine(start, end);
+        updatePreviewSegment(start, end);
     });
-    op->setClearPreviewCallback([this]() { clearPreviewLine(); });
-    op->setCommitCallback(
-            [this](const mulan::math::Point3& start, const mulan::math::Point3& end) { commitSketchLine(start, end); });
+    op->setClearPreviewCallback([this]() { clearPreviewSegment(); });
+    op->setCommitCallback([this](const mulan::math::Point3& start, const mulan::math::Point3& end) {
+        commitCurveSegment(start, end);
+    });
     view_context_.pushOperator(std::move(op));
 }
 
@@ -271,44 +273,28 @@ void DocWidget::selectAtFramebuffer(const QPointF& framebufferPos) {
     }
 }
 
-void DocWidget::updatePreviewLine(const mulan::math::Point3& start, const mulan::math::Point3& end) {
+void DocWidget::updatePreviewSegment(const mulan::math::Point3& start, const mulan::math::Point3& end) {
+    const mulan::math::Segment3 segment(start, end);
+    view_context_.previewLayer().setCurve(mulan::asset::CurvePrimitive::segment(segment));
+    requestFrame();
+}
+
+void DocWidget::clearPreviewSegment(bool refresh) {
+    view_context_.clearPreview();
+    if (refresh) {
+        requestFrame();
+    }
+}
+
+void DocWidget::commitCurveSegment(const mulan::math::Point3& start, const mulan::math::Point3& end) {
     if (!session_ || !session_->document()) {
         return;
     }
 
-    auto* document = session_->document();
-    if (!preview_line_entity_) {
-        preview_line_entity_ = document->addSketchLine("_preview_line", start, end, &preview_line_id_);
-    } else {
-        document->updateSketchLine(preview_line_entity_, preview_line_id_, start, end);
-    }
-    binding_.refresh();
-}
-
-void DocWidget::clearPreviewLine(bool refresh) {
-    if (!preview_line_entity_) {
-        return;
-    }
-
-    if (session_ && session_->document()) {
-        session_->document()->removeSketchEntity(preview_line_entity_);
-    }
-    preview_line_entity_ = mulan::scene::EntityId::invalid();
-    preview_line_id_ = mulan::asset::SketchElementId::invalid();
-
-    if (refresh && binding_.isBound()) {
-        binding_.refresh();
-    }
-}
-
-void DocWidget::commitSketchLine(const mulan::math::Point3& start, const mulan::math::Point3& end) {
-    if (!session_ || !session_->document()) {
-        return;
-    }
-
-    clearPreviewLine(false);
-    const std::string name = "Line " + std::to_string(sketch_line_counter_++);
-    session_->document()->addSketchLine(name, start, end);
+    clearPreviewSegment(false);
+    const std::string name = "Curve " + std::to_string(curve_segment_counter_++);
+    mulan::io::DocumentEditor editor(*session_->document());
+    editor.createCurve(name, mulan::asset::CurvePrimitive::segment(mulan::math::Segment3(start, end)));
     binding_.refresh();
 }
 

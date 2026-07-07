@@ -4,6 +4,7 @@ add_library(view STATIC
     capture_image_encoder.cpp
     capture_request.cpp
     capture_service.cpp
+    preview_layer.cpp
     view_context.cpp
     render_queue.cpp
     render_runtime.cpp

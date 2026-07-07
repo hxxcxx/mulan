@@ -29,6 +29,7 @@ public:
     bool isInitialized() const;
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
+    void setPreviewLayer(const PreviewLayer* preview);
 
     void render(const ViewState& viewState);
     void resize(int width, int height);

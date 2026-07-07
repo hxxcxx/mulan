@@ -28,7 +28,8 @@ class RHIDevice;
 
 namespace mulan::view {
 class RenderScene;
-}
+class PreviewLayer;
+}  // namespace mulan::view
 
 namespace mulan::asset {
 class AssetLibrary;
@@ -54,6 +55,7 @@ public:
     void shutdown(engine::RHIDevice& device);
 
     void setScene(engine::RHIDevice* device, const RenderScene* scene, const asset::AssetLibrary* assets);
+    void setPreviewLayer(const PreviewLayer* preview);
 
     /// 按需烘焙 IBL 三件套（irradiance/prefilter/BRDF LUT）。
     /// 已烘焙过则跳过（幂等）。HDR 文件不存在则静默失败。
@@ -72,6 +74,7 @@ private:
 
     const RenderScene* scene_ = nullptr;
     const asset::AssetLibrary* assets_ = nullptr;
+    const PreviewLayer* preview_ = nullptr;
 
     RenderWorldSync render_world_sync_;
     engine::RenderWorld render_world_;
@@ -80,6 +83,7 @@ private:
     engine::RenderRenderer render_renderer_;
 
     bool world_dirty_ = true;
+    uint64_t synced_preview_generation_ = 0;
     bool resource_prepare_pending_ = false;
     bool initialized_ = false;
 };

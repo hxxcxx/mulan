@@ -34,7 +34,8 @@ class RHIDevice;
 
 namespace mulan::view {
 class RenderScene;
-}
+class PreviewLayer;
+}  // namespace mulan::view
 
 namespace mulan::view {
 
@@ -55,6 +56,7 @@ public:
     bool isInitialized() const { return initialized_; }
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
+    void setPreviewLayer(const PreviewLayer* preview);
 
     void render(const ViewState& viewState);
     void resize(int width, int height);

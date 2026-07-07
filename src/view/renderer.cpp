@@ -5,6 +5,7 @@
  */
 
 #include "renderer.h"
+#include "preview_layer.h"
 #include "render_surface.h"
 
 #include "mulan/engine/rhi/device.h"
@@ -67,6 +68,16 @@ void Renderer::setScene(engine::RHIDevice* device, const RenderScene* scene, con
     world_dirty_ = true;
 }
 
+void Renderer::setPreviewLayer(const PreviewLayer* preview) {
+    if (preview_ == preview) {
+        return;
+    }
+
+    preview_ = preview;
+    synced_preview_generation_ = 0;
+    world_dirty_ = true;
+}
+
 void Renderer::enableIBL(engine::RHIDevice& device, const std::string& hdrPath) {
     render_renderer_.enableIBL(device, hdrPath);
 }
@@ -116,6 +127,13 @@ engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewS
 }
 
 void Renderer::syncEngineWorld() {
+    const uint64_t previewGeneration = preview_ ? preview_->generation() : 0;
+    const bool previewDirty = previewGeneration != synced_preview_generation_;
+    const bool previewOnlyDirty = previewDirty && !world_dirty_;
+    if (previewDirty) {
+        world_dirty_ = true;
+    }
+
     if (!world_dirty_) {
         return;
     }
@@ -129,10 +147,11 @@ void Renderer::syncEngineWorld() {
         return;
     }
 
-    render_world_sync_.rebuild(*scene_, *assets_, render_world_, &resource_prepare_);
+    render_world_sync_.rebuild(*scene_, *assets_, preview_, render_world_, &resource_prepare_, !previewOnlyDirty);
     world_snapshot_ = render_world_.snapshot();
     resource_prepare_pending_ = true;
     world_dirty_ = false;
+    synced_preview_generation_ = previewGeneration;
 }
 
 engine::RenderSurfaceBinding Renderer::surfaceBinding(RenderSurface& surface) const {

@@ -259,7 +259,7 @@ void RenderRenderer::prepareResources(const RenderRequest& request) {
     if (request.prepare) {
         for (const auto& geometry : request.prepare->geometries()) {
             if (geometry.mesh && !geometry.mesh->empty()) {
-                asset_gpu_registry_->acquireGeometry(geometry.resourceKey, *geometry.mesh);
+                asset_gpu_registry_->acquireGeometry(geometry.resourceKey, *geometry.mesh, geometry.forceUpdate);
             }
         }
     }

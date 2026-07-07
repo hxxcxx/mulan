@@ -3,7 +3,6 @@
 #include "shape_render_geometry.h"
 
 #include <mulan/asset/asset_library.h>
-#include <mulan/asset/sketch_asset.h>
 #include <mulan/asset/tessellated_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/scene/components/geometry_component.h>
@@ -60,71 +59,6 @@ scene::EntityId Document::addMesh(std::string name, std::vector<asset::MeshPrimi
     return sceneId;
 }
 
-scene::EntityId Document::addSketchLine(std::string name, const math::Point3& start, const math::Point3& end,
-                                        asset::SketchElementId* outLineId) {
-    std::string sketchName = std::move(name);
-
-    auto* sketch = assets_->create<asset::SketchAsset>(sketchName);
-    if (!sketch)
-        return scene::EntityId::invalid();
-
-    const auto lineId = sketch->addLine(start, end);
-    if (outLineId) {
-        *outLineId = lineId;
-    }
-
-    const auto sceneId = addSceneInstance(sketchName, sketch->id());
-    scene_->setWorldBounds(sceneId, sketch->localBounds());
-    markDirty();
-    return sceneId;
-}
-
-bool Document::updateSketchLine(scene::EntityId entity, asset::SketchElementId lineId, const math::Point3& start,
-                                const math::Point3& end) {
-    if (!scene_ || !assets_ || !scene_->isValid(entity) || !lineId.valid()) {
-        return false;
-    }
-
-    const auto* geometry = scene_->geometry(entity);
-    if (!geometry || !geometry->geometry) {
-        return false;
-    }
-
-    auto* sketch = dynamic_cast<asset::SketchAsset*>(assets_->asset(geometry->geometry));
-    if (!sketch || !sketch->updateLine(lineId, start, end)) {
-        return false;
-    }
-
-    scene_->setWorldBounds(entity, sketch->localBounds());
-    scene_->markDirty(entity, scene::EntityDirty::RenderRelated | scene::EntityDirty::Bounds);
-    markDirty();
-    return true;
-}
-
-bool Document::removeSketchEntity(scene::EntityId entity) {
-    if (!scene_ || !assets_ || !scene_->isValid(entity)) {
-        return false;
-    }
-
-    asset::AssetId geometryId = asset::AssetId::invalid();
-    if (const auto* geometry = scene_->geometry(entity)) {
-        geometryId = geometry->geometry;
-    }
-    if (!geometryId) {
-        return false;
-    }
-
-    const auto* asset = assets_->asset(geometryId);
-    if (!asset || asset->kind() != asset::AssetKind::Sketch) {
-        return false;
-    }
-
-    scene_->destroyEntity(entity);
-    assets_->remove(geometryId);
-    markDirty();
-    return true;
-}
-
 scene::EntityId Document::addSceneInstance(std::string name, asset::AssetId geometry,
                                            std::vector<asset::AssetId> materialSlots) {
     if (!scene_)
@@ -134,6 +68,35 @@ scene::EntityId Document::addSceneInstance(std::string name, asset::AssetId geom
     scene_->setGeometry(id, geometry);
     scene_->setMaterialSlots(id, std::move(materialSlots));
     return id;
+}
+
+bool Document::markGeometryChanged(scene::EntityId entity, const math::AABB3& bounds) {
+    if (!scene_ || !scene_->isValid(entity)) {
+        return false;
+    }
+
+    scene_->setWorldBounds(entity, bounds);
+    scene_->markDirty(entity, scene::EntityDirty::RenderRelated | scene::EntityDirty::Bounds);
+    markDirty();
+    return true;
+}
+
+bool Document::removeEntity(scene::EntityId entity, bool removeGeometryAsset) {
+    if (!scene_ || !assets_ || !scene_->isValid(entity)) {
+        return false;
+    }
+
+    asset::AssetId geometryId = asset::AssetId::invalid();
+    if (const auto* geometry = scene_->geometry(entity)) {
+        geometryId = geometry->geometry;
+    }
+
+    scene_->destroyEntity(entity);
+    if (removeGeometryAsset && geometryId) {
+        assets_->remove(geometryId);
+    }
+    markDirty();
+    return true;
 }
 
 }  // namespace mulan::io

@@ -48,6 +48,7 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
     if (!runtime_host_.initWindow(cfg, width, height, light_env_)) {
         return false;
     }
+    runtime_host_.setPreviewLayer(&preview_layer_);
 
     width_ = static_cast<int>(runtime_host_.surfaceWidth());
     height_ = static_cast<int>(runtime_host_.surfaceHeight());
@@ -68,6 +69,7 @@ bool ViewContext::initOffscreen(int width, int height) {
     if (!runtime_host_.initOffscreen(width, height, light_env_)) {
         return false;
     }
+    runtime_host_.setPreviewLayer(&preview_layer_);
 
     width_ = static_cast<int>(runtime_host_.surfaceWidth());
     height_ = static_cast<int>(runtime_host_.surfaceHeight());
@@ -79,6 +81,7 @@ bool ViewContext::initOffscreen(int width, int height) {
 }
 
 void ViewContext::shutdown() {
+    runtime_host_.setPreviewLayer(nullptr);
     runtime_host_.shutdown();
 }
 
@@ -109,6 +112,10 @@ void ViewContext::setSceneLights(std::span<const engine::Light> lights) {
     for (const auto& light : lights) {
         light_env_.addLight(light);
     }
+}
+
+void ViewContext::clearPreview() {
+    preview_layer_.clear();
 }
 
 void ViewContext::setViewCubeLayout(const engine::ViewCubeLayout& layout) {

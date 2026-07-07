@@ -8,6 +8,7 @@ add_library(io STATIC
     file_manager.cpp
     import_builder.cpp
     document.cpp
+    document_editor.cpp
     shape_render_geometry.cpp
 )
 

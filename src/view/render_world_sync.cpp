@@ -4,6 +4,7 @@
 #include <mulan/asset/geometry_asset.h>
 #include <mulan/asset/material_asset.h>
 #include <mulan/asset/texture_asset.h>
+#include <mulan/view/preview_layer.h>
 #include <mulan/view/render_scene.h>
 #include <mulan/view/scene_proxy.h>
 
@@ -100,10 +101,48 @@ uint64_t drawableGeometryKey(asset::AssetId geometry, size_t drawableIndex) {
     return geometry.value ^ ((static_cast<uint64_t>(drawableIndex) + 1u) << 32u);
 }
 
+void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world,
+                   engine::RenderResourcePrepareList* prepare) {
+    if (!preview || preview->empty()) {
+        return;
+    }
+
+    constexpr uint64_t kPreviewGeometryKey = 0xF000000000000001ull;
+    constexpr uint64_t kPreviewMaterialKey = 0xF000000000000002ull;
+
+    engine::RenderGeometryDesc geometryDesc;
+    geometryDesc.resourceKey = engine::makeAssetGpuKey(kPreviewGeometryKey);
+    geometryDesc.topology = preview->mesh().topology;
+    geometryDesc.empty = preview->mesh().empty();
+    if (prepare) {
+        prepare->addGeometry(geometryDesc.resourceKey, &preview->mesh(), true);
+    }
+
+    engine::RenderMaterialDesc materialDesc;
+    materialDesc.resourceKey = engine::makeAssetGpuKey(kPreviewMaterialKey);
+    materialDesc.material = engine::Material::defaultPBR();
+    materialDesc.material.name = "Preview";
+
+    engine::RenderObjectDesc object;
+    object.externalId = 0;
+    object.worldTransform = math::Mat4(1.0f);
+    object.worldBounds = preview->mesh().bounds;
+    object.visible = true;
+    object.selected = false;
+    object.drawables.push_back(engine::RenderObjectDrawable{
+            .geometry = world.addGeometry(std::move(geometryDesc)),
+            .material = world.addMaterial(std::move(materialDesc)),
+            .bucket = engine::RenderBucket::Overlay,
+            .sourceDrawableIndex = 0,
+    });
+    world.addObject(std::move(object));
+}
+
 }  // namespace
 
-void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrary& assets, engine::RenderWorld& world,
-                              engine::RenderResourcePrepareList* prepare) const {
+void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrary& assets, const PreviewLayer* preview,
+                              engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare,
+                              bool forceSceneGeometryUpdate) const {
     world.clear();
     if (prepare) {
         prepare->clear();
@@ -147,7 +186,7 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
                 geometryDesc.topology = drawable.mesh->topology;                  // 冗余标量，避免渲染端解引用
                 geometryDesc.empty = drawable.mesh->empty();
                 if (prepare) {
-                    prepare->addGeometry(geometryDesc.resourceKey, drawable.mesh);
+                    prepare->addGeometry(geometryDesc.resourceKey, drawable.mesh, forceSceneGeometryUpdate);
                 }
                 geometryIt = geometryHandles.emplace(geometryKey, world.addGeometry(std::move(geometryDesc))).first;
             }
@@ -172,6 +211,8 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
             world.addObject(std::move(object));
         }
     });
+
+    appendPreview(preview, world, prepare);
 }
 
 }  // namespace mulan::view

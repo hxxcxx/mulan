@@ -19,17 +19,18 @@ namespace mulan::engine {
 struct RenderGeometryPrepareDesc {
     AssetGpuKey resourceKey;
     const graphics::Mesh* mesh = nullptr;
+    bool forceUpdate = false;
 };
 
 class RenderResourcePrepareList {
 public:
     void clear() { geometries_.clear(); }
 
-    void addGeometry(AssetGpuKey resourceKey, const graphics::Mesh* mesh) {
+    void addGeometry(AssetGpuKey resourceKey, const graphics::Mesh* mesh, bool forceUpdate = false) {
         if (!resourceKey || !mesh) {
             return;
         }
-        geometries_.push_back(RenderGeometryPrepareDesc{ resourceKey, mesh });
+        geometries_.push_back(RenderGeometryPrepareDesc{ resourceKey, mesh, forceUpdate });
     }
 
     std::span<const RenderGeometryPrepareDesc> geometries() const { return geometries_; }

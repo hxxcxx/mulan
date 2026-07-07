@@ -45,6 +45,7 @@
 #include "geom/aabb.h"
 #include "geom/sphere.h"
 #include "geom/line.h"
+#include "geom/curve_geometry.h"
 #include "geom/plane.h"
 #include "geom/frustum.h"
 #include "linalg/transform.h"
