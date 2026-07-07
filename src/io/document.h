@@ -11,6 +11,8 @@
 #include <cstddef>
 #include <mulan/asset/asset_id.h>
 #include <mulan/asset/mesh_asset.h>
+#include <mulan/asset/sketch_asset.h>
+#include <mulan/math/math.h>
 #include <mulan/scene/entity_id.h>
 
 #include <memory>
@@ -39,6 +41,11 @@ public:
 
     scene::EntityId addShape(const TopoDS_Shape& shape, std::string name);
     scene::EntityId addMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
+    scene::EntityId addSketchLine(std::string name, const math::Point3& start, const math::Point3& end,
+                                  asset::SketchElementId* outLineId = nullptr);
+    bool updateSketchLine(scene::EntityId entity, asset::SketchElementId lineId, const math::Point3& start,
+                          const math::Point3& end);
+    bool removeSketchEntity(scene::EntityId entity);
 
     scene::EntityId addSceneInstance(std::string name, asset::AssetId geometry,
                                      std::vector<asset::AssetId> materialSlots = {});

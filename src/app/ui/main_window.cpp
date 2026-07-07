@@ -19,6 +19,7 @@
 #include <QActionGroup>
 #include <QSignalBlocker>
 
+#include <memory>
 #include <sstream>
 
 namespace {
@@ -82,11 +83,25 @@ void MainWindow::buildRibbonHomeCategory() {
 
     // ── File 面板 ──
     panel_file_ = new SARibbonPanel(tr("File"), category_home_);
+    action_new_ = new QAction(QIcon(":/app/bright/icon/newAxis.svg"), tr("New"), this);
+    action_new_->setShortcut(QKeySequence::New);
+    connect(action_new_, &QAction::triggered, this, &MainWindow::onNewDocument);
+    panel_file_->addLargeAction(action_new_);
+
     action_open_ = new QAction(QIcon(":/app/bright/icon/open.svg"), tr("Open"), this);
     connect(action_open_, &QAction::triggered, this, &MainWindow::onOpenFile);
     panel_file_->addLargeAction(action_open_);
 
     category_home_->addPanel(panel_file_);
+
+    panel_draw_ = new SARibbonPanel(tr("Draw"), category_home_);
+    action_draw_line_ = new QAction(QIcon(":/app/bright/icon/link.svg"), tr("Line"), this);
+    connect(action_draw_line_, &QAction::triggered, this, [this]() {
+        if (auto* doc = doc_area_->currentDocWidget())
+            doc->startDrawLine();
+    });
+    panel_draw_->addLargeAction(action_draw_line_);
+    category_home_->addPanel(panel_draw_);
 
     // ── Navigation 面板 ──
     panel_view_ = new SARibbonPanel(tr("Navigation"), category_home_);
@@ -267,6 +282,9 @@ void MainWindow::updateDisplayActions() {
     if (action_show_cube_) {
         action_show_cube_->setEnabled(hasDocument);
     }
+    if (action_draw_line_) {
+        action_draw_line_->setEnabled(hasDocument);
+    }
     if (!doc)
         return;
 
@@ -297,6 +315,17 @@ void MainWindow::updateDisplayActions() {
 void MainWindow::onEngineSettings() {
     EngineSettingsDialog dlg(this);
     dlg.exec();
+}
+
+void MainWindow::onNewDocument() {
+    static int untitledIndex = 1;
+
+    const QString title = tr("Untitled %1").arg(untitledIndex++);
+    auto doc = std::make_unique<mulan::io::Document>(title.toStdString());
+    auto* session = new DocumentSession(std::move(doc));
+    doc_area_->addDocument(session, title);
+
+    statusBar()->showMessage(QString("Created: %1").arg(title));
 }
 
 void MainWindow::onOpenFile() {

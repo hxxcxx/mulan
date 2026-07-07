@@ -21,6 +21,7 @@ public:
     ~MainWindow();
 
 private slots:
+    void onNewDocument();
     void onOpenFile();
     void onCurrentDocumentChanged(const QString& name);
     void onEngineSettings();
@@ -46,9 +47,11 @@ private:
     mulan::io::FileManager doc_manager_;
 
     // --- Actions ---
+    QAction* action_new_ = nullptr;
     QAction* action_open_ = nullptr;
     QAction* action_exit_ = nullptr;
     QAction* action_fit_all_ = nullptr;
+    QAction* action_draw_line_ = nullptr;
     QAction* action_engine_settings_ = nullptr;
     QAction* action_display_edges_ = nullptr;
     QAction* action_display_wireframe_ = nullptr;
@@ -60,6 +63,7 @@ private:
     // --- Ribbon 结构：Home ---
     SARibbonCategory* category_home_ = nullptr;
     SARibbonPanel* panel_file_ = nullptr;
+    SARibbonPanel* panel_draw_ = nullptr;
     SARibbonPanel* panel_view_ = nullptr;
     SARibbonPanel* panel_setting_ = nullptr;
 

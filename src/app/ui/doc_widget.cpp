@@ -2,11 +2,16 @@
 #include "document_session.h"
 #include "engine_settings.h"
 
+#include <mulan/engine/interaction/draw_line_operator.h>
+
 #include <QShowEvent>
 #include <QResizeEvent>
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
+
+#include <memory>
+#include <string>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -23,6 +28,7 @@ DocWidget::DocWidget(QWidget* parent) : QWidget(parent) {
 }
 
 DocWidget::~DocWidget() {
+    clearPreviewLine(false);
     binding_.unbind();
 }
 
@@ -79,11 +85,12 @@ void DocWidget::mousePressEvent(QMouseEvent* e) {
 }
 
 void DocWidget::mouseReleaseEvent(QMouseEvent* e) {
+    const bool modalWasActive = hasModalOperator();
     auto ev = makeMouseReleaseEvent(*e);
     view_context_.handleInput(ev);
 
     if (e->button() == Qt::LeftButton && left_press_pending_) {
-        if (!left_press_dragged_) {
+        if (!left_press_dragged_ && !modalWasActive) {
             selectAtFramebuffer(framebufferPosition(e->pos()));
         }
         left_press_pending_ = false;
@@ -100,7 +107,7 @@ void DocWidget::mouseMoveEvent(QMouseEvent* e) {
     auto ev = makeMouseMoveEvent(*e);
     view_context_.handleInput(ev);
 
-    if (e->buttons() == Qt::NoButton) {
+    if (e->buttons() == Qt::NoButton && !hasModalOperator()) {
         if (!view_context_.hasHoveredViewCubeFace()) {
             updateHoverAtFramebuffer(framebufferPosition(e->pos()));
         } else {
@@ -142,6 +149,7 @@ void DocWidget::leaveEvent(QEvent* e) {
 }
 
 void DocWidget::setDocumentSession(DocumentSession* session) {
+    clearPreviewLine(false);
     binding_.unbind();
     session_ = session;
 
@@ -164,6 +172,21 @@ void DocWidget::fitAll() {
         return;
 
     binding_.fitAll();
+}
+
+void DocWidget::startDrawLine() {
+    if (!view_context_.isInitialized() || !session_ || !session_->document()) {
+        return;
+    }
+
+    auto op = std::make_unique<mulan::engine::DrawLineOperator>();
+    op->setPreviewCallback([this](const mulan::math::Point3& start, const mulan::math::Point3& end) {
+        updatePreviewLine(start, end);
+    });
+    op->setClearPreviewCallback([this]() { clearPreviewLine(); });
+    op->setCommitCallback(
+            [this](const mulan::math::Point3& start, const mulan::math::Point3& end) { commitSketchLine(start, end); });
+    view_context_.pushOperator(std::move(op));
 }
 
 QPoint DocWidget::framebufferEventPosition(const QPointF& pos) const {
@@ -246,6 +269,51 @@ void DocWidget::selectAtFramebuffer(const QPointF& framebufferPos) {
         view_context_.clearHoveredPickId();
         binding_.clearSelection();
     }
+}
+
+void DocWidget::updatePreviewLine(const mulan::math::Point3& start, const mulan::math::Point3& end) {
+    if (!session_ || !session_->document()) {
+        return;
+    }
+
+    auto* document = session_->document();
+    if (!preview_line_entity_) {
+        preview_line_entity_ = document->addSketchLine("_preview_line", start, end, &preview_line_id_);
+    } else {
+        document->updateSketchLine(preview_line_entity_, preview_line_id_, start, end);
+    }
+    binding_.refresh();
+}
+
+void DocWidget::clearPreviewLine(bool refresh) {
+    if (!preview_line_entity_) {
+        return;
+    }
+
+    if (session_ && session_->document()) {
+        session_->document()->removeSketchEntity(preview_line_entity_);
+    }
+    preview_line_entity_ = mulan::scene::EntityId::invalid();
+    preview_line_id_ = mulan::asset::SketchElementId::invalid();
+
+    if (refresh && binding_.isBound()) {
+        binding_.refresh();
+    }
+}
+
+void DocWidget::commitSketchLine(const mulan::math::Point3& start, const mulan::math::Point3& end) {
+    if (!session_ || !session_->document()) {
+        return;
+    }
+
+    clearPreviewLine(false);
+    const std::string name = "Line " + std::to_string(sketch_line_counter_++);
+    session_->document()->addSketchLine(name, start, end);
+    binding_.refresh();
+}
+
+bool DocWidget::hasModalOperator() const {
+    return view_context_.activeOperator() != view_context_.defaultOperator();
 }
 
 mulan::engine::MouseButton DocWidget::translateButton(Qt::MouseButton btn) {

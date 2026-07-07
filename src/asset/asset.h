@@ -18,6 +18,7 @@ namespace mulan::asset {
 enum class AssetKind : uint8_t {
     Unknown = 0,
     Geometry,
+    Sketch,
     Mesh,
     Tessellated,
     Material,

@@ -5,6 +5,14 @@
 namespace {
 
 DocumentRenderPreferences makePreferences(const mulan::io::ImportReport& report) {
+    if (report.entityCount == 0 && report.meshAssetCount == 0 && report.brepAssetCount == 0) {
+        return DocumentRenderPreferences{
+            .preferOrthographic = true,
+            .preferIBL = false,
+            .preferPBRSurface = false,
+        };
+    }
+
     const bool isCad =
             report.brepAssetCount > 0 && (report.meshAssetCount == 0 || report.brepAssetCount >= report.meshAssetCount);
     const bool hasImportedMaterialData = report.materialCount > 0 || report.textureCount > 0;

@@ -2,6 +2,7 @@
 add_library(asset STATIC
     asset.cpp
     asset_library.cpp
+    sketch_asset.cpp
 )
 
 file(GLOB_RECURSE ASSET_HEADERS
