@@ -183,16 +183,16 @@ public:
 
     static ViewCubeFace faceForPart(const ViewCubePart& part) {
         if (part.z > 0)
-            return ViewCubeFace::Front;
+            return ViewCubeFace::Top;
         if (part.z < 0)
-            return ViewCubeFace::Back;
+            return ViewCubeFace::Bottom;
         if (part.x < 0)
             return ViewCubeFace::Left;
         if (part.x > 0)
             return ViewCubeFace::Right;
         if (part.y > 0)
-            return ViewCubeFace::Top;
-        return ViewCubeFace::Bottom;
+            return ViewCubeFace::Back;
+        return ViewCubeFace::Front;
     }
 
     static ViewCubePartShape partShape(const ViewCubePart& part) {

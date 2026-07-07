@@ -33,16 +33,16 @@ bool hasLayoutBinding(const BindGroupLayout& layout, uint32_t binding) {
 
 const char* viewCubeFaceLabel(const ViewCubePart& part) {
     if (part.z > 0)
-        return "FRONT";
+        return "TOP";
     if (part.z < 0)
-        return "BACK";
+        return "BOTTOM";
     if (part.x < 0)
         return "LEFT";
     if (part.x > 0)
         return "RIGHT";
     if (part.y > 0)
-        return "TOP";
-    return "BOTTOM";
+        return "BACK";
+    return "FRONT";
 }
 
 float smoothstep(float edge0, float edge1, float x) {
