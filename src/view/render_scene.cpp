@@ -3,6 +3,7 @@
 #include <mulan/asset/asset_library.h>
 #include <mulan/scene/components/bounds_component.h>
 #include <mulan/scene/components/geometry_component.h>
+#include <mulan/scene/components/light_component.h>
 #include <mulan/scene/components/render_component.h>
 #include <mulan/scene/components/selection_component.h>
 #include <mulan/scene/components/transform_component.h>
@@ -13,6 +14,42 @@
 namespace mulan::view {
 
 namespace {
+
+engine::Light toRenderLight(const scene::LightComponent& src, const math::Mat4& world) {
+    engine::Light dst;
+    switch (src.kind) {
+    case scene::LightKind::Directional: dst.type = engine::LightType::Directional; break;
+    case scene::LightKind::Point: dst.type = engine::LightType::Point; break;
+    case scene::LightKind::Spot: dst.type = engine::LightType::Spot; break;
+    }
+
+    dst.color = src.color;
+    dst.intensity = src.intensity;
+    dst.range = src.range;
+    dst.innerConeAngle = src.innerConeAngle;
+    dst.outerConeAngle = src.outerConeAngle;
+    dst.position = math::Point3::origin().transformedBy(world).asVec();
+    dst.direction = math::Vec3(0.0, 0.0, -1.0).transformedAsDir(world).normalizedOr(math::Vec3(-0.3, -1.0, -0.4));
+    return dst;
+}
+
+void collectLights(const scene::Scene& scene, std::vector<engine::Light>& lights) {
+    lights.clear();
+    scene.forEachEntity([&](scene::EntityId id) {
+        if (lights.size() >= engine::LightEnvironment::kMaxLights) {
+            return;
+        }
+
+        const auto* light = scene.light(id);
+        if (!light) {
+            return;
+        }
+
+        const auto* transform = scene.transform(id);
+        const math::Mat4 world = transform ? transform->world : math::Mat4{ 1.0 };
+        lights.push_back(toRenderLight(*light, world));
+    });
+}
 
 /// 从 Scene 单个 entity 的组件派生一份 SceneProxy（不参与 bounds 累加）。
 /// geometry 缺失时返回 std::nullopt（该 entity 不可渲染）。
@@ -56,6 +93,8 @@ std::optional<SceneProxy> buildProxy(const scene::Scene& scene, const asset::Ass
 // ============================================================
 
 void RenderScene::sync(scene::Scene& scene, const asset::AssetLibrary& assets) {
+    collectLights(scene, lights_);
+
     if (!initialized_) {
         // 全量路径
         proxies_.clear();
@@ -137,6 +176,7 @@ void RenderScene::clear() {
     last_sync_stats_ = {};
     scene_bounds_.reset();
     proxies_.clear();
+    lights_.clear();
     initialized_ = false;
 }
 

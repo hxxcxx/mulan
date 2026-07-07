@@ -9,9 +9,11 @@
 
 #include "scene_proxy.h"
 
+#include <mulan/engine/render/light_environment.h>
 #include <cstddef>
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
 namespace mulan::asset {
 class AssetLibrary;
@@ -59,6 +61,7 @@ public:
     const SceneProxy* proxy(scene::EntityId id) const;
     std::optional<PickResult> pick(const math::Ray3& ray) const;
     const math::AABB3& sceneBounds() const { return scene_bounds_; }
+    const std::vector<engine::Light>& lights() const { return lights_; }
 
     template <typename Func>
     void forEachProxy(Func&& fn) const {
@@ -70,6 +73,7 @@ private:
     SyncStats last_sync_stats_;
     math::AABB3 scene_bounds_;
     std::unordered_map<scene::EntityId, SceneProxy> proxies_;
+    std::vector<engine::Light> lights_;
     bool initialized_ = false;  // 首次 sync 全量，之后增量
 };
 

@@ -31,6 +31,7 @@ struct ImportReport {
     size_t primitiveCount = 0;
     size_t materialCount = 0;
     size_t textureCount = 0;
+    size_t lightCount = 0;
 };
 
 struct ImportResult {

@@ -148,6 +148,11 @@ void GeometryDrawSharedResources::uploadSceneUBO(const DrawExecutionContext& ctx
     math::Vec3 eye = ctx.camera.eyePosition;
     auto* dl = light_env_.primaryDirectional();
     math::Vec3 ldir = dl ? dl->direction.normalized() : math::Vec3(-0.3, -1.0, -0.4);
+    math::Vec3 lightColor = dl ? dl->color * dl->intensity : math::Vec3(0.8);
+    math::Vec3 ambientColor = light_env_.ambientColor * light_env_.ambientIntensity;
+    if (ambientColor.lengthSq() <= 1.0e-12) {
+        ambientColor = math::Vec3(0.35);
+    }
 
     SceneUniforms ubo{};
     storeGpuMat4(ubo.view, view);
@@ -155,8 +160,8 @@ void GeometryDrawSharedResources::uploadSceneUBO(const DrawExecutionContext& ctx
     storeGpuMat4(ubo.viewProjection, vp);
     storeGpuVec3(ubo.cameraPos, eye);
     storeGpuVec3(ubo.lightDir, ldir);
-    storeGpuVec3(ubo.lightColor, math::Vec3(0.8));
-    storeGpuVec3(ubo.ambientColor, math::Vec3(0.35));
+    storeGpuVec3(ubo.lightColor, lightColor);
+    storeGpuVec3(ubo.ambientColor, ambientColor);
     storeGpuVec3(ubo.edgeColor, math::Vec3(0.08, 0.08, 0.08));
     storeGpuVec3(ubo.highlightColor, math::Vec3(1.0, 0.5, 0.0));
 

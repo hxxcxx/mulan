@@ -104,6 +104,13 @@ void ViewContext::clearHoveredPickId() {
     has_hovered_pick_id_ = false;
 }
 
+void ViewContext::setSceneLights(std::span<const engine::Light> lights) {
+    light_env_.clear();
+    for (const auto& light : lights) {
+        light_env_.addLight(light);
+    }
+}
+
 void ViewContext::setViewCubeLayout(const engine::ViewCubeLayout& layout) {
     view_cube_model_.setLayout(layout);
 }

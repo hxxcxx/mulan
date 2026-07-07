@@ -23,8 +23,9 @@ enum class EntityDirty : uint64_t {
     Material = 1ull << 7,
     Selection = 1ull << 8,
     Bounds = 1ull << 9,
+    Light = 1ull << 10,
 
-    RenderRelated = (1ull << 3) | (1ull << 5) | (1ull << 6) | (1ull << 7) | (1ull << 8),
+    RenderRelated = (1ull << 3) | (1ull << 5) | (1ull << 6) | (1ull << 7) | (1ull << 8) | (1ull << 10),
     BoundsRelated = (1ull << 3) | (1ull << 5),
 };
 

@@ -7,6 +7,8 @@
 #include <mulan/view/render_scene.h>
 #include <mulan/view/view_context.h>
 
+#include <span>
+
 struct DocumentViewBinding::RenderCache {
     mulan::view::RenderScene renderScene;
 };
@@ -30,6 +32,7 @@ void DocumentViewBinding::bind(DocumentSession& session, mulan::view::ViewContex
 void DocumentViewBinding::unbind() {
     if (view_) {
         view_->setRenderScene(nullptr, nullptr);
+        view_->setSceneLights(std::span<const mulan::engine::Light>{});
     }
     session_ = nullptr;
     view_ = nullptr;
@@ -101,10 +104,16 @@ void DocumentViewBinding::syncRenderCache() {
 
     if (!session_ || !session_->document() || !session_->document()->scene() || !session_->document()->assets()) {
         render_cache_->renderScene.clear();
+        if (view_) {
+            view_->setSceneLights(std::span<const mulan::engine::Light>{});
+        }
         return;
     }
 
     render_cache_->renderScene.sync(*session_->document()->scene(), *session_->document()->assets());
+    if (view_) {
+        view_->setSceneLights(render_cache_->renderScene.lights());
+    }
 }
 
 void DocumentViewBinding::applyViewPreferences() {

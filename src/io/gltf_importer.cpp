@@ -5,6 +5,7 @@
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/asset/asset_library.h>
 #include <mulan/io/document.h>
+#include <mulan/scene/components/light_component.h>
 #include <mulan/scene/scene.h>
 #include <mulan/math/linalg/transform.h>
 #include <mulan/graphics/mesh.h>
@@ -19,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cmath>
 #include <map>
 #include <variant>
 
@@ -287,6 +289,23 @@ PrimitiveGeomData extractPrimitiveData(const Asset& gltf, const Primitive& prim)
     return geom;
 }
 
+scene::LightComponent lightComponentFromGltf(const fastgltf::Light& light) {
+    scene::LightComponent component;
+    switch (light.type) {
+    case fastgltf::LightType::Directional: component.kind = scene::LightKind::Directional; break;
+    case fastgltf::LightType::Point: component.kind = scene::LightKind::Point; break;
+    case fastgltf::LightType::Spot: component.kind = scene::LightKind::Spot; break;
+    }
+
+    component.color = math::Vec3(light.color[0], light.color[1], light.color[2]);
+    component.intensity = static_cast<double>(light.intensity);
+    component.range = light.range.has_value() ? static_cast<double>(*light.range) : 0.0;
+    component.innerConeAngle = light.innerConeAngle.has_value() ? static_cast<double>(*light.innerConeAngle) : 0.0;
+    component.outerConeAngle =
+            light.outerConeAngle.has_value() ? static_cast<double>(*light.outerConeAngle) : (std::acos(-1.0) / 4.0);
+    return component;
+}
+
 }  // namespace
 
 // ============================================================
@@ -304,7 +323,7 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path, mulan::
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "Failed to open glTF file: " + path));
     }
 
-    Parser parser;
+    Parser parser(Extensions::KHR_lights_punctual);
     constexpr auto gltfOpts = Options::LoadExternalBuffers | Options::LoadExternalImages;
 
     auto assetResult = parser.loadGltf(fileStream, std::filesystem::path(path).parent_path(), gltfOpts);
@@ -316,6 +335,7 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path, mulan::
     }
 
     auto& gltf = assetResult.get();
+    result.report.lightCount = gltf.lights.size();
 
     // --- 2. 导入纹理 ---
     ImportBuilder builder(doc);
@@ -418,6 +438,10 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path, mulan::
             scene->setParent(entity, parent);
 
         scene->setLocalTransform(entity, nodeTransform(node));
+
+        if (node.lightIndex.has_value() && *node.lightIndex < gltf.lights.size()) {
+            scene->setLight(entity, lightComponentFromGltf(gltf.lights[*node.lightIndex]));
+        }
 
         if (node.meshIndex.has_value() && *node.meshIndex < meshAssets.size()) {
             auto meshId = meshAssets[*node.meshIndex];

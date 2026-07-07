@@ -23,6 +23,7 @@
 #include <expected>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -72,6 +73,7 @@ public:
 
     engine::LightEnvironment& lightEnvironment() { return light_env_; }
     const engine::LightEnvironment& lightEnvironment() const { return light_env_; }
+    void setSceneLights(std::span<const engine::Light> lights);
 
     RenderMode renderMode() const { return render_mode_; }
     void setRenderMode(RenderMode mode) { render_mode_ = mode; }

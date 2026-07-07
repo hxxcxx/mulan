@@ -10,7 +10,7 @@ DocumentRenderPreferences makePreferences(const mulan::io::ImportReport& report)
     const bool hasImportedMaterialData = report.materialCount > 0 || report.textureCount > 0;
     return DocumentRenderPreferences{
         .preferOrthographic = isCad,
-        .preferIBL = !isCad,
+        .preferIBL = false,
         .preferPBRSurface = !isCad && hasImportedMaterialData,
     };
 }

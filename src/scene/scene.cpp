@@ -147,6 +147,11 @@ const BoundsComponent* Scene::bounds(EntityId id) const {
     return it != bounds_.end() ? &it->second : nullptr;
 }
 
+const LightComponent* Scene::light(EntityId id) const {
+    auto it = lights_.find(id);
+    return it != lights_.end() ? &it->second : nullptr;
+}
+
 bool Scene::setName(EntityId id, std::string name) {
     auto* c = mutableName(id);
     if (!c)
@@ -277,6 +282,26 @@ bool Scene::setWorldBounds(EntityId id, const math::AABB3& bounds) {
     return true;
 }
 
+bool Scene::setLight(EntityId id, const LightComponent& light) {
+    if (!isValid(id))
+        return false;
+
+    lights_[id] = light;
+    markDirty(id, EntityDirty::Light);
+    return true;
+}
+
+bool Scene::removeLight(EntityId id) {
+    if (!isValid(id))
+        return false;
+
+    const bool removed = lights_.erase(id) > 0;
+    if (removed) {
+        markDirty(id, EntityDirty::Light);
+    }
+    return removed;
+}
+
 void Scene::markDirty(EntityId id, EntityDirty dirty) {
     dirty_[id] |= dirtyValue(dirty);
 }
@@ -377,6 +402,11 @@ BoundsComponent* Scene::mutableBounds(EntityId id) {
     return it != bounds_.end() ? &it->second : nullptr;
 }
 
+LightComponent* Scene::mutableLight(EntityId id) {
+    auto it = lights_.find(id);
+    return it != lights_.end() ? &it->second : nullptr;
+}
+
 void Scene::addChild(EntityId parent, EntityId child) {
     children_[parent].push_back(child);
 }
@@ -400,6 +430,7 @@ void Scene::eraseComponents(EntityId id) {
     renders_.erase(id);
     selections_.erase(id);
     bounds_.erase(id);
+    lights_.erase(id);
 }
 
 }  // namespace mulan::scene

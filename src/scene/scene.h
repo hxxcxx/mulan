@@ -10,6 +10,7 @@
 #include "components/bounds_component.h"
 #include "components/geometry_component.h"
 #include "components/hierarchy_component.h"
+#include "components/light_component.h"
 #include "components/name_component.h"
 #include "components/render_component.h"
 #include "components/selection_component.h"
@@ -55,6 +56,7 @@ public:
     const SelectionComponent* selection(EntityId id) const;
 
     const BoundsComponent* bounds(EntityId id) const;
+    const LightComponent* light(EntityId id) const;
 
     bool setName(EntityId id, std::string name);
     bool setLocalTransform(EntityId id, const math::Mat4& transform);
@@ -66,6 +68,8 @@ public:
     bool clearSelection();
     bool selectSingle(EntityId id);
     bool setWorldBounds(EntityId id, const math::AABB3& bounds);
+    bool setLight(EntityId id, const LightComponent& light);
+    bool removeLight(EntityId id);
 
     void markDirty(EntityId id, EntityDirty dirty);
     uint64_t dirtyFlags(EntityId id) const;
@@ -124,6 +128,7 @@ private:
     RenderComponent* mutableRender(EntityId id);
     SelectionComponent* mutableSelection(EntityId id);
     BoundsComponent* mutableBounds(EntityId id);
+    LightComponent* mutableLight(EntityId id);
 
     void addChild(EntityId parent, EntityId child);
     void removeChild(EntityId parent, EntityId child);
@@ -141,6 +146,7 @@ private:
     std::unordered_map<EntityId, RenderComponent> renders_;
     std::unordered_map<EntityId, SelectionComponent> selections_;
     std::unordered_map<EntityId, BoundsComponent> bounds_;
+    std::unordered_map<EntityId, LightComponent> lights_;
     std::unordered_map<EntityId, uint64_t> dirty_;
 };
 
