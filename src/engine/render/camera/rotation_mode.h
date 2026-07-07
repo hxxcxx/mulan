@@ -5,7 +5,7 @@
  * 定义了旋转模式必须实现的操作：
  *  - 方向向量（forward / right / up）
  *  - 轨道旋转（orbitDelta）
- *  - Arcball 交互生命周期（begin / orbitToPoint / end）
+ *  - 鼠标拖拽旋转生命周期（begin / orbitToPoint / end）
  *  - 速度参数
  *
  * @author hxxcxx

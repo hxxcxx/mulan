@@ -29,73 +29,47 @@ math::Vec3 TrackballRotation::up() const {
 }
 
 void TrackballRotation::orbitDelta(double dx, double dy) {
-    double angle = std::sqrt(dx * dx + dy * dy) * 0.005;
-    if (angle < 1e-10)
-        return;
-
-    math::Vec3 axis = right() * dy - up() * dx;
-    double len = axis.length();
-    if (len < 1e-10)
-        return;
-    axis = axis / len;
-
-    math::Quat deltaQ = math::Quat::fromAxisAngle(axis, angle);
-    rotation_ = (deltaQ * rotation_).normalized();
+    applyScreenOrbit(dx, dy, 800, 800);
 }
 
 // ============================================================
-// Arcball 交互
+// 屏幕空间轨道旋转
 // ============================================================
 
-math::Vec3 TrackballRotation::arcballProject(int x, int y, int viewW, int viewH) const {
-    double nx = (2.0 * x - viewW) / viewW;
-    double ny = (viewH - 2.0 * y) / viewH;
-
-    double len2 = nx * nx + ny * ny;
-    double nz;
-    if (len2 <= 1.0) {
-        nz = std::sqrt(1.0 - len2);
-    } else {
-        double len = std::sqrt(len2);
-        nx /= len;
-        ny /= len;
-        nz = 0.0;
+void TrackballRotation::applyScreenOrbit(double dx, double dy, int viewW, int viewH) {
+    if (std::abs(dx) < 1e-9 && std::abs(dy) < 1e-9) {
+        return;
     }
-    return math::Vec3{ nx, ny, nz };
+
+    const double viewportPixels = static_cast<double>(std::max(1, std::min(viewW, viewH)));
+    const double radiansPerPixel = orbit_speed_ / viewportPixels;
+    const double yawAngle = -dx * radiansPerPixel;
+    const double pitchAngle = -dy * radiansPerPixel;
+
+    const math::Quat yaw = math::Quat::fromAxisAngle(up(), yawAngle);
+    const math::Quat pitch = math::Quat::fromAxisAngle(right(), pitchAngle);
+    rotation_ = (pitch * yaw * rotation_).normalized();
 }
 
-void TrackballRotation::beginOrbit(int x, int y, int viewW, int viewH) {
-    arcball_prev_ = arcballProject(x, y, viewW, viewH);
-    arcball_active_ = true;
+void TrackballRotation::beginOrbit(int x, int y, int, int) {
+    orbit_prev_x_ = x;
+    orbit_prev_y_ = y;
+    orbit_drag_ = true;
 }
 
 void TrackballRotation::orbitToPoint(int x, int y, int viewW, int viewH) {
-    if (!arcball_active_)
+    if (!orbit_drag_)
         return;
 
-    math::Vec3 curr = arcballProject(x, y, viewW, viewH);
-
-    math::Vec3 axis = curr.cross(arcball_prev_);
-    double axisLen = axis.length();
-
-    if (axisLen < 1e-10)
-        return;
-
-    double dotValue = curr.dot(arcball_prev_);
-    double angle = std::atan2(axisLen, dotValue) * arcball_speed_;
-
-    math::Vec3 ndcAxis = axis / axisLen;
-    math::Vec3 worldAxis = right() * ndcAxis.x + up() * ndcAxis.y + forward() * ndcAxis.z;
-    worldAxis = worldAxis.normalized();
-
-    math::Quat deltaQ = math::Quat::fromAxisAngle(worldAxis, angle);
-    rotation_ = (deltaQ * rotation_).normalized();
-
-    arcball_prev_ = curr;
+    const int dx = x - orbit_prev_x_;
+    const int dy = y - orbit_prev_y_;
+    orbit_prev_x_ = x;
+    orbit_prev_y_ = y;
+    applyScreenOrbit(static_cast<double>(dx), static_cast<double>(dy), viewW, viewH);
 }
 
 void TrackballRotation::endOrbit() {
-    arcball_active_ = false;
+    orbit_drag_ = false;
 }
 
 }  // namespace mulan::engine

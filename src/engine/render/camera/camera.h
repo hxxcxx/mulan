@@ -29,7 +29,7 @@ namespace mulan::engine {
 /// 相机旋转模式
 enum class CameraMode : uint8_t {
     Turntable,  ///< yaw/pitch 转台，世界 Z-up 约束
-    Trackball,  ///< 四元数自由旋转（arcball）
+    Trackball,  ///< 四元数自由旋转
 };
 
 class Camera {
@@ -104,11 +104,11 @@ public:
     /// 兼容接口，等效 orbitDelta
     void orbit(double dx, double dy) { orbitDelta(dx, dy); }
 
-    /// Trackball arcball: 开始旋转
+    /// Trackball: 开始旋转
     void beginOrbit(int x, int y);
-    /// Trackball arcball: 旋转到指定屏幕坐标
+    /// Trackball: 旋转到指定屏幕坐标
     void orbitToPoint(int x, int y);
-    /// Trackball arcball: 结束旋转
+    /// Trackball: 结束旋转
     void endOrbit();
 
     void pan(double dx, double dy);
