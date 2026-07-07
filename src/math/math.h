@@ -14,6 +14,9 @@
  *  本模块覆盖基础数值（标量/容差/角度）、线性代数（向量/矩阵/四元数/变换）、
  *  基础解析几何（直线/平面/球/AABB/多边形）与基础求交（闭式解）。
  *  参数曲线（NURBS/Bezier/圆弧）及其数值求交见 curve/、surface/、basis/ 子目录或独立模块。
+ *  2D 计算几何（凸包/定向谓词/求交/三角剖分/Voronoi）见 algo2d/，header-only。
+ *  拓扑数据结构（DCEL）见 topology/，header-only。
+ *  空间索引（KD-Tree/Quadtree/R-Tree/BSP-Tree/BVH-Tree）见 spatial/，header-only。
  */
 #pragma once
 
@@ -59,3 +62,21 @@
 #include "surface/bezier_surface.h"
 #include "surface/bspline_surface.h"
 #include "surface/nurbs_surface.h"
+
+// 2D 计算几何（凸包 / 定向谓词；后续将补充三角剖分、Voronoi、求交）
+#include "algo2d/orientation.h"
+#include "algo2d/convex_hull.h"
+#include "algo2d/segment_intersect.h"
+#include "algo2d/polygon_intersect.h"
+#include "algo2d/triangulation.h"
+#include "algo2d/voronoi.h"
+
+// 拓扑数据结构（DCEL 平面细分）
+#include "topology/dcel.h"
+
+// 空间索引（KD-Tree / Quadtree / R-Tree / BSP-Tree / BVH-Tree）
+#include "spatial/kdtree.h"
+#include "spatial/quadtree.h"
+#include "spatial/rtree.h"
+#include "spatial/bsptree.h"
+#include "spatial/bvhtree.h"

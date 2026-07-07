@@ -32,6 +32,8 @@
  */
 #pragma once
 
+#include "../math_export.h"
+
 #include "../basis/bspline_basis.h"
 #include "../curve/bspline_curve.h"
 #include "../geom/point.h"
@@ -101,61 +103,15 @@ public:
 
     /// 张量积 de Boor 求值：u 方向对每行求值得一条 v 方向控制曲线，再在 v 方向求值。
     /// u/v 自动 clamp 到定义域。
-    Point3 evaluate(double u, double v) const {
-        const auto [umin, umax] = domainU();
-        const auto [vmin, vmax] = domainV();
-        u = clampToDomain(u, umin, umax);
-        v = clampToDomain(v, vmin, vmax);
-
-        // 1) 对每行（u 方向 B-spline 曲线）在 u 处求值，得到 v 方向的控制点序列
-        Row col(numRows());
-        for (int j = 0; j < numRows(); ++j) {
-            col[j] = deBoorRow(control_points_[j], knots_u_, degree_u_, u);
-        }
-        // 2) 把结果当成 v 方向 B-spline 曲线在 v 处求值
-        return deBoorRow(col, knots_v_, degree_v_, v);
-    }
+    Point3 evaluate(double u, double v) const;
 
     // ---------- 偏导与法向 ----------
 
     /// 偏导 (dS/du, dS/dv)。u/v 自动 clamp。
-    /// 算法：复用 BSplineCurve3d 的解析导数 ——
-    ///   dS/du：每行（u 方向曲线）求 1 阶导得 Vec3 序列，再当成 v 方向曲线在 v 处求值
-    ///   dS/dv：每列（v 方向曲线）求 1 阶导得 Vec3 序列，再当成 u 方向曲线在 u 处求值
-    std::pair<Vec3, Vec3> derivatives(double u, double v) const {
-        const auto [umin, umax] = domainU();
-        const auto [vmin, vmax] = domainV();
-        u = clampToDomain(u, umin, umax);
-        v = clampToDomain(v, vmin, vmax);
-
-        // ---- dS/du ----
-        std::vector<Vec3> duCtrl(numRows());
-        for (int j = 0; j < numRows(); ++j) {
-            BSplineCurve3d rowCurve(degree_u_, control_points_[j], knots_u_);
-            duCtrl[j] = rowCurve.derivative(u, 1);
-        }
-        Vec3 dSdu = deBoorVecRow(duCtrl, knots_v_, degree_v_, v);
-
-        // ---- dS/dv：把列抽出来构造 v 方向曲线 ----
-        std::vector<Vec3> dvCtrl(numCols());
-        for (int i = 0; i < numCols(); ++i) {
-            Row col(numRows());
-            for (int j = 0; j < numRows(); ++j)
-                col[j] = control_points_[j][i];
-            BSplineCurve3d colCurve(degree_v_, col, knots_v_);
-            dvCtrl[i] = colCurve.derivative(v, 1);
-        }
-        Vec3 dSdv = deBoorVecRow(dvCtrl, knots_u_, degree_u_, u);
-
-        return { dSdu, dSdv };
-    }
+    std::pair<Vec3, Vec3> derivatives(double u, double v) const;
 
     /// 单位法向 = normalize(dS/du × dS/dv)。退化曲面回退 UnitZ()。
-    Vec3 normal(double u, double v) const {
-        auto [dSdu, dSdv] = derivatives(u, v);
-        Vec3 n = dSdu.cross(dSdv);
-        return n.lengthSq() > 1e-24 ? n.normalized() : Vec3::unitZ();
-    }
+    Vec3 normal(double u, double v) const;
 
 private:
     int degree_u_;
@@ -164,64 +120,15 @@ private:
     KnotVector knots_u_;
     KnotVector knots_v_;
 
-    void validateInvariants() const {
-        assert(!control_points_.empty() && "BSplineSurface: control grid must not be empty");
-        const int cols = static_cast<int>(control_points_[0].size());
-        assert(cols > 0 && "BSplineSurface: control rows must not be empty");
-        for (const auto& row : control_points_) {
-            assert(static_cast<int>(row.size()) == cols && "BSplineSurface: all rows must have equal length");
-        }
-        assert(numCols() > degree_u_ && "BSplineSurface: numCols must be > degreeU");
-        assert(numRows() > degree_v_ && "BSplineSurface: numRows must be > degreeV");
-        assert(static_cast<int>(knots_u_.size()) == numCols() + degree_u_ + 1 &&
-               "BSplineSurface: U knot count mismatch");
-        assert(static_cast<int>(knots_v_.size()) == numRows() + degree_v_ + 1 &&
-               "BSplineSurface: V knot count mismatch");
-    }
+    void validateInvariants() const;
 
     static double clampToDomain(double t, double lo, double hi) noexcept { return t < lo ? lo : (t > hi ? hi : t); }
 
-    // 对一条 Point3 控制序列做 de Boor 求值
-    static Point3 deBoorRow(const Row& cp, const KnotVector& U, int p, double u) {
-        const int n = static_cast<int>(cp.size()) - 1;
-        const int k = bsplineFindSpan(n, p, u, U);
-        Row d(p + 1);
-        for (int j = 0; j <= p; ++j)
-            d[j] = cp[k - p + j];
-        for (int r = 1; r <= p; ++r) {
-            for (int j = p; j >= r; --j) {
-                const int idx = k - p + j;
-                double denom = U[idx + p + 1 - r] - U[idx];
-                double a = 0.0;
-                if (std::abs(denom) > Tolerance::defaultValue().paramEps) {
-                    a = (u - U[idx]) / denom;
-                }
-                d[j] = mulan::math::lerp(d[j - 1], d[j], a);
-            }
-        }
-        return d[p];
-    }
+    /// 对一条 Point3 控制序列做 de Boor 求值
+    static MATH_API Point3 deBoorRow(const Row& cp, const KnotVector& U, int p, double u);
 
-    // 对一条 Vec3 控制序列做 de Boor 求值（偏导结果组合用）
-    static Vec3 deBoorVecRow(const std::vector<Vec3>& cp, const KnotVector& U, int p, double u) {
-        const int n = static_cast<int>(cp.size()) - 1;
-        const int k = bsplineFindSpan(n, p, u, U);
-        std::vector<Vec3> d(p + 1);
-        for (int j = 0; j <= p; ++j)
-            d[j] = cp[k - p + j];
-        for (int r = 1; r <= p; ++r) {
-            for (int j = p; j >= r; --j) {
-                const int idx = k - p + j;
-                double denom = U[idx + p + 1 - r] - U[idx];
-                double a = 0.0;
-                if (std::abs(denom) > Tolerance::defaultValue().paramEps) {
-                    a = (u - U[idx]) / denom;
-                }
-                d[j] = d[j - 1] + (d[j] - d[j - 1]) * a;
-            }
-        }
-        return d[p];
-    }
+    /// 对一条 Vec3 控制序列做 de Boor 求值（偏导结果组合用）
+    static MATH_API Vec3 deBoorVecRow(const std::vector<Vec3>& cp, const KnotVector& U, int p, double u);
 };
 
 }  // namespace mulan::math
