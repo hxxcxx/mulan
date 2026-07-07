@@ -19,6 +19,10 @@ bool isLeftPress(const engine::InputEvent& event) {
     return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Left;
 }
 
+bool isLeftRelease(const engine::InputEvent& event) {
+    return event.type == engine::InputEvent::Type::MouseRelease && event.button == engine::MouseButton::Left;
+}
+
 bool isRightPress(const engine::InputEvent& event) {
     return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Right;
 }
@@ -28,7 +32,7 @@ bool isMouseMove(const engine::InputEvent& event) {
 }
 
 bool isLineEvent(const engine::InputEvent& event) {
-    return isLeftPress(event) || isRightPress(event) || isMouseMove(event);
+    return isLeftPress(event) || isLeftRelease(event) || isRightPress(event) || isMouseMove(event);
 }
 
 }  // namespace
@@ -57,7 +61,7 @@ ToolInputResult LineTool::handleInput(ToolContext& context, const EditorInput& i
         return ToolInputResult::Consumed;
     }
 
-    if (isLeftPress(input.event)) {
+    if (isLeftRelease(input.event)) {
         return acceptPoint(context, *input.workPoint);
     }
 
@@ -74,7 +78,6 @@ ToolInputResult LineTool::acceptPoint(ToolContext& context, const math::Point3& 
     if (step_ == Step::FirstPoint) {
         first_point_ = point;
         step_ = Step::SecondPoint;
-        updatePreview(context, point);
         return ToolInputResult::Consumed;
     }
 
