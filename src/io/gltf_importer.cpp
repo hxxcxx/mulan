@@ -418,14 +418,17 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path, mulan::
                                           math::Transform3 t;
                                           t.translation = { trs.translation[0], trs.translation[1],
                                                             trs.translation[2] };
-                                          t.rotation = math::Quat(trs.rotation[0], trs.rotation[1], trs.rotation[2],
-                                                                  trs.rotation[3]);
+                                          t.rotation = math::Quat(trs.rotation[3], trs.rotation[0], trs.rotation[1],
+                                                                  trs.rotation[2]);
                                           t.scale = { trs.scale[0], trs.scale[1], trs.scale[2] };
                                           mat = t.toMatrix();
                                       } },
                    node.transform);
         return mat;
     };
+
+    const double unitScale = options.unitScale > 0.0 ? options.unitScale : 1.0;
+    const math::Mat4 rootScale = math::Mat4::scale(math::Vec3(unitScale));
 
     std::function<void(size_t, scene::EntityId)> importNode;
     importNode = [&](size_t nodeIdx, scene::EntityId parent) {
@@ -437,7 +440,10 @@ core::Result<ImportResult> GltfImporter::import(const std::string& path, mulan::
         if (parent)
             scene->setParent(entity, parent);
 
-        scene->setLocalTransform(entity, nodeTransform(node));
+        math::Mat4 localTransform = nodeTransform(node);
+        if (!parent)
+            localTransform = rootScale * localTransform;
+        scene->setLocalTransform(entity, localTransform);
 
         if (node.lightIndex.has_value() && *node.lightIndex < gltf.lights.size()) {
             scene->setLight(entity, lightComponentFromGltf(gltf.lights[*node.lightIndex]));
