@@ -146,7 +146,7 @@ public:
     /// 从屏幕像素坐标生成世界空间射线
     /// @param screenX  像素 X（左上角为原点）
     /// @param screenY  像素 Y（左上角为原点）
-    math::Ray3 screenRay(int screenX, int screenY) const {
+    math::Ray3 screenRay(double screenX, double screenY) const {
         // 屏幕 → NDC
         double ndcX = (2.0 * screenX) / width_ - 1.0;
         double ndcY = -(2.0 * screenY) / height_ + 1.0;
@@ -166,6 +166,10 @@ public:
         math::Point3 origin(nearWorld.x, nearWorld.y, nearWorld.z);
         math::Vec3 dir = (math::Vec3(farWorld) - origin.asVec()).normalized();
         return math::Ray3(origin, dir);
+    }
+
+    math::Ray3 screenRay(int screenX, int screenY) const {
+        return screenRay(static_cast<double>(screenX), static_cast<double>(screenY));
     }
 
 private:
@@ -191,7 +195,7 @@ private:
     double ortho_size_ = 5.0;
 
     // 交互速度
-    double pan_speed_ = 0.003;
+    double pan_speed_ = 1.0;
     double zoom_speed_ = 1.08;
     double min_distance_ = 0.001;
 };

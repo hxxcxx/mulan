@@ -166,36 +166,41 @@ void DocWidget::fitAll() {
     binding_.fitAll();
 }
 
-QPoint DocWidget::framebufferPosition(const QPointF& pos) const {
+QPoint DocWidget::framebufferEventPosition(const QPointF& pos) const {
     // Qt 鼠标事件给的是 widget logical coordinates；RHI swapchain、Camera::screenRay()
     // 和 ViewCubeModel::pickFace() 使用的是 framebuffer coordinates。
     // 高 DPI 屏幕下两者不同，必须在进入 view/engine picking 前乘 devicePixelRatioF()。
     //
     // 注意：click-vs-drag 阈值仍然使用原始 Qt logical coordinates（press_pos_ / e->pos()），
-    // 这样相机交互手感不会随 DPI 改变；这里只服务于 ray picking / ViewCube hit test。
+    // 事件路径使用四舍五入后的 framebuffer 坐标；ray picking 另走浮点坐标以避免 DPR 截断误差。
     const qreal dpr = devicePixelRatioF();
-    return QPoint(static_cast<int>(pos.x() * dpr), static_cast<int>(pos.y() * dpr));
+    return QPoint(qRound(pos.x() * dpr), qRound(pos.y() * dpr));
+}
+
+QPointF DocWidget::framebufferPosition(const QPointF& pos) const {
+    const qreal dpr = devicePixelRatioF();
+    return QPointF(pos.x() * dpr, pos.y() * dpr);
 }
 
 InputEvent DocWidget::makeMousePressEvent(const QMouseEvent& e) const {
-    const QPoint p = framebufferPosition(e.position());
+    const QPoint p = framebufferEventPosition(e.position());
     return InputEvent::mousePress(p.x(), p.y(), translateButton(e.button()), translateButtons(e.buttons()),
                                   translateModifiers(e.modifiers()));
 }
 
 InputEvent DocWidget::makeMouseReleaseEvent(const QMouseEvent& e) const {
-    const QPoint p = framebufferPosition(e.position());
+    const QPoint p = framebufferEventPosition(e.position());
     return InputEvent::mouseRelease(p.x(), p.y(), translateButton(e.button()), translateButtons(e.buttons()),
                                     translateModifiers(e.modifiers()));
 }
 
 InputEvent DocWidget::makeMouseMoveEvent(const QMouseEvent& e) const {
-    const QPoint p = framebufferPosition(e.position());
+    const QPoint p = framebufferEventPosition(e.position());
     return InputEvent::mouseMove(p.x(), p.y(), translateButtons(e.buttons()), translateModifiers(e.modifiers()));
 }
 
 InputEvent DocWidget::makeMouseDoubleClickEvent(const QMouseEvent& e) const {
-    const QPoint p = framebufferPosition(e.position());
+    const QPoint p = framebufferEventPosition(e.position());
     InputEvent ev{};
     ev.type = InputEvent::Type::MouseDoubleClick;
     ev.x = p.x();
@@ -207,12 +212,14 @@ InputEvent DocWidget::makeMouseDoubleClickEvent(const QMouseEvent& e) const {
 }
 
 InputEvent DocWidget::makeWheelEvent(const QWheelEvent& e) const {
-    const QPoint p = framebufferPosition(e.position());
-    const float delta = e.angleDelta().y() / 120.0f;
+    const QPoint p = framebufferEventPosition(e.position());
+    const QPoint pixelDelta = e.pixelDelta();
+    const float delta = !pixelDelta.isNull() ? static_cast<float>(pixelDelta.y()) / 120.0f
+                                             : static_cast<float>(e.angleDelta().y()) / 120.0f;
     return InputEvent::wheel(p.x(), p.y(), delta, translateModifiers(e.modifiers()));
 }
 
-void DocWidget::updateHoverAtFramebuffer(const QPoint& framebufferPos) {
+void DocWidget::updateHoverAtFramebuffer(const QPointF& framebufferPos) {
     if (!binding_.isBound()) {
         view_context_.clearHoveredPickId();
         return;
@@ -226,7 +233,7 @@ void DocWidget::updateHoverAtFramebuffer(const QPoint& framebufferPos) {
     }
 }
 
-void DocWidget::selectAtFramebuffer(const QPoint& framebufferPos) {
+void DocWidget::selectAtFramebuffer(const QPointF& framebufferPos) {
     if (!binding_.isBound()) {
         return;
     }

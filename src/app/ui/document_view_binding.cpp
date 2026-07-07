@@ -57,7 +57,7 @@ void DocumentViewBinding::fitAll() {
 }
 
 std::optional<mulan::view::RenderScene::PickResult> DocumentViewBinding::pickEntityAt(
-        const mulan::engine::Camera& camera, int x, int y) {
+        const mulan::engine::Camera& camera, double x, double y) {
     if (!isBound()) {
         return std::nullopt;
     }

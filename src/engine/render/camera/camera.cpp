@@ -110,7 +110,9 @@ void Camera::pan(double dx, double dy) {
     // 平移作为"视图空间偏移"，不移动 target_（旋转中心）。
     // 这样 orbit 始终绕模型中心，平移与旋转完全解耦。
     // pan_offset_ 累积在视图空间（x=右,y=上），viewMatrix 直接叠加到平移列。
-    double scale = (ortho_ ? ortho_size_ : distance_) * pan_speed_;
+    const double viewportH = std::max(1, height_);
+    const double visibleHeight = ortho_ ? 2.0 * ortho_size_ : 2.0 * distance_ * std::tan(fov_y_ * 0.5);
+    const double scale = visibleHeight / viewportH * pan_speed_;
     // "抓取场景"语义：鼠标右移(dx>0) → 场景跟随向右 → 视图空间 x 增大
     //                鼠标下移(dy>0) → 场景跟随向下 → 视图空间 y 减小
     pan_offset_.x += dx * scale;

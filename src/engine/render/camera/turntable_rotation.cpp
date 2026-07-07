@@ -41,7 +41,7 @@ void TurntableRotation::beginOrbit(int x, int y, int, int) {
     orbit_drag_ = true;
 }
 
-void TurntableRotation::orbitToPoint(int x, int y, int, int) {
+void TurntableRotation::orbitToPoint(int x, int y, int viewW, int viewH) {
     if (!orbit_drag_)
         return;
     int dx = x - orbit_prev_x_;
@@ -50,8 +50,11 @@ void TurntableRotation::orbitToPoint(int x, int y, int, int) {
     orbit_prev_y_ = y;
     if (dx == 0 && dy == 0)
         return;
-    yaw_ -= static_cast<double>(dx) * orbit_speed_;
-    pitch_ -= static_cast<double>(dy) * orbit_speed_;
+    const double referencePixels = 800.0;
+    const double viewportPixels = static_cast<double>(std::max(1, std::min(viewW, viewH)));
+    const double scale = orbit_speed_ * referencePixels / viewportPixels;
+    yaw_ -= static_cast<double>(dx) * scale;
+    pitch_ -= static_cast<double>(dy) * scale;
     pitch_ = std::clamp(pitch_, kMinPitch, kMaxPitch);
 }
 

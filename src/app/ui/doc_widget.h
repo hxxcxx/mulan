@@ -10,6 +10,7 @@
 
 #include <QWidget>
 #include <QPoint>
+#include <QPointF>
 
 #include <mulan/engine/interaction/input_event.h>
 #include <mulan/view/view_context.h>
@@ -54,14 +55,15 @@ private:
     static mulan::engine::KeyModifier translateModifiers(Qt::KeyboardModifiers mods);
     static mulan::engine::Key translateKey(int qtKey);
 
-    QPoint framebufferPosition(const QPointF& pos) const;
+    QPoint framebufferEventPosition(const QPointF& pos) const;
+    QPointF framebufferPosition(const QPointF& pos) const;
     mulan::engine::InputEvent makeMousePressEvent(const QMouseEvent& e) const;
     mulan::engine::InputEvent makeMouseReleaseEvent(const QMouseEvent& e) const;
     mulan::engine::InputEvent makeMouseMoveEvent(const QMouseEvent& e) const;
     mulan::engine::InputEvent makeMouseDoubleClickEvent(const QMouseEvent& e) const;
     mulan::engine::InputEvent makeWheelEvent(const QWheelEvent& e) const;
-    void updateHoverAtFramebuffer(const QPoint& framebufferPos);
-    void selectAtFramebuffer(const QPoint& framebufferPos);
+    void updateHoverAtFramebuffer(const QPointF& framebufferPos);
+    void selectAtFramebuffer(const QPointF& framebufferPos);
 
     mulan::view::ViewContext view_context_;
     mulan::view::ViewConfig view_config_;
