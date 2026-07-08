@@ -70,7 +70,7 @@ struct ViewCubeStyle {
     static constexpr float LabelSizeWorld = 0.145f;
     static constexpr float LabelFacingFadeStart = -0.02f;
     static constexpr float LabelFacingFadeEnd = 0.18f;
-    static constexpr float AxisOrigin = -0.60f;
+    static constexpr float AxisOrigin = -0.64f;
     static constexpr float AxisEnd = 0.62f;
     static constexpr float AxisConeLength = 0.14f;
     static constexpr float AxisShaftRadius = 0.020f;
