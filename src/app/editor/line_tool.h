@@ -1,39 +1,20 @@
-/**
- * @file line_tool.h
- * @brief 定义两点线段绘制工具。
- * @author hxxcxx
- * @date 2026-07-08
- */
 #pragma once
 
-#include "editor_tool.h"
-
-#include <optional>
+#include "point_drawing_tool.h"
 
 namespace mulan::app {
 
-class LineTool final : public EditorTool {
+class LineTool final : public PointDrawingTool {
 public:
     std::string_view id() const override { return "draw.line"; }
 
-    EditorPointPolicy pointPolicy() const override;
-    EditorAction begin() override;
-    EditorAction handleInput(const EditorInput& input) override;
-    EditorAction end(ToolFinishReason reason) override;
-
 private:
-    enum class State {
-        AwaitingStart,
-        RubberBand,
-    };
+    EditorAction onPointPressed(const EditorInput& input, const ToolPoint& point) override;
+    EditorAction onPointMoved(const EditorInput& input, const ToolPoint& point) override;
 
-    EditorAction acceptStartPoint(const math::Point3& point);
-    EditorAction acceptEndPoint(const math::Point3& point);
-    EditorAction updateRubberBand(const math::Point3& point);
-
-    State state_ = State::AwaitingStart;
-    std::optional<math::Point3> first_point_;
-    std::optional<math::Point3> current_point_;
+    EditorAction acceptStartPoint(ToolPoint point);
+    EditorAction acceptEndPoint(const ToolPoint& point);
+    EditorAction updateRubberBand(const ToolPoint& point) const;
 };
 
 }  // namespace mulan::app

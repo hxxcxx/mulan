@@ -100,6 +100,14 @@ void MainWindow::buildRibbonHomeCategory() {
     action_draw_line_ = new QAction(QIcon(":/app/bright/icon/link.svg"), tr("Line"), this);
     connect(action_draw_line_, &QAction::triggered, this, [this]() { executeCommand("draw.line"); });
     panel_draw_->addLargeAction(action_draw_line_);
+
+    action_draw_polyline_ = new QAction(QIcon(":/app/bright/icon/link-pick.svg"), tr("Polyline"), this);
+    connect(action_draw_polyline_, &QAction::triggered, this, [this]() { executeCommand("draw.polyline"); });
+    panel_draw_->addLargeAction(action_draw_polyline_);
+
+    action_draw_circle_ = new QAction(QIcon(":/app/bright/icon/addFigure.svg"), tr("Circle"), this);
+    connect(action_draw_circle_, &QAction::triggered, this, [this]() { executeCommand("draw.circle"); });
+    panel_draw_->addLargeAction(action_draw_circle_);
     category_home_->addPanel(panel_draw_);
 
     // ── Navigation 面板 ──
@@ -293,6 +301,12 @@ void MainWindow::updateDisplayActions() {
     }
     if (action_draw_line_) {
         action_draw_line_->setEnabled(hasDocument);
+    }
+    if (action_draw_polyline_) {
+        action_draw_polyline_->setEnabled(hasDocument);
+    }
+    if (action_draw_circle_) {
+        action_draw_circle_->setEnabled(hasDocument);
     }
     if (!doc)
         return;

@@ -27,8 +27,14 @@ add_executable(${PROJECT_NAME}
     editor/editor_session.h
     editor/editor_session.cpp
     editor/editor_tool.h
+    editor/point_drawing_tool.h
+    editor/point_drawing_tool.cpp
     editor/tool_controller.h
     editor/tool_controller.cpp
+    editor/polyline_tool.h
+    editor/polyline_tool.cpp
+    editor/circle_tool.h
+    editor/circle_tool.cpp
     editor/line_tool.h
     editor/line_tool.cpp
     editor/snap_marker_builder.h

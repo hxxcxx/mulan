@@ -59,6 +59,8 @@ private:
     QAction* action_exit_ = nullptr;
     QAction* action_fit_all_ = nullptr;
     QAction* action_draw_line_ = nullptr;
+    QAction* action_draw_polyline_ = nullptr;
+    QAction* action_draw_circle_ = nullptr;
     QAction* action_engine_settings_ = nullptr;
     QAction* action_display_edges_ = nullptr;
     QAction* action_display_wireframe_ = nullptr;
