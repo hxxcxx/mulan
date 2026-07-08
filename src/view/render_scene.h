@@ -59,7 +59,7 @@ public:
     const SyncStats& lastSyncStats() const { return last_sync_stats_; }
     size_t proxyCount() const { return proxies_.size(); }
     const SceneProxy* proxy(scene::EntityId id) const;
-    std::optional<PickResult> pick(const math::Ray3& ray) const;
+    std::optional<PickResult> pick(const math::Ray3& ray, double lineToleranceWorld = 0.0) const;
     const math::AABB3& sceneBounds() const { return scene_bounds_; }
     const std::vector<engine::Light>& lights() const { return lights_; }
 

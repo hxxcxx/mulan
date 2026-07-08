@@ -1,6 +1,7 @@
 #include "render_scene.h"
 
 #include <mulan/asset/asset_library.h>
+#include <mulan/asset/geometry_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/asset/tessellated_asset.h>
 #include <mulan/scene/components/bounds_component.h>
@@ -13,8 +14,10 @@
 #include <mulan/scene/scene.h>
 #include <mulan/math/algo/intersect.h>
 
+#include <algorithm>
 #include <cstring>
 #include <limits>
+#include <vector>
 
 namespace mulan::view {
 
@@ -60,6 +63,23 @@ struct MeshPickResult {
     bool tested = false;
     std::optional<double> distance;
 };
+
+struct RaySegmentClosest {
+    double rayT = 0.0;
+    double distanceSq = std::numeric_limits<double>::max();
+};
+
+math::AABB3 expandedBounds(const math::AABB3& bounds, double amount) {
+    if (bounds.isEmpty() || amount <= 0.0) {
+        return bounds;
+    }
+
+    math::AABB3 expanded = bounds;
+    const math::Vec3 pad(amount, amount, amount);
+    expanded.min -= pad;
+    expanded.max += pad;
+    return expanded;
+}
 
 bool readPosition(const graphics::Mesh& mesh, uint32_t vertexIndex, math::Point3& out) {
     const auto* position = mesh.layout.find(graphics::VertexSemantic::Position);
@@ -122,7 +142,79 @@ bool readTriangle(const graphics::Mesh& mesh, uint32_t triangleIndex, math::Poin
     return readPosition(mesh, i0, v0) && readPosition(mesh, i1, v1) && readPosition(mesh, i2, v2);
 }
 
-MeshPickResult pickMesh(const math::Ray3& worldRay, const graphics::Mesh& mesh, const math::Mat4& worldTransform) {
+uint32_t lineSegmentCount(const graphics::Mesh& mesh) {
+    const uint32_t elementCount = !mesh.indices.empty() ? mesh.indexCount() : mesh.vertexCount();
+    if (mesh.topology == graphics::PrimitiveTopology::LineList) {
+        return elementCount / 2;
+    }
+    if (mesh.topology == graphics::PrimitiveTopology::LineStrip) {
+        return elementCount > 1 ? elementCount - 1 : 0;
+    }
+    return 0;
+}
+
+bool readLineSegment(const graphics::Mesh& mesh, uint32_t segmentIndex, math::Point3& v0, math::Point3& v1) {
+    uint32_t i0 = segmentIndex;
+    uint32_t i1 = segmentIndex + 1;
+    if (mesh.topology == graphics::PrimitiveTopology::LineList) {
+        i0 = segmentIndex * 2;
+        i1 = i0 + 1;
+    } else if (mesh.topology != graphics::PrimitiveTopology::LineStrip) {
+        return false;
+    }
+
+    if (!mesh.indices.empty()) {
+        if (!readIndex(mesh, i0, i0) || !readIndex(mesh, i1, i1)) {
+            return false;
+        }
+    }
+
+    return readPosition(mesh, i0, v0) && readPosition(mesh, i1, v1);
+}
+
+RaySegmentClosest closestRaySegment(const math::Ray3& ray, const math::Segment3& segment) {
+    constexpr double kEps = 1e-15;
+
+    const math::Vec3 rayDir = ray.direction;
+    const math::Vec3 segDir = segment.direction();
+    const math::Vec3 w0 = ray.origin - segment.start;
+    const double a = rayDir.dot(rayDir);
+    const double c = segDir.dot(segDir);
+
+    if (a <= kEps) {
+        const double t = c > kEps ? std::clamp(segDir.dot(w0) / c, 0.0, 1.0) : 0.0;
+        const math::Point3 closest = segment.pointAt(t);
+        return RaySegmentClosest{ .rayT = 0.0, .distanceSq = ray.origin.distanceSq(closest) };
+    }
+
+    if (c <= kEps) {
+        const double rayT = std::max(0.0, (segment.start - ray.origin).dot(rayDir) / a);
+        return RaySegmentClosest{ .rayT = rayT, .distanceSq = ray.pointAt(rayT).distanceSq(segment.start) };
+    }
+
+    const double b = rayDir.dot(segDir);
+    const double d = rayDir.dot(w0);
+    const double e = segDir.dot(w0);
+    const double denom = a * c - b * b;
+
+    double segmentT = 0.0;
+    if (denom > kEps) {
+        segmentT = std::clamp((a * e - b * d) / denom, 0.0, 1.0);
+    }
+
+    double rayT = (b * segmentT - d) / a;
+    if (rayT < 0.0) {
+        rayT = 0.0;
+        segmentT = std::clamp(e / c, 0.0, 1.0);
+    }
+
+    const math::Point3 rayPoint = ray.pointAt(rayT);
+    const math::Point3 segmentPoint = segment.pointAt(segmentT);
+    return RaySegmentClosest{ .rayT = rayT, .distanceSq = rayPoint.distanceSq(segmentPoint) };
+}
+
+MeshPickResult pickTriangleMesh(const math::Ray3& worldRay, const graphics::Mesh& mesh,
+                                const math::Mat4& worldTransform) {
     MeshPickResult result;
     if (mesh.empty() || mesh.topology != graphics::PrimitiveTopology::TriangleList ||
         !mesh.layout.has(graphics::VertexSemantic::Position)) {
@@ -164,28 +256,83 @@ MeshPickResult pickMesh(const math::Ray3& worldRay, const graphics::Mesh& mesh, 
     return result;
 }
 
-MeshPickResult pickMeshAsset(const math::Ray3& ray, const asset::MeshAsset& asset, const math::Mat4& worldTransform) {
+MeshPickResult pickLineMesh(const math::Ray3& worldRay, const graphics::Mesh& mesh, const math::Mat4& worldTransform,
+                            double lineToleranceWorld) {
     MeshPickResult result;
-    for (const auto& primitive : asset.primitives()) {
-        const MeshPickResult primitiveHit = pickMesh(ray, primitive.mesh, worldTransform);
-        result.tested = result.tested || primitiveHit.tested;
-        if (primitiveHit.distance && (!result.distance || *primitiveHit.distance < *result.distance)) {
-            result.distance = primitiveHit.distance;
+    if (mesh.empty() ||
+        (mesh.topology != graphics::PrimitiveTopology::LineList &&
+         mesh.topology != graphics::PrimitiveTopology::LineStrip) ||
+        !mesh.layout.has(graphics::VertexSemantic::Position)) {
+        return result;
+    }
+
+    const uint32_t segmentCount = lineSegmentCount(mesh);
+    if (segmentCount == 0) {
+        return result;
+    }
+
+    result.tested = true;
+    const double toleranceSq = std::max(0.0, lineToleranceWorld) * std::max(0.0, lineToleranceWorld);
+
+    double bestDistance = std::numeric_limits<double>::max();
+    for (uint32_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex) {
+        math::Point3 v0;
+        math::Point3 v1;
+        if (!readLineSegment(mesh, segmentIndex, v0, v1)) {
+            continue;
         }
+
+        const math::Segment3 worldSegment(v0.transformedBy(worldTransform), v1.transformedBy(worldTransform));
+        const RaySegmentClosest closest = closestRaySegment(worldRay, worldSegment);
+        if (closest.distanceSq <= toleranceSq && closest.rayT < bestDistance) {
+            bestDistance = closest.rayT;
+        }
+    }
+
+    if (bestDistance < std::numeric_limits<double>::max()) {
+        result.distance = bestDistance;
     }
     return result;
 }
 
-MeshPickResult pickGeometryAsset(const math::Ray3& ray, const asset::Asset& asset, const math::Mat4& worldTransform) {
-    if (const auto* meshAsset = dynamic_cast<const asset::MeshAsset*>(&asset)) {
-        return pickMeshAsset(ray, *meshAsset, worldTransform);
+MeshPickResult pickMesh(const math::Ray3& ray, const graphics::Mesh& mesh, const math::Mat4& worldTransform,
+                        double lineToleranceWorld) {
+    if (mesh.topology == graphics::PrimitiveTopology::TriangleList) {
+        return pickTriangleMesh(ray, mesh, worldTransform);
     }
 
-    if (const auto* tessellated = dynamic_cast<const asset::TessellatedAsset*>(&asset)) {
-        return pickMesh(ray, tessellated->solidMesh(), worldTransform);
+    if (mesh.topology == graphics::PrimitiveTopology::LineList ||
+        mesh.topology == graphics::PrimitiveTopology::LineStrip) {
+        return pickLineMesh(ray, mesh, worldTransform, lineToleranceWorld);
     }
 
     return {};
+}
+
+MeshPickResult pickGeometryAsset(const math::Ray3& ray, const asset::Asset& asset, const math::Mat4& worldTransform,
+                                 double lineToleranceWorld) {
+    const auto* geometry = dynamic_cast<const asset::GeometryAsset*>(&asset);
+    if (!geometry) {
+        return {};
+    }
+
+    std::vector<asset::Drawable> drawables;
+    geometry->collectDrawables(drawables);
+
+    MeshPickResult result;
+    for (const asset::Drawable& drawable : drawables) {
+        if (!drawable.mesh) {
+            continue;
+        }
+
+        const MeshPickResult meshHit = pickMesh(ray, *drawable.mesh, worldTransform, lineToleranceWorld);
+        result.tested = result.tested || meshHit.tested;
+        if (meshHit.distance && (!result.distance || *meshHit.distance < *result.distance)) {
+            result.distance = meshHit.distance;
+        }
+    }
+
+    return result;
 }
 /// 从 Scene 单个 entity 的组件派生一份 SceneProxy（不参与 bounds 累加）。
 /// geometry 缺失时返回 std::nullopt（该 entity 不可渲染）。
@@ -326,14 +473,15 @@ const SceneProxy* RenderScene::proxy(scene::EntityId id) const {
     return it != proxies_.end() ? &it->second : nullptr;
 }
 
-std::optional<RenderScene::PickResult> RenderScene::pick(const math::Ray3& ray) const {
+std::optional<RenderScene::PickResult> RenderScene::pick(const math::Ray3& ray, double lineToleranceWorld) const {
     std::optional<PickResult> best;
     for (const auto& [id, proxy] : proxies_) {
         if (!proxy.visible) {
             continue;
         }
 
-        const auto boundsHit = math::intersect(ray, proxy.worldBounds);
+        const math::AABB3 pickBounds = expandedBounds(proxy.worldBounds, lineToleranceWorld);
+        const auto boundsHit = math::intersect(ray, pickBounds);
         if (!boundsHit.hit) {
             continue;
         }
@@ -342,7 +490,8 @@ std::optional<RenderScene::PickResult> RenderScene::pick(const math::Ray3& ray) 
         if (assets_) {
             const asset::Asset* geometryAsset = assets_->asset(proxy.geometry);
             if (geometryAsset) {
-                const MeshPickResult meshHit = pickGeometryAsset(ray, *geometryAsset, proxy.worldTransform);
+                const MeshPickResult meshHit =
+                        pickGeometryAsset(ray, *geometryAsset, proxy.worldTransform, lineToleranceWorld);
                 if (meshHit.tested) {
                     if (!meshHit.distance) {
                         continue;

@@ -7,7 +7,25 @@
 #include <mulan/view/render_scene.h>
 #include <mulan/view/view_context.h>
 
+#include <algorithm>
+#include <cmath>
 #include <span>
+
+namespace {
+
+double linePickToleranceWorld(const mulan::engine::Camera& camera) {
+    constexpr double kLinePickPixels = 6.0;
+    const double viewportHeight = static_cast<double>(std::max(1, camera.height()));
+    if (camera.isOrthographic()) {
+        return kLinePickPixels * (2.0 * camera.orthoSize()) / viewportHeight;
+    }
+
+    const double viewHeightAtTarget =
+            2.0 * std::max(camera.distance(), camera.nearPlane()) * std::tan(camera.fieldOfView() * 0.5);
+    return kLinePickPixels * viewHeightAtTarget / viewportHeight;
+}
+
+}  // namespace
 
 struct DocumentViewBinding::RenderCache {
     mulan::view::RenderScene renderScene;
@@ -70,7 +88,7 @@ std::optional<mulan::view::RenderScene::PickResult> DocumentViewBinding::pickEnt
         return std::nullopt;
     }
 
-    return render_cache_->renderScene.pick(camera.screenRay(x, y));
+    return render_cache_->renderScene.pick(camera.screenRay(x, y), linePickToleranceWorld(camera));
 }
 
 bool DocumentViewBinding::selectSingle(mulan::scene::EntityId entity) {
