@@ -193,17 +193,20 @@ MeshPickResult pickGeometryAsset(const math::Ray3& ray, const asset::Asset& asse
 /// 变化时 bounds 自动跟随（Scene 层只管 world 矩阵传播，不知 asset）。
 std::optional<SceneProxy> buildProxy(const scene::Scene& scene, const asset::AssetLibrary& assets, scene::EntityId id) {
     const auto* geometry = scene.geometry(id);
-    if (!geometry || !geometry->geometry)
+    if (!geometry || !geometry->geometry) {
         return std::nullopt;
+    }
 
     const asset::Asset* asset = assets.asset(geometry->geometry);
-    if (!asset)
+    if (!asset) {
         return std::nullopt;
+    }
 
     // localBounds 仅 GeometryAsset 提供（其他资产类型 dynamic_cast 返回 nullptr）
     const auto* geomAsset = dynamic_cast<const asset::GeometryAsset*>(asset);
-    if (!geomAsset)
+    if (!geomAsset) {
         return std::nullopt;
+    }
 
     const auto* render = scene.render(id);
     const auto* selection = scene.selection(id);

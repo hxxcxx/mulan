@@ -51,19 +51,20 @@ EditorAction LineTool::handleInput(const EditorInput& input) {
         return EditorAction::ignored();
     }
 
-    if (!input.workPoint) {
+    const auto point = input.worldPoint();
+    if (!point) {
         return EditorAction::consumeEvent();
     }
 
     if (isMouseMove(input.event) && state_ == State::RubberBand) {
-        return updateRubberBand(*input.workPoint);
+        return updateRubberBand(*point);
     }
 
     if (isLeftPress(input.event)) {
         if (state_ == State::AwaitingStart) {
-            return acceptStartPoint(*input.workPoint);
+            return acceptStartPoint(*point);
         }
-        return acceptEndPoint(*input.workPoint);
+        return acceptEndPoint(*point);
     }
 
     if (isLeftRelease(input.event)) {

@@ -110,32 +110,49 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world,
     constexpr uint64_t kPreviewGeometryKey = 0xF000000000000001ull;
     constexpr uint64_t kPreviewMaterialKey = 0xF000000000000002ull;
 
-    engine::RenderGeometryDesc geometryDesc;
-    geometryDesc.resourceKey = engine::makeAssetGpuKey(kPreviewGeometryKey ^ preview->generation());
-    geometryDesc.topology = preview->mesh().topology;
-    geometryDesc.empty = preview->mesh().empty();
-    if (prepare) {
-        prepare->addGeometry(geometryDesc.resourceKey, &preview->mesh());
-    }
-
     engine::RenderMaterialDesc materialDesc;
     materialDesc.resourceKey = engine::makeAssetGpuKey(kPreviewMaterialKey);
     materialDesc.material = engine::Material::defaultPBR();
     materialDesc.material.name = "Preview";
+    const engine::RenderMaterialHandle material = world.addMaterial(std::move(materialDesc));
 
     engine::RenderObjectDesc object;
     object.externalId = 0;
     object.worldTransform = math::Mat4(1.0f);
-    object.worldBounds = preview->mesh().bounds;
+    object.worldBounds = math::AABB3::empty();
     object.visible = true;
     object.selected = false;
-    object.drawables.push_back(engine::RenderObjectDrawable{
-            .geometry = world.addGeometry(std::move(geometryDesc)),
-            .material = world.addMaterial(std::move(materialDesc)),
-            .bucket = engine::RenderBucket::Overlay,
-            .sourceDrawableIndex = 0,
-    });
-    world.addObject(std::move(object));
+
+    const auto& meshes = preview->meshes();
+    for (size_t i = 0; i < meshes.size(); ++i) {
+        const graphics::Mesh& mesh = meshes[i];
+        if (mesh.empty()) {
+            continue;
+        }
+
+        engine::RenderGeometryDesc geometryDesc;
+        geometryDesc.resourceKey = engine::makeAssetGpuKey(kPreviewGeometryKey ^ preview->generation() ^
+                                                           ((static_cast<uint64_t>(i) + 1u) << 32u));
+        geometryDesc.topology = mesh.topology;
+        geometryDesc.empty = mesh.empty();
+        if (prepare) {
+            prepare->addGeometry(geometryDesc.resourceKey, &mesh);
+        }
+
+        if (!mesh.bounds.isEmpty()) {
+            object.worldBounds.expand(mesh.bounds);
+        }
+        object.drawables.push_back(engine::RenderObjectDrawable{
+                .geometry = world.addGeometry(std::move(geometryDesc)),
+                .material = material,
+                .bucket = engine::RenderBucket::Overlay,
+                .sourceDrawableIndex = i,
+        });
+    }
+
+    if (!object.drawables.empty()) {
+        world.addObject(std::move(object));
+    }
 }
 
 }  // namespace

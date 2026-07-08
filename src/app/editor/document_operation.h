@@ -7,10 +7,12 @@
 #pragma once
 
 #include <mulan/asset/curve_asset.h>
+#include <mulan/asset/mesh_asset.h>
 
 #include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace mulan::app {
 
@@ -19,11 +21,17 @@ struct CreateCurveOperation {
     asset::CurvePrimitive primitive;
 };
 
-using DocumentOperationData = std::variant<CreateCurveOperation>;
+struct CreateMeshOperation {
+    std::string name;
+    std::vector<asset::MeshPrimitive> primitives;
+};
+
+using DocumentOperationData = std::variant<CreateCurveOperation, CreateMeshOperation>;
 
 class DocumentOperation {
 public:
     static DocumentOperation createCurve(std::string name, asset::CurvePrimitive primitive);
+    static DocumentOperation createMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
 
     const DocumentOperationData& data() const { return data_; }
     DocumentOperationData& data() { return data_; }

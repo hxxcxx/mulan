@@ -1,4 +1,4 @@
-# APP - 主应用程序
+# APP - 涓诲簲鐢ㄧ▼搴?
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
@@ -16,6 +16,8 @@ add_executable(${PROJECT_NAME}
     editor/editor_action.h
     editor/editor_action.cpp
     editor/editor_input.h
+    editor/editor_input_resolver.h
+    editor/editor_input_resolver.cpp
     editor/editor_session.h
     editor/editor_session.cpp
     editor/editor_tool.h
@@ -65,7 +67,7 @@ target_precompile_headers(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/pch.h
 )
 
-# ── Post-build: copy OCCT DLLs ──
+# 鈹€鈹€ Post-build: copy OCCT DLLs 鈹€鈹€
 if(DEFINED OCCT_BIN_DIR AND EXISTS "${OCCT_BIN_DIR}")
     file(GLOB OCCT_DLLS "${OCCT_BIN_DIR}/*.dll")
     foreach(dll ${OCCT_DLLS})
@@ -76,7 +78,7 @@ if(DEFINED OCCT_BIN_DIR AND EXISTS "${OCCT_BIN_DIR}")
     endforeach()
 endif()
 
-# ── Post-build: copy OCCT 3rdparty DLLs ──
+# 鈹€鈹€ Post-build: copy OCCT 3rdparty DLLs 鈹€鈹€
 if(DEFINED OCCT_3RDPARTY_DIR AND EXISTS "${OCCT_3RDPARTY_DIR}")
     file(GLOB_RECURSE OCCT_3RDPARTY_DLLS "${OCCT_3RDPARTY_DIR}/*.dll")
     foreach(dll ${OCCT_3RDPARTY_DLLS})
@@ -87,7 +89,7 @@ if(DEFINED OCCT_3RDPARTY_DIR AND EXISTS "${OCCT_3RDPARTY_DIR}")
     endforeach()
 endif()
 
-# ── Post-build: deploy Qt DLLs via windeployqt ──
+# 鈹€鈹€ Post-build: deploy Qt DLLs via windeployqt 鈹€鈹€
 if(Qt6_DIR)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND "${Qt6_DIR}/../../../bin/windeployqt.exe"

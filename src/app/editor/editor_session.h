@@ -7,10 +7,12 @@
 #pragma once
 
 #include "editor_input.h"
+#include "editor_input_resolver.h"
 #include "editor_tool.h"
 #include "tool_controller.h"
 
 #include <mulan/engine/interaction/input_event.h>
+#include <mulan/engine/interaction/work_plane.h>
 
 #include <memory>
 
@@ -40,6 +42,8 @@ public:
     void startTool(std::unique_ptr<EditorTool> tool);
     bool handleInput(const engine::InputEvent& event);
     void cancelActiveTool();
+    void setWorkPlane(engine::WorkPlane plane);
+    const engine::WorkPlane& workPlane() const;
 
 private:
     EditorInput makeEditorInput(const engine::InputEvent& event) const;
@@ -49,6 +53,7 @@ private:
     DocumentSession* session_ = nullptr;
     view::ViewContext* view_ = nullptr;
     DocumentViewBinding* binding_ = nullptr;
+    EditorInputResolver input_resolver_;
     ToolController tool_controller_;
 };
 

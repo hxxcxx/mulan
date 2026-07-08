@@ -15,4 +15,8 @@ DocumentOperation DocumentOperation::createCurve(std::string name, asset::CurveP
     return DocumentOperation(CreateCurveOperation{ std::move(name), std::move(primitive) });
 }
 
+DocumentOperation DocumentOperation::createMesh(std::string name, std::vector<asset::MeshPrimitive> primitives) {
+    return DocumentOperation(CreateMeshOperation{ std::move(name), std::move(primitives) });
+}
+
 }  // namespace mulan::app

@@ -7,6 +7,7 @@
 #pragma once
 
 #include <mulan/asset/curve_asset.h>
+#include <mulan/graphics/mesh.h>
 
 #include <utility>
 #include <vector>
@@ -16,16 +17,24 @@ namespace mulan::app {
 class DraftGeometry {
 public:
     static DraftGeometry curve(asset::CurvePrimitive primitive);
+    static DraftGeometry curves(std::vector<asset::CurvePrimitive> primitives);
     static DraftGeometry segment(const math::Segment3& segment);
+    static DraftGeometry mesh(graphics::Mesh mesh);
+    static DraftGeometry meshes(std::vector<graphics::Mesh> meshes);
+    static DraftGeometry geometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes);
 
-    bool empty() const { return curves_.empty(); }
+    bool empty() const { return curves_.empty() && meshes_.empty(); }
     const std::vector<asset::CurvePrimitive>& curves() const { return curves_; }
+    const std::vector<graphics::Mesh>& meshes() const { return meshes_; }
     std::vector<asset::CurvePrimitive> takeCurves() { return std::move(curves_); }
+    std::vector<graphics::Mesh> takeMeshes() { return std::move(meshes_); }
 
 private:
-    explicit DraftGeometry(std::vector<asset::CurvePrimitive> curves) : curves_(std::move(curves)) {}
+    DraftGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes)
+        : curves_(std::move(curves)), meshes_(std::move(meshes)) {}
 
     std::vector<asset::CurvePrimitive> curves_;
+    std::vector<graphics::Mesh> meshes_;
 };
 
 }  // namespace mulan::app

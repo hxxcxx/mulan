@@ -22,18 +22,22 @@ class PreviewLayer {
 public:
     void setCurves(std::vector<asset::CurvePrimitive> primitives);
     void setCurve(asset::CurvePrimitive primitive);
+    void setMeshes(std::vector<graphics::Mesh> meshes);
+    void setMesh(graphics::Mesh mesh);
+    void setGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes);
     void clear();
 
-    bool empty() const { return mesh_.empty(); }
+    bool empty() const;
     uint64_t generation() const { return generation_; }
-    const graphics::Mesh& mesh() const { return mesh_; }
+    const graphics::Mesh& mesh() const;
+    const std::vector<graphics::Mesh>& meshes() const { return meshes_; }
 
 private:
-    void rebuild();
+    void rebuildCurves();
     void touch();
 
     std::vector<asset::CurvePrimitive> curves_;
-    graphics::Mesh mesh_;
+    std::vector<graphics::Mesh> meshes_;
     uint64_t generation_ = 1;
 };
 
@@ -44,11 +48,14 @@ public:
     void addPolyline(const math::Polyline3& polyline);
     void addCircle(const math::Circle3& circle);
     void addArc(const math::Arc3& arc);
+    void addMesh(graphics::Mesh mesh);
 
     std::vector<asset::CurvePrimitive> takeCurves();
+    std::vector<graphics::Mesh> takeMeshes();
 
 private:
     std::vector<asset::CurvePrimitive> curves_;
+    std::vector<graphics::Mesh> meshes_;
 };
 
 }  // namespace mulan::view

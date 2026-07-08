@@ -15,27 +15,64 @@ namespace mulan::view {
 
 void PreviewLayer::setCurves(std::vector<asset::CurvePrimitive> primitives) {
     curves_ = std::move(primitives);
-    rebuild();
+    meshes_.clear();
+    rebuildCurves();
 }
 
 void PreviewLayer::setCurve(asset::CurvePrimitive primitive) {
     curves_.clear();
     curves_.push_back(std::move(primitive));
-    rebuild();
+    meshes_.clear();
+    rebuildCurves();
+}
+
+void PreviewLayer::setMeshes(std::vector<graphics::Mesh> meshes) {
+    curves_.clear();
+    meshes_ = std::move(meshes);
+    touch();
+}
+
+void PreviewLayer::setMesh(graphics::Mesh mesh) {
+    std::vector<graphics::Mesh> meshes;
+    meshes.push_back(std::move(mesh));
+    setMeshes(std::move(meshes));
+}
+
+void PreviewLayer::setGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes) {
+    curves_ = std::move(curves);
+    meshes_ = std::move(meshes);
+    rebuildCurves();
 }
 
 void PreviewLayer::clear() {
-    if (curves_.empty() && mesh_.empty()) {
+    if (curves_.empty() && meshes_.empty()) {
         return;
     }
 
     curves_.clear();
-    mesh_ = {};
+    meshes_.clear();
     touch();
 }
 
-void PreviewLayer::rebuild() {
-    mesh_ = asset::buildCurveWireMesh(curves_);
+bool PreviewLayer::empty() const {
+    for (const graphics::Mesh& mesh : meshes_) {
+        if (!mesh.empty()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+const graphics::Mesh& PreviewLayer::mesh() const {
+    static const graphics::Mesh emptyMesh;
+    return meshes_.empty() ? emptyMesh : meshes_.front();
+}
+
+void PreviewLayer::rebuildCurves() {
+    if (!curves_.empty()) {
+        graphics::Mesh wireMesh = asset::buildCurveWireMesh(curves_);
+        meshes_.insert(meshes_.begin(), std::move(wireMesh));
+    }
     touch();
 }
 
@@ -66,8 +103,16 @@ void PreviewBuilder::addArc(const math::Arc3& arc) {
     addCurve(asset::CurvePrimitive::arc(arc));
 }
 
+void PreviewBuilder::addMesh(graphics::Mesh mesh) {
+    meshes_.push_back(std::move(mesh));
+}
+
 std::vector<asset::CurvePrimitive> PreviewBuilder::takeCurves() {
     return std::move(curves_);
+}
+
+std::vector<graphics::Mesh> PreviewBuilder::takeMeshes() {
+    return std::move(meshes_);
 }
 
 }  // namespace mulan::view

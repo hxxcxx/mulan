@@ -12,11 +12,29 @@ namespace mulan::app {
 DraftGeometry DraftGeometry::curve(asset::CurvePrimitive primitive) {
     std::vector<asset::CurvePrimitive> curves;
     curves.push_back(std::move(primitive));
-    return DraftGeometry(std::move(curves));
+    return DraftGeometry(std::move(curves), {});
+}
+
+DraftGeometry DraftGeometry::curves(std::vector<asset::CurvePrimitive> primitives) {
+    return DraftGeometry(std::move(primitives), {});
 }
 
 DraftGeometry DraftGeometry::segment(const math::Segment3& segment) {
     return curve(asset::CurvePrimitive::segment(segment));
+}
+
+DraftGeometry DraftGeometry::mesh(graphics::Mesh mesh) {
+    std::vector<graphics::Mesh> meshes;
+    meshes.push_back(std::move(mesh));
+    return DraftGeometry({}, std::move(meshes));
+}
+
+DraftGeometry DraftGeometry::meshes(std::vector<graphics::Mesh> meshes) {
+    return DraftGeometry({}, std::move(meshes));
+}
+
+DraftGeometry DraftGeometry::geometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes) {
+    return DraftGeometry(std::move(curves), std::move(meshes));
 }
 
 }  // namespace mulan::app

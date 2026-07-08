@@ -1,4 +1,5 @@
 #include "doc_widget.h"
+
 #include "document_session.h"
 #include "engine_settings.h"
 

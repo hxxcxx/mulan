@@ -18,7 +18,6 @@
 namespace mulan::asset {
 namespace {
 
-constexpr uint32_t kCurveColor = graphics::packColor(235, 235, 235, 255);
 constexpr int kCircleSegments = 64;
 constexpr double kArcStepRadians = math::kPi / 24.0;
 
@@ -91,7 +90,8 @@ void appendPrimitive(std::vector<LinePointPair>& lines, const CurvePrimitive& pr
 
 graphics::Mesh buildMeshFromLines(std::span<const LinePointPair> lines) {
     graphics::Mesh mesh;
-    mesh.layout = graphics::layouts::wire();
+    // EdgeLine currently consumes the same surface layout used by imported CAD edge meshes.
+    mesh.layout = graphics::layouts::surface();
     mesh.topology = graphics::PrimitiveTopology::LineList;
     mesh.indexType = graphics::IndexType::UInt32;
     mesh.bounds.reset();
@@ -107,7 +107,9 @@ graphics::Mesh buildMeshFromLines(std::span<const LinePointPair> lines) {
         for (const math::Point3& point : points) {
             builder.setPosition(vertex, static_cast<float>(point.x), static_cast<float>(point.y),
                                 static_cast<float>(point.z));
-            builder.setColor(vertex, kCurveColor);
+            builder.setNormal(vertex, 0.0f, 0.0f, 0.0f);
+            const float uv[2] = { 0.0f, 0.0f };
+            builder.write(vertex, graphics::VertexSemantic::TexCoord0, uv);
             mesh.bounds.expand(point);
             ++vertex;
         }

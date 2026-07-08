@@ -13,6 +13,7 @@
 #include <mulan/io/document.h>
 #include <mulan/io/document_editor.h>
 #include <mulan/math/math.h>
+#include <mulan/view/preview_layer.h>
 #include <mulan/view/view_context.h>
 
 #include <string>
@@ -29,21 +30,6 @@ struct Overloaded : T... {
 
 template <typename... T>
 Overloaded(T...) -> Overloaded<T...>;
-
-std::optional<math::Point3> mapOrthographicScreenToWorldXY(const engine::Camera& camera,
-                                                           const engine::InputEvent& event) {
-    if (!camera.isOrthographic() || camera.width() <= 0 || camera.height() <= 0) {
-        return std::nullopt;
-    }
-
-    const double ndcX = (2.0 * static_cast<double>(event.x)) / static_cast<double>(camera.width()) - 1.0;
-    const double ndcY = 1.0 - (2.0 * static_cast<double>(event.y)) / static_cast<double>(camera.height());
-    const double halfHeight = camera.orthoSize();
-    const double halfWidth = halfHeight * camera.aspect();
-    const math::Vec3 target = camera.target();
-
-    return math::Point3(target.x + ndcX * halfWidth, target.y + ndcY * halfHeight, 0.0);
-}
 
 }  // namespace
 
@@ -80,36 +66,30 @@ bool EditorSession::handleInput(const engine::InputEvent& event) {
         return false;
     }
 
-    return applyAction(tool_controller_.handleInput(makeEditorInput(event)));
+    const bool consumed = applyAction(tool_controller_.handleInput(makeEditorInput(event)));
+    return consumed;
 }
 
 void EditorSession::cancelActiveTool() {
     applyAction(tool_controller_.cancel());
 }
 
+void EditorSession::setWorkPlane(engine::WorkPlane plane) {
+    input_resolver_.setWorkPlane(std::move(plane));
+}
+
+const engine::WorkPlane& EditorSession::workPlane() const {
+    return input_resolver_.workPlane();
+}
+
 EditorInput EditorSession::makeEditorInput(const engine::InputEvent& event) const {
-    EditorInput input;
-    input.event = event;
-
     if (!view_) {
+        EditorInput input;
+        input.event = event;
         return input;
     }
 
-    const engine::Camera& camera = view_->camera();
-    input.cursorRay = camera.screenRay(event.x, event.y);
-    input.workPlane = math::Plane3::fromPointNormal(math::Point3::origin(), math::Vec3::unitZ());
-
-    if (auto point = mapOrthographicScreenToWorldXY(camera, event)) {
-        input.workPoint = *point;
-        return input;
-    }
-
-    const math::Hit3 hit = math::intersect(input.cursorRay, input.workPlane);
-    if (hit.hit) {
-        input.workPoint = hit.point;
-    }
-
-    return input;
+    return input_resolver_.resolve(event, view_->camera());
 }
 
 bool EditorSession::applyAction(EditorAction action) {
@@ -120,7 +100,7 @@ bool EditorSession::applyAction(EditorAction action) {
     }
 
     if (action.preview() && view_) {
-        view_->previewLayer().setCurves(action.preview()->takeCurves());
+        view_->previewLayer().setGeometry(action.preview()->takeCurves(), action.preview()->takeMeshes());
     }
 
     if (action.operation()) {
@@ -137,14 +117,17 @@ bool EditorSession::applyOperation(DocumentOperation operation) {
 
     io::DocumentEditor editor(*session_->document());
     bool changed = false;
-    std::visit(
-            Overloaded{
-                    [&editor, &changed](CreateCurveOperation& create) {
-                        changed = static_cast<bool>(
-                                editor.createCurve(std::move(create.name), std::move(create.primitive)));
-                    },
-            },
-            operation.data());
+    std::visit(Overloaded{
+                       [&editor, &changed](CreateCurveOperation& create) {
+                           changed = static_cast<bool>(
+                                   editor.createCurve(std::move(create.name), std::move(create.primitive)));
+                       },
+                       [&editor, &changed](CreateMeshOperation& create) {
+                           changed = static_cast<bool>(
+                                   editor.createMesh(std::move(create.name), std::move(create.primitives)));
+                       },
+               },
+               operation.data());
 
     if (changed && binding_) {
         binding_->refresh();

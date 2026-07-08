@@ -86,16 +86,22 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
     };
 
     for (const auto& item : workload.surfaces()) {
-        if (!hasObjectUboSlot())
+        if (!hasObjectUboSlot()) {
             break;
+        }
 
         const auto* geometryRecord = snapshot.geometry(item.geometry);
-        if (!geometryRecord || geometryRecord->desc.empty)
+        if (!geometryRecord) {
             continue;
+        }
+        if (geometryRecord->desc.empty) {
+            continue;
+        }
 
         const auto* gpuGeometry = context.assets.findGeometry(geometryRecord->desc.resourceKey);
-        if (!gpuGeometry)
+        if (!gpuGeometry) {
             continue;
+        }
 
         PipelineState* surfacePipeline = hasTangentLayout(*gpuGeometry) && context.surfaceTangentPipeline
                                                  ? context.surfaceTangentPipeline
@@ -108,16 +114,22 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
     }
 
     for (const auto& item : workload.edges()) {
-        if (!hasObjectUboSlot())
+        if (!hasObjectUboSlot()) {
             break;
+        }
 
         const auto* geometryRecord = snapshot.geometry(item.geometry);
-        if (!geometryRecord || geometryRecord->desc.empty)
+        if (!geometryRecord) {
             continue;
+        }
+        if (geometryRecord->desc.empty) {
+            continue;
+        }
 
         const auto* gpuGeometry = context.assets.findGeometry(geometryRecord->desc.resourceKey);
-        if (!gpuGeometry)
+        if (!gpuGeometry) {
             continue;
+        }
 
         edge_commands_.push_back(makeCommand(snapshot, item, *gpuGeometry, context.edgePipeline, nextObjectOffset,
                                              context.materials.materialGpuOffset(0), true));

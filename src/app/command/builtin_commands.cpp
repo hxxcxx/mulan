@@ -52,6 +52,7 @@ protected:
         if (DocumentView* view = host.documentView(); view && view->isInitialized()) {
             view->viewContext().setCameraToWorldXY();
         }
+        editor->setWorkPlane(mulan::engine::WorkPlane::worldXY());
         editor->startTool(std::make_unique<LineTool>());
         return {};
     }
