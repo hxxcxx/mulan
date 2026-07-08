@@ -8,6 +8,7 @@
 
 #include <mulan/asset/curve_asset.h>
 #include <mulan/asset/mesh_asset.h>
+#include <mulan/scene/entity_id.h>
 
 #include <string>
 #include <utility>
@@ -26,12 +27,20 @@ struct CreateMeshOperation {
     std::vector<asset::MeshPrimitive> primitives;
 };
 
-using DocumentOperationData = std::variant<CreateCurveOperation, CreateMeshOperation>;
+struct UpdateCurveOperation {
+    scene::EntityId entity = scene::EntityId::invalid();
+    asset::CurveElementId element = asset::CurveElementId::invalid();
+    asset::CurvePrimitive primitive;
+};
+
+using DocumentOperationData = std::variant<CreateCurveOperation, CreateMeshOperation, UpdateCurveOperation>;
 
 class DocumentOperation {
 public:
     static DocumentOperation createCurve(std::string name, asset::CurvePrimitive primitive);
     static DocumentOperation createMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
+    static DocumentOperation updateCurve(scene::EntityId entity, asset::CurveElementId element,
+                                         asset::CurvePrimitive primitive);
 
     const DocumentOperationData& data() const { return data_; }
     DocumentOperationData& data() { return data_; }

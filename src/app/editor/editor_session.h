@@ -8,6 +8,8 @@
 
 #include "editor_input.h"
 #include "editor_input_resolver.h"
+#include "editor_grip.h"
+#include "editor_grip_provider.h"
 #include "editor_tool.h"
 #include "tool_controller.h"
 
@@ -15,6 +17,8 @@
 #include <mulan/engine/interaction/work_plane.h>
 
 #include <memory>
+#include <optional>
+#include <vector>
 
 class DocumentSession;
 class DocumentViewBinding;
@@ -42,12 +46,20 @@ public:
     void startTool(std::unique_ptr<EditorTool> tool);
     bool handleInput(const engine::InputEvent& event);
     void cancelActiveTool();
+    void refreshGrips();
+    void clearGrips();
+    bool updateGripHoverAtFramebuffer(double screenX, double screenY);
+    void clearGripHover();
     void setWorkPlane(engine::WorkPlane plane);
     const engine::WorkPlane& workPlane() const;
 
 private:
     EditorInput makeEditorInput(const engine::InputEvent& event) const;
     void updateSnapPreview(const EditorInput& input);
+    void rebuildGripPreview();
+    bool tryStartGripDrag(const engine::InputEvent& event);
+    std::optional<EditorGrip> pickGripAt(double screenX, double screenY) const;
+    const EditorGrip* gripById(EditorGripId id) const;
     bool applyAction(EditorAction action);
     bool applyOperation(DocumentOperation operation);
 
@@ -55,7 +67,10 @@ private:
     view::ViewContext* view_ = nullptr;
     DocumentViewBinding* binding_ = nullptr;
     EditorInputResolver input_resolver_;
+    EditorGripProvider grip_provider_;
     ToolController tool_controller_;
+    std::vector<EditorGrip> grips_;
+    std::optional<EditorGripId> hovered_grip_;
 };
 
 }  // namespace mulan::app

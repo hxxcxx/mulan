@@ -10,6 +10,8 @@ namespace {
 constexpr uint64_t kPreviewGeometryKey = 0xF000000000000001ull;
 constexpr uint64_t kPreviewToolMaterialKey = 0xF000000000000002ull;
 constexpr uint64_t kPreviewSnapMaterialKey = 0xF000000000000003ull;
+constexpr uint64_t kPreviewGripMaterialKey = 0xF000000000000004ull;
+constexpr uint64_t kPreviewGripHotMaterialKey = 0xF000000000000005ull;
 
 uint64_t sceneGeometryKey(asset::AssetId geometry, size_t drawableIndex) {
     return geometry.value ^ ((static_cast<uint64_t>(drawableIndex) + 1u) << 32u);
@@ -157,6 +159,8 @@ uint64_t RenderItemBuilder::previewMaterialKey(PreviewVisualRole role) {
     switch (role) {
     case PreviewVisualRole::Tool: return kPreviewToolMaterialKey;
     case PreviewVisualRole::Snap: return kPreviewSnapMaterialKey;
+    case PreviewVisualRole::Grip: return kPreviewGripMaterialKey;
+    case PreviewVisualRole::GripHot: return kPreviewGripHotMaterialKey;
     }
     return kPreviewToolMaterialKey;
 }

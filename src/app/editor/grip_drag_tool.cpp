@@ -1,0 +1,338 @@
+#include "grip_drag_tool.h"
+
+#include <cmath>
+#include <utility>
+#include <variant>
+
+namespace mulan::app {
+namespace {
+
+constexpr double kMinimumRadius = 1.0e-6;
+constexpr double kMinimumSweepRadians = 1.0e-6;
+
+bool isLeftPress(const engine::InputEvent& event) {
+    return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Left;
+}
+
+bool isLeftRelease(const engine::InputEvent& event) {
+    return event.type == engine::InputEvent::Type::MouseRelease && event.button == engine::MouseButton::Left;
+}
+
+bool isRightPress(const engine::InputEvent& event) {
+    return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Right;
+}
+
+bool isMouseMove(const engine::InputEvent& event) {
+    return event.type == engine::InputEvent::Type::MouseMove;
+}
+
+asset::CurvePrimitive translatePrimitive(const asset::CurvePrimitive& primitive, const math::Vec3& delta) {
+    const auto& data = primitive.data();
+    if (const auto* segment = std::get_if<asset::CurveSegmentPrimitive>(&data)) {
+        return asset::CurvePrimitive::segment(
+                math::Segment3(segment->segment.start + delta, segment->segment.end + delta));
+    }
+    if (const auto* polyline = std::get_if<asset::CurvePolylinePrimitive>(&data)) {
+        math::Polyline3 moved = polyline->polyline;
+        for (math::Point3& point : moved.points) {
+            point += delta;
+        }
+        return asset::CurvePrimitive::polyline(moved);
+    }
+    if (const auto* circle = std::get_if<asset::CurveCirclePrimitive>(&data)) {
+        math::Circle3 moved = circle->circle;
+        moved.center += delta;
+        return asset::CurvePrimitive::circle(moved);
+    }
+    if (const auto* arc = std::get_if<asset::CurveArcPrimitive>(&data)) {
+        math::Arc3 moved = arc->arc;
+        moved.center += delta;
+        return asset::CurvePrimitive::arc(moved);
+    }
+    return primitive;
+}
+
+double signedAngleAround(const math::Vec3& from, const math::Vec3& to, const math::Vec3& normal) {
+    const math::Vec3 n = normal.normalizedOr(math::Vec3::unitZ());
+    const math::Vec3 a = (from - n * from.dot(n)).normalizedOr(math::Vec3::unitX());
+    const math::Vec3 b = (to - n * to.dot(n)).normalizedOr(a);
+    return std::atan2(n.dot(a.cross(b)), a.dot(b));
+}
+
+std::optional<math::Vec3> directionFromCenterOnPlane(const math::Point3& center, const math::Point3& target,
+                                                     const math::Vec3& normal) {
+    const math::Vec3 n = normal.normalizedOr(math::Vec3::unitZ());
+    math::Vec3 direction = target - center;
+    direction -= n * direction.dot(n);
+    if (direction.lengthSq() <= kMinimumRadius * kMinimumRadius) {
+        return std::nullopt;
+    }
+    return direction.normalized();
+}
+
+math::Angle orientedSweep(const math::Vec3& from, const math::Vec3& to, const math::Vec3& normal,
+                          math::Angle referenceSweep) {
+    double sweep = signedAngleAround(from, to, normal);
+    const double fullTurn = math::Angle::fullTurn().radians();
+    if (referenceSweep.radians() >= 0.0) {
+        if (sweep < 0.0) {
+            sweep += fullTurn;
+        }
+    } else if (sweep > 0.0) {
+        sweep -= fullTurn;
+    }
+    return math::Angle::fromRad(sweep);
+}
+
+std::optional<asset::CurvePrimitive> moveArcEndpoint(const EditorGrip& grip, const math::Point3& targetLocal) {
+    const auto* arcPrimitive = std::get_if<asset::CurveArcPrimitive>(&grip.sourcePrimitive.data());
+    if (!arcPrimitive) {
+        return std::nullopt;
+    }
+
+    const math::Arc3& arc = arcPrimitive->arc;
+    if (!arc.valid() || arc.sweep == math::Angle::zero()) {
+        return std::nullopt;
+    }
+
+    const std::optional<math::Vec3> targetDirection = directionFromCenterOnPlane(arc.center, targetLocal, arc.normal);
+    if (!targetDirection) {
+        return std::nullopt;
+    }
+
+    math::Arc3 edited = arc;
+    if (grip.vertexIndex == 0) {
+        const math::Vec3 oldEndDirection = math::rotateAroundAxis(arc.startDirection, arc.normal, arc.sweep);
+        edited.startDirection = *targetDirection;
+        edited.sweep = orientedSweep(edited.startDirection, oldEndDirection, arc.normal, arc.sweep);
+    } else if (grip.vertexIndex == 1) {
+        edited.sweep = orientedSweep(arc.startDirection, *targetDirection, arc.normal, arc.sweep);
+    } else {
+        return std::nullopt;
+    }
+
+    if (std::abs(edited.sweep.radians()) <= kMinimumSweepRadians) {
+        return std::nullopt;
+    }
+    return asset::CurvePrimitive::arc(edited);
+}
+
+std::optional<asset::CurvePrimitive> moveVertex(const EditorGrip& grip, const math::Point3& targetLocal) {
+    const auto& data = grip.sourcePrimitive.data();
+    if (const auto* segment = std::get_if<asset::CurveSegmentPrimitive>(&data)) {
+        math::Segment3 edited = segment->segment;
+        if (grip.vertexIndex == 0) {
+            edited.start = targetLocal;
+        } else if (grip.vertexIndex == 1) {
+            edited.end = targetLocal;
+        } else {
+            return std::nullopt;
+        }
+        if (edited.lengthSq() <= 1.0e-12) {
+            return std::nullopt;
+        }
+        return asset::CurvePrimitive::segment(edited);
+    }
+
+    if (const auto* polyline = std::get_if<asset::CurvePolylinePrimitive>(&data)) {
+        math::Polyline3 edited = polyline->polyline;
+        if (grip.vertexIndex >= edited.points.size()) {
+            return std::nullopt;
+        }
+        edited.points[grip.vertexIndex] = targetLocal;
+        if (!edited.hasSegments()) {
+            return std::nullopt;
+        }
+        return asset::CurvePrimitive::polyline(edited);
+    }
+
+    if (std::get_if<asset::CurveArcPrimitive>(&data)) {
+        return moveArcEndpoint(grip, targetLocal);
+    }
+
+    return std::nullopt;
+}
+
+std::optional<asset::CurvePrimitive> movePolylineSegment(const EditorGrip& grip, const math::Vec3& deltaLocal) {
+    const auto* polyline = std::get_if<asset::CurvePolylinePrimitive>(&grip.sourcePrimitive.data());
+    if (!polyline) {
+        return translatePrimitive(grip.sourcePrimitive, deltaLocal);
+    }
+
+    math::Polyline3 edited = polyline->polyline;
+    if (!edited.hasSegments() || grip.segmentIndex >= edited.segmentCount()) {
+        return std::nullopt;
+    }
+
+    const size_t first = grip.segmentIndex;
+    const size_t second = (grip.segmentIndex + 1) % edited.points.size();
+    if (!edited.closed && second <= first) {
+        return std::nullopt;
+    }
+
+    edited.points[first] += deltaLocal;
+    edited.points[second] += deltaLocal;
+    return asset::CurvePrimitive::polyline(edited);
+}
+
+std::optional<double> radiusFromTarget(const math::Point3& center, const math::Point3& target,
+                                       const math::Vec3& normal) {
+    const math::Vec3 n = normal.normalizedOr(math::Vec3::unitZ());
+    math::Vec3 radiusVector = target - center;
+    radiusVector -= n * radiusVector.dot(n);
+    const double radius = radiusVector.length();
+    if (radius <= kMinimumRadius) {
+        return std::nullopt;
+    }
+    return radius;
+}
+
+std::optional<asset::CurvePrimitive> changeRadius(const EditorGrip& grip, const math::Point3& targetLocal) {
+    const auto& data = grip.sourcePrimitive.data();
+    if (const auto* circle = std::get_if<asset::CurveCirclePrimitive>(&data)) {
+        math::Circle3 edited = circle->circle;
+        const std::optional<double> radius = radiusFromTarget(edited.center, targetLocal, edited.normal);
+        if (!radius) {
+            return std::nullopt;
+        }
+
+        edited.radius = *radius;
+        return asset::CurvePrimitive::circle(edited);
+    }
+
+    if (const auto* arc = std::get_if<asset::CurveArcPrimitive>(&data)) {
+        math::Arc3 edited = arc->arc;
+        const std::optional<double> radius = radiusFromTarget(edited.center, targetLocal, edited.normal);
+        if (!radius) {
+            return std::nullopt;
+        }
+
+        edited.radius = *radius;
+        return asset::CurvePrimitive::arc(edited);
+    }
+
+    return std::nullopt;
+}
+
+double transformedRadiusScale(const math::Vec3& localDirection, const math::Mat4& transform) {
+    const double scale = localDirection.transformedAsDir(transform).length();
+    return scale > 1.0e-9 ? scale : 1.0;
+}
+
+asset::CurvePrimitive transformPrimitiveToWorld(const asset::CurvePrimitive& primitive, const math::Mat4& transform) {
+    const auto& data = primitive.data();
+    if (const auto* segment = std::get_if<asset::CurveSegmentPrimitive>(&data)) {
+        return asset::CurvePrimitive::segment(segment->segment.transformed(transform));
+    }
+    if (const auto* polyline = std::get_if<asset::CurvePolylinePrimitive>(&data)) {
+        return asset::CurvePrimitive::polyline(polyline->polyline.transformed(transform));
+    }
+    if (const auto* circle = std::get_if<asset::CurveCirclePrimitive>(&data)) {
+        const math::Circle3& source = circle->circle;
+        const math::Vec3 normal = source.normal.transformedAsNormal(transform).normalizedOr(math::Vec3::unitZ());
+        const math::Vec3 radiusAxis = math::perpendicularUnit(source.normal);
+        return asset::CurvePrimitive::circle(
+                math::Circle3(source.center.transformedBy(transform),
+                              source.radius * transformedRadiusScale(radiusAxis, transform), normal));
+    }
+    if (const auto* arc = std::get_if<asset::CurveArcPrimitive>(&data)) {
+        const math::Arc3& source = arc->arc;
+        const math::Vec3 normal = source.normal.transformedAsNormal(transform).normalizedOr(math::Vec3::unitZ());
+        const math::Vec3 startDirection =
+                source.startDirection.transformedAsDir(transform).normalizedOr(math::Vec3::unitX());
+        return asset::CurvePrimitive::arc(
+                math::Arc3(source.center.transformedBy(transform),
+                           source.radius * transformedRadiusScale(source.startDirection, transform), startDirection,
+                           source.sweep, normal));
+    }
+    return primitive;
+}
+
+}  // namespace
+
+GripDragTool::GripDragTool(EditorGrip grip, math::Point3 dragStartWorld)
+    : grip_(std::move(grip)), drag_start_local_(dragStartWorld.transformedBy(grip_.worldToLocal)) {
+}
+
+EditorPointPolicy GripDragTool::pointPolicy() const {
+    EditorPointPolicy policy;
+    policy.axisAnchor = grip_.worldPosition;
+    return policy;
+}
+
+EditorAction GripDragTool::begin() {
+    current_primitive_.reset();
+    return EditorAction::clearPreview();
+}
+
+EditorAction GripDragTool::handleInput(const EditorInput& input) {
+    if (isRightPress(input.event)) {
+        return EditorAction::cancel();
+    }
+
+    if (isLeftPress(input.event)) {
+        return EditorAction::consumeEvent();
+    }
+
+    const auto point = input.worldPoint();
+    if (!point) {
+        return EditorAction::consumeEvent();
+    }
+
+    if (isMouseMove(input.event)) {
+        return updatePreview(*point);
+    }
+
+    if (isLeftRelease(input.event)) {
+        return commitAt(*point);
+    }
+
+    return EditorAction::ignored();
+}
+
+EditorAction GripDragTool::end(ToolFinishReason reason) {
+    current_primitive_.reset();
+    if (reason != ToolFinishReason::Finished) {
+        return EditorAction::clearPreview();
+    }
+    return EditorAction::ignored();
+}
+
+EditorAction GripDragTool::updatePreview(const math::Point3& worldPoint) {
+    current_primitive_ = makeEditedPrimitive(worldPoint);
+    if (!current_primitive_) {
+        return EditorAction::clearPreview();
+    }
+    return EditorAction::setPreview(
+            DraftGeometry::curve(transformPrimitiveToWorld(*current_primitive_, grip_.localToWorld)));
+}
+
+EditorAction GripDragTool::commitAt(const math::Point3& worldPoint) {
+    std::optional<asset::CurvePrimitive> primitive = makeEditedPrimitive(worldPoint);
+    if (!primitive) {
+        primitive = current_primitive_;
+    }
+    if (!primitive) {
+        return EditorAction::cancel();
+    }
+
+    EditorAction action =
+            EditorAction::commit(DocumentOperation::updateCurve(grip_.entity, grip_.element, std::move(*primitive)));
+    action.clearPreviewOnApply().finishTool();
+    return action;
+}
+
+std::optional<asset::CurvePrimitive> GripDragTool::makeEditedPrimitive(const math::Point3& worldPoint) const {
+    const math::Point3 targetLocal = worldPoint.transformedBy(grip_.worldToLocal);
+    const math::Vec3 deltaLocal = targetLocal - drag_start_local_;
+
+    switch (grip_.action) {
+    case EditorGripAction::MovePrimitive: return translatePrimitive(grip_.sourcePrimitive, deltaLocal);
+    case EditorGripAction::MoveSegment: return movePolylineSegment(grip_, deltaLocal);
+    case EditorGripAction::MoveVertex: return moveVertex(grip_, targetLocal);
+    case EditorGripAction::ChangeRadius: return changeRadius(grip_, targetLocal);
+    }
+    return std::nullopt;
+}
+
+}  // namespace mulan::app

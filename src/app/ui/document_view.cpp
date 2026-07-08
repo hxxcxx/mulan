@@ -37,6 +37,7 @@ bool DocumentView::init(const mulan::view::ViewConfig& config, int width, int he
 void DocumentView::resize(int width, int height) {
     if (view_context_.isInitialized()) {
         view_context_.resize(width, height);
+        editor_session_.refreshGrips();
     }
 }
 
@@ -63,11 +64,21 @@ bool DocumentView::handleInput(const mulan::engine::InputEvent& event) {
         return true;
     }
 
-    return view_context_.handleInput(event);
+    const bool consumed = view_context_.handleInput(event);
+    if (consumed) {
+        editor_session_.refreshGrips();
+    }
+    return consumed;
 }
 
 void DocumentView::updateHoverAtFramebuffer(double x, double y) {
     if (!binding_.isBound()) {
+        view_context_.clearHoveredPickId();
+        editor_session_.clearGripHover();
+        return;
+    }
+
+    if (editor_session_.updateGripHoverAtFramebuffer(x, y)) {
         view_context_.clearHoveredPickId();
         return;
     }
@@ -89,8 +100,10 @@ void DocumentView::selectAtFramebuffer(double x, double y) {
     if (hit) {
         view_context_.setHoveredPickId(hit->pickId);
         binding_.selectSingle(hit->entity);
+        editor_session_.refreshGrips();
     } else {
         view_context_.clearHoveredPickId();
         binding_.clearSelection();
+        editor_session_.refreshGrips();
     }
 }

@@ -21,6 +21,8 @@ namespace mulan::view {
 enum class PreviewVisualRole : uint8_t {
     Tool,
     Snap,
+    Grip,
+    GripHot,
 };
 
 struct PreviewDrawable {
@@ -38,6 +40,10 @@ public:
     void clearToolGeometry();
     void setSnapGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes);
     void clearSnapGeometry();
+    void setGripGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes);
+    void clearGripGeometry();
+    void setGripHotGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes);
+    void clearGripHotGeometry();
     void clear();
 
     bool empty() const;
@@ -54,6 +60,10 @@ private:
     std::vector<graphics::Mesh> tool_meshes_;
     std::vector<asset::CurvePrimitive> snap_curves_;
     std::vector<graphics::Mesh> snap_meshes_;
+    std::vector<asset::CurvePrimitive> grip_curves_;
+    std::vector<graphics::Mesh> grip_meshes_;
+    std::vector<asset::CurvePrimitive> grip_hot_curves_;
+    std::vector<graphics::Mesh> grip_hot_meshes_;
     std::vector<graphics::Mesh> meshes_;
     std::vector<PreviewDrawable> drawables_;
     uint64_t generation_ = 1;

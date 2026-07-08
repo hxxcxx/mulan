@@ -65,8 +65,41 @@ void PreviewLayer::clearSnapGeometry() {
     rebuildMeshes();
 }
 
+void PreviewLayer::setGripGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes) {
+    grip_curves_ = std::move(curves);
+    grip_meshes_ = std::move(meshes);
+    rebuildMeshes();
+}
+
+void PreviewLayer::clearGripGeometry() {
+    if (grip_curves_.empty() && grip_meshes_.empty()) {
+        return;
+    }
+
+    grip_curves_.clear();
+    grip_meshes_.clear();
+    rebuildMeshes();
+}
+
+void PreviewLayer::setGripHotGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes) {
+    grip_hot_curves_ = std::move(curves);
+    grip_hot_meshes_ = std::move(meshes);
+    rebuildMeshes();
+}
+
+void PreviewLayer::clearGripHotGeometry() {
+    if (grip_hot_curves_.empty() && grip_hot_meshes_.empty()) {
+        return;
+    }
+
+    grip_hot_curves_.clear();
+    grip_hot_meshes_.clear();
+    rebuildMeshes();
+}
+
 void PreviewLayer::clear() {
-    if (tool_curves_.empty() && tool_meshes_.empty() && snap_curves_.empty() && snap_meshes_.empty()) {
+    if (tool_curves_.empty() && tool_meshes_.empty() && snap_curves_.empty() && snap_meshes_.empty() &&
+        grip_curves_.empty() && grip_meshes_.empty() && grip_hot_curves_.empty() && grip_hot_meshes_.empty()) {
         return;
     }
 
@@ -74,6 +107,10 @@ void PreviewLayer::clear() {
     tool_meshes_.clear();
     snap_curves_.clear();
     snap_meshes_.clear();
+    grip_curves_.clear();
+    grip_meshes_.clear();
+    grip_hot_curves_.clear();
+    grip_hot_meshes_.clear();
     rebuildMeshes();
 }
 
@@ -113,6 +150,18 @@ void PreviewLayer::rebuildMeshes() {
     }
     for (graphics::Mesh& mesh : snap_meshes_) {
         appendMesh(mesh, PreviewVisualRole::Snap);
+    }
+    if (!grip_curves_.empty()) {
+        appendMesh(asset::buildCurveWireMesh(grip_curves_), PreviewVisualRole::Grip);
+    }
+    for (graphics::Mesh& mesh : grip_meshes_) {
+        appendMesh(mesh, PreviewVisualRole::Grip);
+    }
+    if (!grip_hot_curves_.empty()) {
+        appendMesh(asset::buildCurveWireMesh(grip_hot_curves_), PreviewVisualRole::GripHot);
+    }
+    for (graphics::Mesh& mesh : grip_hot_meshes_) {
+        appendMesh(mesh, PreviewVisualRole::GripHot);
     }
     touch();
 }

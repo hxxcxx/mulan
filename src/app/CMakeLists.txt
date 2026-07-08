@@ -18,6 +18,9 @@ add_executable(${PROJECT_NAME}
     editor/editor_input.h
     editor/editor_input_resolver.h
     editor/editor_input_resolver.cpp
+    editor/editor_grip.h
+    editor/editor_grip_provider.h
+    editor/editor_grip_provider.cpp
     editor/editor_scene_snap_provider.h
     editor/editor_scene_snap_provider.cpp
     editor/editor_snap_collector.h
@@ -37,6 +40,10 @@ add_executable(${PROJECT_NAME}
     editor/circle_tool.cpp
     editor/line_tool.h
     editor/line_tool.cpp
+    editor/grip_drag_tool.h
+    editor/grip_drag_tool.cpp
+    editor/grip_marker_builder.h
+    editor/grip_marker_builder.cpp
     editor/snap_marker_builder.h
     editor/snap_marker_builder.cpp
     resource/icon.qrc

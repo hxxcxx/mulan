@@ -115,15 +115,27 @@ engine::RenderMaterialDesc previewMaterialDesc(PreviewVisualRole role) {
         desc.material = engine::Material::unlit(math::Vec3(1.0, 0.74, 0.16));
         desc.material.name = "SnapPreview";
         break;
+    case PreviewVisualRole::Grip:
+        desc.material = engine::Material::unlit(math::Vec3(0.2, 1.0, 0.38));
+        desc.material.name = "GripPreview";
+        break;
+    case PreviewVisualRole::GripHot:
+        desc.material = engine::Material::unlit(math::Vec3(1.0, 0.95, 0.25));
+        desc.material.name = "GripHotPreview";
+        break;
     }
     return desc;
 }
 
 engine::RenderMaterialHandle previewMaterialForRole(PreviewVisualRole role, engine::RenderMaterialHandle toolMaterial,
-                                                    engine::RenderMaterialHandle snapMaterial) {
+                                                    engine::RenderMaterialHandle snapMaterial,
+                                                    engine::RenderMaterialHandle gripMaterial,
+                                                    engine::RenderMaterialHandle gripHotMaterial) {
     switch (role) {
     case PreviewVisualRole::Tool: return toolMaterial;
     case PreviewVisualRole::Snap: return snapMaterial;
+    case PreviewVisualRole::Grip: return gripMaterial;
+    case PreviewVisualRole::GripHot: return gripHotMaterial;
     }
     return toolMaterial;
 }
@@ -136,6 +148,9 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world, engi
 
     const engine::RenderMaterialHandle toolMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Tool));
     const engine::RenderMaterialHandle snapMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Snap));
+    const engine::RenderMaterialHandle gripMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Grip));
+    const engine::RenderMaterialHandle gripHotMaterial =
+            world.addMaterial(previewMaterialDesc(PreviewVisualRole::GripHot));
 
     engine::RenderObjectDesc object;
     object.externalId = 0;
@@ -168,7 +183,8 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world, engi
         }
         object.drawables.push_back(engine::RenderObjectDrawable{
                 .geometry = world.addGeometry(std::move(geometryDesc)),
-                .material = previewMaterialForRole(item.previewRole, toolMaterial, snapMaterial),
+                .material = previewMaterialForRole(item.previewRole, toolMaterial, snapMaterial, gripMaterial,
+                                                   gripHotMaterial),
                 .bucket = item.bucket,
                 .sourceDrawableIndex = item.sourceDrawableIndex,
         });
