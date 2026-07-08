@@ -99,6 +99,7 @@ public:
     void setViewCubeSize(uint32_t size);
     void setViewCubeMargin(uint32_t margin);
     void setViewCubeCorner(engine::ViewCubeCorner corner);
+    void setCameraToWorldXY();
 
     bool showOverlays() const { return show_overlays_; }
     void setShowOverlays(bool show) { show_overlays_ = show; }

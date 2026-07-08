@@ -36,8 +36,9 @@ bool isLineEvent(const engine::InputEvent& event) {
 }  // namespace
 
 EditorAction LineTool::begin() {
-    step_ = Step::FirstPoint;
+    state_ = State::AwaitingStart;
     first_point_.reset();
+    current_point_.reset();
     return EditorAction::clearPreview();
 }
 
@@ -54,12 +55,19 @@ EditorAction LineTool::handleInput(const EditorInput& input) {
         return EditorAction::consumeEvent();
     }
 
-    if (isMouseMove(input.event) && step_ == Step::SecondPoint) {
-        return updatePreview(*input.workPoint);
+    if (isMouseMove(input.event) && state_ == State::RubberBand) {
+        return updateRubberBand(*input.workPoint);
+    }
+
+    if (isLeftPress(input.event)) {
+        if (state_ == State::AwaitingStart) {
+            return acceptStartPoint(*input.workPoint);
+        }
+        return acceptEndPoint(*input.workPoint);
     }
 
     if (isLeftRelease(input.event)) {
-        return acceptPoint(*input.workPoint);
+        return EditorAction::consumeEvent();
     }
 
     return EditorAction::consumeEvent();
@@ -72,21 +80,24 @@ EditorAction LineTool::end(ToolFinishReason reason) {
     return EditorAction::ignored();
 }
 
-EditorAction LineTool::acceptPoint(const math::Point3& point) {
-    if (step_ == Step::FirstPoint) {
-        first_point_ = point;
-        step_ = Step::SecondPoint;
-        return EditorAction::consumeEvent();
-    }
+EditorAction LineTool::acceptStartPoint(const math::Point3& point) {
+    first_point_ = point;
+    current_point_ = point;
+    state_ = State::RubberBand;
+    return EditorAction::clearPreview();
+}
 
+EditorAction LineTool::acceptEndPoint(const math::Point3& point) {
     if (!first_point_) {
-        step_ = Step::FirstPoint;
-        return EditorAction::consumeEvent();
+        state_ = State::AwaitingStart;
+        current_point_.reset();
+        return EditorAction::clearPreview();
     }
 
+    current_point_ = point;
     const math::Segment3 segment(*first_point_, point);
     if (segment.lengthSq() <= kMinimumLineLengthSq) {
-        return updatePreview(point);
+        return updateRubberBand(point);
     }
 
     EditorAction action =
@@ -95,12 +106,18 @@ EditorAction LineTool::acceptPoint(const math::Point3& point) {
     return action;
 }
 
-EditorAction LineTool::updatePreview(const math::Point3& point) const {
+EditorAction LineTool::updateRubberBand(const math::Point3& point) {
     if (!first_point_) {
         return EditorAction::ignored();
     }
 
-    return EditorAction::setPreview(DraftGeometry::segment(math::Segment3(*first_point_, point)));
+    current_point_ = point;
+    const math::Segment3 segment(*first_point_, point);
+    if (segment.lengthSq() <= kMinimumLineLengthSq) {
+        return EditorAction::clearPreview();
+    }
+
+    return EditorAction::setPreview(DraftGeometry::segment(segment));
 }
 
 }  // namespace mulan::app

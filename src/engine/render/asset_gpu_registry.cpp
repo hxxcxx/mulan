@@ -32,6 +32,9 @@ const GpuGeometry* AssetGpuRegistry::acquireGeometry(AssetGpuKey key, const grap
         if (!result) {
             return nullptr;
         }
+        if (it->second.isValid()) {
+            retired_geometries_.push_back(std::move(it->second));
+        }
         it->second = std::move(*result);
         return &it->second;
     }
@@ -108,6 +111,7 @@ Texture* AssetGpuRegistry::createTexture(uint32_t width, uint32_t height, Textur
 
 void AssetGpuRegistry::clear() {
     geometries_.clear();
+    retired_geometries_.clear();
     textures_.clear();
 }
 

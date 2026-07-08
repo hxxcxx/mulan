@@ -246,9 +246,7 @@ void RenderRenderer::compile(const RenderRequest& request) {
                                                                             : emptyCommands);
     }
     if (edge_stage_) {
-        edge_stage_->setDrawCommands((renderEdgesEnabled(request.options) || request.options.hasHoveredPickId)
-                                             ? compiler_.edgeCommands()
-                                             : emptyCommands);
+        edge_stage_->setDrawCommands(!compiler_.edgeCommands().empty() ? compiler_.edgeCommands() : emptyCommands);
     }
 }
 

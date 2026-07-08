@@ -140,6 +140,10 @@ void ViewContext::setViewCubeCorner(engine::ViewCubeCorner corner) {
     view_cube_model_.setLayout(layout);
 }
 
+void ViewContext::setCameraToWorldXY() {
+    setCameraToViewCubePart(engine::ViewCubePart{ engine::ViewCubePartType::Face, 0, 0, 1, 0 });
+}
+
 void ViewContext::renderFrame() {
     if (!runtime_host_.isInitialized())
         return;

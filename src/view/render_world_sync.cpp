@@ -111,11 +111,11 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world,
     constexpr uint64_t kPreviewMaterialKey = 0xF000000000000002ull;
 
     engine::RenderGeometryDesc geometryDesc;
-    geometryDesc.resourceKey = engine::makeAssetGpuKey(kPreviewGeometryKey);
+    geometryDesc.resourceKey = engine::makeAssetGpuKey(kPreviewGeometryKey ^ preview->generation());
     geometryDesc.topology = preview->mesh().topology;
     geometryDesc.empty = preview->mesh().empty();
     if (prepare) {
-        prepare->addGeometry(geometryDesc.resourceKey, &preview->mesh(), true);
+        prepare->addGeometry(geometryDesc.resourceKey, &preview->mesh());
     }
 
     engine::RenderMaterialDesc materialDesc;

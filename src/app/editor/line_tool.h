@@ -21,16 +21,18 @@ public:
     EditorAction end(ToolFinishReason reason) override;
 
 private:
-    enum class Step {
-        FirstPoint,
-        SecondPoint,
+    enum class State {
+        AwaitingStart,
+        RubberBand,
     };
 
-    EditorAction acceptPoint(const math::Point3& point);
-    EditorAction updatePreview(const math::Point3& point) const;
+    EditorAction acceptStartPoint(const math::Point3& point);
+    EditorAction acceptEndPoint(const math::Point3& point);
+    EditorAction updateRubberBand(const math::Point3& point);
 
-    Step step_ = Step::FirstPoint;
+    State state_ = State::AwaitingStart;
     std::optional<math::Point3> first_point_;
+    std::optional<math::Point3> current_point_;
 };
 
 }  // namespace mulan::app

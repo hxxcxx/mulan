@@ -30,6 +30,21 @@ struct Overloaded : T... {
 template <typename... T>
 Overloaded(T...) -> Overloaded<T...>;
 
+std::optional<math::Point3> mapOrthographicScreenToWorldXY(const engine::Camera& camera,
+                                                           const engine::InputEvent& event) {
+    if (!camera.isOrthographic() || camera.width() <= 0 || camera.height() <= 0) {
+        return std::nullopt;
+    }
+
+    const double ndcX = (2.0 * static_cast<double>(event.x)) / static_cast<double>(camera.width()) - 1.0;
+    const double ndcY = 1.0 - (2.0 * static_cast<double>(event.y)) / static_cast<double>(camera.height());
+    const double halfHeight = camera.orthoSize();
+    const double halfWidth = halfHeight * camera.aspect();
+    const math::Vec3 target = camera.target();
+
+    return math::Point3(target.x + ndcX * halfWidth, target.y + ndcY * halfHeight, 0.0);
+}
+
 }  // namespace
 
 EditorSession::EditorSession() = default;
@@ -80,8 +95,14 @@ EditorInput EditorSession::makeEditorInput(const engine::InputEvent& event) cons
         return input;
     }
 
-    input.cursorRay = view_->camera().screenRay(event.x, event.y);
+    const engine::Camera& camera = view_->camera();
+    input.cursorRay = camera.screenRay(event.x, event.y);
     input.workPlane = math::Plane3::fromPointNormal(math::Point3::origin(), math::Vec3::unitZ());
+
+    if (auto point = mapOrthographicScreenToWorldXY(camera, event)) {
+        input.workPoint = *point;
+        return input;
+    }
 
     const math::Hit3 hit = math::intersect(input.cursorRay, input.workPlane);
     if (hit.hit) {

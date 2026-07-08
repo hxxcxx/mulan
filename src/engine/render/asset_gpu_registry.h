@@ -95,6 +95,7 @@ private:
 
     RHIDevice& device_;
     std::unordered_map<AssetGpuKey, GpuGeometry> geometries_;
+    std::vector<GpuGeometry> retired_geometries_;
     std::unordered_map<std::string, GpuTextureResource> textures_;
 };
 

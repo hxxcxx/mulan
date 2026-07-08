@@ -49,6 +49,9 @@ protected:
             return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
         }
 
+        if (DocumentView* view = host.documentView(); view && view->isInitialized()) {
+            view->viewContext().setCameraToWorldXY();
+        }
         editor->startTool(std::make_unique<LineTool>());
         return {};
     }
