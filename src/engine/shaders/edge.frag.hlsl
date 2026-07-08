@@ -6,6 +6,8 @@
 #include "common.hlsli"
 
 float4 main(VS_OUTPUT_SIMPLE input) : SV_TARGET {
-    float3 color = (Hovered > 0) ? lerp(EdgeColor, HighlightColor, 0.85) : EdgeColor;
+    static const uint MaterialTypeUnlit = 0;
+    float3 baseColor = (MaterialType == MaterialTypeUnlit) ? BaseColor : EdgeColor;
+    float3 color = (Hovered > 0) ? lerp(baseColor, HighlightColor, 0.85) : baseColor;
     return float4(color, 1.0);
 }

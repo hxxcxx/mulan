@@ -71,6 +71,10 @@ struct MeshPickResult {
     size_t primitiveIndex = 0;
     bool hasPrimitiveIndex = false;
     double parameter = 0.0;
+    double toleranceWorld = 0.0;
+    math::Point3 edgeStart;
+    math::Point3 edgeEnd;
+    bool hasEdgeSegment = false;
     math::Vec3 barycentric;
     bool hasBarycentric = false;
 };
@@ -336,6 +340,10 @@ MeshPickResult pickLineMesh(const math::Ray3& worldRay, const graphics::Mesh& me
             result.primitiveIndex = segmentIndex;
             result.hasPrimitiveIndex = true;
             result.parameter = closest.segmentT;
+            result.toleranceWorld = lineToleranceWorld;
+            result.edgeStart = worldSegment.start;
+            result.edgeEnd = worldSegment.end;
+            result.hasEdgeSegment = true;
         }
     }
     return result;
@@ -539,6 +547,7 @@ std::optional<RenderScene::PickResult> RenderScene::pick(const math::Ray3& ray, 
             .pickId = proxy.entity.index(),
             .distance = boundsHit.t,
             .kind = PickHitKind::Object,
+            .toleranceWorld = lineToleranceWorld,
         };
         if (assets_) {
             const asset::Asset* geometryAsset = assets_->asset(proxy.geometry);
@@ -559,6 +568,10 @@ std::optional<RenderScene::PickResult> RenderScene::pick(const math::Ray3& ray, 
                     candidate.primitiveIndex = meshHit.primitiveIndex;
                     candidate.hasPrimitiveIndex = meshHit.hasPrimitiveIndex;
                     candidate.parameter = meshHit.parameter;
+                    candidate.toleranceWorld = meshHit.toleranceWorld;
+                    candidate.edgeStart = meshHit.edgeStart;
+                    candidate.edgeEnd = meshHit.edgeEnd;
+                    candidate.hasEdgeSegment = meshHit.hasEdgeSegment;
                     candidate.barycentric = meshHit.barycentric;
                     candidate.hasBarycentric = meshHit.hasBarycentric;
                 }

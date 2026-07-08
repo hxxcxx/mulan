@@ -13,38 +13,54 @@ std::optional<EditorPoint> pointFromCandidate(const EditorSnapCandidate& candida
     };
 }
 
+bool candidateAllowed(const EditorSnapCandidate& candidate, const EditorSnapResolveInput& input) {
+    switch (candidate.dependency) {
+    case EditorPointDependencyKind::Geometry:
+        return input.pointPolicy.allowGeometry && input.snapSettings.enabled && input.snapSettings.enableGeometrySnap;
+    case EditorPointDependencyKind::Grid:
+        return input.pointPolicy.allowWorkPlane && input.snapSettings.enabled && input.snapSettings.enableGridSnap;
+    case EditorPointDependencyKind::Axis:
+        return input.pointPolicy.allowAxisConstraint && input.snapSettings.enabled &&
+               input.snapSettings.enableAxisConstraint;
+    case EditorPointDependencyKind::WorkPlane: return input.pointPolicy.allowWorkPlane;
+    case EditorPointDependencyKind::Depth: return input.snapSettings.enabled;
+    case EditorPointDependencyKind::None: return true;
+    }
+    return false;
+}
+
+bool betterCandidate(const EditorSnapCandidate& candidate, const EditorSnapCandidate& best) {
+    constexpr double kPriorityEps = 1.0e-9;
+    if (candidate.priority > best.priority + kPriorityEps) {
+        return true;
+    }
+    if (best.priority > candidate.priority + kPriorityEps) {
+        return false;
+    }
+    return candidate.distance < best.distance;
+}
+
 }  // namespace
 
 std::optional<EditorPoint> EditorSnapResolver::resolve(const EditorSnapResolveInput& input) {
-    const bool canUseGeometry =
-            input.pointPolicy.allowGeometry && input.snapSettings.enabled && input.snapSettings.enableGeometrySnap;
-
-    if (canUseGeometry && input.pointPolicy.preferGeometry) {
-        for (const auto& candidate : input.candidates) {
-            if (candidate.dependsOnGeometry()) {
-                return pointFromCandidate(candidate, EditorPointSource::Snap);
-            }
+    const EditorSnapCandidate* best = nullptr;
+    for (const auto& candidate : input.candidates) {
+        if (!candidateAllowed(candidate, input)) {
+            continue;
+        }
+        if (!best || betterCandidate(candidate, *best)) {
+            best = &candidate;
         }
     }
 
-    if (input.pointPolicy.allowWorkPlane && input.workPoint) {
-        return EditorPoint{
-            .world = *input.workPoint,
-            .source = EditorPointSource::WorkPlane,
-            .dependency = EditorPointDependencyKind::WorkPlane,
-            .snapKind = EditorSnapKind::WorkPlane,
-        };
+    if (!best) {
+        return std::nullopt;
     }
 
-    if (canUseGeometry) {
-        for (const auto& candidate : input.candidates) {
-            if (candidate.dependsOnGeometry()) {
-                return pointFromCandidate(candidate, EditorPointSource::Pick);
-            }
-        }
+    if (best->kind == EditorSnapKind::WorkPlane) {
+        return pointFromCandidate(*best, EditorPointSource::WorkPlane);
     }
-
-    return std::nullopt;
+    return pointFromCandidate(*best, EditorPointSource::Snap);
 }
 
 }  // namespace mulan::app

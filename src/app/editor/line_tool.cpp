@@ -42,6 +42,14 @@ EditorAction LineTool::begin() {
     return EditorAction::clearPreview();
 }
 
+EditorPointPolicy LineTool::pointPolicy() const {
+    EditorPointPolicy policy;
+    if (state_ == State::RubberBand && first_point_) {
+        policy.axisAnchor = first_point_;
+    }
+    return policy;
+}
+
 EditorAction LineTool::handleInput(const EditorInput& input) {
     if (isRightPress(input.event)) {
         return EditorAction::cancel();

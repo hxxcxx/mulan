@@ -18,6 +18,16 @@
 
 namespace mulan::view {
 
+enum class PreviewVisualRole : uint8_t {
+    Tool,
+    Snap,
+};
+
+struct PreviewDrawable {
+    graphics::Mesh mesh;
+    PreviewVisualRole role = PreviewVisualRole::Tool;
+};
+
 class PreviewLayer {
 public:
     void setCurves(std::vector<asset::CurvePrimitive> primitives);
@@ -25,19 +35,27 @@ public:
     void setMeshes(std::vector<graphics::Mesh> meshes);
     void setMesh(graphics::Mesh mesh);
     void setGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes);
+    void clearToolGeometry();
+    void setSnapGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes);
+    void clearSnapGeometry();
     void clear();
 
     bool empty() const;
     uint64_t generation() const { return generation_; }
     const graphics::Mesh& mesh() const;
     const std::vector<graphics::Mesh>& meshes() const { return meshes_; }
+    const std::vector<PreviewDrawable>& drawables() const { return drawables_; }
 
 private:
-    void rebuildCurves();
+    void rebuildMeshes();
     void touch();
 
-    std::vector<asset::CurvePrimitive> curves_;
+    std::vector<asset::CurvePrimitive> tool_curves_;
+    std::vector<graphics::Mesh> tool_meshes_;
+    std::vector<asset::CurvePrimitive> snap_curves_;
+    std::vector<graphics::Mesh> snap_meshes_;
     std::vector<graphics::Mesh> meshes_;
+    std::vector<PreviewDrawable> drawables_;
     uint64_t generation_ = 1;
 };
 

@@ -47,6 +47,7 @@ public:
 
 private:
     EditorInput makeEditorInput(const engine::InputEvent& event) const;
+    void updateSnapPreview(const EditorInput& input);
     bool applyAction(EditorAction action);
     bool applyOperation(DocumentOperation operation);
 

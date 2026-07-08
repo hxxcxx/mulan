@@ -103,17 +103,39 @@ void accumulate(RenderItemDiagnostics& dst, const RenderItemDiagnostics& src) {
     dst.rejectedLayout += src.rejectedLayout;
 }
 
+engine::RenderMaterialDesc previewMaterialDesc(PreviewVisualRole role) {
+    engine::RenderMaterialDesc desc;
+    desc.resourceKey = engine::makeAssetGpuKey(RenderItemBuilder::previewMaterialKey(role));
+    switch (role) {
+    case PreviewVisualRole::Tool:
+        desc.material = engine::Material::unlit(math::Vec3(0.0, 0.58, 1.0));
+        desc.material.name = "ToolPreview";
+        break;
+    case PreviewVisualRole::Snap:
+        desc.material = engine::Material::unlit(math::Vec3(1.0, 0.74, 0.16));
+        desc.material.name = "SnapPreview";
+        break;
+    }
+    return desc;
+}
+
+engine::RenderMaterialHandle previewMaterialForRole(PreviewVisualRole role, engine::RenderMaterialHandle toolMaterial,
+                                                    engine::RenderMaterialHandle snapMaterial) {
+    switch (role) {
+    case PreviewVisualRole::Tool: return toolMaterial;
+    case PreviewVisualRole::Snap: return snapMaterial;
+    }
+    return toolMaterial;
+}
+
 void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare,
                    RenderWorldSyncStats& stats) {
     if (!preview || preview->empty()) {
         return;
     }
 
-    engine::RenderMaterialDesc materialDesc;
-    materialDesc.resourceKey = engine::makeAssetGpuKey(RenderItemBuilder::previewMaterialKey());
-    materialDesc.material = engine::Material::defaultPBR();
-    materialDesc.material.name = "Preview";
-    const engine::RenderMaterialHandle material = world.addMaterial(std::move(materialDesc));
+    const engine::RenderMaterialHandle toolMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Tool));
+    const engine::RenderMaterialHandle snapMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Snap));
 
     engine::RenderObjectDesc object;
     object.externalId = 0;
@@ -122,11 +144,11 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world, engi
     object.visible = true;
     object.selected = false;
 
-    const auto& meshes = preview->meshes();
+    const auto& drawables = preview->drawables();
     std::vector<RenderItem> items;
     RenderItemDiagnostics diagnostics;
     RenderItemBuilder::buildPreviewItems(preview->generation(),
-                                         std::span<const graphics::Mesh>{ meshes.data(), meshes.size() }, items,
+                                         std::span<const PreviewDrawable>{ drawables.data(), drawables.size() }, items,
                                          &diagnostics);
     accumulate(stats.previewItems, diagnostics);
     for (const RenderItem& item : items) {
@@ -146,7 +168,7 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world, engi
         }
         object.drawables.push_back(engine::RenderObjectDrawable{
                 .geometry = world.addGeometry(std::move(geometryDesc)),
-                .material = material,
+                .material = previewMaterialForRole(item.previewRole, toolMaterial, snapMaterial),
                 .bucket = item.bucket,
                 .sourceDrawableIndex = item.sourceDrawableIndex,
         });

@@ -4,6 +4,7 @@
 #include <mulan/asset/geometry_asset.h>
 #include <mulan/engine/render/frontend/render_object.h>
 #include <mulan/graphics/mesh.h>
+#include "preview_layer.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -18,6 +19,7 @@ struct RenderItem {
     engine::RenderBucket bucket = engine::RenderBucket::Surface;
     uint64_t geometryKey = 0;
     size_t sourceDrawableIndex = 0;
+    PreviewVisualRole previewRole = PreviewVisualRole::Tool;
 };
 
 struct RenderItemDiagnostics {
@@ -34,10 +36,10 @@ public:
     static void buildSceneItems(asset::AssetId geometry, std::span<const asset::Drawable> drawables,
                                 std::vector<RenderItem>& out, RenderItemDiagnostics* diagnostics = nullptr);
 
-    static void buildPreviewItems(uint64_t generation, std::span<const graphics::Mesh> meshes,
+    static void buildPreviewItems(uint64_t generation, std::span<const PreviewDrawable> drawables,
                                   std::vector<RenderItem>& out, RenderItemDiagnostics* diagnostics = nullptr);
 
-    static uint64_t previewMaterialKey();
+    static uint64_t previewMaterialKey(PreviewVisualRole role);
 };
 
 }  // namespace mulan::view

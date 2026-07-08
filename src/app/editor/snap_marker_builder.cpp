@@ -1,0 +1,119 @@
+#include "snap_marker_builder.h"
+
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
+namespace mulan::app {
+namespace {
+
+struct MarkerBasis {
+    math::Vec3 x;
+    math::Vec3 y;
+};
+
+MarkerBasis markerBasis(const engine::WorkPlane& workPlane) {
+    const math::Vec3 normal = workPlane.plane().normal.normalizedOr(math::Vec3::unitZ());
+    const math::Vec3 seed = std::abs(normal.z) < 0.9 ? math::Vec3::unitZ() : math::Vec3::unitY();
+    const math::Vec3 x = seed.cross(normal).normalizedOr(math::Vec3::unitX());
+    const math::Vec3 y = normal.cross(x).normalizedOr(math::Vec3::unitY());
+    return MarkerBasis{ .x = x, .y = y };
+}
+
+double markerSize(const EditorInput& input) {
+    if (input.geometryDependency && input.geometryDependency->toleranceWorld > 0.0) {
+        return std::max(1.0e-6, input.geometryDependency->toleranceWorld * 0.75);
+    }
+    if (input.pickHit && input.pickHit->toleranceWorld > 0.0) {
+        return std::max(1.0e-6, input.pickHit->toleranceWorld * 0.75);
+    }
+    return 0.1;
+}
+
+void addSegment(std::vector<asset::CurvePrimitive>& curves, const math::Point3& a, const math::Point3& b) {
+    if (a.distanceSq(b) <= 1.0e-18) {
+        return;
+    }
+    curves.push_back(asset::CurvePrimitive::segment(math::Segment3(a, b)));
+}
+
+void addCross(std::vector<asset::CurvePrimitive>& curves, const math::Point3& center, const MarkerBasis& basis,
+              double size) {
+    addSegment(curves, center - basis.x * size, center + basis.x * size);
+    addSegment(curves, center - basis.y * size, center + basis.y * size);
+}
+
+void addSquare(std::vector<asset::CurvePrimitive>& curves, const math::Point3& center, const MarkerBasis& basis,
+               double size) {
+    const math::Point3 a = center + basis.x * size + basis.y * size;
+    const math::Point3 b = center - basis.x * size + basis.y * size;
+    const math::Point3 c = center - basis.x * size - basis.y * size;
+    const math::Point3 d = center + basis.x * size - basis.y * size;
+    addSegment(curves, a, b);
+    addSegment(curves, b, c);
+    addSegment(curves, c, d);
+    addSegment(curves, d, a);
+}
+
+void addDiamond(std::vector<asset::CurvePrimitive>& curves, const math::Point3& center, const MarkerBasis& basis,
+                double size) {
+    const math::Point3 a = center + basis.y * size;
+    const math::Point3 b = center - basis.x * size;
+    const math::Point3 c = center - basis.y * size;
+    const math::Point3 d = center + basis.x * size;
+    addSegment(curves, a, b);
+    addSegment(curves, b, c);
+    addSegment(curves, c, d);
+    addSegment(curves, d, a);
+}
+
+void addTriangle(std::vector<asset::CurvePrimitive>& curves, const math::Point3& center, const MarkerBasis& basis,
+                 double size) {
+    const math::Point3 a = center + basis.y * size;
+    const math::Point3 b = center - basis.x * size - basis.y * size;
+    const math::Point3 c = center + basis.x * size - basis.y * size;
+    addSegment(curves, a, b);
+    addSegment(curves, b, c);
+    addSegment(curves, c, a);
+}
+
+void addMarkerForPoint(std::vector<asset::CurvePrimitive>& curves, const EditorInput& input) {
+    if (!input.point) {
+        return;
+    }
+
+    const MarkerBasis basis = markerBasis(input.workPlane);
+    const double size = markerSize(input);
+    const math::Point3 center = input.point->world;
+
+    switch (input.point->snapKind) {
+    case EditorSnapKind::Vertex: addSquare(curves, center, basis, size); break;
+    case EditorSnapKind::Midpoint: addTriangle(curves, center, basis, size); break;
+    case EditorSnapKind::Edge: addDiamond(curves, center, basis, size); break;
+    case EditorSnapKind::Face: addCross(curves, center, basis, size); break;
+    case EditorSnapKind::Grid: addCross(curves, center, basis, size * 0.6); break;
+    case EditorSnapKind::Axis: addDiamond(curves, center, basis, size * 0.8); break;
+    case EditorSnapKind::WorkPlane:
+    case EditorSnapKind::Curve:
+    case EditorSnapKind::Depth:
+    case EditorSnapKind::None: break;
+    }
+}
+
+void addAxisMarker(std::vector<asset::CurvePrimitive>& curves, const EditorInput& input) {
+    if (!input.point || input.point->snapKind != EditorSnapKind::Axis || !input.axisAnchor) {
+        return;
+    }
+    addSegment(curves, *input.axisAnchor, input.point->world);
+}
+
+}  // namespace
+
+DraftGeometry SnapMarkerBuilder::build(const EditorInput& input) {
+    std::vector<asset::CurvePrimitive> curves;
+    addAxisMarker(curves, input);
+    addMarkerForPoint(curves, input);
+    return DraftGeometry::curves(std::move(curves));
+}
+
+}  // namespace mulan::app

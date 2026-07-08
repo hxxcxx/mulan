@@ -16,6 +16,7 @@ class LineTool final : public EditorTool {
 public:
     std::string_view id() const override { return "draw.line"; }
 
+    EditorPointPolicy pointPolicy() const override;
     EditorAction begin() override;
     EditorAction handleInput(const EditorInput& input) override;
     EditorAction end(ToolFinishReason reason) override;

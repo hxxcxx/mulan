@@ -8,7 +8,8 @@ namespace mulan::view {
 namespace {
 
 constexpr uint64_t kPreviewGeometryKey = 0xF000000000000001ull;
-constexpr uint64_t kPreviewMaterialKey = 0xF000000000000002ull;
+constexpr uint64_t kPreviewToolMaterialKey = 0xF000000000000002ull;
+constexpr uint64_t kPreviewSnapMaterialKey = 0xF000000000000003ull;
 
 uint64_t sceneGeometryKey(asset::AssetId geometry, size_t drawableIndex) {
     return geometry.value ^ ((static_cast<uint64_t>(drawableIndex) + 1u) << 32u);
@@ -109,15 +110,16 @@ void RenderItemBuilder::buildSceneItems(asset::AssetId geometry, std::span<const
     }
 }
 
-void RenderItemBuilder::buildPreviewItems(uint64_t generation, std::span<const graphics::Mesh> meshes,
+void RenderItemBuilder::buildPreviewItems(uint64_t generation, std::span<const PreviewDrawable> drawables,
                                           std::vector<RenderItem>& out, RenderItemDiagnostics* diagnostics) {
     out.clear();
     if (diagnostics) {
         diagnostics->reset();
     }
 
-    for (size_t i = 0; i < meshes.size(); ++i) {
-        const graphics::Mesh& mesh = meshes[i];
+    for (size_t i = 0; i < drawables.size(); ++i) {
+        const PreviewDrawable& drawable = drawables[i];
+        const graphics::Mesh& mesh = drawable.mesh;
         if (mesh.empty()) {
             countRejectedEmpty(diagnostics);
             continue;
@@ -145,13 +147,18 @@ void RenderItemBuilder::buildPreviewItems(uint64_t generation, std::span<const g
                 .bucket = *bucket,
                 .geometryKey = previewGeometryKey(generation, i),
                 .sourceDrawableIndex = i,
+                .previewRole = drawable.role,
         });
         countAccepted(diagnostics);
     }
 }
 
-uint64_t RenderItemBuilder::previewMaterialKey() {
-    return kPreviewMaterialKey;
+uint64_t RenderItemBuilder::previewMaterialKey(PreviewVisualRole role) {
+    switch (role) {
+    case PreviewVisualRole::Tool: return kPreviewToolMaterialKey;
+    case PreviewVisualRole::Snap: return kPreviewSnapMaterialKey;
+    }
+    return kPreviewToolMaterialKey;
 }
 
 }  // namespace mulan::view

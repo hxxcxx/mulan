@@ -7,6 +7,7 @@
 
 #include "editor_session.h"
 
+#include "snap_marker_builder.h"
 #include "ui/document_session.h"
 #include "ui/document_view_binding.h"
 
@@ -70,6 +71,10 @@ EditorPickHit toEditorPickHit(const view::RenderScene::PickResult& pick) {
         .primitiveIndex = pick.primitiveIndex,
         .hasPrimitiveIndex = pick.hasPrimitiveIndex,
         .parameter = pick.parameter,
+        .toleranceWorld = pick.toleranceWorld,
+        .edgeStart = pick.edgeStart,
+        .edgeEnd = pick.edgeEnd,
+        .hasEdgeSegment = pick.hasEdgeSegment,
         .barycentric = pick.barycentric,
         .hasBarycentric = pick.hasBarycentric,
     };
@@ -102,6 +107,9 @@ bool EditorSession::isReady() const {
 }
 
 void EditorSession::startTool(std::unique_ptr<EditorTool> tool) {
+    if (view_) {
+        view_->previewLayer().clearSnapGeometry();
+    }
     applyAction(tool_controller_.start(std::move(tool)));
 }
 
@@ -110,12 +118,23 @@ bool EditorSession::handleInput(const engine::InputEvent& event) {
         return false;
     }
 
-    const bool consumed = applyAction(tool_controller_.handleInput(makeEditorInput(event)));
+    EditorInput input = makeEditorInput(event);
+    updateSnapPreview(input);
+
+    EditorAction action = tool_controller_.handleInput(input);
+    const ToolLifecycle lifecycle = action.lifecycle();
+    const bool consumed = applyAction(std::move(action));
+    if (lifecycle != ToolLifecycle::Running && view_) {
+        view_->previewLayer().clearSnapGeometry();
+    }
     return consumed;
 }
 
 void EditorSession::cancelActiveTool() {
     applyAction(tool_controller_.cancel());
+    if (view_) {
+        view_->clearPreview();
+    }
 }
 
 void EditorSession::setWorkPlane(engine::WorkPlane plane) {
@@ -151,11 +170,25 @@ EditorInput EditorSession::makeEditorInput(const engine::InputEvent& event) cons
     return input_resolver_.resolve(event, context);
 }
 
+void EditorSession::updateSnapPreview(const EditorInput& input) {
+    if (!view_) {
+        return;
+    }
+
+    DraftGeometry marker = SnapMarkerBuilder::build(input);
+    if (marker.empty()) {
+        view_->previewLayer().clearSnapGeometry();
+        return;
+    }
+
+    view_->previewLayer().setSnapGeometry(marker.takeCurves(), marker.takeMeshes());
+}
+
 bool EditorSession::applyAction(EditorAction action) {
     const bool consumed = action.isConsumed();
 
     if (action.shouldClearPreview() && view_) {
-        view_->clearPreview();
+        view_->previewLayer().clearToolGeometry();
     }
 
     if (action.preview() && view_) {

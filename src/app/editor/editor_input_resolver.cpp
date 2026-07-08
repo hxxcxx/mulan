@@ -1,34 +1,10 @@
 #include "editor_input_resolver.h"
 
+#include "editor_snap_collector.h"
 #include "editor_snap_resolver.h"
 
 namespace mulan::app {
 namespace {
-
-EditorGeometryDependency geometryDependencyFromHit(const EditorPickHit& hit) {
-    return EditorGeometryDependency{
-        .entity = hit.entity,
-        .pickId = hit.pickId,
-        .hitKind = hit.kind,
-        .distance = hit.distance,
-        .sourceDrawableIndex = hit.sourceDrawableIndex,
-        .primitiveIndex = hit.primitiveIndex,
-        .hasPrimitiveIndex = hit.hasPrimitiveIndex,
-        .parameter = hit.parameter,
-    };
-}
-
-EditorSnapKind snapKindForHit(EditorPickHitKind kind) {
-    switch (kind) {
-    case EditorPickHitKind::Vertex: return EditorSnapKind::Vertex;
-    case EditorPickHitKind::Edge: return EditorSnapKind::Edge;
-    case EditorPickHitKind::Face: return EditorSnapKind::Face;
-    case EditorPickHitKind::Curve: return EditorSnapKind::Curve;
-    case EditorPickHitKind::Object:
-    case EditorPickHitKind::None: return EditorSnapKind::None;
-    }
-    return EditorSnapKind::None;
-}
 
 bool hasCursorPosition(engine::InputEvent::Type type) {
     switch (type) {
@@ -52,6 +28,7 @@ EditorInput EditorInputResolver::resolve(const engine::InputEvent& event,
     input.screenX = static_cast<double>(event.x);
     input.screenY = static_cast<double>(event.y);
     input.workPlane = work_plane_;
+    input.axisAnchor = context.pointPolicy.axisAnchor;
 
     const engine::Camera* camera = context.camera;
     input.hasCursor = hasCursorPosition(event.type);
@@ -65,34 +42,27 @@ EditorInput EditorInputResolver::resolve(const engine::InputEvent& event,
     if (auto point = work_plane_.intersectScreen(*camera, input.screenX, input.screenY)) {
         input.workPoint = *point;
         input.workPlaneHit = true;
-        input.snapCandidates.push_back(EditorSnapCandidate{
-                .world = *point,
-                .kind = EditorSnapKind::WorkPlane,
-                .dependency = EditorPointDependencyKind::WorkPlane,
-                .priority = 0.0,
-        });
     }
 
     input.pickTested = context.pickTested;
     if (context.pickHit && context.pickHit->valid()) {
         input.pickHit = context.pickHit;
-        if (context.pickHit->hasWorldPoint) {
-            const EditorGeometryDependency dependency = geometryDependencyFromHit(*context.pickHit);
-            const EditorSnapKind kind = snapKindForHit(context.pickHit->kind);
-            input.snapCandidates.push_back(EditorSnapCandidate{
-                    .world = context.pickHit->worldPoint,
-                    .kind = kind != EditorSnapKind::None ? kind : EditorSnapKind::Face,
-                    .dependency = EditorPointDependencyKind::Geometry,
-                    .geometry = dependency,
-                    .priority = 1.0,
-            });
-        }
     }
+
+    EditorSnapCollector::collect(
+            EditorSnapCollectInput{
+                    .event = event,
+                    .workPlane = work_plane_,
+                    .workPoint = input.workPoint,
+                    .pickHit = input.pickHit,
+                    .pointPolicy = context.pointPolicy,
+                    .snapSettings = context.snapSettings,
+            },
+            input.snapCandidates);
 
     input.point = EditorSnapResolver::resolve(EditorSnapResolveInput{
             .candidates =
                     std::span<const EditorSnapCandidate>{ input.snapCandidates.data(), input.snapCandidates.size() },
-            .workPoint = input.workPoint,
             .pointPolicy = context.pointPolicy,
             .snapSettings = context.snapSettings,
     });

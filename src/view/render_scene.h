@@ -50,6 +50,10 @@ public:
         size_t primitiveIndex = 0;
         bool hasPrimitiveIndex = false;
         double parameter = 0.0;
+        double toleranceWorld = 0.0;
+        math::Point3 edgeStart;
+        math::Point3 edgeEnd;
+        bool hasEdgeSegment = false;
         math::Vec3 barycentric;
         bool hasBarycentric = false;
     };

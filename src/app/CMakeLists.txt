@@ -18,6 +18,8 @@ add_executable(${PROJECT_NAME}
     editor/editor_input.h
     editor/editor_input_resolver.h
     editor/editor_input_resolver.cpp
+    editor/editor_snap_collector.h
+    editor/editor_snap_collector.cpp
     editor/editor_snap_resolver.h
     editor/editor_snap_resolver.cpp
     editor/editor_session.h
@@ -27,6 +29,8 @@ add_executable(${PROJECT_NAME}
     editor/tool_controller.cpp
     editor/line_tool.h
     editor/line_tool.cpp
+    editor/snap_marker_builder.h
+    editor/snap_marker_builder.cpp
     resource/icon.qrc
     ui/document_session.h
     ui/document_session.cpp

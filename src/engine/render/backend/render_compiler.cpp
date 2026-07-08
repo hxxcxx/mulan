@@ -158,7 +158,8 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
         }
 
         edge_commands_.push_back(makeCommand(item, *geometryRecord, *gpuGeometry, context.edgePipeline,
-                                             nextObjectOffset, context.materials.materialGpuOffset(0), true));
+                                             nextObjectOffset,
+                                             materialOffset(snapshot, item.material, context.materials), true));
         ++stats_.acceptedEdgeCommandCount;
         nextObjectOffset += MeshDrawCommand::kObjectUboStride;
     }

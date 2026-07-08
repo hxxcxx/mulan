@@ -37,6 +37,7 @@ enum class EditorSnapKind {
     None,
     WorkPlane,
     Vertex,
+    Midpoint,
     Edge,
     Face,
     Curve,
@@ -63,6 +64,7 @@ struct EditorGeometryDependency {
     size_t primitiveIndex = 0;
     bool hasPrimitiveIndex = false;
     double parameter = 0.0;
+    double toleranceWorld = 0.0;
 
     bool valid() const { return static_cast<bool>(entity); }
 };
@@ -80,6 +82,10 @@ struct EditorPickHit {
     size_t primitiveIndex = 0;
     bool hasPrimitiveIndex = false;
     double parameter = 0.0;
+    double toleranceWorld = 0.0;
+    math::Point3 edgeStart;
+    math::Point3 edgeEnd;
+    bool hasEdgeSegment = false;
     math::Vec3 barycentric;
     bool hasBarycentric = false;
 
@@ -92,6 +98,7 @@ struct EditorSnapCandidate {
     EditorPointDependencyKind dependency = EditorPointDependencyKind::None;
     std::optional<EditorGeometryDependency> geometry;
     double priority = 0.0;
+    double distance = 0.0;
 
     bool dependsOnGeometry() const { return geometry.has_value(); }
 };
@@ -100,11 +107,21 @@ struct EditorPointPolicy {
     bool allowWorkPlane = true;
     bool allowGeometry = true;
     bool preferGeometry = true;
+    bool allowAxisConstraint = true;
+    std::optional<math::Point3> axisAnchor;
 };
 
 struct EditorSnapSettings {
     bool enabled = true;
     bool enableGeometrySnap = true;
+    bool enableEndpointSnap = true;
+    bool enableMidpointSnap = true;
+    bool enableEdgeNearestSnap = true;
+    bool enableFacePointSnap = true;
+    bool enableGridSnap = false;
+    bool enableAxisConstraint = true;
+    double snapToleranceWorld = 0.0;
+    double gridSpacing = 1.0;
 };
 
 struct EditorPoint {
@@ -131,6 +148,7 @@ struct EditorInput {
     std::vector<EditorSnapCandidate> snapCandidates;
     std::optional<EditorPoint> point;
     std::optional<math::Point3> workPoint;
+    std::optional<math::Point3> axisAnchor;
     std::optional<EditorGeometryDependency> geometryDependency;
     bool hasCursor = false;
     bool hasCursorRay = false;

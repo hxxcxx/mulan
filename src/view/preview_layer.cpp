@@ -14,22 +14,17 @@
 namespace mulan::view {
 
 void PreviewLayer::setCurves(std::vector<asset::CurvePrimitive> primitives) {
-    curves_ = std::move(primitives);
-    meshes_.clear();
-    rebuildCurves();
+    setGeometry(std::move(primitives), {});
 }
 
 void PreviewLayer::setCurve(asset::CurvePrimitive primitive) {
-    curves_.clear();
-    curves_.push_back(std::move(primitive));
-    meshes_.clear();
-    rebuildCurves();
+    std::vector<asset::CurvePrimitive> curves;
+    curves.push_back(std::move(primitive));
+    setCurves(std::move(curves));
 }
 
 void PreviewLayer::setMeshes(std::vector<graphics::Mesh> meshes) {
-    curves_.clear();
-    meshes_ = std::move(meshes);
-    touch();
+    setGeometry({}, std::move(meshes));
 }
 
 void PreviewLayer::setMesh(graphics::Mesh mesh) {
@@ -39,24 +34,52 @@ void PreviewLayer::setMesh(graphics::Mesh mesh) {
 }
 
 void PreviewLayer::setGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes) {
-    curves_ = std::move(curves);
-    meshes_ = std::move(meshes);
-    rebuildCurves();
+    tool_curves_ = std::move(curves);
+    tool_meshes_ = std::move(meshes);
+    rebuildMeshes();
 }
 
-void PreviewLayer::clear() {
-    if (curves_.empty() && meshes_.empty()) {
+void PreviewLayer::clearToolGeometry() {
+    if (tool_curves_.empty() && tool_meshes_.empty()) {
         return;
     }
 
-    curves_.clear();
-    meshes_.clear();
-    touch();
+    tool_curves_.clear();
+    tool_meshes_.clear();
+    rebuildMeshes();
+}
+
+void PreviewLayer::setSnapGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes) {
+    snap_curves_ = std::move(curves);
+    snap_meshes_ = std::move(meshes);
+    rebuildMeshes();
+}
+
+void PreviewLayer::clearSnapGeometry() {
+    if (snap_curves_.empty() && snap_meshes_.empty()) {
+        return;
+    }
+
+    snap_curves_.clear();
+    snap_meshes_.clear();
+    rebuildMeshes();
+}
+
+void PreviewLayer::clear() {
+    if (tool_curves_.empty() && tool_meshes_.empty() && snap_curves_.empty() && snap_meshes_.empty()) {
+        return;
+    }
+
+    tool_curves_.clear();
+    tool_meshes_.clear();
+    snap_curves_.clear();
+    snap_meshes_.clear();
+    rebuildMeshes();
 }
 
 bool PreviewLayer::empty() const {
-    for (const graphics::Mesh& mesh : meshes_) {
-        if (!mesh.empty()) {
+    for (const PreviewDrawable& drawable : drawables_) {
+        if (!drawable.mesh.empty()) {
             return false;
         }
     }
@@ -65,13 +88,31 @@ bool PreviewLayer::empty() const {
 
 const graphics::Mesh& PreviewLayer::mesh() const {
     static const graphics::Mesh emptyMesh;
-    return meshes_.empty() ? emptyMesh : meshes_.front();
+    return drawables_.empty() ? emptyMesh : drawables_.front().mesh;
 }
 
-void PreviewLayer::rebuildCurves() {
-    if (!curves_.empty()) {
-        graphics::Mesh wireMesh = asset::buildCurveWireMesh(curves_);
-        meshes_.insert(meshes_.begin(), std::move(wireMesh));
+void PreviewLayer::rebuildMeshes() {
+    meshes_.clear();
+    drawables_.clear();
+    auto appendMesh = [this](graphics::Mesh mesh, PreviewVisualRole role) {
+        if (mesh.empty()) {
+            return;
+        }
+        drawables_.push_back(PreviewDrawable{ std::move(mesh), role });
+        meshes_.push_back(drawables_.back().mesh);
+    };
+
+    if (!tool_curves_.empty()) {
+        appendMesh(asset::buildCurveWireMesh(tool_curves_), PreviewVisualRole::Tool);
+    }
+    for (graphics::Mesh& mesh : tool_meshes_) {
+        appendMesh(mesh, PreviewVisualRole::Tool);
+    }
+    if (!snap_curves_.empty()) {
+        appendMesh(asset::buildCurveWireMesh(snap_curves_), PreviewVisualRole::Snap);
+    }
+    for (graphics::Mesh& mesh : snap_meshes_) {
+        appendMesh(mesh, PreviewVisualRole::Snap);
     }
     touch();
 }
