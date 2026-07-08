@@ -66,6 +66,7 @@ public:
     void render(engine::RHIDevice& device, RenderSurface& surface, const ViewState& viewState);
 
     bool isInitialized() const { return initialized_; }
+    const RenderWorldSyncStats& lastWorldSyncStats() const { return render_world_sync_.lastStats(); }
 
 private:
     void syncEngineWorld();

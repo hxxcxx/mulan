@@ -69,6 +69,7 @@ public:
 
     RenderSurface& surface() { return surface_; }
     const RenderSurface& surface() const { return surface_; }
+    const RenderWorldSyncStats& lastWorldSyncStats() const { return renderer_.lastWorldSyncStats(); }
 
 private:
     core::Result<void> initRendering(engine::LightEnvironment& lightEnv);

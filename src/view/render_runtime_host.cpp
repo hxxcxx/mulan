@@ -72,4 +72,8 @@ std::optional<RenderSurfaceDesc> RenderRuntimeHost::offscreenSurfaceDesc() const
     return runtime_.offscreenSurfaceDesc();
 }
 
+const RenderWorldSyncStats& RenderRuntimeHost::lastWorldSyncStats() const {
+    return runtime_.lastWorldSyncStats();
+}
+
 }  // namespace mulan::view

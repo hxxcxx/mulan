@@ -43,6 +43,7 @@ public:
     bool configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
     bool configureOffscreenSurface(const RenderSurfaceDesc& desc);
     std::optional<RenderSurfaceDesc> offscreenSurfaceDesc() const;
+    const RenderWorldSyncStats& lastWorldSyncStats() const;
 
 private:
     RenderRuntime runtime_;

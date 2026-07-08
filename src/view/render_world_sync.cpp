@@ -97,8 +97,15 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
     return desc;
 }
 
-void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world,
-                   engine::RenderResourcePrepareList* prepare) {
+void accumulate(RenderItemDiagnostics& dst, const RenderItemDiagnostics& src) {
+    dst.accepted += src.accepted;
+    dst.rejectedEmpty += src.rejectedEmpty;
+    dst.rejectedTopology += src.rejectedTopology;
+    dst.rejectedLayout += src.rejectedLayout;
+}
+
+void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare,
+                   RenderWorldSyncStats& stats) {
     if (!preview || preview->empty()) {
         return;
     }
@@ -118,8 +125,11 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world,
 
     const auto& meshes = preview->meshes();
     std::vector<RenderItem> items;
+    RenderItemDiagnostics diagnostics;
     RenderItemBuilder::buildPreviewItems(preview->generation(),
-                                         std::span<const graphics::Mesh>{ meshes.data(), meshes.size() }, items);
+                                         std::span<const graphics::Mesh>{ meshes.data(), meshes.size() }, items,
+                                         &diagnostics);
+    accumulate(stats.previewItems, diagnostics);
     for (const RenderItem& item : items) {
         const graphics::Mesh& mesh = *item.mesh;
 
@@ -145,6 +155,7 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world,
 
     if (!object.drawables.empty()) {
         world.addObject(std::move(object));
+        ++stats.previewObjectCount;
     }
 }
 
@@ -153,6 +164,7 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world,
 void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrary& assets, const PreviewLayer* preview,
                               engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare,
                               bool forceSceneGeometryUpdate) const {
+    last_stats_.reset();
     world.clear();
     if (prepare) {
         prepare->clear();
@@ -166,17 +178,22 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
         if (!proxy.visible || !proxy.geometry) {
             return;
         }
+        ++last_stats_.sceneProxyCount;
 
         const auto* asset = assets.asset(proxy.geometry);
         const auto* geometry = dynamic_cast<const asset::GeometryAsset*>(asset);
         if (!geometry) {
+            ++last_stats_.missingGeometryAssetCount;
             return;
         }
 
         drawables.clear();
         geometry->collectDrawables(drawables);
-        RenderItemBuilder::buildSceneItems(
-                proxy.geometry, std::span<const asset::Drawable>{ drawables.data(), drawables.size() }, renderItems);
+        RenderItemDiagnostics diagnostics;
+        RenderItemBuilder::buildSceneItems(proxy.geometry,
+                                           std::span<const asset::Drawable>{ drawables.data(), drawables.size() },
+                                           renderItems, &diagnostics);
+        accumulate(last_stats_.sceneItems, diagnostics);
 
         engine::RenderObjectDesc object;
         object.externalId = proxy.entity.index();
@@ -220,10 +237,14 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
 
         if (!object.drawables.empty()) {
             world.addObject(std::move(object));
+            ++last_stats_.sceneObjectCount;
         }
     });
 
-    appendPreview(preview, world, prepare);
+    appendPreview(preview, world, prepare, last_stats_);
+    last_stats_.worldObjectCount = world.objectCount();
+    last_stats_.worldGeometryCount = world.geometryCount();
+    last_stats_.worldMaterialCount = world.materialCount();
 }
 
 }  // namespace mulan::view

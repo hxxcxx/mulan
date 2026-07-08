@@ -142,6 +142,7 @@ void Renderer::syncEngineWorld() {
         render_world_.clear();
         world_snapshot_ = {};
         resource_prepare_.clear();
+        render_world_sync_.clearStats();
         resource_prepare_pending_ = false;
         world_dirty_ = false;
         return;
