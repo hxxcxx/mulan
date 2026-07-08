@@ -18,6 +18,8 @@ public:
     virtual ~EditorTool() = default;
 
     virtual std::string_view id() const = 0;
+    virtual EditorPointPolicy pointPolicy() const { return {}; }
+    virtual EditorSnapSettings snapSettings() const { return {}; }
     virtual EditorAction begin() { return EditorAction::ignored(); }
     virtual EditorAction handleInput(const EditorInput& input) = 0;
     virtual EditorAction end(ToolFinishReason reason) {

@@ -62,11 +62,25 @@ void collectLights(const scene::Scene& scene, std::vector<engine::Light>& lights
 struct MeshPickResult {
     bool tested = false;
     std::optional<double> distance;
+    RenderScene::PickHitKind kind = RenderScene::PickHitKind::None;
+    math::Point3 worldPoint;
+    bool hasWorldPoint = false;
+    math::Vec3 worldNormal;
+    bool hasWorldNormal = false;
+    size_t sourceDrawableIndex = 0;
+    size_t primitiveIndex = 0;
+    bool hasPrimitiveIndex = false;
+    double parameter = 0.0;
+    math::Vec3 barycentric;
+    bool hasBarycentric = false;
 };
 
 struct RaySegmentClosest {
     double rayT = 0.0;
+    double segmentT = 0.0;
     double distanceSq = std::numeric_limits<double>::max();
+    math::Point3 rayPoint;
+    math::Point3 segmentPoint;
 };
 
 math::AABB3 expandedBounds(const math::AABB3& bounds, double amount) {
@@ -184,12 +198,25 @@ RaySegmentClosest closestRaySegment(const math::Ray3& ray, const math::Segment3&
     if (a <= kEps) {
         const double t = c > kEps ? std::clamp(segDir.dot(w0) / c, 0.0, 1.0) : 0.0;
         const math::Point3 closest = segment.pointAt(t);
-        return RaySegmentClosest{ .rayT = 0.0, .distanceSq = ray.origin.distanceSq(closest) };
+        return RaySegmentClosest{
+            .rayT = 0.0,
+            .segmentT = t,
+            .distanceSq = ray.origin.distanceSq(closest),
+            .rayPoint = ray.origin,
+            .segmentPoint = closest,
+        };
     }
 
     if (c <= kEps) {
         const double rayT = std::max(0.0, (segment.start - ray.origin).dot(rayDir) / a);
-        return RaySegmentClosest{ .rayT = rayT, .distanceSq = ray.pointAt(rayT).distanceSq(segment.start) };
+        const math::Point3 rayPoint = ray.pointAt(rayT);
+        return RaySegmentClosest{
+            .rayT = rayT,
+            .segmentT = 0.0,
+            .distanceSq = rayPoint.distanceSq(segment.start),
+            .rayPoint = rayPoint,
+            .segmentPoint = segment.start,
+        };
     }
 
     const double b = rayDir.dot(segDir);
@@ -210,7 +237,13 @@ RaySegmentClosest closestRaySegment(const math::Ray3& ray, const math::Segment3&
 
     const math::Point3 rayPoint = ray.pointAt(rayT);
     const math::Point3 segmentPoint = segment.pointAt(segmentT);
-    return RaySegmentClosest{ .rayT = rayT, .distanceSq = rayPoint.distanceSq(segmentPoint) };
+    return RaySegmentClosest{
+        .rayT = rayT,
+        .segmentT = segmentT,
+        .distanceSq = rayPoint.distanceSq(segmentPoint),
+        .rayPoint = rayPoint,
+        .segmentPoint = segmentPoint,
+    };
 }
 
 MeshPickResult pickTriangleMesh(const math::Ray3& worldRay, const graphics::Mesh& mesh,
@@ -238,7 +271,8 @@ MeshPickResult pickTriangleMesh(const math::Ray3& worldRay, const graphics::Mesh
             continue;
         }
 
-        const auto hit = math::intersect(localRay, v0, v1, v2);
+        math::Vec3 barycentric;
+        const auto hit = math::intersect(localRay, v0, v1, v2, &barycentric);
         if (!hit.hit) {
             continue;
         }
@@ -247,11 +281,18 @@ MeshPickResult pickTriangleMesh(const math::Ray3& worldRay, const graphics::Mesh
         const double worldDistance = (worldPoint - worldRay.origin).length();
         if (worldDistance < bestDistance) {
             bestDistance = worldDistance;
+            result.distance = bestDistance;
+            result.kind = RenderScene::PickHitKind::Face;
+            result.worldPoint = worldPoint;
+            result.hasWorldPoint = true;
+            result.worldNormal = (v1 - v0).cross(v2 - v0).transformedAsNormal(worldTransform);
+            result.hasWorldNormal = true;
+            result.primitiveIndex = tri;
+            result.hasPrimitiveIndex = true;
+            result.parameter = hit.t;
+            result.barycentric = barycentric;
+            result.hasBarycentric = true;
         }
-    }
-
-    if (bestDistance < std::numeric_limits<double>::max()) {
-        result.distance = bestDistance;
     }
     return result;
 }
@@ -286,11 +327,16 @@ MeshPickResult pickLineMesh(const math::Ray3& worldRay, const graphics::Mesh& me
         const RaySegmentClosest closest = closestRaySegment(worldRay, worldSegment);
         if (closest.distanceSq <= toleranceSq && closest.rayT < bestDistance) {
             bestDistance = closest.rayT;
+            result.distance = closest.rayT;
+            result.kind = RenderScene::PickHitKind::Edge;
+            result.worldPoint = closest.segmentPoint;
+            result.hasWorldPoint = true;
+            result.worldNormal = worldSegment.direction().normalizedOr(math::Vec3::unitX());
+            result.hasWorldNormal = true;
+            result.primitiveIndex = segmentIndex;
+            result.hasPrimitiveIndex = true;
+            result.parameter = closest.segmentT;
         }
-    }
-
-    if (bestDistance < std::numeric_limits<double>::max()) {
-        result.distance = bestDistance;
     }
     return result;
 }
@@ -320,7 +366,8 @@ MeshPickResult pickGeometryAsset(const math::Ray3& ray, const asset::Asset& asse
     geometry->collectDrawables(drawables);
 
     MeshPickResult result;
-    for (const asset::Drawable& drawable : drawables) {
+    for (size_t drawableIndex = 0; drawableIndex < drawables.size(); ++drawableIndex) {
+        const asset::Drawable& drawable = drawables[drawableIndex];
         if (!drawable.mesh) {
             continue;
         }
@@ -328,7 +375,8 @@ MeshPickResult pickGeometryAsset(const math::Ray3& ray, const asset::Asset& asse
         const MeshPickResult meshHit = pickMesh(ray, *drawable.mesh, worldTransform, lineToleranceWorld);
         result.tested = result.tested || meshHit.tested;
         if (meshHit.distance && (!result.distance || *meshHit.distance < *result.distance)) {
-            result.distance = meshHit.distance;
+            result = meshHit;
+            result.sourceDrawableIndex = drawableIndex;
         }
     }
 
@@ -486,7 +534,12 @@ std::optional<RenderScene::PickResult> RenderScene::pick(const math::Ray3& ray, 
             continue;
         }
 
-        double distance = boundsHit.t;
+        PickResult candidate{
+            .entity = id,
+            .pickId = proxy.entity.index(),
+            .distance = boundsHit.t,
+            .kind = PickHitKind::Object,
+        };
         if (assets_) {
             const asset::Asset* geometryAsset = assets_->asset(proxy.geometry);
             if (geometryAsset) {
@@ -496,17 +549,24 @@ std::optional<RenderScene::PickResult> RenderScene::pick(const math::Ray3& ray, 
                     if (!meshHit.distance) {
                         continue;
                     }
-                    distance = *meshHit.distance;
+                    candidate.distance = *meshHit.distance;
+                    candidate.kind = meshHit.kind;
+                    candidate.worldPoint = meshHit.worldPoint;
+                    candidate.hasWorldPoint = meshHit.hasWorldPoint;
+                    candidate.worldNormal = meshHit.worldNormal;
+                    candidate.hasWorldNormal = meshHit.hasWorldNormal;
+                    candidate.sourceDrawableIndex = meshHit.sourceDrawableIndex;
+                    candidate.primitiveIndex = meshHit.primitiveIndex;
+                    candidate.hasPrimitiveIndex = meshHit.hasPrimitiveIndex;
+                    candidate.parameter = meshHit.parameter;
+                    candidate.barycentric = meshHit.barycentric;
+                    candidate.hasBarycentric = meshHit.hasBarycentric;
                 }
             }
         }
 
-        if (!best || distance < best->distance) {
-            best = PickResult{
-                .entity = id,
-                .pickId = proxy.entity.index(),
-                .distance = distance,
-            };
+        if (!best || candidate.distance < best->distance) {
+            best = candidate;
         }
     }
     return best;

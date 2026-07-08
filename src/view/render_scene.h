@@ -11,6 +11,7 @@
 
 #include <mulan/engine/render/light_environment.h>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <unordered_map>
 #include <vector>
@@ -27,10 +28,30 @@ namespace mulan::view {
 
 class RenderScene {
 public:
+    enum class PickHitKind : uint8_t {
+        None,
+        Object,
+        Vertex,
+        Edge,
+        Face,
+        Curve,
+    };
+
     struct PickResult {
         scene::EntityId entity;
         uint32_t pickId = 0;
         double distance = 0.0;
+        PickHitKind kind = PickHitKind::Object;
+        math::Point3 worldPoint;
+        bool hasWorldPoint = false;
+        math::Vec3 worldNormal;
+        bool hasWorldNormal = false;
+        size_t sourceDrawableIndex = 0;
+        size_t primitiveIndex = 0;
+        bool hasPrimitiveIndex = false;
+        double parameter = 0.0;
+        math::Vec3 barycentric;
+        bool hasBarycentric = false;
     };
 
     struct SyncStats {

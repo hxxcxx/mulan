@@ -31,6 +31,50 @@ struct Overloaded : T... {
 template <typename... T>
 Overloaded(T...) -> Overloaded<T...>;
 
+bool hasCursorPosition(const engine::InputEvent& event) {
+    switch (event.type) {
+    case engine::InputEvent::Type::MousePress:
+    case engine::InputEvent::Type::MouseRelease:
+    case engine::InputEvent::Type::MouseMove:
+    case engine::InputEvent::Type::MouseDoubleClick:
+    case engine::InputEvent::Type::Wheel: return true;
+    case engine::InputEvent::Type::KeyPress:
+    case engine::InputEvent::Type::KeyRelease: return false;
+    }
+    return false;
+}
+
+EditorPickHitKind toEditorPickHitKind(view::RenderScene::PickHitKind kind) {
+    switch (kind) {
+    case view::RenderScene::PickHitKind::Object: return EditorPickHitKind::Object;
+    case view::RenderScene::PickHitKind::Vertex: return EditorPickHitKind::Vertex;
+    case view::RenderScene::PickHitKind::Edge: return EditorPickHitKind::Edge;
+    case view::RenderScene::PickHitKind::Face: return EditorPickHitKind::Face;
+    case view::RenderScene::PickHitKind::Curve: return EditorPickHitKind::Curve;
+    case view::RenderScene::PickHitKind::None: return EditorPickHitKind::None;
+    }
+    return EditorPickHitKind::None;
+}
+
+EditorPickHit toEditorPickHit(const view::RenderScene::PickResult& pick) {
+    return EditorPickHit{
+        .entity = pick.entity,
+        .pickId = pick.pickId,
+        .kind = toEditorPickHitKind(pick.kind),
+        .distance = pick.distance,
+        .worldPoint = pick.worldPoint,
+        .hasWorldPoint = pick.hasWorldPoint,
+        .worldNormal = pick.worldNormal,
+        .hasWorldNormal = pick.hasWorldNormal,
+        .sourceDrawableIndex = pick.sourceDrawableIndex,
+        .primitiveIndex = pick.primitiveIndex,
+        .hasPrimitiveIndex = pick.hasPrimitiveIndex,
+        .parameter = pick.parameter,
+        .barycentric = pick.barycentric,
+        .hasBarycentric = pick.hasBarycentric,
+    };
+}
+
 }  // namespace
 
 EditorSession::EditorSession() = default;
@@ -89,7 +133,22 @@ EditorInput EditorSession::makeEditorInput(const engine::InputEvent& event) cons
         return input;
     }
 
-    return input_resolver_.resolve(event, view_->camera());
+    EditorInputResolveContext context;
+    context.camera = &view_->camera();
+    if (const EditorTool* tool = tool_controller_.activeTool()) {
+        context.pointPolicy = tool->pointPolicy();
+        context.snapSettings = tool->snapSettings();
+    }
+
+    if (binding_ && hasCursorPosition(event)) {
+        context.pickTested = true;
+        if (const auto pick = binding_->pickEntityAt(view_->camera(), static_cast<double>(event.x),
+                                                     static_cast<double>(event.y))) {
+            context.pickHit = toEditorPickHit(*pick);
+        }
+    }
+
+    return input_resolver_.resolve(event, context);
 }
 
 bool EditorSession::applyAction(EditorAction action) {

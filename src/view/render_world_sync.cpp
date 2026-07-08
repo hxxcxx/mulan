@@ -4,10 +4,9 @@
 #include <mulan/asset/geometry_asset.h>
 #include <mulan/asset/material_asset.h>
 #include <mulan/asset/texture_asset.h>
-#include <mulan/view/preview_layer.h>
-#include <mulan/view/render_item_builder.h>
-#include <mulan/view/render_scene.h>
-#include <mulan/view/scene_proxy.h>
+#include "preview_layer.h"
+#include "render_scene.h"
+#include "scene_proxy.h"
 
 #include <span>
 #include <unordered_map>
