@@ -487,8 +487,31 @@ MeshPickResult pickMesh(const math::Ray3& ray, const graphics::Mesh& mesh, const
     return {};
 }
 
+void appendGeometryAssetPickCandidates(const math::Ray3& ray, const asset::Asset& asset,
+                                       const math::Mat4& worldTransform, double lineToleranceWorld,
+                                       std::vector<MeshPickResult>& out);
+
+MeshPickResult pickStructuredCurveAsset(const math::Ray3& ray, const asset::Asset& asset,
+                                        const math::Mat4& worldTransform, double lineToleranceWorld) {
+    std::vector<MeshPickResult> candidates;
+    appendGeometryAssetPickCandidates(ray, asset, worldTransform, lineToleranceWorld, candidates);
+
+    MeshPickResult result;
+    result.tested = true;
+    for (const MeshPickResult& candidate : candidates) {
+        if (candidate.distance && (!result.distance || *candidate.distance < *result.distance)) {
+            result = candidate;
+        }
+    }
+    return result;
+}
+
 MeshPickResult pickGeometryAsset(const math::Ray3& ray, const asset::Asset& asset, const math::Mat4& worldTransform,
                                  double lineToleranceWorld) {
+    if (dynamic_cast<const asset::CurveAsset*>(&asset)) {
+        return pickStructuredCurveAsset(ray, asset, worldTransform, lineToleranceWorld);
+    }
+
     const auto* geometry = dynamic_cast<const asset::GeometryAsset*>(&asset);
     if (!geometry) {
         return {};
