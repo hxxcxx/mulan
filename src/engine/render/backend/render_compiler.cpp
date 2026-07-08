@@ -4,6 +4,8 @@
 #include "../material/material_cache.h"
 #include "../render_geometry.h"
 
+#include <mulan/graphics/vertex/vertex_layout.h>
+
 #include <string>
 
 namespace mulan::engine {
@@ -35,6 +37,36 @@ Texture* loadTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
 
 bool hasTangentLayout(const GpuGeometry& geometry) {
     return geometry.layout.has(graphics::VertexSemantic::Tangent);
+}
+
+bool layoutEquals(const graphics::VertexLayout& lhs, const graphics::VertexLayout& rhs) {
+    if (lhs.stride() != rhs.stride() || lhs.attrCount() != rhs.attrCount() || lhs.bufferCount() != rhs.bufferCount()) {
+        return false;
+    }
+
+    for (uint8_t i = 0; i < lhs.attrCount(); ++i) {
+        if (!(lhs[i] == rhs[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool isSurfaceLayout(const graphics::VertexLayout& layout) {
+    return layoutEquals(layout, graphics::layouts::surface()) || layoutEquals(layout, graphics::layouts::pbr());
+}
+
+bool isEdgeLayout(const graphics::VertexLayout& layout) {
+    return layoutEquals(layout, graphics::layouts::surface());
+}
+
+bool canCompileSurface(const RenderGeometryRecord& geometryRecord, const GpuGeometry& geometry) {
+    return geometryRecord.desc.topology == graphics::PrimitiveTopology::TriangleList &&
+           isSurfaceLayout(geometry.layout);
+}
+
+bool canCompileEdge(const RenderGeometryRecord& geometryRecord, const GpuGeometry& geometry) {
+    return geometryRecord.desc.topology == graphics::PrimitiveTopology::LineList && isEdgeLayout(geometry.layout);
 }
 
 void populateSurfaceTextures(const RenderWorldSnapshot& snapshot, const RenderWorkItem& item, AssetGpuRegistry& assets,
@@ -102,6 +134,9 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
         if (!gpuGeometry) {
             continue;
         }
+        if (!canCompileSurface(*geometryRecord, *gpuGeometry)) {
+            continue;
+        }
 
         PipelineState* surfacePipeline = hasTangentLayout(*gpuGeometry) && context.surfaceTangentPipeline
                                                  ? context.surfaceTangentPipeline
@@ -128,6 +163,9 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
 
         const auto* gpuGeometry = context.assets.findGeometry(geometryRecord->desc.resourceKey);
         if (!gpuGeometry) {
+            continue;
+        }
+        if (!canCompileEdge(*geometryRecord, *gpuGeometry)) {
             continue;
         }
 

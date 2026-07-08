@@ -5,10 +5,14 @@
 #include <mulan/asset/material_asset.h>
 #include <mulan/asset/texture_asset.h>
 #include <mulan/view/preview_layer.h>
+#include <mulan/view/render_item_builder.h>
 #include <mulan/view/render_scene.h>
 #include <mulan/view/scene_proxy.h>
 
+#include <span>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace mulan::view {
 namespace {
@@ -93,25 +97,14 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
     return desc;
 }
 
-engine::RenderBucket bucketFor(asset::DrawableRole role) {
-    return role == asset::DrawableRole::Wire ? engine::RenderBucket::Edge : engine::RenderBucket::Surface;
-}
-
-uint64_t drawableGeometryKey(asset::AssetId geometry, size_t drawableIndex) {
-    return geometry.value ^ ((static_cast<uint64_t>(drawableIndex) + 1u) << 32u);
-}
-
 void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world,
                    engine::RenderResourcePrepareList* prepare) {
     if (!preview || preview->empty()) {
         return;
     }
 
-    constexpr uint64_t kPreviewGeometryKey = 0xF000000000000001ull;
-    constexpr uint64_t kPreviewMaterialKey = 0xF000000000000002ull;
-
     engine::RenderMaterialDesc materialDesc;
-    materialDesc.resourceKey = engine::makeAssetGpuKey(kPreviewMaterialKey);
+    materialDesc.resourceKey = engine::makeAssetGpuKey(RenderItemBuilder::previewMaterialKey());
     materialDesc.material = engine::Material::defaultPBR();
     materialDesc.material.name = "Preview";
     const engine::RenderMaterialHandle material = world.addMaterial(std::move(materialDesc));
@@ -124,16 +117,16 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world,
     object.selected = false;
 
     const auto& meshes = preview->meshes();
-    for (size_t i = 0; i < meshes.size(); ++i) {
-        const graphics::Mesh& mesh = meshes[i];
-        if (mesh.empty()) {
-            continue;
-        }
+    std::vector<RenderItem> items;
+    RenderItemBuilder::buildPreviewItems(preview->generation(),
+                                         std::span<const graphics::Mesh>{ meshes.data(), meshes.size() }, items);
+    for (const RenderItem& item : items) {
+        const graphics::Mesh& mesh = *item.mesh;
 
         engine::RenderGeometryDesc geometryDesc;
-        geometryDesc.resourceKey = engine::makeAssetGpuKey(kPreviewGeometryKey ^ preview->generation() ^
-                                                           ((static_cast<uint64_t>(i) + 1u) << 32u));
+        geometryDesc.resourceKey = engine::makeAssetGpuKey(item.geometryKey);
         geometryDesc.topology = mesh.topology;
+        geometryDesc.vertexLayout = mesh.layout;
         geometryDesc.empty = mesh.empty();
         if (prepare) {
             prepare->addGeometry(geometryDesc.resourceKey, &mesh);
@@ -145,8 +138,8 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world,
         object.drawables.push_back(engine::RenderObjectDrawable{
                 .geometry = world.addGeometry(std::move(geometryDesc)),
                 .material = material,
-                .bucket = engine::RenderBucket::Overlay,
-                .sourceDrawableIndex = i,
+                .bucket = item.bucket,
+                .sourceDrawableIndex = item.sourceDrawableIndex,
         });
     }
 
@@ -168,6 +161,7 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
     std::unordered_map<uint64_t, engine::GeometryHandle> geometryHandles;
     std::unordered_map<uint64_t, engine::RenderMaterialHandle> materialHandles;
     std::vector<asset::Drawable> drawables;
+    std::vector<RenderItem> renderItems;
     scene.forEachProxy([&](const SceneProxy& proxy) {
         if (!proxy.visible || !proxy.geometry) {
             return;
@@ -181,6 +175,8 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
 
         drawables.clear();
         geometry->collectDrawables(drawables);
+        RenderItemBuilder::buildSceneItems(
+                proxy.geometry, std::span<const asset::Drawable>{ drawables.data(), drawables.size() }, renderItems);
 
         engine::RenderObjectDesc object;
         object.externalId = proxy.entity.index();
@@ -189,38 +185,36 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
         object.visible = proxy.visible;
         object.selected = proxy.selected;
 
-        for (size_t i = 0; i < drawables.size(); ++i) {
-            const auto& drawable = drawables[i];
-            if (!drawable.mesh || drawable.mesh->empty()) {
-                continue;
-            }
+        for (const RenderItem& item : renderItems) {
+            const graphics::Mesh& mesh = *item.mesh;
 
-            const uint64_t geometryKey = drawableGeometryKey(proxy.geometry, i);
+            const uint64_t geometryKey = item.geometryKey;
             auto geometryIt = geometryHandles.find(geometryKey);
             if (geometryIt == geometryHandles.end()) {
                 engine::RenderGeometryDesc geometryDesc;
                 geometryDesc.resourceKey = engine::makeAssetGpuKey(geometryKey);  // 资产身份 key，跨帧稳定
-                geometryDesc.topology = drawable.mesh->topology;                  // 冗余标量，避免渲染端解引用
-                geometryDesc.empty = drawable.mesh->empty();
+                geometryDesc.topology = mesh.topology;                            // 冗余标量，避免渲染端解引用
+                geometryDesc.vertexLayout = mesh.layout;
+                geometryDesc.empty = mesh.empty();
                 if (prepare) {
-                    prepare->addGeometry(geometryDesc.resourceKey, drawable.mesh, forceSceneGeometryUpdate);
+                    prepare->addGeometry(geometryDesc.resourceKey, &mesh, forceSceneGeometryUpdate);
                 }
                 geometryIt = geometryHandles.emplace(geometryKey, world.addGeometry(std::move(geometryDesc))).first;
             }
 
-            const uint64_t materialKey = drawable.material.value;
+            const uint64_t materialKey = item.material.value;
             auto materialIt = materialHandles.find(materialKey);
             if (materialIt == materialHandles.end()) {
                 materialIt =
-                        materialHandles.emplace(materialKey, world.addMaterial(materialDesc(assets, drawable.material)))
+                        materialHandles.emplace(materialKey, world.addMaterial(materialDesc(assets, item.material)))
                                 .first;
             }
 
             object.drawables.push_back(engine::RenderObjectDrawable{
                     .geometry = geometryIt->second,
                     .material = materialIt->second,
-                    .bucket = bucketFor(drawable.role),
-                    .sourceDrawableIndex = i,
+                    .bucket = item.bucket,
+                    .sourceDrawableIndex = item.sourceDrawableIndex,
             });
         }
 

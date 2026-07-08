@@ -29,7 +29,11 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
                 if (renderEdgesEnabled(options) || item.hovered)
                     edges_.push_back(item);
                 break;
-            case RenderBucket::Overlay:
+            case RenderBucket::OverlaySurface:
+                if (options.showOverlays)
+                    surfaces_.push_back(item);
+                break;
+            case RenderBucket::OverlayEdge:
                 if (options.showOverlays)
                     edges_.push_back(item);
                 break;

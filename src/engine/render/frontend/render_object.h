@@ -25,7 +25,9 @@ namespace mulan::engine {
 enum class RenderBucket : uint8_t {
     Surface,
     Edge,
-    Overlay,
+    OverlaySurface,
+    OverlayEdge,
+    Overlay = OverlayEdge,
     Gizmo,
     Text,
 };
@@ -53,6 +55,7 @@ struct RenderGeometryDesc {
 
     /// 冗余标量：渲染端常用，避免每次都解引用 mesh。snapshot 拷贝的是这些标量，零成本。
     graphics::PrimitiveTopology topology = graphics::PrimitiveTopology::TriangleList;
+    graphics::VertexLayout vertexLayout;
     bool empty = true;
 };
 
