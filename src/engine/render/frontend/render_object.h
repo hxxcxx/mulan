@@ -27,7 +27,6 @@ enum class RenderBucket : uint8_t {
     Edge,
     OverlaySurface,
     OverlayEdge,
-    Overlay = OverlayEdge,
     Gizmo,
     Text,
 };

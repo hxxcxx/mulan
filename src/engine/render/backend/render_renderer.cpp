@@ -213,6 +213,7 @@ void RenderRenderer::clearCompiledCommands() {
     if (edge_stage_) {
         edge_stage_->setDrawCommands(emptyCommands);
     }
+    workload_.clear();
     compiler_.clear();
 }
 

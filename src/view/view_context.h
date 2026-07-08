@@ -104,6 +104,8 @@ public:
     bool showOverlays() const { return show_overlays_; }
     void setShowOverlays(bool show) { show_overlays_ = show; }
     const RenderWorldSyncStats& renderWorldSyncStats() const { return runtime_host_.lastWorldSyncStats(); }
+    const engine::RenderWorkloadStats& renderWorkloadStats() const { return runtime_host_.lastRenderWorkloadStats(); }
+    const engine::RenderCompilerStats& renderCompilerStats() const { return runtime_host_.lastRenderCompilerStats(); }
 
     /// 按需烘焙 IBL（转发给 Renderer）。HDR 路径来自 ViewConfig::hdrPath。
     /// 通常由 DocumentSession 在 attachViewContext 时根据模型类型决定是否调用。

@@ -9,6 +9,7 @@
 
 #include "render_request.h"
 
+#include <cstddef>
 #include <span>
 #include <vector>
 
@@ -25,6 +26,19 @@ struct RenderWorkItem {
     bool hovered = false;
 };
 
+struct RenderWorkloadStats {
+    size_t visibleObjectCount = 0;
+    size_t drawableCount = 0;
+    size_t surfaceItemCount = 0;
+    size_t edgeItemCount = 0;
+    size_t skippedDisabledSurfaceCount = 0;
+    size_t skippedDisabledEdgeCount = 0;
+    size_t skippedDisabledOverlayCount = 0;
+    size_t skippedUnsupportedBucketCount = 0;
+
+    void reset() { *this = {}; }
+};
+
 class RenderWorkload {
 public:
     void build(const RenderWorldSnapshot& snapshot, const RenderOptions& options);
@@ -32,10 +46,12 @@ public:
 
     std::span<const RenderWorkItem> surfaces() const { return surfaces_; }
     std::span<const RenderWorkItem> edges() const { return edges_; }
+    const RenderWorkloadStats& lastStats() const { return stats_; }
 
 private:
     std::vector<RenderWorkItem> surfaces_;
     std::vector<RenderWorkItem> edges_;
+    RenderWorkloadStats stats_;
 };
 
 }  // namespace mulan::engine

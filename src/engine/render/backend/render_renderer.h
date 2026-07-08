@@ -48,6 +48,8 @@ public:
     void clearAssetResources(RHIDevice& device);
 
     bool isInitialized() const { return initialized_; }
+    const RenderWorkloadStats& lastWorkloadStats() const { return workload_.lastStats(); }
+    const RenderCompilerStats& lastCompilerStats() const { return compiler_.lastStats(); }
 
 private:
     bool validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const;

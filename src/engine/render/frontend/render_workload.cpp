@@ -1,6 +1,39 @@
 #include "render_workload.h"
 
+#include "render_contract.h"
+
 namespace mulan::engine {
+namespace {
+
+bool bucketEnabled(const RenderWorkItem& item, const RenderOptions& options, RenderWorkloadStats& stats) {
+    if (renderBucketIsOverlay(item.bucket)) {
+        if (!options.showOverlays) {
+            ++stats.skippedDisabledOverlayCount;
+            return false;
+        }
+        return true;
+    }
+
+    switch (renderBucketPass(item.bucket)) {
+    case RenderPassKind::Surface:
+        if (!renderSurfacesEnabled(options)) {
+            ++stats.skippedDisabledSurfaceCount;
+            return false;
+        }
+        return true;
+    case RenderPassKind::Edge:
+        if (!renderEdgesEnabled(options) && !item.hovered) {
+            ++stats.skippedDisabledEdgeCount;
+            return false;
+        }
+        return true;
+    case RenderPassKind::None: ++stats.skippedUnsupportedBucketCount; return false;
+    }
+    ++stats.skippedUnsupportedBucketCount;
+    return false;
+}
+
+}  // namespace
 
 void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOptions& options) {
     clear();
@@ -8,6 +41,7 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
     for (const auto& object : snapshot.objects()) {
         if (!object.desc.visible)
             continue;
+        ++stats_.visibleObjectCount;
 
         for (const auto& drawable : object.desc.drawables) {
             RenderWorkItem item;
@@ -20,25 +54,21 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
             item.selected = object.desc.selected;
             item.hovered = options.hasHoveredPickId && item.pickId == options.hoveredPickId;
 
-            switch (drawable.bucket) {
-            case RenderBucket::Surface:
-                if (renderSurfacesEnabled(options))
-                    surfaces_.push_back(item);
+            ++stats_.drawableCount;
+            if (!bucketEnabled(item, options, stats_)) {
+                continue;
+            }
+
+            switch (renderBucketPass(item.bucket)) {
+            case RenderPassKind::Surface:
+                surfaces_.push_back(item);
+                ++stats_.surfaceItemCount;
                 break;
-            case RenderBucket::Edge:
-                if (renderEdgesEnabled(options) || item.hovered)
-                    edges_.push_back(item);
+            case RenderPassKind::Edge:
+                edges_.push_back(item);
+                ++stats_.edgeItemCount;
                 break;
-            case RenderBucket::OverlaySurface:
-                if (options.showOverlays)
-                    surfaces_.push_back(item);
-                break;
-            case RenderBucket::OverlayEdge:
-                if (options.showOverlays)
-                    edges_.push_back(item);
-                break;
-            case RenderBucket::Gizmo:
-            case RenderBucket::Text: break;
+            case RenderPassKind::None: ++stats_.skippedUnsupportedBucketCount; break;
             }
         }
     }
@@ -47,6 +77,7 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
 void RenderWorkload::clear() {
     surfaces_.clear();
     edges_.clear();
+    stats_.reset();
 }
 
 }  // namespace mulan::engine

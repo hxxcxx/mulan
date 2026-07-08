@@ -26,28 +26,36 @@ bool isEdgeLayout(const graphics::VertexLayout& layout) {
 
 }  // namespace
 
-bool renderBucketUsesSurfacePass(RenderBucket bucket) {
+RenderPassKind renderBucketPass(RenderBucket bucket) {
     switch (bucket) {
     case RenderBucket::Surface:
-    case RenderBucket::OverlaySurface: return true;
+    case RenderBucket::OverlaySurface: return RenderPassKind::Surface;
     case RenderBucket::Edge:
-    case RenderBucket::OverlayEdge:
+    case RenderBucket::OverlayEdge: return RenderPassKind::Edge;
+    case RenderBucket::Gizmo:
+    case RenderBucket::Text: return RenderPassKind::None;
+    }
+    return RenderPassKind::None;
+}
+
+bool renderBucketIsOverlay(RenderBucket bucket) {
+    switch (bucket) {
+    case RenderBucket::OverlaySurface:
+    case RenderBucket::OverlayEdge: return true;
+    case RenderBucket::Surface:
+    case RenderBucket::Edge:
     case RenderBucket::Gizmo:
     case RenderBucket::Text: return false;
     }
     return false;
 }
 
+bool renderBucketUsesSurfacePass(RenderBucket bucket) {
+    return renderBucketPass(bucket) == RenderPassKind::Surface;
+}
+
 bool renderBucketUsesEdgePass(RenderBucket bucket) {
-    switch (bucket) {
-    case RenderBucket::Edge:
-    case RenderBucket::OverlayEdge: return true;
-    case RenderBucket::Surface:
-    case RenderBucket::OverlaySurface:
-    case RenderBucket::Gizmo:
-    case RenderBucket::Text: return false;
-    }
-    return false;
+    return renderBucketPass(bucket) == RenderPassKind::Edge;
 }
 
 bool renderBucketAcceptsTopology(RenderBucket bucket, graphics::PrimitiveTopology topology) {

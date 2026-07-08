@@ -44,6 +44,8 @@ public:
     bool configureOffscreenSurface(const RenderSurfaceDesc& desc);
     std::optional<RenderSurfaceDesc> offscreenSurfaceDesc() const;
     const RenderWorldSyncStats& lastWorldSyncStats() const;
+    const engine::RenderWorkloadStats& lastRenderWorkloadStats() const;
+    const engine::RenderCompilerStats& lastRenderCompilerStats() const;
 
 private:
     RenderRuntime runtime_;

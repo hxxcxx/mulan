@@ -51,11 +51,9 @@ void populateSurfaceTextures(const RenderWorldSnapshot& snapshot, const RenderWo
     command.aoTex = loadTexture(assets, material->desc.ambientOcclusionTexture);
 }
 
-MeshDrawCommand makeCommand(const RenderWorldSnapshot& snapshot, const RenderWorkItem& item,
+MeshDrawCommand makeCommand(const RenderWorkItem& item, const RenderGeometryRecord& geometryRecord,
                             const GpuGeometry& geometry, PipelineState* pipeline, uint32_t objectOffset,
                             uint32_t materialOffset, bool isEdge) {
-    const auto* geometryRecord = snapshot.geometry(item.geometry);
-
     MeshDrawCommand command;
     command.pipelineState = pipeline;
     command.vertexBuffer = geometry.vertexBuffer.get();
@@ -64,7 +62,7 @@ MeshDrawCommand makeCommand(const RenderWorldSnapshot& snapshot, const RenderWor
     command.indexType = geometry.indexType;
     command.vertexCount = geometry.vertexCount;
     command.instanceCount = 1;
-    command.topology = geometryRecord ? geometryRecord->desc.topology : PrimitiveTopology::TriangleList;
+    command.topology = geometryRecord.desc.topology;
     command.objectUboOffset = objectOffset;
     command.materialUboOffset = materialOffset;
     command.worldTransform = item.worldTransform;
@@ -87,59 +85,81 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
     };
 
     for (const auto& item : workload.surfaces()) {
+        ++stats_.surfaceWorkItemCount;
         if (!hasObjectUboSlot()) {
+            ++stats_.objectUboLimitCount;
             break;
         }
 
         const auto* geometryRecord = snapshot.geometry(item.geometry);
         if (!geometryRecord) {
+            ++stats_.missingGeometryRecordCount;
             continue;
         }
         if (geometryRecord->desc.empty) {
+            ++stats_.emptyGeometryCount;
             continue;
         }
 
         const auto* gpuGeometry = context.assets.findGeometry(geometryRecord->desc.resourceKey);
         if (!gpuGeometry) {
+            ++stats_.missingGpuGeometryCount;
             continue;
         }
         if (!renderGpuGeometryMatchesBucket(item.bucket, geometryRecord->desc, *gpuGeometry)) {
+            ++stats_.rejectedContractCount;
             continue;
         }
 
         PipelineState* surfacePipeline = hasTangentLayout(*gpuGeometry) && context.surfaceTangentPipeline
                                                  ? context.surfaceTangentPipeline
                                                  : context.surfacePipeline;
-        auto command = makeCommand(snapshot, item, *gpuGeometry, surfacePipeline, nextObjectOffset,
+        if (!surfacePipeline) {
+            ++stats_.missingPipelineCount;
+            continue;
+        }
+        auto command = makeCommand(item, *geometryRecord, *gpuGeometry, surfacePipeline, nextObjectOffset,
                                    materialOffset(snapshot, item.material, context.materials), false);
         populateSurfaceTextures(snapshot, item, context.assets, command);
         surface_commands_.push_back(std::move(command));
+        ++stats_.acceptedSurfaceCommandCount;
         nextObjectOffset += MeshDrawCommand::kObjectUboStride;
     }
 
     for (const auto& item : workload.edges()) {
+        ++stats_.edgeWorkItemCount;
         if (!hasObjectUboSlot()) {
+            ++stats_.objectUboLimitCount;
             break;
         }
 
         const auto* geometryRecord = snapshot.geometry(item.geometry);
         if (!geometryRecord) {
+            ++stats_.missingGeometryRecordCount;
             continue;
         }
         if (geometryRecord->desc.empty) {
+            ++stats_.emptyGeometryCount;
             continue;
         }
 
         const auto* gpuGeometry = context.assets.findGeometry(geometryRecord->desc.resourceKey);
         if (!gpuGeometry) {
+            ++stats_.missingGpuGeometryCount;
             continue;
         }
         if (!renderGpuGeometryMatchesBucket(item.bucket, geometryRecord->desc, *gpuGeometry)) {
+            ++stats_.rejectedContractCount;
+            continue;
+        }
+        if (!context.edgePipeline) {
+            ++stats_.missingPipelineCount;
             continue;
         }
 
-        edge_commands_.push_back(makeCommand(snapshot, item, *gpuGeometry, context.edgePipeline, nextObjectOffset,
-                                             context.materials.materialGpuOffset(0), true));
+        edge_commands_.push_back(makeCommand(item, *geometryRecord, *gpuGeometry, context.edgePipeline,
+                                             nextObjectOffset, context.materials.materialGpuOffset(0), true));
+        ++stats_.acceptedEdgeCommandCount;
         nextObjectOffset += MeshDrawCommand::kObjectUboStride;
     }
 }
@@ -147,6 +167,7 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
 void RenderCompiler::clear() {
     surface_commands_.clear();
     edge_commands_.clear();
+    stats_.reset();
 }
 
 }  // namespace mulan::engine

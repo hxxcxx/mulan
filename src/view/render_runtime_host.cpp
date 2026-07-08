@@ -76,4 +76,12 @@ const RenderWorldSyncStats& RenderRuntimeHost::lastWorldSyncStats() const {
     return runtime_.lastWorldSyncStats();
 }
 
+const engine::RenderWorkloadStats& RenderRuntimeHost::lastRenderWorkloadStats() const {
+    return runtime_.lastRenderWorkloadStats();
+}
+
+const engine::RenderCompilerStats& RenderRuntimeHost::lastRenderCompilerStats() const {
+    return runtime_.lastRenderCompilerStats();
+}
+
 }  // namespace mulan::view

@@ -67,6 +67,8 @@ public:
 
     bool isInitialized() const { return initialized_; }
     const RenderWorldSyncStats& lastWorldSyncStats() const { return render_world_sync_.lastStats(); }
+    const engine::RenderWorkloadStats& lastRenderWorkloadStats() const { return render_renderer_.lastWorkloadStats(); }
+    const engine::RenderCompilerStats& lastRenderCompilerStats() const { return render_renderer_.lastCompilerStats(); }
 
 private:
     void syncEngineWorld();
