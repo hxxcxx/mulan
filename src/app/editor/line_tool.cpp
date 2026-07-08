@@ -7,8 +7,6 @@
 
 #include "line_tool.h"
 
-#include <mulan/view/preview_layer.h>
-
 namespace mulan::app {
 
 namespace {
@@ -37,74 +35,72 @@ bool isLineEvent(const engine::InputEvent& event) {
 
 }  // namespace
 
-void LineTool::begin(ToolContext& context) {
+EditorAction LineTool::begin() {
     step_ = Step::FirstPoint;
     first_point_.reset();
-    context.clearPreview();
+    return EditorAction::clearPreview();
 }
 
-ToolInputResult LineTool::handleInput(ToolContext& context, const EditorInput& input) {
+EditorAction LineTool::handleInput(const EditorInput& input) {
     if (isRightPress(input.event)) {
-        return ToolInputResult::Cancelled;
+        return EditorAction::cancel();
     }
 
     if (!isLineEvent(input.event)) {
-        return ToolInputResult::Ignored;
+        return EditorAction::ignored();
     }
 
     if (!input.workPoint) {
-        return ToolInputResult::Consumed;
+        return EditorAction::consumeEvent();
     }
 
     if (isMouseMove(input.event) && step_ == Step::SecondPoint) {
-        updatePreview(context, *input.workPoint);
-        return ToolInputResult::Consumed;
+        return updatePreview(*input.workPoint);
     }
 
     if (isLeftRelease(input.event)) {
-        return acceptPoint(context, *input.workPoint);
+        return acceptPoint(*input.workPoint);
     }
 
-    return ToolInputResult::Consumed;
+    return EditorAction::consumeEvent();
 }
 
-void LineTool::end(ToolContext& context, ToolFinishReason reason) {
+EditorAction LineTool::end(ToolFinishReason reason) {
     if (reason != ToolFinishReason::Finished) {
-        context.clearPreview();
+        return EditorAction::clearPreview();
     }
+    return EditorAction::ignored();
 }
 
-ToolInputResult LineTool::acceptPoint(ToolContext& context, const math::Point3& point) {
+EditorAction LineTool::acceptPoint(const math::Point3& point) {
     if (step_ == Step::FirstPoint) {
         first_point_ = point;
         step_ = Step::SecondPoint;
-        return ToolInputResult::Consumed;
+        return EditorAction::consumeEvent();
     }
 
     if (!first_point_) {
         step_ = Step::FirstPoint;
-        return ToolInputResult::Consumed;
+        return EditorAction::consumeEvent();
     }
 
     const math::Segment3 segment(*first_point_, point);
     if (segment.lengthSq() <= kMinimumLineLengthSq) {
-        updatePreview(context, point);
-        return ToolInputResult::Consumed;
+        return updatePreview(point);
     }
 
-    const bool created = context.createCurve("Line", asset::CurvePrimitive::segment(segment));
-    context.clearPreview();
-    return created ? ToolInputResult::Finished : ToolInputResult::Cancelled;
+    EditorAction action =
+            EditorAction::commit(DocumentOperation::createCurve("Line", asset::CurvePrimitive::segment(segment)));
+    action.clearPreviewOnApply().finishTool();
+    return action;
 }
 
-void LineTool::updatePreview(ToolContext& context, const math::Point3& point) {
+EditorAction LineTool::updatePreview(const math::Point3& point) const {
     if (!first_point_) {
-        return;
+        return EditorAction::ignored();
     }
 
-    view::PreviewBuilder builder;
-    builder.addSegment(math::Segment3(*first_point_, point));
-    context.setPreview(builder.takeCurves());
+    return EditorAction::setPreview(DraftGeometry::segment(math::Segment3(*first_point_, point)));
 }
 
 }  // namespace mulan::app

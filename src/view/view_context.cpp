@@ -208,15 +208,15 @@ void ViewContext::resize(int width, int height) {
     camera_.setViewport(width_, height_);
 }
 
-void ViewContext::handleInput(const engine::InputEvent& event) {
+bool ViewContext::handleInput(const engine::InputEvent& event) {
     if (handleViewCubeInput(event))
-        return;
+        return true;
 
     engine::Operator* op = activeOperator();
     if (!op)
-        return;
+        return false;
 
-    op->handleEvent(event, camera_);
+    const bool consumed = op->handleEvent(event, camera_);
 
     if (op->isFinished() && !op_stack_.empty()) {
         auto finishedHook = op->finishHook();
@@ -224,6 +224,8 @@ void ViewContext::handleInput(const engine::InputEvent& event) {
             finishedHook(*op);
         popOperator();
     }
+
+    return consumed;
 }
 
 bool ViewContext::handleViewCubeInput(const engine::InputEvent& event) {

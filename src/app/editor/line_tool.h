@@ -16,9 +16,9 @@ class LineTool final : public EditorTool {
 public:
     std::string_view id() const override { return "draw.line"; }
 
-    void begin(ToolContext& context) override;
-    ToolInputResult handleInput(ToolContext& context, const EditorInput& input) override;
-    void end(ToolContext& context, ToolFinishReason reason) override;
+    EditorAction begin() override;
+    EditorAction handleInput(const EditorInput& input) override;
+    EditorAction end(ToolFinishReason reason) override;
 
 private:
     enum class Step {
@@ -26,8 +26,8 @@ private:
         SecondPoint,
     };
 
-    ToolInputResult acceptPoint(ToolContext& context, const math::Point3& point);
-    void updatePreview(ToolContext& context, const math::Point3& point);
+    EditorAction acceptPoint(const math::Point3& point);
+    EditorAction updatePreview(const math::Point3& point) const;
 
     Step step_ = Step::FirstPoint;
     std::optional<math::Point3> first_point_;

@@ -98,8 +98,7 @@ void MainWindow::buildRibbonHomeCategory() {
 
     panel_draw_ = new SARibbonPanel(tr("Draw"), category_home_);
     action_draw_line_ = new QAction(QIcon(":/app/bright/icon/link.svg"), tr("Line"), this);
-    connect(action_draw_line_, &QAction::triggered, this,
-            [this]() { command_manager_.execute("draw.line", currentCommandHost()); });
+    connect(action_draw_line_, &QAction::triggered, this, [this]() { executeCommand("draw.line"); });
     panel_draw_->addLargeAction(action_draw_line_);
     category_home_->addPanel(panel_draw_);
 
@@ -107,8 +106,7 @@ void MainWindow::buildRibbonHomeCategory() {
     panel_view_ = new SARibbonPanel(tr("Navigation"), category_home_);
     action_fit_all_ = new QAction(QIcon(":/app/bright/icon/fitall.svg"), tr("Fit All"), this);
     action_fit_all_->setShortcut(Qt::Key_F);
-    connect(action_fit_all_, &QAction::triggered, this,
-            [this]() { command_manager_.execute("view.fitAll", currentCommandHost()); });
+    connect(action_fit_all_, &QAction::triggered, this, [this]() { executeCommand("view.fitAll"); });
     panel_view_->addLargeAction(action_fit_all_);
     category_home_->addPanel(panel_view_);
 
@@ -227,7 +225,15 @@ void MainWindow::buildRightButtonBar() {
 
 mulan::app::CommandHost MainWindow::currentCommandHost() const {
     auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
-    return mulan::app::CommandHost(doc ? &doc->documentView() : nullptr);
+    auto* view = doc ? &doc->documentView() : nullptr;
+    return mulan::app::CommandHost(view, view ? &view->editorSession() : nullptr);
+}
+
+void MainWindow::executeCommand(std::string_view id) {
+    auto result = command_manager_.execute(id, currentCommandHost());
+    if (!result) {
+        statusBar()->showMessage(QString::fromStdString(result.error().message));
+    }
 }
 
 void MainWindow::onCurrentDocumentChanged(const QString& name) {

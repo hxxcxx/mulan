@@ -9,13 +9,11 @@
 
 #include "document_view_binding.h"
 
-#include "editor/tool_controller.h"
+#include "editor/editor_session.h"
 
 #include <mulan/engine/interaction/input_event.h>
 #include <mulan/view/view_config.h>
 #include <mulan/view/view_context.h>
-
-#include <memory>
 
 class DocumentSession;
 
@@ -42,19 +40,17 @@ public:
     DocumentViewBinding& binding() { return binding_; }
     const DocumentViewBinding& binding() const { return binding_; }
 
-    void startTool(std::unique_ptr<mulan::app::EditorTool> tool);
-    void handleInput(const mulan::engine::InputEvent& event);
+    mulan::app::EditorSession& editorSession() { return editor_session_; }
+    const mulan::app::EditorSession& editorSession() const { return editor_session_; }
+
+    bool handleInput(const mulan::engine::InputEvent& event);
 
     void updateHoverAtFramebuffer(double x, double y);
     void selectAtFramebuffer(double x, double y);
-    bool hasModalOperator() const;
 
 private:
-    mulan::app::ToolContext toolContext();
-    mulan::app::EditorInput makeEditorInput(const mulan::engine::InputEvent& event) const;
-
     DocumentSession* session_ = nullptr;
     DocumentViewBinding binding_;
     mulan::view::ViewContext view_context_;
-    mulan::app::ToolController tool_controller_;
+    mulan::app::EditorSession editor_session_;
 };

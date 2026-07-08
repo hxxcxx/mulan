@@ -10,6 +10,7 @@
 
 #include "command_manager.h"
 
+#include "editor/editor_session.h"
 #include "editor/line_tool.h"
 
 #include "ui/document_view.h"
@@ -43,12 +44,12 @@ public:
 
 protected:
     CommandOutcome perform(CommandHost& host) override {
-        DocumentView* view = host.documentView();
-        if (!view || !view->isInitialized() || !view->session()) {
-            return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active document view"));
+        EditorSession* editor = host.editorSession();
+        if (!editor || !editor->isReady()) {
+            return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
         }
 
-        view->startTool(std::make_unique<LineTool>());
+        editor->startTool(std::make_unique<LineTool>());
         return {};
     }
 };

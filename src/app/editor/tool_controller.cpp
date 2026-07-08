@@ -11,46 +11,47 @@ namespace mulan::app {
 
 ToolController::~ToolController() = default;
 
-void ToolController::start(std::unique_ptr<EditorTool> tool, ToolContext& context) {
-    clear(context, ToolFinishReason::Replaced);
+EditorAction ToolController::start(std::unique_ptr<EditorTool> tool) {
+    clear(ToolFinishReason::Replaced);
     active_tool_ = std::move(tool);
     if (active_tool_) {
-        active_tool_->begin(context);
+        return active_tool_->begin();
     }
+    return EditorAction::ignored();
 }
 
-bool ToolController::handleInput(ToolContext& context, const EditorInput& input) {
+EditorAction ToolController::handleInput(const EditorInput& input) {
     if (!active_tool_) {
-        return false;
+        return EditorAction::ignored();
     }
 
     if (input.event.type == engine::InputEvent::Type::KeyPress && input.event.key == engine::Key::Escape) {
-        cancel(context);
-        return true;
+        return cancel();
     }
 
-    const ToolInputResult result = active_tool_->handleInput(context, input);
-    switch (result) {
-    case ToolInputResult::Ignored: return false;
-    case ToolInputResult::Consumed: return true;
-    case ToolInputResult::Finished: clear(context, ToolFinishReason::Finished); return true;
-    case ToolInputResult::Cancelled: clear(context, ToolFinishReason::Cancelled); return true;
+    EditorAction action = active_tool_->handleInput(input);
+    if (action.lifecycle() == ToolLifecycle::Finished) {
+        clear(ToolFinishReason::Finished);
+    } else if (action.lifecycle() == ToolLifecycle::Cancelled) {
+        clear(ToolFinishReason::Cancelled);
     }
 
-    return true;
+    return action;
 }
 
-void ToolController::cancel(ToolContext& context) {
-    clear(context, ToolFinishReason::Cancelled);
+EditorAction ToolController::cancel() {
+    EditorAction action = clear(ToolFinishReason::Cancelled);
+    action.consume().clearPreviewOnApply().cancelTool();
+    return action;
 }
 
-void ToolController::clear(ToolContext& context, ToolFinishReason reason) {
+EditorAction ToolController::clear(ToolFinishReason reason) {
     if (!active_tool_) {
-        return;
+        return EditorAction::ignored();
     }
 
     auto tool = std::move(active_tool_);
-    tool->end(context, reason);
+    return tool->end(reason);
 }
 
 }  // namespace mulan::app

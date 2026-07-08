@@ -24,10 +24,10 @@ public:
     bool hasActiveTool() const { return active_tool_ != nullptr; }
     EditorTool* activeTool() const { return active_tool_.get(); }
 
-    void start(std::unique_ptr<EditorTool> tool, ToolContext& context);
-    bool handleInput(ToolContext& context, const EditorInput& input);
-    void cancel(ToolContext& context);
-    void clear(ToolContext& context, ToolFinishReason reason);
+    EditorAction start(std::unique_ptr<EditorTool> tool);
+    EditorAction handleInput(const EditorInput& input);
+    EditorAction cancel();
+    EditorAction clear(ToolFinishReason reason);
 
 private:
     std::unique_ptr<EditorTool> active_tool_;

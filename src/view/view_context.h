@@ -57,7 +57,7 @@ public:
     void renderFrame();
     void resize(int width, int height);
 
-    void handleInput(const engine::InputEvent& event);
+    bool handleInput(const engine::InputEvent& event);
 
     void pushOperator(std::unique_ptr<engine::Operator> op);
     void popOperator();

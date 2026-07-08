@@ -6,65 +6,23 @@
  */
 #pragma once
 
+#include "editor_action.h"
 #include "editor_input.h"
 
-#include <mulan/asset/curve_asset.h>
-#include <mulan/view/preview_layer.h>
-
 #include <string_view>
-#include <vector>
-
-class DocumentSession;
-class DocumentViewBinding;
-
-namespace mulan::view {
-class ViewContext;
-}
 
 namespace mulan::app {
-
-class ToolContext {
-public:
-    ToolContext(DocumentSession* session, view::ViewContext* view, DocumentViewBinding* binding)
-        : session_(session), view_(view), binding_(binding) {}
-
-    DocumentSession* session() const { return session_; }
-    view::ViewContext* view() const { return view_; }
-    DocumentViewBinding* binding() const { return binding_; }
-
-    void clearPreview();
-    void setPreview(std::vector<asset::CurvePrimitive> primitives);
-    bool createCurve(std::string_view name, asset::CurvePrimitive primitive);
-
-private:
-    DocumentSession* session_ = nullptr;
-    view::ViewContext* view_ = nullptr;
-    DocumentViewBinding* binding_ = nullptr;
-};
-
-enum class ToolInputResult {
-    Ignored,
-    Consumed,
-    Finished,
-    Cancelled,
-};
-
-enum class ToolFinishReason {
-    Finished,
-    Cancelled,
-    Replaced,
-};
 
 class EditorTool {
 public:
     virtual ~EditorTool() = default;
 
     virtual std::string_view id() const = 0;
-    virtual void begin(ToolContext& context) { (void) context; }
-    virtual ToolInputResult handleInput(ToolContext& context, const EditorInput& input) = 0;
-    virtual void end(ToolContext& context, ToolFinishReason reason) {
-        (void) context;
+    virtual EditorAction begin() { return EditorAction::ignored(); }
+    virtual EditorAction handleInput(const EditorInput& input) = 0;
+    virtual EditorAction end(ToolFinishReason reason) {
         (void) reason;
+        return EditorAction::ignored();
     }
 };
 

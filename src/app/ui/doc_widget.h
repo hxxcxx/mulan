@@ -66,7 +66,6 @@ private:
     void updateHoverAtFramebuffer(const QPointF& framebufferPos);
     void selectAtFramebuffer(const QPointF& framebufferPos);
     void clearPreview(bool refresh = true);
-    bool hasModalOperator() const;
 
     DocumentView document_view_;
     mulan::view::ViewConfig view_config_;
@@ -74,5 +73,5 @@ private:
     QPoint press_pos_;
     bool left_press_pending_ = false;
     bool left_press_dragged_ = false;
-    bool left_press_started_modal_ = false;
+    bool left_press_consumed_ = false;
 };

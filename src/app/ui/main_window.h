@@ -12,6 +12,8 @@
 #include <mulan/io/file_manager.h>
 #include <mulan/view/view_state.h>
 
+#include <string_view>
+
 class DocumentArea;
 class DocumentSession;
 class EngineSettingsDialog;
@@ -39,6 +41,7 @@ private:
     void setCurrentSurfaceShading(mulan::view::SurfaceShading shading);
     void updateDisplayActions();
     mulan::app::CommandHost currentCommandHost() const;
+    void executeCommand(std::string_view id);
 
     void dragEnterEvent(QDragEnterEvent* e) override;
     void dropEvent(QDropEvent* e) override;

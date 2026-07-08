@@ -66,26 +66,28 @@ void DocWidget::mousePressEvent(QMouseEvent* e) {
         press_pos_ = e->pos();
         left_press_pending_ = true;
         left_press_dragged_ = false;
-        left_press_started_modal_ = hasModalOperator();
+        left_press_consumed_ = false;
     }
 
     auto ev = makeMousePressEvent(*e);
-    document_view_.handleInput(ev);
+    const bool consumed = document_view_.handleInput(ev);
+    if (e->button() == Qt::LeftButton) {
+        left_press_consumed_ = consumed;
+    }
     requestFrame();
 }
 
 void DocWidget::mouseReleaseEvent(QMouseEvent* e) {
-    const bool modalWasActive = hasModalOperator();
     auto ev = makeMouseReleaseEvent(*e);
-    document_view_.handleInput(ev);
+    const bool consumed = document_view_.handleInput(ev);
 
     if (e->button() == Qt::LeftButton && left_press_pending_) {
-        if (!left_press_dragged_ && !modalWasActive && !left_press_started_modal_) {
+        if (!left_press_dragged_ && !left_press_consumed_ && !consumed) {
             selectAtFramebuffer(framebufferPosition(e->pos()));
         }
         left_press_pending_ = false;
         left_press_dragged_ = false;
-        left_press_started_modal_ = false;
+        left_press_consumed_ = false;
     }
     requestFrame();
 }
@@ -96,9 +98,9 @@ void DocWidget::mouseMoveEvent(QMouseEvent* e) {
     }
 
     auto ev = makeMouseMoveEvent(*e);
-    document_view_.handleInput(ev);
+    const bool consumed = document_view_.handleInput(ev);
 
-    if (e->buttons() == Qt::NoButton && !hasModalOperator()) {
+    if (e->buttons() == Qt::NoButton && !consumed) {
         if (!document_view_.viewContext().hasHoveredViewCubeFace()) {
             updateHoverAtFramebuffer(framebufferPosition(e->pos()));
         } else {
@@ -218,10 +220,6 @@ void DocWidget::clearPreview(bool refresh) {
     if (refresh) {
         requestFrame();
     }
-}
-
-bool DocWidget::hasModalOperator() const {
-    return document_view_.hasModalOperator();
 }
 
 mulan::engine::MouseButton DocWidget::translateButton(Qt::MouseButton btn) {

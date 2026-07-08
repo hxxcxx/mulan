@@ -13,8 +13,7 @@
 DocumentView::DocumentView() = default;
 
 DocumentView::~DocumentView() {
-    auto context = toolContext();
-    tool_controller_.clear(context, mulan::app::ToolFinishReason::Cancelled);
+    editor_session_.unbind();
     view_context_.clearPreview();
     binding_.unbind();
 }
@@ -30,6 +29,7 @@ bool DocumentView::init(const mulan::view::ViewConfig& config, int width, int he
 
     if (session_) {
         binding_.bind(*session_, view_context_);
+        editor_session_.bind(session_, &view_context_, &binding_);
     }
     return true;
 }
@@ -47,31 +47,23 @@ void DocumentView::renderFrame() {
 }
 
 void DocumentView::setDocumentSession(DocumentSession* session) {
-    auto context = toolContext();
-    tool_controller_.clear(context, mulan::app::ToolFinishReason::Cancelled);
+    editor_session_.unbind();
     view_context_.clearPreview();
     binding_.unbind();
     session_ = session;
 
     if (view_context_.isInitialized() && session_) {
         binding_.bind(*session_, view_context_);
+        editor_session_.bind(session_, &view_context_, &binding_);
     }
 }
 
-void DocumentView::startTool(std::unique_ptr<mulan::app::EditorTool> tool) {
-    auto context = toolContext();
-    tool_controller_.start(std::move(tool), context);
-}
-
-void DocumentView::handleInput(const mulan::engine::InputEvent& event) {
-    if (tool_controller_.hasActiveTool()) {
-        auto context = toolContext();
-        if (tool_controller_.handleInput(context, makeEditorInput(event))) {
-            return;
-        }
+bool DocumentView::handleInput(const mulan::engine::InputEvent& event) {
+    if (editor_session_.handleInput(event)) {
+        return true;
     }
 
-    view_context_.handleInput(event);
+    return view_context_.handleInput(event);
 }
 
 void DocumentView::updateHoverAtFramebuffer(double x, double y) {
@@ -101,26 +93,4 @@ void DocumentView::selectAtFramebuffer(double x, double y) {
         view_context_.clearHoveredPickId();
         binding_.clearSelection();
     }
-}
-
-bool DocumentView::hasModalOperator() const {
-    return tool_controller_.hasActiveTool() || view_context_.activeOperator() != view_context_.defaultOperator();
-}
-
-mulan::app::ToolContext DocumentView::toolContext() {
-    return mulan::app::ToolContext(session_, &view_context_, &binding_);
-}
-
-mulan::app::EditorInput DocumentView::makeEditorInput(const mulan::engine::InputEvent& event) const {
-    mulan::app::EditorInput input;
-    input.event = event;
-    input.cursorRay = view_context_.camera().screenRay(event.x, event.y);
-    input.workPlane = mulan::math::Plane3::fromPointNormal(mulan::math::Point3::origin(), mulan::math::Vec3::unitZ());
-
-    const mulan::math::Hit3 hit = mulan::math::intersect(input.cursorRay, input.workPlane);
-    if (hit.hit) {
-        input.workPoint = hit.point;
-    }
-
-    return input;
 }

@@ -16,16 +16,23 @@ class DocumentView;
 
 namespace mulan::app {
 
+class EditorSession;
+
 class CommandHost {
 public:
     CommandHost() = default;
-    explicit CommandHost(DocumentView* documentView) : document_view_(documentView) {}
+    CommandHost(DocumentView* documentView, EditorSession* editorSession)
+        : document_view_(documentView), editor_session_(editorSession) {}
 
     DocumentView* documentView() const { return document_view_; }
     bool hasDocumentView() const { return document_view_ != nullptr; }
 
+    EditorSession* editorSession() const { return editor_session_; }
+    bool hasEditorSession() const { return editor_session_ != nullptr; }
+
 private:
     DocumentView* document_view_ = nullptr;
+    EditorSession* editor_session_ = nullptr;
 };
 
 using CommandOutcome = core::Result<void>;

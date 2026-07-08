@@ -9,9 +9,16 @@ add_executable(${PROJECT_NAME}
     command/command_manager.cpp
     command/builtin_commands.h
     command/builtin_commands.cpp
+    editor/document_operation.h
+    editor/document_operation.cpp
+    editor/draft_geometry.h
+    editor/draft_geometry.cpp
+    editor/editor_action.h
+    editor/editor_action.cpp
     editor/editor_input.h
+    editor/editor_session.h
+    editor/editor_session.cpp
     editor/editor_tool.h
-    editor/editor_tool.cpp
     editor/tool_controller.h
     editor/tool_controller.cpp
     editor/line_tool.h
