@@ -20,6 +20,8 @@ namespace {
 
 constexpr int kCircleSegments = 64;
 constexpr double kArcStepRadians = math::kPi / 24.0;
+constexpr int kMinimumParametricSegments = 32;
+constexpr int kMaximumParametricSegments = 256;
 
 template <typename... T>
 struct Overloaded : T... {
@@ -33,6 +35,10 @@ struct LinePointPair {
     math::Point3 start;
     math::Point3 end;
 };
+
+int parametricSegmentCount(int controlPointCount, int multiplier = 16) {
+    return std::clamp(controlPointCount * multiplier, kMinimumParametricSegments, kMaximumParametricSegments);
+}
 
 void appendSegment(std::vector<LinePointPair>& lines, const math::Segment3& segment) {
     if (segment.lengthSq() <= 0.0) {
@@ -78,14 +84,87 @@ void appendArc(std::vector<LinePointPair>& lines, const math::Arc3& arc) {
     }
 }
 
+std::vector<math::Point3> samplePolyline(const math::Polyline3& polyline) {
+    std::vector<math::Point3> points = polyline.points;
+    if (polyline.closed && points.size() >= 2) {
+        points.push_back(points.front());
+    }
+    return points;
+}
+
+std::vector<math::Point3> sampleCircle(const math::Circle3& circle) {
+    std::vector<math::Point3> points;
+    if (!circle.valid()) {
+        return points;
+    }
+
+    points.reserve(kCircleSegments + 1);
+    for (int i = 0; i <= kCircleSegments; ++i) {
+        const double t = static_cast<double>(i) / static_cast<double>(kCircleSegments);
+        points.push_back(math::pointOnCircle(circle, math::Angle::fullTurn() * t));
+    }
+    return points;
+}
+
+std::vector<math::Point3> sampleArc(const math::Arc3& arc) {
+    std::vector<math::Point3> points;
+    if (!arc.valid() || arc.sweep == math::Angle::zero()) {
+        return points;
+    }
+
+    const double radians = std::abs(arc.sweep.radians());
+    const int steps = std::max(1, static_cast<int>(std::ceil(radians / kArcStepRadians)));
+    points.reserve(static_cast<size_t>(steps) + 1);
+    for (int i = 0; i <= steps; ++i) {
+        const double t = static_cast<double>(i) / static_cast<double>(steps);
+        points.push_back(arc.pointAt(t));
+    }
+    return points;
+}
+
+std::vector<math::Point3> sampleBezier(const math::BezierCurve3d& curve) {
+    const int steps = parametricSegmentCount(curve.controlPointCount());
+    std::vector<math::Point3> points;
+    points.reserve(static_cast<size_t>(steps) + 1);
+    for (int i = 0; i <= steps; ++i) {
+        const double t = static_cast<double>(i) / static_cast<double>(steps);
+        points.push_back(curve.deCasteljau(t));
+    }
+    return points;
+}
+
+std::vector<math::Point3> sampleBSpline(const math::BSplineCurve3d& curve) {
+    const int steps = parametricSegmentCount(curve.controlPointCount());
+    const auto [uMin, uMax] = curve.domain();
+    std::vector<math::Point3> points;
+    points.reserve(static_cast<size_t>(steps) + 1);
+    for (int i = 0; i <= steps; ++i) {
+        const double t = static_cast<double>(i) / static_cast<double>(steps);
+        points.push_back(curve.evaluate(uMin + (uMax - uMin) * t));
+    }
+    return points;
+}
+
+std::vector<math::Point3> sampleNurbs(const math::NURBSCurve3d& curve) {
+    const int steps = parametricSegmentCount(curve.controlPointCount());
+    const auto [uMin, uMax] = curve.domain();
+    std::vector<math::Point3> points;
+    points.reserve(static_cast<size_t>(steps) + 1);
+    for (int i = 0; i <= steps; ++i) {
+        const double t = static_cast<double>(i) / static_cast<double>(steps);
+        points.push_back(curve.evaluate(uMin + (uMax - uMin) * t));
+    }
+    return points;
+}
+
+void appendSampledPolyline(std::vector<LinePointPair>& lines, std::span<const math::Point3> points) {
+    for (size_t i = 0; i + 1 < points.size(); ++i) {
+        appendSegment(lines, math::Segment3(points[i], points[i + 1]));
+    }
+}
+
 void appendPrimitive(std::vector<LinePointPair>& lines, const CurvePrimitive& primitive) {
-    std::visit(Overloaded{
-                       [&lines](const CurveSegmentPrimitive& segment) { appendSegment(lines, segment.segment); },
-                       [&lines](const CurvePolylinePrimitive& polyline) { appendPolyline(lines, polyline.polyline); },
-                       [&lines](const CurveCirclePrimitive& circle) { appendCircle(lines, circle.circle); },
-                       [&lines](const CurveArcPrimitive& arc) { appendArc(lines, arc.arc); },
-               },
-               primitive.data());
+    appendSampledPolyline(lines, sampleCurvePrimitive(primitive));
 }
 
 graphics::Mesh buildMeshFromLines(std::span<const LinePointPair> lines) {
@@ -121,6 +200,21 @@ graphics::Mesh buildMeshFromLines(std::span<const LinePointPair> lines) {
 }
 
 }  // namespace
+
+std::vector<math::Point3> sampleCurvePrimitive(const CurvePrimitive& primitive) {
+    return std::visit(Overloaded{
+                              [](const CurveSegmentPrimitive& segment) {
+                                  return std::vector<math::Point3>{ segment.segment.start, segment.segment.end };
+                              },
+                              [](const CurvePolylinePrimitive& polyline) { return samplePolyline(polyline.polyline); },
+                              [](const CurveCirclePrimitive& circle) { return sampleCircle(circle.circle); },
+                              [](const CurveArcPrimitive& arc) { return sampleArc(arc.arc); },
+                              [](const CurveBezierPrimitive& bezier) { return sampleBezier(bezier.curve); },
+                              [](const CurveBSplinePrimitive& bspline) { return sampleBSpline(bspline.curve); },
+                              [](const CurveNurbsPrimitive& nurbs) { return sampleNurbs(nurbs.curve); },
+                      },
+                      primitive.data());
+}
 
 graphics::Mesh buildCurveWireMesh(std::span<const CurvePrimitive> primitives) {
     std::vector<LinePointPair> lines;

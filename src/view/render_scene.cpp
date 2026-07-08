@@ -2,6 +2,7 @@
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/curve_asset.h>
+#include <mulan/asset/curve_mesh_builder.h>
 #include <mulan/asset/geometry_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/asset/tessellated_asset.h>
@@ -624,6 +625,61 @@ void appendMeshPickCandidates(const math::Ray3& ray, const graphics::Mesh& mesh,
     }
 }
 
+void appendSampledCurvePickCandidate(const math::Ray3& ray, const asset::CurvePrimitive& primitive,
+                                     const math::Mat4& worldTransform, size_t elementIndex, double tolerance,
+                                     std::vector<MeshPickResult>& out) {
+    std::vector<math::Point3> samples = asset::sampleCurvePrimitive(primitive);
+    if (samples.size() < 2) {
+        return;
+    }
+
+    for (math::Point3& point : samples) {
+        point = point.transformedBy(worldTransform);
+    }
+
+    const double toleranceSq = tolerance * tolerance;
+    std::optional<RaySegmentClosest> bestClosest;
+    size_t bestSegment = 0;
+    for (size_t i = 0; i + 1 < samples.size(); ++i) {
+        const math::Segment3 segment(samples[i], samples[i + 1]);
+        const RaySegmentClosest closest = closestRaySegment(ray, segment);
+        if (closest.distanceSq > toleranceSq) {
+            continue;
+        }
+        if (!bestClosest || closest.rayT < bestClosest->rayT) {
+            bestClosest = closest;
+            bestSegment = i;
+        }
+    }
+
+    if (!bestClosest) {
+        return;
+    }
+
+    const double segmentCount = static_cast<double>(samples.size() - 1);
+    const double parameter = (static_cast<double>(bestSegment) + bestClosest->segmentT) / segmentCount;
+    const math::Point3 midpoint = samples[samples.size() / 2];
+    out.push_back(MeshPickResult{
+            .tested = true,
+            .distance = bestClosest->rayT,
+            .kind = RenderScene::PickHitKind::Curve,
+            .worldPoint = bestClosest->segmentPoint,
+            .hasWorldPoint = true,
+            .worldNormal = (samples[bestSegment + 1] - samples[bestSegment]).normalizedOr(math::Vec3::unitX()),
+            .hasWorldNormal = true,
+            .primitiveIndex = static_cast<uint32_t>(elementIndex),
+            .hasPrimitiveIndex = true,
+            .parameter = parameter,
+            .toleranceWorld = tolerance,
+            .curveStart = samples.front(),
+            .curveEnd = samples.back(),
+            .curveMidpoint = midpoint,
+            .hasCurveEndpoints = true,
+            .hasCurveMidpoint = true,
+            .curveClosed = samples.front().distanceSq(samples.back()) <= 1.0e-12,
+    });
+}
+
 void appendGeometryAssetPickCandidates(const math::Ray3& ray, const asset::Asset& asset,
                                        const math::Mat4& worldTransform, double lineToleranceWorld,
                                        std::vector<MeshPickResult>& out) {
@@ -753,6 +809,18 @@ void appendGeometryAssetPickCandidates(const math::Ray3& ray, const asset::Asset
                                         .curveSweepRadians = arc.sweep.radians(),
                                         .hasCurveRange = true,
                                 });
+                            },
+                            [&](const asset::CurveBezierPrimitive&) {
+                                appendSampledCurvePickCandidate(ray, element.primitive, worldTransform, elementIndex,
+                                                                tolerance, out);
+                            },
+                            [&](const asset::CurveBSplinePrimitive&) {
+                                appendSampledCurvePickCandidate(ray, element.primitive, worldTransform, elementIndex,
+                                                                tolerance, out);
+                            },
+                            [&](const asset::CurveNurbsPrimitive&) {
+                                appendSampledCurvePickCandidate(ray, element.primitive, worldTransform, elementIndex,
+                                                                tolerance, out);
                             },
                     },
                     element.primitive.data());

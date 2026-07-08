@@ -14,6 +14,7 @@
 #include "editor/editor_session.h"
 #include "editor/face_tool.h"
 #include "editor/line_tool.h"
+#include "editor/param_curve_tool.h"
 #include "editor/polyline_tool.h"
 
 #include "ui/document_view.h"
@@ -52,6 +53,20 @@ CommandOutcome startDrawTool(CommandHost& host) {
     }
     editor->setWorkPlane(mulan::engine::WorkPlane::worldXY());
     editor->startTool(std::make_unique<Tool>());
+    return {};
+}
+
+CommandOutcome startParametricCurveTool(CommandHost& host, ParametricCurveToolKind kind) {
+    EditorSession* editor = host.editorSession();
+    if (!editor || !editor->isReady()) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+    }
+
+    if (DocumentView* view = host.documentView(); view && view->isInitialized()) {
+        view->viewContext().setCameraToWorldXY();
+    }
+    editor->setWorkPlane(mulan::engine::WorkPlane::worldXY());
+    editor->startTool(std::make_unique<ParametricCurveTool>(kind));
     return {};
 }
 
@@ -103,6 +118,39 @@ protected:
     CommandOutcome perform(CommandHost& host) override { return startViewPlaneDrawTool(host); }
 };
 
+class DrawBezierCommand final : public Command {
+public:
+    std::string_view id() const override { return "draw.bezier"; }
+    std::string_view title() const override { return "Bezier"; }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override {
+        return startParametricCurveTool(host, ParametricCurveToolKind::Bezier);
+    }
+};
+
+class DrawBSplineCommand final : public Command {
+public:
+    std::string_view id() const override { return "draw.bspline"; }
+    std::string_view title() const override { return "B-Spline"; }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override {
+        return startParametricCurveTool(host, ParametricCurveToolKind::BSpline);
+    }
+};
+
+class DrawNurbsCommand final : public Command {
+public:
+    std::string_view id() const override { return "draw.nurbs"; }
+    std::string_view title() const override { return "NURBS"; }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override {
+        return startParametricCurveTool(host, ParametricCurveToolKind::NURBS);
+    }
+};
+
 }  // namespace
 
 void registerBuiltinCommands(CommandManager& manager) {
@@ -111,6 +159,9 @@ void registerBuiltinCommands(CommandManager& manager) {
     manager.add(std::make_unique<DrawPolylineCommand>());
     manager.add(std::make_unique<DrawCircleCommand>());
     manager.add(std::make_unique<DrawFaceCommand>());
+    manager.add(std::make_unique<DrawBezierCommand>());
+    manager.add(std::make_unique<DrawBSplineCommand>());
+    manager.add(std::make_unique<DrawNurbsCommand>());
 }
 
 }  // namespace mulan::app

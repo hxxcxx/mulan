@@ -11,6 +11,8 @@ add_executable(${PROJECT_NAME}
     command/builtin_commands.cpp
     editor/document_operation.h
     editor/document_operation.cpp
+    editor/control_polygon_builder.h
+    editor/control_polygon_builder.cpp
     editor/draft_geometry.h
     editor/draft_geometry.cpp
     editor/editor_action.h
@@ -36,6 +38,8 @@ add_executable(${PROJECT_NAME}
     editor/point_drawing_tool.cpp
     editor/tool_controller.h
     editor/tool_controller.cpp
+    editor/param_curve_tool.h
+    editor/param_curve_tool.cpp
     editor/polyline_tool.h
     editor/polyline_tool.cpp
     editor/circle_tool.h

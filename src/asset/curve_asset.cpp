@@ -40,12 +40,27 @@ CurvePrimitive CurvePrimitive::arc(const math::Arc3& arc) {
     return CurvePrimitive(CurveArcPrimitive{ arc });
 }
 
+CurvePrimitive CurvePrimitive::bezier(const math::BezierCurve3d& curve) {
+    return CurvePrimitive(CurveBezierPrimitive{ curve });
+}
+
+CurvePrimitive CurvePrimitive::bspline(const math::BSplineCurve3d& curve) {
+    return CurvePrimitive(CurveBSplinePrimitive{ curve });
+}
+
+CurvePrimitive CurvePrimitive::nurbs(const math::NURBSCurve3d& curve) {
+    return CurvePrimitive(CurveNurbsPrimitive{ curve });
+}
+
 CurveElementKind CurvePrimitive::kind() const {
     return std::visit(Overloaded{
                               [](const CurveSegmentPrimitive&) { return CurveElementKind::Segment; },
                               [](const CurvePolylinePrimitive&) { return CurveElementKind::Polyline; },
                               [](const CurveCirclePrimitive&) { return CurveElementKind::Circle; },
                               [](const CurveArcPrimitive&) { return CurveElementKind::Arc; },
+                              [](const CurveBezierPrimitive&) { return CurveElementKind::Bezier; },
+                              [](const CurveBSplinePrimitive&) { return CurveElementKind::BSpline; },
+                              [](const CurveNurbsPrimitive&) { return CurveElementKind::NURBS; },
                       },
                       data_);
 }

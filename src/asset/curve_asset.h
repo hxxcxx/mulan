@@ -27,6 +27,9 @@ enum class CurveElementKind : uint8_t {
     Polyline,
     Circle,
     Arc,
+    Bezier,
+    BSpline,
+    NURBS,
 };
 
 struct CurveElementId {
@@ -55,8 +58,21 @@ struct CurveArcPrimitive {
     math::Arc3 arc;
 };
 
+struct CurveBezierPrimitive {
+    math::BezierCurve3d curve;
+};
+
+struct CurveBSplinePrimitive {
+    math::BSplineCurve3d curve;
+};
+
+struct CurveNurbsPrimitive {
+    math::NURBSCurve3d curve;
+};
+
 using CurvePrimitiveData =
-        std::variant<CurveSegmentPrimitive, CurvePolylinePrimitive, CurveCirclePrimitive, CurveArcPrimitive>;
+        std::variant<CurveSegmentPrimitive, CurvePolylinePrimitive, CurveCirclePrimitive, CurveArcPrimitive,
+                     CurveBezierPrimitive, CurveBSplinePrimitive, CurveNurbsPrimitive>;
 
 class CurvePrimitive {
 public:
@@ -66,6 +82,9 @@ public:
     static CurvePrimitive polyline(const math::Polyline3& polyline);
     static CurvePrimitive circle(const math::Circle3& circle);
     static CurvePrimitive arc(const math::Arc3& arc);
+    static CurvePrimitive bezier(const math::BezierCurve3d& curve);
+    static CurvePrimitive bspline(const math::BSplineCurve3d& curve);
+    static CurvePrimitive nurbs(const math::NURBSCurve3d& curve);
 
     CurveElementKind kind() const;
 

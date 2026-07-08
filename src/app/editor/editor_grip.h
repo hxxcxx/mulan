@@ -1,3 +1,9 @@
+/**
+ * @file editor_grip.h
+ * @brief Editor grip for interacting with curve elements
+ * @author hxxcxx
+ * @date 2026-07-08
+ */
 #pragma once
 
 #include <mulan/asset/curve_asset.h>
@@ -21,6 +27,7 @@ struct EditorGripId {
 
 enum class EditorGripKind : uint8_t {
     Vertex,
+    ControlPoint,
     Midpoint,
     Center,
     Radius,
@@ -30,6 +37,7 @@ enum class EditorGripAction : uint8_t {
     MovePrimitive,
     MoveSegment,
     MoveVertex,
+    MoveControlPoint,
     ChangeRadius,
 };
 

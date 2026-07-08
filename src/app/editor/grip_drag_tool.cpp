@@ -3,6 +3,7 @@
 #include <cmath>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace mulan::app {
 namespace {
@@ -48,6 +49,29 @@ asset::CurvePrimitive translatePrimitive(const asset::CurvePrimitive& primitive,
         math::Arc3 moved = arc->arc;
         moved.center += delta;
         return asset::CurvePrimitive::arc(moved);
+    }
+    if (const auto* bezier = std::get_if<asset::CurveBezierPrimitive>(&data)) {
+        std::vector<math::Point3> points = bezier->curve.controlPoints();
+        for (math::Point3& point : points) {
+            point += delta;
+        }
+        return asset::CurvePrimitive::bezier(math::BezierCurve3d(std::move(points)));
+    }
+    if (const auto* bspline = std::get_if<asset::CurveBSplinePrimitive>(&data)) {
+        std::vector<math::Point3> points = bspline->curve.controlPoints();
+        for (math::Point3& point : points) {
+            point += delta;
+        }
+        return asset::CurvePrimitive::bspline(
+                math::BSplineCurve3d(bspline->curve.degree(), std::move(points), bspline->curve.knots()));
+    }
+    if (const auto* nurbs = std::get_if<asset::CurveNurbsPrimitive>(&data)) {
+        std::vector<math::Point3> points = nurbs->curve.controlPoints();
+        for (math::Point3& point : points) {
+            point += delta;
+        }
+        return asset::CurvePrimitive::nurbs(math::NURBSCurve3d(nurbs->curve.degree(), std::move(points),
+                                                               nurbs->curve.weights(), nurbs->curve.knots()));
     }
     return primitive;
 }
@@ -153,6 +177,40 @@ std::optional<asset::CurvePrimitive> moveVertex(const EditorGrip& grip, const ma
     return std::nullopt;
 }
 
+std::optional<asset::CurvePrimitive> moveControlPoint(const EditorGrip& grip, const math::Point3& targetLocal) {
+    const auto& data = grip.sourcePrimitive.data();
+    if (const auto* bezier = std::get_if<asset::CurveBezierPrimitive>(&data)) {
+        std::vector<math::Point3> points = bezier->curve.controlPoints();
+        if (grip.vertexIndex >= points.size()) {
+            return std::nullopt;
+        }
+        points[grip.vertexIndex] = targetLocal;
+        return asset::CurvePrimitive::bezier(math::BezierCurve3d(std::move(points)));
+    }
+
+    if (const auto* bspline = std::get_if<asset::CurveBSplinePrimitive>(&data)) {
+        std::vector<math::Point3> points = bspline->curve.controlPoints();
+        if (grip.vertexIndex >= points.size()) {
+            return std::nullopt;
+        }
+        points[grip.vertexIndex] = targetLocal;
+        return asset::CurvePrimitive::bspline(
+                math::BSplineCurve3d(bspline->curve.degree(), std::move(points), bspline->curve.knots()));
+    }
+
+    if (const auto* nurbs = std::get_if<asset::CurveNurbsPrimitive>(&data)) {
+        std::vector<math::Point3> points = nurbs->curve.controlPoints();
+        if (grip.vertexIndex >= points.size()) {
+            return std::nullopt;
+        }
+        points[grip.vertexIndex] = targetLocal;
+        return asset::CurvePrimitive::nurbs(math::NURBSCurve3d(nurbs->curve.degree(), std::move(points),
+                                                               nurbs->curve.weights(), nurbs->curve.knots()));
+    }
+
+    return moveVertex(grip, targetLocal);
+}
+
 std::optional<asset::CurvePrimitive> movePolylineSegment(const EditorGrip& grip, const math::Vec3& deltaLocal) {
     const auto* polyline = std::get_if<asset::CurvePolylinePrimitive>(&grip.sourcePrimitive.data());
     if (!polyline) {
@@ -245,6 +303,29 @@ asset::CurvePrimitive transformPrimitiveToWorld(const asset::CurvePrimitive& pri
                            source.radius * transformedRadiusScale(source.startDirection, transform), startDirection,
                            source.sweep, normal));
     }
+    if (const auto* bezier = std::get_if<asset::CurveBezierPrimitive>(&data)) {
+        std::vector<math::Point3> points = bezier->curve.controlPoints();
+        for (math::Point3& point : points) {
+            point = point.transformedBy(transform);
+        }
+        return asset::CurvePrimitive::bezier(math::BezierCurve3d(std::move(points)));
+    }
+    if (const auto* bspline = std::get_if<asset::CurveBSplinePrimitive>(&data)) {
+        std::vector<math::Point3> points = bspline->curve.controlPoints();
+        for (math::Point3& point : points) {
+            point = point.transformedBy(transform);
+        }
+        return asset::CurvePrimitive::bspline(
+                math::BSplineCurve3d(bspline->curve.degree(), std::move(points), bspline->curve.knots()));
+    }
+    if (const auto* nurbs = std::get_if<asset::CurveNurbsPrimitive>(&data)) {
+        std::vector<math::Point3> points = nurbs->curve.controlPoints();
+        for (math::Point3& point : points) {
+            point = point.transformedBy(transform);
+        }
+        return asset::CurvePrimitive::nurbs(math::NURBSCurve3d(nurbs->curve.degree(), std::move(points),
+                                                               nurbs->curve.weights(), nurbs->curve.knots()));
+    }
     return primitive;
 }
 
@@ -330,6 +411,7 @@ std::optional<asset::CurvePrimitive> GripDragTool::makeEditedPrimitive(const mat
     case EditorGripAction::MovePrimitive: return translatePrimitive(grip_.sourcePrimitive, deltaLocal);
     case EditorGripAction::MoveSegment: return movePolylineSegment(grip_, deltaLocal);
     case EditorGripAction::MoveVertex: return moveVertex(grip_, targetLocal);
+    case EditorGripAction::MoveControlPoint: return moveControlPoint(grip_, targetLocal);
     case EditorGripAction::ChangeRadius: return changeRadius(grip_, targetLocal);
     }
     return std::nullopt;

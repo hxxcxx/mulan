@@ -61,6 +61,9 @@ private:
     QAction* action_draw_line_ = nullptr;
     QAction* action_draw_polyline_ = nullptr;
     QAction* action_draw_circle_ = nullptr;
+    QAction* action_draw_bezier_ = nullptr;
+    QAction* action_draw_bspline_ = nullptr;
+    QAction* action_draw_nurbs_ = nullptr;
     QAction* action_draw_face_ = nullptr;
     QAction* action_engine_settings_ = nullptr;
     QAction* action_display_edges_ = nullptr;

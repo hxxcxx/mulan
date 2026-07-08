@@ -1,23 +1,13 @@
 #include "grip_marker_builder.h"
 
+#include "control_polygon_builder.h"
+
 #include <algorithm>
 #include <cmath>
 #include <vector>
 
 namespace mulan::app {
 namespace {
-
-struct GripMarkerBasis {
-    math::Vec3 x;
-    math::Vec3 y;
-};
-
-GripMarkerBasis markerBasis(const engine::Camera& camera) {
-    return GripMarkerBasis{
-        .x = camera.right().normalizedOr(math::Vec3::unitX()),
-        .y = camera.up().normalizedOr(math::Vec3::unitY()),
-    };
-}
 
 double markerWorldSize(const EditorGrip& grip, const engine::Camera& camera) {
     const double pixels = std::max(1.0, grip.pickRadiusPixels * 0.8);
@@ -32,6 +22,13 @@ double markerWorldSize(const EditorGrip& grip, const engine::Camera& camera) {
     return pixels * viewHeightAtPoint / viewportHeight;
 }
 
+struct ControlGripRef {
+    scene::EntityId entity = scene::EntityId::invalid();
+    asset::CurveElementId element = asset::CurveElementId::invalid();
+    size_t vertexIndex = 0;
+    math::Point3 worldPosition;
+};
+
 void addSegment(std::vector<asset::CurvePrimitive>& curves, const math::Point3& a, const math::Point3& b) {
     if (a.distanceSq(b) <= 1.0e-18) {
         return;
@@ -39,7 +36,7 @@ void addSegment(std::vector<asset::CurvePrimitive>& curves, const math::Point3& 
     curves.push_back(asset::CurvePrimitive::segment(math::Segment3(a, b)));
 }
 
-void addSquare(std::vector<asset::CurvePrimitive>& curves, const math::Point3& center, const GripMarkerBasis& basis,
+void addSquare(std::vector<asset::CurvePrimitive>& curves, const math::Point3& center, const ControlMarkerBasis& basis,
                double size) {
     const math::Point3 a = center + basis.x * size + basis.y * size;
     const math::Point3 b = center - basis.x * size + basis.y * size;
@@ -51,7 +48,7 @@ void addSquare(std::vector<asset::CurvePrimitive>& curves, const math::Point3& c
     addSegment(curves, d, a);
 }
 
-void addDiamond(std::vector<asset::CurvePrimitive>& curves, const math::Point3& center, const GripMarkerBasis& basis,
+void addDiamond(std::vector<asset::CurvePrimitive>& curves, const math::Point3& center, const ControlMarkerBasis& basis,
                 double size) {
     const math::Point3 a = center + basis.y * size;
     const math::Point3 b = center - basis.x * size;
@@ -63,14 +60,14 @@ void addDiamond(std::vector<asset::CurvePrimitive>& curves, const math::Point3& 
     addSegment(curves, d, a);
 }
 
-void addCross(std::vector<asset::CurvePrimitive>& curves, const math::Point3& center, const GripMarkerBasis& basis,
+void addCross(std::vector<asset::CurvePrimitive>& curves, const math::Point3& center, const ControlMarkerBasis& basis,
               double size) {
     addSegment(curves, center - basis.x * size, center + basis.x * size);
     addSegment(curves, center - basis.y * size, center + basis.y * size);
 }
 
-void addTriangle(std::vector<asset::CurvePrimitive>& curves, const math::Point3& center, const GripMarkerBasis& basis,
-                 double size) {
+void addTriangle(std::vector<asset::CurvePrimitive>& curves, const math::Point3& center,
+                 const ControlMarkerBasis& basis, double size) {
     const math::Point3 a = center + basis.y * size;
     const math::Point3 b = center - basis.x * size - basis.y * size;
     const math::Point3 c = center + basis.x * size - basis.y * size;
@@ -79,11 +76,59 @@ void addTriangle(std::vector<asset::CurvePrimitive>& curves, const math::Point3&
     addSegment(curves, c, a);
 }
 
-void addGripMarker(std::vector<asset::CurvePrimitive>& curves, const EditorGrip& grip, const engine::Camera& camera,
-                   const GripMarkerBasis& basis, double sizeScale) {
+void addControlPolygonLines(std::span<const EditorGrip> grips, std::vector<asset::CurvePrimitive>& curves) {
+    std::vector<ControlGripRef> controls;
+    controls.reserve(grips.size());
+    for (const EditorGrip& grip : grips) {
+        if (grip.kind != EditorGripKind::ControlPoint || grip.action != EditorGripAction::MoveControlPoint) {
+            continue;
+        }
+        controls.push_back(ControlGripRef{
+                .entity = grip.entity,
+                .element = grip.element,
+                .vertexIndex = grip.vertexIndex,
+                .worldPosition = grip.worldPosition,
+        });
+    }
+
+    std::sort(controls.begin(), controls.end(), [](const ControlGripRef& lhs, const ControlGripRef& rhs) {
+        if (lhs.entity.value != rhs.entity.value) {
+            return lhs.entity.value < rhs.entity.value;
+        }
+        if (lhs.element.value != rhs.element.value) {
+            return lhs.element.value < rhs.element.value;
+        }
+        return lhs.vertexIndex < rhs.vertexIndex;
+    });
+
+    for (size_t i = 0; i < controls.size();) {
+        size_t j = i + 1;
+        while (j < controls.size() && controls[j].entity == controls[i].entity &&
+               controls[j].element == controls[i].element) {
+            ++j;
+        }
+
+        if (j - i >= 2) {
+            std::vector<math::Point3> points;
+            points.reserve(j - i);
+            for (size_t k = i; k < j; ++k) {
+                points.push_back(controls[k].worldPosition);
+            }
+            curves.push_back(asset::CurvePrimitive::polyline(math::Polyline3(std::move(points), false)));
+        }
+        i = j;
+    }
+}
+
+void addGripMarker(std::vector<asset::CurvePrimitive>& curves, std::vector<graphics::Mesh>& meshes,
+                   const EditorGrip& grip, const engine::Camera& camera, const ControlMarkerBasis& basis,
+                   double sizeScale) {
     const double size = markerWorldSize(grip, camera) * sizeScale;
     switch (grip.kind) {
     case EditorGripKind::Vertex: addSquare(curves, grip.worldPosition, basis, size); break;
+    case EditorGripKind::ControlPoint:
+        meshes.push_back(buildControlPointDisk(grip.worldPosition, basis, size * 0.65));
+        break;
     case EditorGripKind::Midpoint: addDiamond(curves, grip.worldPosition, basis, size); break;
     case EditorGripKind::Center:
         addCross(curves, grip.worldPosition, basis, size);
@@ -98,22 +143,26 @@ void addGripMarker(std::vector<asset::CurvePrimitive>& curves, const EditorGrip&
 DraftGeometry GripMarkerBuilder::build(std::span<const EditorGrip> grips, const engine::Camera& camera,
                                        std::optional<EditorGripId> excludedGrip) {
     std::vector<asset::CurvePrimitive> curves;
+    std::vector<graphics::Mesh> meshes;
     curves.reserve(grips.size() * 4);
-    const GripMarkerBasis basis = markerBasis(camera);
+    meshes.reserve(grips.size());
+    addControlPolygonLines(grips, curves);
+    const ControlMarkerBasis basis = controlMarkerBasisFromCamera(camera);
     for (const EditorGrip& grip : grips) {
         if (excludedGrip && grip.id == *excludedGrip) {
             continue;
         }
-        addGripMarker(curves, grip, camera, basis, 1.0);
+        addGripMarker(curves, meshes, grip, camera, basis, 1.0);
     }
-    return DraftGeometry::curves(std::move(curves));
+    return DraftGeometry::geometry(std::move(curves), std::move(meshes));
 }
 
 DraftGeometry GripMarkerBuilder::buildHot(const EditorGrip& grip, const engine::Camera& camera) {
     std::vector<asset::CurvePrimitive> curves;
-    const GripMarkerBasis basis = markerBasis(camera);
-    addGripMarker(curves, grip, camera, basis, 1.25);
-    return DraftGeometry::curves(std::move(curves));
+    std::vector<graphics::Mesh> meshes;
+    const ControlMarkerBasis basis = controlMarkerBasisFromCamera(camera);
+    addGripMarker(curves, meshes, grip, camera, basis, 1.25);
+    return DraftGeometry::geometry(std::move(curves), std::move(meshes));
 }
 
 }  // namespace mulan::app

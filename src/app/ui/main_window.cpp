@@ -109,6 +109,18 @@ void MainWindow::buildRibbonHomeCategory() {
     connect(action_draw_circle_, &QAction::triggered, this, [this]() { executeCommand("draw.circle"); });
     panel_draw_->addLargeAction(action_draw_circle_);
 
+    action_draw_bezier_ = new QAction(QIcon(":/app/bright/icon/link-pick.svg"), tr("Bezier"), this);
+    connect(action_draw_bezier_, &QAction::triggered, this, [this]() { executeCommand("draw.bezier"); });
+    panel_draw_->addLargeAction(action_draw_bezier_);
+
+    action_draw_bspline_ = new QAction(QIcon(":/app/bright/icon/link-pick.svg"), tr("B-Spline"), this);
+    connect(action_draw_bspline_, &QAction::triggered, this, [this]() { executeCommand("draw.bspline"); });
+    panel_draw_->addLargeAction(action_draw_bspline_);
+
+    action_draw_nurbs_ = new QAction(QIcon(":/app/bright/icon/link-pick.svg"), tr("NURBS"), this);
+    connect(action_draw_nurbs_, &QAction::triggered, this, [this]() { executeCommand("draw.nurbs"); });
+    panel_draw_->addLargeAction(action_draw_nurbs_);
+
     action_draw_face_ = new QAction(QIcon(":/app/bright/icon/shaded.svg"), tr("Face"), this);
     connect(action_draw_face_, &QAction::triggered, this, [this]() { executeCommand("draw.face"); });
     panel_draw_->addLargeAction(action_draw_face_);
@@ -311,6 +323,15 @@ void MainWindow::updateDisplayActions() {
     }
     if (action_draw_circle_) {
         action_draw_circle_->setEnabled(hasDocument);
+    }
+    if (action_draw_bezier_) {
+        action_draw_bezier_->setEnabled(hasDocument);
+    }
+    if (action_draw_bspline_) {
+        action_draw_bspline_->setEnabled(hasDocument);
+    }
+    if (action_draw_nurbs_) {
+        action_draw_nurbs_->setEnabled(hasDocument);
     }
     if (action_draw_face_) {
         action_draw_face_->setEnabled(hasDocument);

@@ -11,9 +11,11 @@
 #include <mulan/graphics/mesh.h>
 
 #include <span>
+#include <vector>
 
 namespace mulan::asset {
 
+std::vector<math::Point3> sampleCurvePrimitive(const CurvePrimitive& primitive);
 graphics::Mesh buildCurveWireMesh(std::span<const CurvePrimitive> primitives);
 graphics::Mesh buildCurveWireMesh(std::span<const CurveElement> elements);
 

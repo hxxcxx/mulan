@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <optional>
+#include <span>
 #include <utility>
 #include <variant>
 
@@ -116,6 +117,16 @@ void addArcGrips(CurveGripBuildContext& context, const asset::CurveElement& elem
     context.grips.push_back(std::move(radius));
 }
 
+void addControlPointGrips(CurveGripBuildContext& context, const asset::CurveElement& element,
+                          std::span<const math::Point3> points) {
+    for (size_t i = 0; i < points.size(); ++i) {
+        EditorGrip controlPoint =
+                makeGrip(context, element, EditorGripKind::ControlPoint, EditorGripAction::MoveControlPoint, points[i]);
+        controlPoint.vertexIndex = i;
+        context.grips.push_back(std::move(controlPoint));
+    }
+}
+
 void addCurveElementGrips(CurveGripBuildContext& context, const asset::CurveElement& element) {
     const auto& data = element.primitive.data();
     if (const auto* segment = std::get_if<asset::CurveSegmentPrimitive>(&data)) {
@@ -132,6 +143,18 @@ void addCurveElementGrips(CurveGripBuildContext& context, const asset::CurveElem
     }
     if (const auto* arc = std::get_if<asset::CurveArcPrimitive>(&data)) {
         addArcGrips(context, element, arc->arc);
+        return;
+    }
+    if (const auto* bezier = std::get_if<asset::CurveBezierPrimitive>(&data)) {
+        addControlPointGrips(context, element, bezier->curve.controlPoints());
+        return;
+    }
+    if (const auto* bspline = std::get_if<asset::CurveBSplinePrimitive>(&data)) {
+        addControlPointGrips(context, element, bspline->curve.controlPoints());
+        return;
+    }
+    if (const auto* nurbs = std::get_if<asset::CurveNurbsPrimitive>(&data)) {
+        addControlPointGrips(context, element, nurbs->curve.controlPoints());
         return;
     }
 }
