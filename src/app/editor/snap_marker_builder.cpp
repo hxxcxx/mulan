@@ -1,7 +1,10 @@
 #include "snap_marker_builder.h"
 
+#include <mulan/engine/render/camera/camera.h>
+
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <vector>
 
 namespace mulan::app {
@@ -20,7 +23,28 @@ MarkerBasis markerBasis(const engine::WorkPlane& workPlane) {
     return MarkerBasis{ .x = x, .y = y };
 }
 
+std::optional<double> markerSizeFromCamera(const EditorInput& input) {
+    if (!input.point || !input.snapQuery.camera || input.snapQuery.camera->height() <= 0) {
+        return std::nullopt;
+    }
+
+    const engine::Camera& camera = *input.snapQuery.camera;
+    const double pixels = std::max(1.0, input.snapQuery.snapSettings.markerSizePixels);
+    const double viewportHeight = static_cast<double>(std::max(1, camera.height()));
+    if (camera.isOrthographic()) {
+        return pixels * (2.0 * camera.orthoSize()) / viewportHeight;
+    }
+
+    const double depth =
+            std::max(camera.nearPlane(), (input.point->world.asVec() - camera.eyePosition()).dot(camera.forward()));
+    const double viewHeightAtPoint = 2.0 * depth * std::tan(camera.fieldOfView() * 0.5);
+    return pixels * viewHeightAtPoint / viewportHeight;
+}
+
 double markerSize(const EditorInput& input) {
+    if (const auto cameraSize = markerSizeFromCamera(input)) {
+        return std::max(1.0e-6, *cameraSize);
+    }
     if (input.geometryDependency && input.geometryDependency->toleranceWorld > 0.0) {
         return std::max(1.0e-6, input.geometryDependency->toleranceWorld * 0.75);
     }

@@ -18,6 +18,8 @@ add_executable(${PROJECT_NAME}
     editor/editor_input.h
     editor/editor_input_resolver.h
     editor/editor_input_resolver.cpp
+    editor/editor_scene_snap_provider.h
+    editor/editor_scene_snap_provider.cpp
     editor/editor_snap_collector.h
     editor/editor_snap_collector.cpp
     editor/editor_snap_resolver.h

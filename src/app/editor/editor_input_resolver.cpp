@@ -3,6 +3,11 @@
 #include "editor_snap_collector.h"
 #include "editor_snap_resolver.h"
 
+#include <mulan/engine/render/camera/camera.h>
+
+#include <algorithm>
+#include <cmath>
+
 namespace mulan::app {
 namespace {
 
@@ -17,6 +22,21 @@ bool hasCursorPosition(engine::InputEvent::Type type) {
     case engine::InputEvent::Type::KeyRelease: return false;
     }
     return false;
+}
+
+double snapTolerancePixels(const EditorSnapSettings& settings) {
+    return std::max(0.0, settings.snapTolerancePixels);
+}
+
+double screenPixelsToWorldTolerance(const engine::Camera& camera, double pixels) {
+    const double viewportHeight = static_cast<double>(std::max(1, camera.height()));
+    if (camera.isOrthographic()) {
+        return pixels * (2.0 * camera.orthoSize()) / viewportHeight;
+    }
+
+    const double viewHeightAtTarget =
+            2.0 * std::max(camera.distance(), camera.nearPlane()) * std::tan(camera.fieldOfView() * 0.5);
+    return pixels * viewHeightAtTarget / viewportHeight;
 }
 
 }  // namespace
@@ -49,29 +69,44 @@ EditorInput EditorInputResolver::resolve(const engine::InputEvent& event,
         input.pickHit = context.pickHit;
     }
 
+    input.snapQuery = EditorSnapQuery{
+        .event = event,
+        .camera = camera,
+        .renderScene = context.renderScene,
+        .workPlane = work_plane_,
+        .cursorRay = input.cursorRay,
+        .screenX = input.screenX,
+        .screenY = input.screenY,
+        .workPoint = input.workPoint,
+        .primaryPickHit = input.pickHit,
+        .pointPolicy = context.pointPolicy,
+        .snapSettings = context.snapSettings,
+        .tolerancePixels = snapTolerancePixels(context.snapSettings),
+        .toleranceWorld = context.snapSettings.snapToleranceWorld > 0.0
+                                  ? context.snapSettings.snapToleranceWorld
+                                  : screenPixelsToWorldTolerance(*camera, snapTolerancePixels(context.snapSettings)),
+        .hasCursor = input.hasCursor,
+        .hasCursorRay = input.hasCursorRay,
+        .workPlaneHit = input.workPlaneHit,
+    };
+
     EditorSnapCollector::collect(
             EditorSnapCollectInput{
-                    .event = event,
-                    .workPlane = work_plane_,
-                    .workPoint = input.workPoint,
-                    .pickHit = input.pickHit,
-                    .pointPolicy = context.pointPolicy,
-                    .snapSettings = context.snapSettings,
+                    .query = input.snapQuery,
             },
             input.snapCandidates);
 
-    input.point = EditorSnapResolver::resolve(EditorSnapResolveInput{
+    input.snapResult = EditorSnapResolver::resolveResult(EditorSnapResolveInput{
             .candidates =
                     std::span<const EditorSnapCandidate>{ input.snapCandidates.data(), input.snapCandidates.size() },
             .pointPolicy = context.pointPolicy,
             .snapSettings = context.snapSettings,
     });
+    input.point = input.snapResult.point;
     if (input.point && input.point->geometry) {
         input.geometryDependency = input.point->geometry;
     }
-    if (input.point && input.point->source == EditorPointSource::Snap) {
-        input.snapResolved = true;
-    }
+    input.snapResolved = input.snapResult.resolved;
 
     return input;
 }

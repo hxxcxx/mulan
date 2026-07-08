@@ -14,6 +14,7 @@ struct EditorSnapResolveInput {
 
 class EditorSnapResolver {
 public:
+    static EditorSnapResult resolveResult(const EditorSnapResolveInput& input);
     static std::optional<EditorPoint> resolve(const EditorSnapResolveInput& input);
 };
 

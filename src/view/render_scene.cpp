@@ -394,6 +394,162 @@ MeshPickResult pickGeometryAsset(const math::Ray3& ray, const asset::Asset& asse
 /// geometry 缺失时返回 std::nullopt（该 entity 不可渲染）。
 /// worldBounds 由 asset 的 localBounds 经 world 矩阵变换重算 —— 这样 transform
 /// 变化时 bounds 自动跟随（Scene 层只管 world 矩阵传播，不知 asset）。
+void appendTriangleMeshPickCandidates(const math::Ray3& worldRay, const graphics::Mesh& mesh,
+                                      const math::Mat4& worldTransform, std::vector<MeshPickResult>& out) {
+    if (mesh.empty() || mesh.topology != graphics::PrimitiveTopology::TriangleList ||
+        !mesh.layout.has(graphics::VertexSemantic::Position)) {
+        return;
+    }
+
+    const uint32_t triangleCount = !mesh.indices.empty() ? mesh.indexCount() / 3 : mesh.vertexCount() / 3;
+    if (triangleCount == 0) {
+        return;
+    }
+
+    const math::Ray3 localRay = worldRay.transformed(worldTransform.inverse());
+    for (uint32_t tri = 0; tri < triangleCount; ++tri) {
+        math::Point3 v0;
+        math::Point3 v1;
+        math::Point3 v2;
+        if (!readTriangle(mesh, tri, v0, v1, v2)) {
+            continue;
+        }
+
+        math::Vec3 barycentric;
+        const auto hit = math::intersect(localRay, v0, v1, v2, &barycentric);
+        if (!hit.hit) {
+            continue;
+        }
+
+        const math::Point3 worldPoint = hit.point.transformedBy(worldTransform);
+        out.push_back(MeshPickResult{
+                .tested = true,
+                .distance = (worldPoint - worldRay.origin).length(),
+                .kind = RenderScene::PickHitKind::Face,
+                .worldPoint = worldPoint,
+                .hasWorldPoint = true,
+                .worldNormal = (v1 - v0).cross(v2 - v0).transformedAsNormal(worldTransform),
+                .hasWorldNormal = true,
+                .primitiveIndex = tri,
+                .hasPrimitiveIndex = true,
+                .parameter = hit.t,
+                .barycentric = barycentric,
+                .hasBarycentric = true,
+        });
+    }
+}
+
+void appendLineMeshPickCandidates(const math::Ray3& worldRay, const graphics::Mesh& mesh,
+                                  const math::Mat4& worldTransform, double lineToleranceWorld,
+                                  std::vector<MeshPickResult>& out) {
+    if (mesh.empty() ||
+        (mesh.topology != graphics::PrimitiveTopology::LineList &&
+         mesh.topology != graphics::PrimitiveTopology::LineStrip) ||
+        !mesh.layout.has(graphics::VertexSemantic::Position)) {
+        return;
+    }
+
+    const uint32_t segmentCount = lineSegmentCount(mesh);
+    if (segmentCount == 0) {
+        return;
+    }
+
+    const double tolerance = std::max(0.0, lineToleranceWorld);
+    const double toleranceSq = tolerance * tolerance;
+    for (uint32_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex) {
+        math::Point3 v0;
+        math::Point3 v1;
+        if (!readLineSegment(mesh, segmentIndex, v0, v1)) {
+            continue;
+        }
+
+        const math::Segment3 worldSegment(v0.transformedBy(worldTransform), v1.transformedBy(worldTransform));
+        const RaySegmentClosest closest = closestRaySegment(worldRay, worldSegment);
+        if (closest.distanceSq > toleranceSq) {
+            continue;
+        }
+
+        out.push_back(MeshPickResult{
+                .tested = true,
+                .distance = closest.rayT,
+                .kind = RenderScene::PickHitKind::Edge,
+                .worldPoint = closest.segmentPoint,
+                .hasWorldPoint = true,
+                .worldNormal = worldSegment.direction().normalizedOr(math::Vec3::unitX()),
+                .hasWorldNormal = true,
+                .primitiveIndex = segmentIndex,
+                .hasPrimitiveIndex = true,
+                .parameter = closest.segmentT,
+                .toleranceWorld = tolerance,
+                .edgeStart = worldSegment.start,
+                .edgeEnd = worldSegment.end,
+                .hasEdgeSegment = true,
+        });
+    }
+}
+
+void appendMeshPickCandidates(const math::Ray3& ray, const graphics::Mesh& mesh, const math::Mat4& worldTransform,
+                              double lineToleranceWorld, std::vector<MeshPickResult>& out) {
+    if (mesh.topology == graphics::PrimitiveTopology::TriangleList) {
+        appendTriangleMeshPickCandidates(ray, mesh, worldTransform, out);
+        return;
+    }
+
+    if (mesh.topology == graphics::PrimitiveTopology::LineList ||
+        mesh.topology == graphics::PrimitiveTopology::LineStrip) {
+        appendLineMeshPickCandidates(ray, mesh, worldTransform, lineToleranceWorld, out);
+    }
+}
+
+void appendGeometryAssetPickCandidates(const math::Ray3& ray, const asset::Asset& asset,
+                                       const math::Mat4& worldTransform, double lineToleranceWorld,
+                                       std::vector<MeshPickResult>& out) {
+    const auto* geometry = dynamic_cast<const asset::GeometryAsset*>(&asset);
+    if (!geometry) {
+        return;
+    }
+
+    std::vector<asset::Drawable> drawables;
+    geometry->collectDrawables(drawables);
+
+    for (size_t drawableIndex = 0; drawableIndex < drawables.size(); ++drawableIndex) {
+        const asset::Drawable& drawable = drawables[drawableIndex];
+        if (!drawable.mesh) {
+            continue;
+        }
+
+        const size_t first = out.size();
+        appendMeshPickCandidates(ray, *drawable.mesh, worldTransform, lineToleranceWorld, out);
+        for (size_t i = first; i < out.size(); ++i) {
+            out[i].sourceDrawableIndex = drawableIndex;
+        }
+    }
+}
+
+RenderScene::PickResult pickResultFromMeshHit(scene::EntityId id, const SceneProxy& proxy,
+                                              const MeshPickResult& meshHit, double lineToleranceWorld) {
+    return RenderScene::PickResult{
+        .entity = id,
+        .pickId = proxy.entity.index(),
+        .distance = meshHit.distance.value_or(0.0),
+        .kind = meshHit.kind,
+        .worldPoint = meshHit.worldPoint,
+        .hasWorldPoint = meshHit.hasWorldPoint,
+        .worldNormal = meshHit.worldNormal,
+        .hasWorldNormal = meshHit.hasWorldNormal,
+        .sourceDrawableIndex = meshHit.sourceDrawableIndex,
+        .primitiveIndex = meshHit.primitiveIndex,
+        .hasPrimitiveIndex = meshHit.hasPrimitiveIndex,
+        .parameter = meshHit.parameter,
+        .toleranceWorld = meshHit.toleranceWorld > 0.0 ? meshHit.toleranceWorld : lineToleranceWorld,
+        .edgeStart = meshHit.edgeStart,
+        .edgeEnd = meshHit.edgeEnd,
+        .hasEdgeSegment = meshHit.hasEdgeSegment,
+        .barycentric = meshHit.barycentric,
+        .hasBarycentric = meshHit.hasBarycentric,
+    };
+}
+
 std::optional<SceneProxy> buildProxy(const scene::Scene& scene, const asset::AssetLibrary& assets, scene::EntityId id) {
     const auto* geometry = scene.geometry(id);
     if (!geometry || !geometry->geometry) {
@@ -527,6 +683,41 @@ void RenderScene::clear() {
 const SceneProxy* RenderScene::proxy(scene::EntityId id) const {
     auto it = proxies_.find(id);
     return it != proxies_.end() ? &it->second : nullptr;
+}
+
+void RenderScene::collectPickCandidates(const math::Ray3& ray, double lineToleranceWorld,
+                                        std::vector<PickResult>& out) const {
+    out.clear();
+    if (!assets_) {
+        return;
+    }
+
+    std::vector<MeshPickResult> meshHits;
+    for (const auto& [id, proxy] : proxies_) {
+        if (!proxy.visible) {
+            continue;
+        }
+
+        const math::AABB3 pickBounds = expandedBounds(proxy.worldBounds, lineToleranceWorld);
+        const auto boundsHit = math::intersect(ray, pickBounds);
+        if (!boundsHit.hit) {
+            continue;
+        }
+
+        const asset::Asset* geometryAsset = assets_->asset(proxy.geometry);
+        if (!geometryAsset) {
+            continue;
+        }
+
+        meshHits.clear();
+        appendGeometryAssetPickCandidates(ray, *geometryAsset, proxy.worldTransform, lineToleranceWorld, meshHits);
+        for (const MeshPickResult& meshHit : meshHits) {
+            if (!meshHit.distance) {
+                continue;
+            }
+            out.push_back(pickResultFromMeshHit(id, proxy, meshHit, lineToleranceWorld));
+        }
+    }
 }
 
 std::optional<RenderScene::PickResult> RenderScene::pick(const math::Ray3& ray, double lineToleranceWorld) const {

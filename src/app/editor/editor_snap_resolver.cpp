@@ -42,7 +42,7 @@ bool betterCandidate(const EditorSnapCandidate& candidate, const EditorSnapCandi
 
 }  // namespace
 
-std::optional<EditorPoint> EditorSnapResolver::resolve(const EditorSnapResolveInput& input) {
+EditorSnapResult EditorSnapResolver::resolveResult(const EditorSnapResolveInput& input) {
     const EditorSnapCandidate* best = nullptr;
     for (const auto& candidate : input.candidates) {
         if (!candidateAllowed(candidate, input)) {
@@ -54,13 +54,22 @@ std::optional<EditorPoint> EditorSnapResolver::resolve(const EditorSnapResolveIn
     }
 
     if (!best) {
-        return std::nullopt;
+        return {};
     }
 
+    EditorSnapResult result;
+    result.candidate = *best;
     if (best->kind == EditorSnapKind::WorkPlane) {
-        return pointFromCandidate(*best, EditorPointSource::WorkPlane);
+        result.point = pointFromCandidate(*best, EditorPointSource::WorkPlane);
+    } else {
+        result.point = pointFromCandidate(*best, EditorPointSource::Snap);
     }
-    return pointFromCandidate(*best, EditorPointSource::Snap);
+    result.resolved = result.point.has_value() && result.point->source == EditorPointSource::Snap;
+    return result;
+}
+
+std::optional<EditorPoint> EditorSnapResolver::resolve(const EditorSnapResolveInput& input) {
+    return resolveResult(input).point;
 }
 
 }  // namespace mulan::app

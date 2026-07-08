@@ -34,6 +34,7 @@ public:
 
     void refresh();
     void fitAll();
+    const mulan::view::RenderScene* renderScene() const;
     std::optional<mulan::view::RenderScene::PickResult> pickEntityAt(const mulan::engine::Camera& camera, double x,
                                                                      double y);
     bool selectSingle(mulan::scene::EntityId entity);

@@ -77,6 +77,13 @@ void DocumentViewBinding::fitAll() {
     view_->renderFrame();
 }
 
+const mulan::view::RenderScene* DocumentViewBinding::renderScene() const {
+    if (!isBound() || !render_cache_) {
+        return nullptr;
+    }
+    return &render_cache_->renderScene;
+}
+
 std::optional<mulan::view::RenderScene::PickResult> DocumentViewBinding::pickEntityAt(
         const mulan::engine::Camera& camera, double x, double y) {
     if (!isBound()) {

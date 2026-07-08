@@ -7,12 +7,7 @@
 namespace mulan::app {
 
 struct EditorSnapCollectInput {
-    const engine::InputEvent& event;
-    const engine::WorkPlane& workPlane;
-    std::optional<math::Point3> workPoint;
-    std::optional<EditorPickHit> pickHit;
-    EditorPointPolicy pointPolicy;
-    EditorSnapSettings snapSettings;
+    EditorSnapQuery query;
 };
 
 class EditorSnapCollector {

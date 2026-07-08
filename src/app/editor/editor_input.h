@@ -15,6 +15,14 @@
 #include <optional>
 #include <vector>
 
+namespace mulan::engine {
+class Camera;
+}
+
+namespace mulan::view {
+class RenderScene;
+}
+
 namespace mulan::app {
 
 enum class EditorPointSource {
@@ -99,6 +107,8 @@ struct EditorSnapCandidate {
     std::optional<EditorGeometryDependency> geometry;
     double priority = 0.0;
     double distance = 0.0;
+    double screenDistance = 0.0;
+    double worldDistance = 0.0;
 
     bool dependsOnGeometry() const { return geometry.has_value(); }
 };
@@ -121,7 +131,28 @@ struct EditorSnapSettings {
     bool enableGridSnap = false;
     bool enableAxisConstraint = true;
     double snapToleranceWorld = 0.0;
+    double snapTolerancePixels = 10.0;
+    double markerSizePixels = 14.0;
     double gridSpacing = 1.0;
+};
+
+struct EditorSnapQuery {
+    engine::InputEvent event;
+    const engine::Camera* camera = nullptr;
+    const ::mulan::view::RenderScene* renderScene = nullptr;
+    engine::WorkPlane workPlane = engine::WorkPlane::worldXY();
+    math::Ray3 cursorRay;
+    double screenX = 0.0;
+    double screenY = 0.0;
+    std::optional<math::Point3> workPoint;
+    std::optional<EditorPickHit> primaryPickHit;
+    EditorPointPolicy pointPolicy;
+    EditorSnapSettings snapSettings;
+    double tolerancePixels = 10.0;
+    double toleranceWorld = 0.0;
+    bool hasCursor = false;
+    bool hasCursorRay = false;
+    bool workPlaneHit = false;
 };
 
 struct EditorPoint {
@@ -138,6 +169,12 @@ struct EditorPoint {
     }
 };
 
+struct EditorSnapResult {
+    std::optional<EditorPoint> point;
+    std::optional<EditorSnapCandidate> candidate;
+    bool resolved = false;
+};
+
 struct EditorInput {
     engine::InputEvent event;
     math::Ray3 cursorRay;
@@ -146,6 +183,8 @@ struct EditorInput {
     double screenY = 0.0;
     std::optional<EditorPickHit> pickHit;
     std::vector<EditorSnapCandidate> snapCandidates;
+    EditorSnapQuery snapQuery;
+    EditorSnapResult snapResult;
     std::optional<EditorPoint> point;
     std::optional<math::Point3> workPoint;
     std::optional<math::Point3> axisAnchor;

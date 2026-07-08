@@ -165,6 +165,7 @@ EditorInput EditorSession::makeEditorInput(const engine::InputEvent& event) cons
                                                      static_cast<double>(event.y))) {
             context.pickHit = toEditorPickHit(*pick);
         }
+        context.renderScene = binding_->renderScene();
     }
 
     return input_resolver_.resolve(event, context);
