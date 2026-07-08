@@ -1,6 +1,7 @@
 #include "face_asset.h"
 
 #include <mulan/graphics/vertex/vertex_buffer.h>
+#include <mulan/math/algo2d/segment_intersect.h>
 #include <mulan/math/algo2d/triangulation.h>
 
 #include <algorithm>
@@ -14,6 +15,10 @@ namespace {
 
 constexpr double kMinimumEdgeLengthSq = 1.0e-12;
 constexpr double kMinimumArea = 1.0e-10;
+
+constexpr size_t nextLoopIndex(size_t index, size_t size) {
+    return (index + 1) % size;
+}
 
 struct LinePointPair {
     math::Point3 start;
@@ -36,6 +41,50 @@ FacePlaneFrame normalizeFrame(FacePlaneFrame frame) {
     frame.y = y;
     frame.origin = frame.plane().project(frame.origin);
     return frame;
+}
+
+std::vector<math::Point2> projectLoop(const FacePlaneFrame& frame, std::span<const math::Point3> points) {
+    std::vector<math::Point2> projected;
+    projected.reserve(points.size());
+    for (const math::Point3& point : points) {
+        projected.push_back(projectToFaceFrame(frame, point));
+    }
+    return projected;
+}
+
+double signedArea(std::span<const math::Point2> points) {
+    double area = 0.0;
+    for (size_t i = 0; i < points.size(); ++i) {
+        const math::Point2& a = points[i];
+        const math::Point2& b = points[nextLoopIndex(i, points.size())];
+        area += a.x * b.y - b.x * a.y;
+    }
+    return area * 0.5;
+}
+
+bool adjacentEdges(size_t edgeA, size_t edgeB, size_t edgeCount) {
+    return edgeA == edgeB || nextLoopIndex(edgeA, edgeCount) == edgeB || nextLoopIndex(edgeB, edgeCount) == edgeA;
+}
+
+bool collinearOverlap(const math::Segment2& a, const math::Segment2& b, const math::Tolerance& tol) {
+    const math::Vec2 axis = a.direction();
+    const double axisLengthSq = axis.lengthSq();
+    if (axisLengthSq <= tol.lengthEps * tol.lengthEps) {
+        return false;
+    }
+
+    const double crossStart = axis.cross(b.start - a.start);
+    const double crossEnd = axis.cross(b.end - a.start);
+    const double epsArea = tol.lengthEps * tol.lengthEps;
+    if (std::abs(crossStart) > epsArea || std::abs(crossEnd) > epsArea) {
+        return false;
+    }
+
+    const double t0 = (b.start - a.start).dot(axis) / axisLengthSq;
+    const double t1 = (b.end - a.start).dot(axis) / axisLengthSq;
+    const double overlapStart = std::max(0.0, std::min(t0, t1));
+    const double overlapEnd = std::min(1.0, std::max(t0, t1));
+    return overlapEnd - overlapStart > tol.paramEps;
 }
 
 FaceLoop cleanLoop(FaceLoop loop) {
@@ -136,13 +185,57 @@ double signedFaceLoopArea(const FacePlaneFrame& frame, std::span<const math::Poi
         return 0.0;
     }
 
-    double area = 0.0;
-    for (size_t i = 0; i < points.size(); ++i) {
-        const math::Point2 a = projectToFaceFrame(frame, points[i]);
-        const math::Point2 b = projectToFaceFrame(frame, points[(i + 1) % points.size()]);
-        area += a.x * b.y - b.x * a.y;
+    const std::vector<math::Point2> projected = projectLoop(frame, points);
+    return signedArea(projected);
+}
+
+FaceLoopValidation validateFaceLoop(const FacePlaneFrame& frame, std::span<const math::Point3> points) {
+    FaceLoopValidation validation;
+    if (points.empty()) {
+        validation.status = FaceLoopStatus::Empty;
+        return validation;
     }
-    return area * 0.5;
+    if (points.size() < 3) {
+        validation.status = FaceLoopStatus::TooFewPoints;
+        return validation;
+    }
+
+    const std::vector<math::Point2> projected = projectLoop(frame, points);
+    if (std::abs(signedArea(projected)) <= kMinimumArea) {
+        validation.status = FaceLoopStatus::Degenerate;
+        return validation;
+    }
+
+    const math::Tolerance tol = math::defaultTolerance();
+    for (size_t i = 0; i < projected.size(); ++i) {
+        const math::Segment2 edgeA(projected[i], projected[nextLoopIndex(i, projected.size())]);
+        for (size_t j = i + 1; j < projected.size(); ++j) {
+            if (adjacentEdges(i, j, projected.size())) {
+                continue;
+            }
+
+            const math::Segment2 edgeB(projected[j], projected[nextLoopIndex(j, projected.size())]);
+            if (collinearOverlap(edgeA, edgeB, tol)) {
+                validation.status = FaceLoopStatus::Overlapping;
+                validation.edgeA = i;
+                validation.edgeB = j;
+                return validation;
+            }
+
+            math::Point2 point;
+            if (math::segmentsIntersect(edgeA, edgeB, nullptr, nullptr, &point, tol)) {
+                validation.status = FaceLoopStatus::SelfIntersecting;
+                validation.edgeA = i;
+                validation.edgeB = j;
+                validation.point = point;
+                validation.hasPoint = true;
+                return validation;
+            }
+        }
+    }
+
+    validation.status = FaceLoopStatus::Simple;
+    return validation;
 }
 
 graphics::Mesh buildFaceSolidMesh(const FaceDefinition& face) {
@@ -153,16 +246,11 @@ graphics::Mesh buildFaceSolidMesh(const FaceDefinition& face) {
     mesh.bounds.reset();
 
     const std::vector<math::Point3> points = cleanFaceLoop(face.outer.points);
-    if (points.size() < 3 || std::abs(signedFaceLoopArea(face.frame, points)) <= kMinimumArea) {
+    if (!validateFaceLoop(face.frame, points).isSimple()) {
         return mesh;
     }
 
-    std::vector<math::Point2> polygon;
-    polygon.reserve(points.size());
-    for (const math::Point3& point : points) {
-        polygon.push_back(projectToFaceFrame(face.frame, point));
-    }
-
+    std::vector<math::Point2> polygon = projectLoop(face.frame, points);
     const math::TriangulationResult triangulation = math::triangulatePolygon(std::move(polygon));
     if (!triangulation.isValid()) {
         return mesh;

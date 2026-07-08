@@ -5,6 +5,8 @@
 #include <mulan/graphics/mesh.h>
 #include <mulan/math/math.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <span>
 #include <string>
 #include <utility>
@@ -41,9 +43,29 @@ struct FaceRenderMeshes {
     graphics::Mesh wire;
 };
 
+enum class FaceLoopStatus : uint8_t {
+    Empty,
+    TooFewPoints,
+    Degenerate,
+    Simple,
+    SelfIntersecting,
+    Overlapping,
+};
+
+struct FaceLoopValidation {
+    FaceLoopStatus status = FaceLoopStatus::Empty;
+    size_t edgeA = 0;
+    size_t edgeB = 0;
+    math::Point2 point = math::Point2::origin();
+    bool hasPoint = false;
+
+    bool isSimple() const { return status == FaceLoopStatus::Simple; }
+};
+
 math::Point2 projectToFaceFrame(const FacePlaneFrame& frame, const math::Point3& point);
 math::Point3 pointFromFaceFrame(const FacePlaneFrame& frame, const math::Point2& point);
 std::vector<math::Point3> cleanFaceLoop(std::span<const math::Point3> points);
+FaceLoopValidation validateFaceLoop(const FacePlaneFrame& frame, std::span<const math::Point3> points);
 double signedFaceLoopArea(const FacePlaneFrame& frame, std::span<const math::Point3> points);
 graphics::Mesh buildFaceSolidMesh(const FaceDefinition& face);
 graphics::Mesh buildFaceWireMesh(const FaceDefinition& face);
