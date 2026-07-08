@@ -48,6 +48,7 @@ private:
 
     void syncRenderCache();
     void applyViewPreferences();
+    void fitCameraClipPlanesToSceneBounds();
     void injectRenderCache();
 
     DocumentSession* session_ = nullptr;

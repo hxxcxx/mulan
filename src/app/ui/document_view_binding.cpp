@@ -62,6 +62,7 @@ void DocumentViewBinding::refresh() {
         return;
     }
     syncRenderCache();
+    fitCameraClipPlanesToSceneBounds();
     injectRenderCache();
     view_->renderFrame();
 }
@@ -70,10 +71,12 @@ void DocumentViewBinding::fitAll() {
     if (!isBound()) {
         return;
     }
+    syncRenderCache();
     const auto& bounds = render_cache_->renderScene.sceneBounds();
     if (!bounds.isEmpty()) {
         view_->camera().fitToBox(bounds);
     }
+    injectRenderCache();
     view_->renderFrame();
 }
 
@@ -95,6 +98,7 @@ std::optional<mulan::view::RenderScene::PickResult> DocumentViewBinding::pickAt(
         return std::nullopt;
     }
 
+    fitCameraClipPlanesToSceneBounds();
     return render_cache_->renderScene.pick(camera.screenRay(x, y), linePickToleranceWorld(camera));
 }
 
@@ -157,6 +161,17 @@ void DocumentViewBinding::applyViewPreferences() {
     const auto& bounds = render_cache_->renderScene.sceneBounds();
     if (!bounds.isEmpty()) {
         view_->camera().fitToBox(bounds);
+    }
+}
+
+void DocumentViewBinding::fitCameraClipPlanesToSceneBounds() {
+    if (!isBound() || !render_cache_) {
+        return;
+    }
+
+    const auto& bounds = render_cache_->renderScene.sceneBounds();
+    if (!bounds.isEmpty()) {
+        view_->camera().fitClipPlanesToBox(bounds);
     }
 }
 

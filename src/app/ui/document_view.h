@@ -28,6 +28,7 @@ public:
     bool init(const mulan::view::ViewConfig& config, int width, int height);
     void resize(int width, int height);
     void renderFrame();
+    void fitAll();
 
     bool isInitialized() const { return view_context_.isInitialized(); }
 

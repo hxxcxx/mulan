@@ -47,6 +47,15 @@ void DocumentView::renderFrame() {
     }
 }
 
+void DocumentView::fitAll() {
+    if (!view_context_.isInitialized()) {
+        return;
+    }
+
+    binding_.fitAll();
+    editor_session_.refreshGrips();
+}
+
 void DocumentView::setDocumentSession(DocumentSession* session) {
     editor_session_.unbind();
     view_context_.clearPreview();

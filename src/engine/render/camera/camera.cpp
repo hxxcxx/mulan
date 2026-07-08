@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace mulan::engine {
 
@@ -130,9 +131,13 @@ void Camera::zoom(double delta) {
 }
 
 void Camera::fitToBox(const math::AABB3& box, double padding) {
+    if (box.isEmpty()) {
+        return;
+    }
+
     target_ = box.center().asVec();
     pan_offset_ = { 0, 0, 0 };  // 重新适配时清除平移偏移
-    double radius = (box.max - box.min).length() * 0.5;
+    double radius = std::max((box.max - box.min).length() * 0.5, min_distance_);
 
     if (ortho_) {
         ortho_size_ = radius * padding;
@@ -147,6 +152,36 @@ void Camera::fitToBox(const math::AABB3& box, double padding) {
 
     near_z_ = distance_ * 0.01;
     far_z_ = distance_ * 10.0;
+}
+
+void Camera::fitClipPlanesToBox(const math::AABB3& box, double padding) {
+    if (box.isEmpty()) {
+        return;
+    }
+
+    const math::Vec3 eye = eyePosition();
+    const math::Vec3 fwd = forward();
+    double minDepth = std::numeric_limits<double>::max();
+    double maxDepth = -std::numeric_limits<double>::max();
+
+    for (int i = 0; i < 8; ++i) {
+        const math::Point3 corner((i & 1) ? box.max.x : box.min.x, (i & 2) ? box.max.y : box.min.y,
+                                  (i & 4) ? box.max.z : box.min.z);
+        const double depth = (corner.asVec() - eye).dot(fwd);
+        minDepth = std::min(minDepth, depth);
+        maxDepth = std::max(maxDepth, depth);
+    }
+
+    if (!std::isfinite(minDepth) || !std::isfinite(maxDepth)) {
+        return;
+    }
+
+    const double radius = std::max((box.max - box.min).length() * 0.5, min_distance_);
+    const double pad = std::max(1.0, padding);
+    const double margin = std::max(radius * (pad - 1.0), min_distance_);
+    const double nearZ = std::max(min_distance_, minDepth - margin);
+    const double farZ = std::max({ nearZ + min_distance_, maxDepth + margin, nearZ * 2.0 });
+    setClipPlanes(nearZ, farZ);
 }
 
 // ============================================================

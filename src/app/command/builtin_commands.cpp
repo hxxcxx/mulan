@@ -36,7 +36,7 @@ protected:
             return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active document view"));
         }
 
-        view->binding().fitAll();
+        view->fitAll();
         return {};
     }
 };
