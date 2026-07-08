@@ -9,17 +9,11 @@
 namespace mulan::app {
 namespace {
 
+constexpr double kControlPointMarkerPixels = 7.0;
+
 double markerWorldSize(const EditorGrip& grip, const engine::Camera& camera) {
     const double pixels = std::max(1.0, grip.pickRadiusPixels * 0.8);
-    const double viewportHeight = static_cast<double>(std::max(1, camera.height()));
-    if (camera.isOrthographic()) {
-        return pixels * (2.0 * camera.orthoSize()) / viewportHeight;
-    }
-
-    const double depth =
-            std::max(camera.nearPlane(), (grip.worldPosition.asVec() - camera.eyePosition()).dot(camera.forward()));
-    const double viewHeightAtPoint = 2.0 * depth * std::tan(camera.fieldOfView() * 0.5);
-    return pixels * viewHeightAtPoint / viewportHeight;
+    return controlMarkerWorldSize(camera, grip.worldPosition, pixels);
 }
 
 struct ControlGripRef {
@@ -127,7 +121,9 @@ void addGripMarker(std::vector<asset::CurvePrimitive>& curves, std::vector<graph
     switch (grip.kind) {
     case EditorGripKind::Vertex: addSquare(curves, grip.worldPosition, basis, size); break;
     case EditorGripKind::ControlPoint:
-        meshes.push_back(buildControlPointDisk(grip.worldPosition, basis, size * 0.65));
+        meshes.push_back(buildControlPointDisk(
+                grip.worldPosition, basis,
+                controlMarkerWorldSize(camera, grip.worldPosition, kControlPointMarkerPixels) * sizeScale));
         break;
     case EditorGripKind::Midpoint: addDiamond(curves, grip.worldPosition, basis, size); break;
     case EditorGripKind::Center:

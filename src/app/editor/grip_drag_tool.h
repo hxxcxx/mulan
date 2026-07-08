@@ -18,9 +18,10 @@ public:
     EditorAction end(ToolFinishReason reason) override;
 
 private:
-    EditorAction updatePreview(const math::Point3& worldPoint);
+    EditorAction updatePreview(const EditorInput& input, const math::Point3& worldPoint);
     EditorAction commitAt(const math::Point3& worldPoint);
     std::optional<asset::CurvePrimitive> makeEditedPrimitive(const math::Point3& worldPoint) const;
+    DraftGeometry previewGeometry(const EditorInput& input, const asset::CurvePrimitive& primitive) const;
 
     EditorGrip grip_;
     math::Point3 drag_start_local_;

@@ -27,5 +27,7 @@ double controlMarkerWorldSize(const engine::Camera& camera, const math::Point3& 
 graphics::Mesh buildControlPointDisk(const math::Point3& center, const ControlMarkerBasis& basis, double radius);
 DraftGeometry buildControlPolygonGeometry(std::span<const math::Point3> points, const ControlMarkerBasis& basis,
                                           double markerRadius);
+DraftGeometry buildControlPolygonGeometry(std::span<const math::Point3> points, const ControlMarkerBasis& basis,
+                                          const engine::Camera& camera, double markerPixels);
 
 }  // namespace mulan::app

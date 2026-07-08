@@ -1,6 +1,9 @@
 #include "grip_drag_tool.h"
 
+#include "control_polygon_builder.h"
+
 #include <cmath>
+#include <iterator>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -10,6 +13,8 @@ namespace {
 
 constexpr double kMinimumRadius = 1.0e-6;
 constexpr double kMinimumSweepRadians = 1.0e-6;
+constexpr double kControlPointMarkerPixels = 7.0;
+constexpr double kFallbackControlPointMarkerRadius = 0.05;
 
 bool isLeftPress(const engine::InputEvent& event) {
     return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Left;
@@ -329,6 +334,20 @@ asset::CurvePrimitive transformPrimitiveToWorld(const asset::CurvePrimitive& pri
     return primitive;
 }
 
+std::vector<math::Point3> controlPointsOf(const asset::CurvePrimitive& primitive) {
+    const auto& data = primitive.data();
+    if (const auto* bezier = std::get_if<asset::CurveBezierPrimitive>(&data)) {
+        return bezier->curve.controlPoints();
+    }
+    if (const auto* bspline = std::get_if<asset::CurveBSplinePrimitive>(&data)) {
+        return bspline->curve.controlPoints();
+    }
+    if (const auto* nurbs = std::get_if<asset::CurveNurbsPrimitive>(&data)) {
+        return nurbs->curve.controlPoints();
+    }
+    return {};
+}
+
 }  // namespace
 
 GripDragTool::GripDragTool(EditorGrip grip, math::Point3 dragStartWorld)
@@ -361,7 +380,7 @@ EditorAction GripDragTool::handleInput(const EditorInput& input) {
     }
 
     if (isMouseMove(input.event)) {
-        return updatePreview(*point);
+        return updatePreview(input, *point);
     }
 
     if (isLeftRelease(input.event)) {
@@ -379,13 +398,12 @@ EditorAction GripDragTool::end(ToolFinishReason reason) {
     return EditorAction::ignored();
 }
 
-EditorAction GripDragTool::updatePreview(const math::Point3& worldPoint) {
+EditorAction GripDragTool::updatePreview(const EditorInput& input, const math::Point3& worldPoint) {
     current_primitive_ = makeEditedPrimitive(worldPoint);
     if (!current_primitive_) {
         return EditorAction::clearPreview();
     }
-    return EditorAction::setPreview(
-            DraftGeometry::curve(transformPrimitiveToWorld(*current_primitive_, grip_.localToWorld)));
+    return EditorAction::setPreview(previewGeometry(input, *current_primitive_));
 }
 
 EditorAction GripDragTool::commitAt(const math::Point3& worldPoint) {
@@ -415,6 +433,30 @@ std::optional<asset::CurvePrimitive> GripDragTool::makeEditedPrimitive(const mat
     case EditorGripAction::ChangeRadius: return changeRadius(grip_, targetLocal);
     }
     return std::nullopt;
+}
+
+DraftGeometry GripDragTool::previewGeometry(const EditorInput& input, const asset::CurvePrimitive& primitive) const {
+    asset::CurvePrimitive worldPrimitive = transformPrimitiveToWorld(primitive, grip_.localToWorld);
+    std::vector<asset::CurvePrimitive> curves;
+    curves.push_back(worldPrimitive);
+
+    std::vector<math::Point3> controlPoints = controlPointsOf(worldPrimitive);
+    if (controlPoints.empty()) {
+        return DraftGeometry::curves(std::move(curves));
+    }
+
+    const ControlMarkerBasis basis = input.snapQuery.camera ? controlMarkerBasisFromCamera(*input.snapQuery.camera)
+                                                            : controlMarkerBasisFromNormal(math::Vec3::unitZ());
+    DraftGeometry controlGeometry =
+            input.snapQuery.camera
+                    ? buildControlPolygonGeometry(controlPoints, basis, *input.snapQuery.camera,
+                                                  kControlPointMarkerPixels)
+                    : buildControlPolygonGeometry(controlPoints, basis, kFallbackControlPointMarkerRadius);
+    std::vector<asset::CurvePrimitive> controlCurves = controlGeometry.takeCurves();
+    std::vector<graphics::Mesh> controlMeshes = controlGeometry.takeMeshes();
+    curves.insert(curves.end(), std::make_move_iterator(controlCurves.begin()),
+                  std::make_move_iterator(controlCurves.end()));
+    return DraftGeometry::geometry(std::move(curves), std::move(controlMeshes));
 }
 
 }  // namespace mulan::app

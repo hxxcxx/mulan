@@ -22,16 +22,6 @@ int defaultSplineDegree(size_t pointCount) {
     return std::min(3, static_cast<int>(pointCount) - 1);
 }
 
-double controlPointMarkerRadius(const EditorInput* input, std::span<const math::Point3> points) {
-    if (points.empty()) {
-        return kFallbackControlPointMarkerRadius;
-    }
-    if (input && input->snapQuery.camera) {
-        return controlMarkerWorldSize(*input->snapQuery.camera, points.back(), kControlPointMarkerPixels);
-    }
-    return kFallbackControlPointMarkerRadius;
-}
-
 ControlMarkerBasis basisForPreview(const std::vector<ToolPoint>& acceptedPoints,
                                    const std::optional<ToolPoint>& cursor) {
     if (cursor) {
@@ -117,7 +107,10 @@ DraftGeometry ParametricCurveTool::previewGeometry(const EditorInput* input,
     }
 
     const ControlMarkerBasis basis = basisForPreview(acceptedPoints(), cursor);
-    DraftGeometry controlGeometry = buildControlPolygonGeometry(points, basis, controlPointMarkerRadius(input, points));
+    DraftGeometry controlGeometry =
+            input && input->snapQuery.camera
+                    ? buildControlPolygonGeometry(points, basis, *input->snapQuery.camera, kControlPointMarkerPixels)
+                    : buildControlPolygonGeometry(points, basis, kFallbackControlPointMarkerRadius);
     std::vector<asset::CurvePrimitive> controlCurves = controlGeometry.takeCurves();
     std::vector<graphics::Mesh> controlMeshes = controlGeometry.takeMeshes();
     curves.insert(curves.end(), std::make_move_iterator(controlCurves.begin()),

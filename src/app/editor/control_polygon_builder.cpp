@@ -108,4 +108,23 @@ DraftGeometry buildControlPolygonGeometry(std::span<const math::Point3> points, 
     return DraftGeometry::geometry(std::move(curves), std::move(meshes));
 }
 
+DraftGeometry buildControlPolygonGeometry(std::span<const math::Point3> points, const ControlMarkerBasis& basis,
+                                          const engine::Camera& camera, double markerPixels) {
+    std::vector<asset::CurvePrimitive> curves;
+    std::vector<graphics::Mesh> meshes;
+    curves.reserve(points.size() > 1 ? 1 : 0);
+    meshes.reserve(points.size());
+
+    appendControlPolygon(curves, points);
+    for (const math::Point3& point : points) {
+        graphics::Mesh marker =
+                buildControlPointDisk(point, basis, controlMarkerWorldSize(camera, point, markerPixels));
+        if (!marker.empty()) {
+            meshes.push_back(std::move(marker));
+        }
+    }
+
+    return DraftGeometry::geometry(std::move(curves), std::move(meshes));
+}
+
 }  // namespace mulan::app
