@@ -1,6 +1,6 @@
 {
     "version": 6,
-    "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+    "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
     "configurePresets": [
         {
             "name": "base",
@@ -19,42 +19,36 @@
             "name": "debug",
             "displayName": "Debug (MSVC x64)",
             "inherits": "base",
-            "binaryDir": "${sourceDir}/build",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
+            "binaryDir": "${sourceDir}/build"
         },
         {
             "name": "release",
             "displayName": "Release (MSVC x64)",
             "inherits": "base",
-            "binaryDir": "${sourceDir}/build",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
-            }
+            "binaryDir": "${sourceDir}/build"
         },
         {
             "name": "relwithdebinfo",
             "displayName": "RelWithDebInfo (MSVC x64)",
             "inherits": "base",
-            "binaryDir": "${sourceDir}/build",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
-            }
+            "binaryDir": "${sourceDir}/build"
         }
     ],
     "buildPresets": [
         {
             "name": "debug",
-            "configurePreset": "debug"
+            "configurePreset": "debug",
+            "configuration": "Debug"
         },
         {
             "name": "release",
-            "configurePreset": "release"
+            "configurePreset": "release",
+            "configuration": "Release"
         },
         {
             "name": "relwithdebinfo",
-            "configurePreset": "relwithdebinfo"
+            "configurePreset": "relwithdebinfo",
+            "configuration": "RelWithDebInfo"
         }
     ]
 }

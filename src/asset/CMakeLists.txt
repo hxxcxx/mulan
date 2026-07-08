@@ -7,17 +7,7 @@ add_library(asset STATIC
     face_asset.cpp
 )
 
-file(GLOB_RECURSE ASSET_HEADERS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-)
-foreach(hdr ${ASSET_HEADERS})
-    file(RELATIVE_PATH rel "${CMAKE_CURRENT_SOURCE_DIR}" "${hdr}")
-    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/asset/${rel}" COPYONLY)
-endforeach()
-
-target_include_directories(asset PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
-)
+mulan_copy_public_headers(asset asset)
 
 target_link_libraries(asset PUBLIC graphics)
 

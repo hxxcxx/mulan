@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.24)
 project(mulan VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -6,6 +6,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(CTest)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(MulanHeaders)
+include(MulanDeploy)
+include(MulanShaders)
 
 # MSVC: 源文件为 UTF-8，避免 C4819 编码警告
 if(MSVC)
@@ -13,24 +17,26 @@ if(MSVC)
 endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(MULAN_SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
 
 # ── OpenCASCADE ──
 # 查找路径优先级: CMakePresets / -DOCCT_ROOT / 环境变量 OCCT_ROOT
 # 即使变量已设置，也需要验证目录是否真实存在
-if(NOT OCCT_ROOT OR NOT EXISTS "${OCCT_ROOT}")
-    if(OCCT_ROOT AND NOT EXISTS "${OCCT_ROOT}")
-        message(WARNING "OCCT_ROOT is set to '${OCCT_ROOT}' but the directory does not exist, falling back...")
+set(MULAN_OCCT_ROOT_CANDIDATE "${OCCT_ROOT}")
+if((NOT MULAN_OCCT_ROOT_CANDIDATE OR NOT EXISTS "${MULAN_OCCT_ROOT_CANDIDATE}") AND DEFINED ENV{OCCT_ROOT})
+    if(MULAN_OCCT_ROOT_CANDIDATE AND NOT EXISTS "${MULAN_OCCT_ROOT_CANDIDATE}")
+        message(WARNING "OCCT_ROOT is set to '${MULAN_OCCT_ROOT_CANDIDATE}' but the directory does not exist, falling back...")
     endif()
-    if(DEFINED ENV{OCCT_ROOT} AND EXISTS "$ENV{OCCT_ROOT}")
-        set(OCCT_ROOT "$ENV{OCCT_ROOT}")
-    else()
-        message(FATAL_ERROR
-            "OCCT_ROOT not set or directory does not exist. "
-            "Use CMakePresets.json, -DOCCT_ROOT=..., or set OCCT_ROOT env var, "
-            "and make sure the path points to an existing directory."
-        )
-    endif()
+    set(MULAN_OCCT_ROOT_CANDIDATE "$ENV{OCCT_ROOT}")
 endif()
+if(NOT MULAN_OCCT_ROOT_CANDIDATE OR NOT EXISTS "${MULAN_OCCT_ROOT_CANDIDATE}")
+    message(FATAL_ERROR
+        "OCCT_ROOT not set or directory does not exist. "
+        "Use CMakePresets.json, -DOCCT_ROOT=..., or set OCCT_ROOT env var, "
+        "and make sure the path points to an existing directory."
+    )
+endif()
+set(OCCT_ROOT "${MULAN_OCCT_ROOT_CANDIDATE}" CACHE PATH "OpenCASCADE root directory" FORCE)
 message(STATUS "OCCT_ROOT: ${OCCT_ROOT}")
 
 set(OCCT_INCLUDE_DIR "${OCCT_ROOT}/inc")
@@ -49,14 +55,36 @@ set(OCCT_LIBS
     TKDE TKXSBase TKDESTEP TKXCAF TKDEIGES TKDESTL TKRWMesh TKDECascade TKBinXCAF
 )
 
-# ── OCCT 3rdparty ──
-if(NOT OCCT_3RDPARTY_DIR)
-    if(DEFINED ENV{OCCT_3RDPARTY_DIR})
-        set(OCCT_3RDPARTY_DIR "$ENV{OCCT_3RDPARTY_DIR}")
+set(OCCT_LIBRARY_FILES)
+set(OCCT_MISSING_LIBS)
+foreach(lib IN LISTS OCCT_LIBS)
+    find_library(OCCT_LIBRARY_${lib} NAMES ${lib} PATHS "${OCCT_LIB_DIR}" NO_DEFAULT_PATH)
+    if(OCCT_LIBRARY_${lib})
+        list(APPEND OCCT_LIBRARY_FILES "${OCCT_LIBRARY_${lib}}")
+    else()
+        list(APPEND OCCT_MISSING_LIBS "${lib}")
     endif()
+endforeach()
+if(OCCT_MISSING_LIBS)
+    list(JOIN OCCT_MISSING_LIBS ", " OCCT_MISSING_LIBS_TEXT)
+    message(FATAL_ERROR "OCCT libraries not found in ${OCCT_LIB_DIR}: ${OCCT_MISSING_LIBS_TEXT}")
 endif()
-if(OCCT_3RDPARTY_DIR)
+
+add_library(mulan_occt INTERFACE)
+add_library(OCCT::OCCT ALIAS mulan_occt)
+target_include_directories(mulan_occt INTERFACE "${OCCT_INCLUDE_DIR}")
+target_link_libraries(mulan_occt INTERFACE ${OCCT_LIBRARY_FILES})
+
+# ── OCCT 3rdparty ──
+set(MULAN_OCCT_3RDPARTY_CANDIDATE "${OCCT_3RDPARTY_DIR}")
+if((NOT MULAN_OCCT_3RDPARTY_CANDIDATE OR NOT EXISTS "${MULAN_OCCT_3RDPARTY_CANDIDATE}") AND DEFINED ENV{OCCT_3RDPARTY_DIR})
+    set(MULAN_OCCT_3RDPARTY_CANDIDATE "$ENV{OCCT_3RDPARTY_DIR}")
+endif()
+if(MULAN_OCCT_3RDPARTY_CANDIDATE AND EXISTS "${MULAN_OCCT_3RDPARTY_CANDIDATE}")
+    set(OCCT_3RDPARTY_DIR "${MULAN_OCCT_3RDPARTY_CANDIDATE}" CACHE PATH "OpenCASCADE third-party runtime directory" FORCE)
     message(STATUS "OCCT_3RDPARTY_DIR: ${OCCT_3RDPARTY_DIR}")
+elseif(MULAN_OCCT_3RDPARTY_CANDIDATE)
+    message(WARNING "OCCT_3RDPARTY_DIR is set to '${MULAN_OCCT_3RDPARTY_CANDIDATE}' but the directory does not exist.")
 endif()
 
 # ── Qt6 ──

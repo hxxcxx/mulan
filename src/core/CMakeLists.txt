@@ -16,21 +16,7 @@ add_library(core SHARED
 )
 
 # 构建时将头文件复制到 build/include/mulan/core/...
-file(GLOB_RECURSE CORE_HEADERS
-    "${CMAKE_CURRENT_SOURCE_DIR}/**/*.h"
-)
-foreach(hdr ${CORE_HEADERS})
-    file(RELATIVE_PATH rel "${CMAKE_CURRENT_SOURCE_DIR}" "${hdr}")
-    configure_file("${hdr}" "${CMAKE_BINARY_DIR}/include/mulan/core/${rel}" COPYONLY)
-endforeach()
-
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/core_export.h"
-               "${CMAKE_BINARY_DIR}/include/mulan/core/core_export.h" COPYONLY)
-
-
-target_include_directories(core PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
-)
+mulan_copy_public_headers(core core)
 
 # --- stb (图像加载) ---
 find_path(STB_INCLUDE_DIRS "stb_image.h")

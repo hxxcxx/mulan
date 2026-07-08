@@ -17,19 +17,7 @@ add_library(view STATIC
     render_scene.cpp
 )
 
-set(VIEW_GENERATED_INCLUDE_DIR "${CMAKE_BINARY_DIR}/include/mulan/view")
-file(REMOVE_RECURSE "${VIEW_GENERATED_INCLUDE_DIR}")
-file(GLOB_RECURSE VIEW_HEADERS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-)
-foreach(hdr ${VIEW_HEADERS})
-    file(RELATIVE_PATH rel "${CMAKE_CURRENT_SOURCE_DIR}" "${hdr}")
-    configure_file("${hdr}" "${VIEW_GENERATED_INCLUDE_DIR}/${rel}" COPYONLY)
-endforeach()
-
-target_include_directories(view PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
-)
+mulan_copy_public_headers(view view)
 
 target_link_libraries(view PUBLIC
     engine
