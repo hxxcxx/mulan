@@ -15,6 +15,10 @@ DocumentOperation DocumentOperation::createCurve(std::string name, asset::CurveP
     return DocumentOperation(CreateCurveOperation{ std::move(name), std::move(primitive) });
 }
 
+DocumentOperation DocumentOperation::createFace(std::string name, asset::FaceDefinition face) {
+    return DocumentOperation(CreateFaceOperation{ std::move(name), std::move(face) });
+}
+
 DocumentOperation DocumentOperation::createMesh(std::string name, std::vector<asset::MeshPrimitive> primitives) {
     return DocumentOperation(CreateMeshOperation{ std::move(name), std::move(primitives) });
 }

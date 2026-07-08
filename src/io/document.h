@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <mulan/asset/asset_id.h>
+#include <mulan/asset/face_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/math/math.h>
 #include <mulan/scene/entity_id.h>
@@ -39,6 +40,7 @@ public:
     Document& operator=(const Document&) = delete;
 
     scene::EntityId addShape(const TopoDS_Shape& shape, std::string name);
+    scene::EntityId addFace(std::string name, asset::FaceDefinition face);
     scene::EntityId addMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
 
     scene::EntityId addSceneInstance(std::string name, asset::AssetId geometry,

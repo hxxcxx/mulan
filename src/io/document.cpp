@@ -3,8 +3,9 @@
 #include "shape_render_geometry.h"
 
 #include <mulan/asset/asset_library.h>
-#include <mulan/asset/tessellated_asset.h>
+#include <mulan/asset/face_asset.h>
 #include <mulan/asset/mesh_asset.h>
+#include <mulan/asset/tessellated_asset.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/scene.h>
 
@@ -31,6 +32,22 @@ scene::EntityId Document::addShape(const TopoDS_Shape& shape, std::string name) 
 
     const auto sceneId = addSceneInstance(shapeName, tess ? tess->id() : asset::AssetId::invalid());
     scene_->setWorldBounds(sceneId, geometry.bounds);
+    return sceneId;
+}
+
+scene::EntityId Document::addFace(std::string name, asset::FaceDefinition face) {
+    std::string faceName = std::move(name);
+
+    auto* faceAsset = assets_->create<asset::FaceAsset>(faceName, std::move(face));
+    if (!faceAsset || !faceAsset->renderable()) {
+        if (faceAsset) {
+            assets_->remove(faceAsset->id());
+        }
+        return scene::EntityId::invalid();
+    }
+
+    const auto sceneId = addSceneInstance(faceName, faceAsset->id());
+    scene_->setWorldBounds(sceneId, faceAsset->localBounds());
     return sceneId;
 }
 

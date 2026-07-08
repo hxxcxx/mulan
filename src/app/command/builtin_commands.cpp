@@ -12,6 +12,7 @@
 
 #include "editor/circle_tool.h"
 #include "editor/editor_session.h"
+#include "editor/face_tool.h"
 #include "editor/line_tool.h"
 #include "editor/polyline_tool.h"
 
@@ -54,6 +55,18 @@ CommandOutcome startDrawTool(CommandHost& host) {
     return {};
 }
 
+CommandOutcome startViewPlaneDrawTool(CommandHost& host) {
+    EditorSession* editor = host.editorSession();
+    DocumentView* view = host.documentView();
+    if (!editor || !editor->isReady() || !view || !view->isInitialized()) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+    }
+
+    editor->setWorkPlane(mulan::engine::WorkPlane::fromView(view->viewContext().camera()));
+    editor->startTool(std::make_unique<FaceTool>());
+    return {};
+}
+
 class DrawLineCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.line"; }
@@ -81,6 +94,15 @@ protected:
     CommandOutcome perform(CommandHost& host) override { return startDrawTool<CircleTool>(host); }
 };
 
+class DrawFaceCommand final : public Command {
+public:
+    std::string_view id() const override { return "draw.face"; }
+    std::string_view title() const override { return "Face"; }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override { return startViewPlaneDrawTool(host); }
+};
+
 }  // namespace
 
 void registerBuiltinCommands(CommandManager& manager) {
@@ -88,6 +110,7 @@ void registerBuiltinCommands(CommandManager& manager) {
     manager.add(std::make_unique<DrawLineCommand>());
     manager.add(std::make_unique<DrawPolylineCommand>());
     manager.add(std::make_unique<DrawCircleCommand>());
+    manager.add(std::make_unique<DrawFaceCommand>());
 }
 
 }  // namespace mulan::app

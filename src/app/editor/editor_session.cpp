@@ -492,6 +492,10 @@ bool EditorSession::applyOperation(DocumentOperation operation) {
                            changed = static_cast<bool>(
                                    editor.createCurve(std::move(create.name), std::move(create.primitive)));
                        },
+                       [&editor, &changed](CreateFaceOperation& create) {
+                           changed =
+                                   static_cast<bool>(editor.createFace(std::move(create.name), std::move(create.face)));
+                       },
                        [&editor, &changed](CreateMeshOperation& create) {
                            changed = static_cast<bool>(
                                    editor.createMesh(std::move(create.name), std::move(create.primitives)));

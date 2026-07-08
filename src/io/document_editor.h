@@ -12,6 +12,7 @@
 #include "io_export.h"
 
 #include <mulan/asset/curve_asset.h>
+#include <mulan/asset/face_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/scene/entity_id.h>
 
@@ -35,6 +36,7 @@ public:
     explicit DocumentEditor(Document& document) : document_(document) {}
 
     CurveCreateResult createCurve(std::string name, asset::CurvePrimitive primitive);
+    scene::EntityId createFace(std::string name, asset::FaceDefinition face);
     scene::EntityId createMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
     bool updateCurve(scene::EntityId entity, asset::CurveElementId element, asset::CurvePrimitive primitive);
     bool removeEntity(scene::EntityId entity);

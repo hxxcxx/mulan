@@ -30,6 +30,14 @@ CurveCreateResult DocumentEditor::createCurve(std::string name, asset::CurvePrim
     return { entity, element };
 }
 
+scene::EntityId DocumentEditor::createFace(std::string name, asset::FaceDefinition face) {
+    const scene::EntityId entity = document_.addFace(std::move(name), std::move(face));
+    if (entity) {
+        document_.markDirty();
+    }
+    return entity;
+}
+
 scene::EntityId DocumentEditor::createMesh(std::string name, std::vector<asset::MeshPrimitive> primitives) {
     const scene::EntityId entity = document_.addMesh(std::move(name), std::move(primitives));
     if (entity) {

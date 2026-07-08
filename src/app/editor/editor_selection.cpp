@@ -1,6 +1,7 @@
 #include "editor_selection.h"
 
 #include <mulan/asset/asset_library.h>
+#include <mulan/asset/face_asset.h>
 #include <mulan/io/document.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/scene.h>
@@ -24,6 +25,21 @@ const asset::CurveAsset* curveAssetForEntity(const io::Document& document, scene
     }
 
     return dynamic_cast<const asset::CurveAsset*>(assets->asset(geometry->geometry));
+}
+
+const asset::FaceAsset* faceAssetForEntity(const io::Document& document, scene::EntityId entity) {
+    const scene::Scene* scene = document.scene();
+    const asset::AssetLibrary* assets = document.assets();
+    if (!scene || !assets) {
+        return nullptr;
+    }
+
+    const scene::GeometryComponent* geometry = scene->geometry(entity);
+    if (!geometry || !geometry->geometry) {
+        return nullptr;
+    }
+
+    return dynamic_cast<const asset::FaceAsset*>(assets->asset(geometry->geometry));
 }
 
 std::optional<asset::CurveElement> curveElementAt(const asset::CurveAsset& curve, size_t index) {
@@ -217,6 +233,15 @@ EditorSelectionHit makeEditorSelectionHit(const EditorPickHit& pick, const io::D
             }
             return EditorSelectionHit{ .reference = reference, .pick = pick };
         }
+    }
+
+    if (faceAssetForEntity(document, pick.entity)) {
+        reference.domain = EditorSelectionDomain::Surface;
+        reference.kind = meshSubEntityKind(pick.kind);
+        if (reference.kind == EditorSubEntityKind::Entity) {
+            reference.domain = EditorSelectionDomain::Entity;
+        }
+        return EditorSelectionHit{ .reference = reference, .pick = pick };
     }
 
     reference.domain = EditorSelectionDomain::Mesh;

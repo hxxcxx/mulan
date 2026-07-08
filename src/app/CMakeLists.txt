@@ -40,6 +40,8 @@ add_executable(${PROJECT_NAME}
     editor/polyline_tool.cpp
     editor/circle_tool.h
     editor/circle_tool.cpp
+    editor/face_tool.h
+    editor/face_tool.cpp
     editor/line_tool.h
     editor/line_tool.cpp
     editor/grip_drag_tool.h
