@@ -242,8 +242,8 @@ void RenderRenderer::compile(const RenderRequest& request) {
 
     const std::span<const MeshDrawCommand> emptyCommands;
     if (face_stage_) {
-        face_stage_->setDrawCommands(renderSurfacesEnabled(request.options) ? compiler_.surfaceCommands()
-                                                                            : emptyCommands);
+        face_stage_->setDrawCommands(!compiler_.surfaceCommands().empty() ? compiler_.surfaceCommands()
+                                                                          : emptyCommands);
     }
     if (edge_stage_) {
         edge_stage_->setDrawCommands(!compiler_.edgeCommands().empty() ? compiler_.edgeCommands() : emptyCommands);

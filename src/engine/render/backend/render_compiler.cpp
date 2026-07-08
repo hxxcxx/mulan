@@ -1,10 +1,9 @@
 #include "render_compiler.h"
 
 #include "../asset_gpu_registry.h"
+#include "../frontend/render_contract.h"
 #include "../material/material_cache.h"
 #include "../render_geometry.h"
-
-#include <mulan/graphics/vertex/vertex_layout.h>
 
 #include <string>
 
@@ -37,36 +36,6 @@ Texture* loadTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
 
 bool hasTangentLayout(const GpuGeometry& geometry) {
     return geometry.layout.has(graphics::VertexSemantic::Tangent);
-}
-
-bool layoutEquals(const graphics::VertexLayout& lhs, const graphics::VertexLayout& rhs) {
-    if (lhs.stride() != rhs.stride() || lhs.attrCount() != rhs.attrCount() || lhs.bufferCount() != rhs.bufferCount()) {
-        return false;
-    }
-
-    for (uint8_t i = 0; i < lhs.attrCount(); ++i) {
-        if (!(lhs[i] == rhs[i])) {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool isSurfaceLayout(const graphics::VertexLayout& layout) {
-    return layoutEquals(layout, graphics::layouts::surface()) || layoutEquals(layout, graphics::layouts::pbr());
-}
-
-bool isEdgeLayout(const graphics::VertexLayout& layout) {
-    return layoutEquals(layout, graphics::layouts::surface());
-}
-
-bool canCompileSurface(const RenderGeometryRecord& geometryRecord, const GpuGeometry& geometry) {
-    return geometryRecord.desc.topology == graphics::PrimitiveTopology::TriangleList &&
-           isSurfaceLayout(geometry.layout);
-}
-
-bool canCompileEdge(const RenderGeometryRecord& geometryRecord, const GpuGeometry& geometry) {
-    return geometryRecord.desc.topology == graphics::PrimitiveTopology::LineList && isEdgeLayout(geometry.layout);
 }
 
 void populateSurfaceTextures(const RenderWorldSnapshot& snapshot, const RenderWorkItem& item, AssetGpuRegistry& assets,
@@ -134,7 +103,7 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
         if (!gpuGeometry) {
             continue;
         }
-        if (!canCompileSurface(*geometryRecord, *gpuGeometry)) {
+        if (!renderGpuGeometryMatchesBucket(item.bucket, geometryRecord->desc, *gpuGeometry)) {
             continue;
         }
 
@@ -165,7 +134,7 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
         if (!gpuGeometry) {
             continue;
         }
-        if (!canCompileEdge(*geometryRecord, *gpuGeometry)) {
+        if (!renderGpuGeometryMatchesBucket(item.bucket, geometryRecord->desc, *gpuGeometry)) {
             continue;
         }
 

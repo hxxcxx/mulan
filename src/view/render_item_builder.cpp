@@ -1,6 +1,7 @@
 #include "render_item_builder.h"
 
-#include <algorithm>
+#include <mulan/engine/render/frontend/render_contract.h>
+
 #include <optional>
 
 namespace mulan::view {
@@ -8,27 +9,6 @@ namespace {
 
 constexpr uint64_t kPreviewGeometryKey = 0xF000000000000001ull;
 constexpr uint64_t kPreviewMaterialKey = 0xF000000000000002ull;
-
-bool layoutEquals(const graphics::VertexLayout& lhs, const graphics::VertexLayout& rhs) {
-    if (lhs.stride() != rhs.stride() || lhs.attrCount() != rhs.attrCount() || lhs.bufferCount() != rhs.bufferCount()) {
-        return false;
-    }
-
-    for (uint8_t i = 0; i < lhs.attrCount(); ++i) {
-        if (!(lhs[i] == rhs[i])) {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool isSurfaceLayout(const graphics::VertexLayout& layout) {
-    return layoutEquals(layout, graphics::layouts::surface()) || layoutEquals(layout, graphics::layouts::pbr());
-}
-
-bool isEdgeLayout(const graphics::VertexLayout& layout) {
-    return layoutEquals(layout, graphics::layouts::surface());
-}
 
 uint64_t sceneGeometryKey(asset::AssetId geometry, size_t drawableIndex) {
     return geometry.value ^ ((static_cast<uint64_t>(drawableIndex) + 1u) << 32u);
@@ -60,18 +40,6 @@ std::optional<engine::RenderBucket> bucketForPreviewMesh(const graphics::Mesh& m
     case graphics::PrimitiveTopology::LineList: return engine::RenderBucket::OverlayEdge;
     default: return std::nullopt;
     }
-}
-
-bool layoutMatchesBucket(engine::RenderBucket bucket, const graphics::Mesh& mesh) {
-    switch (bucket) {
-    case engine::RenderBucket::Surface:
-    case engine::RenderBucket::OverlaySurface: return isSurfaceLayout(mesh.layout);
-    case engine::RenderBucket::Edge:
-    case engine::RenderBucket::OverlayEdge: return isEdgeLayout(mesh.layout);
-    case engine::RenderBucket::Gizmo:
-    case engine::RenderBucket::Text: return false;
-    }
-    return false;
 }
 
 void countAccepted(RenderItemDiagnostics* diagnostics) {
@@ -120,7 +88,12 @@ void RenderItemBuilder::buildSceneItems(asset::AssetId geometry, std::span<const
             continue;
         }
 
-        if (!layoutMatchesBucket(*bucket, *drawable.mesh)) {
+        if (!engine::renderBucketAcceptsTopology(*bucket, drawable.mesh->topology)) {
+            countRejectedTopology(diagnostics);
+            continue;
+        }
+
+        if (!engine::renderBucketAcceptsLayout(*bucket, drawable.mesh->layout)) {
             countRejectedLayout(diagnostics);
             continue;
         }
@@ -156,7 +129,12 @@ void RenderItemBuilder::buildPreviewItems(uint64_t generation, std::span<const g
             continue;
         }
 
-        if (!layoutMatchesBucket(*bucket, mesh)) {
+        if (!engine::renderBucketAcceptsTopology(*bucket, mesh.topology)) {
+            countRejectedTopology(diagnostics);
+            continue;
+        }
+
+        if (!engine::renderBucketAcceptsLayout(*bucket, mesh.layout)) {
             countRejectedLayout(diagnostics);
             continue;
         }

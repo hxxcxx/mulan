@@ -14,6 +14,7 @@ add_library(engine STATIC
     render/mesh_draw_command.cpp
     render/technique/render_technique.cpp
     # Render frontend / backend
+    render/frontend/render_contract.cpp
     render/frontend/render_world.cpp
     render/frontend/render_workload.cpp
     render/backend/render_compiler.cpp
