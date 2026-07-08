@@ -12,7 +12,10 @@ namespace {
 
 constexpr double kFacePointPriority = 1.5;
 constexpr double kEdgeNearestPriority = 2.0;
+constexpr double kCurveNearestPriority = 2.2;
 constexpr double kMidpointPriority = 3.0;
+constexpr double kCenterPriority = 3.15;
+constexpr double kTangentPriority = 3.25;
 constexpr double kEndpointPriority = 4.0;
 
 EditorGeometryDependency geometryDependencyFromPick(const view::RenderScene::PickResult& pick, EditorPickHitKind kind,
@@ -67,6 +70,48 @@ double worldDistanceToWorkPoint(const EditorSnapQuery& query, const math::Point3
 
 bool insideTolerance(const EditorSnapQuery& query, double distancePixels) {
     return distancePixels <= std::max(0.0, query.tolerancePixels);
+}
+
+double signedAngleAround(const math::Vec3& from, const math::Vec3& to, const math::Vec3& normal) {
+    const math::Vec3 a = from.normalizedOr(math::Vec3::unitX());
+    const math::Vec3 b = to.normalizedOr(a);
+    const math::Vec3 n = normal.normalizedOr(math::Vec3::unitZ());
+    return std::atan2(n.dot(a.cross(b)), a.dot(b));
+}
+
+std::optional<double> curveRangeParameter(const view::RenderScene::PickResult& pick, const math::Point3& point) {
+    if (!pick.hasCurveRange || !pick.hasCurveCircle) {
+        return std::nullopt;
+    }
+
+    math::Vec3 direction = point - pick.curveCenter;
+    direction -= pick.curveNormal * direction.dot(pick.curveNormal);
+    direction = direction.normalizedOr(pick.curveStartDirection);
+
+    double angle = signedAngleAround(pick.curveStartDirection, direction, pick.curveNormal);
+    const double sweep = pick.curveSweepRadians;
+    if (std::abs(sweep) <= 1.0e-12) {
+        return 0.0;
+    }
+
+    if (sweep > 0.0) {
+        while (angle < 0.0) {
+            angle += math::kPi2;
+        }
+    } else {
+        while (angle > 0.0) {
+            angle -= math::kPi2;
+        }
+    }
+    return angle / sweep;
+}
+
+bool pointWithinCurveRange(const view::RenderScene::PickResult& pick, const math::Point3& point) {
+    const auto parameter = curveRangeParameter(pick, point);
+    if (!parameter) {
+        return true;
+    }
+    return *parameter >= -1.0e-6 && *parameter <= 1.0 + 1.0e-6;
 }
 
 void addPointCandidate(const EditorSnapQuery& query, const view::RenderScene::PickResult& pick, EditorSnapKind kind,
@@ -124,14 +169,76 @@ void addFaceCandidate(const EditorSnapQuery& query, const view::RenderScene::Pic
                       pick.worldPoint, out);
 }
 
+void addTangentCandidates(const EditorSnapQuery& query, const view::RenderScene::PickResult& pick,
+                          std::vector<EditorSnapCandidate>& out) {
+    if (!query.snapSettings.enableTangentSnap || !query.pointPolicy.axisAnchor || !pick.hasCurveCircle ||
+        pick.curveRadius <= 0.0) {
+        return;
+    }
+
+    const math::Point3 anchor = *query.pointPolicy.axisAnchor;
+    math::Vec3 toAnchor = anchor - pick.curveCenter;
+    toAnchor -= pick.curveNormal * toAnchor.dot(pick.curveNormal);
+    const double distance = toAnchor.length();
+    if (distance <= pick.curveRadius + 1.0e-9) {
+        return;
+    }
+
+    const math::Vec3 u = toAnchor / distance;
+    const math::Vec3 perpendicular = pick.curveNormal.cross(u).normalizedOr(math::Vec3::unitY());
+    const double baseLength = (pick.curveRadius * pick.curveRadius) / distance;
+    const double offsetLength =
+            pick.curveRadius * std::sqrt(distance * distance - pick.curveRadius * pick.curveRadius) / distance;
+    const math::Point3 tangentA = pick.curveCenter + u * baseLength + perpendicular * offsetLength;
+    const math::Point3 tangentB = pick.curveCenter + u * baseLength - perpendicular * offsetLength;
+
+    if (pointWithinCurveRange(pick, tangentA)) {
+        const double parameter = curveRangeParameter(pick, tangentA).value_or(0.0);
+        addPointCandidate(query, pick, EditorSnapKind::Tangent, EditorPickHitKind::Curve, parameter, kTangentPriority,
+                          tangentA, out);
+    }
+    if (pointWithinCurveRange(pick, tangentB)) {
+        const double parameter = curveRangeParameter(pick, tangentB).value_or(0.0);
+        addPointCandidate(query, pick, EditorSnapKind::Tangent, EditorPickHitKind::Curve, parameter, kTangentPriority,
+                          tangentB, out);
+    }
+}
+
+void addCurveCandidates(const EditorSnapQuery& query, const view::RenderScene::PickResult& pick,
+                        std::vector<EditorSnapCandidate>& out) {
+    if (query.snapSettings.enableEndpointSnap && pick.hasCurveEndpoints) {
+        addPointCandidate(query, pick, EditorSnapKind::Vertex, EditorPickHitKind::Curve, 0.0, kEndpointPriority,
+                          pick.curveStart, out);
+        addPointCandidate(query, pick, EditorSnapKind::Vertex, EditorPickHitKind::Curve, 1.0, kEndpointPriority,
+                          pick.curveEnd, out);
+    }
+
+    if (query.snapSettings.enableMidpointSnap && pick.hasCurveMidpoint && !pick.curveClosed) {
+        addPointCandidate(query, pick, EditorSnapKind::Midpoint, EditorPickHitKind::Curve, 0.5, kMidpointPriority,
+                          pick.curveMidpoint, out);
+    }
+
+    if (query.snapSettings.enableCenterSnap && pick.hasCurveCircle) {
+        addPointCandidate(query, pick, EditorSnapKind::Center, EditorPickHitKind::Curve, 0.0, kCenterPriority,
+                          pick.curveCenter, out);
+    }
+
+    if (query.snapSettings.enableCurveNearestSnap && pick.hasWorldPoint) {
+        addPointCandidate(query, pick, EditorSnapKind::Curve, EditorPickHitKind::Curve, pick.parameter,
+                          kCurveNearestPriority, pick.worldPoint, out);
+    }
+
+    addTangentCandidates(query, pick, out);
+}
+
 void addPickCandidates(const EditorSnapQuery& query, const view::RenderScene::PickResult& pick,
                        std::vector<EditorSnapCandidate>& out) {
     switch (pick.kind) {
     case view::RenderScene::PickHitKind::Edge: addEdgeCandidates(query, pick, out); break;
     case view::RenderScene::PickHitKind::Face: addFaceCandidate(query, pick, out); break;
+    case view::RenderScene::PickHitKind::Curve: addCurveCandidates(query, pick, out); break;
     case view::RenderScene::PickHitKind::Object:
     case view::RenderScene::PickHitKind::Vertex:
-    case view::RenderScene::PickHitKind::Curve:
     case view::RenderScene::PickHitKind::None: break;
     }
 }

@@ -113,12 +113,20 @@ void addMarkerForPoint(std::vector<asset::CurvePrimitive>& curves, const EditorI
     switch (input.point->snapKind) {
     case EditorSnapKind::Vertex: addSquare(curves, center, basis, size); break;
     case EditorSnapKind::Midpoint: addTriangle(curves, center, basis, size); break;
+    case EditorSnapKind::Center:
+        addCross(curves, center, basis, size);
+        addSquare(curves, center, basis, size * 0.55);
+        break;
+    case EditorSnapKind::Tangent:
+        addTriangle(curves, center, basis, size * 0.9);
+        addCross(curves, center, basis, size * 0.45);
+        break;
     case EditorSnapKind::Edge: addDiamond(curves, center, basis, size); break;
     case EditorSnapKind::Face: addCross(curves, center, basis, size); break;
     case EditorSnapKind::Grid: addCross(curves, center, basis, size * 0.6); break;
     case EditorSnapKind::Axis: addDiamond(curves, center, basis, size * 0.8); break;
+    case EditorSnapKind::Curve: addDiamond(curves, center, basis, size * 0.7); break;
     case EditorSnapKind::WorkPlane:
-    case EditorSnapKind::Curve:
     case EditorSnapKind::Depth:
     case EditorSnapKind::None: break;
     }

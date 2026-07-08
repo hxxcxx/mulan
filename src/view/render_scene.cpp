@@ -1,6 +1,7 @@
 #include "render_scene.h"
 
 #include <mulan/asset/asset_library.h>
+#include <mulan/asset/curve_asset.h>
 #include <mulan/asset/geometry_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/asset/tessellated_asset.h>
@@ -22,6 +23,14 @@
 namespace mulan::view {
 
 namespace {
+
+template <typename... T>
+struct Overloaded : T... {
+    using T::operator()...;
+};
+
+template <typename... T>
+Overloaded(T...) -> Overloaded<T...>;
 
 engine::Light toRenderLight(const scene::LightComponent& src, const math::Mat4& world) {
     engine::Light dst;
@@ -75,6 +84,19 @@ struct MeshPickResult {
     math::Point3 edgeStart;
     math::Point3 edgeEnd;
     bool hasEdgeSegment = false;
+    math::Point3 curveCenter;
+    math::Vec3 curveNormal;
+    double curveRadius = 0.0;
+    bool hasCurveCircle = false;
+    math::Point3 curveStart;
+    math::Point3 curveEnd;
+    math::Point3 curveMidpoint;
+    bool hasCurveEndpoints = false;
+    bool hasCurveMidpoint = false;
+    bool curveClosed = false;
+    math::Vec3 curveStartDirection;
+    double curveSweepRadians = 0.0;
+    bool hasCurveRange = false;
     math::Vec3 barycentric;
     bool hasBarycentric = false;
 };
@@ -87,6 +109,12 @@ struct RaySegmentClosest {
     math::Point3 segmentPoint;
 };
 
+struct CurveClosestPoint {
+    math::Point3 point;
+    double parameter = 0.0;
+    double distanceToRay = std::numeric_limits<double>::max();
+};
+
 math::AABB3 expandedBounds(const math::AABB3& bounds, double amount) {
     if (bounds.isEmpty() || amount <= 0.0) {
         return bounds;
@@ -97,6 +125,101 @@ math::AABB3 expandedBounds(const math::AABB3& bounds, double amount) {
     expanded.min -= pad;
     expanded.max += pad;
     return expanded;
+}
+
+math::Circle3 transformCircle(const math::Circle3& circle, const math::Mat4& transform) {
+    const math::Point3 center = circle.center.transformedBy(transform);
+    const math::Point3 radiusPoint = math::pointOnCircle(circle, math::Angle::zero()).transformedBy(transform);
+    return math::Circle3(center, center.distance(radiusPoint), circle.normal.transformedAsNormal(transform));
+}
+
+math::Arc3 transformArc(const math::Arc3& arc, const math::Mat4& transform) {
+    const math::Point3 center = arc.center.transformedBy(transform);
+    const math::Point3 start = arc.pointAt(0.0).transformedBy(transform);
+    return math::Arc3(center, center.distance(start), (start - center).normalizedOr(math::Vec3::unitX()), arc.sweep,
+                      arc.normal.transformedAsNormal(transform));
+}
+
+double signedAngleAround(const math::Vec3& from, const math::Vec3& to, const math::Vec3& normal) {
+    const math::Vec3 a = from.normalizedOr(math::Vec3::unitX());
+    const math::Vec3 b = to.normalizedOr(a);
+    const math::Vec3 n = normal.normalizedOr(math::Vec3::unitZ());
+    return std::atan2(n.dot(a.cross(b)), a.dot(b));
+}
+
+double normalizedCircleParameter(const math::Vec3& direction, const math::Vec3& normal) {
+    const math::Vec3 x = math::perpendicularUnit(normal);
+    double angle = signedAngleAround(x, direction, normal);
+    if (angle < 0.0) {
+        angle += math::kPi2;
+    }
+    return angle / math::kPi2;
+}
+
+double clampedArcParameterForDirection(const math::Arc3& arc, const math::Vec3& direction) {
+    const double sweep = arc.sweep.radians();
+    if (std::abs(sweep) <= 1.0e-12) {
+        return 0.0;
+    }
+
+    double angle = signedAngleAround(arc.startDirection, direction, arc.normal);
+    if (sweep > 0.0) {
+        while (angle < 0.0) {
+            angle += math::kPi2;
+        }
+        angle = std::clamp(angle, 0.0, sweep);
+    } else {
+        while (angle > 0.0) {
+            angle -= math::kPi2;
+        }
+        angle = std::clamp(angle, sweep, 0.0);
+    }
+    return std::clamp(angle / sweep, 0.0, 1.0);
+}
+
+std::optional<CurveClosestPoint> closestCirclePointToRay(const math::Ray3& ray, const math::Circle3& circle) {
+    if (!circle.valid()) {
+        return std::nullopt;
+    }
+
+    const math::Plane3 plane = math::Plane3::fromPointNormal(circle.center, circle.normal);
+    const auto planeHit = math::intersect(ray, plane);
+    if (!planeHit.hit) {
+        return std::nullopt;
+    }
+
+    math::Vec3 radial = plane.project(planeHit.point) - circle.center;
+    radial -= circle.normal * radial.dot(circle.normal);
+    radial = radial.normalizedOr(math::perpendicularUnit(circle.normal));
+    const math::Point3 point = circle.center + radial * circle.radius;
+    return CurveClosestPoint{
+        .point = point,
+        .parameter = normalizedCircleParameter(radial, circle.normal),
+        .distanceToRay = math::distance(point, ray),
+    };
+}
+
+std::optional<CurveClosestPoint> closestArcPointToRay(const math::Ray3& ray, const math::Arc3& arc) {
+    if (!arc.valid() || arc.sweep == math::Angle::zero()) {
+        return std::nullopt;
+    }
+
+    const math::Plane3 plane = math::Plane3::fromPointNormal(arc.center, arc.normal);
+    const auto planeHit = math::intersect(ray, plane);
+    if (!planeHit.hit) {
+        return std::nullopt;
+    }
+
+    math::Vec3 radial = plane.project(planeHit.point) - arc.center;
+    radial -= arc.normal * radial.dot(arc.normal);
+    radial = radial.normalizedOr(arc.startDirection);
+    const double parameter = clampedArcParameterForDirection(arc, radial);
+    const math::Point3 point = arc.pointAt(parameter);
+    return CurveClosestPoint{
+        .point = point,
+        .parameter = parameter,
+        .distanceToRay = math::distance(point, ray),
+    };
 }
 
 bool readPosition(const graphics::Mesh& mesh, uint32_t vertexIndex, math::Point3& out) {
@@ -504,6 +627,139 @@ void appendMeshPickCandidates(const math::Ray3& ray, const graphics::Mesh& mesh,
 void appendGeometryAssetPickCandidates(const math::Ray3& ray, const asset::Asset& asset,
                                        const math::Mat4& worldTransform, double lineToleranceWorld,
                                        std::vector<MeshPickResult>& out) {
+    if (const auto* curve = dynamic_cast<const asset::CurveAsset*>(&asset)) {
+        const double tolerance = std::max(0.0, lineToleranceWorld);
+        const double toleranceSq = tolerance * tolerance;
+        const auto& elements = curve->elements();
+        for (size_t elementIndex = 0; elementIndex < elements.size(); ++elementIndex) {
+            const asset::CurveElement& element = elements[elementIndex];
+            std::visit(
+                    Overloaded{
+                            [&](const asset::CurveSegmentPrimitive& segment) {
+                                const math::Segment3 worldSegment = segment.segment.transformed(worldTransform);
+                                const RaySegmentClosest closest = closestRaySegment(ray, worldSegment);
+                                if (closest.distanceSq > toleranceSq) {
+                                    return;
+                                }
+
+                                out.push_back(MeshPickResult{
+                                        .tested = true,
+                                        .distance = closest.rayT,
+                                        .kind = RenderScene::PickHitKind::Edge,
+                                        .worldPoint = closest.segmentPoint,
+                                        .hasWorldPoint = true,
+                                        .worldNormal = worldSegment.direction().normalizedOr(math::Vec3::unitX()),
+                                        .hasWorldNormal = true,
+                                        .primitiveIndex = static_cast<uint32_t>(elementIndex),
+                                        .hasPrimitiveIndex = true,
+                                        .parameter = closest.segmentT,
+                                        .toleranceWorld = tolerance,
+                                        .edgeStart = worldSegment.start,
+                                        .edgeEnd = worldSegment.end,
+                                        .hasEdgeSegment = true,
+                                });
+                            },
+                            [&](const asset::CurvePolylinePrimitive& polyline) {
+                                const math::Polyline3 worldPolyline = polyline.polyline.transformed(worldTransform);
+                                for (size_t segmentIndex = 0; segmentIndex < worldPolyline.segmentCount();
+                                     ++segmentIndex) {
+                                    const math::Segment3 worldSegment = worldPolyline.segmentAt(segmentIndex);
+                                    const RaySegmentClosest closest = closestRaySegment(ray, worldSegment);
+                                    if (closest.distanceSq > toleranceSq) {
+                                        continue;
+                                    }
+
+                                    out.push_back(MeshPickResult{
+                                            .tested = true,
+                                            .distance = closest.rayT,
+                                            .kind = RenderScene::PickHitKind::Edge,
+                                            .worldPoint = closest.segmentPoint,
+                                            .hasWorldPoint = true,
+                                            .worldNormal = worldSegment.direction().normalizedOr(math::Vec3::unitX()),
+                                            .hasWorldNormal = true,
+                                            .primitiveIndex = static_cast<uint32_t>(elementIndex),
+                                            .hasPrimitiveIndex = true,
+                                            .parameter = static_cast<double>(segmentIndex) + closest.segmentT,
+                                            .toleranceWorld = tolerance,
+                                            .edgeStart = worldSegment.start,
+                                            .edgeEnd = worldSegment.end,
+                                            .hasEdgeSegment = true,
+                                    });
+                                }
+                            },
+                            [&](const asset::CurveCirclePrimitive& circlePrimitive) {
+                                const math::Circle3 circle = transformCircle(circlePrimitive.circle, worldTransform);
+                                const auto closest = closestCirclePointToRay(ray, circle);
+                                const bool nearCurve = closest && closest->distanceToRay <= tolerance;
+                                const bool nearCenter = math::distance(circle.center, ray) <= tolerance;
+                                if (!nearCurve && !nearCenter) {
+                                    return;
+                                }
+
+                                const math::Point3 nearest = closest ? closest->point : circle.center;
+                                out.push_back(MeshPickResult{
+                                        .tested = true,
+                                        .distance = (nearest - ray.origin).dot(ray.direction),
+                                        .kind = RenderScene::PickHitKind::Curve,
+                                        .worldPoint = nearest,
+                                        .hasWorldPoint = true,
+                                        .worldNormal = circle.normal,
+                                        .hasWorldNormal = true,
+                                        .primitiveIndex = static_cast<uint32_t>(elementIndex),
+                                        .hasPrimitiveIndex = true,
+                                        .parameter = closest ? closest->parameter : 0.0,
+                                        .toleranceWorld = tolerance,
+                                        .curveCenter = circle.center,
+                                        .curveNormal = circle.normal,
+                                        .curveRadius = circle.radius,
+                                        .hasCurveCircle = true,
+                                        .curveMidpoint = math::pointOnCircle(circle, math::Angle::halfTurn()),
+                                        .hasCurveMidpoint = true,
+                                        .curveClosed = true,
+                                });
+                            },
+                            [&](const asset::CurveArcPrimitive& arcPrimitive) {
+                                const math::Arc3 arc = transformArc(arcPrimitive.arc, worldTransform);
+                                const auto closest = closestArcPointToRay(ray, arc);
+                                const bool nearCurve = closest && closest->distanceToRay <= tolerance;
+                                const bool nearCenter = math::distance(arc.center, ray) <= tolerance;
+                                if (!nearCurve && !nearCenter) {
+                                    return;
+                                }
+
+                                const math::Point3 nearest = closest ? closest->point : arc.center;
+                                out.push_back(MeshPickResult{
+                                        .tested = true,
+                                        .distance = (nearest - ray.origin).dot(ray.direction),
+                                        .kind = RenderScene::PickHitKind::Curve,
+                                        .worldPoint = nearest,
+                                        .hasWorldPoint = true,
+                                        .worldNormal = arc.normal,
+                                        .hasWorldNormal = true,
+                                        .primitiveIndex = static_cast<uint32_t>(elementIndex),
+                                        .hasPrimitiveIndex = true,
+                                        .parameter = closest ? closest->parameter : 0.0,
+                                        .toleranceWorld = tolerance,
+                                        .curveCenter = arc.center,
+                                        .curveNormal = arc.normal,
+                                        .curveRadius = arc.radius,
+                                        .hasCurveCircle = true,
+                                        .curveStart = arc.pointAt(0.0),
+                                        .curveEnd = arc.pointAt(1.0),
+                                        .curveMidpoint = arc.pointAt(0.5),
+                                        .hasCurveEndpoints = true,
+                                        .hasCurveMidpoint = true,
+                                        .curveStartDirection = arc.startDirection,
+                                        .curveSweepRadians = arc.sweep.radians(),
+                                        .hasCurveRange = true,
+                                });
+                            },
+                    },
+                    element.primitive.data());
+        }
+        return;
+    }
+
     const auto* geometry = dynamic_cast<const asset::GeometryAsset*>(&asset);
     if (!geometry) {
         return;
@@ -545,6 +801,19 @@ RenderScene::PickResult pickResultFromMeshHit(scene::EntityId id, const ScenePro
         .edgeStart = meshHit.edgeStart,
         .edgeEnd = meshHit.edgeEnd,
         .hasEdgeSegment = meshHit.hasEdgeSegment,
+        .curveCenter = meshHit.curveCenter,
+        .curveNormal = meshHit.curveNormal,
+        .curveRadius = meshHit.curveRadius,
+        .hasCurveCircle = meshHit.hasCurveCircle,
+        .curveStart = meshHit.curveStart,
+        .curveEnd = meshHit.curveEnd,
+        .curveMidpoint = meshHit.curveMidpoint,
+        .hasCurveEndpoints = meshHit.hasCurveEndpoints,
+        .hasCurveMidpoint = meshHit.hasCurveMidpoint,
+        .curveClosed = meshHit.curveClosed,
+        .curveStartDirection = meshHit.curveStartDirection,
+        .curveSweepRadians = meshHit.curveSweepRadians,
+        .hasCurveRange = meshHit.hasCurveRange,
         .barycentric = meshHit.barycentric,
         .hasBarycentric = meshHit.hasBarycentric,
     };
@@ -763,6 +1032,19 @@ std::optional<RenderScene::PickResult> RenderScene::pick(const math::Ray3& ray, 
                     candidate.edgeStart = meshHit.edgeStart;
                     candidate.edgeEnd = meshHit.edgeEnd;
                     candidate.hasEdgeSegment = meshHit.hasEdgeSegment;
+                    candidate.curveCenter = meshHit.curveCenter;
+                    candidate.curveNormal = meshHit.curveNormal;
+                    candidate.curveRadius = meshHit.curveRadius;
+                    candidate.hasCurveCircle = meshHit.hasCurveCircle;
+                    candidate.curveStart = meshHit.curveStart;
+                    candidate.curveEnd = meshHit.curveEnd;
+                    candidate.curveMidpoint = meshHit.curveMidpoint;
+                    candidate.hasCurveEndpoints = meshHit.hasCurveEndpoints;
+                    candidate.hasCurveMidpoint = meshHit.hasCurveMidpoint;
+                    candidate.curveClosed = meshHit.curveClosed;
+                    candidate.curveStartDirection = meshHit.curveStartDirection;
+                    candidate.curveSweepRadians = meshHit.curveSweepRadians;
+                    candidate.hasCurveRange = meshHit.hasCurveRange;
                     candidate.barycentric = meshHit.barycentric;
                     candidate.hasBarycentric = meshHit.hasBarycentric;
                 }

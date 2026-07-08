@@ -46,6 +46,8 @@ enum class EditorSnapKind {
     WorkPlane,
     Vertex,
     Midpoint,
+    Center,
+    Tangent,
     Edge,
     Face,
     Curve,
@@ -126,7 +128,10 @@ struct EditorSnapSettings {
     bool enableGeometrySnap = true;
     bool enableEndpointSnap = true;
     bool enableMidpointSnap = true;
+    bool enableCenterSnap = true;
+    bool enableTangentSnap = true;
     bool enableEdgeNearestSnap = true;
+    bool enableCurveNearestSnap = true;
     bool enableFacePointSnap = true;
     bool enableGridSnap = false;
     bool enableAxisConstraint = true;
