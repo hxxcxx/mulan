@@ -23,6 +23,8 @@ add_executable(${PROJECT_NAME}
     editor/editor_grip_provider.cpp
     editor/editor_scene_snap_provider.h
     editor/editor_scene_snap_provider.cpp
+    editor/editor_selection.h
+    editor/editor_selection.cpp
     editor/editor_snap_collector.h
     editor/editor_snap_collector.cpp
     editor/editor_snap_resolver.h

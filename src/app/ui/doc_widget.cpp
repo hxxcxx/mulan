@@ -110,7 +110,7 @@ void DocWidget::mouseMoveEvent(QMouseEvent* e) {
         if (!document_view_.viewContext().hasHoveredViewCubeFace()) {
             updateHoverAtFramebuffer(framebufferPosition(e->pos()));
         } else {
-            document_view_.viewContext().clearHoveredPickId();
+            document_view_.editorSession().clearHover();
         }
     }
     requestFrame();
@@ -142,7 +142,7 @@ void DocWidget::keyReleaseEvent(QKeyEvent* e) {
 
 void DocWidget::leaveEvent(QEvent* e) {
     QWidget::leaveEvent(e);
-    document_view_.editorSession().clearGripHover();
+    document_view_.editorSession().clearHover();
     document_view_.viewContext().clearHoveredPickId();
     document_view_.viewContext().clearViewCubeInteraction();
     requestFrame();

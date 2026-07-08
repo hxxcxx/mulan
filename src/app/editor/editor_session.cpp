@@ -108,6 +108,19 @@ EditorPickHit toEditorPickHit(const view::RenderScene::PickResult& pick) {
         .edgeStart = pick.edgeStart,
         .edgeEnd = pick.edgeEnd,
         .hasEdgeSegment = pick.hasEdgeSegment,
+        .curveCenter = pick.curveCenter,
+        .curveNormal = pick.curveNormal,
+        .curveRadius = pick.curveRadius,
+        .hasCurveCircle = pick.hasCurveCircle,
+        .curveStart = pick.curveStart,
+        .curveEnd = pick.curveEnd,
+        .curveMidpoint = pick.curveMidpoint,
+        .hasCurveEndpoints = pick.hasCurveEndpoints,
+        .hasCurveMidpoint = pick.hasCurveMidpoint,
+        .curveClosed = pick.curveClosed,
+        .curveStartDirection = pick.curveStartDirection,
+        .curveSweepRadians = pick.curveSweepRadians,
+        .hasCurveRange = pick.hasCurveRange,
         .barycentric = pick.barycentric,
         .hasBarycentric = pick.hasBarycentric,
     };
@@ -132,6 +145,7 @@ void EditorSession::bind(DocumentSession* session, view::ViewContext* view, Docu
 void EditorSession::unbind() {
     cancelActiveTool();
     clearGrips();
+    selection_context_.clear();
     session_ = nullptr;
     view_ = nullptr;
     binding_ = nullptr;
@@ -185,7 +199,7 @@ void EditorSession::refreshGrips() {
         return;
     }
 
-    grips_ = grip_provider_.build(*session_->document());
+    grips_ = grip_provider_.build(*session_->document(), selection_context_);
     if (hovered_grip_ && !gripById(*hovered_grip_)) {
         hovered_grip_.reset();
     }
@@ -224,6 +238,75 @@ void EditorSession::clearGripHover() {
     rebuildGripPreview();
 }
 
+bool EditorSession::updateHoverAtFramebuffer(double screenX, double screenY) {
+    if (!isReady()) {
+        clearHover();
+        return false;
+    }
+
+    if (updateGripHoverAtFramebuffer(screenX, screenY)) {
+        selection_context_.clearHover();
+        if (view_) {
+            view_->clearHoveredPickId();
+        }
+        return true;
+    }
+
+    if (tool_controller_.hasActiveTool()) {
+        clearHover();
+        return false;
+    }
+
+    const std::optional<EditorSelectionHit> hit = selectionHitAtFramebuffer(screenX, screenY);
+    selection_context_.setHovered(hit);
+    if (view_) {
+        if (hit) {
+            view_->setHoveredPickId(hit->reference.pickId);
+        } else {
+            view_->clearHoveredPickId();
+        }
+    }
+    return hit.has_value();
+}
+
+void EditorSession::selectAtFramebuffer(double screenX, double screenY) {
+    if (!isReady() || !binding_) {
+        return;
+    }
+
+    const std::optional<EditorSelectionHit> hit = selectionHitAtFramebuffer(screenX, screenY);
+    if (hit) {
+        selection_context_.selectSingle(*hit);
+        selection_context_.setHovered(hit);
+        if (view_) {
+            view_->setHoveredPickId(hit->reference.pickId);
+        }
+        binding_->selectSingle(hit->reference.entity);
+    } else {
+        selection_context_.clearSelection();
+        selection_context_.clearHover();
+        if (view_) {
+            view_->clearHoveredPickId();
+        }
+        binding_->clearSelection();
+    }
+    refreshGrips();
+}
+
+void EditorSession::clearHover() {
+    clearGripHover();
+    selection_context_.clearHover();
+    if (view_) {
+        view_->clearHoveredPickId();
+    }
+}
+
+void EditorSession::setSelectionFilter(EditorSelectionFilter filter) {
+    selection_context_.setFilter(filter);
+    selection_context_.clearHover();
+    refreshGrips();
+}
+
 void EditorSession::setWorkPlane(engine::WorkPlane plane) {
     input_resolver_.setWorkPlane(std::move(plane));
 }
@@ -248,14 +331,31 @@ EditorInput EditorSession::makeEditorInput(const engine::InputEvent& event) cons
 
     if (binding_ && hasCursorPosition(event)) {
         context.pickTested = true;
-        if (const auto pick = binding_->pickEntityAt(view_->camera(), static_cast<double>(event.x),
-                                                     static_cast<double>(event.y))) {
+        if (const auto pick =
+                    binding_->pickAt(view_->camera(), static_cast<double>(event.x), static_cast<double>(event.y))) {
             context.pickHit = toEditorPickHit(*pick);
         }
         context.renderScene = binding_->renderScene();
     }
 
     return input_resolver_.resolve(event, context);
+}
+
+std::optional<EditorSelectionHit> EditorSession::selectionHitAtFramebuffer(double screenX, double screenY) const {
+    if (!isReady() || !binding_ || !view_ || !session_ || !session_->document()) {
+        return std::nullopt;
+    }
+
+    const auto pick = binding_->pickAt(view_->camera(), screenX, screenY);
+    if (!pick) {
+        return std::nullopt;
+    }
+
+    EditorPickHit editorPick = toEditorPickHit(*pick);
+    if (!editorPick.valid()) {
+        return std::nullopt;
+    }
+    return makeEditorSelectionHit(editorPick, *session_->document());
 }
 
 void EditorSession::updateSnapPreview(const EditorInput& input) {

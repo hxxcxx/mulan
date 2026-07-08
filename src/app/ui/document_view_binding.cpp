@@ -84,8 +84,8 @@ const mulan::view::RenderScene* DocumentViewBinding::renderScene() const {
     return &render_cache_->renderScene;
 }
 
-std::optional<mulan::view::RenderScene::PickResult> DocumentViewBinding::pickEntityAt(
-        const mulan::engine::Camera& camera, double x, double y) {
+std::optional<mulan::view::RenderScene::PickResult> DocumentViewBinding::pickAt(const mulan::engine::Camera& camera,
+                                                                                double x, double y) {
     if (!isBound()) {
         return std::nullopt;
     }

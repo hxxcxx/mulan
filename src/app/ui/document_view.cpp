@@ -72,38 +72,9 @@ bool DocumentView::handleInput(const mulan::engine::InputEvent& event) {
 }
 
 void DocumentView::updateHoverAtFramebuffer(double x, double y) {
-    if (!binding_.isBound()) {
-        view_context_.clearHoveredPickId();
-        editor_session_.clearGripHover();
-        return;
-    }
-
-    if (editor_session_.updateGripHoverAtFramebuffer(x, y)) {
-        view_context_.clearHoveredPickId();
-        return;
-    }
-
-    const auto hit = binding_.pickEntityAt(view_context_.camera(), x, y);
-    if (hit) {
-        view_context_.setHoveredPickId(hit->pickId);
-    } else {
-        view_context_.clearHoveredPickId();
-    }
+    editor_session_.updateHoverAtFramebuffer(x, y);
 }
 
 void DocumentView::selectAtFramebuffer(double x, double y) {
-    if (!binding_.isBound()) {
-        return;
-    }
-
-    const auto hit = binding_.pickEntityAt(view_context_.camera(), x, y);
-    if (hit) {
-        view_context_.setHoveredPickId(hit->pickId);
-        binding_.selectSingle(hit->entity);
-        editor_session_.refreshGrips();
-    } else {
-        view_context_.clearHoveredPickId();
-        binding_.clearSelection();
-        editor_session_.refreshGrips();
-    }
+    editor_session_.selectAtFramebuffer(x, y);
 }

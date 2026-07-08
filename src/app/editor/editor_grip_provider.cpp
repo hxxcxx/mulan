@@ -7,21 +7,28 @@
 #include <mulan/scene/components/transform_component.h>
 #include <mulan/scene/scene.h>
 
+#include <algorithm>
+#include <optional>
 #include <utility>
 #include <variant>
 
 namespace mulan::app {
 namespace {
 
-struct GripBuildContext {
+struct CurveGripBuildContext {
     std::vector<EditorGrip>& grips;
     scene::EntityId entity = scene::EntityId::invalid();
     math::Mat4 localToWorld = math::Mat4(1.0);
     math::Mat4 worldToLocal = math::Mat4(1.0);
-    uint64_t nextId = 1;
+    uint64_t& nextId;
 };
 
-EditorGrip makeGrip(GripBuildContext& context, const asset::CurveElement& element, EditorGripKind kind,
+struct EmittedCurveElement {
+    scene::EntityId entity = scene::EntityId::invalid();
+    asset::CurveElementId element = asset::CurveElementId::invalid();
+};
+
+EditorGrip makeGrip(CurveGripBuildContext& context, const asset::CurveElement& element, EditorGripKind kind,
                     EditorGripAction action, const math::Point3& localPosition) {
     EditorGrip grip;
     grip.id = EditorGripId{ context.nextId++ };
@@ -38,7 +45,8 @@ EditorGrip makeGrip(GripBuildContext& context, const asset::CurveElement& elemen
     return grip;
 }
 
-void addSegmentGrips(GripBuildContext& context, const asset::CurveElement& element, const math::Segment3& segment) {
+void addSegmentGrips(CurveGripBuildContext& context, const asset::CurveElement& element,
+                     const math::Segment3& segment) {
     EditorGrip start = makeGrip(context, element, EditorGripKind::Vertex, EditorGripAction::MoveVertex, segment.start);
     start.vertexIndex = 0;
     context.grips.push_back(std::move(start));
@@ -52,7 +60,8 @@ void addSegmentGrips(GripBuildContext& context, const asset::CurveElement& eleme
     context.grips.push_back(std::move(midpoint));
 }
 
-void addPolylineGrips(GripBuildContext& context, const asset::CurveElement& element, const math::Polyline3& polyline) {
+void addPolylineGrips(CurveGripBuildContext& context, const asset::CurveElement& element,
+                      const math::Polyline3& polyline) {
     for (size_t i = 0; i < polyline.points.size(); ++i) {
         EditorGrip vertex =
                 makeGrip(context, element, EditorGripKind::Vertex, EditorGripAction::MoveVertex, polyline.points[i]);
@@ -69,7 +78,7 @@ void addPolylineGrips(GripBuildContext& context, const asset::CurveElement& elem
     }
 }
 
-void addCircleGrips(GripBuildContext& context, const asset::CurveElement& element, const math::Circle3& circle) {
+void addCircleGrips(CurveGripBuildContext& context, const asset::CurveElement& element, const math::Circle3& circle) {
     EditorGrip center =
             makeGrip(context, element, EditorGripKind::Center, EditorGripAction::MovePrimitive, circle.center);
     context.grips.push_back(std::move(center));
@@ -85,7 +94,7 @@ void addCircleGrips(GripBuildContext& context, const asset::CurveElement& elemen
     }
 }
 
-void addArcGrips(GripBuildContext& context, const asset::CurveElement& element, const math::Arc3& arc) {
+void addArcGrips(CurveGripBuildContext& context, const asset::CurveElement& element, const math::Arc3& arc) {
     if (!arc.valid() || arc.sweep == math::Angle::zero()) {
         return;
     }
@@ -107,7 +116,7 @@ void addArcGrips(GripBuildContext& context, const asset::CurveElement& element, 
     context.grips.push_back(std::move(radius));
 }
 
-void addCurveElementGrips(GripBuildContext& context, const asset::CurveElement& element) {
+void addCurveElementGrips(CurveGripBuildContext& context, const asset::CurveElement& element) {
     const auto& data = element.primitive.data();
     if (const auto* segment = std::get_if<asset::CurveSegmentPrimitive>(&data)) {
         addSegmentGrips(context, element, segment->segment);
@@ -127,7 +136,7 @@ void addCurveElementGrips(GripBuildContext& context, const asset::CurveElement& 
     }
 }
 
-const asset::CurveAsset* selectedCurveAsset(const io::Document& document, scene::EntityId entity) {
+const asset::CurveAsset* curveAssetForEntity(const io::Document& document, scene::EntityId entity) {
     const scene::Scene* scene = document.scene();
     const asset::AssetLibrary* assets = document.assets();
     if (!scene || !assets) {
@@ -149,36 +158,121 @@ math::Mat4 entityWorldTransform(const scene::Scene& scene, scene::EntityId entit
     return math::Mat4(1.0);
 }
 
-}  // namespace
-
-std::vector<EditorGrip> EditorGripProvider::build(const io::Document& document) const {
-    std::vector<EditorGrip> grips;
-    const scene::Scene* scene = document.scene();
-    if (!scene) {
-        return grips;
+const asset::CurveElement* findCurveElement(const asset::CurveAsset& curve, asset::CurveElementId id) {
+    if (!id.valid()) {
+        return nullptr;
     }
 
-    GripBuildContext context{ .grips = grips };
-    scene->forEachEntity([&](scene::EntityId entity) {
-        const auto* selection = scene->selection(entity);
-        if (!selection || !selection->selected) {
-            return;
-        }
+    const auto& elements = curve.elements();
+    const auto it = std::find_if(elements.begin(), elements.end(),
+                                 [id](const asset::CurveElement& element) { return element.id == id; });
+    return it != elements.end() ? &*it : nullptr;
+}
 
-        const asset::CurveAsset* curve = selectedCurveAsset(document, entity);
-        if (!curve) {
-            return;
-        }
-
-        context.entity = entity;
-        context.localToWorld = entityWorldTransform(*scene, entity);
-        context.worldToLocal = context.localToWorld.inverse();
-
-        for (const asset::CurveElement& element : curve->elements()) {
-            addCurveElementGrips(context, element);
-        }
+bool alreadyEmitted(std::span<const EmittedCurveElement> emitted, scene::EntityId entity,
+                    asset::CurveElementId element) {
+    return std::any_of(emitted.begin(), emitted.end(), [entity, element](const EmittedCurveElement& item) {
+        return item.entity == entity && item.element == element;
     });
+}
 
+class CurveGripSource final : public EditorGripSource {
+public:
+    void build(const EditorGripBuildContext& context, std::vector<EditorGrip>& out) const override {
+        const scene::Scene* scene = context.document.scene();
+        if (!scene) {
+            return;
+        }
+
+        std::vector<EmittedCurveElement> emitted;
+        auto addEntity = [&](scene::EntityId entity, std::optional<asset::CurveElementId> selectedElement) {
+            const asset::CurveAsset* curve = curveAssetForEntity(context.document, entity);
+            if (!curve) {
+                return;
+            }
+
+            CurveGripBuildContext curveContext{
+                .grips = out,
+                .entity = entity,
+                .localToWorld = entityWorldTransform(*scene, entity),
+                .worldToLocal = entityWorldTransform(*scene, entity).inverse(),
+                .nextId = context.nextId,
+            };
+
+            if (selectedElement) {
+                const asset::CurveElement* element = findCurveElement(*curve, *selectedElement);
+                if (!element || alreadyEmitted(emitted, entity, element->id)) {
+                    return;
+                }
+                addCurveElementGrips(curveContext, *element);
+                emitted.push_back(EmittedCurveElement{ .entity = entity, .element = element->id });
+                return;
+            }
+
+            for (const asset::CurveElement& element : curve->elements()) {
+                if (alreadyEmitted(emitted, entity, element.id)) {
+                    continue;
+                }
+                addCurveElementGrips(curveContext, element);
+                emitted.push_back(EmittedCurveElement{ .entity = entity, .element = element.id });
+            }
+        };
+
+        for (const EditorSelectionReference& selected : context.selection.selected()) {
+            if (!selected.valid()) {
+                continue;
+            }
+
+            if (selected.domain == EditorSelectionDomain::Curve && selected.curveElement.valid()) {
+                addEntity(selected.entity, selected.curveElement);
+                continue;
+            }
+
+            if (selected.domain == EditorSelectionDomain::Entity || selected.wholeEntity()) {
+                addEntity(selected.entity, std::nullopt);
+            }
+        }
+
+        if (!context.selection.empty()) {
+            return;
+        }
+
+        scene->forEachEntity([&](scene::EntityId entity) {
+            const auto* selection = scene->selection(entity);
+            if (selection && selection->selected) {
+                addEntity(entity, std::nullopt);
+            }
+        });
+    }
+};
+
+}  // namespace
+
+EditorGripProvider::EditorGripProvider() {
+    addSource(std::make_unique<CurveGripSource>());
+}
+
+EditorGripProvider::~EditorGripProvider() = default;
+
+void EditorGripProvider::addSource(std::unique_ptr<EditorGripSource> source) {
+    if (source) {
+        sources_.push_back(std::move(source));
+    }
+}
+
+std::vector<EditorGrip> EditorGripProvider::build(const io::Document& document,
+                                                  const EditorSelectionContext& selection) const {
+    std::vector<EditorGrip> grips;
+    uint64_t nextId = 1;
+    EditorGripBuildContext context{
+        .document = document,
+        .selection = selection,
+        .nextId = nextId,
+    };
+
+    for (const std::unique_ptr<EditorGripSource>& source : sources_) {
+        source->build(context, grips);
+    }
     return grips;
 }
 
