@@ -91,53 +91,47 @@ bool DocumentOperationExecutor::execute(DocumentOperation operation) {
     }
 
     if (result.undoOperation) {
-        undo_stack_.push_back(HistoryEntry{ std::move(redoOperation), std::move(*result.undoOperation) });
-        redo_stack_.clear();
+        history_.record(std::move(redoOperation), std::move(*result.undoOperation));
     }
     return refreshAfterChange(true);
 }
 
 bool DocumentOperationExecutor::undo() {
-    if (undo_stack_.empty()) {
+    std::optional<CommandHistory::Entry> entry = history_.takeUndo();
+    if (!entry) {
         return false;
     }
 
-    HistoryEntry entry = std::move(undo_stack_.back());
-    undo_stack_.pop_back();
-
-    if (!applyWithoutRecording(entry.undoOperation)) {
-        undo_stack_.push_back(std::move(entry));
+    if (!applyWithoutRecording(entry->undoOperation)) {
+        history_.restoreUndo(std::move(*entry));
         return false;
     }
 
-    redo_stack_.push_back(std::move(entry));
+    history_.pushRedo(std::move(*entry));
     return refreshAfterChange(true);
 }
 
 bool DocumentOperationExecutor::redo() {
-    if (redo_stack_.empty()) {
+    std::optional<CommandHistory::Entry> entry = history_.takeRedo();
+    if (!entry) {
         return false;
     }
 
-    HistoryEntry entry = std::move(redo_stack_.back());
-    redo_stack_.pop_back();
-
-    ApplyResult result = apply(entry.redoOperation);
+    ApplyResult result = apply(entry->redoOperation);
     if (!result.changed) {
-        redo_stack_.push_back(std::move(entry));
+        history_.restoreRedo(std::move(*entry));
         return false;
     }
     if (result.undoOperation) {
-        entry.undoOperation = std::move(*result.undoOperation);
+        entry->undoOperation = std::move(*result.undoOperation);
     }
 
-    undo_stack_.push_back(std::move(entry));
+    history_.pushUndo(std::move(*entry));
     return refreshAfterChange(true);
 }
 
 void DocumentOperationExecutor::clearHistory() {
-    undo_stack_.clear();
-    redo_stack_.clear();
+    history_.clear();
 }
 
 DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(DocumentOperation operation) const {

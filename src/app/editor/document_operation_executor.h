@@ -6,10 +6,10 @@
  */
 #pragma once
 
+#include "command_history.h"
 #include "document_operation.h"
 
 #include <optional>
-#include <vector>
 
 class DocumentSession;
 class DocumentViewBinding;
@@ -25,16 +25,11 @@ public:
     bool execute(DocumentOperation operation);
     bool undo();
     bool redo();
-    bool canUndo() const { return !undo_stack_.empty(); }
-    bool canRedo() const { return !redo_stack_.empty(); }
+    bool canUndo() const { return history_.canUndo(); }
+    bool canRedo() const { return history_.canRedo(); }
     void clearHistory();
 
 private:
-    struct HistoryEntry {
-        DocumentOperation redoOperation;
-        DocumentOperation undoOperation;
-    };
-
     struct ApplyResult {
         bool changed = false;
         std::optional<DocumentOperation> undoOperation;
@@ -46,8 +41,7 @@ private:
 
     DocumentSession* session_ = nullptr;
     DocumentViewBinding* binding_ = nullptr;
-    std::vector<HistoryEntry> undo_stack_;
-    std::vector<HistoryEntry> redo_stack_;
+    CommandHistory history_;
 };
 
 }  // namespace mulan::app

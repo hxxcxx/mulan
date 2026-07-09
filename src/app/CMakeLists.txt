@@ -6,6 +6,7 @@ set(MULAN_APP_SOURCES
     main.cpp
     command/command_manager.cpp
     command/builtin_commands.cpp
+    editor/command_history.cpp
     editor/document_operation.cpp
     editor/document_operation_executor.cpp
     editor/control_polygon_builder.cpp
