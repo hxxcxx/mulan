@@ -140,9 +140,9 @@ void EditorSession::bind(DocumentSession* session, view::ViewContext* view, Docu
     view_ = view;
     binding_ = binding;
     pick_service_.bind(session_, view_, binding_);
-    preview_controller_.bind(view_);
+    overlay_service_.bind(view_);
     operation_executor_.bind(session_, binding_);
-    grip_controller_.bind(session_, view_, &preview_controller_);
+    grip_controller_.bind(session_, view_, &overlay_service_);
     refreshGrips();
     syncSelectionVisualState();
 }
@@ -156,7 +156,7 @@ void EditorSession::unbind() {
     }
     grip_controller_.unbind();
     pick_service_.unbind();
-    preview_controller_.unbind();
+    overlay_service_.unbind();
     operation_executor_.unbind();
     session_ = nullptr;
     view_ = nullptr;
@@ -168,7 +168,7 @@ bool EditorSession::isReady() const {
 }
 
 void EditorSession::startTool(std::unique_ptr<EditorTool> tool) {
-    preview_controller_.clearSnapGeometry();
+    overlay_service_.clear(EditorOverlayRole::Snap);
     clearGrips();
     applyAction(tool_controller_.start(std::move(tool)));
 }
@@ -244,7 +244,7 @@ bool EditorSession::handleInput(const engine::InputEvent& event) {
     const ToolLifecycle lifecycle = action.lifecycle();
     const bool consumed = applyAction(std::move(action));
     if (lifecycle != ToolLifecycle::Running && view_) {
-        preview_controller_.clearSnapGeometry();
+        overlay_service_.clear(EditorOverlayRole::Snap);
         refreshGrips();
     }
     return consumed;
@@ -252,7 +252,7 @@ bool EditorSession::handleInput(const engine::InputEvent& event) {
 
 void EditorSession::cancelActiveTool() {
     applyAction(tool_controller_.cancel());
-    preview_controller_.clearAll();
+    overlay_service_.clearAll();
     refreshGrips();
 }
 
@@ -385,7 +385,7 @@ EditorInput EditorSession::makeEditorInput(const engine::InputEvent& event) cons
 }
 
 void EditorSession::updateSnapPreview(const EditorInput& input) {
-    preview_controller_.setSnapGeometry(SnapMarkerBuilder::build(input));
+    overlay_service_.submit(EditorOverlaySubmission(EditorOverlayRole::Snap, SnapMarkerBuilder::build(input)));
 }
 
 void EditorSession::syncSelectionVisualState() {
@@ -417,7 +417,7 @@ bool EditorSession::tryStartGripDrag(const engine::InputEvent& event) {
 
     const math::Point3 dragStart = grip->worldPosition;
     clearGrips();
-    preview_controller_.clearSnapGeometry();
+    overlay_service_.clear(EditorOverlayRole::Snap);
 
     applyAction(tool_controller_.start(std::make_unique<GripDragTool>(*grip, dragStart)));
     return true;
@@ -427,11 +427,11 @@ bool EditorSession::applyAction(EditorAction action) {
     const bool consumed = action.isConsumed();
 
     if (action.shouldClearPreview()) {
-        preview_controller_.clearToolGeometry();
+        overlay_service_.clear(EditorOverlayRole::Tool);
     }
 
     if (action.preview()) {
-        preview_controller_.setToolGeometry(std::move(*action.preview()));
+        overlay_service_.submit(EditorOverlaySubmission(EditorOverlayRole::Tool, std::move(*action.preview())));
     }
 
     if (action.operation()) {

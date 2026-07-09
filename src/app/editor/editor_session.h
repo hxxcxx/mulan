@@ -9,8 +9,8 @@
 #include "editor_input.h"
 #include "editor_input_resolver.h"
 #include "editor_grip_controller.h"
+#include "editor_overlay_service.h"
 #include "editor_pick_service.h"
-#include "editor_preview_controller.h"
 #include "editor_selection.h"
 #include "editor_tool.h"
 #include "document_operation_executor.h"
@@ -78,7 +78,7 @@ private:
     DocumentViewBinding* binding_ = nullptr;
     EditorInputResolver input_resolver_;
     EditorPickService pick_service_;
-    EditorPreviewController preview_controller_;
+    EditorOverlayService overlay_service_;
     DocumentOperationExecutor operation_executor_;
     EditorGripController grip_controller_;
     EditorSelectionContext selection_context_;

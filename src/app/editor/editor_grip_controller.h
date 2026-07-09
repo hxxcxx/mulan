@@ -21,11 +21,11 @@ class ViewContext;
 
 namespace mulan::app {
 
-class EditorPreviewController;
+class EditorOverlayService;
 
 class EditorGripController {
 public:
-    void bind(DocumentSession* session, view::ViewContext* view, EditorPreviewController* preview);
+    void bind(DocumentSession* session, view::ViewContext* view, EditorOverlayService* overlays);
     void unbind();
 
     void refresh(const EditorSelectionContext& selection, bool enabled);
@@ -41,7 +41,7 @@ private:
 
     DocumentSession* session_ = nullptr;
     view::ViewContext* view_ = nullptr;
-    EditorPreviewController* preview_ = nullptr;
+    EditorOverlayService* overlays_ = nullptr;
     EditorGripProvider provider_;
     std::vector<EditorGrip> grips_;
     std::optional<EditorGripId> hovered_;

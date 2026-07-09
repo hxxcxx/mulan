@@ -1,6 +1,6 @@
 #include "editor_grip_controller.h"
 
-#include "editor_preview_controller.h"
+#include "editor_overlay_service.h"
 #include "grip_marker_builder.h"
 #include "ui/document_session.h"
 
@@ -41,17 +41,17 @@ std::optional<ScreenPoint> projectToScreen(const engine::Camera& camera, const m
 
 }  // namespace
 
-void EditorGripController::bind(DocumentSession* session, view::ViewContext* view, EditorPreviewController* preview) {
+void EditorGripController::bind(DocumentSession* session, view::ViewContext* view, EditorOverlayService* overlays) {
     session_ = session;
     view_ = view;
-    preview_ = preview;
+    overlays_ = overlays;
 }
 
 void EditorGripController::unbind() {
     clear();
     session_ = nullptr;
     view_ = nullptr;
-    preview_ = nullptr;
+    overlays_ = nullptr;
 }
 
 void EditorGripController::refresh(const EditorSelectionContext& selection, bool enabled) {
@@ -70,9 +70,9 @@ void EditorGripController::refresh(const EditorSelectionContext& selection, bool
 void EditorGripController::clear() {
     grips_.clear();
     hovered_.reset();
-    if (preview_) {
-        preview_->clearGripGeometry();
-        preview_->clearGripHotGeometry();
+    if (overlays_) {
+        overlays_->clear(EditorOverlayRole::Grip);
+        overlays_->clear(EditorOverlayRole::GripHot);
     }
 }
 
@@ -133,7 +133,7 @@ std::optional<EditorGrip> EditorGripController::pickAtFramebuffer(double screenX
 }
 
 void EditorGripController::rebuildPreview() {
-    if (!preview_ || !view_) {
+    if (!overlays_ || !view_) {
         return;
     }
 
@@ -141,15 +141,15 @@ void EditorGripController::rebuildPreview() {
 
     DraftGeometry gripGeometry = GripMarkerBuilder::build(
             grips_, view_->camera(), hotGrip ? std::optional<EditorGripId>(hotGrip->id) : std::nullopt);
-    preview_->setGripGeometry(std::move(gripGeometry));
+    overlays_->submit(EditorOverlaySubmission(EditorOverlayRole::Grip, std::move(gripGeometry)));
 
     if (!hotGrip) {
-        preview_->clearGripHotGeometry();
+        overlays_->clear(EditorOverlayRole::GripHot);
         return;
     }
 
     DraftGeometry hotGeometry = GripMarkerBuilder::buildHot(*hotGrip, view_->camera());
-    preview_->setGripHotGeometry(std::move(hotGeometry));
+    overlays_->submit(EditorOverlaySubmission(EditorOverlayRole::GripHot, std::move(hotGeometry)));
 }
 
 const EditorGrip* EditorGripController::gripById(EditorGripId id) const {
