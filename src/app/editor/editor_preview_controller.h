@@ -1,0 +1,38 @@
+/**
+ * @file editor_preview_controller.h
+ * @brief EditorPreviewController 统一管理编辑器对视图预览层的写入。
+ * @author hxxcxx
+ * @date 2026-07-09
+ */
+#pragma once
+
+#include "draft_geometry.h"
+
+namespace mulan::view {
+class ViewContext;
+}
+
+namespace mulan::app {
+
+class EditorPreviewController {
+public:
+    void bind(view::ViewContext* view) { view_ = view; }
+    void unbind() { view_ = nullptr; }
+
+    bool isBound() const { return view_ != nullptr; }
+
+    void clearAll();
+    void clearToolGeometry();
+    void setToolGeometry(DraftGeometry geometry);
+    void clearSnapGeometry();
+    void setSnapGeometry(DraftGeometry geometry);
+    void clearGripGeometry();
+    void setGripGeometry(DraftGeometry geometry);
+    void clearGripHotGeometry();
+    void setGripHotGeometry(DraftGeometry geometry);
+
+private:
+    view::ViewContext* view_ = nullptr;
+};
+
+}  // namespace mulan::app

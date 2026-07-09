@@ -7,9 +7,11 @@ set(MULAN_APP_SOURCES
     command/command_manager.cpp
     command/builtin_commands.cpp
     editor/document_operation.cpp
+    editor/document_operation_executor.cpp
     editor/control_polygon_builder.cpp
     editor/draft_geometry.cpp
     editor/editor_action.cpp
+    editor/editor_preview_controller.cpp
     editor/editor_input_resolver.cpp
     editor/editor_grip_provider.cpp
     editor/editor_scene_snap_provider.cpp

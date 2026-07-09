@@ -10,8 +10,10 @@
 #include "editor_input_resolver.h"
 #include "editor_grip.h"
 #include "editor_grip_provider.h"
+#include "editor_preview_controller.h"
 #include "editor_selection.h"
 #include "editor_tool.h"
+#include "document_operation_executor.h"
 #include "tool_controller.h"
 
 #include <mulan/engine/interaction/input_event.h>
@@ -68,12 +70,13 @@ private:
     std::optional<EditorGrip> pickGripAt(double screenX, double screenY) const;
     const EditorGrip* gripById(EditorGripId id) const;
     bool applyAction(EditorAction action);
-    bool applyOperation(DocumentOperation operation);
 
     DocumentSession* session_ = nullptr;
     view::ViewContext* view_ = nullptr;
     DocumentViewBinding* binding_ = nullptr;
     EditorInputResolver input_resolver_;
+    EditorPreviewController preview_controller_;
+    DocumentOperationExecutor operation_executor_;
     EditorGripProvider grip_provider_;
     EditorSelectionContext selection_context_;
     ToolController tool_controller_;

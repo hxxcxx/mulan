@@ -13,10 +13,7 @@
 #include "ui/document_session.h"
 #include "ui/document_view_binding.h"
 
-#include <mulan/io/document.h>
-#include <mulan/io/document_editor.h>
 #include <mulan/math/math.h>
-#include <mulan/view/preview_layer.h>
 #include <mulan/view/view_context.h>
 
 #include <cmath>
@@ -26,14 +23,6 @@
 namespace mulan::app {
 
 namespace {
-
-template <typename... T>
-struct Overloaded : T... {
-    using T::operator()...;
-};
-
-template <typename... T>
-Overloaded(T...) -> Overloaded<T...>;
 
 bool hasCursorPosition(const engine::InputEvent& event) {
     switch (event.type) {
@@ -139,6 +128,8 @@ void EditorSession::bind(DocumentSession* session, view::ViewContext* view, Docu
     session_ = session;
     view_ = view;
     binding_ = binding;
+    preview_controller_.bind(view_);
+    operation_executor_.bind(session_, binding_);
     refreshGrips();
 }
 
@@ -146,6 +137,8 @@ void EditorSession::unbind() {
     cancelActiveTool();
     clearGrips();
     selection_context_.clear();
+    preview_controller_.unbind();
+    operation_executor_.unbind();
     session_ = nullptr;
     view_ = nullptr;
     binding_ = nullptr;
@@ -156,9 +149,7 @@ bool EditorSession::isReady() const {
 }
 
 void EditorSession::startTool(std::unique_ptr<EditorTool> tool) {
-    if (view_) {
-        view_->previewLayer().clearSnapGeometry();
-    }
+    preview_controller_.clearSnapGeometry();
     clearGrips();
     applyAction(tool_controller_.start(std::move(tool)));
 }
@@ -179,7 +170,7 @@ bool EditorSession::handleInput(const engine::InputEvent& event) {
     const ToolLifecycle lifecycle = action.lifecycle();
     const bool consumed = applyAction(std::move(action));
     if (lifecycle != ToolLifecycle::Running && view_) {
-        view_->previewLayer().clearSnapGeometry();
+        preview_controller_.clearSnapGeometry();
         refreshGrips();
     }
     return consumed;
@@ -187,9 +178,7 @@ bool EditorSession::handleInput(const engine::InputEvent& event) {
 
 void EditorSession::cancelActiveTool() {
     applyAction(tool_controller_.cancel());
-    if (view_) {
-        view_->clearPreview();
-    }
+    preview_controller_.clearAll();
     refreshGrips();
 }
 
@@ -209,10 +198,8 @@ void EditorSession::refreshGrips() {
 void EditorSession::clearGrips() {
     grips_.clear();
     hovered_grip_.reset();
-    if (view_) {
-        view_->previewLayer().clearGripGeometry();
-        view_->previewLayer().clearGripHotGeometry();
-    }
+    preview_controller_.clearGripGeometry();
+    preview_controller_.clearGripHotGeometry();
 }
 
 bool EditorSession::updateGripHoverAtFramebuffer(double screenX, double screenY) {
@@ -359,17 +346,7 @@ std::optional<EditorSelectionHit> EditorSession::selectionHitAtFramebuffer(doubl
 }
 
 void EditorSession::updateSnapPreview(const EditorInput& input) {
-    if (!view_) {
-        return;
-    }
-
-    DraftGeometry marker = SnapMarkerBuilder::build(input);
-    if (marker.empty()) {
-        view_->previewLayer().clearSnapGeometry();
-        return;
-    }
-
-    view_->previewLayer().setSnapGeometry(marker.takeCurves(), marker.takeMeshes());
+    preview_controller_.setSnapGeometry(SnapMarkerBuilder::build(input));
 }
 
 void EditorSession::rebuildGripPreview() {
@@ -381,23 +358,15 @@ void EditorSession::rebuildGripPreview() {
 
     DraftGeometry gripGeometry = GripMarkerBuilder::build(
             grips_, view_->camera(), hotGrip ? std::optional<EditorGripId>(hotGrip->id) : std::nullopt);
-    if (gripGeometry.empty()) {
-        view_->previewLayer().clearGripGeometry();
-    } else {
-        view_->previewLayer().setGripGeometry(gripGeometry.takeCurves(), gripGeometry.takeMeshes());
-    }
+    preview_controller_.setGripGeometry(std::move(gripGeometry));
 
     if (!hotGrip) {
-        view_->previewLayer().clearGripHotGeometry();
+        preview_controller_.clearGripHotGeometry();
         return;
     }
 
     DraftGeometry hotGeometry = GripMarkerBuilder::buildHot(*hotGrip, view_->camera());
-    if (hotGeometry.empty()) {
-        view_->previewLayer().clearGripHotGeometry();
-    } else {
-        view_->previewLayer().setGripHotGeometry(hotGeometry.takeCurves(), hotGeometry.takeMeshes());
-    }
+    preview_controller_.setGripHotGeometry(std::move(hotGeometry));
 }
 
 bool EditorSession::tryStartGripDrag(const engine::InputEvent& event) {
@@ -412,9 +381,7 @@ bool EditorSession::tryStartGripDrag(const engine::InputEvent& event) {
 
     const math::Point3 dragStart = grip->worldPosition;
     clearGrips();
-    if (view_) {
-        view_->previewLayer().clearSnapGeometry();
-    }
+    preview_controller_.clearSnapGeometry();
 
     applyAction(tool_controller_.start(std::make_unique<GripDragTool>(*grip, dragStart)));
     return true;
@@ -465,51 +432,19 @@ const EditorGrip* EditorSession::gripById(EditorGripId id) const {
 bool EditorSession::applyAction(EditorAction action) {
     const bool consumed = action.isConsumed();
 
-    if (action.shouldClearPreview() && view_) {
-        view_->previewLayer().clearToolGeometry();
+    if (action.shouldClearPreview()) {
+        preview_controller_.clearToolGeometry();
     }
 
-    if (action.preview() && view_) {
-        view_->previewLayer().setGeometry(action.preview()->takeCurves(), action.preview()->takeMeshes());
+    if (action.preview()) {
+        preview_controller_.setToolGeometry(std::move(*action.preview()));
     }
 
     if (action.operation()) {
-        applyOperation(std::move(*action.operation()));
+        operation_executor_.execute(std::move(*action.operation()));
     }
 
     return consumed;
-}
-
-bool EditorSession::applyOperation(DocumentOperation operation) {
-    if (!session_ || !session_->document()) {
-        return false;
-    }
-
-    io::DocumentEditor editor(*session_->document());
-    bool changed = false;
-    std::visit(Overloaded{
-                       [&editor, &changed](CreateCurveOperation& create) {
-                           changed = static_cast<bool>(
-                                   editor.createCurve(std::move(create.name), std::move(create.primitive)));
-                       },
-                       [&editor, &changed](CreateFaceOperation& create) {
-                           changed =
-                                   static_cast<bool>(editor.createFace(std::move(create.name), std::move(create.face)));
-                       },
-                       [&editor, &changed](CreateMeshOperation& create) {
-                           changed = static_cast<bool>(
-                                   editor.createMesh(std::move(create.name), std::move(create.primitives)));
-                       },
-                       [&editor, &changed](UpdateCurveOperation& update) {
-                           changed = editor.updateCurve(update.entity, update.element, std::move(update.primitive));
-                       },
-               },
-               operation.data());
-
-    if (changed && binding_) {
-        binding_->refresh();
-    }
-    return changed;
 }
 
 }  // namespace mulan::app
