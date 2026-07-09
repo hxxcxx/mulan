@@ -97,9 +97,24 @@ void PreviewLayer::clearGripHotGeometry() {
     rebuildMeshes();
 }
 
+void PreviewLayer::setReferences(std::vector<PreviewReference> references) {
+    references_ = std::move(references);
+    touch();
+}
+
+void PreviewLayer::clearReferences() {
+    if (references_.empty()) {
+        return;
+    }
+
+    references_.clear();
+    touch();
+}
+
 void PreviewLayer::clear() {
     if (tool_curves_.empty() && tool_meshes_.empty() && snap_curves_.empty() && snap_meshes_.empty() &&
-        grip_curves_.empty() && grip_meshes_.empty() && grip_hot_curves_.empty() && grip_hot_meshes_.empty()) {
+        grip_curves_.empty() && grip_meshes_.empty() && grip_hot_curves_.empty() && grip_hot_meshes_.empty() &&
+        references_.empty()) {
         return;
     }
 
@@ -111,12 +126,18 @@ void PreviewLayer::clear() {
     grip_meshes_.clear();
     grip_hot_curves_.clear();
     grip_hot_meshes_.clear();
+    references_.clear();
     rebuildMeshes();
 }
 
 bool PreviewLayer::empty() const {
     for (const PreviewDrawable& drawable : drawables_) {
         if (!drawable.mesh.empty()) {
+            return false;
+        }
+    }
+    for (const PreviewReference& reference : references_) {
+        if (reference.valid()) {
             return false;
         }
     }

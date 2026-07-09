@@ -12,6 +12,8 @@
 
 #include <mulan/asset/curve_asset.h>
 #include <mulan/graphics/mesh.h>
+#include <mulan/math/math.h>
+#include <mulan/scene/entity_id.h>
 
 #include <cstdint>
 #include <vector>
@@ -30,6 +32,16 @@ struct PreviewDrawable {
     PreviewVisualRole role = PreviewVisualRole::Tool;
 };
 
+struct PreviewReference {
+    scene::EntityId entity = scene::EntityId::invalid();
+    math::Mat4 worldTransform{ 1.0 };
+    bool overrideWorldTransform = false;
+    PreviewVisualRole role = PreviewVisualRole::Tool;
+    bool visible = true;
+
+    bool valid() const { return visible && static_cast<bool>(entity); }
+};
+
 class PreviewLayer {
 public:
     void setCurves(std::vector<asset::CurvePrimitive> primitives);
@@ -44,6 +56,8 @@ public:
     void clearGripGeometry();
     void setGripHotGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes);
     void clearGripHotGeometry();
+    void setReferences(std::vector<PreviewReference> references);
+    void clearReferences();
     void clear();
 
     bool empty() const;
@@ -51,6 +65,7 @@ public:
     const graphics::Mesh& mesh() const;
     const std::vector<graphics::Mesh>& meshes() const { return meshes_; }
     const std::vector<PreviewDrawable>& drawables() const { return drawables_; }
+    const std::vector<PreviewReference>& references() const { return references_; }
 
 private:
     void rebuildMeshes();
@@ -66,6 +81,7 @@ private:
     std::vector<graphics::Mesh> grip_hot_meshes_;
     std::vector<graphics::Mesh> meshes_;
     std::vector<PreviewDrawable> drawables_;
+    std::vector<PreviewReference> references_;
     uint64_t generation_ = 1;
 };
 

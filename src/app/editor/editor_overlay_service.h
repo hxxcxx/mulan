@@ -9,7 +9,10 @@
 #include "draft_geometry.h"
 #include "editor_preview_controller.h"
 
+#include <mulan/view/preview_layer.h>
+
 #include <utility>
+#include <vector>
 
 namespace mulan::view {
 class ViewContext;
@@ -32,6 +35,14 @@ struct EditorOverlaySubmission {
     DraftGeometry geometry;
 };
 
+struct EditorOverlayReferenceSubmission {
+    EditorOverlayReferenceSubmission(EditorOverlayRole role_, std::vector<view::PreviewReference> references_)
+        : role(role_), references(std::move(references_)) {}
+
+    EditorOverlayRole role = EditorOverlayRole::Tool;
+    std::vector<view::PreviewReference> references;
+};
+
 class EditorOverlayService {
 public:
     void bind(view::ViewContext* view);
@@ -42,6 +53,7 @@ public:
     void clearAll();
     void clear(EditorOverlayRole role);
     void submit(EditorOverlaySubmission submission);
+    void submit(EditorOverlayReferenceSubmission submission);
 
 private:
     EditorPreviewController preview_;

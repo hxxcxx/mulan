@@ -8,6 +8,10 @@
 
 #include "draft_geometry.h"
 
+#include <mulan/view/preview_layer.h>
+
+#include <vector>
+
 namespace mulan::view {
 class ViewContext;
 }
@@ -24,6 +28,8 @@ public:
     void clearAll();
     void clearToolGeometry();
     void setToolGeometry(DraftGeometry geometry);
+    void clearToolReferences();
+    void setToolReferences(std::vector<view::PreviewReference> references);
     void clearSnapGeometry();
     void setSnapGeometry(DraftGeometry geometry);
     void clearGripGeometry();

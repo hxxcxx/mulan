@@ -8,6 +8,7 @@
 #include "render_scene.h"
 #include "scene_proxy.h"
 
+#include <optional>
 #include <span>
 #include <unordered_map>
 #include <utility>
@@ -140,17 +141,26 @@ engine::RenderMaterialHandle previewMaterialForRole(PreviewVisualRole role, engi
     return toolMaterial;
 }
 
-void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare,
-                   RenderWorldSyncStats& stats) {
-    if (!preview || preview->empty()) {
+std::optional<engine::RenderBucket> overlayBucketForReference(engine::RenderBucket bucket) {
+    switch (bucket) {
+    case engine::RenderBucket::Surface: return engine::RenderBucket::OverlaySurface;
+    case engine::RenderBucket::Edge: return engine::RenderBucket::OverlayEdge;
+    case engine::RenderBucket::OverlaySurface:
+    case engine::RenderBucket::OverlayEdge:
+    case engine::RenderBucket::Gizmo:
+    case engine::RenderBucket::Text: return std::nullopt;
+    }
+    return std::nullopt;
+}
+
+void appendPreviewDrawables(const PreviewLayer& preview, engine::RenderWorld& world,
+                            engine::RenderResourcePrepareList* prepare, RenderWorldSyncStats& stats,
+                            engine::RenderMaterialHandle toolMaterial, engine::RenderMaterialHandle snapMaterial,
+                            engine::RenderMaterialHandle gripMaterial, engine::RenderMaterialHandle gripHotMaterial) {
+    const auto& drawables = preview.drawables();
+    if (drawables.empty()) {
         return;
     }
-
-    const engine::RenderMaterialHandle toolMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Tool));
-    const engine::RenderMaterialHandle snapMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Snap));
-    const engine::RenderMaterialHandle gripMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Grip));
-    const engine::RenderMaterialHandle gripHotMaterial =
-            world.addMaterial(previewMaterialDesc(PreviewVisualRole::GripHot));
 
     engine::RenderObjectDesc object;
     object.pickId = engine::PickId::invalid();
@@ -159,10 +169,9 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world, engi
     object.visible = true;
     object.selected = false;
 
-    const auto& drawables = preview->drawables();
     std::vector<RenderItem> items;
     RenderItemDiagnostics diagnostics;
-    RenderItemBuilder::buildPreviewItems(preview->generation(),
+    RenderItemBuilder::buildPreviewItems(preview.generation(),
                                          std::span<const PreviewDrawable>{ drawables.data(), drawables.size() }, items,
                                          &diagnostics);
     accumulate(stats.previewItems, diagnostics);
@@ -194,6 +203,109 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world, engi
         world.addObject(std::move(object));
         ++stats.previewObjectCount;
     }
+}
+
+void appendPreviewReferences(const PreviewLayer& preview, const RenderScene& scene, const asset::AssetLibrary& assets,
+                             engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare,
+                             RenderWorldSyncStats& stats,
+                             std::unordered_map<uint64_t, engine::GeometryHandle>& geometryHandles,
+                             engine::RenderMaterialHandle toolMaterial, engine::RenderMaterialHandle snapMaterial,
+                             engine::RenderMaterialHandle gripMaterial, engine::RenderMaterialHandle gripHotMaterial) {
+    const auto& references = preview.references();
+    if (references.empty()) {
+        return;
+    }
+
+    std::vector<asset::Drawable> drawables;
+    std::vector<RenderItem> renderItems;
+    for (const PreviewReference& reference : references) {
+        if (!reference.valid()) {
+            continue;
+        }
+
+        const SceneProxy* proxy = scene.proxy(reference.entity);
+        if (!proxy || !proxy->visible || !proxy->geometry) {
+            continue;
+        }
+
+        const auto* asset = assets.asset(proxy->geometry);
+        const auto* geometry = dynamic_cast<const asset::GeometryAsset*>(asset);
+        if (!geometry) {
+            ++stats.missingGeometryAssetCount;
+            continue;
+        }
+
+        drawables.clear();
+        geometry->collectDrawables(drawables);
+        RenderItemDiagnostics diagnostics;
+        RenderItemBuilder::buildSceneItems(proxy->geometry,
+                                           std::span<const asset::Drawable>{ drawables.data(), drawables.size() },
+                                           renderItems, &diagnostics);
+        accumulate(stats.previewItems, diagnostics);
+
+        engine::RenderObjectDesc object;
+        object.pickId = engine::PickId::invalid();
+        object.worldTransform = reference.overrideWorldTransform ? reference.worldTransform : proxy->worldTransform;
+        object.worldBounds = math::AABB3::empty();
+        object.visible = reference.visible;
+        object.selected = false;
+
+        for (const RenderItem& item : renderItems) {
+            const graphics::Mesh& mesh = *item.mesh;
+            const std::optional<engine::RenderBucket> bucket = overlayBucketForReference(item.bucket);
+            if (!bucket) {
+                continue;
+            }
+
+            auto geometryIt = geometryHandles.find(item.geometryKey);
+            if (geometryIt == geometryHandles.end()) {
+                engine::RenderGeometryDesc geometryDesc;
+                geometryDesc.resourceKey = engine::makeAssetGpuKey(item.geometryKey);
+                geometryDesc.topology = mesh.topology;
+                geometryDesc.vertexLayout = mesh.layout;
+                geometryDesc.empty = mesh.empty();
+                if (prepare) {
+                    prepare->addGeometry(geometryDesc.resourceKey, &mesh);
+                }
+                geometryIt =
+                        geometryHandles.emplace(item.geometryKey, world.addGeometry(std::move(geometryDesc))).first;
+            }
+
+            if (!mesh.bounds.isEmpty()) {
+                object.worldBounds.expand(mesh.bounds.transformed(object.worldTransform));
+            }
+            object.drawables.push_back(engine::RenderObjectDrawable{
+                    .geometry = geometryIt->second,
+                    .material = previewMaterialForRole(reference.role, toolMaterial, snapMaterial, gripMaterial,
+                                                       gripHotMaterial),
+                    .bucket = *bucket,
+                    .sourceDrawableIndex = item.sourceDrawableIndex,
+            });
+        }
+
+        if (!object.drawables.empty()) {
+            world.addObject(std::move(object));
+            ++stats.previewObjectCount;
+        }
+    }
+}
+
+void appendPreview(const RenderScene& scene, const asset::AssetLibrary& assets, const PreviewLayer* preview,
+                   engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare, RenderWorldSyncStats& stats,
+                   std::unordered_map<uint64_t, engine::GeometryHandle>& geometryHandles) {
+    if (!preview || preview->empty()) {
+        return;
+    }
+
+    const engine::RenderMaterialHandle toolMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Tool));
+    const engine::RenderMaterialHandle snapMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Snap));
+    const engine::RenderMaterialHandle gripMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Grip));
+    const engine::RenderMaterialHandle gripHotMaterial =
+            world.addMaterial(previewMaterialDesc(PreviewVisualRole::GripHot));
+
+    appendPreviewDrawables(*preview, world, prepare, stats, toolMaterial, snapMaterial, gripMaterial, gripHotMaterial);
+    appendPreviewReferences(*preview, scene, assets, world, prepare, stats, geometryHandles, toolMaterial, snapMaterial,
+                            gripMaterial, gripHotMaterial);
 }
 
 }  // namespace
@@ -278,7 +390,7 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
         }
     });
 
-    appendPreview(preview, world, prepare, last_stats_);
+    appendPreview(scene, assets, preview, world, prepare, last_stats_, geometryHandles);
     last_stats_.worldObjectCount = world.objectCount();
     last_stats_.worldGeometryCount = world.geometryCount();
     last_stats_.worldMaterialCount = world.materialCount();

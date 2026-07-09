@@ -28,6 +28,23 @@ void EditorPreviewController::setToolGeometry(DraftGeometry geometry) {
     view_->previewLayer().setGeometry(geometry.takeCurves(), geometry.takeMeshes());
 }
 
+void EditorPreviewController::clearToolReferences() {
+    if (view_) {
+        view_->previewLayer().clearReferences();
+    }
+}
+
+void EditorPreviewController::setToolReferences(std::vector<view::PreviewReference> references) {
+    if (!view_) {
+        return;
+    }
+    if (references.empty()) {
+        view_->previewLayer().clearReferences();
+        return;
+    }
+    view_->previewLayer().setReferences(std::move(references));
+}
+
 void EditorPreviewController::clearSnapGeometry() {
     if (view_) {
         view_->previewLayer().clearSnapGeometry();

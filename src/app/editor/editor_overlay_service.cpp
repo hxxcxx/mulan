@@ -18,7 +18,10 @@ void EditorOverlayService::clearAll() {
 
 void EditorOverlayService::clear(EditorOverlayRole role) {
     switch (role) {
-    case EditorOverlayRole::Tool: preview_.clearToolGeometry(); return;
+    case EditorOverlayRole::Tool:
+        preview_.clearToolGeometry();
+        preview_.clearToolReferences();
+        return;
     case EditorOverlayRole::Snap: preview_.clearSnapGeometry(); return;
     case EditorOverlayRole::Grip: preview_.clearGripGeometry(); return;
     case EditorOverlayRole::GripHot: preview_.clearGripHotGeometry(); return;
@@ -31,6 +34,15 @@ void EditorOverlayService::submit(EditorOverlaySubmission submission) {
     case EditorOverlayRole::Snap: preview_.setSnapGeometry(std::move(submission.geometry)); return;
     case EditorOverlayRole::Grip: preview_.setGripGeometry(std::move(submission.geometry)); return;
     case EditorOverlayRole::GripHot: preview_.setGripHotGeometry(std::move(submission.geometry)); return;
+    }
+}
+
+void EditorOverlayService::submit(EditorOverlayReferenceSubmission submission) {
+    switch (submission.role) {
+    case EditorOverlayRole::Tool: preview_.setToolReferences(std::move(submission.references)); return;
+    case EditorOverlayRole::Snap:
+    case EditorOverlayRole::Grip:
+    case EditorOverlayRole::GripHot: return;
     }
 }
 
