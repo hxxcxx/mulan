@@ -34,6 +34,7 @@ enum class SelectionVisualDomain : uint8_t {
 
 struct SelectionVisualTarget {
     uint32_t pickId = 0;
+    bool hasPickId = false;
     SelectionVisualRole role = SelectionVisualRole::Selected;
     SelectionVisualDomain domain = SelectionVisualDomain::Entity;
     uint32_t sourceDrawableIndex = 0;
@@ -43,7 +44,7 @@ struct SelectionVisualTarget {
     uint32_t componentIndex = 0;
     bool hasComponentIndex = false;
 
-    bool valid() const { return pickId != 0; }
+    bool valid() const { return hasPickId; }
     bool wholeEntity() const { return domain == SelectionVisualDomain::Entity; }
 };
 

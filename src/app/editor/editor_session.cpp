@@ -70,6 +70,7 @@ engine::SelectionVisualTarget visualTarget(const EditorSelectionReference& refer
                                            engine::SelectionVisualRole role) {
     engine::SelectionVisualTarget target;
     target.pickId = reference.pickId != 0 ? reference.pickId : reference.entity.index();
+    target.hasPickId = reference.valid();
     target.role = role;
     target.domain = visualDomain(reference.domain, reference.kind);
 
