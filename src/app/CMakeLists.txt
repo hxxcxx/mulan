@@ -21,6 +21,7 @@ set(MULAN_APP_SOURCES
     editor/editor_grip_provider.cpp
     editor/editor_scene_snap_provider.cpp
     editor/editor_selection.cpp
+    editor/editor_selection_service.cpp
     editor/editor_snap_collector.cpp
     editor/editor_snap_resolver.cpp
     editor/editor_session.cpp

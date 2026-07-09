@@ -1,0 +1,185 @@
+#include "editor_selection_service.h"
+
+#include <mulan/engine/render/frontend/selection_visual_state.h>
+#include <mulan/view/view_context.h>
+
+namespace mulan::app {
+namespace {
+
+engine::SelectionVisualDomain visualDomain(EditorSelectionDomain domain, EditorSubEntityKind kind) {
+    switch (domain) {
+    case EditorSelectionDomain::Curve:
+        switch (kind) {
+        case EditorSubEntityKind::CurveSegment: return engine::SelectionVisualDomain::CurveSegment;
+        case EditorSubEntityKind::CurveVertex: return engine::SelectionVisualDomain::CurveVertex;
+        case EditorSubEntityKind::CurveElement: return engine::SelectionVisualDomain::CurveElement;
+        case EditorSubEntityKind::ControlPoint: return engine::SelectionVisualDomain::ControlPoint;
+        case EditorSubEntityKind::Grip: return engine::SelectionVisualDomain::Grip;
+        case EditorSubEntityKind::Entity:
+        case EditorSubEntityKind::MeshFace:
+        case EditorSubEntityKind::MeshEdge:
+        case EditorSubEntityKind::MeshVertex:
+        case EditorSubEntityKind::SurfaceFace:
+        case EditorSubEntityKind::SurfaceEdge:
+        case EditorSubEntityKind::SurfaceVertex:
+        case EditorSubEntityKind::SolidFace:
+        case EditorSubEntityKind::SolidEdge:
+        case EditorSubEntityKind::SolidVertex: return engine::SelectionVisualDomain::Entity;
+        }
+        break;
+    case EditorSelectionDomain::Mesh:
+        switch (kind) {
+        case EditorSubEntityKind::MeshFace: return engine::SelectionVisualDomain::MeshFace;
+        case EditorSubEntityKind::MeshEdge: return engine::SelectionVisualDomain::MeshEdge;
+        case EditorSubEntityKind::MeshVertex: return engine::SelectionVisualDomain::MeshVertex;
+        case EditorSubEntityKind::Entity:
+        case EditorSubEntityKind::CurveElement:
+        case EditorSubEntityKind::CurveSegment:
+        case EditorSubEntityKind::CurveVertex:
+        case EditorSubEntityKind::SurfaceFace:
+        case EditorSubEntityKind::SurfaceEdge:
+        case EditorSubEntityKind::SurfaceVertex:
+        case EditorSubEntityKind::SolidFace:
+        case EditorSubEntityKind::SolidEdge:
+        case EditorSubEntityKind::SolidVertex:
+        case EditorSubEntityKind::ControlPoint:
+        case EditorSubEntityKind::Grip: return engine::SelectionVisualDomain::Entity;
+        }
+        break;
+    case EditorSelectionDomain::Surface:
+        if (kind == EditorSubEntityKind::MeshFace || kind == EditorSubEntityKind::SurfaceFace) {
+            return engine::SelectionVisualDomain::SurfaceFace;
+        }
+        if (kind == EditorSubEntityKind::MeshEdge || kind == EditorSubEntityKind::SurfaceEdge) {
+            return engine::SelectionVisualDomain::SurfaceEdge;
+        }
+        if (kind == EditorSubEntityKind::MeshVertex || kind == EditorSubEntityKind::SurfaceVertex) {
+            return engine::SelectionVisualDomain::SurfaceVertex;
+        }
+        break;
+    case EditorSelectionDomain::Solid:
+        if (kind == EditorSubEntityKind::MeshFace || kind == EditorSubEntityKind::SolidFace) {
+            return engine::SelectionVisualDomain::SolidFace;
+        }
+        if (kind == EditorSubEntityKind::MeshEdge || kind == EditorSubEntityKind::SolidEdge) {
+            return engine::SelectionVisualDomain::SolidEdge;
+        }
+        if (kind == EditorSubEntityKind::MeshVertex || kind == EditorSubEntityKind::SolidVertex) {
+            return engine::SelectionVisualDomain::SolidVertex;
+        }
+        break;
+    case EditorSelectionDomain::Entity: break;
+    }
+    return engine::SelectionVisualDomain::Entity;
+}
+
+engine::SelectionVisualTarget visualTarget(const EditorSelectionReference& reference,
+                                           engine::SelectionVisualRole role) {
+    engine::SelectionVisualTarget target;
+    target.pickId = reference.renderPickId();
+    target.role = role;
+    target.domain = visualDomain(reference.domain, reference.kind);
+
+    if (reference.subObject.hasSourceDrawableIndex) {
+        target.sourceDrawableIndex = static_cast<uint32_t>(reference.subObject.sourceDrawableIndex);
+        target.hasSourceDrawableIndex = true;
+    }
+    if (reference.subObject.hasPrimitiveIndex) {
+        target.primitiveIndex = static_cast<uint32_t>(reference.subObject.primitiveIndex);
+        target.hasPrimitiveIndex = true;
+    }
+    if (reference.subObject.hasComponentIndex) {
+        target.componentIndex = static_cast<uint32_t>(reference.subObject.componentIndex);
+        target.hasComponentIndex = true;
+    }
+    return target;
+}
+
+}  // namespace
+
+void EditorSelectionService::bind(view::ViewContext* view) {
+    view_ = view;
+    syncVisualState();
+}
+
+void EditorSelectionService::unbind() {
+    clear();
+    if (view_) {
+        view_->clearSelectionVisualState();
+        view_->clearHoveredPickId();
+    }
+    view_ = nullptr;
+}
+
+void EditorSelectionService::clear() {
+    context_.clear();
+    if (view_) {
+        view_->clearHoveredPickId();
+    }
+    syncVisualState();
+}
+
+void EditorSelectionService::clearHover() {
+    context_.clearHover();
+    if (view_) {
+        view_->clearHoveredPickId();
+    }
+    syncVisualState();
+}
+
+void EditorSelectionService::setHovered(std::optional<EditorSelectionHit> hit) {
+    context_.setHovered(hit);
+    if (view_) {
+        if (hit) {
+            view_->setHoveredPickId(hit->reference.renderPickId());
+        } else {
+            view_->clearHoveredPickId();
+        }
+    }
+    syncVisualState();
+}
+
+void EditorSelectionService::selectSingleAndHover(EditorSelectionHit hit) {
+    context_.selectSingle(hit);
+    context_.setHovered(hit);
+    if (view_) {
+        view_->setHoveredPickId(hit.reference.renderPickId());
+    }
+    syncVisualState();
+}
+
+void EditorSelectionService::clearSelectionAndHover() {
+    context_.clearSelection();
+    context_.clearHover();
+    if (view_) {
+        view_->clearHoveredPickId();
+    }
+    syncVisualState();
+}
+
+void EditorSelectionService::setFilter(EditorSelectionFilter filter) {
+    context_.setFilter(filter);
+    context_.clearHover();
+    if (view_) {
+        view_->clearHoveredPickId();
+    }
+    syncVisualState();
+}
+
+void EditorSelectionService::syncVisualState() {
+    if (!view_) {
+        return;
+    }
+
+    engine::SelectionVisualState state;
+    state.setActive(true);
+    for (const EditorSelectionReference& selected : context_.selected()) {
+        state.add(visualTarget(selected, engine::SelectionVisualRole::Selected));
+    }
+    if (const auto& hovered = context_.hovered(); hovered && hovered->valid()) {
+        state.add(visualTarget(hovered->reference, engine::SelectionVisualRole::Hovered));
+    }
+    view_->setSelectionVisualState(std::move(state));
+}
+
+}  // namespace mulan::app

@@ -12,6 +12,7 @@
 #include "editor_overlay_service.h"
 #include "editor_pick_service.h"
 #include "editor_selection.h"
+#include "editor_selection_service.h"
 #include "editor_tool.h"
 #include "document_operation_executor.h"
 #include "tool_controller.h"
@@ -62,14 +63,13 @@ public:
     void selectAtFramebuffer(double screenX, double screenY);
     void clearHover();
     void setSelectionFilter(EditorSelectionFilter filter);
-    const EditorSelectionContext& selectionContext() const { return selection_context_; }
+    const EditorSelectionContext& selectionContext() const { return selection_service_.context(); }
     void setWorkPlane(engine::WorkPlane plane);
     const engine::WorkPlane& workPlane() const;
 
 private:
     EditorInput makeEditorInput(const engine::InputEvent& event) const;
     void updateSnapPreview(const EditorInput& input);
-    void syncSelectionVisualState();
     bool tryStartGripDrag(const engine::InputEvent& event);
     bool applyAction(EditorAction action);
 
@@ -81,7 +81,7 @@ private:
     EditorOverlayService overlay_service_;
     DocumentOperationExecutor operation_executor_;
     EditorGripController grip_controller_;
-    EditorSelectionContext selection_context_;
+    EditorSelectionService selection_service_;
     ToolController tool_controller_;
 };
 
