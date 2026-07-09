@@ -28,4 +28,8 @@ DocumentOperation DocumentOperation::updateCurve(scene::EntityId entity, asset::
     return DocumentOperation(UpdateCurveOperation{ entity, element, std::move(primitive) });
 }
 
+DocumentOperation DocumentOperation::updateEntityTransforms(std::vector<EntityTransformUpdate> updates) {
+    return DocumentOperation(UpdateEntityTransformsOperation{ std::move(updates) });
+}
+
 }  // namespace mulan::app

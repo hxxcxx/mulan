@@ -60,6 +60,19 @@ bool DocumentEditor::updateCurve(scene::EntityId entity, asset::CurveElementId e
     return document_.markGeometryChanged(entity, curve->localBounds());
 }
 
+bool DocumentEditor::updateEntityTransform(scene::EntityId entity, const math::Mat4& worldTransform) {
+    if (!document_.scene() || !document_.scene()->isValid(entity)) {
+        return false;
+    }
+
+    if (!document_.scene()->setWorldTransform(entity, worldTransform)) {
+        return false;
+    }
+
+    document_.markDirty();
+    return true;
+}
+
 bool DocumentEditor::removeEntity(scene::EntityId entity) {
     return document_.removeEntity(entity);
 }

@@ -55,6 +55,11 @@ bool DocumentOperationExecutor::execute(DocumentOperation operation) const {
                        [&editor, &changed](UpdateCurveOperation& update) {
                            changed = editor.updateCurve(update.entity, update.element, std::move(update.primitive));
                        },
+                       [&editor, &changed](UpdateEntityTransformsOperation& update) {
+                           for (const EntityTransformUpdate& item : update.updates) {
+                               changed = editor.updateEntityTransform(item.entity, item.worldTransform) || changed;
+                           }
+                       },
                },
                operation.data());
 
