@@ -21,6 +21,9 @@ enum class RenderTechnique : uint8_t {
     SurfacePBR,
     SurfacePBRTangent,
     EdgeLine,
+    HighlightSurface,
+    HighlightSurfaceTangent,
+    HighlightEdge,
     ViewCube,
     ViewCubeLine,
 };
@@ -40,6 +43,7 @@ struct TechniqueDesc {
     bool depthWrite = true;
     CompareFunc depthFunc = CompareFunc::LessEqual;
     bool sampleTextures = false;
+    BlendDesc blend;
 };
 
 class TechniqueRegistry {

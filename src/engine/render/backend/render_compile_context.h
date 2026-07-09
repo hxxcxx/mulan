@@ -19,6 +19,9 @@ struct RenderCompileContext {
     PipelineState* surfacePipeline = nullptr;
     PipelineState* surfaceTangentPipeline = nullptr;
     PipelineState* edgePipeline = nullptr;
+    PipelineState* highlightSurfacePipeline = nullptr;
+    PipelineState* highlightSurfaceTangentPipeline = nullptr;
+    PipelineState* highlightEdgePipeline = nullptr;
 };
 
 }  // namespace mulan::engine

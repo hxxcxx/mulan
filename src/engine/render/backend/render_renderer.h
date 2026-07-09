@@ -12,6 +12,7 @@
 #include "../environment_map.h"
 #include "../forward/edge_stage.h"
 #include "../forward/face_stage.h"
+#include "../forward/highlight_stage.h"
 #include "../frontend/render_request.h"
 #include "../frontend/render_workload.h"
 #include "../light_environment.h"
@@ -71,6 +72,7 @@ private:
 
     std::unique_ptr<FaceStage> face_stage_;
     std::unique_ptr<EdgeStage> edge_stage_;
+    std::unique_ptr<HighlightStage> highlight_stage_;
     std::unique_ptr<TextStage> text_stage_;
     std::unique_ptr<ViewCubeStage> view_cube_stage_;
 

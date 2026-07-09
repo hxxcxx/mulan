@@ -62,6 +62,7 @@ bool GeometryDrawExecutor::createPSO(TextureFormat colorFmt, TextureFormat depth
     desc.depthStencil.depthEnable = technique_.depthTest;
     desc.depthStencil.depthWrite = technique_.depthWrite;
     desc.depthStencil.depthFunc = technique_.depthFunc;
+    desc.blend = technique_.blend;
 
     using PB = PipelineBinding;
     desc.descriptorBindings[0] = {

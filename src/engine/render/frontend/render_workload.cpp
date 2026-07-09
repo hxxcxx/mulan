@@ -22,7 +22,7 @@ bool bucketEnabled(const RenderWorkItem& item, const RenderOptions& options, Ren
         }
         return true;
     case RenderPassKind::Edge:
-        if (!renderEdgesEnabled(options) && !item.hovered) {
+        if (!renderEdgesEnabled(options)) {
             ++stats.skippedDisabledEdgeCount;
             return false;
         }
@@ -55,11 +55,23 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
             item.hovered = options.hasHoveredPickId && item.pickId == options.hoveredPickId;
 
             ++stats_.drawableCount;
+            const RenderPassKind pass = renderBucketPass(item.bucket);
+            if (!renderBucketIsOverlay(item.bucket)) {
+                if (item.selected && pass == RenderPassKind::Surface && renderSurfacesEnabled(options)) {
+                    highlight_surfaces_.push_back(item);
+                    ++stats_.highlightSurfaceItemCount;
+                }
+                if ((item.selected || item.hovered) && pass == RenderPassKind::Edge) {
+                    highlight_edges_.push_back(item);
+                    ++stats_.highlightEdgeItemCount;
+                }
+            }
+
             if (!bucketEnabled(item, options, stats_)) {
                 continue;
             }
 
-            switch (renderBucketPass(item.bucket)) {
+            switch (pass) {
             case RenderPassKind::Surface:
                 surfaces_.push_back(item);
                 ++stats_.surfaceItemCount;
@@ -77,6 +89,8 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
 void RenderWorkload::clear() {
     surfaces_.clear();
     edges_.clear();
+    highlight_surfaces_.clear();
+    highlight_edges_.clear();
     stats_.reset();
 }
 

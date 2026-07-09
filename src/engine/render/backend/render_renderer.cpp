@@ -65,6 +65,11 @@ bool RenderRenderer::init(RHIDevice& device, LightEnvironment& lightEnv, Texture
         return false;
     }
 
+    highlight_stage_ = std::make_unique<HighlightStage>(device, *geometry_resources_);
+    if (!highlight_stage_->init(device, targetInfo)) {
+        return false;
+    }
+
     view_cube_stage_ = std::make_unique<ViewCubeStage>(device);
     if (!view_cube_stage_->init(device, targetInfo)) {
         std::fprintf(stderr, "[RenderRenderer] ViewCube init failed (non-fatal)\n");
@@ -87,6 +92,7 @@ void RenderRenderer::shutdown(RHIDevice& device) {
     device.waitIdle();
     text_stage_.reset();
     view_cube_stage_.reset();
+    highlight_stage_.reset();
     edge_stage_.reset();
     face_stage_.reset();
     geometry_resources_.reset();
@@ -213,6 +219,10 @@ void RenderRenderer::clearCompiledCommands() {
     if (edge_stage_) {
         edge_stage_->setDrawCommands(emptyCommands);
     }
+    if (highlight_stage_) {
+        highlight_stage_->setSurfaceDrawCommands(emptyCommands);
+        highlight_stage_->setEdgeDrawCommands(emptyCommands);
+    }
     workload_.clear();
     compiler_.clear();
 }
@@ -238,6 +248,9 @@ void RenderRenderer::compile(const RenderRequest& request) {
                                           ? face_stage_->tangentPipelineState()
                                           : nullptr,
         .edgePipeline = edge_stage_ ? edge_stage_->pipelineState() : nullptr,
+        .highlightSurfacePipeline = highlight_stage_ ? highlight_stage_->surfacePipeline() : nullptr,
+        .highlightSurfaceTangentPipeline = highlight_stage_ ? highlight_stage_->surfaceTangentPipeline() : nullptr,
+        .highlightEdgePipeline = highlight_stage_ ? highlight_stage_->edgePipeline() : nullptr,
     };
     compiler_.compile(*request.world, workload_, compileContext);
 
@@ -248,6 +261,12 @@ void RenderRenderer::compile(const RenderRequest& request) {
     }
     if (edge_stage_) {
         edge_stage_->setDrawCommands(!compiler_.edgeCommands().empty() ? compiler_.edgeCommands() : emptyCommands);
+    }
+    if (highlight_stage_) {
+        highlight_stage_->setSurfaceDrawCommands(
+                !compiler_.highlightSurfaceCommands().empty() ? compiler_.highlightSurfaceCommands() : emptyCommands);
+        highlight_stage_->setEdgeDrawCommands(
+                !compiler_.highlightEdgeCommands().empty() ? compiler_.highlightEdgeCommands() : emptyCommands);
     }
 }
 
@@ -314,6 +333,8 @@ void RenderRenderer::executeStages(RenderFrame& frame, const TextDrawList& reque
         face_stage_->execute(frame);
     if (edge_stage_)
         edge_stage_->execute(frame);
+    if (highlight_stage_)
+        highlight_stage_->execute(frame);
     if (view_cube_stage_ && frame.view.showOverlay && frame.view.showViewCube) {
         view_cube_stage_->setPipelines(face_stage_ ? face_stage_->viewCubePipelineState() : nullptr,
                                        edge_stage_ ? edge_stage_->viewCubePipelineState() : nullptr);

@@ -53,7 +53,7 @@ void populateSurfaceTextures(const RenderWorldSnapshot& snapshot, const RenderWo
 
 MeshDrawCommand makeCommand(const RenderWorkItem& item, const RenderGeometryRecord& geometryRecord,
                             const GpuGeometry& geometry, PipelineState* pipeline, uint32_t objectOffset,
-                            uint32_t materialOffset, bool isEdge) {
+                            uint32_t materialOffset, bool isEdge, bool selected, bool hovered) {
     MeshDrawCommand command;
     command.pipelineState = pipeline;
     command.vertexBuffer = geometry.vertexBuffer.get();
@@ -67,8 +67,8 @@ MeshDrawCommand makeCommand(const RenderWorkItem& item, const RenderGeometryReco
     command.materialUboOffset = materialOffset;
     command.worldTransform = item.worldTransform;
     command.pickId = item.pickId;
-    command.selected = item.selected;
-    command.hovered = item.hovered;
+    command.selected = selected;
+    command.hovered = hovered;
     command.isWire = isEdge;
     return command;
 }
@@ -84,90 +84,112 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
         return nextObjectOffset < MeshDrawCommand::kObjectUboBytes;
     };
 
-    for (const auto& item : workload.surfaces()) {
-        ++stats_.surfaceWorkItemCount;
+    enum class CompileItemStatus {
+        Accepted,
+        Skipped,
+        OutOfObjectSlots,
+    };
+
+    const auto compileItem = [&](const RenderWorkItem& item, std::vector<MeshDrawCommand>& out, bool isEdge,
+                                 bool populateTextures, bool selected, bool hovered,
+                                 auto choosePipeline) -> CompileItemStatus {
         if (!hasObjectUboSlot()) {
             ++stats_.objectUboLimitCount;
-            break;
+            return CompileItemStatus::OutOfObjectSlots;
         }
 
         const auto* geometryRecord = snapshot.geometry(item.geometry);
         if (!geometryRecord) {
             ++stats_.missingGeometryRecordCount;
-            continue;
+            return CompileItemStatus::Skipped;
         }
         if (geometryRecord->desc.empty) {
             ++stats_.emptyGeometryCount;
-            continue;
+            return CompileItemStatus::Skipped;
         }
 
         const auto* gpuGeometry = context.assets.findGeometry(geometryRecord->desc.resourceKey);
         if (!gpuGeometry) {
             ++stats_.missingGpuGeometryCount;
-            continue;
+            return CompileItemStatus::Skipped;
         }
         if (!renderGpuGeometryMatchesBucket(item.bucket, geometryRecord->desc, *gpuGeometry)) {
             ++stats_.rejectedContractCount;
-            continue;
+            return CompileItemStatus::Skipped;
         }
 
-        PipelineState* surfacePipeline = hasTangentLayout(*gpuGeometry) && context.surfaceTangentPipeline
-                                                 ? context.surfaceTangentPipeline
-                                                 : context.surfacePipeline;
-        if (!surfacePipeline) {
+        PipelineState* pipeline = choosePipeline(*gpuGeometry);
+        if (!pipeline) {
             ++stats_.missingPipelineCount;
-            continue;
+            return CompileItemStatus::Skipped;
         }
-        auto command = makeCommand(item, *geometryRecord, *gpuGeometry, surfacePipeline, nextObjectOffset,
-                                   materialOffset(snapshot, item.material, context.materials), false);
-        populateSurfaceTextures(snapshot, item, context.assets, command);
-        surface_commands_.push_back(std::move(command));
-        ++stats_.acceptedSurfaceCommandCount;
+
+        auto command =
+                makeCommand(item, *geometryRecord, *gpuGeometry, pipeline, nextObjectOffset,
+                            materialOffset(snapshot, item.material, context.materials), isEdge, selected, hovered);
+        if (populateTextures) {
+            populateSurfaceTextures(snapshot, item, context.assets, command);
+        }
+        out.push_back(std::move(command));
         nextObjectOffset += MeshDrawCommand::kObjectUboStride;
+        return CompileItemStatus::Accepted;
+    };
+
+    for (const auto& item : workload.surfaces()) {
+        ++stats_.surfaceWorkItemCount;
+        const auto status =
+                compileItem(item, surface_commands_, false, true, false, false, [&](const GpuGeometry& gpuGeometry) {
+                    return hasTangentLayout(gpuGeometry) && context.surfaceTangentPipeline
+                                   ? context.surfaceTangentPipeline
+                                   : context.surfacePipeline;
+                });
+        if (status == CompileItemStatus::OutOfObjectSlots)
+            break;
+        if (status == CompileItemStatus::Accepted)
+            ++stats_.acceptedSurfaceCommandCount;
     }
 
     for (const auto& item : workload.edges()) {
         ++stats_.edgeWorkItemCount;
-        if (!hasObjectUboSlot()) {
-            ++stats_.objectUboLimitCount;
+        const auto status = compileItem(item, edge_commands_, true, false, false, false,
+                                        [&](const GpuGeometry&) { return context.edgePipeline; });
+        if (status == CompileItemStatus::OutOfObjectSlots)
             break;
-        }
+        if (status == CompileItemStatus::Accepted)
+            ++stats_.acceptedEdgeCommandCount;
+    }
 
-        const auto* geometryRecord = snapshot.geometry(item.geometry);
-        if (!geometryRecord) {
-            ++stats_.missingGeometryRecordCount;
-            continue;
-        }
-        if (geometryRecord->desc.empty) {
-            ++stats_.emptyGeometryCount;
-            continue;
-        }
+    for (const auto& item : workload.highlightSurfaces()) {
+        ++stats_.highlightSurfaceWorkItemCount;
+        const auto status =
+                compileItem(item, highlight_surface_commands_, false, false, item.selected, item.hovered,
+                            [&](const GpuGeometry& gpuGeometry) {
+                                return hasTangentLayout(gpuGeometry) && context.highlightSurfaceTangentPipeline
+                                               ? context.highlightSurfaceTangentPipeline
+                                               : context.highlightSurfacePipeline;
+                            });
+        if (status == CompileItemStatus::OutOfObjectSlots)
+            break;
+        if (status == CompileItemStatus::Accepted)
+            ++stats_.acceptedHighlightSurfaceCommandCount;
+    }
 
-        const auto* gpuGeometry = context.assets.findGeometry(geometryRecord->desc.resourceKey);
-        if (!gpuGeometry) {
-            ++stats_.missingGpuGeometryCount;
-            continue;
-        }
-        if (!renderGpuGeometryMatchesBucket(item.bucket, geometryRecord->desc, *gpuGeometry)) {
-            ++stats_.rejectedContractCount;
-            continue;
-        }
-        if (!context.edgePipeline) {
-            ++stats_.missingPipelineCount;
-            continue;
-        }
-
-        edge_commands_.push_back(makeCommand(item, *geometryRecord, *gpuGeometry, context.edgePipeline,
-                                             nextObjectOffset,
-                                             materialOffset(snapshot, item.material, context.materials), true));
-        ++stats_.acceptedEdgeCommandCount;
-        nextObjectOffset += MeshDrawCommand::kObjectUboStride;
+    for (const auto& item : workload.highlightEdges()) {
+        ++stats_.highlightEdgeWorkItemCount;
+        const auto status = compileItem(item, highlight_edge_commands_, true, false, item.selected, item.hovered,
+                                        [&](const GpuGeometry&) { return context.highlightEdgePipeline; });
+        if (status == CompileItemStatus::OutOfObjectSlots)
+            break;
+        if (status == CompileItemStatus::Accepted)
+            ++stats_.acceptedHighlightEdgeCommandCount;
     }
 }
 
 void RenderCompiler::clear() {
     surface_commands_.clear();
     edge_commands_.clear();
+    highlight_surface_commands_.clear();
+    highlight_edge_commands_.clear();
     stats_.reset();
 }
 

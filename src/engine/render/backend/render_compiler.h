@@ -20,8 +20,12 @@ namespace mulan::engine {
 struct RenderCompilerStats {
     size_t surfaceWorkItemCount = 0;
     size_t edgeWorkItemCount = 0;
+    size_t highlightSurfaceWorkItemCount = 0;
+    size_t highlightEdgeWorkItemCount = 0;
     size_t acceptedSurfaceCommandCount = 0;
     size_t acceptedEdgeCommandCount = 0;
+    size_t acceptedHighlightSurfaceCommandCount = 0;
+    size_t acceptedHighlightEdgeCommandCount = 0;
     size_t missingGeometryRecordCount = 0;
     size_t emptyGeometryCount = 0;
     size_t missingGpuGeometryCount = 0;
@@ -40,11 +44,15 @@ public:
 
     std::span<const MeshDrawCommand> surfaceCommands() const { return surface_commands_; }
     std::span<const MeshDrawCommand> edgeCommands() const { return edge_commands_; }
+    std::span<const MeshDrawCommand> highlightSurfaceCommands() const { return highlight_surface_commands_; }
+    std::span<const MeshDrawCommand> highlightEdgeCommands() const { return highlight_edge_commands_; }
     const RenderCompilerStats& lastStats() const { return stats_; }
 
 private:
     std::vector<MeshDrawCommand> surface_commands_;
     std::vector<MeshDrawCommand> edge_commands_;
+    std::vector<MeshDrawCommand> highlight_surface_commands_;
+    std::vector<MeshDrawCommand> highlight_edge_commands_;
     RenderCompilerStats stats_;
 };
 

@@ -24,6 +24,7 @@ add_library(engine STATIC
     render/draw/geometry_draw_executor.cpp
     render/forward/face_stage.cpp
     render/forward/edge_stage.cpp
+    render/forward/highlight_stage.cpp
     # Text rendering (MSDF)
     render/text/font_atlas.cpp
     render/text/font_atlas_cache.cpp
@@ -119,6 +120,8 @@ set(SHADER_SOURCES
     wireframe.frag.hlsl
     edge.vert.hlsl
     edge.frag.hlsl
+    highlight_surface.frag.hlsl
+    highlight_edge.frag.hlsl
     viewcube.frag.hlsl
     viewcube_line.frag.hlsl
     text.vert.hlsl

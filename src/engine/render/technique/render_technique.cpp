@@ -59,6 +59,62 @@ consteval TechniqueDesc makeEdgeLine() {
     };
 }
 
+consteval BlendDesc makeAlphaBlend() {
+    BlendDesc blend{};
+    blend.renderTargets[0].blendEnable = true;
+    blend.renderTargets[0].srcBlend = BlendFactor::SrcAlpha;
+    blend.renderTargets[0].dstBlend = BlendFactor::InvSrcAlpha;
+    blend.renderTargets[0].blendOp = BlendOp::Add;
+    blend.renderTargets[0].srcBlendAlpha = BlendFactor::One;
+    blend.renderTargets[0].dstBlendAlpha = BlendFactor::InvSrcAlpha;
+    blend.renderTargets[0].blendOpAlpha = BlendOp::Add;
+    return blend;
+}
+
+consteval TechniqueDesc makeHighlightSurface() {
+    return TechniqueDesc{
+        .technique = RenderTechnique::HighlightSurface,
+        .debugName = "HighlightSurface",
+        .shader = { .vertex = "solid.vert", .pixel = "highlight_surface.frag" },
+        .vertexLayout = graphics::layouts::surface(),
+        .topology = PrimitiveTopology::TriangleList,
+        .depthTest = true,
+        .depthWrite = false,
+        .depthFunc = CompareFunc::LessEqual,
+        .sampleTextures = false,
+        .blend = makeAlphaBlend(),
+    };
+}
+
+consteval TechniqueDesc makeHighlightSurfaceTangent() {
+    return TechniqueDesc{
+        .technique = RenderTechnique::HighlightSurfaceTangent,
+        .debugName = "HighlightSurfaceTangent",
+        .shader = { .vertex = "pbr_tangent.vert", .pixel = "highlight_surface.frag" },
+        .vertexLayout = graphics::layouts::pbr(),
+        .topology = PrimitiveTopology::TriangleList,
+        .depthTest = true,
+        .depthWrite = false,
+        .depthFunc = CompareFunc::LessEqual,
+        .sampleTextures = false,
+        .blend = makeAlphaBlend(),
+    };
+}
+
+consteval TechniqueDesc makeHighlightEdge() {
+    return TechniqueDesc{
+        .technique = RenderTechnique::HighlightEdge,
+        .debugName = "HighlightEdge",
+        .shader = { .vertex = "edge.vert", .pixel = "highlight_edge.frag" },
+        .vertexLayout = graphics::layouts::surface(),
+        .topology = PrimitiveTopology::LineList,
+        .depthTest = true,
+        .depthWrite = false,
+        .depthFunc = CompareFunc::LessEqual,
+        .sampleTextures = false,
+    };
+}
+
 consteval TechniqueDesc makeViewCube() {
     return TechniqueDesc{
         .technique = RenderTechnique::ViewCube,
@@ -91,6 +147,9 @@ constexpr TechniqueDesc kSolidLit = makeSolidLit();
 constexpr TechniqueDesc kSurfacePBR = makeSurfacePBR();
 constexpr TechniqueDesc kSurfacePBRTangent = makeSurfacePBRTangent();
 constexpr TechniqueDesc kEdgeLine = makeEdgeLine();
+constexpr TechniqueDesc kHighlightSurface = makeHighlightSurface();
+constexpr TechniqueDesc kHighlightSurfaceTangent = makeHighlightSurfaceTangent();
+constexpr TechniqueDesc kHighlightEdge = makeHighlightEdge();
 constexpr TechniqueDesc kViewCube = makeViewCube();
 constexpr TechniqueDesc kViewCubeLine = makeViewCubeLine();
 
@@ -102,6 +161,9 @@ const TechniqueDesc& TechniqueRegistry::builtin(RenderTechnique technique) {
     case RenderTechnique::SurfacePBR: return kSurfacePBR;
     case RenderTechnique::SurfacePBRTangent: return kSurfacePBRTangent;
     case RenderTechnique::EdgeLine: return kEdgeLine;
+    case RenderTechnique::HighlightSurface: return kHighlightSurface;
+    case RenderTechnique::HighlightSurfaceTangent: return kHighlightSurfaceTangent;
+    case RenderTechnique::HighlightEdge: return kHighlightEdge;
     case RenderTechnique::ViewCube: return kViewCube;
     case RenderTechnique::ViewCubeLine: return kViewCubeLine;
     }
