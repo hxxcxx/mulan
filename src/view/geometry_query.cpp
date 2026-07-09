@@ -17,6 +17,15 @@
 namespace mulan::view {
 
 namespace {
+
+template <typename... T>
+struct Overloaded : T... {
+    using T::operator()...;
+};
+
+template <typename... T>
+Overloaded(T...) -> Overloaded<T...>;
+
 struct MeshPickResult {
     bool tested = false;
     std::optional<double> distance;

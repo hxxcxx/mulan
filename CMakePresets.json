@@ -12,7 +12,11 @@
                     "value": "$penv{QTDIR}"
                 },
                 "OCCT_ROOT": "$penv{OCCT_ROOT}",
-                "OCCT_3RDPARTY_DIR": "$penv{OCCT_3RDPARTY_DIR}"
+                "OCCT_3RDPARTY_DIR": "$penv{OCCT_3RDPARTY_DIR}",
+                "Z_VCPKG_POWERSHELL_PATH": {
+                    "type": "FILEPATH",
+                    "value": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+                }
             }
         },
         {
