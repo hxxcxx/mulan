@@ -5,11 +5,16 @@ add_library(asset STATIC
     curve_asset.cpp
     curve_mesh_builder.cpp
     face_asset.cpp
+    brep_asset.cpp
 )
 
 mulan_copy_public_headers(asset asset)
 
-target_link_libraries(asset PUBLIC graphics)
+target_link_libraries(asset
+    PUBLIC
+        graphics
+        modeling_core
+)
 
 target_precompile_headers(asset PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/pch.h

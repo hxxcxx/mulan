@@ -1,5 +1,6 @@
-#include "shape_render_geometry.h"
+#include "occt_tessellator_internal.h"
 
+#include <mulan/core/result/error.h>
 #include <mulan/graphics/vertex/vertex_buffer.h>
 
 #include <TopoDS_Shape.hxx>
@@ -21,7 +22,7 @@
 
 #include <algorithm>
 
-namespace mulan::io {
+namespace mulan::modeling::detail {
 namespace {
 
 math::AABB3 buildBounds(const TopoDS_Shape& shape) {
@@ -42,7 +43,7 @@ math::AABB3 buildBounds(const TopoDS_Shape& shape) {
     return result;
 }
 
-graphics::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bounds) {
+graphics::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bounds, double linearDeflection) {
     if (shape.IsNull() || bounds.isEmpty())
         return {};
 
@@ -50,7 +51,7 @@ graphics::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bound
     const double dy = bounds.max.y - bounds.min.y;
     const double dz = bounds.max.z - bounds.min.z;
     const double maxDim = std::max({ dx, dy, dz });
-    const double deflection = maxDim * 0.001;
+    const double deflection = linearDeflection > 0.0 ? linearDeflection : maxDim * 0.001;
 
     TopoDS_Shape meshedShape = shape;
     BRepMesh_IncrementalMesh mesher(meshedShape, deflection, false, 0.5, true);
@@ -197,12 +198,16 @@ graphics::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
 
 }  // namespace
 
-ShapeRenderGeometry buildShapeRenderGeometry(const TopoDS_Shape& shape) {
-    ShapeRenderGeometry result;
+core::Result<TessellatedGeometry> tessellateTopoShape(const TopoDS_Shape& shape, const TessellationOptions& opts) {
+    if (shape.IsNull())
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "tessellate on null TopoDS_Shape"));
+
+    TessellatedGeometry result;
     result.bounds = buildBounds(shape);
-    result.solidMesh = buildFaceMesh(shape, result.bounds);
-    result.wireMesh = buildEdgeMesh(shape);
+    result.solidMesh = buildFaceMesh(shape, result.bounds, opts.linearDeflection);
+    if (opts.includeEdges)
+        result.wireMesh = buildEdgeMesh(shape);
     return result;
 }
 
-}  // namespace mulan::io
+}  // namespace mulan::modeling::detail

@@ -1,6 +1,5 @@
 # IO - file import/export and document persistence helpers.
 add_library(io STATIC
-    occt_importer.cpp
     assimp_importer.cpp
     gltf_importer.cpp
     importer_registry.cpp
@@ -9,7 +8,6 @@ add_library(io STATIC
     import_builder.cpp
     document.cpp
     document_editor.cpp
-    shape_render_geometry.cpp
 )
 
 mulan_copy_public_headers(io io)
@@ -23,10 +21,10 @@ target_link_libraries(io
         graphics
         scene
         asset
+        modeling_core
     PRIVATE
         assimp::assimp
         fastgltf::fastgltf
-        OCCT::OCCT
 )
 
 set_target_properties(io PROPERTIES OUTPUT_NAME mulan_io)

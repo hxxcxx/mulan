@@ -13,13 +13,12 @@
 #include <mulan/asset/face_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/math/math.h>
+#include <mulan/modeling_core/shape.h>
 #include <mulan/scene/entity_id.h>
 
 #include <memory>
 #include <string>
 #include <vector>
-
-class TopoDS_Shape;
 
 namespace mulan::scene {
 class Scene;
@@ -39,7 +38,7 @@ public:
     Document(const Document&) = delete;
     Document& operator=(const Document&) = delete;
 
-    scene::EntityId addShape(const TopoDS_Shape& shape, std::string name);
+    scene::EntityId addBody(modeling::Shape shape, std::string name);
     scene::EntityId addFace(std::string name, asset::FaceDefinition face);
     scene::EntityId addMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
 

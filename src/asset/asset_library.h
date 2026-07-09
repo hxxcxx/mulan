@@ -11,6 +11,7 @@
 #include "curve_asset.h"
 #include "face_asset.h"
 #include "tessellated_asset.h"
+#include "brep_asset.h"
 #include "material_asset.h"
 #include "mesh_asset.h"
 #include "texture_asset.h"

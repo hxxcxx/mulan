@@ -22,6 +22,7 @@ enum class AssetKind : uint8_t {
     Face,
     Mesh,
     Tessellated,
+    BRep,
     Material,
     Texture,
 };

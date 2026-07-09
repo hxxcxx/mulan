@@ -1,15 +1,12 @@
 #include "document.h"
 
-#include "shape_render_geometry.h"
-
 #include <mulan/asset/asset_library.h>
+#include <mulan/asset/brep_asset.h>
 #include <mulan/asset/face_asset.h>
 #include <mulan/asset/mesh_asset.h>
-#include <mulan/asset/tessellated_asset.h>
+#include <mulan/modeling_core/shape.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/scene.h>
-
-#include <TopoDS_Shape.hxx>
 
 namespace mulan::io {
 
@@ -21,17 +18,19 @@ Document::Document(std::string displayName)
 
 Document::~Document() = default;
 
-scene::EntityId Document::addShape(const TopoDS_Shape& shape, std::string name) {
-    std::string shapeName = std::move(name);
+scene::EntityId Document::addBody(modeling::Shape shape, std::string name) {
+    std::string bodyName = std::move(name);
 
-    auto geometry = buildShapeRenderGeometry(shape);
+    auto* brep = assets_->create<asset::BRepAsset>(bodyName, std::move(shape));
+    if (!brep || !brep->renderable()) {
+        if (brep) {
+            assets_->remove(brep->id());
+        }
+        return scene::EntityId::invalid();
+    }
 
-    auto* tess = assets_->create<asset::TessellatedAsset>(shapeName);
-    if (tess)
-        tess->setRenderMeshes(std::move(geometry.solidMesh), std::move(geometry.wireMesh));
-
-    const auto sceneId = addSceneInstance(shapeName, tess ? tess->id() : asset::AssetId::invalid());
-    scene_->setWorldBounds(sceneId, geometry.bounds);
+    const auto sceneId = addSceneInstance(bodyName, brep->id());
+    scene_->setWorldBounds(sceneId, brep->localBounds());
     return sceneId;
 }
 

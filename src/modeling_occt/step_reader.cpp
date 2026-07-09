@@ -1,8 +1,7 @@
-#include "occt_importer.h"
-#include "importer_factory.h"
+#include "step_reader.h"
+#include "shape_factory.h"
 
 #include <mulan/core/result/error.h>
-#include <mulan/io/document.h>
 
 #include <STEPControl_Reader.hxx>
 #include <IGESControl_Reader.hxx>
@@ -10,29 +9,27 @@
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Shape.hxx>
+#include <TopAbs.hxx>
 
-#include <algorithm>
 #include <cctype>
 #include <clocale>
-#include <expected>
+#include <filesystem>
 #include <stdexcept>
+#include <utility>
 
-namespace mulan::io {
-
+namespace mulan::modeling {
 namespace {
 
+/// STEP/IGES 解析器对数值 locale 敏感，读取期间强制 LC_NUMERIC=C。
 class NumericLocaleGuard {
 public:
     NumericLocaleGuard() : old_(std::setlocale(LC_NUMERIC, nullptr) ? std::setlocale(LC_NUMERIC, nullptr) : "") {
         std::setlocale(LC_NUMERIC, "C");
     }
-
     ~NumericLocaleGuard() {
-        if (!old_.empty()) {
+        if (!old_.empty())
             std::setlocale(LC_NUMERIC, old_.c_str());
-        }
     }
-
     NumericLocaleGuard(const NumericLocaleGuard&) = delete;
     NumericLocaleGuard& operator=(const NumericLocaleGuard&) = delete;
 
@@ -45,30 +42,26 @@ TopoDS_Shape readSTEP(const std::string& path) {
     Interface_Static::SetIVal("read.stepbspline.continuity", 2);
 
     IFSelect_ReturnStatus status = reader.ReadFile(path.c_str());
-    if (status != IFSelect_RetDone) {
+    if (status != IFSelect_RetDone)
         throw std::runtime_error("Failed to read STEP file: " + path);
-    }
 
     reader.TransferRoots();
     TopoDS_Shape shape = reader.OneShape();
-    if (shape.IsNull()) {
+    if (shape.IsNull())
         throw std::runtime_error("No valid shape found in STEP file");
-    }
     return shape;
 }
 
 TopoDS_Shape readIGES(const std::string& path) {
     IGESControl_Reader reader;
     IFSelect_ReturnStatus status = reader.ReadFile(path.c_str());
-    if (status != IFSelect_RetDone) {
+    if (status != IFSelect_RetDone)
         throw std::runtime_error("Failed to read IGES file: " + path);
-    }
 
     reader.TransferRoots();
     TopoDS_Shape shape = reader.OneShape();
-    if (shape.IsNull()) {
+    if (shape.IsNull())
         throw std::runtime_error("No valid shape found in IGES file");
-    }
     return shape;
 }
 
@@ -85,8 +78,9 @@ TopoDS_Shape readFile(const std::string& path) {
     throw std::runtime_error("Unsupported format: " + ext);
 }
 
-ImportResult populateDocument(const TopoDS_Shape& shape, mulan::io::Document& doc) {
-    ImportResult result;
+/// 实体分级：solid -> shell -> whole，产出 NamedShape。
+std::vector<NamedShape> splitIntoNamedShapes(const TopoDS_Shape& shape) {
+    std::vector<NamedShape> result;
     int partIndex = 0;
 
     if (shape.ShapeType() == TopAbs_COMPOUND || shape.ShapeType() == TopAbs_COMPSOLID) {
@@ -94,54 +88,49 @@ ImportResult populateDocument(const TopoDS_Shape& shape, mulan::io::Document& do
         for (TopExp_Explorer exp(shape, TopAbs_SOLID); exp.More(); exp.Next()) {
             hasSolids = true;
             ++partIndex;
-            std::string name = "Part_" + std::to_string(partIndex);
-            result.entities.push_back(doc.addShape(exp.Current(), std::move(name)));
+            result.push_back({ "Part_" + std::to_string(partIndex), makeShape(exp.Current()) });
         }
 
         if (!hasSolids) {
             for (TopExp_Explorer exp(shape, TopAbs_SHELL); exp.More(); exp.Next()) {
                 ++partIndex;
-                std::string name = "Shell_" + std::to_string(partIndex);
-                result.entities.push_back(doc.addShape(exp.Current(), std::move(name)));
+                result.push_back({ "Shell_" + std::to_string(partIndex), makeShape(exp.Current()) });
             }
-
             if (partIndex == 0) {
                 ++partIndex;
-                result.entities.push_back(doc.addShape(shape, "Shape_1"));
+                result.push_back({ "Shape_1", makeShape(shape) });
             }
         }
     } else {
-        ++partIndex;
-        result.entities.push_back(doc.addShape(shape, "Shape_1"));
+        result.push_back({ "Shape_1", makeShape(shape) });
     }
 
-    result.report.entityCount = result.entities.size();
-    result.report.brepAssetCount = result.entities.size();
     return result;
 }
 
-}  // anonymous namespace
+}  // namespace
 
-core::Result<ImportResult> OCCTImporter::import(const std::string& path, mulan::io::Document& doc,
-                                                const ImportOptions& /*options*/) {
+core::Result<std::vector<NamedShape>> OccStepReader::read(const std::string& path) {
     try {
         NumericLocaleGuard locale;
-
         TopoDS_Shape shape = readFile(path);
-        auto result = populateDocument(shape, doc);
-
-        return result;
+        return splitIntoNamedShapes(shape);
     } catch (const std::exception& e) {
         return std::unexpected(core::Error::make(core::ErrorCode::Io, e.what()));
     }
 }
 
-std::vector<std::string> OCCTImporter::supportedExtensions() const {
+std::vector<std::string> OccStepReader::supportedExtensions() const {
     return { "step", "stp", "iges", "igs" };
 }
 
-std::string OCCTImporter::name() const {
+std::string OccStepReader::name() const {
     return "OCCT Importer";
 }
 
-}  // namespace mulan::io
+void registerOccStepReader() {
+    ShapeFileReaderRegistry::instance().registerReader(
+            []() -> std::unique_ptr<IShapeFileReader> { return std::make_unique<OccStepReader>(); });
+}
+
+}  // namespace mulan::modeling
