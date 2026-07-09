@@ -27,6 +27,12 @@ EditorAction EditorAction::setPreview(DraftGeometry geometry) {
     return action;
 }
 
+EditorAction EditorAction::setPreviewReferences(std::vector<view::PreviewReference> references) {
+    EditorAction action = consumeEvent();
+    action.preview_references_ = std::move(references);
+    return action;
+}
+
 EditorAction EditorAction::clearPreview() {
     EditorAction action = consumeEvent();
     action.clear_preview_ = true;

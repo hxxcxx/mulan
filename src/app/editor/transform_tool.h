@@ -40,7 +40,6 @@ private:
     EditorAction updatePreview(const math::Mat4& worldDelta) const;
     std::optional<math::Mat4> worldDelta(const math::Point3& worldPoint) const;
 
-    const io::Document* document_ = nullptr;
     TransformEditContext context_;
     TransformEditMode mode_ = TransformEditMode::Translate;
     TransformEditCommitMode commit_mode_ = TransformEditCommitMode::Move;

@@ -9,7 +9,10 @@
 #include "document_operation.h"
 #include "draft_geometry.h"
 
+#include <mulan/view/preview_layer.h>
+
 #include <optional>
+#include <vector>
 
 namespace mulan::app {
 
@@ -30,6 +33,7 @@ public:
     static EditorAction ignored();
     static EditorAction consumeEvent();
     static EditorAction setPreview(DraftGeometry geometry);
+    static EditorAction setPreviewReferences(std::vector<view::PreviewReference> references);
     static EditorAction clearPreview();
     static EditorAction commit(DocumentOperation operation);
     static EditorAction finish();
@@ -41,6 +45,9 @@ public:
 
     std::optional<DraftGeometry>& preview() { return preview_; }
     const std::optional<DraftGeometry>& preview() const { return preview_; }
+    std::vector<view::PreviewReference>& previewReferences() { return preview_references_; }
+    const std::vector<view::PreviewReference>& previewReferences() const { return preview_references_; }
+    bool hasPreviewReferences() const { return !preview_references_.empty(); }
 
     std::optional<DocumentOperation>& operation() { return operation_; }
     const std::optional<DocumentOperation>& operation() const { return operation_; }
@@ -55,6 +62,7 @@ private:
     bool clear_preview_ = false;
     ToolLifecycle lifecycle_ = ToolLifecycle::Running;
     std::optional<DraftGeometry> preview_;
+    std::vector<view::PreviewReference> preview_references_;
     std::optional<DocumentOperation> operation_;
 };
 

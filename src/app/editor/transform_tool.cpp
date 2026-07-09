@@ -1,7 +1,8 @@
 #include "transform_tool.h"
 
-#include "transform_preview_builder.h"
+#include <mulan/view/preview_layer.h>
 
+#include <vector>
 #include <utility>
 
 namespace mulan::app {
@@ -27,7 +28,8 @@ bool isMouseMove(const engine::InputEvent& event) {
 
 TransformTool::TransformTool(const io::Document* document, TransformEditContext context, TransformEditMode mode,
                              TransformEditCommitMode commitMode)
-    : document_(document), context_(std::move(context)), mode_(mode), commit_mode_(commitMode) {
+    : context_(std::move(context)), mode_(mode), commit_mode_(commitMode) {
+    (void) document;
 }
 
 TransformTool::TransformTool(const io::Document* document, TransformEditContext context, math::Point3 dragStartWorld,
@@ -140,20 +142,30 @@ EditorAction TransformTool::commit(const math::Point3& worldPoint) {
 }
 
 EditorAction TransformTool::updatePreview(const math::Mat4& worldDelta) const {
-    if (!document_) {
-        return EditorAction::consumeEvent();
-    }
-
     std::vector<EntityTransformUpdate> updates = context_.entityUpdates(worldDelta);
     if (updates.empty()) {
         return EditorAction::clearPreview();
     }
 
-    DraftGeometry preview = TransformPreviewBuilder::build(*document_, updates);
-    if (preview.empty()) {
+    std::vector<view::PreviewReference> references;
+    references.reserve(updates.size());
+    for (const EntityTransformUpdate& update : updates) {
+        if (!update.valid()) {
+            continue;
+        }
+        references.push_back(view::PreviewReference{
+                .entity = update.entity,
+                .worldTransform = update.worldTransform,
+                .overrideWorldTransform = true,
+                .role = view::PreviewVisualRole::Tool,
+                .visible = true,
+        });
+    }
+
+    if (references.empty()) {
         return EditorAction::clearPreview();
     }
-    return EditorAction::setPreview(std::move(preview));
+    return EditorAction::setPreviewReferences(std::move(references));
 }
 
 std::optional<math::Mat4> TransformTool::worldDelta(const math::Point3& worldPoint) const {

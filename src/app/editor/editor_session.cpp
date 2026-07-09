@@ -296,6 +296,11 @@ bool EditorSession::applyAction(EditorAction action) {
         overlay_service_.submit(EditorOverlaySubmission(EditorOverlayRole::Tool, std::move(*action.preview())));
     }
 
+    if (action.hasPreviewReferences()) {
+        overlay_service_.submit(
+                EditorOverlayReferenceSubmission(EditorOverlayRole::Tool, std::move(action.previewReferences())));
+    }
+
     if (action.operation()) {
         if (operation_executor_.execute(std::move(*action.operation()))) {
             refreshGrips();
