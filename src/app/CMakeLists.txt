@@ -73,8 +73,16 @@ target_precompile_headers(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/pch.h
 )
 
-mulan_copy_dlls_post_build(${PROJECT_NAME} "${OCCT_BIN_DIR}")
-mulan_copy_dlls_post_build(${PROJECT_NAME} "${OCCT_3RDPARTY_DIR}" RECURSE)
+mulan_collect_named_dlls(MULAN_OCCT_3RDPARTY_RUNTIME_DLL_FILES "${OCCT_3RDPARTY_DIR}"
+    RECURSE
+    NAMES ${MULAN_OCCT_3RDPARTY_DLL_NAMES}
+    EXCLUDE_REGEX "/debug/" "/lib/"
+)
+mulan_copy_files_post_build(${PROJECT_NAME}
+    FILES
+        ${OCCT_RUNTIME_DLL_FILES}
+        ${MULAN_OCCT_3RDPARTY_RUNTIME_DLL_FILES}
+)
 
 if(TARGET Qt6::windeployqt)
     set(MULAN_WINDEPLOYQT_EXECUTABLE "$<TARGET_FILE:Qt6::windeployqt>")

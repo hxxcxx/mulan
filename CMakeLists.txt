@@ -51,12 +51,29 @@ set(OCCT_LIBS
     TKernel TKMath
     TKG2d TKG3d TKGeomBase TKBRep
     TKGeomAlgo TKTopAlgo TKPrim TKBO TKShHealing TKMesh
-    TKCDF TKLCAF TKCAF TKBinL TKBin TKStdL TKStd TKVCAF
-    TKDE TKXSBase TKDESTEP TKXCAF TKDEIGES TKDESTL TKRWMesh TKDECascade TKBinXCAF
+    TKDE TKXSBase TKDESTEP TKDEIGES
+)
+
+set(OCCT_RUNTIME_REQUIRED_EXTRA_DLLS
+    TKBool
+    TKCAF
+    TKCDF
+    TKHLR
+    TKLCAF
+    TKService
+    TKV3d
+    TKVCAF
+    TKXCAF
+)
+set(OCCT_RUNTIME_USER_EXTRA_DLLS "" CACHE STRING "Additional OCCT runtime DLL names copied next to the app executable")
+set(OCCT_RUNTIME_EXTRA_DLLS
+    ${OCCT_RUNTIME_REQUIRED_EXTRA_DLLS}
+    ${OCCT_RUNTIME_USER_EXTRA_DLLS}
 )
 
 set(OCCT_LIBRARY_FILES)
 set(OCCT_MISSING_LIBS)
+set(OCCT_RUNTIME_DLL_FILES)
 foreach(lib IN LISTS OCCT_LIBS)
     find_library(OCCT_LIBRARY_${lib} NAMES ${lib} PATHS "${OCCT_LIB_DIR}" NO_DEFAULT_PATH)
     if(OCCT_LIBRARY_${lib})
@@ -64,7 +81,21 @@ foreach(lib IN LISTS OCCT_LIBS)
     else()
         list(APPEND OCCT_MISSING_LIBS "${lib}")
     endif()
+
+    set(OCCT_RUNTIME_DLL "${OCCT_BIN_DIR}/${lib}.dll")
+    if(EXISTS "${OCCT_RUNTIME_DLL}")
+        list(APPEND OCCT_RUNTIME_DLL_FILES "${OCCT_RUNTIME_DLL}")
+    endif()
 endforeach()
+foreach(lib IN LISTS OCCT_RUNTIME_EXTRA_DLLS)
+    set(OCCT_RUNTIME_DLL "${OCCT_BIN_DIR}/${lib}.dll")
+    if(EXISTS "${OCCT_RUNTIME_DLL}")
+        list(APPEND OCCT_RUNTIME_DLL_FILES "${OCCT_RUNTIME_DLL}")
+    else()
+        message(WARNING "OCCT runtime DLL not found: ${OCCT_RUNTIME_DLL}")
+    endif()
+endforeach()
+list(REMOVE_DUPLICATES OCCT_RUNTIME_DLL_FILES)
 if(OCCT_MISSING_LIBS)
     list(JOIN OCCT_MISSING_LIBS ", " OCCT_MISSING_LIBS_TEXT)
     message(FATAL_ERROR "OCCT libraries not found in ${OCCT_LIB_DIR}: ${OCCT_MISSING_LIBS_TEXT}")
@@ -74,6 +105,30 @@ add_library(mulan_occt INTERFACE)
 add_library(OCCT::OCCT ALIAS mulan_occt)
 target_include_directories(mulan_occt INTERFACE "${OCCT_INCLUDE_DIR}")
 target_link_libraries(mulan_occt INTERFACE ${OCCT_LIBRARY_FILES})
+
+set(MULAN_OCCT_REQUIRED_3RDPARTY_DLL_NAMES
+    avcodec-57.dll
+    avformat-57.dll
+    avutil-55.dll
+    FreeImage.dll
+    freetype.dll
+    jemalloc.dll
+    liblzma.dll
+    openvr_api.dll
+    swscale-4.dll
+    tbb12.dll
+    tbbmalloc.dll
+    tbbmalloc_proxy.dll
+    zlib.dll
+    zlib1.dll
+)
+set(MULAN_OCCT_EXTRA_3RDPARTY_DLL_NAMES "" CACHE STRING "Additional OCCT third-party runtime DLL names copied next to the app executable")
+unset(MULAN_OCCT_3RDPARTY_DLL_NAMES CACHE)
+set(MULAN_OCCT_3RDPARTY_DLL_NAMES
+    ${MULAN_OCCT_REQUIRED_3RDPARTY_DLL_NAMES}
+    ${MULAN_OCCT_EXTRA_3RDPARTY_DLL_NAMES}
+)
+list(REMOVE_DUPLICATES MULAN_OCCT_3RDPARTY_DLL_NAMES)
 
 # ── OCCT 3rdparty ──
 set(MULAN_OCCT_3RDPARTY_CANDIDATE "${OCCT_3RDPARTY_DIR}")
