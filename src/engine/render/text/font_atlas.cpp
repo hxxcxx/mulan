@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <memory>
 #include <utility>
 
 namespace mulan::engine {
@@ -34,6 +35,22 @@ uint64_t fnv1a64(const void* data, size_t size, uint64_t hash = 1469598103934665
     }
     return hash;
 }
+
+struct FreetypeDeleter {
+    void operator()(msdfgen::FreetypeHandle* handle) const {
+        if (handle) {
+            msdfgen::deinitializeFreetype(handle);
+        }
+    }
+};
+
+struct FontDeleter {
+    void operator()(msdfgen::FontHandle* font) const {
+        if (font) {
+            msdfgen::destroyFont(font);
+        }
+    }
+};
 
 }  // namespace
 
@@ -80,17 +97,16 @@ bool FontAtlas::generateCpuData(const char* fontPath, float fontSize, uint32_t a
     outData.charsetHash = defaultCharsetHash();
 
     // --- 1. 初始化 FreeType ---
-    msdfgen::FreetypeHandle* ft = msdfgen::initializeFreetype();
+    std::unique_ptr<msdfgen::FreetypeHandle, FreetypeDeleter> ft(msdfgen::initializeFreetype());
     if (!ft) {
         std::fprintf(stderr, "[FontAtlas] Failed to initialize FreeType\n");
         return false;
     }
 
     // --- 2. 加载字体 ---
-    msdfgen::FontHandle* font = msdfgen::loadFont(ft, fontPath);
+    std::unique_ptr<msdfgen::FontHandle, FontDeleter> font(msdfgen::loadFont(ft.get(), fontPath));
     if (!font) {
         std::fprintf(stderr, "[FontAtlas] Failed to load font: %s\n", fontPath);
-        msdfgen::deinitializeFreetype(ft);
         return false;
     }
 
@@ -104,7 +120,7 @@ bool FontAtlas::generateCpuData(const char* fontPath, float fontSize, uint32_t a
         charset.add(c);
     }
 
-    int loaded = fontGeometry.loadCharset(font, 1.0, charset);
+    int loaded = fontGeometry.loadCharset(font.get(), 1.0, charset);
     std::fprintf(stderr, "[FontAtlas] Loaded %d glyphs from %s\n", loaded, fontPath);
 
     // --- 4. MSDF 边缘着色 ---
@@ -186,10 +202,6 @@ bool FontAtlas::generateCpuData(const char* fontPath, float fontSize, uint32_t a
 
         outData.glyphs[info.unicode] = info;
     }
-
-    // --- 9. 清理 ---
-    msdfgen::destroyFont(font);
-    msdfgen::deinitializeFreetype(ft);
 
     return true;
 }
