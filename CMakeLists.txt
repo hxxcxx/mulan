@@ -145,7 +145,7 @@ endif()
 
 # ── Qt6 ──
 # 查找路径优先级: CMakePresets / -DCMAKE_PREFIX_PATH / Qt6_DIR 环境变量
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Svg)
 
 # ── 3rdparty ──
 add_subdirectory(3rdparty/SARibbon)

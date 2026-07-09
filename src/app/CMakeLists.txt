@@ -62,6 +62,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     SARibbon
     Qt6::Core
     Qt6::Gui
+    Qt6::Svg
     Qt6::Widgets
 )
 
@@ -111,7 +112,25 @@ if(NOT MULAN_QT_ROOT_DIR AND Qt6_DIR)
     set(MULAN_QT_BIN_DIR "${MULAN_QT_ROOT_DIR}/bin")
 endif()
 set(MULAN_QT_PLUGIN_DIR "${MULAN_QT_ROOT_DIR}/plugins")
+set(MULAN_QT_ICONENGINES_PLUGIN_DIR "${MULAN_QT_PLUGIN_DIR}/iconengines")
+set(MULAN_QT_IMAGEFORMATS_PLUGIN_DIR "${MULAN_QT_PLUGIN_DIR}/imageformats")
 set(MULAN_QT_PLATFORM_PLUGIN_DIR "${MULAN_QT_PLUGIN_DIR}/platforms")
+
+set(MULAN_QT_ICONENGINES_PLUGIN_DLLS)
+foreach(iconengines_plugin_name qsvgicon.dll qsvgicond.dll)
+    set(iconengines_plugin "${MULAN_QT_ICONENGINES_PLUGIN_DIR}/${iconengines_plugin_name}")
+    if(EXISTS "${iconengines_plugin}")
+        list(APPEND MULAN_QT_ICONENGINES_PLUGIN_DLLS "${iconengines_plugin}")
+    endif()
+endforeach()
+
+set(MULAN_QT_IMAGEFORMATS_PLUGIN_DLLS)
+foreach(imageformats_plugin_name qsvg.dll qsvgd.dll)
+    set(imageformats_plugin "${MULAN_QT_IMAGEFORMATS_PLUGIN_DIR}/${imageformats_plugin_name}")
+    if(EXISTS "${imageformats_plugin}")
+        list(APPEND MULAN_QT_IMAGEFORMATS_PLUGIN_DLLS "${imageformats_plugin}")
+    endif()
+endforeach()
 
 set(MULAN_QT_PLATFORM_PLUGIN_DLLS)
 foreach(platform_plugin_name qwindows.dll qwindowsd.dll)
@@ -159,6 +178,28 @@ if(MULAN_ENABLE_DEV_RUNTIME_COPY)
                 "${platform_plugin}"
                 "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms"
             COMMENT "Syncing Qt platform plugin..."
+        )
+    endforeach()
+
+    foreach(imageformats_plugin IN LISTS MULAN_QT_IMAGEFORMATS_PLUGIN_DLLS)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/imageformats"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${imageformats_plugin}"
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/imageformats"
+            COMMENT "Syncing Qt imageformats plugin..."
+        )
+    endforeach()
+
+    foreach(iconengines_plugin IN LISTS MULAN_QT_ICONENGINES_PLUGIN_DLLS)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/iconengines"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${iconengines_plugin}"
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/iconengines"
+            COMMENT "Syncing Qt iconengines plugin..."
         )
     endforeach()
 endif()
