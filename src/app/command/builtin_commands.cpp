@@ -93,6 +93,28 @@ CommandOutcome startTransformTool(CommandHost& host, TransformEditCommitMode com
     return {};
 }
 
+CommandOutcome runUndo(CommandHost& host) {
+    EditorSession* editor = host.editorSession();
+    if (!editor || !editor->isReady()) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+    }
+    if (!editor->undo()) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "Nothing to undo"));
+    }
+    return {};
+}
+
+CommandOutcome runRedo(CommandHost& host) {
+    EditorSession* editor = host.editorSession();
+    if (!editor || !editor->isReady()) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+    }
+    if (!editor->redo()) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "Nothing to redo"));
+    }
+    return {};
+}
+
 class DrawLineCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.line"; }
@@ -184,10 +206,30 @@ protected:
     }
 };
 
+class EditUndoCommand final : public Command {
+public:
+    std::string_view id() const override { return "edit.undo"; }
+    std::string_view title() const override { return "Undo"; }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override { return runUndo(host); }
+};
+
+class EditRedoCommand final : public Command {
+public:
+    std::string_view id() const override { return "edit.redo"; }
+    std::string_view title() const override { return "Redo"; }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override { return runRedo(host); }
+};
+
 }  // namespace
 
 void registerBuiltinCommands(CommandManager& manager) {
     manager.add(std::make_unique<FitAllCommand>());
+    manager.add(std::make_unique<EditUndoCommand>());
+    manager.add(std::make_unique<EditRedoCommand>());
     manager.add(std::make_unique<EditMoveCommand>());
     manager.add(std::make_unique<EditCopyCommand>());
     manager.add(std::make_unique<DrawLineCommand>());

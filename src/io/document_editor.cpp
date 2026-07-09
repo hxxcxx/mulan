@@ -110,8 +110,8 @@ scene::EntityId DocumentEditor::copyEntityWithTransform(scene::EntityId source, 
     return copy;
 }
 
-bool DocumentEditor::removeEntity(scene::EntityId entity) {
-    return document_.removeEntity(entity);
+bool DocumentEditor::removeEntity(scene::EntityId entity, bool removeGeometryAsset) {
+    return document_.removeEntity(entity, removeGeometryAsset);
 }
 
 asset::CurveAsset* DocumentEditor::curveAssetFor(scene::EntityId entity) const {

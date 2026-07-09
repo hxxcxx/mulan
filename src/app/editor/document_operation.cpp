@@ -36,4 +36,8 @@ DocumentOperation DocumentOperation::copyEntityTransforms(std::vector<EntityTran
     return DocumentOperation(CopyEntityTransformsOperation{ std::move(updates) });
 }
 
+DocumentOperation DocumentOperation::removeEntities(std::vector<scene::EntityId> entities, bool removeGeometryAssets) {
+    return DocumentOperation(RemoveEntitiesOperation{ std::move(entities), removeGeometryAssets });
+}
+
 }  // namespace mulan::app

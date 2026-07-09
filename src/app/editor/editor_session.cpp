@@ -189,6 +189,34 @@ bool EditorSession::startTransformTool(TransformEditCommitMode commitMode) {
     return true;
 }
 
+bool EditorSession::undo() {
+    if (!isReady()) {
+        return false;
+    }
+
+    cancelActiveTool();
+    const bool changed = operation_executor_.undo();
+    if (changed) {
+        refreshGrips();
+        syncSelectionVisualState();
+    }
+    return changed;
+}
+
+bool EditorSession::redo() {
+    if (!isReady()) {
+        return false;
+    }
+
+    cancelActiveTool();
+    const bool changed = operation_executor_.redo();
+    if (changed) {
+        refreshGrips();
+        syncSelectionVisualState();
+    }
+    return changed;
+}
+
 bool EditorSession::handleInput(const engine::InputEvent& event) {
     if (!view_) {
         return false;

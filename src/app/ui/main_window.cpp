@@ -240,13 +240,17 @@ void MainWindow::buildQuickAccessBar() {
     if (!bar)
         return;
 
-    auto* actionUndo = new QAction(QIcon(":/app/bright/icon/undo.svg"), tr("Undo"), this);
-    actionUndo->setShortcut(QKeySequence::Undo);
-    bar->addAction(actionUndo);
+    action_undo_ = new QAction(QIcon(":/app/bright/icon/undo.svg"), tr("Undo"), this);
+    action_undo_->setShortcut(QKeySequence::Undo);
+    action_undo_->setEnabled(false);
+    connect(action_undo_, &QAction::triggered, this, [this]() { executeCommand("edit.undo"); });
+    bar->addAction(action_undo_);
 
-    auto* actionRedo = new QAction(QIcon(":/app/bright/icon/redo.svg"), tr("Redo"), this);
-    actionRedo->setShortcut(QKeySequence::Redo);
-    bar->addAction(actionRedo);
+    action_redo_ = new QAction(QIcon(":/app/bright/icon/redo.svg"), tr("Redo"), this);
+    action_redo_->setShortcut(QKeySequence::Redo);
+    action_redo_->setEnabled(false);
+    connect(action_redo_, &QAction::triggered, this, [this]() { executeCommand("edit.redo"); });
+    bar->addAction(action_redo_);
 }
 
 void MainWindow::buildRightButtonBar() {
@@ -268,6 +272,7 @@ void MainWindow::executeCommand(std::string_view id) {
     if (!result) {
         statusBar()->showMessage(QString::fromStdString(result.error().message));
     }
+    updateDisplayActions();
 }
 
 void MainWindow::onCurrentDocumentChanged(const QString& name) {
@@ -324,6 +329,12 @@ void MainWindow::updateDisplayActions() {
     }
     if (action_show_cube_) {
         action_show_cube_->setEnabled(hasDocument);
+    }
+    if (action_undo_) {
+        action_undo_->setEnabled(hasDocument);
+    }
+    if (action_redo_) {
+        action_redo_->setEnabled(hasDocument);
     }
     if (action_draw_line_) {
         action_draw_line_->setEnabled(hasDocument);

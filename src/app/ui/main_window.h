@@ -57,6 +57,8 @@ private:
     QAction* action_new_ = nullptr;
     QAction* action_open_ = nullptr;
     QAction* action_exit_ = nullptr;
+    QAction* action_undo_ = nullptr;
+    QAction* action_redo_ = nullptr;
     QAction* action_fit_all_ = nullptr;
     QAction* action_draw_line_ = nullptr;
     QAction* action_draw_polyline_ = nullptr;

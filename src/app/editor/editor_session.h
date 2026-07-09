@@ -47,6 +47,10 @@ public:
 
     void startTool(std::unique_ptr<EditorTool> tool);
     bool startTransformTool(TransformEditCommitMode commitMode);
+    bool undo();
+    bool redo();
+    bool canUndo() const { return operation_executor_.canUndo(); }
+    bool canRedo() const { return operation_executor_.canRedo(); }
     bool handleInput(const engine::InputEvent& event);
     void cancelActiveTool();
     void refreshGrips();

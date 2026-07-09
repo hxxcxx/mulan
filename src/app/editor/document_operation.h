@@ -55,9 +55,14 @@ struct CopyEntityTransformsOperation {
     std::vector<EntityTransformUpdate> updates;
 };
 
+struct RemoveEntitiesOperation {
+    std::vector<scene::EntityId> entities;
+    bool removeGeometryAssets = true;
+};
+
 using DocumentOperationData =
         std::variant<CreateCurveOperation, CreateFaceOperation, CreateMeshOperation, UpdateCurveOperation,
-                     UpdateEntityTransformsOperation, CopyEntityTransformsOperation>;
+                     UpdateEntityTransformsOperation, CopyEntityTransformsOperation, RemoveEntitiesOperation>;
 
 class DocumentOperation {
 public:
@@ -68,6 +73,7 @@ public:
                                          asset::CurvePrimitive primitive);
     static DocumentOperation updateEntityTransforms(std::vector<EntityTransformUpdate> updates);
     static DocumentOperation copyEntityTransforms(std::vector<EntityTransformUpdate> updates);
+    static DocumentOperation removeEntities(std::vector<scene::EntityId> entities, bool removeGeometryAssets = true);
 
     const DocumentOperationData& data() const { return data_; }
     DocumentOperationData& data() { return data_; }
