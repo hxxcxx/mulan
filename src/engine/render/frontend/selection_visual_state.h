@@ -29,7 +29,11 @@ enum class SelectionVisualDomain : uint8_t {
     MeshEdge,
     MeshVertex,
     SurfaceFace,
+    SurfaceEdge,
+    SurfaceVertex,
     SolidFace,
+    SolidEdge,
+    SolidVertex,
     ControlPoint,
     Grip,
 };

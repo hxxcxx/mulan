@@ -38,7 +38,11 @@ bool targetMatchesDrawable(const SelectionVisualTarget& target, const RenderWork
     case SelectionVisualDomain::MeshEdge:
     case SelectionVisualDomain::MeshVertex:
     case SelectionVisualDomain::SurfaceFace:
-    case SelectionVisualDomain::SolidFace: return true;
+    case SelectionVisualDomain::SurfaceEdge:
+    case SelectionVisualDomain::SurfaceVertex:
+    case SelectionVisualDomain::SolidFace:
+    case SelectionVisualDomain::SolidEdge:
+    case SelectionVisualDomain::SolidVertex: return true;
     case SelectionVisualDomain::ControlPoint:
     case SelectionVisualDomain::Grip:
     case SelectionVisualDomain::Entity: return false;

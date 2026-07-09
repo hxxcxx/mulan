@@ -246,8 +246,8 @@ public:
                 continue;
             }
 
-            if (selected.domain == EditorSelectionDomain::Curve && selected.curveElement.valid()) {
-                addEntity(selected.entity, selected.curveElement);
+            if (selected.domain == EditorSelectionDomain::Curve && selected.subObject.curveElement.valid()) {
+                addEntity(selected.entity, selected.subObject.curveElement);
                 continue;
             }
 

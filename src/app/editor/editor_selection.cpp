@@ -99,10 +99,18 @@ bool kindAllowed(const EditorSelectionFilter& filter, EditorSubEntityKind kind) 
     case EditorSubEntityKind::Entity: return filter.allowEntities;
     case EditorSubEntityKind::CurveElement: return filter.allowCurves;
     case EditorSubEntityKind::CurveSegment:
-    case EditorSubEntityKind::MeshEdge: return filter.allowEdges;
+    case EditorSubEntityKind::MeshEdge:
+    case EditorSubEntityKind::SurfaceEdge:
+    case EditorSubEntityKind::SolidEdge: return filter.allowEdges;
     case EditorSubEntityKind::CurveVertex:
-    case EditorSubEntityKind::MeshVertex: return filter.allowVertices;
-    case EditorSubEntityKind::MeshFace: return filter.allowFaces;
+    case EditorSubEntityKind::MeshVertex:
+    case EditorSubEntityKind::SurfaceVertex:
+    case EditorSubEntityKind::SolidVertex:
+    case EditorSubEntityKind::ControlPoint:
+    case EditorSubEntityKind::Grip: return filter.allowVertices;
+    case EditorSubEntityKind::MeshFace:
+    case EditorSubEntityKind::SurfaceFace:
+    case EditorSubEntityKind::SolidFace: return filter.allowFaces;
     }
     return false;
 }
@@ -110,10 +118,7 @@ bool kindAllowed(const EditorSelectionFilter& filter, EditorSubEntityKind kind) 
 }  // namespace
 
 bool sameSelectionReference(const EditorSelectionReference& lhs, const EditorSelectionReference& rhs) {
-    return lhs.entity == rhs.entity && lhs.domain == rhs.domain && lhs.kind == rhs.kind &&
-           lhs.curveElement == rhs.curveElement && lhs.sourceDrawableIndex == rhs.sourceDrawableIndex &&
-           lhs.primitiveIndex == rhs.primitiveIndex && lhs.hasPrimitiveIndex == rhs.hasPrimitiveIndex &&
-           lhs.componentIndex == rhs.componentIndex && lhs.hasComponentIndex == rhs.hasComponentIndex;
+    return lhs == rhs;
 }
 
 void EditorSelectionContext::setFilter(EditorSelectionFilter filter) {
@@ -205,13 +210,17 @@ bool EditorSelectionContext::accepts(const EditorSelectionReference& reference) 
 EditorSelectionHit makeEditorSelectionHit(const EditorPickHit& pick, const io::Document& document) {
     EditorSelectionReference reference{
         .entity = pick.entity,
+        .pickId = pick.pickId,
         .domain = EditorSelectionDomain::Entity,
         .kind = EditorSubEntityKind::Entity,
-        .pickId = pick.pickId,
-        .sourceDrawableIndex = pick.sourceDrawableIndex,
-        .primitiveIndex = pick.primitiveIndex,
-        .hasPrimitiveIndex = pick.hasPrimitiveIndex,
-        .parameter = pick.parameter,
+        .subObject =
+                SubObjectKey{
+                        .sourceDrawableIndex = pick.sourceDrawableIndex,
+                        .hasSourceDrawableIndex = true,
+                        .primitiveIndex = pick.primitiveIndex,
+                        .hasPrimitiveIndex = pick.hasPrimitiveIndex,
+                        .parameter = pick.parameter,
+                },
     };
 
     if (!pick.valid()) {
@@ -221,15 +230,15 @@ EditorSelectionHit makeEditorSelectionHit(const EditorPickHit& pick, const io::D
     if (const asset::CurveAsset* curve = curveAssetForEntity(document, pick.entity); curve && pick.hasPrimitiveIndex) {
         if (const auto element = curveElementAt(*curve, pick.primitiveIndex)) {
             reference.domain = EditorSelectionDomain::Curve;
-            reference.curveElement = element->id;
-            reference.curveKind = element->primitive.kind();
-            reference.kind = curveSubEntityKind(pick, reference.curveKind);
+            reference.subObject.curveElement = element->id;
+            reference.subObject.curveKind = element->primitive.kind();
+            reference.kind = curveSubEntityKind(pick, reference.subObject.curveKind);
             if (reference.kind == EditorSubEntityKind::CurveSegment) {
-                reference.componentIndex = parameterSegmentIndex(pick.parameter);
-                reference.hasComponentIndex = true;
+                reference.subObject.componentIndex = parameterSegmentIndex(pick.parameter);
+                reference.subObject.hasComponentIndex = true;
             } else if (reference.kind == EditorSubEntityKind::CurveVertex) {
-                reference.componentIndex = pick.parameter <= 0.5 ? 0 : 1;
-                reference.hasComponentIndex = true;
+                reference.subObject.componentIndex = pick.parameter <= 0.5 ? 0 : 1;
+                reference.subObject.hasComponentIndex = true;
             }
             return EditorSelectionHit{ .reference = reference, .pick = pick };
         }

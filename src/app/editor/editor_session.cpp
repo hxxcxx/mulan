@@ -37,7 +37,15 @@ engine::SelectionVisualDomain visualDomain(EditorSelectionDomain domain, EditorS
         case EditorSubEntityKind::Entity: return engine::SelectionVisualDomain::Entity;
         case EditorSubEntityKind::MeshFace:
         case EditorSubEntityKind::MeshEdge:
-        case EditorSubEntityKind::MeshVertex: return engine::SelectionVisualDomain::Entity;
+        case EditorSubEntityKind::MeshVertex:
+        case EditorSubEntityKind::SurfaceFace:
+        case EditorSubEntityKind::SurfaceEdge:
+        case EditorSubEntityKind::SurfaceVertex:
+        case EditorSubEntityKind::SolidFace:
+        case EditorSubEntityKind::SolidEdge:
+        case EditorSubEntityKind::SolidVertex: return engine::SelectionVisualDomain::Entity;
+        case EditorSubEntityKind::ControlPoint: return engine::SelectionVisualDomain::ControlPoint;
+        case EditorSubEntityKind::Grip: return engine::SelectionVisualDomain::Grip;
         }
         break;
     case EditorSelectionDomain::Mesh:
@@ -48,17 +56,37 @@ engine::SelectionVisualDomain visualDomain(EditorSelectionDomain domain, EditorS
         case EditorSubEntityKind::Entity:
         case EditorSubEntityKind::CurveElement:
         case EditorSubEntityKind::CurveSegment:
-        case EditorSubEntityKind::CurveVertex: return engine::SelectionVisualDomain::Entity;
+        case EditorSubEntityKind::CurveVertex:
+        case EditorSubEntityKind::SurfaceFace:
+        case EditorSubEntityKind::SurfaceEdge:
+        case EditorSubEntityKind::SurfaceVertex:
+        case EditorSubEntityKind::SolidFace:
+        case EditorSubEntityKind::SolidEdge:
+        case EditorSubEntityKind::SolidVertex:
+        case EditorSubEntityKind::ControlPoint:
+        case EditorSubEntityKind::Grip: return engine::SelectionVisualDomain::Entity;
         }
         break;
     case EditorSelectionDomain::Surface:
-        if (kind == EditorSubEntityKind::MeshFace) {
+        if (kind == EditorSubEntityKind::MeshFace || kind == EditorSubEntityKind::SurfaceFace) {
             return engine::SelectionVisualDomain::SurfaceFace;
+        }
+        if (kind == EditorSubEntityKind::MeshEdge || kind == EditorSubEntityKind::SurfaceEdge) {
+            return engine::SelectionVisualDomain::SurfaceEdge;
+        }
+        if (kind == EditorSubEntityKind::MeshVertex || kind == EditorSubEntityKind::SurfaceVertex) {
+            return engine::SelectionVisualDomain::SurfaceVertex;
         }
         break;
     case EditorSelectionDomain::Solid:
-        if (kind == EditorSubEntityKind::MeshFace) {
+        if (kind == EditorSubEntityKind::MeshFace || kind == EditorSubEntityKind::SolidFace) {
             return engine::SelectionVisualDomain::SolidFace;
+        }
+        if (kind == EditorSubEntityKind::MeshEdge || kind == EditorSubEntityKind::SolidEdge) {
+            return engine::SelectionVisualDomain::SolidEdge;
+        }
+        if (kind == EditorSubEntityKind::MeshVertex || kind == EditorSubEntityKind::SolidVertex) {
+            return engine::SelectionVisualDomain::SolidVertex;
         }
         break;
     case EditorSelectionDomain::Entity: break;
@@ -73,16 +101,16 @@ engine::SelectionVisualTarget visualTarget(const EditorSelectionReference& refer
     target.role = role;
     target.domain = visualDomain(reference.domain, reference.kind);
 
-    if (reference.curveElementSelection()) {
-        target.sourceDrawableIndex = static_cast<uint32_t>(reference.sourceDrawableIndex);
+    if (reference.subObject.hasSourceDrawableIndex) {
+        target.sourceDrawableIndex = static_cast<uint32_t>(reference.subObject.sourceDrawableIndex);
         target.hasSourceDrawableIndex = true;
     }
-    if (reference.hasPrimitiveIndex) {
-        target.primitiveIndex = static_cast<uint32_t>(reference.primitiveIndex);
+    if (reference.subObject.hasPrimitiveIndex) {
+        target.primitiveIndex = static_cast<uint32_t>(reference.subObject.primitiveIndex);
         target.hasPrimitiveIndex = true;
     }
-    if (reference.hasComponentIndex) {
-        target.componentIndex = static_cast<uint32_t>(reference.componentIndex);
+    if (reference.subObject.hasComponentIndex) {
+        target.componentIndex = static_cast<uint32_t>(reference.subObject.componentIndex);
         target.hasComponentIndex = true;
     }
     return target;
