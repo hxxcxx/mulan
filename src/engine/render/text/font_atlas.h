@@ -12,10 +12,22 @@
 #include "../../rhi/texture.h"
 #include "../../rhi/sampler.h"
 
+#include <cstdint>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
 namespace mulan::engine {
+
+struct FontAtlasCpuData {
+    float baseFontSize = 48.0f;
+    float pxRange = 4.0f;
+    uint32_t atlasWidth = 0;
+    uint32_t atlasHeight = 0;
+    uint64_t charsetHash = 0;
+    std::vector<uint8_t> rgbaPixels;
+    std::unordered_map<uint32_t, GlyphInfo> glyphs;
+};
 
 // ============================================================
 // 字体图集 — MSDF 纹理 + 字形查找表
@@ -37,6 +49,16 @@ public:
     /// @param atlasHeight  图集高度（默认 1024）
     /// @return true 成功
     bool load(const char* fontPath, float fontSize = 48.0f, uint32_t atlasWidth = 1024, uint32_t atlasHeight = 1024);
+
+    /// 从 CPU 图集数据创建 GPU 纹理和采样器
+    bool loadFromCpuData(FontAtlasCpuData data);
+
+    /// 生成默认字符集的 MSDF CPU 图集数据，不接触 GPU
+    static bool generateCpuData(const char* fontPath, float fontSize, uint32_t atlasWidth, uint32_t atlasHeight,
+                                FontAtlasCpuData& outData);
+
+    /// 默认字符集版本 hash，参与磁盘缓存 key
+    static uint64_t defaultCharsetHash();
 
     /// 查找字形信息，未找到返回 nullptr
     const GlyphInfo* getGlyph(uint32_t unicode) const;

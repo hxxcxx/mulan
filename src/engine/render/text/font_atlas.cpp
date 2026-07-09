@@ -5,10 +5,37 @@
 #include <msdf-atlas-gen/msdf-atlas-gen.h>
 
 #include <cstdio>
-#include <cstring>
 #include <algorithm>
+#include <array>
+#include <cstddef>
+#include <utility>
 
 namespace mulan::engine {
+
+namespace {
+
+constexpr std::array<uint32_t, 105> kDefaultCharset = [] {
+    std::array<uint32_t, 105> chars{};
+    uint32_t index = 0;
+    for (uint32_t c = 32; c < 127; ++c) {
+        chars[index++] = c;
+    }
+    for (uint32_t c : { 0x3001u, 0x3002u, 0xFF0Cu, 0xFF0Eu, 0xFF08u, 0xFF09u, 0x2018u, 0x2019u, 0x201Cu, 0x201Du }) {
+        chars[index++] = c;
+    }
+    return chars;
+}();
+
+uint64_t fnv1a64(const void* data, size_t size, uint64_t hash = 14695981039346656037ull) {
+    const auto* bytes = static_cast<const uint8_t*>(data);
+    for (size_t i = 0; i < size; ++i) {
+        hash ^= bytes[i];
+        hash *= 1099511628211ull;
+    }
+    return hash;
+}
+
+}  // namespace
 
 // ============================================================
 // 构造 / 析构
@@ -24,6 +51,15 @@ FontAtlas::~FontAtlas() = default;
 // ============================================================
 
 bool FontAtlas::load(const char* fontPath, float fontSize, uint32_t atlasWidth, uint32_t atlasHeight) {
+    FontAtlasCpuData data;
+    if (!generateCpuData(fontPath, fontSize, atlasWidth, atlasHeight, data)) {
+        return false;
+    }
+    return loadFromCpuData(std::move(data));
+}
+
+bool FontAtlas::generateCpuData(const char* fontPath, float fontSize, uint32_t atlasWidth, uint32_t atlasHeight,
+                                FontAtlasCpuData& outData) {
     // 预检：文件是否存在
     FILE* testFile = nullptr;
 #ifdef _WIN32
@@ -37,9 +73,11 @@ bool FontAtlas::load(const char* fontPath, float fontSize, uint32_t atlasWidth, 
     }
     fclose(testFile);
 
-    base_font_size_ = fontSize;
-    atlas_width_ = atlasWidth;
-    atlas_height_ = atlasHeight;
+    outData = {};
+    outData.baseFontSize = fontSize;
+    outData.atlasWidth = atlasWidth;
+    outData.atlasHeight = atlasHeight;
+    outData.charsetHash = defaultCharsetHash();
 
     // --- 1. 初始化 FreeType ---
     msdfgen::FreetypeHandle* ft = msdfgen::initializeFreetype();
@@ -62,11 +100,9 @@ bool FontAtlas::load(const char* fontPath, float fontSize, uint32_t atlasWidth, 
 
     // ASCII 可打印字符 (32~126)
     msdf_atlas::Charset charset;
-    for (uint32_t c = 32; c < 127; ++c)
+    for (uint32_t c : kDefaultCharset) {
         charset.add(c);
-    // 常用中文标点
-    for (auto c : { 0x3001u, 0x3002u, 0xFF0Cu, 0xFF0Eu, 0xFF08u, 0xFF09u, 0x2018u, 0x2019u, 0x201Cu, 0x201Du })
-        charset.add(c);
+    }
 
     int loaded = fontGeometry.loadCharset(font, 1.0, charset);
     std::fprintf(stderr, "[FontAtlas] Loaded %d glyphs from %s\n", loaded, fontPath);
@@ -87,15 +123,15 @@ bool FontAtlas::load(const char* fontPath, float fontSize, uint32_t atlasWidth, 
     // 获取实际尺寸和像素范围
     int packW = 0, packH = 0;
     packer.getDimensions(packW, packH);
-    atlas_width_ = (uint32_t) std::max(packW, 1);
-    atlas_height_ = (uint32_t) std::max(packH, 1);
-    px_range_ = (float) (packer.getPixelRange().upper - packer.getPixelRange().lower);
+    outData.atlasWidth = (uint32_t) std::max(packW, 1);
+    outData.atlasHeight = (uint32_t) std::max(packH, 1);
+    outData.pxRange = (float) (packer.getPixelRange().upper - packer.getPixelRange().lower);
 
     // --- 6. 生成 MSDF 位图 ---
     using AtlasGenerator = msdf_atlas::ImmediateAtlasGenerator<float, 3, msdf_atlas::msdfGenerator,
                                                                msdf_atlas::BitmapAtlasStorage<msdfgen::byte, 3>>;
 
-    AtlasGenerator generator((int) atlas_width_, (int) atlas_height_);
+    AtlasGenerator generator((int) outData.atlasWidth, (int) outData.atlasHeight);
     msdf_atlas::GeneratorAttributes attr;
     generator.setAttributes(attr);
     generator.setThreadCount(4);
@@ -105,17 +141,17 @@ bool FontAtlas::load(const char* fontPath, float fontSize, uint32_t atlasWidth, 
     msdfgen::BitmapConstRef<msdfgen::byte, 3> atlasBitmap =
             (msdfgen::BitmapConstRef<msdfgen::byte, 3>) generator.atlasStorage();
 
-    std::vector<uint8_t> rgbaData(atlas_width_ * atlas_height_ * 4);
-    for (uint32_t y = 0; y < atlas_height_; ++y) {
-        for (uint32_t x = 0; x < atlas_width_; ++x) {
+    outData.rgbaPixels.resize(outData.atlasWidth * outData.atlasHeight * 4);
+    for (uint32_t y = 0; y < outData.atlasHeight; ++y) {
+        for (uint32_t x = 0; x < outData.atlasWidth; ++x) {
             // atlasBitmap 使用 Y-up 坐标，需要翻转为 Y-down (屏幕空间)
-            int srcY = (int) (atlas_height_ - 1 - y);
+            int srcY = (int) (outData.atlasHeight - 1 - y);
             const msdfgen::byte* pixel = atlasBitmap((int) x, srcY);
-            uint32_t idx = (y * atlas_width_ + x) * 4;
-            rgbaData[idx + 0] = pixel[0];
-            rgbaData[idx + 1] = pixel[1];
-            rgbaData[idx + 2] = pixel[2];
-            rgbaData[idx + 3] = 0xFF;  // Alpha 全部 255
+            uint32_t idx = (y * outData.atlasWidth + x) * 4;
+            outData.rgbaPixels[idx + 0] = pixel[0];
+            outData.rgbaPixels[idx + 1] = pixel[1];
+            outData.rgbaPixels[idx + 2] = pixel[2];
+            outData.rgbaPixels[idx + 3] = 0xFF;  // Alpha 全部 255
         }
     }
 
@@ -126,7 +162,7 @@ bool FontAtlas::load(const char* fontPath, float fontSize, uint32_t atlasWidth, 
 
         GlyphInfo info;
         info.unicode = glyph.getCodepoint();
-        info.advanceX = static_cast<float>(glyph.getAdvance() * base_font_size_);
+        info.advanceX = static_cast<float>(glyph.getAdvance() * outData.baseFontSize);
 
         // 平面边界（字形相对基线的位置）
         double pl, pb, pr, pt;
@@ -134,27 +170,49 @@ bool FontAtlas::load(const char* fontPath, float fontSize, uint32_t atlasWidth, 
         // planeBounds: Y-up 坐标，转换为 Y-down
         // pl=left, pb=bottom(up), pr=right, pt=top(up)
         // 在 Y-down 屏幕空间：top 是向下的
-        info.planeLeft = static_cast<float>(pl * base_font_size_);
-        info.planeTop = static_cast<float>(pt * base_font_size_);  // 基线到字形顶部的偏移（Y-up 正值）
-        info.width = static_cast<float>((pr - pl) * base_font_size_);
-        info.height = static_cast<float>((pt - pb) * base_font_size_);
+        info.planeLeft = static_cast<float>(pl * outData.baseFontSize);
+        info.planeTop = static_cast<float>(pt * outData.baseFontSize);  // 基线到字形顶部的偏移（Y-up 正值）
+        info.width = static_cast<float>((pr - pl) * outData.baseFontSize);
+        info.height = static_cast<float>((pt - pb) * outData.baseFontSize);
 
         // Atlas 中的 UV 边界
         double al, ab, ar, at;
         glyph.getQuadAtlasBounds(al, ab, ar, at);
         // atlasBounds 是 Y-up，需要翻转
-        info.atlasU = (float) (al / (double) atlas_width_);
-        info.atlasV = (float) (1.0 - at / (double) atlas_height_);   // 翻转 Y
-        info.atlasU2 = (float) (ar / (double) atlas_width_);
-        info.atlasV2 = (float) (1.0 - ab / (double) atlas_height_);  // 翻转 Y
+        info.atlasU = (float) (al / (double) outData.atlasWidth);
+        info.atlasV = (float) (1.0 - at / (double) outData.atlasHeight);   // 翻转 Y
+        info.atlasU2 = (float) (ar / (double) outData.atlasWidth);
+        info.atlasV2 = (float) (1.0 - ab / (double) outData.atlasHeight);  // 翻转 Y
 
-        glyphs_[info.unicode] = info;
+        outData.glyphs[info.unicode] = info;
     }
 
-    // --- 9. 上传 GPU 纹理 ---
-    bool uploaded = uploadAtlas(rgbaData);
+    // --- 9. 清理 ---
+    msdfgen::destroyFont(font);
+    msdfgen::deinitializeFreetype(ft);
 
-    // --- 10. 创建采样器 ---
+    return true;
+}
+
+bool FontAtlas::loadFromCpuData(FontAtlasCpuData data) {
+    const uint64_t expectedBytes =
+            static_cast<uint64_t>(data.atlasWidth) * static_cast<uint64_t>(data.atlasHeight) * 4u;
+    if (data.atlasWidth == 0 || data.atlasHeight == 0 || data.rgbaPixels.size() != expectedBytes ||
+        data.glyphs.empty()) {
+        std::fprintf(stderr, "[FontAtlas] Invalid CPU atlas data\n");
+        return false;
+    }
+
+    base_font_size_ = data.baseFontSize;
+    atlas_width_ = data.atlasWidth;
+    atlas_height_ = data.atlasHeight;
+    px_range_ = data.pxRange;
+    glyphs_ = std::move(data.glyphs);
+
+    // --- 1. 上传 GPU 纹理 ---
+    bool uploaded = uploadAtlas(data.rgbaPixels);
+
+    // --- 2. 创建采样器 ---
     if (uploaded) {
         SamplerDesc samplerDesc;
         samplerDesc.minFilter = SamplerFilter::Linear;
@@ -170,11 +228,15 @@ bool FontAtlas::load(const char* fontPath, float fontSize, uint32_t atlasWidth, 
         }
     }
 
-    // --- 11. 清理 ---
-    msdfgen::destroyFont(font);
-    msdfgen::deinitializeFreetype(ft);
-
     return uploaded;
+}
+
+uint64_t FontAtlas::defaultCharsetHash() {
+    uint64_t hash = fnv1a64("mulan-default-msdf-charset-v1", 29);
+    for (uint32_t c : kDefaultCharset) {
+        hash = fnv1a64(&c, sizeof(c), hash);
+    }
+    return hash;
 }
 
 // ============================================================

@@ -1,5 +1,10 @@
 #include "font_manager.h"
 
+#include "font_atlas_cache.h"
+
+#include <cstdio>
+#include <utility>
+
 namespace mulan::engine {
 
 FontManager::FontManager(RHIDevice& device) : device_(&device) {
@@ -9,9 +14,27 @@ bool FontManager::loadFont(const char* key, const char* fontPath, float fontSize
     if (!device_)
         return false;
 
+    const uint64_t charsetHash = FontAtlas::defaultCharsetHash();
+    const FontAtlasCacheKey cacheKey = FontAtlasCache::makeKey(fontPath, fontSize, atlasSize, atlasSize, charsetHash);
+
     auto atlas = std::make_unique<FontAtlas>(device_);
-    if (!atlas->load(fontPath, fontSize, atlasSize, atlasSize)) {
-        return false;
+    FontAtlasCpuData cpuData;
+    if (FontAtlasCache::tryLoad(cacheKey, cpuData)) {
+        std::fprintf(stderr, "[FontAtlasCache] hit: %s\n", cacheKey.filePath.string().c_str());
+        if (!atlas->loadFromCpuData(std::move(cpuData))) {
+            return false;
+        }
+    } else {
+        std::fprintf(stderr, "[FontAtlasCache] miss: %s\n", cacheKey.filePath.string().c_str());
+        if (!FontAtlas::generateCpuData(fontPath, fontSize, atlasSize, atlasSize, cpuData)) {
+            return false;
+        }
+        if (!FontAtlasCache::save(cacheKey, cpuData)) {
+            std::fprintf(stderr, "[FontAtlasCache] save failed: %s\n", cacheKey.filePath.string().c_str());
+        }
+        if (!atlas->loadFromCpuData(std::move(cpuData))) {
+            return false;
+        }
     }
 
     if (default_key_.empty()) {

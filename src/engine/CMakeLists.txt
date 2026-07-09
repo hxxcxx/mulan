@@ -26,6 +26,7 @@ add_library(engine STATIC
     render/forward/edge_stage.cpp
     # Text rendering (MSDF)
     render/text/font_atlas.cpp
+    render/text/font_atlas_cache.cpp
     render/text/text_layout.cpp
     render/text/font_manager.cpp
     render/text/text_stage.cpp
