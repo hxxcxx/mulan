@@ -24,19 +24,6 @@ namespace mulan::app {
 
 namespace {
 
-bool hasCursorPosition(const engine::InputEvent& event) {
-    switch (event.type) {
-    case engine::InputEvent::Type::MousePress:
-    case engine::InputEvent::Type::MouseRelease:
-    case engine::InputEvent::Type::MouseMove:
-    case engine::InputEvent::Type::MouseDoubleClick:
-    case engine::InputEvent::Type::Wheel: return true;
-    case engine::InputEvent::Type::KeyPress:
-    case engine::InputEvent::Type::KeyRelease: return false;
-    }
-    return false;
-}
-
 bool isLeftPress(const engine::InputEvent& event) {
     return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Left;
 }
@@ -67,54 +54,6 @@ std::optional<ScreenPoint> projectToScreen(const engine::Camera& camera, const m
     };
 }
 
-EditorPickHitKind toEditorPickHitKind(view::RenderScene::PickHitKind kind) {
-    switch (kind) {
-    case view::RenderScene::PickHitKind::Object: return EditorPickHitKind::Object;
-    case view::RenderScene::PickHitKind::Vertex: return EditorPickHitKind::Vertex;
-    case view::RenderScene::PickHitKind::Edge: return EditorPickHitKind::Edge;
-    case view::RenderScene::PickHitKind::Face: return EditorPickHitKind::Face;
-    case view::RenderScene::PickHitKind::Curve: return EditorPickHitKind::Curve;
-    case view::RenderScene::PickHitKind::None: return EditorPickHitKind::None;
-    }
-    return EditorPickHitKind::None;
-}
-
-EditorPickHit toEditorPickHit(const view::RenderScene::PickResult& pick) {
-    return EditorPickHit{
-        .entity = pick.entity,
-        .pickId = pick.pickId,
-        .kind = toEditorPickHitKind(pick.kind),
-        .distance = pick.distance,
-        .worldPoint = pick.worldPoint,
-        .hasWorldPoint = pick.hasWorldPoint,
-        .worldNormal = pick.worldNormal,
-        .hasWorldNormal = pick.hasWorldNormal,
-        .sourceDrawableIndex = pick.sourceDrawableIndex,
-        .primitiveIndex = pick.primitiveIndex,
-        .hasPrimitiveIndex = pick.hasPrimitiveIndex,
-        .parameter = pick.parameter,
-        .toleranceWorld = pick.toleranceWorld,
-        .edgeStart = pick.edgeStart,
-        .edgeEnd = pick.edgeEnd,
-        .hasEdgeSegment = pick.hasEdgeSegment,
-        .curveCenter = pick.curveCenter,
-        .curveNormal = pick.curveNormal,
-        .curveRadius = pick.curveRadius,
-        .hasCurveCircle = pick.hasCurveCircle,
-        .curveStart = pick.curveStart,
-        .curveEnd = pick.curveEnd,
-        .curveMidpoint = pick.curveMidpoint,
-        .hasCurveEndpoints = pick.hasCurveEndpoints,
-        .hasCurveMidpoint = pick.hasCurveMidpoint,
-        .curveClosed = pick.curveClosed,
-        .curveStartDirection = pick.curveStartDirection,
-        .curveSweepRadians = pick.curveSweepRadians,
-        .hasCurveRange = pick.hasCurveRange,
-        .barycentric = pick.barycentric,
-        .hasBarycentric = pick.hasBarycentric,
-    };
-}
-
 }  // namespace
 
 EditorSession::EditorSession() = default;
@@ -128,6 +67,7 @@ void EditorSession::bind(DocumentSession* session, view::ViewContext* view, Docu
     session_ = session;
     view_ = view;
     binding_ = binding;
+    pick_service_.bind(session_, view_, binding_);
     preview_controller_.bind(view_);
     operation_executor_.bind(session_, binding_);
     refreshGrips();
@@ -137,6 +77,7 @@ void EditorSession::unbind() {
     cancelActiveTool();
     clearGrips();
     selection_context_.clear();
+    pick_service_.unbind();
     preview_controller_.unbind();
     operation_executor_.unbind();
     session_ = nullptr;
@@ -244,7 +185,7 @@ bool EditorSession::updateHoverAtFramebuffer(double screenX, double screenY) {
         return false;
     }
 
-    const std::optional<EditorSelectionHit> hit = selectionHitAtFramebuffer(screenX, screenY);
+    const std::optional<EditorSelectionHit> hit = pick_service_.selectionHitAtFramebuffer(screenX, screenY);
     selection_context_.setHovered(hit);
     if (view_) {
         if (hit) {
@@ -261,7 +202,7 @@ void EditorSession::selectAtFramebuffer(double screenX, double screenY) {
         return;
     }
 
-    const std::optional<EditorSelectionHit> hit = selectionHitAtFramebuffer(screenX, screenY);
+    const std::optional<EditorSelectionHit> hit = pick_service_.selectionHitAtFramebuffer(screenX, screenY);
     if (hit) {
         selection_context_.selectSingle(*hit);
         selection_context_.setHovered(hit);
@@ -316,33 +257,14 @@ EditorInput EditorSession::makeEditorInput(const engine::InputEvent& event) cons
         context.snapSettings = tool->snapSettings();
     }
 
-    if (binding_ && hasCursorPosition(event)) {
-        context.pickTested = true;
-        if (const auto pick =
-                    binding_->pickAt(view_->camera(), static_cast<double>(event.x), static_cast<double>(event.y))) {
-            context.pickHit = toEditorPickHit(*pick);
-        }
-        context.renderScene = binding_->renderScene();
+    const EditorPickInput pickInput = pick_service_.inputPick(event);
+    context.pickTested = pickInput.tested;
+    context.pickHit = pickInput.hit;
+    if (pickInput.renderScene) {
+        context.renderScene = pickInput.renderScene;
     }
 
     return input_resolver_.resolve(event, context);
-}
-
-std::optional<EditorSelectionHit> EditorSession::selectionHitAtFramebuffer(double screenX, double screenY) const {
-    if (!isReady() || !binding_ || !view_ || !session_ || !session_->document()) {
-        return std::nullopt;
-    }
-
-    const auto pick = binding_->pickAt(view_->camera(), screenX, screenY);
-    if (!pick) {
-        return std::nullopt;
-    }
-
-    EditorPickHit editorPick = toEditorPickHit(*pick);
-    if (!editorPick.valid()) {
-        return std::nullopt;
-    }
-    return makeEditorSelectionHit(editorPick, *session_->document());
 }
 
 void EditorSession::updateSnapPreview(const EditorInput& input) {

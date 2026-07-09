@@ -10,6 +10,7 @@
 #include "editor_input_resolver.h"
 #include "editor_grip.h"
 #include "editor_grip_provider.h"
+#include "editor_pick_service.h"
 #include "editor_preview_controller.h"
 #include "editor_selection.h"
 #include "editor_tool.h"
@@ -63,7 +64,6 @@ public:
 
 private:
     EditorInput makeEditorInput(const engine::InputEvent& event) const;
-    std::optional<EditorSelectionHit> selectionHitAtFramebuffer(double screenX, double screenY) const;
     void updateSnapPreview(const EditorInput& input);
     void rebuildGripPreview();
     bool tryStartGripDrag(const engine::InputEvent& event);
@@ -75,6 +75,7 @@ private:
     view::ViewContext* view_ = nullptr;
     DocumentViewBinding* binding_ = nullptr;
     EditorInputResolver input_resolver_;
+    EditorPickService pick_service_;
     EditorPreviewController preview_controller_;
     DocumentOperationExecutor operation_executor_;
     EditorGripProvider grip_provider_;
