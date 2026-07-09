@@ -9,7 +9,9 @@
 
 #include <optional>
 
-#include "document_render_cache.h"
+#include "document_pick_bridge.h"
+#include "document_render_binding.h"
+#include "document_selection_bridge.h"
 
 #include <mulan/engine/render/camera/camera.h>
 #include <mulan/scene/entity_id.h>
@@ -30,7 +32,7 @@ public:
 
     void bind(DocumentSession& session, mulan::view::ViewContext& view);
     void unbind();
-    bool isBound() const { return session_ && view_; }
+    bool isBound() const { return render_binding_.isBound(); }
 
     void refresh();
     void fitAll();
@@ -44,12 +46,7 @@ public:
     bool clearSelection();
 
 private:
-    void syncRenderCache();
-    void applyViewPreferences();
-    void fitCameraClipPlanesToSceneBounds();
-    void injectRenderCache();
-
-    DocumentSession* session_ = nullptr;
-    mulan::view::ViewContext* view_ = nullptr;
-    mulan::app::DocumentRenderCache render_cache_;
+    mulan::app::DocumentRenderBinding render_binding_;
+    mulan::app::DocumentPickBridge pick_bridge_;
+    mulan::app::DocumentSelectionBridge selection_bridge_;
 };

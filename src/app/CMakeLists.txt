@@ -40,6 +40,9 @@ set(MULAN_APP_SOURCES
     editor/snap_marker_builder.cpp
     ui/document_session.cpp
     ui/document_render_cache.cpp
+    ui/document_render_binding.cpp
+    ui/document_pick_bridge.cpp
+    ui/document_selection_bridge.cpp
     ui/document_view.cpp
     ui/document_view_binding.cpp
     ui/document_area.cpp
