@@ -1,7 +1,6 @@
 #include "editor_scene_snap_provider.h"
 
 #include <mulan/engine/render/camera/camera.h>
-#include <mulan/view/render_scene.h>
 
 #include <algorithm>
 #include <cmath>
@@ -18,7 +17,7 @@ constexpr double kCenterPriority = 3.15;
 constexpr double kTangentPriority = 3.25;
 constexpr double kEndpointPriority = 4.0;
 
-EditorGeometryDependency geometryDependencyFromPick(const view::RenderScene::PickResult& pick, EditorPickHitKind kind,
+EditorGeometryDependency geometryDependencyFromPick(const EditorPickHit& pick, EditorPickHitKind kind,
                                                     double parameter) {
     return EditorGeometryDependency{
         .entity = pick.entity,
@@ -79,7 +78,7 @@ double signedAngleAround(const math::Vec3& from, const math::Vec3& to, const mat
     return std::atan2(n.dot(a.cross(b)), a.dot(b));
 }
 
-std::optional<double> curveRangeParameter(const view::RenderScene::PickResult& pick, const math::Point3& point) {
+std::optional<double> curveRangeParameter(const EditorPickHit& pick, const math::Point3& point) {
     if (!pick.hasCurveRange || !pick.hasCurveCircle) {
         return std::nullopt;
     }
@@ -106,7 +105,7 @@ std::optional<double> curveRangeParameter(const view::RenderScene::PickResult& p
     return angle / sweep;
 }
 
-bool pointWithinCurveRange(const view::RenderScene::PickResult& pick, const math::Point3& point) {
+bool pointWithinCurveRange(const EditorPickHit& pick, const math::Point3& point) {
     const auto parameter = curveRangeParameter(pick, point);
     if (!parameter) {
         return true;
@@ -114,7 +113,7 @@ bool pointWithinCurveRange(const view::RenderScene::PickResult& pick, const math
     return *parameter >= -1.0e-6 && *parameter <= 1.0 + 1.0e-6;
 }
 
-void addPointCandidate(const EditorSnapQuery& query, const view::RenderScene::PickResult& pick, EditorSnapKind kind,
+void addPointCandidate(const EditorSnapQuery& query, const EditorPickHit& pick, EditorSnapKind kind,
                        EditorPickHitKind dependencyKind, double parameter, double priority, const math::Point3& point,
                        std::vector<EditorSnapCandidate>& out) {
     const auto distancePixels = screenDistance(query, point);
@@ -135,8 +134,7 @@ void addPointCandidate(const EditorSnapQuery& query, const view::RenderScene::Pi
     });
 }
 
-void addEdgeCandidates(const EditorSnapQuery& query, const view::RenderScene::PickResult& pick,
-                       std::vector<EditorSnapCandidate>& out) {
+void addEdgeCandidates(const EditorSnapQuery& query, const EditorPickHit& pick, std::vector<EditorSnapCandidate>& out) {
     if (!pick.hasWorldPoint || !pick.hasEdgeSegment) {
         return;
     }
@@ -159,8 +157,7 @@ void addEdgeCandidates(const EditorSnapQuery& query, const view::RenderScene::Pi
     }
 }
 
-void addFaceCandidate(const EditorSnapQuery& query, const view::RenderScene::PickResult& pick,
-                      std::vector<EditorSnapCandidate>& out) {
+void addFaceCandidate(const EditorSnapQuery& query, const EditorPickHit& pick, std::vector<EditorSnapCandidate>& out) {
     if (!query.snapSettings.enableFacePointSnap || !pick.hasWorldPoint) {
         return;
     }
@@ -169,7 +166,7 @@ void addFaceCandidate(const EditorSnapQuery& query, const view::RenderScene::Pic
                       pick.worldPoint, out);
 }
 
-void addTangentCandidates(const EditorSnapQuery& query, const view::RenderScene::PickResult& pick,
+void addTangentCandidates(const EditorSnapQuery& query, const EditorPickHit& pick,
                           std::vector<EditorSnapCandidate>& out) {
     if (!query.snapSettings.enableTangentSnap || !query.pointPolicy.axisAnchor || !pick.hasCurveCircle ||
         pick.curveRadius <= 0.0) {
@@ -204,7 +201,7 @@ void addTangentCandidates(const EditorSnapQuery& query, const view::RenderScene:
     }
 }
 
-void addCurveCandidates(const EditorSnapQuery& query, const view::RenderScene::PickResult& pick,
+void addCurveCandidates(const EditorSnapQuery& query, const EditorPickHit& pick,
                         std::vector<EditorSnapCandidate>& out) {
     if (query.snapSettings.enableEndpointSnap && pick.hasCurveEndpoints) {
         addPointCandidate(query, pick, EditorSnapKind::Vertex, EditorPickHitKind::Curve, 0.0, kEndpointPriority,
@@ -231,15 +228,14 @@ void addCurveCandidates(const EditorSnapQuery& query, const view::RenderScene::P
     addTangentCandidates(query, pick, out);
 }
 
-void addPickCandidates(const EditorSnapQuery& query, const view::RenderScene::PickResult& pick,
-                       std::vector<EditorSnapCandidate>& out) {
+void addPickCandidates(const EditorSnapQuery& query, const EditorPickHit& pick, std::vector<EditorSnapCandidate>& out) {
     switch (pick.kind) {
-    case view::RenderScene::PickHitKind::Edge: addEdgeCandidates(query, pick, out); break;
-    case view::RenderScene::PickHitKind::Face: addFaceCandidate(query, pick, out); break;
-    case view::RenderScene::PickHitKind::Curve: addCurveCandidates(query, pick, out); break;
-    case view::RenderScene::PickHitKind::Object:
-    case view::RenderScene::PickHitKind::Vertex:
-    case view::RenderScene::PickHitKind::None: break;
+    case EditorPickHitKind::Edge: addEdgeCandidates(query, pick, out); break;
+    case EditorPickHitKind::Face: addFaceCandidate(query, pick, out); break;
+    case EditorPickHitKind::Curve: addCurveCandidates(query, pick, out); break;
+    case EditorPickHitKind::Object:
+    case EditorPickHitKind::Vertex:
+    case EditorPickHitKind::None: break;
     }
 }
 
@@ -247,13 +243,13 @@ void addPickCandidates(const EditorSnapQuery& query, const view::RenderScene::Pi
 
 void EditorSceneSnapProvider::collect(const EditorSnapQuery& query, std::vector<EditorSnapCandidate>& out) {
     if (!query.snapSettings.enabled || !query.snapSettings.enableGeometrySnap || !query.pointPolicy.allowGeometry ||
-        !query.renderScene || !query.hasCursorRay) {
+        !query.pickWorld.available() || !query.hasCursorRay) {
         return;
     }
 
-    std::vector<view::RenderScene::PickResult> picks;
-    query.renderScene->collectPickCandidates(query.cursorRay, query.toleranceWorld, picks);
-    for (const view::RenderScene::PickResult& pick : picks) {
+    std::vector<EditorPickHit> picks;
+    query.pickWorld.collectCandidates(query.cursorRay, query.toleranceWorld, picks);
+    for (const EditorPickHit& pick : picks) {
         addPickCandidates(query, pick, out);
     }
 }

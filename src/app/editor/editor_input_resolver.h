@@ -10,7 +10,7 @@ namespace mulan::app {
 
 struct EditorInputResolveContext {
     const engine::Camera* camera = nullptr;
-    const ::mulan::view::RenderScene* renderScene = nullptr;
+    EditorPickQueryWorld pickWorld;
     std::optional<EditorPickHit> pickHit;
     bool pickTested = false;
     EditorPointPolicy pointPolicy;

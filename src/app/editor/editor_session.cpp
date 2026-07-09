@@ -257,9 +257,7 @@ EditorInput EditorSession::makeEditorInput(const engine::InputEvent& event) cons
     const EditorPickInput pickInput = pick_service_.inputPick(event);
     context.pickTested = pickInput.tested;
     context.pickHit = pickInput.hit;
-    if (pickInput.renderScene) {
-        context.renderScene = pickInput.renderScene;
-    }
+    context.pickWorld = pickInput.pickWorld;
 
     return input_resolver_.resolve(event, context);
 }

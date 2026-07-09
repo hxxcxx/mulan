@@ -183,7 +183,7 @@ void addEdgeCandidates(const EditorPickHit& hit, const EditorSnapSettings& setti
 
 void addGeometryCandidates(const EditorSnapCollectInput& input, std::vector<EditorSnapCandidate>& out) {
     const EditorSnapQuery& query = input.query;
-    if (query.renderScene || !query.snapSettings.enabled || !query.snapSettings.enableGeometrySnap ||
+    if (query.pickWorld.available() || !query.snapSettings.enabled || !query.snapSettings.enableGeometrySnap ||
         !query.pointPolicy.allowGeometry || !query.primaryPickHit || !query.primaryPickHit->valid()) {
         return;
     }

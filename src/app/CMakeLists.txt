@@ -18,6 +18,8 @@ set(MULAN_APP_SOURCES
     editor/editor_preview_controller.cpp
     editor/editor_input_resolver.cpp
     editor/editor_pick_service.cpp
+    editor/editor_pick_query_world.cpp
+    editor/editor_render_pick_conversion.cpp
     editor/editor_grip_provider.cpp
     editor/editor_scene_snap_provider.cpp
     editor/editor_selection.cpp

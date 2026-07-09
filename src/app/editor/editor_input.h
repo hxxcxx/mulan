@@ -116,6 +116,20 @@ struct EditorPickHit {
     bool valid() const { return static_cast<bool>(entity) && kind != EditorPickHitKind::None; }
 };
 
+class EditorPickQueryWorld {
+public:
+    EditorPickQueryWorld() = default;
+    explicit EditorPickQueryWorld(const ::mulan::view::RenderScene* renderScene);
+
+    void bind(const ::mulan::view::RenderScene* renderScene);
+    void clear();
+    bool available() const { return render_scene_ != nullptr; }
+    void collectCandidates(const math::Ray3& ray, double lineToleranceWorld, std::vector<EditorPickHit>& out) const;
+
+private:
+    const ::mulan::view::RenderScene* render_scene_ = nullptr;
+};
+
 struct EditorSnapCandidate {
     math::Point3 world;
     EditorSnapKind kind = EditorSnapKind::None;
@@ -158,7 +172,7 @@ struct EditorSnapSettings {
 struct EditorSnapQuery {
     engine::InputEvent event;
     const engine::Camera* camera = nullptr;
-    const ::mulan::view::RenderScene* renderScene = nullptr;
+    EditorPickQueryWorld pickWorld;
     engine::WorkPlane workPlane = engine::WorkPlane::worldXY();
     math::Ray3 cursorRay;
     double screenX = 0.0;

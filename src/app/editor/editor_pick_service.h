@@ -10,7 +10,6 @@
 #include "editor_selection.h"
 
 #include <mulan/engine/interaction/input_event.h>
-#include <mulan/view/render_scene.h>
 
 #include <optional>
 
@@ -26,7 +25,7 @@ namespace mulan::app {
 struct EditorPickInput {
     bool tested = false;
     std::optional<EditorPickHit> hit;
-    const view::RenderScene* renderScene = nullptr;
+    EditorPickQueryWorld pickWorld;
 };
 
 class EditorPickService {
@@ -40,14 +39,11 @@ public:
     EditorPickInput inputPick(const engine::InputEvent& event) const;
     std::optional<EditorPickHit> pickAtFramebuffer(double screenX, double screenY) const;
     std::optional<EditorSelectionHit> selectionHitAtFramebuffer(double screenX, double screenY) const;
-    const view::RenderScene* renderScene() const;
 
 private:
     DocumentSession* session_ = nullptr;
     view::ViewContext* view_ = nullptr;
     DocumentViewBinding* binding_ = nullptr;
 };
-
-EditorPickHit toEditorPickHit(const view::RenderScene::PickResult& pick);
 
 }  // namespace mulan::app

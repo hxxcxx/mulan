@@ -72,7 +72,7 @@ EditorInput EditorInputResolver::resolve(const engine::InputEvent& event,
     input.snapQuery = EditorSnapQuery{
         .event = event,
         .camera = camera,
-        .renderScene = context.renderScene,
+        .pickWorld = context.pickWorld,
         .workPlane = work_plane_,
         .cursorRay = input.cursorRay,
         .screenX = input.screenX,
