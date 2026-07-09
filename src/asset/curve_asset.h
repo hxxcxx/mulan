@@ -109,6 +109,7 @@ public:
     CurveElementId add(CurvePrimitive primitive);
     bool update(CurveElementId id, CurvePrimitive primitive);
     bool remove(CurveElementId id);
+    void setElements(std::vector<CurveElement> elements);
 
     CurveElementId addSegment(const math::Segment3& segment);
     bool updateSegment(CurveElementId id, const math::Segment3& segment);

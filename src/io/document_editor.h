@@ -16,6 +16,7 @@
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/scene/entity_id.h>
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -39,12 +40,22 @@ public:
     scene::EntityId createFace(std::string name, asset::FaceDefinition face);
     scene::EntityId createMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
     bool updateCurve(scene::EntityId entity, asset::CurveElementId element, asset::CurvePrimitive primitive);
+    bool updateCurveAsset(scene::EntityId entity, asset::AssetId geometry, asset::CurveElementId element,
+                          asset::CurvePrimitive primitive);
+    bool updateFaceAsset(scene::EntityId entity, asset::AssetId geometry, asset::FaceDefinition face);
     bool updateEntityTransform(scene::EntityId entity, const math::Mat4& worldTransform);
     scene::EntityId copyEntityWithTransform(scene::EntityId source, const math::Mat4& worldTransform);
     bool removeEntity(scene::EntityId entity, bool removeGeometryAsset = true);
+    asset::AssetId geometryAssetForEntity(scene::EntityId entity) const;
+    size_t geometryReferenceCount(asset::AssetId geometry) const;
+    asset::AssetId duplicateGeometryAsset(asset::AssetId geometry, std::string nameSuffix = " Copy");
+    bool setEntityGeometry(scene::EntityId entity, asset::AssetId geometry);
+    bool removeGeometryAsset(asset::AssetId geometry);
 
 private:
     asset::CurveAsset* curveAssetFor(scene::EntityId entity) const;
+    asset::CurveAsset* curveAsset(asset::AssetId geometry) const;
+    asset::FaceAsset* faceAsset(asset::AssetId geometry) const;
 
     Document& document_;
 };

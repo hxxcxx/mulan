@@ -62,6 +62,30 @@ bool DocumentEditor::updateCurve(scene::EntityId entity, asset::CurveElementId e
     return document_.markGeometryChanged(entity, curve->localBounds());
 }
 
+bool DocumentEditor::updateCurveAsset(scene::EntityId entity, asset::AssetId geometry, asset::CurveElementId element,
+                                      asset::CurvePrimitive primitive) {
+    if (!element.valid()) {
+        return false;
+    }
+
+    asset::CurveAsset* curve = curveAsset(geometry);
+    if (!curve || !curve->update(element, std::move(primitive))) {
+        return false;
+    }
+
+    return document_.markGeometryChanged(entity, curve->localBounds());
+}
+
+bool DocumentEditor::updateFaceAsset(scene::EntityId entity, asset::AssetId geometry, asset::FaceDefinition face) {
+    asset::FaceAsset* faceAsset = this->faceAsset(geometry);
+    if (!faceAsset) {
+        return false;
+    }
+
+    faceAsset->setFace(std::move(face));
+    return document_.markGeometryChanged(entity, faceAsset->localBounds());
+}
+
 bool DocumentEditor::updateEntityTransform(scene::EntityId entity, const math::Mat4& worldTransform) {
     if (!document_.scene() || !document_.scene()->isValid(entity)) {
         return false;
@@ -114,6 +138,84 @@ bool DocumentEditor::removeEntity(scene::EntityId entity, bool removeGeometryAss
     return document_.removeEntity(entity, removeGeometryAsset);
 }
 
+asset::AssetId DocumentEditor::geometryAssetForEntity(scene::EntityId entity) const {
+    if (!document_.scene() || !document_.scene()->isValid(entity)) {
+        return asset::AssetId::invalid();
+    }
+
+    const auto* geometry = document_.scene()->geometry(entity);
+    return geometry ? geometry->geometry : asset::AssetId::invalid();
+}
+
+size_t DocumentEditor::geometryReferenceCount(asset::AssetId geometry) const {
+    if (!document_.scene() || !geometry) {
+        return 0;
+    }
+
+    size_t count = 0;
+    document_.scene()->forEachEntity([&](scene::EntityId entity) {
+        const auto* component = document_.scene()->geometry(entity);
+        if (component && component->geometry == geometry) {
+            ++count;
+        }
+    });
+    return count;
+}
+
+asset::AssetId DocumentEditor::duplicateGeometryAsset(asset::AssetId geometry, std::string nameSuffix) {
+    if (!document_.assets() || !geometry) {
+        return asset::AssetId::invalid();
+    }
+
+    const asset::Asset* source = document_.assets()->asset(geometry);
+    if (!source) {
+        return asset::AssetId::invalid();
+    }
+
+    const std::string name = source->name() + std::move(nameSuffix);
+    if (const auto* curve = dynamic_cast<const asset::CurveAsset*>(source)) {
+        auto* copy = document_.assets()->create<asset::CurveAsset>(name);
+        if (!copy) {
+            return asset::AssetId::invalid();
+        }
+        copy->setElements(curve->elements());
+        return copy->id();
+    }
+
+    if (const auto* face = dynamic_cast<const asset::FaceAsset*>(source)) {
+        auto* copy = document_.assets()->create<asset::FaceAsset>(name, face->face());
+        return copy ? copy->id() : asset::AssetId::invalid();
+    }
+
+    return asset::AssetId::invalid();
+}
+
+bool DocumentEditor::setEntityGeometry(scene::EntityId entity, asset::AssetId geometry) {
+    if (!document_.scene() || !document_.assets() || !document_.scene()->isValid(entity)) {
+        return false;
+    }
+
+    if (!document_.scene()->setGeometry(entity, geometry)) {
+        return false;
+    }
+
+    math::AABB3 bounds = math::AABB3::empty();
+    if (const auto* asset = dynamic_cast<const asset::GeometryAsset*>(document_.assets()->asset(geometry))) {
+        bounds = asset->localBounds();
+    }
+    return document_.markGeometryChanged(entity, bounds);
+}
+
+bool DocumentEditor::removeGeometryAsset(asset::AssetId geometry) {
+    if (!document_.assets() || !geometry) {
+        return false;
+    }
+
+    document_.assets()->remove(geometry);
+    document_.markDirty();
+    return true;
+}
+
 asset::CurveAsset* DocumentEditor::curveAssetFor(scene::EntityId entity) const {
     if (!document_.scene() || !document_.assets() || !document_.scene()->isValid(entity)) {
         return nullptr;
@@ -125,6 +227,14 @@ asset::CurveAsset* DocumentEditor::curveAssetFor(scene::EntityId entity) const {
     }
 
     return dynamic_cast<asset::CurveAsset*>(document_.assets()->asset(geometry->geometry));
+}
+
+asset::CurveAsset* DocumentEditor::curveAsset(asset::AssetId geometry) const {
+    return document_.assets() ? dynamic_cast<asset::CurveAsset*>(document_.assets()->asset(geometry)) : nullptr;
+}
+
+asset::FaceAsset* DocumentEditor::faceAsset(asset::AssetId geometry) const {
+    return document_.assets() ? dynamic_cast<asset::FaceAsset*>(document_.assets()->asset(geometry)) : nullptr;
 }
 
 }  // namespace mulan::io

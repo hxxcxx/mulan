@@ -99,6 +99,17 @@ bool CurveAsset::remove(CurveElementId id) {
     return true;
 }
 
+void CurveAsset::setElements(std::vector<CurveElement> elements) {
+    elements_ = std::move(elements);
+    next_element_id_ = CurveElementId{ 1 };
+    for (const CurveElement& element : elements_) {
+        if (element.id.value >= next_element_id_.value) {
+            next_element_id_.value = element.id.value + 1;
+        }
+    }
+    rebuildRenderMesh();
+}
+
 CurveElementId CurveAsset::addSegment(const math::Segment3& segment) {
     return add(CurvePrimitive::segment(segment));
 }

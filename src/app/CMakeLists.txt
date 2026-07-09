@@ -24,6 +24,7 @@ set(MULAN_APP_SOURCES
     editor/editor_snap_collector.cpp
     editor/editor_snap_resolver.cpp
     editor/editor_session.cpp
+    editor/geometry_edit_service.cpp
     editor/point_drawing_tool.cpp
     editor/tool_controller.cpp
     editor/transform_edit_context.cpp

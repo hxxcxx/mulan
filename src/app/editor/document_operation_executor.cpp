@@ -1,5 +1,6 @@
 #include "document_operation_executor.h"
 
+#include "geometry_edit_service.h"
 #include "ui/document_session.h"
 #include "ui/document_view_binding.h"
 
@@ -26,38 +27,6 @@ struct Overloaded : T... {
 
 template <typename... T>
 Overloaded(T...) -> Overloaded<T...>;
-
-const asset::CurveAsset* curveAssetFor(const io::Document& document, scene::EntityId entity) {
-    const scene::Scene* scene = document.scene();
-    const asset::AssetLibrary* assets = document.assets();
-    if (!scene || !assets || !scene->isValid(entity)) {
-        return nullptr;
-    }
-
-    const scene::GeometryComponent* geometry = scene->geometry(entity);
-    if (!geometry || !geometry->geometry) {
-        return nullptr;
-    }
-
-    return dynamic_cast<const asset::CurveAsset*>(assets->asset(geometry->geometry));
-}
-
-std::optional<asset::CurvePrimitive> curvePrimitiveFor(const io::Document& document, scene::EntityId entity,
-                                                       asset::CurveElementId elementId) {
-    if (!elementId.valid()) {
-        return std::nullopt;
-    }
-
-    const asset::CurveAsset* curve = curveAssetFor(document, entity);
-    if (!curve) {
-        return std::nullopt;
-    }
-
-    const auto& elements = curve->elements();
-    const auto it = std::find_if(elements.begin(), elements.end(),
-                                 [elementId](const asset::CurveElement& element) { return element.id == elementId; });
-    return it != elements.end() ? std::optional<asset::CurvePrimitive>(it->primitive) : std::nullopt;
-}
 
 std::optional<math::Mat4> entityWorldTransform(const io::Document& document, scene::EntityId entity) {
     const scene::Scene* scene = document.scene();
@@ -143,85 +112,111 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
     io::DocumentEditor editor(document);
     ApplyResult result;
 
-    std::visit(
-            Overloaded{
-                    [&editor, &result](CreateCurveOperation& create) {
-                        const io::CurveCreateResult created =
-                                editor.createCurve(std::move(create.name), std::move(create.primitive));
-                        result.changed = static_cast<bool>(created);
-                        if (result.changed) {
-                            result.undoOperation = DocumentOperation::removeEntities({ created.entity }, true);
-                        }
-                    },
-                    [&editor, &result](CreateFaceOperation& create) {
-                        const scene::EntityId entity =
-                                editor.createFace(std::move(create.name), std::move(create.face));
-                        result.changed = static_cast<bool>(entity);
-                        if (result.changed) {
-                            result.undoOperation = DocumentOperation::removeEntities({ entity }, true);
-                        }
-                    },
-                    [&editor, &result](CreateMeshOperation& create) {
-                        const scene::EntityId entity =
-                                editor.createMesh(std::move(create.name), std::move(create.primitives));
-                        result.changed = static_cast<bool>(entity);
-                        if (result.changed) {
-                            result.undoOperation = DocumentOperation::removeEntities({ entity }, true);
-                        }
-                    },
-                    [&document, &editor, &result](UpdateCurveOperation& update) {
-                        std::optional<asset::CurvePrimitive> previous =
-                                curvePrimitiveFor(document, update.entity, update.element);
-                        if (!previous) {
-                            return;
-                        }
+    std::visit(Overloaded{
+                       [&editor, &result](CreateCurveOperation& create) {
+                           const io::CurveCreateResult created =
+                                   editor.createCurve(std::move(create.name), std::move(create.primitive));
+                           result.changed = static_cast<bool>(created);
+                           if (result.changed) {
+                               result.undoOperation = DocumentOperation::removeEntities({ created.entity }, true);
+                           }
+                       },
+                       [&editor, &result](CreateFaceOperation& create) {
+                           const scene::EntityId entity =
+                                   editor.createFace(std::move(create.name), std::move(create.face));
+                           result.changed = static_cast<bool>(entity);
+                           if (result.changed) {
+                               result.undoOperation = DocumentOperation::removeEntities({ entity }, true);
+                           }
+                       },
+                       [&editor, &result](CreateMeshOperation& create) {
+                           const scene::EntityId entity =
+                                   editor.createMesh(std::move(create.name), std::move(create.primitives));
+                           result.changed = static_cast<bool>(entity);
+                           if (result.changed) {
+                               result.undoOperation = DocumentOperation::removeEntities({ entity }, true);
+                           }
+                       },
+                       [&document, &result](UpdateCurveOperation& update) {
+                           GeometryEditRequest request{
+                               .entity = update.entity,
+                               .mutation =
+                                       CurveElementGeometryMutation{
+                                               .element = update.element,
+                                               .primitive = std::move(update.primitive),
+                                       },
+                           };
+                           GeometryEditService service(document);
+                           const GeometryEditResult edit = service.apply(std::move(request));
+                           result.changed = edit.changed;
+                           if (edit.changed && edit.previousMutation) {
+                               result.undoOperation = DocumentOperation::updateGeometry(GeometryEditRequest{
+                                       .entity = update.entity,
+                                       .sourceGeometry = edit.appliedGeometry,
+                                       .targetGeometry = edit.previousGeometry,
+                                       .mutation = std::move(*edit.previousMutation),
+                                       .makeUnique = false,
+                                       .removeSourceGeometryAfterApply = edit.createdUniqueGeometry,
+                               });
+                           }
+                       },
+                       [&document, &result](UpdateGeometryOperation& update) {
+                           const scene::EntityId entity = update.request.entity;
+                           GeometryEditService service(document);
+                           const GeometryEditResult edit = service.apply(std::move(update.request));
+                           result.changed = edit.changed;
+                           if (edit.changed && edit.previousMutation) {
+                               result.undoOperation = DocumentOperation::updateGeometry(GeometryEditRequest{
+                                       .entity = entity,
+                                       .sourceGeometry = edit.appliedGeometry,
+                                       .targetGeometry = edit.previousGeometry,
+                                       .mutation = std::move(*edit.previousMutation),
+                                       .makeUnique = false,
+                                       .removeSourceGeometryAfterApply = edit.createdUniqueGeometry,
+                               });
+                           }
+                       },
+                       [&document, &editor, &result](UpdateEntityTransformsOperation& update) {
+                           std::vector<EntityTransformUpdate> previous;
+                           previous.reserve(update.updates.size());
+                           for (const EntityTransformUpdate& item : update.updates) {
+                               if (const std::optional<math::Mat4> transform =
+                                           entityWorldTransform(document, item.entity)) {
+                                   previous.push_back(EntityTransformUpdate{ item.entity, *transform });
+                               }
+                           }
 
-                        result.changed = editor.updateCurve(update.entity, update.element, std::move(update.primitive));
-                        if (result.changed) {
-                            result.undoOperation =
-                                    DocumentOperation::updateCurve(update.entity, update.element, std::move(*previous));
-                        }
-                    },
-                    [&document, &editor, &result](UpdateEntityTransformsOperation& update) {
-                        std::vector<EntityTransformUpdate> previous;
-                        previous.reserve(update.updates.size());
-                        for (const EntityTransformUpdate& item : update.updates) {
-                            if (const std::optional<math::Mat4> transform =
-                                        entityWorldTransform(document, item.entity)) {
-                                previous.push_back(EntityTransformUpdate{ item.entity, *transform });
-                            }
-                        }
-
-                        for (const EntityTransformUpdate& item : update.updates) {
-                            result.changed =
-                                    editor.updateEntityTransform(item.entity, item.worldTransform) || result.changed;
-                        }
-                        if (result.changed && !previous.empty()) {
-                            result.undoOperation = DocumentOperation::updateEntityTransforms(std::move(previous));
-                        }
-                    },
-                    [&editor, &result](CopyEntityTransformsOperation& copy) {
-                        std::vector<scene::EntityId> created;
-                        created.reserve(copy.updates.size());
-                        for (const EntityTransformUpdate& item : copy.updates) {
-                            const scene::EntityId entity =
-                                    editor.copyEntityWithTransform(item.entity, item.worldTransform);
-                            if (entity) {
-                                created.push_back(entity);
-                                result.changed = true;
-                            }
-                        }
-                        if (!created.empty()) {
-                            result.undoOperation = DocumentOperation::removeEntities(std::move(created), false);
-                        }
-                    },
-                    [&editor, &result](RemoveEntitiesOperation& remove) {
-                        for (scene::EntityId entity : remove.entities) {
-                            result.changed = editor.removeEntity(entity, remove.removeGeometryAssets) || result.changed;
-                        }
-                    },
-            },
-            operation.data());
+                           for (const EntityTransformUpdate& item : update.updates) {
+                               result.changed =
+                                       editor.updateEntityTransform(item.entity, item.worldTransform) || result.changed;
+                           }
+                           if (result.changed && !previous.empty()) {
+                               result.undoOperation = DocumentOperation::updateEntityTransforms(std::move(previous));
+                           }
+                       },
+                       [&editor, &result](CopyEntityTransformsOperation& copy) {
+                           std::vector<scene::EntityId> created;
+                           created.reserve(copy.updates.size());
+                           for (const EntityTransformUpdate& item : copy.updates) {
+                               const scene::EntityId entity =
+                                       editor.copyEntityWithTransform(item.entity, item.worldTransform);
+                               if (entity) {
+                                   created.push_back(entity);
+                                   result.changed = true;
+                               }
+                           }
+                           if (!created.empty()) {
+                               result.undoOperation = DocumentOperation::removeEntities(std::move(created), false);
+                           }
+                       },
+                       [&editor, &result](RemoveEntitiesOperation& remove) {
+                           for (scene::EntityId entity : remove.entities) {
+                               result.changed =
+                                       editor.removeEntity(entity, remove.removeGeometryAssets) || result.changed;
+                           }
+                       },
+               },
+               operation.data());
 
     return result;
 }

@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include "geometry_mutation.h"
+
 #include <mulan/asset/curve_asset.h>
 #include <mulan/asset/face_asset.h>
 #include <mulan/asset/mesh_asset.h>
@@ -40,6 +42,10 @@ struct UpdateCurveOperation {
     asset::CurvePrimitive primitive;
 };
 
+struct UpdateGeometryOperation {
+    GeometryEditRequest request;
+};
+
 struct EntityTransformUpdate {
     scene::EntityId entity = scene::EntityId::invalid();
     math::Mat4 worldTransform{ 1.0 };
@@ -62,7 +68,8 @@ struct RemoveEntitiesOperation {
 
 using DocumentOperationData =
         std::variant<CreateCurveOperation, CreateFaceOperation, CreateMeshOperation, UpdateCurveOperation,
-                     UpdateEntityTransformsOperation, CopyEntityTransformsOperation, RemoveEntitiesOperation>;
+                     UpdateGeometryOperation, UpdateEntityTransformsOperation, CopyEntityTransformsOperation,
+                     RemoveEntitiesOperation>;
 
 class DocumentOperation {
 public:
@@ -71,6 +78,8 @@ public:
     static DocumentOperation createMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
     static DocumentOperation updateCurve(scene::EntityId entity, asset::CurveElementId element,
                                          asset::CurvePrimitive primitive);
+    static DocumentOperation updateGeometry(GeometryEditRequest request);
+    static DocumentOperation updateFaceGeometry(scene::EntityId entity, asset::FaceDefinition face);
     static DocumentOperation updateEntityTransforms(std::vector<EntityTransformUpdate> updates);
     static DocumentOperation copyEntityTransforms(std::vector<EntityTransformUpdate> updates);
     static DocumentOperation removeEntities(std::vector<scene::EntityId> entities, bool removeGeometryAssets = true);

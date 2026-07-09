@@ -25,7 +25,21 @@ DocumentOperation DocumentOperation::createMesh(std::string name, std::vector<as
 
 DocumentOperation DocumentOperation::updateCurve(scene::EntityId entity, asset::CurveElementId element,
                                                  asset::CurvePrimitive primitive) {
-    return DocumentOperation(UpdateCurveOperation{ entity, element, std::move(primitive) });
+    return updateGeometry(GeometryEditRequest{
+            .entity = entity,
+            .mutation = CurveElementGeometryMutation{ .element = element, .primitive = std::move(primitive) },
+    });
+}
+
+DocumentOperation DocumentOperation::updateGeometry(GeometryEditRequest request) {
+    return DocumentOperation(UpdateGeometryOperation{ std::move(request) });
+}
+
+DocumentOperation DocumentOperation::updateFaceGeometry(scene::EntityId entity, asset::FaceDefinition face) {
+    return updateGeometry(GeometryEditRequest{
+            .entity = entity,
+            .mutation = FaceDefinitionGeometryMutation{ .face = std::move(face) },
+    });
 }
 
 DocumentOperation DocumentOperation::updateEntityTransforms(std::vector<EntityTransformUpdate> updates) {
