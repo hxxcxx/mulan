@@ -26,6 +26,8 @@ class Scene;
 
 namespace mulan::view {
 
+class GeometryQueryWorld;
+
 class RenderScene {
 public:
     enum class PickHitKind : uint8_t {
@@ -109,6 +111,8 @@ public:
     }
 
 private:
+    friend class GeometryQueryWorld;
+
     SyncStats last_sync_stats_;
     math::AABB3 scene_bounds_;
     std::unordered_map<scene::EntityId, SceneProxy> proxies_;

@@ -14,6 +14,7 @@ add_library(view STATIC
     render_item_builder.cpp
     renderer.cpp
     render_world_sync.cpp
+    geometry_query.cpp
     render_scene.cpp
 )
 
