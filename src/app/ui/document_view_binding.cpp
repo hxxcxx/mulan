@@ -4,7 +4,6 @@
 
 #include <mulan/io/document.h>
 #include <mulan/scene/scene.h>
-#include <mulan/view/render_scene.h>
 #include <mulan/view/view_context.h>
 
 #include <algorithm>
@@ -26,10 +25,6 @@ double linePickToleranceWorld(const mulan::engine::Camera& camera) {
 }
 
 }  // namespace
-
-struct DocumentViewBinding::RenderCache {
-    mulan::view::RenderScene renderScene;
-};
 
 DocumentViewBinding::DocumentViewBinding() = default;
 
@@ -54,7 +49,7 @@ void DocumentViewBinding::unbind() {
     }
     session_ = nullptr;
     view_ = nullptr;
-    render_cache_.reset();
+    render_cache_.clear();
 }
 
 void DocumentViewBinding::refresh() {
@@ -72,7 +67,7 @@ void DocumentViewBinding::fitAll() {
         return;
     }
     syncRenderCache();
-    const auto& bounds = render_cache_->renderScene.sceneBounds();
+    const auto& bounds = render_cache_.sceneBounds();
     if (!bounds.isEmpty()) {
         view_->camera().fitToBox(bounds);
     }
@@ -81,10 +76,10 @@ void DocumentViewBinding::fitAll() {
 }
 
 const mulan::view::RenderScene* DocumentViewBinding::renderScene() const {
-    if (!isBound() || !render_cache_) {
+    if (!isBound()) {
         return nullptr;
     }
-    return &render_cache_->renderScene;
+    return render_cache_.renderScene();
 }
 
 std::optional<mulan::view::RenderScene::PickResult> DocumentViewBinding::pickAt(const mulan::engine::Camera& camera,
@@ -94,12 +89,13 @@ std::optional<mulan::view::RenderScene::PickResult> DocumentViewBinding::pickAt(
     }
 
     syncRenderCache();
-    if (!render_cache_) {
+    const mulan::view::RenderScene* scene = render_cache_.renderScene();
+    if (!scene) {
         return std::nullopt;
     }
 
     fitCameraClipPlanesToSceneBounds();
-    return render_cache_->renderScene.pick(camera.screenRay(x, y), linePickToleranceWorld(camera));
+    return scene->pick(camera.screenRay(x, y), linePickToleranceWorld(camera));
 }
 
 bool DocumentViewBinding::selectSingle(mulan::scene::EntityId entity) {
@@ -127,22 +123,12 @@ bool DocumentViewBinding::clearSelection() {
 }
 
 void DocumentViewBinding::syncRenderCache() {
-    if (!render_cache_) {
-        render_cache_ = std::make_unique<RenderCache>();
-    }
-
-    if (!session_ || !session_->document() || !session_->document()->scene() || !session_->document()->assets()) {
-        render_cache_->renderScene.clear();
-        if (view_) {
-            view_->setSceneLights(std::span<const mulan::engine::Light>{});
-        }
+    if (view_) {
+        const bool synced = render_cache_.sync(session_);
+        view_->setSceneLights(synced ? render_cache_.lights() : std::span<const mulan::engine::Light>{});
         return;
     }
-
-    render_cache_->renderScene.sync(*session_->document()->scene(), *session_->document()->assets());
-    if (view_) {
-        view_->setSceneLights(render_cache_->renderScene.lights());
-    }
+    render_cache_.sync(session_);
 }
 
 void DocumentViewBinding::applyViewPreferences() {
@@ -158,18 +144,18 @@ void DocumentViewBinding::applyViewPreferences() {
         view_->enableIBL();
     }
 
-    const auto& bounds = render_cache_->renderScene.sceneBounds();
+    const auto& bounds = render_cache_.sceneBounds();
     if (!bounds.isEmpty()) {
         view_->camera().fitToBox(bounds);
     }
 }
 
 void DocumentViewBinding::fitCameraClipPlanesToSceneBounds() {
-    if (!isBound() || !render_cache_) {
+    if (!isBound()) {
         return;
     }
 
-    const auto& bounds = render_cache_->renderScene.sceneBounds();
+    const auto& bounds = render_cache_.sceneBounds();
     if (!bounds.isEmpty()) {
         view_->camera().fitClipPlanesToBox(bounds);
     }
@@ -179,7 +165,5 @@ void DocumentViewBinding::injectRenderCache() {
     if (!isBound()) {
         return;
     }
-    auto* document = session_->document();
-    view_->setRenderScene(render_cache_ ? &render_cache_->renderScene : nullptr,
-                          document ? document->assets() : nullptr);
+    view_->setRenderScene(render_cache_.renderScene(), render_cache_.assets());
 }

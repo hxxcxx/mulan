@@ -30,6 +30,7 @@ set(MULAN_APP_SOURCES
     editor/grip_marker_builder.cpp
     editor/snap_marker_builder.cpp
     ui/document_session.cpp
+    ui/document_render_cache.cpp
     ui/document_view.cpp
     ui/document_view_binding.cpp
     ui/document_area.cpp

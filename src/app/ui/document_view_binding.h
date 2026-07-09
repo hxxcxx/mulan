@@ -7,12 +7,12 @@
  */
 #pragma once
 
-#include <memory>
 #include <optional>
+
+#include "document_render_cache.h"
 
 #include <mulan/engine/render/camera/camera.h>
 #include <mulan/scene/entity_id.h>
-#include <mulan/view/render_scene.h>
 
 class DocumentSession;
 
@@ -44,8 +44,6 @@ public:
     bool clearSelection();
 
 private:
-    struct RenderCache;
-
     void syncRenderCache();
     void applyViewPreferences();
     void fitCameraClipPlanesToSceneBounds();
@@ -53,5 +51,5 @@ private:
 
     DocumentSession* session_ = nullptr;
     mulan::view::ViewContext* view_ = nullptr;
-    std::unique_ptr<RenderCache> render_cache_;
+    mulan::app::DocumentRenderCache render_cache_;
 };
