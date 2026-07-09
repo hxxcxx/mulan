@@ -4,6 +4,8 @@
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/scene/components/geometry_component.h>
+#include <mulan/scene/components/name_component.h>
+#include <mulan/scene/components/render_component.h>
 #include <mulan/scene/scene.h>
 
 namespace mulan::io {
@@ -71,6 +73,41 @@ bool DocumentEditor::updateEntityTransform(scene::EntityId entity, const math::M
 
     document_.markDirty();
     return true;
+}
+
+scene::EntityId DocumentEditor::copyEntityWithTransform(scene::EntityId source, const math::Mat4& worldTransform) {
+    if (!document_.scene() || !document_.scene()->isValid(source)) {
+        return scene::EntityId::invalid();
+    }
+
+    const scene::GeometryComponent* geometry = document_.scene()->geometry(source);
+    if (!geometry || !geometry->geometry) {
+        return scene::EntityId::invalid();
+    }
+
+    std::string name = "Entity Copy";
+    if (const scene::NameComponent* sourceName = document_.scene()->name(source);
+        sourceName && !sourceName->value.empty()) {
+        name = sourceName->value + " Copy";
+    }
+
+    std::vector<asset::AssetId> materialSlots;
+    if (const scene::RenderComponent* render = document_.scene()->render(source)) {
+        materialSlots = render->material_slots;
+    }
+
+    const scene::EntityId copy =
+            document_.addSceneInstance(std::move(name), geometry->geometry, std::move(materialSlots));
+    if (!copy) {
+        return scene::EntityId::invalid();
+    }
+
+    if (const scene::RenderComponent* render = document_.scene()->render(source)) {
+        document_.scene()->setVisible(copy, render->visible);
+    }
+    document_.scene()->setWorldTransform(copy, worldTransform);
+    document_.markDirty();
+    return copy;
 }
 
 bool DocumentEditor::removeEntity(scene::EntityId entity) {

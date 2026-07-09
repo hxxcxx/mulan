@@ -15,6 +15,7 @@
 #include "editor_tool.h"
 #include "document_operation_executor.h"
 #include "tool_controller.h"
+#include "transform_edit_context.h"
 
 #include <mulan/engine/interaction/input_event.h>
 #include <mulan/engine/interaction/work_plane.h>
@@ -45,6 +46,7 @@ public:
     bool hasActiveTool() const { return tool_controller_.hasActiveTool(); }
 
     void startTool(std::unique_ptr<EditorTool> tool);
+    bool startTransformTool(TransformEditCommitMode commitMode);
     bool handleInput(const engine::InputEvent& event);
     void cancelActiveTool();
     void refreshGrips();

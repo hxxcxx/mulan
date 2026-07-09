@@ -25,6 +25,7 @@ set(MULAN_APP_SOURCES
     editor/point_drawing_tool.cpp
     editor/tool_controller.cpp
     editor/transform_edit_context.cpp
+    editor/transform_preview_builder.cpp
     editor/transform_tool.cpp
     editor/param_curve_tool.cpp
     editor/polyline_tool.cpp

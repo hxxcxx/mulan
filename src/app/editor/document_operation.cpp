@@ -32,4 +32,8 @@ DocumentOperation DocumentOperation::updateEntityTransforms(std::vector<EntityTr
     return DocumentOperation(UpdateEntityTransformsOperation{ std::move(updates) });
 }
 
+DocumentOperation DocumentOperation::copyEntityTransforms(std::vector<EntityTransformUpdate> updates) {
+    return DocumentOperation(CopyEntityTransformsOperation{ std::move(updates) });
+}
+
 }  // namespace mulan::app

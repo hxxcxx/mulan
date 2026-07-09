@@ -65,6 +65,8 @@ private:
     QAction* action_draw_bspline_ = nullptr;
     QAction* action_draw_nurbs_ = nullptr;
     QAction* action_draw_face_ = nullptr;
+    QAction* action_edit_move_ = nullptr;
+    QAction* action_edit_copy_ = nullptr;
     QAction* action_engine_settings_ = nullptr;
     QAction* action_display_edges_ = nullptr;
     QAction* action_display_wireframe_ = nullptr;
@@ -77,6 +79,7 @@ private:
     SARibbonCategory* category_home_ = nullptr;
     SARibbonPanel* panel_file_ = nullptr;
     SARibbonPanel* panel_draw_ = nullptr;
+    SARibbonPanel* panel_edit_ = nullptr;
     SARibbonPanel* panel_view_ = nullptr;
     SARibbonPanel* panel_setting_ = nullptr;
 

@@ -126,6 +126,16 @@ void MainWindow::buildRibbonHomeCategory() {
     panel_draw_->addLargeAction(action_draw_face_);
     category_home_->addPanel(panel_draw_);
 
+    panel_edit_ = new SARibbonPanel(tr("Edit"), category_home_);
+    action_edit_move_ = new QAction(QIcon(":/app/bright/icon/itemMoveWithBackground.svg"), tr("Move"), this);
+    connect(action_edit_move_, &QAction::triggered, this, [this]() { executeCommand("edit.move"); });
+    panel_edit_->addLargeAction(action_edit_move_);
+
+    action_edit_copy_ = new QAction(QIcon(":/app/bright/icon/copy-figure.svg"), tr("Copy"), this);
+    connect(action_edit_copy_, &QAction::triggered, this, [this]() { executeCommand("edit.copy"); });
+    panel_edit_->addLargeAction(action_edit_copy_);
+    category_home_->addPanel(panel_edit_);
+
     // ── Navigation 面板 ──
     panel_view_ = new SARibbonPanel(tr("Navigation"), category_home_);
     action_fit_all_ = new QAction(QIcon(":/app/bright/icon/fitall.svg"), tr("Fit All"), this);
@@ -335,6 +345,12 @@ void MainWindow::updateDisplayActions() {
     }
     if (action_draw_face_) {
         action_draw_face_->setEnabled(hasDocument);
+    }
+    if (action_edit_move_) {
+        action_edit_move_->setEnabled(hasDocument);
+    }
+    if (action_edit_copy_) {
+        action_edit_copy_->setEnabled(hasDocument);
     }
     if (!doc)
         return;

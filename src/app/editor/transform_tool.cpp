@@ -1,5 +1,7 @@
 #include "transform_tool.h"
 
+#include "transform_preview_builder.h"
+
 #include <utility>
 
 namespace mulan::app {
@@ -23,19 +25,28 @@ bool isMouseMove(const engine::InputEvent& event) {
 
 }  // namespace
 
-TransformTool::TransformTool(TransformEditContext context, math::Point3 dragStartWorld, TransformEditMode mode)
-    : context_(std::move(context)), mode_(mode), drag_start_world_(dragStartWorld) {
-    context_.setAnchorWorld(dragStartWorld);
+TransformTool::TransformTool(const io::Document* document, TransformEditContext context, TransformEditMode mode,
+                             TransformEditCommitMode commitMode)
+    : document_(document), context_(std::move(context)), mode_(mode), commit_mode_(commitMode) {
+}
+
+TransformTool::TransformTool(const io::Document* document, TransformEditContext context, math::Point3 dragStartWorld,
+                             TransformEditMode mode, TransformEditCommitMode commitMode)
+    : TransformTool(document, std::move(context), mode, commitMode) {
+    setDragStart(dragStartWorld);
 }
 
 EditorPointPolicy TransformTool::pointPolicy() const {
     EditorPointPolicy policy;
-    policy.axisAnchor = drag_start_world_;
+    if (drag_start_world_) {
+        policy.axisAnchor = *drag_start_world_;
+    }
     return policy;
 }
 
 EditorAction TransformTool::begin() {
     current_delta_.reset();
+    drag_preview_started_ = false;
     return EditorAction::clearPreview();
 }
 
@@ -44,13 +55,16 @@ EditorAction TransformTool::handleInput(const EditorInput& input) {
         return EditorAction::cancel();
     }
 
-    if (isLeftPress(input.event)) {
-        return EditorAction::consumeEvent();
-    }
-
     const auto point = input.worldPoint();
     if (!point) {
         return EditorAction::consumeEvent();
+    }
+
+    if (isLeftPress(input.event)) {
+        if (!drag_start_world_) {
+            return setDragStart(*point);
+        }
+        return commit(*point);
     }
 
     if (isMouseMove(input.event)) {
@@ -58,7 +72,10 @@ EditorAction TransformTool::handleInput(const EditorInput& input) {
     }
 
     if (isLeftRelease(input.event)) {
-        return commit(*point);
+        if (drag_start_world_ && drag_preview_started_) {
+            return commit(*point);
+        }
+        return EditorAction::consumeEvent();
     }
 
     return EditorAction::ignored();
@@ -66,18 +83,40 @@ EditorAction TransformTool::handleInput(const EditorInput& input) {
 
 EditorAction TransformTool::end(ToolFinishReason reason) {
     current_delta_.reset();
+    drag_preview_started_ = false;
     if (reason != ToolFinishReason::Finished) {
         return EditorAction::clearPreview();
     }
     return EditorAction::ignored();
 }
 
+EditorAction TransformTool::setDragStart(math::Point3 worldPoint) {
+    drag_start_world_ = worldPoint;
+    drag_preview_started_ = false;
+    current_delta_.reset();
+    context_.setAnchorWorld(worldPoint);
+    return EditorAction::clearPreview();
+}
+
 EditorAction TransformTool::update(const math::Point3& worldPoint) {
+    if (!drag_start_world_) {
+        return EditorAction::consumeEvent();
+    }
+
     current_delta_ = worldDelta(worldPoint);
-    return EditorAction::consumeEvent();
+    if (!current_delta_) {
+        return EditorAction::clearPreview();
+    }
+
+    drag_preview_started_ = true;
+    return updatePreview(*current_delta_);
 }
 
 EditorAction TransformTool::commit(const math::Point3& worldPoint) {
+    if (!drag_start_world_) {
+        return EditorAction::consumeEvent();
+    }
+
     std::optional<math::Mat4> delta = worldDelta(worldPoint);
     if (!delta) {
         delta = current_delta_;
@@ -91,14 +130,39 @@ EditorAction TransformTool::commit(const math::Point3& worldPoint) {
         return EditorAction::cancel();
     }
 
-    EditorAction action = EditorAction::commit(DocumentOperation::updateEntityTransforms(std::move(updates)));
+    DocumentOperation operation = commit_mode_ == TransformEditCommitMode::Copy
+                                          ? DocumentOperation::copyEntityTransforms(std::move(updates))
+                                          : DocumentOperation::updateEntityTransforms(std::move(updates));
+
+    EditorAction action = EditorAction::commit(std::move(operation));
     action.clearPreviewOnApply().finishTool();
     return action;
 }
 
+EditorAction TransformTool::updatePreview(const math::Mat4& worldDelta) const {
+    if (!document_) {
+        return EditorAction::consumeEvent();
+    }
+
+    std::vector<EntityTransformUpdate> updates = context_.entityUpdates(worldDelta);
+    if (updates.empty()) {
+        return EditorAction::clearPreview();
+    }
+
+    DraftGeometry preview = TransformPreviewBuilder::build(*document_, updates);
+    if (preview.empty()) {
+        return EditorAction::clearPreview();
+    }
+    return EditorAction::setPreview(std::move(preview));
+}
+
 std::optional<math::Mat4> TransformTool::worldDelta(const math::Point3& worldPoint) const {
+    if (!drag_start_world_) {
+        return std::nullopt;
+    }
+
     switch (mode_) {
-    case TransformEditMode::Translate: return math::Mat4::translate(worldPoint - drag_start_world_);
+    case TransformEditMode::Translate: return math::Mat4::translate(worldPoint - *drag_start_world_);
     case TransformEditMode::Rotate:
     case TransformEditMode::Scale: return std::nullopt;
     }

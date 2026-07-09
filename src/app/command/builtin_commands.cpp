@@ -82,6 +82,17 @@ CommandOutcome startViewPlaneDrawTool(CommandHost& host) {
     return {};
 }
 
+CommandOutcome startTransformTool(CommandHost& host, TransformEditCommitMode commitMode) {
+    EditorSession* editor = host.editorSession();
+    if (!editor || !editor->isReady()) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+    }
+    if (!editor->startTransformTool(commitMode)) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No selected movable entity"));
+    }
+    return {};
+}
+
 class DrawLineCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.line"; }
@@ -151,10 +162,34 @@ protected:
     }
 };
 
+class EditMoveCommand final : public Command {
+public:
+    std::string_view id() const override { return "edit.move"; }
+    std::string_view title() const override { return "Move"; }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override {
+        return startTransformTool(host, TransformEditCommitMode::Move);
+    }
+};
+
+class EditCopyCommand final : public Command {
+public:
+    std::string_view id() const override { return "edit.copy"; }
+    std::string_view title() const override { return "Copy"; }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override {
+        return startTransformTool(host, TransformEditCommitMode::Copy);
+    }
+};
+
 }  // namespace
 
 void registerBuiltinCommands(CommandManager& manager) {
     manager.add(std::make_unique<FitAllCommand>());
+    manager.add(std::make_unique<EditMoveCommand>());
+    manager.add(std::make_unique<EditCopyCommand>());
     manager.add(std::make_unique<DrawLineCommand>());
     manager.add(std::make_unique<DrawPolylineCommand>());
     manager.add(std::make_unique<DrawCircleCommand>());

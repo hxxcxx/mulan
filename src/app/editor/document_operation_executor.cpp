@@ -60,6 +60,13 @@ bool DocumentOperationExecutor::execute(DocumentOperation operation) const {
                                changed = editor.updateEntityTransform(item.entity, item.worldTransform) || changed;
                            }
                        },
+                       [&editor, &changed](CopyEntityTransformsOperation& copy) {
+                           for (const EntityTransformUpdate& item : copy.updates) {
+                               changed = static_cast<bool>(
+                                                 editor.copyEntityWithTransform(item.entity, item.worldTransform)) ||
+                                         changed;
+                           }
+                       },
                },
                operation.data());
 

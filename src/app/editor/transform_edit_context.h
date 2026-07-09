@@ -29,6 +29,11 @@ enum class TransformEditMode : uint8_t {
     Scale,
 };
 
+enum class TransformEditCommitMode : uint8_t {
+    Move,
+    Copy,
+};
+
 enum class TransformEditSubjectKind : uint8_t {
     Entity,
     SubObject,

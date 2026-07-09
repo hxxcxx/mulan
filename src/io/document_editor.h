@@ -40,6 +40,7 @@ public:
     scene::EntityId createMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
     bool updateCurve(scene::EntityId entity, asset::CurveElementId element, asset::CurvePrimitive primitive);
     bool updateEntityTransform(scene::EntityId entity, const math::Mat4& worldTransform);
+    scene::EntityId copyEntityWithTransform(scene::EntityId source, const math::Mat4& worldTransform);
     bool removeEntity(scene::EntityId entity);
 
 private:

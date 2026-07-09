@@ -9,6 +9,7 @@
 
 #include "grip_drag_tool.h"
 #include "snap_marker_builder.h"
+#include "transform_tool.h"
 #include "ui/document_session.h"
 #include "ui/document_view_binding.h"
 
@@ -116,6 +117,15 @@ engine::SelectionVisualTarget visualTarget(const EditorSelectionReference& refer
     return target;
 }
 
+bool hasMovableEntitySubject(const TransformEditContext& context) {
+    for (const TransformEditSubject& subject : context.subjects()) {
+        if (subject.wholeEntity() && subject.hasInitialWorldTransform) {
+            return true;
+        }
+    }
+    return false;
+}
+
 }  // namespace
 
 EditorSession::EditorSession() = default;
@@ -161,6 +171,22 @@ void EditorSession::startTool(std::unique_ptr<EditorTool> tool) {
     preview_controller_.clearSnapGeometry();
     clearGrips();
     applyAction(tool_controller_.start(std::move(tool)));
+}
+
+bool EditorSession::startTransformTool(TransformEditCommitMode commitMode) {
+    if (!isReady() || !session_ || !session_->document() || selection_context_.empty()) {
+        return false;
+    }
+
+    TransformEditContext context =
+            TransformEditContext::fromSelection(*session_->document(), selection_context_.selected());
+    if (!hasMovableEntitySubject(context)) {
+        return false;
+    }
+
+    startTool(std::make_unique<TransformTool>(session_->document(), std::move(context), TransformEditMode::Translate,
+                                              commitMode));
+    return true;
 }
 
 bool EditorSession::handleInput(const engine::InputEvent& event) {
@@ -370,7 +396,10 @@ bool EditorSession::applyAction(EditorAction action) {
     }
 
     if (action.operation()) {
-        operation_executor_.execute(std::move(*action.operation()));
+        if (operation_executor_.execute(std::move(*action.operation()))) {
+            refreshGrips();
+            syncSelectionVisualState();
+        }
     }
 
     return consumed;

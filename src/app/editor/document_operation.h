@@ -51,8 +51,13 @@ struct UpdateEntityTransformsOperation {
     std::vector<EntityTransformUpdate> updates;
 };
 
-using DocumentOperationData = std::variant<CreateCurveOperation, CreateFaceOperation, CreateMeshOperation,
-                                           UpdateCurveOperation, UpdateEntityTransformsOperation>;
+struct CopyEntityTransformsOperation {
+    std::vector<EntityTransformUpdate> updates;
+};
+
+using DocumentOperationData =
+        std::variant<CreateCurveOperation, CreateFaceOperation, CreateMeshOperation, UpdateCurveOperation,
+                     UpdateEntityTransformsOperation, CopyEntityTransformsOperation>;
 
 class DocumentOperation {
 public:
@@ -62,6 +67,7 @@ public:
     static DocumentOperation updateCurve(scene::EntityId entity, asset::CurveElementId element,
                                          asset::CurvePrimitive primitive);
     static DocumentOperation updateEntityTransforms(std::vector<EntityTransformUpdate> updates);
+    static DocumentOperation copyEntityTransforms(std::vector<EntityTransformUpdate> updates);
 
     const DocumentOperationData& data() const { return data_; }
     DocumentOperationData& data() { return data_; }
