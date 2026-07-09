@@ -62,6 +62,7 @@ public:
 private:
     EditorInput makeEditorInput(const engine::InputEvent& event) const;
     void updateSnapPreview(const EditorInput& input);
+    void syncSelectionVisualState();
     bool tryStartGripDrag(const engine::InputEvent& event);
     bool applyAction(EditorAction action);
 

@@ -7,6 +7,7 @@
 #pragma once
 
 #include <mulan/engine/render/overlay/view_cube_model.h>
+#include <mulan/engine/render/frontend/selection_visual_state.h>
 #include <mulan/math/math.h>
 
 #include <cstdint>
@@ -29,6 +30,7 @@ struct ViewState {
     SurfaceShading surfaceShading = SurfaceShading::SolidLit;
     uint32_t hoveredPickId = 0;
     bool hasHoveredPickId = false;
+    engine::SelectionVisualState selectionVisuals;
     bool showFaces = true;
     bool showEdges = true;
     bool showOverlays = true;

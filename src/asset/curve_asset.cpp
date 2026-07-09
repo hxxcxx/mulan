@@ -10,6 +10,7 @@
 #include "curve_mesh_builder.h"
 
 #include <algorithm>
+#include <span>
 
 namespace mulan::asset {
 namespace {
@@ -107,8 +108,9 @@ bool CurveAsset::updateSegment(CurveElementId id, const math::Segment3& segment)
 }
 
 void CurveAsset::collectDrawables(std::vector<Drawable>& out) const {
-    if (!wire_mesh_.empty()) {
-        out.push_back({ &wire_mesh_, AssetId::invalid(), DrawableRole::Wire });
+    for (const graphics::Mesh& mesh : element_wire_meshes_) {
+        // 保留空元素占位，确保 drawable index 与 CurveElement 索引稳定对齐。
+        out.push_back({ &mesh, AssetId::invalid(), DrawableRole::Wire });
     }
 }
 
@@ -118,6 +120,11 @@ math::AABB3 CurveAsset::localBounds() const {
 
 void CurveAsset::rebuildRenderMesh() {
     wire_mesh_ = buildCurveWireMesh(elements_);
+    element_wire_meshes_.clear();
+    element_wire_meshes_.reserve(elements_.size());
+    for (const CurveElement& element : elements_) {
+        element_wire_meshes_.push_back(buildCurveWireMesh(std::span<const CurveElement>(&element, 1)));
+    }
 }
 
 CurveElementId CurveAsset::allocateElementId() {

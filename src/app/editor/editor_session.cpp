@@ -13,6 +13,7 @@
 #include "ui/document_view_binding.h"
 
 #include <mulan/math/math.h>
+#include <mulan/engine/render/frontend/selection_visual_state.h>
 #include <mulan/view/view_context.h>
 
 #include <optional>
@@ -24,6 +25,67 @@ namespace {
 
 bool isLeftPress(const engine::InputEvent& event) {
     return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Left;
+}
+
+engine::SelectionVisualDomain visualDomain(EditorSelectionDomain domain, EditorSubEntityKind kind) {
+    switch (domain) {
+    case EditorSelectionDomain::Curve:
+        switch (kind) {
+        case EditorSubEntityKind::CurveSegment: return engine::SelectionVisualDomain::CurveSegment;
+        case EditorSubEntityKind::CurveVertex: return engine::SelectionVisualDomain::CurveVertex;
+        case EditorSubEntityKind::CurveElement: return engine::SelectionVisualDomain::CurveElement;
+        case EditorSubEntityKind::Entity: return engine::SelectionVisualDomain::Entity;
+        case EditorSubEntityKind::MeshFace:
+        case EditorSubEntityKind::MeshEdge:
+        case EditorSubEntityKind::MeshVertex: return engine::SelectionVisualDomain::Entity;
+        }
+        break;
+    case EditorSelectionDomain::Mesh:
+        switch (kind) {
+        case EditorSubEntityKind::MeshFace: return engine::SelectionVisualDomain::MeshFace;
+        case EditorSubEntityKind::MeshEdge: return engine::SelectionVisualDomain::MeshEdge;
+        case EditorSubEntityKind::MeshVertex: return engine::SelectionVisualDomain::MeshVertex;
+        case EditorSubEntityKind::Entity:
+        case EditorSubEntityKind::CurveElement:
+        case EditorSubEntityKind::CurveSegment:
+        case EditorSubEntityKind::CurveVertex: return engine::SelectionVisualDomain::Entity;
+        }
+        break;
+    case EditorSelectionDomain::Surface:
+        if (kind == EditorSubEntityKind::MeshFace) {
+            return engine::SelectionVisualDomain::SurfaceFace;
+        }
+        break;
+    case EditorSelectionDomain::Solid:
+        if (kind == EditorSubEntityKind::MeshFace) {
+            return engine::SelectionVisualDomain::SolidFace;
+        }
+        break;
+    case EditorSelectionDomain::Entity: break;
+    }
+    return engine::SelectionVisualDomain::Entity;
+}
+
+engine::SelectionVisualTarget visualTarget(const EditorSelectionReference& reference,
+                                           engine::SelectionVisualRole role) {
+    engine::SelectionVisualTarget target;
+    target.pickId = reference.pickId != 0 ? reference.pickId : reference.entity.index();
+    target.role = role;
+    target.domain = visualDomain(reference.domain, reference.kind);
+
+    if (reference.curveElementSelection()) {
+        target.sourceDrawableIndex = static_cast<uint32_t>(reference.sourceDrawableIndex);
+        target.hasSourceDrawableIndex = true;
+    }
+    if (reference.hasPrimitiveIndex) {
+        target.primitiveIndex = static_cast<uint32_t>(reference.primitiveIndex);
+        target.hasPrimitiveIndex = true;
+    }
+    if (reference.hasComponentIndex) {
+        target.componentIndex = static_cast<uint32_t>(reference.componentIndex);
+        target.hasComponentIndex = true;
+    }
+    return target;
 }
 
 }  // namespace
@@ -44,12 +106,16 @@ void EditorSession::bind(DocumentSession* session, view::ViewContext* view, Docu
     operation_executor_.bind(session_, binding_);
     grip_controller_.bind(session_, view_, &preview_controller_);
     refreshGrips();
+    syncSelectionVisualState();
 }
 
 void EditorSession::unbind() {
     cancelActiveTool();
     clearGrips();
     selection_context_.clear();
+    if (view_) {
+        view_->clearSelectionVisualState();
+    }
     grip_controller_.unbind();
     pick_service_.unbind();
     preview_controller_.unbind();
@@ -129,6 +195,7 @@ bool EditorSession::updateHoverAtFramebuffer(double screenX, double screenY) {
         if (view_) {
             view_->clearHoveredPickId();
         }
+        syncSelectionVisualState();
         return true;
     }
 
@@ -146,6 +213,7 @@ bool EditorSession::updateHoverAtFramebuffer(double screenX, double screenY) {
             view_->clearHoveredPickId();
         }
     }
+    syncSelectionVisualState();
     return hit.has_value();
 }
 
@@ -161,6 +229,7 @@ void EditorSession::selectAtFramebuffer(double screenX, double screenY) {
         if (view_) {
             view_->setHoveredPickId(hit->reference.pickId);
         }
+        syncSelectionVisualState();
         binding_->selectSingle(hit->reference.entity);
     } else {
         selection_context_.clearSelection();
@@ -168,6 +237,7 @@ void EditorSession::selectAtFramebuffer(double screenX, double screenY) {
         if (view_) {
             view_->clearHoveredPickId();
         }
+        syncSelectionVisualState();
         binding_->clearSelection();
     }
     refreshGrips();
@@ -179,11 +249,13 @@ void EditorSession::clearHover() {
     if (view_) {
         view_->clearHoveredPickId();
     }
+    syncSelectionVisualState();
 }
 
 void EditorSession::setSelectionFilter(EditorSelectionFilter filter) {
     selection_context_.setFilter(filter);
     selection_context_.clearHover();
+    syncSelectionVisualState();
     refreshGrips();
 }
 
@@ -221,6 +293,22 @@ EditorInput EditorSession::makeEditorInput(const engine::InputEvent& event) cons
 
 void EditorSession::updateSnapPreview(const EditorInput& input) {
     preview_controller_.setSnapGeometry(SnapMarkerBuilder::build(input));
+}
+
+void EditorSession::syncSelectionVisualState() {
+    if (!view_) {
+        return;
+    }
+
+    engine::SelectionVisualState state;
+    state.setActive(true);
+    for (const EditorSelectionReference& selected : selection_context_.selected()) {
+        state.add(visualTarget(selected, engine::SelectionVisualRole::Selected));
+    }
+    if (const auto& hovered = selection_context_.hovered(); hovered && hovered->valid()) {
+        state.add(visualTarget(hovered->reference, engine::SelectionVisualRole::Hovered));
+    }
+    view_->setSelectionVisualState(std::move(state));
 }
 
 bool EditorSession::tryStartGripDrag(const engine::InputEvent& event) {

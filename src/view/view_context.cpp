@@ -3,6 +3,7 @@
 #include "capture_service.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace mulan::view {
 namespace {
@@ -105,6 +106,14 @@ void ViewContext::setHoveredPickId(uint32_t pickId) {
 void ViewContext::clearHoveredPickId() {
     hovered_pick_id_ = 0;
     has_hovered_pick_id_ = false;
+}
+
+void ViewContext::setSelectionVisualState(engine::SelectionVisualState state) {
+    selection_visual_state_ = std::move(state);
+}
+
+void ViewContext::clearSelectionVisualState() {
+    selection_visual_state_.clear();
 }
 
 void ViewContext::setSceneLights(std::span<const engine::Light> lights) {
@@ -394,6 +403,7 @@ ViewState ViewContext::buildViewState() const {
     state.surfaceShading = surface_shading_;
     state.hoveredPickId = hovered_pick_id_;
     state.hasHoveredPickId = has_hovered_pick_id_;
+    state.selectionVisuals = selection_visual_state_;
     state.showFaces = render_mode_ != RenderMode::Wireframe;
     state.showEdges = render_mode_ != RenderMode::Shaded;
     state.showOverlays = show_overlays_;

@@ -126,6 +126,7 @@ private:
     CurveElementId next_element_id_{ 1 };
     std::vector<CurveElement> elements_;
     graphics::Mesh wire_mesh_;
+    std::vector<graphics::Mesh> element_wire_meshes_;
 };
 
 }  // namespace mulan::asset

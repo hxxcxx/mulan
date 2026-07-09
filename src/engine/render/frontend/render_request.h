@@ -9,6 +9,7 @@
 
 #include "render_capture.h"
 #include "render_resource_prepare.h"
+#include "selection_visual_state.h"
 #include "render_view_desc.h"
 #include "render_world_snapshot.h"
 #include "../overlay/view_cube_model.h"
@@ -42,6 +43,7 @@ struct RenderOptions {
     SurfaceTechnique surfaceTechnique = SurfaceTechnique::SolidLit;
     uint32_t hoveredPickId = 0;
     bool hasHoveredPickId = false;
+    SelectionVisualState selectionVisuals;
     bool showSurfaces = true;
     bool showEdges = true;
     bool showOverlays = true;

@@ -117,6 +117,7 @@ engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewS
     request.options.surfaceTechnique = toSurfaceTechnique(viewState.surfaceShading);
     request.options.hoveredPickId = viewState.hoveredPickId;
     request.options.hasHoveredPickId = viewState.hasHoveredPickId;
+    request.options.selectionVisuals = viewState.selectionVisuals;
     request.options.showSurfaces = viewState.showFaces;
     request.options.showEdges = viewState.showEdges;
     request.options.showOverlays = viewState.showOverlays;
