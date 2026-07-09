@@ -56,6 +56,11 @@ DocWidget* DocumentArea::addDocument(DocumentSession* session, const QString& ti
     auto* docWidget = new DocWidget(this);
     docs_[docWidget] = session;
     docWidget->setDocumentSession(session);
+    connect(docWidget, &DocWidget::commandStateInvalidated, this, [this, docWidget]() {
+        if (currentDocWidget() == docWidget) {
+            emit currentDocumentCommandStateInvalidated();
+        }
+    });
 
     int idx = tab_widget_->addTab(docWidget, title);
     tab_widget_->setCurrentIndex(idx);
@@ -66,6 +71,7 @@ DocWidget* DocumentArea::addDocument(DocumentSession* session, const QString& ti
     docWidget->init();
 
     emit documentOpened(title);
+    emit currentDocumentChanged(title);
     return docWidget;
 }
 
@@ -114,8 +120,10 @@ void DocumentArea::onTabCloseRequested(int index) {
 }
 
 void DocumentArea::onCurrentTabChanged(int index) {
-    if (index < 0)
+    if (index < 0) {
+        emit currentDocumentChanged({});
         return;
+    }
 
     auto* w = tab_widget_->widget(index);
     auto* docWidget = qobject_cast<DocWidget*>(w);

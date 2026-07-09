@@ -36,6 +36,9 @@ public:
     const DocumentView& documentView() const { return document_view_; }
     mulan::view::ViewContext& viewContext() { return document_view_.viewContext(); }
 
+signals:
+    void commandStateInvalidated();
+
 protected:
     void resizeEvent(QResizeEvent* e) override;
     void paintEvent(QPaintEvent*) override;

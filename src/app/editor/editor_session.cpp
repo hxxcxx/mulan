@@ -117,9 +117,9 @@ engine::SelectionVisualTarget visualTarget(const EditorSelectionReference& refer
     return target;
 }
 
-bool hasMovableEntitySubject(const TransformEditContext& context) {
+bool hasTransformableEntitySubject(const TransformEditContext& context) {
     for (const TransformEditSubject& subject : context.subjects()) {
-        if (subject.wholeEntity() && subject.hasInitialWorldTransform) {
+        if (subject.valid() && subject.hasInitialWorldTransform) {
             return true;
         }
     }
@@ -180,7 +180,7 @@ bool EditorSession::startTransformTool(TransformEditCommitMode commitMode) {
 
     TransformEditContext context =
             TransformEditContext::fromSelection(*session_->document(), selection_context_.selected());
-    if (!hasMovableEntitySubject(context)) {
+    if (!hasTransformableEntitySubject(context)) {
         return false;
     }
 
@@ -197,7 +197,7 @@ bool EditorSession::canStartTransformTool(TransformEditCommitMode commitMode) co
 
     const TransformEditContext context =
             TransformEditContext::fromSelection(*session_->document(), selection_context_.selected());
-    return hasMovableEntitySubject(context);
+    return hasTransformableEntitySubject(context);
 }
 
 bool EditorSession::undo() {

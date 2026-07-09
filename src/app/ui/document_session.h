@@ -10,8 +10,14 @@
 #include <mulan/io/document.h>
 #include <mulan/io/import_result.h>
 
+#include <cstdint>
 #include <memory>
 #include <string>
+
+enum class DocumentSessionKind : uint8_t {
+    Draft,
+    Imported,
+};
 
 struct DocumentRenderPreferences {
     bool preferOrthographic = true;
@@ -21,7 +27,8 @@ struct DocumentRenderPreferences {
 
 class DocumentSession {
 public:
-    explicit DocumentSession(std::unique_ptr<mulan::io::Document> doc, mulan::io::ImportReport report = {});
+    explicit DocumentSession(std::unique_ptr<mulan::io::Document> doc);
+    DocumentSession(std::unique_ptr<mulan::io::Document> doc, mulan::io::ImportReport report);
     ~DocumentSession();
 
     DocumentSession(const DocumentSession&) = delete;
@@ -36,8 +43,11 @@ public:
     bool preferOrthographic() const { return preferences_.preferOrthographic; }
     bool preferIBL() const { return preferences_.preferIBL; }
     bool preferPBRSurface() const { return preferences_.preferPBRSurface; }
+    DocumentSessionKind kind() const { return kind_; }
+    bool allowsDrawingCommands() const { return kind_ == DocumentSessionKind::Draft; }
 
 private:
     std::unique_ptr<mulan::io::Document> document_;
     DocumentRenderPreferences preferences_;
+    DocumentSessionKind kind_ = DocumentSessionKind::Draft;
 };

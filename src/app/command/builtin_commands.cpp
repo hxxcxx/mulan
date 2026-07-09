@@ -17,6 +17,7 @@
 #include "editor/param_curve_tool.h"
 #include "editor/polyline_tool.h"
 
+#include "ui/document_session.h"
 #include "ui/document_view.h"
 
 #include <memory>
@@ -41,8 +42,35 @@ bool hasReadyEditor(const CommandHost& host) {
     return editor && editor->isReady();
 }
 
+const DocumentSession* documentSession(const CommandHost& host) {
+    const DocumentView* view = host.documentView();
+    return view ? view->session() : nullptr;
+}
+
 CommandState readyEditorState(const Command& command, const CommandHost& host) {
     return commandState(command, hasReadyEditor(host), "No active editor session");
+}
+
+CommandState hiddenDrawingState(const Command& command, std::string statusText) {
+    CommandState state = commandState(command, false, std::move(statusText));
+    state.visible = false;
+    return state;
+}
+
+bool canUseDrawingCommands(const CommandHost& host) {
+    const DocumentSession* session = documentSession(host);
+    return session && session->allowsDrawingCommands();
+}
+
+CommandState drawingState(const Command& command, const CommandHost& host) {
+    const DocumentSession* session = documentSession(host);
+    if (!session) {
+        return hiddenDrawingState(command, "No active draft document");
+    }
+    if (!session->allowsDrawingCommands()) {
+        return hiddenDrawingState(command, "Drawing is unavailable for imported documents");
+    }
+    return readyEditorState(command, host);
 }
 
 CommandState transformState(const Command& command, const CommandHost& host, TransformEditCommitMode commitMode) {
@@ -78,6 +106,10 @@ protected:
 template <typename Tool>
 CommandOutcome startDrawTool(CommandHost& host) {
     EditorSession* editor = host.editorSession();
+    if (!canUseDrawingCommands(host)) {
+        return std::unexpected(
+                core::Error::make(core::ErrorCode::InvalidArg, "Drawing is unavailable for imported documents"));
+    }
     if (!editor || !editor->isReady()) {
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
     }
@@ -92,6 +124,10 @@ CommandOutcome startDrawTool(CommandHost& host) {
 
 CommandOutcome startParametricCurveTool(CommandHost& host, ParametricCurveToolKind kind) {
     EditorSession* editor = host.editorSession();
+    if (!canUseDrawingCommands(host)) {
+        return std::unexpected(
+                core::Error::make(core::ErrorCode::InvalidArg, "Drawing is unavailable for imported documents"));
+    }
     if (!editor || !editor->isReady()) {
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
     }
@@ -107,6 +143,10 @@ CommandOutcome startParametricCurveTool(CommandHost& host, ParametricCurveToolKi
 CommandOutcome startViewPlaneDrawTool(CommandHost& host) {
     EditorSession* editor = host.editorSession();
     DocumentView* view = host.documentView();
+    if (!canUseDrawingCommands(host)) {
+        return std::unexpected(
+                core::Error::make(core::ErrorCode::InvalidArg, "Drawing is unavailable for imported documents"));
+    }
     if (!editor || !editor->isReady() || !view || !view->isInitialized()) {
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
     }
@@ -153,7 +193,7 @@ class DrawLineCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.line"; }
     std::string_view title() const override { return "Line"; }
-    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
+    CommandState state(const CommandHost& host) const override { return drawingState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override { return startDrawTool<LineTool>(host); }
@@ -163,7 +203,7 @@ class DrawPolylineCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.polyline"; }
     std::string_view title() const override { return "Polyline"; }
-    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
+    CommandState state(const CommandHost& host) const override { return drawingState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override { return startDrawTool<PolylineTool>(host); }
@@ -173,7 +213,7 @@ class DrawCircleCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.circle"; }
     std::string_view title() const override { return "Circle"; }
-    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
+    CommandState state(const CommandHost& host) const override { return drawingState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override { return startDrawTool<CircleTool>(host); }
@@ -183,7 +223,7 @@ class DrawFaceCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.face"; }
     std::string_view title() const override { return "Face"; }
-    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
+    CommandState state(const CommandHost& host) const override { return drawingState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override { return startViewPlaneDrawTool(host); }
@@ -193,7 +233,7 @@ class DrawBezierCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.bezier"; }
     std::string_view title() const override { return "Bezier"; }
-    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
+    CommandState state(const CommandHost& host) const override { return drawingState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override {
@@ -205,7 +245,7 @@ class DrawBSplineCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.bspline"; }
     std::string_view title() const override { return "B-Spline"; }
-    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
+    CommandState state(const CommandHost& host) const override { return drawingState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override {
@@ -217,7 +257,7 @@ class DrawNurbsCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.nurbs"; }
     std::string_view title() const override { return "NURBS"; }
-    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
+    CommandState state(const CommandHost& host) const override { return drawingState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override {

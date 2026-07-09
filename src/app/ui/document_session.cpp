@@ -25,8 +25,12 @@ DocumentRenderPreferences makePreferences(const mulan::io::ImportReport& report)
 
 }  // namespace
 
+DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc)
+    : document_(std::move(doc)), preferences_(makePreferences({})), kind_(DocumentSessionKind::Draft) {
+}
+
 DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc, mulan::io::ImportReport report)
-    : document_(std::move(doc)), preferences_(makePreferences(report)) {
+    : document_(std::move(doc)), preferences_(makePreferences(report)), kind_(DocumentSessionKind::Imported) {
 }
 
 DocumentSession::~DocumentSession() = default;

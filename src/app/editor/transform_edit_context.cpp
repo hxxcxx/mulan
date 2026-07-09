@@ -4,6 +4,8 @@
 #include <mulan/scene/components/transform_component.h>
 #include <mulan/scene/scene.h>
 
+#include <unordered_set>
+
 namespace mulan::app {
 namespace {
 
@@ -31,8 +33,12 @@ TransformEditContext TransformEditContext::fromTarget(const io::Document& docume
 std::vector<EntityTransformUpdate> TransformEditContext::entityUpdates(const math::Mat4& worldDelta) const {
     std::vector<EntityTransformUpdate> updates;
     updates.reserve(subjects_.size());
+    std::unordered_set<scene::EntityId> emitted;
     for (const TransformEditSubject& subject : subjects_) {
-        if (!subject.wholeEntity() || !subject.hasInitialWorldTransform) {
+        if (!subject.valid() || !subject.hasInitialWorldTransform) {
+            continue;
+        }
+        if (!emitted.insert(subject.target.entity).second) {
             continue;
         }
         updates.push_back(EntityTransformUpdate{

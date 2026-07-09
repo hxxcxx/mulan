@@ -55,6 +55,7 @@ MainWindow::MainWindow(QWidget* parent) : SARibbonMainWindow(parent) {
     mulan::app::registerBuiltinCommands(command_manager_);
 
     connect(doc_area_, &DocumentArea::currentDocumentChanged, this, &MainWindow::onCurrentDocumentChanged);
+    connect(doc_area_, &DocumentArea::currentDocumentCommandStateInvalidated, this, &MainWindow::updateDisplayActions);
 
     // 构建 Ribbon
     buildRibbon();
@@ -83,6 +84,7 @@ QAction* MainWindow::createCommandAction(const QString& iconPath, std::string_vi
     const mulan::app::CommandState state = command_manager_.state(commandId, currentCommandHost());
     auto* action = new QAction(QIcon(iconPath), QString::fromStdString(state.title), this);
     action->setEnabled(state.enabled);
+    action->setVisible(state.visible);
     action->setCheckable(state.checkable);
     action->setChecked(state.checkable && state.checked);
     action->setShortcut(QKeySequence(QString::fromStdString(state.shortcut)));
@@ -111,6 +113,7 @@ void MainWindow::updateCommandActions() {
         const QSignalBlocker blocker(binding.action);
         binding.action->setText(QString::fromStdString(state.title));
         binding.action->setEnabled(state.enabled);
+        binding.action->setVisible(state.visible);
         binding.action->setCheckable(state.checkable);
         binding.action->setChecked(state.checkable && state.checked);
         binding.action->setShortcut(QKeySequence(QString::fromStdString(state.shortcut)));
@@ -336,6 +339,17 @@ void MainWindow::updateDisplayActions() {
     const bool hasDocument = doc != nullptr;
     updateCommandActions();
 
+    const bool hasVisibleDrawAction = (action_draw_line_ && action_draw_line_->isVisible()) ||
+                                      (action_draw_polyline_ && action_draw_polyline_->isVisible()) ||
+                                      (action_draw_circle_ && action_draw_circle_->isVisible()) ||
+                                      (action_draw_bezier_ && action_draw_bezier_->isVisible()) ||
+                                      (action_draw_bspline_ && action_draw_bspline_->isVisible()) ||
+                                      (action_draw_nurbs_ && action_draw_nurbs_->isVisible()) ||
+                                      (action_draw_face_ && action_draw_face_->isVisible());
+    if (panel_draw_) {
+        panel_draw_->setVisible(hasVisibleDrawAction);
+    }
+
     if (action_display_wireframe_) {
         action_display_wireframe_->setEnabled(hasDocument);
     }
@@ -394,6 +408,7 @@ void MainWindow::onNewDocument() {
     auto* session = new DocumentSession(std::move(doc));
     doc_area_->addDocument(session, title);
 
+    updateDisplayActions();
     statusBar()->showMessage(QString("Created: %1").arg(title));
 }
 
@@ -424,6 +439,7 @@ void MainWindow::onOpenFile() {
     auto* session = new DocumentSession(std::move(doc), std::move(opened->import.report));
     doc_area_->addDocument(session, title);
 
+    updateDisplayActions();
     statusBar()->showMessage(QString("Loaded: %1").arg(title));
 }
 
@@ -456,5 +472,6 @@ void MainWindow::dropEvent(QDropEvent* e) {
     auto* session = new DocumentSession(std::move(doc), std::move(opened->import.report));
     doc_area_->addDocument(session, title);
 
+    updateDisplayActions();
     statusBar()->showMessage(QString("Loaded: %1").arg(title));
 }

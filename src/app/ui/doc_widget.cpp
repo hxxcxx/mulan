@@ -77,6 +77,7 @@ void DocWidget::mousePressEvent(QMouseEvent* e) {
         left_press_consumed_ = consumed && (hadEditorTool || document_view_.editorSession().hasActiveTool());
     }
     requestFrame();
+    emit commandStateInvalidated();
 }
 
 void DocWidget::mouseReleaseEvent(QMouseEvent* e) {
@@ -96,6 +97,7 @@ void DocWidget::mouseReleaseEvent(QMouseEvent* e) {
         left_press_consumed_ = false;
     }
     requestFrame();
+    emit commandStateInvalidated();
 }
 
 void DocWidget::mouseMoveEvent(QMouseEvent* e) {
@@ -120,6 +122,7 @@ void DocWidget::mouseDoubleClickEvent(QMouseEvent* e) {
     auto ev = makeMouseDoubleClickEvent(*e);
     document_view_.handleInput(ev);
     requestFrame();
+    emit commandStateInvalidated();
 }
 
 void DocWidget::wheelEvent(QWheelEvent* e) {
@@ -132,12 +135,14 @@ void DocWidget::keyPressEvent(QKeyEvent* e) {
     auto ev = InputEvent::keyPress(translateKey(e->key()), translateModifiers(e->modifiers()));
     document_view_.handleInput(ev);
     requestFrame();
+    emit commandStateInvalidated();
 }
 
 void DocWidget::keyReleaseEvent(QKeyEvent* e) {
     auto ev = InputEvent::keyRelease(translateKey(e->key()), translateModifiers(e->modifiers()));
     document_view_.handleInput(ev);
     requestFrame();
+    emit commandStateInvalidated();
 }
 
 void DocWidget::leaveEvent(QEvent* e) {

@@ -45,6 +45,9 @@ signals:
     /// 文档被关闭
     void documentClosed();
 
+    /// 当前文档的编辑状态变化，需要刷新命令可用性
+    void currentDocumentCommandStateInvalidated();
+
 private slots:
     void onTabCloseRequested(int index);
     void onCurrentTabChanged(int index);

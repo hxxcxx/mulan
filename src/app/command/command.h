@@ -43,6 +43,7 @@ struct CommandState {
     std::string shortcut;
     std::string statusText;
     bool enabled = true;
+    bool visible = true;
     bool checkable = false;
     bool checked = false;
 };
@@ -68,6 +69,10 @@ public:
 
     CommandOutcome execute(CommandHost& host) {
         CommandState currentState = state(host);
+        if (!currentState.visible) {
+            std::string message = currentState.statusText.empty() ? "Command is unavailable" : currentState.statusText;
+            return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, std::move(message)));
+        }
         if (!currentState.enabled) {
             std::string message = currentState.statusText.empty() ? "Command is disabled" : currentState.statusText;
             return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, std::move(message)));
