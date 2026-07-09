@@ -11,6 +11,7 @@
 
 #include <string>
 #include <string_view>
+#include <utility>
 
 class DocumentView;
 
@@ -37,14 +38,41 @@ private:
 
 using CommandOutcome = core::Result<void>;
 
+struct CommandState {
+    std::string title;
+    std::string shortcut;
+    std::string statusText;
+    bool enabled = true;
+    bool checkable = false;
+    bool checked = false;
+};
+
 class Command {
 public:
     virtual ~Command() = default;
 
     virtual std::string_view id() const = 0;
     virtual std::string_view title() const = 0;
+    virtual std::string_view shortcut() const { return {}; }
+    virtual std::string_view statusText() const { return {}; }
+
+    virtual CommandState state(const CommandHost& host) const {
+        (void) host;
+        return CommandState{
+            .title = std::string(title()),
+            .shortcut = std::string(shortcut()),
+            .statusText = std::string(statusText()),
+            .enabled = true,
+        };
+    }
 
     CommandOutcome execute(CommandHost& host) {
+        CommandState currentState = state(host);
+        if (!currentState.enabled) {
+            std::string message = currentState.statusText.empty() ? "Command is disabled" : currentState.statusText;
+            return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, std::move(message)));
+        }
+
         CommandOutcome prepared = prepare(host);
         if (!prepared) {
             return std::unexpected(prepared.error());

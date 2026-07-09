@@ -12,7 +12,9 @@
 #include <mulan/io/file_manager.h>
 #include <mulan/view/view_state.h>
 
+#include <string>
 #include <string_view>
+#include <vector>
 
 class DocumentArea;
 class DocumentSession;
@@ -40,6 +42,9 @@ private:
     void setCurrentRenderMode(mulan::view::RenderMode mode);
     void setCurrentSurfaceShading(mulan::view::SurfaceShading shading);
     void updateDisplayActions();
+    void updateCommandActions();
+    QAction* createCommandAction(const QString& iconPath, std::string_view commandId);
+    void bindCommandAction(QAction* action, std::string_view commandId);
     mulan::app::CommandHost currentCommandHost() const;
     void executeCommand(std::string_view id);
 
@@ -52,6 +57,12 @@ private:
     // --- 文档管理 ---
     mulan::io::FileManager doc_manager_;
     mulan::app::CommandManager command_manager_;
+
+    struct CommandActionBinding {
+        std::string commandId;
+        QAction* action = nullptr;
+    };
+    std::vector<CommandActionBinding> command_actions_;
 
     // --- Actions ---
     QAction* action_new_ = nullptr;

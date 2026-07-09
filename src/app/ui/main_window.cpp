@@ -79,6 +79,46 @@ void MainWindow::buildRibbon() {
     buildRightButtonBar();
 }
 
+QAction* MainWindow::createCommandAction(const QString& iconPath, std::string_view commandId) {
+    const mulan::app::CommandState state = command_manager_.state(commandId, currentCommandHost());
+    auto* action = new QAction(QIcon(iconPath), QString::fromStdString(state.title), this);
+    action->setEnabled(state.enabled);
+    action->setCheckable(state.checkable);
+    action->setChecked(state.checkable && state.checked);
+    action->setShortcut(QKeySequence(QString::fromStdString(state.shortcut)));
+    action->setStatusTip(QString::fromStdString(state.statusText));
+    action->setToolTip(QString::fromStdString(state.statusText.empty() ? state.title : state.statusText));
+    bindCommandAction(action, commandId);
+    connect(action, &QAction::triggered, this, [this, command = std::string(commandId)]() { executeCommand(command); });
+    return action;
+}
+
+void MainWindow::bindCommandAction(QAction* action, std::string_view commandId) {
+    if (!action || commandId.empty()) {
+        return;
+    }
+    command_actions_.push_back(CommandActionBinding{ std::string(commandId), action });
+}
+
+void MainWindow::updateCommandActions() {
+    const mulan::app::CommandHost host = currentCommandHost();
+    for (const CommandActionBinding& binding : command_actions_) {
+        if (!binding.action) {
+            continue;
+        }
+
+        const mulan::app::CommandState state = command_manager_.state(binding.commandId, host);
+        const QSignalBlocker blocker(binding.action);
+        binding.action->setText(QString::fromStdString(state.title));
+        binding.action->setEnabled(state.enabled);
+        binding.action->setCheckable(state.checkable);
+        binding.action->setChecked(state.checkable && state.checked);
+        binding.action->setShortcut(QKeySequence(QString::fromStdString(state.shortcut)));
+        binding.action->setStatusTip(QString::fromStdString(state.statusText));
+        binding.action->setToolTip(QString::fromStdString(state.statusText.empty() ? state.title : state.statusText));
+    }
+}
+
 void MainWindow::buildRibbonHomeCategory() {
     category_home_ = new SARibbonCategory(this);
     category_home_->setCategoryName(tr("Home"));
@@ -97,50 +137,39 @@ void MainWindow::buildRibbonHomeCategory() {
     category_home_->addPanel(panel_file_);
 
     panel_draw_ = new SARibbonPanel(tr("Draw"), category_home_);
-    action_draw_line_ = new QAction(QIcon(":/app/bright/icon/link.svg"), tr("Line"), this);
-    connect(action_draw_line_, &QAction::triggered, this, [this]() { executeCommand("draw.line"); });
+    action_draw_line_ = createCommandAction(":/app/bright/icon/link.svg", "draw.line");
     panel_draw_->addLargeAction(action_draw_line_);
 
-    action_draw_polyline_ = new QAction(QIcon(":/app/bright/icon/link-pick.svg"), tr("Polyline"), this);
-    connect(action_draw_polyline_, &QAction::triggered, this, [this]() { executeCommand("draw.polyline"); });
+    action_draw_polyline_ = createCommandAction(":/app/bright/icon/link-pick.svg", "draw.polyline");
     panel_draw_->addLargeAction(action_draw_polyline_);
 
-    action_draw_circle_ = new QAction(QIcon(":/app/bright/icon/addFigure.svg"), tr("Circle"), this);
-    connect(action_draw_circle_, &QAction::triggered, this, [this]() { executeCommand("draw.circle"); });
+    action_draw_circle_ = createCommandAction(":/app/bright/icon/addFigure.svg", "draw.circle");
     panel_draw_->addLargeAction(action_draw_circle_);
 
-    action_draw_bezier_ = new QAction(QIcon(":/app/bright/icon/link-pick.svg"), tr("Bezier"), this);
-    connect(action_draw_bezier_, &QAction::triggered, this, [this]() { executeCommand("draw.bezier"); });
+    action_draw_bezier_ = createCommandAction(":/app/bright/icon/link-pick.svg", "draw.bezier");
     panel_draw_->addLargeAction(action_draw_bezier_);
 
-    action_draw_bspline_ = new QAction(QIcon(":/app/bright/icon/link-pick.svg"), tr("B-Spline"), this);
-    connect(action_draw_bspline_, &QAction::triggered, this, [this]() { executeCommand("draw.bspline"); });
+    action_draw_bspline_ = createCommandAction(":/app/bright/icon/link-pick.svg", "draw.bspline");
     panel_draw_->addLargeAction(action_draw_bspline_);
 
-    action_draw_nurbs_ = new QAction(QIcon(":/app/bright/icon/link-pick.svg"), tr("NURBS"), this);
-    connect(action_draw_nurbs_, &QAction::triggered, this, [this]() { executeCommand("draw.nurbs"); });
+    action_draw_nurbs_ = createCommandAction(":/app/bright/icon/link-pick.svg", "draw.nurbs");
     panel_draw_->addLargeAction(action_draw_nurbs_);
 
-    action_draw_face_ = new QAction(QIcon(":/app/bright/icon/shaded.svg"), tr("Face"), this);
-    connect(action_draw_face_, &QAction::triggered, this, [this]() { executeCommand("draw.face"); });
+    action_draw_face_ = createCommandAction(":/app/bright/icon/shaded.svg", "draw.face");
     panel_draw_->addLargeAction(action_draw_face_);
     category_home_->addPanel(panel_draw_);
 
     panel_edit_ = new SARibbonPanel(tr("Edit"), category_home_);
-    action_edit_move_ = new QAction(QIcon(":/app/bright/icon/itemMoveWithBackground.svg"), tr("Move"), this);
-    connect(action_edit_move_, &QAction::triggered, this, [this]() { executeCommand("edit.move"); });
+    action_edit_move_ = createCommandAction(":/app/bright/icon/itemMoveWithBackground.svg", "edit.move");
     panel_edit_->addLargeAction(action_edit_move_);
 
-    action_edit_copy_ = new QAction(QIcon(":/app/bright/icon/copy-figure.svg"), tr("Copy"), this);
-    connect(action_edit_copy_, &QAction::triggered, this, [this]() { executeCommand("edit.copy"); });
+    action_edit_copy_ = createCommandAction(":/app/bright/icon/copy-figure.svg", "edit.copy");
     panel_edit_->addLargeAction(action_edit_copy_);
     category_home_->addPanel(panel_edit_);
 
     // ── Navigation 面板 ──
     panel_view_ = new SARibbonPanel(tr("Navigation"), category_home_);
-    action_fit_all_ = new QAction(QIcon(":/app/bright/icon/fitall.svg"), tr("Fit All"), this);
-    action_fit_all_->setShortcut(Qt::Key_F);
-    connect(action_fit_all_, &QAction::triggered, this, [this]() { executeCommand("view.fitAll"); });
+    action_fit_all_ = createCommandAction(":/app/bright/icon/fitall.svg", "view.fitAll");
     panel_view_->addLargeAction(action_fit_all_);
     category_home_->addPanel(panel_view_);
 
@@ -240,16 +269,10 @@ void MainWindow::buildQuickAccessBar() {
     if (!bar)
         return;
 
-    action_undo_ = new QAction(QIcon(":/app/bright/icon/undo.svg"), tr("Undo"), this);
-    action_undo_->setShortcut(QKeySequence::Undo);
-    action_undo_->setEnabled(false);
-    connect(action_undo_, &QAction::triggered, this, [this]() { executeCommand("edit.undo"); });
+    action_undo_ = createCommandAction(":/app/bright/icon/undo.svg", "edit.undo");
     bar->addAction(action_undo_);
 
-    action_redo_ = new QAction(QIcon(":/app/bright/icon/redo.svg"), tr("Redo"), this);
-    action_redo_->setShortcut(QKeySequence::Redo);
-    action_redo_->setEnabled(false);
-    connect(action_redo_, &QAction::triggered, this, [this]() { executeCommand("edit.redo"); });
+    action_redo_ = createCommandAction(":/app/bright/icon/redo.svg", "edit.redo");
     bar->addAction(action_redo_);
 }
 
@@ -311,6 +334,7 @@ void MainWindow::setCurrentSurfaceShading(mulan::view::SurfaceShading shading) {
 void MainWindow::updateDisplayActions() {
     auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
     const bool hasDocument = doc != nullptr;
+    updateCommandActions();
 
     if (action_display_wireframe_) {
         action_display_wireframe_->setEnabled(hasDocument);
@@ -329,39 +353,6 @@ void MainWindow::updateDisplayActions() {
     }
     if (action_show_cube_) {
         action_show_cube_->setEnabled(hasDocument);
-    }
-    if (action_undo_) {
-        action_undo_->setEnabled(hasDocument);
-    }
-    if (action_redo_) {
-        action_redo_->setEnabled(hasDocument);
-    }
-    if (action_draw_line_) {
-        action_draw_line_->setEnabled(hasDocument);
-    }
-    if (action_draw_polyline_) {
-        action_draw_polyline_->setEnabled(hasDocument);
-    }
-    if (action_draw_circle_) {
-        action_draw_circle_->setEnabled(hasDocument);
-    }
-    if (action_draw_bezier_) {
-        action_draw_bezier_->setEnabled(hasDocument);
-    }
-    if (action_draw_bspline_) {
-        action_draw_bspline_->setEnabled(hasDocument);
-    }
-    if (action_draw_nurbs_) {
-        action_draw_nurbs_->setEnabled(hasDocument);
-    }
-    if (action_draw_face_) {
-        action_draw_face_->setEnabled(hasDocument);
-    }
-    if (action_edit_move_) {
-        action_edit_move_->setEnabled(hasDocument);
-    }
-    if (action_edit_copy_) {
-        action_edit_copy_->setEnabled(hasDocument);
     }
     if (!doc)
         return;

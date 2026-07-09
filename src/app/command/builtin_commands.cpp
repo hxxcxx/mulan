@@ -20,14 +20,48 @@
 #include "ui/document_view.h"
 
 #include <memory>
+#include <string>
+#include <utility>
 
 namespace mulan::app {
 namespace {
+
+CommandState commandState(const Command& command, bool enabled, std::string statusText = {}) {
+    std::string text = enabled ? std::string(command.statusText()) : std::move(statusText);
+    return CommandState{
+        .title = std::string(command.title()),
+        .shortcut = std::string(command.shortcut()),
+        .statusText = std::move(text),
+        .enabled = enabled,
+    };
+}
+
+bool hasReadyEditor(const CommandHost& host) {
+    const EditorSession* editor = host.editorSession();
+    return editor && editor->isReady();
+}
+
+CommandState readyEditorState(const Command& command, const CommandHost& host) {
+    return commandState(command, hasReadyEditor(host), "No active editor session");
+}
+
+CommandState transformState(const Command& command, const CommandHost& host, TransformEditCommitMode commitMode) {
+    const EditorSession* editor = host.editorSession();
+    if (!editor || !editor->isReady()) {
+        return commandState(command, false, "No active editor session");
+    }
+    return commandState(command, editor->canStartTransformTool(commitMode), "No selected movable entity");
+}
 
 class FitAllCommand final : public Command {
 public:
     std::string_view id() const override { return "view.fitAll"; }
     std::string_view title() const override { return "Fit All"; }
+    std::string_view shortcut() const override { return "F"; }
+    CommandState state(const CommandHost& host) const override {
+        DocumentView* view = host.documentView();
+        return commandState(*this, view && view->isInitialized() && view->session(), "No active document view");
+    }
 
 protected:
     CommandOutcome perform(CommandHost& host) override {
@@ -119,6 +153,7 @@ class DrawLineCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.line"; }
     std::string_view title() const override { return "Line"; }
+    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override { return startDrawTool<LineTool>(host); }
@@ -128,6 +163,7 @@ class DrawPolylineCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.polyline"; }
     std::string_view title() const override { return "Polyline"; }
+    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override { return startDrawTool<PolylineTool>(host); }
@@ -137,6 +173,7 @@ class DrawCircleCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.circle"; }
     std::string_view title() const override { return "Circle"; }
+    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override { return startDrawTool<CircleTool>(host); }
@@ -146,6 +183,7 @@ class DrawFaceCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.face"; }
     std::string_view title() const override { return "Face"; }
+    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override { return startViewPlaneDrawTool(host); }
@@ -155,6 +193,7 @@ class DrawBezierCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.bezier"; }
     std::string_view title() const override { return "Bezier"; }
+    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override {
@@ -166,6 +205,7 @@ class DrawBSplineCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.bspline"; }
     std::string_view title() const override { return "B-Spline"; }
+    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override {
@@ -177,6 +217,7 @@ class DrawNurbsCommand final : public Command {
 public:
     std::string_view id() const override { return "draw.nurbs"; }
     std::string_view title() const override { return "NURBS"; }
+    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
 
 protected:
     CommandOutcome perform(CommandHost& host) override {
@@ -188,6 +229,9 @@ class EditMoveCommand final : public Command {
 public:
     std::string_view id() const override { return "edit.move"; }
     std::string_view title() const override { return "Move"; }
+    CommandState state(const CommandHost& host) const override {
+        return transformState(*this, host, TransformEditCommitMode::Move);
+    }
 
 protected:
     CommandOutcome perform(CommandHost& host) override {
@@ -199,6 +243,9 @@ class EditCopyCommand final : public Command {
 public:
     std::string_view id() const override { return "edit.copy"; }
     std::string_view title() const override { return "Copy"; }
+    CommandState state(const CommandHost& host) const override {
+        return transformState(*this, host, TransformEditCommitMode::Copy);
+    }
 
 protected:
     CommandOutcome perform(CommandHost& host) override {
@@ -210,6 +257,14 @@ class EditUndoCommand final : public Command {
 public:
     std::string_view id() const override { return "edit.undo"; }
     std::string_view title() const override { return "Undo"; }
+    std::string_view shortcut() const override { return "Ctrl+Z"; }
+    CommandState state(const CommandHost& host) const override {
+        const EditorSession* editor = host.editorSession();
+        if (!editor || !editor->isReady()) {
+            return commandState(*this, false, "No active editor session");
+        }
+        return commandState(*this, editor->canUndo(), "Nothing to undo");
+    }
 
 protected:
     CommandOutcome perform(CommandHost& host) override { return runUndo(host); }
@@ -219,6 +274,14 @@ class EditRedoCommand final : public Command {
 public:
     std::string_view id() const override { return "edit.redo"; }
     std::string_view title() const override { return "Redo"; }
+    std::string_view shortcut() const override { return "Ctrl+Y"; }
+    CommandState state(const CommandHost& host) const override {
+        const EditorSession* editor = host.editorSession();
+        if (!editor || !editor->isReady()) {
+            return commandState(*this, false, "No active editor session");
+        }
+        return commandState(*this, editor->canRedo(), "Nothing to redo");
+    }
 
 protected:
     CommandOutcome perform(CommandHost& host) override { return runRedo(host); }

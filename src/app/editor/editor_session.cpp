@@ -174,7 +174,7 @@ void EditorSession::startTool(std::unique_ptr<EditorTool> tool) {
 }
 
 bool EditorSession::startTransformTool(TransformEditCommitMode commitMode) {
-    if (!isReady() || !session_ || !session_->document() || selection_context_.empty()) {
+    if (!canStartTransformTool(commitMode)) {
         return false;
     }
 
@@ -187,6 +187,17 @@ bool EditorSession::startTransformTool(TransformEditCommitMode commitMode) {
     startTool(std::make_unique<TransformTool>(session_->document(), std::move(context), TransformEditMode::Translate,
                                               commitMode));
     return true;
+}
+
+bool EditorSession::canStartTransformTool(TransformEditCommitMode commitMode) const {
+    (void) commitMode;
+    if (!isReady() || !session_ || !session_->document() || selection_context_.empty()) {
+        return false;
+    }
+
+    const TransformEditContext context =
+            TransformEditContext::fromSelection(*session_->document(), selection_context_.selected());
+    return hasMovableEntitySubject(context);
 }
 
 bool EditorSession::undo() {

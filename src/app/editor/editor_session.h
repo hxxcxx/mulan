@@ -46,6 +46,7 @@ public:
     bool hasActiveTool() const { return tool_controller_.hasActiveTool(); }
 
     void startTool(std::unique_ptr<EditorTool> tool);
+    bool canStartTransformTool(TransformEditCommitMode commitMode) const;
     bool startTransformTool(TransformEditCommitMode commitMode);
     bool undo();
     bool redo();

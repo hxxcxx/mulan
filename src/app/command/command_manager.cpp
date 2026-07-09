@@ -24,6 +24,18 @@ Command* CommandManager::find(std::string_view id) const {
     return it != commands_.end() ? it->second.get() : nullptr;
 }
 
+CommandState CommandManager::state(std::string_view id, const CommandHost& host) const {
+    const Command* command = find(id);
+    if (!command) {
+        return CommandState{
+            .title = std::string(id),
+            .statusText = "Command not found",
+            .enabled = false,
+        };
+    }
+    return command->state(host);
+}
+
 CommandOutcome CommandManager::execute(std::string_view id, CommandHost host) {
     Command* command = find(id);
     if (!command) {

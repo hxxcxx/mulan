@@ -21,6 +21,7 @@ public:
     bool add(std::unique_ptr<Command> command);
 
     Command* find(std::string_view id) const;
+    CommandState state(std::string_view id, const CommandHost& host) const;
     CommandOutcome execute(std::string_view id, CommandHost host);
 
 private:
