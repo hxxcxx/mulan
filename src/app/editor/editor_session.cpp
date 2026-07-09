@@ -8,7 +8,6 @@
 #include "editor_session.h"
 
 #include "grip_drag_tool.h"
-#include "grip_marker_builder.h"
 #include "snap_marker_builder.h"
 #include "ui/document_session.h"
 #include "ui/document_view_binding.h"
@@ -16,8 +15,7 @@
 #include <mulan/math/math.h>
 #include <mulan/view/view_context.h>
 
-#include <cmath>
-#include <string>
+#include <optional>
 #include <utility>
 
 namespace mulan::app {
@@ -26,32 +24,6 @@ namespace {
 
 bool isLeftPress(const engine::InputEvent& event) {
     return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Left;
-}
-
-struct ScreenPoint {
-    double x = 0.0;
-    double y = 0.0;
-    double depth = 0.0;
-};
-
-std::optional<ScreenPoint> projectToScreen(const engine::Camera& camera, const math::Point3& world) {
-    const math::Vec4 clip = camera.viewProjectionMatrix() * math::Vec4(world.x, world.y, world.z, 1.0);
-    if (std::abs(clip.w) <= 1.0e-12) {
-        return std::nullopt;
-    }
-
-    const double ndcX = clip.x / clip.w;
-    const double ndcY = clip.y / clip.w;
-    const double ndcZ = clip.z / clip.w;
-    if (ndcZ < -1.0 || ndcZ > 1.0) {
-        return std::nullopt;
-    }
-
-    return ScreenPoint{
-        .x = (ndcX + 1.0) * 0.5 * static_cast<double>(camera.width()),
-        .y = (1.0 - ndcY) * 0.5 * static_cast<double>(camera.height()),
-        .depth = ndcZ,
-    };
 }
 
 }  // namespace
@@ -70,6 +42,7 @@ void EditorSession::bind(DocumentSession* session, view::ViewContext* view, Docu
     pick_service_.bind(session_, view_, binding_);
     preview_controller_.bind(view_);
     operation_executor_.bind(session_, binding_);
+    grip_controller_.bind(session_, view_, &preview_controller_);
     refreshGrips();
 }
 
@@ -77,6 +50,7 @@ void EditorSession::unbind() {
     cancelActiveTool();
     clearGrips();
     selection_context_.clear();
+    grip_controller_.unbind();
     pick_service_.unbind();
     preview_controller_.unbind();
     operation_executor_.unbind();
@@ -124,23 +98,11 @@ void EditorSession::cancelActiveTool() {
 }
 
 void EditorSession::refreshGrips() {
-    if (!isReady() || !session_ || !session_->document() || !view_ || tool_controller_.hasActiveTool()) {
-        clearGrips();
-        return;
-    }
-
-    grips_ = grip_provider_.build(*session_->document(), selection_context_);
-    if (hovered_grip_ && !gripById(*hovered_grip_)) {
-        hovered_grip_.reset();
-    }
-    rebuildGripPreview();
+    grip_controller_.refresh(selection_context_, isReady() && !tool_controller_.hasActiveTool());
 }
 
 void EditorSession::clearGrips() {
-    grips_.clear();
-    hovered_grip_.reset();
-    preview_controller_.clearGripGeometry();
-    preview_controller_.clearGripHotGeometry();
+    grip_controller_.clear();
 }
 
 bool EditorSession::updateGripHoverAtFramebuffer(double screenX, double screenY) {
@@ -149,21 +111,11 @@ bool EditorSession::updateGripHoverAtFramebuffer(double screenX, double screenY)
         return false;
     }
 
-    const std::optional<EditorGrip> grip = pickGripAt(screenX, screenY);
-    const std::optional<EditorGripId> previous = hovered_grip_;
-    hovered_grip_ = grip ? std::optional<EditorGripId>(grip->id) : std::nullopt;
-    if (hovered_grip_ != previous) {
-        rebuildGripPreview();
-    }
-    return grip.has_value();
+    return grip_controller_.updateHoverAtFramebuffer(screenX, screenY);
 }
 
 void EditorSession::clearGripHover() {
-    if (!hovered_grip_) {
-        return;
-    }
-    hovered_grip_.reset();
-    rebuildGripPreview();
+    grip_controller_.clearHover();
 }
 
 bool EditorSession::updateHoverAtFramebuffer(double screenX, double screenY) {
@@ -271,32 +223,13 @@ void EditorSession::updateSnapPreview(const EditorInput& input) {
     preview_controller_.setSnapGeometry(SnapMarkerBuilder::build(input));
 }
 
-void EditorSession::rebuildGripPreview() {
-    if (!view_) {
-        return;
-    }
-
-    const EditorGrip* hotGrip = hovered_grip_ ? gripById(*hovered_grip_) : nullptr;
-
-    DraftGeometry gripGeometry = GripMarkerBuilder::build(
-            grips_, view_->camera(), hotGrip ? std::optional<EditorGripId>(hotGrip->id) : std::nullopt);
-    preview_controller_.setGripGeometry(std::move(gripGeometry));
-
-    if (!hotGrip) {
-        preview_controller_.clearGripHotGeometry();
-        return;
-    }
-
-    DraftGeometry hotGeometry = GripMarkerBuilder::buildHot(*hotGrip, view_->camera());
-    preview_controller_.setGripHotGeometry(std::move(hotGeometry));
-}
-
 bool EditorSession::tryStartGripDrag(const engine::InputEvent& event) {
     if (!isLeftPress(event)) {
         return false;
     }
 
-    const std::optional<EditorGrip> grip = pickGripAt(static_cast<double>(event.x), static_cast<double>(event.y));
+    const std::optional<EditorGrip> grip =
+            grip_controller_.pickAtFramebuffer(static_cast<double>(event.x), static_cast<double>(event.y));
     if (!grip) {
         return false;
     }
@@ -307,48 +240,6 @@ bool EditorSession::tryStartGripDrag(const engine::InputEvent& event) {
 
     applyAction(tool_controller_.start(std::make_unique<GripDragTool>(*grip, dragStart)));
     return true;
-}
-
-std::optional<EditorGrip> EditorSession::pickGripAt(double screenX, double screenY) const {
-    if (!view_) {
-        return std::nullopt;
-    }
-
-    const engine::Camera& camera = view_->camera();
-    std::optional<EditorGrip> best;
-    double bestDistanceSq = 0.0;
-    double bestDepth = 0.0;
-    for (const EditorGrip& grip : grips_) {
-        const auto screen = projectToScreen(camera, grip.worldPosition);
-        if (!screen) {
-            continue;
-        }
-
-        const double dx = screen->x - screenX;
-        const double dy = screen->y - screenY;
-        const double distanceSq = dx * dx + dy * dy;
-        const double radiusSq = grip.pickRadiusPixels * grip.pickRadiusPixels;
-        if (distanceSq > radiusSq) {
-            continue;
-        }
-
-        if (!best || distanceSq < bestDistanceSq ||
-            (std::abs(distanceSq - bestDistanceSq) <= 1.0e-6 && screen->depth < bestDepth)) {
-            best = grip;
-            bestDistanceSq = distanceSq;
-            bestDepth = screen->depth;
-        }
-    }
-    return best;
-}
-
-const EditorGrip* EditorSession::gripById(EditorGripId id) const {
-    for (const EditorGrip& grip : grips_) {
-        if (grip.id == id) {
-            return &grip;
-        }
-    }
-    return nullptr;
 }
 
 bool EditorSession::applyAction(EditorAction action) {

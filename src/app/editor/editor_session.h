@@ -8,8 +8,7 @@
 
 #include "editor_input.h"
 #include "editor_input_resolver.h"
-#include "editor_grip.h"
-#include "editor_grip_provider.h"
+#include "editor_grip_controller.h"
 #include "editor_pick_service.h"
 #include "editor_preview_controller.h"
 #include "editor_selection.h"
@@ -21,8 +20,6 @@
 #include <mulan/engine/interaction/work_plane.h>
 
 #include <memory>
-#include <optional>
-#include <vector>
 
 class DocumentSession;
 class DocumentViewBinding;
@@ -65,10 +62,7 @@ public:
 private:
     EditorInput makeEditorInput(const engine::InputEvent& event) const;
     void updateSnapPreview(const EditorInput& input);
-    void rebuildGripPreview();
     bool tryStartGripDrag(const engine::InputEvent& event);
-    std::optional<EditorGrip> pickGripAt(double screenX, double screenY) const;
-    const EditorGrip* gripById(EditorGripId id) const;
     bool applyAction(EditorAction action);
 
     DocumentSession* session_ = nullptr;
@@ -78,11 +72,9 @@ private:
     EditorPickService pick_service_;
     EditorPreviewController preview_controller_;
     DocumentOperationExecutor operation_executor_;
-    EditorGripProvider grip_provider_;
+    EditorGripController grip_controller_;
     EditorSelectionContext selection_context_;
     ToolController tool_controller_;
-    std::vector<EditorGrip> grips_;
-    std::optional<EditorGripId> hovered_grip_;
 };
 
 }  // namespace mulan::app

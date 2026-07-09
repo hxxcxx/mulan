@@ -11,6 +11,7 @@ set(MULAN_APP_SOURCES
     editor/control_polygon_builder.cpp
     editor/draft_geometry.cpp
     editor/editor_action.cpp
+    editor/editor_grip_controller.cpp
     editor/editor_preview_controller.cpp
     editor/editor_input_resolver.cpp
     editor/editor_pick_service.cpp
