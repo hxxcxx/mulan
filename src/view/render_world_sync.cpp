@@ -153,7 +153,7 @@ void appendPreview(const PreviewLayer* preview, engine::RenderWorld& world, engi
             world.addMaterial(previewMaterialDesc(PreviewVisualRole::GripHot));
 
     engine::RenderObjectDesc object;
-    object.externalId = 0;
+    object.pickId = engine::PickId::invalid();
     object.worldTransform = math::Mat4(1.0f);
     object.worldBounds = math::AABB3::empty();
     object.visible = true;
@@ -233,7 +233,7 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
         accumulate(last_stats_.sceneItems, diagnostics);
 
         engine::RenderObjectDesc object;
-        object.externalId = proxy.entity.index();
+        object.pickId = engine::PickId::fromValue(proxy.entity.index());
         object.worldTransform = proxy.worldTransform;
         object.worldBounds = proxy.worldBounds;
         object.visible = proxy.visible;

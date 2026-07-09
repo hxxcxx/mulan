@@ -86,7 +86,7 @@ public:
     SurfaceShading surfaceShading() const { return surface_shading_; }
     void setSurfaceShading(SurfaceShading shading) { surface_shading_ = shading; }
 
-    void setHoveredPickId(uint32_t pickId);
+    void setHoveredPickId(engine::PickId pickId);
     void clearHoveredPickId();
     void setSelectionVisualState(engine::SelectionVisualState state);
     void clearSelectionVisualState();
@@ -148,8 +148,7 @@ private:
     PreviewLayer preview_layer_;
     RenderMode render_mode_ = RenderMode::ShadedWithEdges;
     SurfaceShading surface_shading_ = SurfaceShading::SolidLit;
-    uint32_t hovered_pick_id_ = 0;
-    bool has_hovered_pick_id_ = false;
+    engine::PickId hovered_pick_id_;
     engine::SelectionVisualState selection_visual_state_;
     bool show_overlays_ = true;
     bool show_view_cube_ = true;

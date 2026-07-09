@@ -8,6 +8,7 @@
 
 #include <mulan/engine/interaction/input_event.h>
 #include <mulan/engine/interaction/work_plane.h>
+#include <mulan/engine/render/frontend/pick_identity.h>
 #include <mulan/math/math.h>
 #include <mulan/scene/entity_id.h>
 
@@ -67,7 +68,7 @@ enum class EditorPointDependencyKind {
 
 struct EditorGeometryDependency {
     scene::EntityId entity = scene::EntityId::invalid();
-    uint32_t pickId = 0;
+    engine::PickId pickId;
     EditorPickHitKind hitKind = EditorPickHitKind::None;
     double distance = 0.0;
     size_t sourceDrawableIndex = 0;
@@ -81,7 +82,7 @@ struct EditorGeometryDependency {
 
 struct EditorPickHit {
     scene::EntityId entity = scene::EntityId::invalid();
-    uint32_t pickId = 0;
+    engine::PickId pickId;
     EditorPickHitKind kind = EditorPickHitKind::None;
     double distance = 0.0;
     math::Point3 worldPoint;

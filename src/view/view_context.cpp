@@ -98,14 +98,12 @@ void ViewContext::enableIBL() {
     runtime_host_.enableIBL(hdr_path_);
 }
 
-void ViewContext::setHoveredPickId(uint32_t pickId) {
+void ViewContext::setHoveredPickId(engine::PickId pickId) {
     hovered_pick_id_ = pickId;
-    has_hovered_pick_id_ = true;
 }
 
 void ViewContext::clearHoveredPickId() {
-    hovered_pick_id_ = 0;
-    has_hovered_pick_id_ = false;
+    hovered_pick_id_ = engine::PickId::invalid();
 }
 
 void ViewContext::setSelectionVisualState(engine::SelectionVisualState state) {
@@ -402,7 +400,6 @@ ViewState ViewContext::buildViewState() const {
     state.renderMode = render_mode_;
     state.surfaceShading = surface_shading_;
     state.hoveredPickId = hovered_pick_id_;
-    state.hasHoveredPickId = has_hovered_pick_id_;
     state.selectionVisuals = selection_visual_state_;
     state.showFaces = render_mode_ != RenderMode::Wireframe;
     state.showEdges = render_mode_ != RenderMode::Shaded;

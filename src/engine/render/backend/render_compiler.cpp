@@ -66,7 +66,7 @@ MeshDrawCommand makeCommand(const RenderWorkItem& item, const RenderGeometryReco
     command.objectUboOffset = objectOffset;
     command.materialUboOffset = materialOffset;
     command.worldTransform = item.worldTransform;
-    command.pickId = item.pickId;
+    command.pickId = item.pickId.valueOr(0);
     command.selected = selected;
     command.hovered = hovered;
     command.isWire = isEdge;

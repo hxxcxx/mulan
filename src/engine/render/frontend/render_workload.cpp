@@ -60,7 +60,7 @@ VisualMatch visualMatchForItem(const RenderWorkItem& item, const RenderOptions& 
     }
 
     match.selected = item.selected;
-    match.hovered = options.hasHoveredPickId && item.pickId == options.hoveredPickId;
+    match.hovered = options.hoveredPickId.valid() && item.pickId == options.hoveredPickId;
     return match;
 }
 
@@ -108,7 +108,7 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
             item.geometry = drawable.geometry;
             item.material = drawable.material;
             item.worldTransform = object.desc.worldTransform;
-            item.pickId = static_cast<uint32_t>(object.desc.externalId);
+            item.pickId = object.desc.pickId;
             item.sourceDrawableIndex = drawable.sourceDrawableIndex;
             item.selected = object.desc.selected;
 

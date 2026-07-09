@@ -41,8 +41,7 @@ enum class SurfaceTechnique : uint8_t {
 struct RenderOptions {
     DisplayMode displayMode = DisplayMode::ShadedWithEdges;
     SurfaceTechnique surfaceTechnique = SurfaceTechnique::SolidLit;
-    uint32_t hoveredPickId = 0;
-    bool hasHoveredPickId = false;
+    PickId hoveredPickId;
     SelectionVisualState selectionVisuals;
     bool showSurfaces = true;
     bool showEdges = true;

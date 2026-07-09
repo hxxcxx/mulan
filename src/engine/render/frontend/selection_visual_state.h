@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "pick_identity.h"
+
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -33,8 +35,7 @@ enum class SelectionVisualDomain : uint8_t {
 };
 
 struct SelectionVisualTarget {
-    uint32_t pickId = 0;
-    bool hasPickId = false;
+    PickId pickId;
     SelectionVisualRole role = SelectionVisualRole::Selected;
     SelectionVisualDomain domain = SelectionVisualDomain::Entity;
     uint32_t sourceDrawableIndex = 0;
@@ -44,7 +45,7 @@ struct SelectionVisualTarget {
     uint32_t componentIndex = 0;
     bool hasComponentIndex = false;
 
-    bool valid() const { return hasPickId; }
+    bool valid() const { return pickId.valid(); }
     bool wholeEntity() const { return domain == SelectionVisualDomain::Entity; }
 };
 

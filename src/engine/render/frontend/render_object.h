@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "pick_identity.h"
 #include "render_handle.h"
 #include "../asset_gpu_key.h"
 #include "../material/material.h"
@@ -66,7 +67,7 @@ struct RenderObjectDrawable {
 };
 
 struct RenderObjectDesc {
-    uint64_t externalId = 0;
+    PickId pickId;
     math::Mat4 worldTransform{ 1.0f };
     math::AABB3 worldBounds;
     std::vector<RenderObjectDrawable> drawables;

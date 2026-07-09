@@ -69,8 +69,7 @@ engine::SelectionVisualDomain visualDomain(EditorSelectionDomain domain, EditorS
 engine::SelectionVisualTarget visualTarget(const EditorSelectionReference& reference,
                                            engine::SelectionVisualRole role) {
     engine::SelectionVisualTarget target;
-    target.pickId = reference.pickId != 0 ? reference.pickId : reference.entity.index();
-    target.hasPickId = reference.valid();
+    target.pickId = reference.renderPickId();
     target.role = role;
     target.domain = visualDomain(reference.domain, reference.kind);
 
@@ -209,7 +208,7 @@ bool EditorSession::updateHoverAtFramebuffer(double screenX, double screenY) {
     selection_context_.setHovered(hit);
     if (view_) {
         if (hit) {
-            view_->setHoveredPickId(hit->reference.pickId);
+            view_->setHoveredPickId(hit->reference.renderPickId());
         } else {
             view_->clearHoveredPickId();
         }
@@ -228,7 +227,7 @@ void EditorSession::selectAtFramebuffer(double screenX, double screenY) {
         selection_context_.selectSingle(*hit);
         selection_context_.setHovered(hit);
         if (view_) {
-            view_->setHoveredPickId(hit->reference.pickId);
+            view_->setHoveredPickId(hit->reference.renderPickId());
         }
         syncSelectionVisualState();
         binding_->selectSingle(hit->reference.entity);

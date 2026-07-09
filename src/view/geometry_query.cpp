@@ -835,7 +835,7 @@ RenderScene::PickResult pickResultFromMeshHit(scene::EntityId id, const ScenePro
                                               const MeshPickResult& meshHit, double lineToleranceWorld) {
     return RenderScene::PickResult{
         .entity = id,
-        .pickId = proxy.entity.index(),
+        .pickId = engine::PickId::fromValue(proxy.entity.index()),
         .distance = meshHit.distance.value_or(0.0),
         .kind = meshHit.kind,
         .worldPoint = meshHit.worldPoint,
@@ -928,7 +928,7 @@ std::optional<RenderScene::PickResult> GeometryQueryWorld::pick(const math::Ray3
 
         RenderScene::PickResult candidate{
             .entity = id,
-            .pickId = proxy.entity.index(),
+            .pickId = engine::PickId::fromValue(proxy.entity.index()),
             .distance = boundsHit.t,
             .kind = RenderScene::PickHitKind::Object,
             .toleranceWorld = lineToleranceWorld,

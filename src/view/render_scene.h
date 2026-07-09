@@ -10,6 +10,7 @@
 #include "scene_proxy.h"
 
 #include <mulan/engine/render/light_environment.h>
+#include <mulan/engine/render/frontend/pick_identity.h>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -41,7 +42,7 @@ public:
 
     struct PickResult {
         scene::EntityId entity;
-        uint32_t pickId = 0;
+        engine::PickId pickId;
         double distance = 0.0;
         PickHitKind kind = PickHitKind::Object;
         math::Point3 worldPoint;

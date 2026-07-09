@@ -20,7 +20,7 @@ struct RenderWorkItem {
     GeometryHandle geometry;
     RenderMaterialHandle material;
     math::Mat4 worldTransform{ 1.0f };
-    uint32_t pickId = 0;
+    PickId pickId;
     size_t sourceDrawableIndex = 0;
     bool selected = false;
     bool hovered = false;

@@ -54,7 +54,7 @@ struct EditorSelectionReference {
     scene::EntityId entity = scene::EntityId::invalid();
     EditorSelectionDomain domain = EditorSelectionDomain::Entity;
     EditorSubEntityKind kind = EditorSubEntityKind::Entity;
-    uint32_t pickId = 0;
+    engine::PickId pickId;
     asset::CurveElementId curveElement = asset::CurveElementId::invalid();
     asset::CurveElementKind curveKind = asset::CurveElementKind::Segment;
     size_t sourceDrawableIndex = 0;
@@ -67,6 +67,12 @@ struct EditorSelectionReference {
     bool valid() const { return static_cast<bool>(entity); }
     bool wholeEntity() const { return valid() && kind == EditorSubEntityKind::Entity; }
     bool curveElementSelection() const { return domain == EditorSelectionDomain::Curve && curveElement.valid(); }
+    engine::PickId renderPickId() const {
+        if (pickId.valid()) {
+            return pickId;
+        }
+        return entity ? engine::PickId::fromValue(entity.index()) : engine::PickId::invalid();
+    }
 };
 
 struct EditorSelectionHit {
