@@ -19,6 +19,12 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(MULAN_SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
 
+option(MULAN_ENABLE_DEV_RUNTIME_ENV "Configure debugger runtime paths for F5 without copying runtime DLLs." ON)
+option(MULAN_ENABLE_DEV_RUNTIME_COPY "Copy the minimal runtime set needed for F5/debug runs." ON)
+option(MULAN_ENABLE_POST_BUILD_DEPLOY "Copy runtime dependencies after every app build." OFF)
+option(MULAN_ENABLE_RUNTIME_DEPLOY_TARGET "Create an explicit runtime deploy target for standalone runs." ON)
+option(MULAN_DEPLOY_QT_WITH_WINDEPLOYQT "Run windeployqt from the explicit deploy target." ON)
+
 # ── OpenCASCADE ──
 # 查找路径优先级: CMakePresets / -DOCCT_ROOT / 环境变量 OCCT_ROOT
 # 即使变量已设置，也需要验证目录是否真实存在
@@ -113,14 +119,9 @@ set(MULAN_OCCT_REQUIRED_3RDPARTY_DLL_NAMES
     FreeImage.dll
     freetype.dll
     jemalloc.dll
-    liblzma.dll
     openvr_api.dll
     swscale-4.dll
     tbb12.dll
-    tbbmalloc.dll
-    tbbmalloc_proxy.dll
-    zlib.dll
-    zlib1.dll
 )
 set(MULAN_OCCT_EXTRA_3RDPARTY_DLL_NAMES "" CACHE STRING "Additional OCCT third-party runtime DLL names copied next to the app executable")
 unset(MULAN_OCCT_3RDPARTY_DLL_NAMES CACHE)

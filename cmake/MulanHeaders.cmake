@@ -1,6 +1,6 @@
 function(mulan_copy_public_headers target module)
     set(generated_include_dir "${CMAKE_BINARY_DIR}/include/mulan/${module}")
-    file(REMOVE_RECURSE "${generated_include_dir}")
+    file(MAKE_DIRECTORY "${generated_include_dir}")
 
     file(GLOB_RECURSE public_headers CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
@@ -9,9 +9,24 @@ function(mulan_copy_public_headers target module)
         "${CMAKE_CURRENT_SOURCE_DIR}/*.hxx"
     )
 
+    set(generated_headers)
     foreach(header IN LISTS public_headers)
         file(RELATIVE_PATH relative_header "${CMAKE_CURRENT_SOURCE_DIR}" "${header}")
-        configure_file("${header}" "${generated_include_dir}/${relative_header}" COPYONLY)
+        set(generated_header "${generated_include_dir}/${relative_header}")
+        list(APPEND generated_headers "${generated_header}")
+        configure_file("${header}" "${generated_header}" COPYONLY)
+    endforeach()
+
+    file(GLOB_RECURSE existing_generated_headers
+        "${generated_include_dir}/*.h"
+        "${generated_include_dir}/*.hh"
+        "${generated_include_dir}/*.hpp"
+        "${generated_include_dir}/*.hxx"
+    )
+    foreach(existing_header IN LISTS existing_generated_headers)
+        if(NOT existing_header IN_LIST generated_headers)
+            file(REMOVE "${existing_header}")
+        endif()
     endforeach()
 
     get_target_property(target_type ${target} TYPE)
