@@ -32,6 +32,34 @@ bool isMouseMove(const engine::InputEvent& event) {
     return event.type == engine::InputEvent::Type::MouseMove;
 }
 
+SelectionTarget selectionTargetForGrip(const EditorGrip& grip) {
+    SelectionTarget target;
+    target.entity = grip.entity;
+    target.domain = EditorSelectionDomain::Curve;
+    target.kind = EditorSubEntityKind::Grip;
+    target.subObject.curveElement = grip.element;
+    target.subObject.curveKind = grip.primitiveKind;
+    target.subObject.hasComponentIndex = true;
+    switch (grip.kind) {
+    case EditorGripKind::Vertex:
+    case EditorGripKind::ControlPoint:
+    case EditorGripKind::Radius: target.subObject.componentIndex = grip.vertexIndex; break;
+    case EditorGripKind::Midpoint: target.subObject.componentIndex = grip.segmentIndex; break;
+    case EditorGripKind::Center: target.subObject.componentIndex = 0; break;
+    }
+    return target;
+}
+
+DragEditDescriptor dragDescriptorForGrip(const EditorGrip& grip, const math::Point3& dragStartWorld) {
+    return DragEditDescriptor{
+        .target = selectionTargetForGrip(grip),
+        .subjectKind = DragEditSubjectKind::Grip,
+        .startWorld = dragStartWorld,
+        .localToWorld = grip.localToWorld,
+        .worldToLocal = grip.worldToLocal,
+    };
+}
+
 asset::CurvePrimitive translatePrimitive(const asset::CurvePrimitive& primitive, const math::Vec3& delta) {
     const auto& data = primitive.data();
     if (const auto* segment = std::get_if<asset::CurveSegmentPrimitive>(&data)) {
@@ -351,7 +379,7 @@ std::vector<math::Point3> controlPointsOf(const asset::CurvePrimitive& primitive
 }  // namespace
 
 GripDragTool::GripDragTool(EditorGrip grip, math::Point3 dragStartWorld)
-    : grip_(std::move(grip)), drag_start_local_(dragStartWorld.transformedBy(grip_.worldToLocal)) {
+    : grip_(std::move(grip)), drag_(dragDescriptorForGrip(grip_, dragStartWorld)) {
 }
 
 EditorPointPolicy GripDragTool::pointPolicy() const {
@@ -391,6 +419,7 @@ EditorAction GripDragTool::handleInput(const EditorInput& input) {
 }
 
 EditorAction GripDragTool::end(ToolFinishReason reason) {
+    drag_.clearPreview();
     current_primitive_.reset();
     if (reason != ToolFinishReason::Finished) {
         return EditorAction::clearPreview();
@@ -399,7 +428,8 @@ EditorAction GripDragTool::end(ToolFinishReason reason) {
 }
 
 EditorAction GripDragTool::updatePreview(const EditorInput& input, const math::Point3& worldPoint) {
-    current_primitive_ = makeEditedPrimitive(worldPoint);
+    const DragEditSample sample = drag_.update(worldPoint);
+    current_primitive_ = makeEditedPrimitive(sample);
     if (!current_primitive_) {
         return EditorAction::clearPreview();
     }
@@ -407,7 +437,8 @@ EditorAction GripDragTool::updatePreview(const EditorInput& input, const math::P
 }
 
 EditorAction GripDragTool::commitAt(const math::Point3& worldPoint) {
-    std::optional<asset::CurvePrimitive> primitive = makeEditedPrimitive(worldPoint);
+    const DragEditSample sample = drag_.update(worldPoint);
+    std::optional<asset::CurvePrimitive> primitive = makeEditedPrimitive(sample);
     if (!primitive) {
         primitive = current_primitive_;
     }
@@ -421,16 +452,13 @@ EditorAction GripDragTool::commitAt(const math::Point3& worldPoint) {
     return action;
 }
 
-std::optional<asset::CurvePrimitive> GripDragTool::makeEditedPrimitive(const math::Point3& worldPoint) const {
-    const math::Point3 targetLocal = worldPoint.transformedBy(grip_.worldToLocal);
-    const math::Vec3 deltaLocal = targetLocal - drag_start_local_;
-
+std::optional<asset::CurvePrimitive> GripDragTool::makeEditedPrimitive(const DragEditSample& sample) const {
     switch (grip_.action) {
-    case EditorGripAction::MovePrimitive: return translatePrimitive(grip_.sourcePrimitive, deltaLocal);
-    case EditorGripAction::MoveSegment: return movePolylineSegment(grip_, deltaLocal);
-    case EditorGripAction::MoveVertex: return moveVertex(grip_, targetLocal);
-    case EditorGripAction::MoveControlPoint: return moveControlPoint(grip_, targetLocal);
-    case EditorGripAction::ChangeRadius: return changeRadius(grip_, targetLocal);
+    case EditorGripAction::MovePrimitive: return translatePrimitive(grip_.sourcePrimitive, sample.deltaLocal);
+    case EditorGripAction::MoveSegment: return movePolylineSegment(grip_, sample.deltaLocal);
+    case EditorGripAction::MoveVertex: return moveVertex(grip_, sample.currentLocal);
+    case EditorGripAction::MoveControlPoint: return moveControlPoint(grip_, sample.currentLocal);
+    case EditorGripAction::ChangeRadius: return changeRadius(grip_, sample.currentLocal);
     }
     return std::nullopt;
 }

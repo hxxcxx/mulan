@@ -1,5 +1,6 @@
 #pragma once
 
+#include "drag_edit_session.h"
 #include "editor_grip.h"
 #include "editor_tool.h"
 
@@ -20,11 +21,11 @@ public:
 private:
     EditorAction updatePreview(const EditorInput& input, const math::Point3& worldPoint);
     EditorAction commitAt(const math::Point3& worldPoint);
-    std::optional<asset::CurvePrimitive> makeEditedPrimitive(const math::Point3& worldPoint) const;
+    std::optional<asset::CurvePrimitive> makeEditedPrimitive(const DragEditSample& sample) const;
     DraftGeometry previewGeometry(const EditorInput& input, const asset::CurvePrimitive& primitive) const;
 
     EditorGrip grip_;
-    math::Point3 drag_start_local_;
+    DragEditSession drag_;
     std::optional<asset::CurvePrimitive> current_primitive_;
 };
 

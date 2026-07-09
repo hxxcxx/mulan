@@ -9,6 +9,7 @@ set(MULAN_APP_SOURCES
     editor/document_operation.cpp
     editor/document_operation_executor.cpp
     editor/control_polygon_builder.cpp
+    editor/drag_edit_session.cpp
     editor/draft_geometry.cpp
     editor/editor_action.cpp
     editor/editor_grip_controller.cpp
