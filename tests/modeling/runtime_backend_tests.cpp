@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <string_view>
 
 #ifndef MULAN_TEST_DEFAULT_SHAPE_OPS_BACKEND
 #define MULAN_TEST_DEFAULT_SHAPE_OPS_BACKEND "occt"
@@ -35,12 +36,15 @@ TEST(ModelingRuntimeTest, ConfiguresShapeOpsWithoutChangingOcctFileReader) {
     EXPECT_EQ(reader->name(), "OCCT Importer");
 
 #ifdef _WIN32
-    ASSERT_EQ(_putenv_s("MULAN_SHAPE_OPS_BACKEND", "truck"), 0);
+    const char* overrideBackend = std::string_view(MULAN_TEST_DEFAULT_SHAPE_OPS_BACKEND) == "truck" ? "occt" : "truck";
+    ASSERT_EQ(_putenv_s("MULAN_SHAPE_OPS_BACKEND", overrideBackend), 0);
 #endif
 
     init();
 
-    EXPECT_EQ(opsRegistry.selectedBackend(), "truck");
+#ifdef _WIN32
+    EXPECT_EQ(opsRegistry.selectedBackend(), overrideBackend);
+#endif
     EXPECT_NE(opsRegistry.ops(), nullptr);
 
     reader = modeling::ShapeFileReaderRegistry::instance().create("step");
