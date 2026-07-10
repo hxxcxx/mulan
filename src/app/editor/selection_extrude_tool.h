@@ -28,6 +28,7 @@ private:
     struct ExtrudeSource {
         asset::FaceDefinition profile;
         bool isFace = false;
+        std::optional<math::Circle3> circleProfile;
     };
 
     static std::optional<ExtrudeSource> sourceFromSelection(const io::Document& document,
@@ -41,6 +42,7 @@ private:
 
     const io::Document* document_ = nullptr;
     std::optional<asset::FaceDefinition> profile_;
+    std::optional<math::Circle3> circle_profile_;
     bool source_is_face_ = false;
     std::optional<double> extrusion_anchor_y_;
     double signed_distance_ = 0.0;

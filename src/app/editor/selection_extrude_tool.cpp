@@ -131,6 +131,27 @@ std::optional<asset::FaceDefinition> faceFromClosedCurve(const asset::CurvePrimi
     return faceFromLoop(std::move(points));
 }
 
+std::optional<math::Circle3> transformedCircleProfile(const asset::CurvePrimitive& primitive,
+                                                      const math::Mat4& transform) {
+    const auto* circle = std::get_if<asset::CurveCirclePrimitive>(&primitive.data());
+    if (!circle || !circle->circle.valid()) {
+        return std::nullopt;
+    }
+
+    const math::Point3 center = circle->circle.center.transformedBy(transform);
+    const math::Vec3 normal = circle->circle.normal.transformedAsDir(transform).normalizedOr(math::Vec3::unitZ());
+    const double radius =
+            center.distance(math::pointOnCircle(circle->circle, math::Angle::zero()).transformedBy(transform));
+    const double perpendicularRadius = center.distance(
+            math::pointOnCircle(circle->circle, math::Angle::fromRad(std::numbers::pi * 0.5)).transformedBy(transform));
+    const double scale = std::max({ 1.0, radius, perpendicularRadius });
+    if (radius <= 1.0e-12 || std::abs(radius - perpendicularRadius) > scale * 1.0e-8) {
+        // 非均匀缩放后的圆已成为椭圆，保留离散轮廓以避免错误地建成圆柱。
+        return std::nullopt;
+    }
+    return math::Circle3(center, radius, normal);
+}
+
 asset::FaceDefinition offsetFace(asset::FaceDefinition face, const math::Vec3& offset) {
     const auto offsetLoop = [&offset](asset::FaceLoop& loop) {
         for (math::Point3& point : loop.points) {
@@ -180,11 +201,14 @@ std::optional<SelectionExtrudeTool::ExtrudeSource> SelectionExtrudeTool::sourceF
     const std::optional<asset::CurvePrimitive> primitive = selectedCurvePrimitive(*curve, selection);
     const std::optional<asset::FaceDefinition> profile =
             primitive ? faceFromClosedCurve(*primitive, worldTransform) : std::nullopt;
-    return profile ? std::optional<ExtrudeSource>(ExtrudeSource{ *profile, false }) : std::nullopt;
+    return profile ? std::optional<ExtrudeSource>(
+                             ExtrudeSource{ *profile, false, transformedCircleProfile(*primitive, worldTransform) })
+                   : std::nullopt;
 }
 
 EditorAction SelectionExtrudeTool::begin() {
     profile_.reset();
+    circle_profile_.reset();
     source_is_face_ = false;
     extrusion_anchor_y_.reset();
     signed_distance_ = 0.0;
@@ -255,6 +279,7 @@ EditorAction SelectionExtrudeTool::commit() {
 
     modeling::ExtrudeParams params{
         .profile = *profile_,
+        .circleProfile = circle_profile_,
         .direction = profile_->frame.normal,
         .distance = std::abs(signed_distance_),
         .inward = signed_distance_ < 0.0,
@@ -290,6 +315,7 @@ EditorAction SelectionExtrudeTool::selectSource(const EditorInput& input) {
     }
 
     profile_ = source->profile;
+    circle_profile_ = source->circleProfile;
     source_is_face_ = source->isFace;
     extrusion_anchor_y_.reset();
     signed_distance_ = 0.0;

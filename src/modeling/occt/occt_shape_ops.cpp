@@ -5,7 +5,9 @@
 #include <mulan/core/result/error.h>
 
 #include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepPrimAPI_MakePrism.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
@@ -13,6 +15,9 @@
 #include <TopoDS_Wire.hxx>
 #include <TopoDS_Face.hxx>
 #include <gp_Pnt.hxx>
+#include <gp_Ax2.hxx>
+#include <gp_Circ.hxx>
+#include <gp_Dir.hxx>
 #include <gp_Vec.hxx>
 
 #include <stdexcept>
@@ -45,7 +50,7 @@ TopoDS_Wire loopToWire(const asset::FaceLoop& loop) {
 }  // namespace
 
 core::Result<Shape> OccShapeOps::extrude(const ExtrudeParams& params) {
-    if (!params.profile.hasOuterLoop())
+    if (!params.profile.hasOuterLoop() && !params.circleProfile)
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "extrude profile has no outer loop"));
     if (params.distance <= 0.0)
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "extrude distance must be positive"));
@@ -53,17 +58,32 @@ core::Result<Shape> OccShapeOps::extrude(const ExtrudeParams& params) {
     // 方向:零向量用 frame.normal。
     math::Vec3 dir = params.direction;
     if (dir.x == 0.0 && dir.y == 0.0 && dir.z == 0.0)
-        dir = params.profile.frame.normal;
+        dir = params.circleProfile ? params.circleProfile->normal : params.profile.frame.normal;
     if (params.inward)
         dir = -dir;
 
     try {
-        // 外环 Wire → Face(本轮先只处理外环;holes 后续)
-        TopoDS_Wire outerWire = loopToWire(params.profile.outer);
-        BRepBuilderAPI_MakeFace faceMaker(outerWire);
-        if (!faceMaker.IsDone())
-            return std::unexpected(core::Error::make(core::ErrorCode::Internal, "extrude: failed to build face"));
-        TopoDS_Face face = faceMaker.Face();
+        TopoDS_Face face;
+        if (params.circleProfile) {
+            const math::Circle3& circle = *params.circleProfile;
+            const gp_Circ occtCircle(gp_Ax2(gp_Pnt(circle.center.x, circle.center.y, circle.center.z),
+                                            gp_Dir(circle.normal.x, circle.normal.y, circle.normal.z)),
+                                     circle.radius);
+            BRepBuilderAPI_MakeEdge edgeMaker(occtCircle);
+            BRepBuilderAPI_MakeWire wireMaker(edgeMaker.Edge());
+            BRepBuilderAPI_MakeFace faceMaker(wireMaker.Wire());
+            if (!faceMaker.IsDone()) {
+                return std::unexpected(
+                        core::Error::make(core::ErrorCode::Internal, "extrude: failed to build circle face"));
+            }
+            face = faceMaker.Face();
+        } else {
+            BRepBuilderAPI_MakeFace faceMaker(loopToWire(params.profile.outer));
+            if (!faceMaker.IsDone()) {
+                return std::unexpected(core::Error::make(core::ErrorCode::Internal, "extrude: failed to build face"));
+            }
+            face = faceMaker.Face();
+        }
 
         // 沿方向拉伸
         gp_Vec vec(dir.x * params.distance, dir.y * params.distance, dir.z * params.distance);

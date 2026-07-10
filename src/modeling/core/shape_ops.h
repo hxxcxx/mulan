@@ -28,6 +28,7 @@
 #include <mulan/modeling/core/shape.h>
 
 #include <memory>
+#include <optional>
 
 namespace mulan::modeling {
 
@@ -41,6 +42,8 @@ enum class BooleanOp : uint8_t {
 /// direction 为零向量时用 profile.frame.normal;inward 反向。
 struct ExtrudeParams {
     asset::FaceDefinition profile;
+    /// 可选的精确圆轮廓。提供时后端应构造解析圆面而非使用 profile 的离散多边形。
+    std::optional<math::Circle3> circleProfile;
     math::Vec3 direction{ 0.0, 0.0, 0.0 };
     double distance = 0.0;
     bool inward = false;
