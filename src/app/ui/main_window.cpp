@@ -128,69 +128,69 @@ void MainWindow::buildRibbonHomeCategory() {
 
     // ── File 面板 ──
     panel_file_ = new SARibbonPanel(tr("File"), category_home_);
-    action_new_ = new QAction(QIcon(":/app/bright/icon/newAxis.svg"), tr("New"), this);
+    action_new_ = new QAction(QIcon(":/app/icons/icon/file-new.svg"), tr("New"), this);
     action_new_->setShortcut(QKeySequence::New);
     connect(action_new_, &QAction::triggered, this, &MainWindow::onNewDocument);
     panel_file_->addLargeAction(action_new_);
 
-    action_open_ = new QAction(QIcon(":/app/bright/icon/open.svg"), tr("Open"), this);
+    action_open_ = new QAction(QIcon(":/app/icons/icon/file-open.svg"), tr("Open"), this);
     connect(action_open_, &QAction::triggered, this, &MainWindow::onOpenFile);
     panel_file_->addLargeAction(action_open_);
 
     category_home_->addPanel(panel_file_);
 
     panel_draw_ = new SARibbonPanel(tr("Draw"), category_home_);
-    action_draw_line_ = createCommandAction(":/app/bright/icon/link.svg", "draw.line");
+    action_draw_line_ = createCommandAction(":/app/icons/icon/draw-line.svg", "draw.line");
     panel_draw_->addLargeAction(action_draw_line_);
 
-    action_draw_polyline_ = createCommandAction(":/app/bright/icon/link-pick.svg", "draw.polyline");
+    action_draw_polyline_ = createCommandAction(":/app/icons/icon/draw-polyline.svg", "draw.polyline");
     panel_draw_->addLargeAction(action_draw_polyline_);
 
-    action_draw_circle_ = createCommandAction(":/app/bright/icon/addFigure.svg", "draw.circle");
+    action_draw_circle_ = createCommandAction(":/app/icons/icon/draw-circle.svg", "draw.circle");
     panel_draw_->addLargeAction(action_draw_circle_);
 
-    action_draw_bezier_ = createCommandAction(":/app/bright/icon/link-pick.svg", "draw.bezier");
+    action_draw_bezier_ = createCommandAction(":/app/icons/icon/draw-bezier.svg", "draw.bezier");
     panel_draw_->addLargeAction(action_draw_bezier_);
 
-    action_draw_bspline_ = createCommandAction(":/app/bright/icon/link-pick.svg", "draw.bspline");
+    action_draw_bspline_ = createCommandAction(":/app/icons/icon/draw-bspline.svg", "draw.bspline");
     panel_draw_->addLargeAction(action_draw_bspline_);
 
-    action_draw_nurbs_ = createCommandAction(":/app/bright/icon/link-pick.svg", "draw.nurbs");
+    action_draw_nurbs_ = createCommandAction(":/app/icons/icon/draw-nurbs.svg", "draw.nurbs");
     panel_draw_->addLargeAction(action_draw_nurbs_);
 
-    action_draw_face_ = createCommandAction(":/app/bright/icon/shaded.svg", "draw.face");
+    action_draw_face_ = createCommandAction(":/app/icons/icon/draw-face.svg", "draw.face");
     panel_draw_->addLargeAction(action_draw_face_);
 
     category_home_->addPanel(panel_draw_);
 
     panel_edit_ = new SARibbonPanel(tr("Edit"), category_home_);
-    action_edit_move_ = createCommandAction(":/app/bright/icon/itemMoveWithBackground.svg", "edit.move");
+    action_edit_move_ = createCommandAction(":/app/icons/icon/edit-move.svg", "edit.move");
     panel_edit_->addLargeAction(action_edit_move_);
 
-    action_edit_copy_ = createCommandAction(":/app/bright/icon/copy-figure.svg", "edit.copy");
+    action_edit_copy_ = createCommandAction(":/app/icons/icon/edit-copy.svg", "edit.copy");
     panel_edit_->addLargeAction(action_edit_copy_);
 
-    action_edit_delete_ = createCommandAction(":/app/bright/icon/removeRow.svg", "edit.delete");
+    action_edit_delete_ = createCommandAction(":/app/icons/icon/edit-delete.svg", "edit.delete");
     panel_edit_->addLargeAction(action_edit_delete_);
 
-    action_model_extrude_ = createCommandAction(":/app/bright/icon/shaded.svg", "model.extrude");
+    action_model_extrude_ = createCommandAction(":/app/icons/icon/model-extrude.svg", "model.extrude");
     panel_edit_->addLargeAction(action_model_extrude_);
     category_home_->addPanel(panel_edit_);
 
     // ── Navigation 面板 ──
     panel_view_ = new SARibbonPanel(tr("Navigation"), category_home_);
-    action_fit_all_ = createCommandAction(":/app/bright/icon/fitall.svg", "view.fitAll");
+    action_fit_all_ = createCommandAction(":/app/icons/icon/view-fit-all.svg", "view.fitAll");
     panel_view_->addLargeAction(action_fit_all_);
     category_home_->addPanel(panel_view_);
 
     // ── Setting 面板 ──
     panel_setting_ = new SARibbonPanel(tr("Setting"), category_home_);
-    auto* actionAbout = new QAction(QIcon(":/app/bright/icon/about.svg"), tr("About"), this);
+    auto* actionAbout = new QAction(QIcon(":/app/icons/icon/app-about.svg"), tr("About"), this);
     connect(actionAbout, &QAction::triggered, this,
             [this]() { QMessageBox::about(this, tr("About mulan"), tr("mulan v1.0\nA model geometry viewer.")); });
     panel_setting_->addLargeAction(actionAbout);
 
-    action_engine_settings_ = new QAction(QIcon(":/app/bright/icon/setting.svg"), tr("Engine"), this);
+    action_engine_settings_ = new QAction(QIcon(":/app/icons/icon/app-settings.svg"), tr("Engine"), this);
     connect(action_engine_settings_, &QAction::triggered, this, &MainWindow::onEngineSettings);
     panel_setting_->addLargeAction(action_engine_settings_);
 
@@ -206,21 +206,21 @@ void MainWindow::buildRibbonViewCategory() {
     panel_display_ = new SARibbonPanel(tr("Display"), category_view_);
 
     // 线框模式
-    action_display_wireframe_ = new QAction(QIcon(":/app/bright/icon/wireframe.svg"), tr("Wireframe"), this);
+    action_display_wireframe_ = new QAction(QIcon(":/app/icons/icon/view-wireframe.svg"), tr("Wireframe"), this);
     action_display_wireframe_->setCheckable(true);
     connect(action_display_wireframe_, &QAction::triggered, this,
             [this]() { setCurrentRenderMode(mulan::view::RenderMode::Wireframe); });
     panel_display_->addLargeAction(action_display_wireframe_);
 
     // 实体模式
-    action_display_shaded_ = new QAction(QIcon(":/app/bright/icon/shaded.svg"), tr("Shaded"), this);
+    action_display_shaded_ = new QAction(QIcon(":/app/icons/icon/view-shaded.svg"), tr("Shaded"), this);
     action_display_shaded_->setCheckable(true);
     action_display_shaded_->setChecked(true);
     connect(action_display_shaded_, &QAction::triggered, this,
             [this]() { setCurrentRenderMode(mulan::view::RenderMode::Shaded); });
     panel_display_->addLargeAction(action_display_shaded_);
 
-    action_display_edges_ = new QAction(QIcon(":/app/bright/icon/wireframe.svg"), tr("Edges"), this);
+    action_display_edges_ = new QAction(QIcon(":/app/icons/icon/view-edges.svg"), tr("Edges"), this);
     action_display_edges_->setCheckable(true);
     connect(action_display_edges_, &QAction::triggered, this,
             [this]() { setCurrentRenderMode(mulan::view::RenderMode::ShadedWithEdges); });
@@ -234,13 +234,13 @@ void MainWindow::buildRibbonViewCategory() {
 
     panel_display_->addSeparator();
 
-    action_surface_solid_ = new QAction(QIcon(":/app/bright/icon/shaded.svg"), tr("Solid"), this);
+    action_surface_solid_ = new QAction(QIcon(":/app/icons/icon/surface-solid.svg"), tr("Solid"), this);
     action_surface_solid_->setCheckable(true);
     connect(action_surface_solid_, &QAction::triggered, this,
             [this]() { setCurrentSurfaceShading(mulan::view::SurfaceShading::SolidLit); });
     panel_display_->addSmallAction(action_surface_solid_);
 
-    action_surface_material_ = new QAction(QIcon(":/app/bright/icon/showInfomation.svg"), tr("Material"), this);
+    action_surface_material_ = new QAction(QIcon(":/app/icons/icon/surface-material.svg"), tr("Material"), this);
     action_surface_material_->setCheckable(true);
     connect(action_surface_material_, &QAction::triggered, this,
             [this]() { setCurrentSurfaceShading(mulan::view::SurfaceShading::SurfacePBR); });
@@ -252,7 +252,7 @@ void MainWindow::buildRibbonViewCategory() {
 
     panel_display_->addSeparator();
 
-    action_show_cube_ = new QAction(QIcon(":/app/bright/icon/axis.svg"), tr("Show Cube"), this);
+    action_show_cube_ = new QAction(QIcon(":/app/icons/icon/view-cube.svg"), tr("Show Cube"), this);
     action_show_cube_->setCheckable(true);
     action_show_cube_->setChecked(true);
     connect(action_show_cube_, &QAction::toggled, this, [this](bool checked) {
@@ -279,10 +279,10 @@ void MainWindow::buildQuickAccessBar() {
     if (!bar)
         return;
 
-    action_undo_ = createCommandAction(":/app/bright/icon/undo.svg", "edit.undo");
+    action_undo_ = createCommandAction(":/app/icons/icon/history-undo.svg", "edit.undo");
     bar->addAction(action_undo_);
 
-    action_redo_ = createCommandAction(":/app/bright/icon/redo.svg", "edit.redo");
+    action_redo_ = createCommandAction(":/app/icons/icon/history-redo.svg", "edit.redo");
     bar->addAction(action_redo_);
 }
 
