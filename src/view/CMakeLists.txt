@@ -11,6 +11,7 @@ add_library(view STATIC
     render_runtime_host.cpp
     render_surface.cpp
     render_thread.cpp
+    threaded_render_runtime.cpp
     render_item_builder.cpp
     render_submission_builder.cpp
     renderer.cpp

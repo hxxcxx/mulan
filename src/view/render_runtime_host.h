@@ -10,6 +10,7 @@
 
 #include "render_runtime.h"
 #include "render_submission_builder.h"
+#include "threaded_render_runtime.h"
 
 namespace mulan::asset {
 class AssetLibrary;
@@ -59,6 +60,8 @@ public:
 private:
     RenderSubmissionBuilder submission_builder_;
     RenderRuntime runtime_;
+    std::unique_ptr<ThreadedRenderRuntime> threaded_runtime_;
+    RenderExecutionMode execution_mode_ = RenderExecutionMode::Synchronous;
     const asset::AssetLibrary* asset_source_ = nullptr;
 };
 

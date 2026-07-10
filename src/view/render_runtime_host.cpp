@@ -7,6 +7,11 @@ RenderRuntimeHost::~RenderRuntimeHost() {
 }
 
 core::Result<void> RenderRuntimeHost::initWindow(const ViewConfig& config, int width, int height) {
+    execution_mode_ = config.executionMode;
+    if (execution_mode_ == RenderExecutionMode::Threaded) {
+        threaded_runtime_ = std::make_unique<ThreadedRenderRuntime>();
+        return threaded_runtime_->initWindow(config, width, height);
+    }
     return runtime_.initWindow(config, width, height);
 }
 
@@ -15,18 +20,25 @@ core::Result<void> RenderRuntimeHost::initOffscreen(int width, int height) {
 }
 
 void RenderRuntimeHost::shutdown() {
+    if (threaded_runtime_) {
+        threaded_runtime_->shutdown();
+        threaded_runtime_.reset();
+    }
     runtime_.shutdown();
     submission_builder_.reset();
     asset_source_ = nullptr;
 }
 
 bool RenderRuntimeHost::isInitialized() const {
-    return runtime_.isInitialized();
+    return threaded_runtime_ ? threaded_runtime_->isInitialized() : runtime_.isInitialized();
 }
 
 void RenderRuntimeHost::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
     if (assets != asset_source_) {
-        runtime_.execute(ClearAssetResourcesCommand{});
+        if (threaded_runtime_)
+            threaded_runtime_->clearAssetResources();
+        else
+            runtime_.execute(ClearAssetResourcesCommand{});
     }
     asset_source_ = assets;
     submission_builder_.setScene(scene, assets);
@@ -42,41 +54,53 @@ void RenderRuntimeHost::setLightEnvironment(const engine::LightEnvironment& ligh
 
 void RenderRuntimeHost::render(const ViewState& viewState) {
     RenderSubmission submission = submission_builder_.build(viewState);
-    submission.surfaceGeneration = runtime_.surface().generation();
-    runtime_.render(submission);
+    submission.surfaceGeneration =
+            threaded_runtime_ ? threaded_runtime_->surfaceGeneration() : runtime_.surface().generation();
+    if (threaded_runtime_)
+        threaded_runtime_->submitFrame(std::move(submission));
+    else
+        runtime_.render(submission);
 }
 
 void RenderRuntimeHost::resize(int width, int height) {
-    runtime_.resize(width, height);
+    if (threaded_runtime_)
+        threaded_runtime_->resize(width, height);
+    else
+        runtime_.resize(width, height);
 }
 
 void RenderRuntimeHost::enableIBL(const std::string& hdrPath) {
-    runtime_.enableIBL(hdrPath);
+    if (threaded_runtime_)
+        threaded_runtime_->enableIBL(hdrPath);
+    else
+        runtime_.enableIBL(hdrPath);
 }
 
 bool RenderRuntimeHost::isOffscreenSurface() const {
-    return runtime_.surface().isOffscreen();
+    return threaded_runtime_ ? threaded_runtime_->isOffscreenSurface() : runtime_.surface().isOffscreen();
 }
 
 uint32_t RenderRuntimeHost::surfaceWidth() const {
-    return static_cast<uint32_t>(runtime_.surface().width());
+    return threaded_runtime_ ? threaded_runtime_->surfaceWidth() : static_cast<uint32_t>(runtime_.surface().width());
 }
 
 uint32_t RenderRuntimeHost::surfaceHeight() const {
-    return static_cast<uint32_t>(runtime_.surface().height());
+    return threaded_runtime_ ? threaded_runtime_->surfaceHeight() : static_cast<uint32_t>(runtime_.surface().height());
 }
 
 bool RenderRuntimeHost::readbackPixels(std::vector<uint8_t>& pixels) {
-    return runtime_.readbackPixels(pixels);
+    return threaded_runtime_ ? threaded_runtime_->readbackPixels(pixels) : runtime_.readbackPixels(pixels);
 }
 
 bool RenderRuntimeHost::configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width,
                                                 uint32_t height) {
-    return runtime_.configureCaptureSurface(desc, width, height);
+    return threaded_runtime_ ? threaded_runtime_->configureCaptureSurface(desc, width, height)
+                             : runtime_.configureCaptureSurface(desc, width, height);
 }
 
 bool RenderRuntimeHost::configureOffscreenSurface(const RenderSurfaceDesc& desc) {
-    return runtime_.configureOffscreenSurface(desc);
+    return threaded_runtime_ ? threaded_runtime_->configureOffscreenSurface(desc)
+                             : runtime_.configureOffscreenSurface(desc);
 }
 
 std::optional<RenderSurfaceDesc> RenderRuntimeHost::offscreenSurfaceDesc() const {
