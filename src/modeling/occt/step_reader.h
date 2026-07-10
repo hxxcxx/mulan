@@ -8,7 +8,7 @@
  * step_reader.cpp 出现。OccStepReader 实现 modeling_core 的中立 IShapeFileReader，
  * 产出 NamedShape（不接触 Document）。
  *
- * registerOccStepReader() 由 app 启动时调用，把本 reader 注册进中立注册表。
+ * registerOccStepReader() 由 OCCT 插件入口调用，把本 reader 注册进中立注册表。
  */
 #pragma once
 
@@ -26,7 +26,7 @@ public:
     std::string name() const override;
 };
 
-/// 把 OccStepReader 注册进中立 ShapeFileReaderRegistry。app 启动时调用一次。
+/// 把 OccStepReader 注册进中立 ShapeFileReaderRegistry。OCCT 插件加载时调用一次。
 MODELING_OCCT_API void registerOccStepReader();
 
 }  // namespace mulan::modeling

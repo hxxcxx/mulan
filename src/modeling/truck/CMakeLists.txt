@@ -1,11 +1,8 @@
 # modeling_truck - optional truck-bridge backend.
 #
-# This backend is opt-in at both build time and runtime:
-#   - CMake: MULAN_ENABLE_TRUCK_BACKEND=ON
-#   - Runtime: MULAN_MODELING_BACKEND=truck
-#
-# Without the runtime environment variable it does not register ShapeOps, so
-# the default OCCT backend remains untouched even if the DLL is present.
+# This backend is opt-in at build time with MULAN_ENABLE_TRUCK_BACKEND=ON.
+# At runtime it registers the named "truck" ShapeOps implementation. Selection
+# is handled centrally through MULAN_SHAPE_OPS_BACKEND; file IO remains OCCT.
 add_library(modeling_truck SHARED
     truck_shape_storage.cpp
     truck_shape_ops.cpp

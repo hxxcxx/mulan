@@ -4,12 +4,12 @@
  * @author hxxcxx
  * @date 2026-07-09
  *
- * runtime 是项目的胶水层：依赖 modeling_core + 各具体后端（modeling_occt 等），
- * 在 init() 时完成注册/资源装配。调用方（app）只依赖本头，不接触任何后端，
- * 因此后端对 io/asset/app 源码不可见。
+ * runtime 是项目的胶水层：扫描并加载各后端插件，在 init() 时完成注册/资源装配。
+ * 文件 reader 固定由 OCCT 插件提供；IShapeOps 的默认实现由 CMake 变量
+ * MULAN_DEFAULT_SHAPE_OPS_BACKEND 决定，并可通过 MULAN_SHAPE_OPS_BACKEND
+ * 临时覆盖。调用方（app）只依赖本头，不接触任何后端。
  *
- * 后端实例在此被显式引用，故其对象代码必然被链接进最终可执行文件，
- * 无需 WHOLE_ARCHIVE 或静态对象自注册。
+ * 兼容旧配置 MULAN_MODELING_BACKEND，但新代码应使用职责更明确的变量名。
  */
 #pragma once
 

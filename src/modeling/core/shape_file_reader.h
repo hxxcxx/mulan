@@ -4,11 +4,11 @@
  * @author hxxcxx
  * @date 2026-07-09
  *
- * STEP/IGES 本身就是 B-Rep 结构，读取是建模内核的能力（OCCT/truck 都能读），
- * 因此读取分发归 modeling_core，与 ShapeStorage::tessellate 同构：
+ * STEP/IGES 本身就是 B-Rep 结构，读取是建模内核的能力。当前文件 IO 固定由
+ * OCCT 提供，与可配置的 IShapeOps 分离；读取分发仍归 modeling_core：
  *
  *   - IShapeFileReader 是中立虚接口，产出 NamedShape（不接触 io::Document）
- *   - 后端（modeling_occt 等）实现该接口，在 app 启动时注册到 ShapeFileReaderRegistry
+ *   - modeling_occt 实现该接口，插件加载时注册到 ShapeFileReaderRegistry
  *   - io 的导入调度经 ShapeFileReaderRegistry 查找 reader，拿到 NamedShape 后
  *     灌进 Document::addBody —— io 只依赖 modeling_core，任何后端不可见
  *

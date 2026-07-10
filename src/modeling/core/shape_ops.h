@@ -4,9 +4,9 @@
  * @author hxxcxx
  * @date 2026-07-10
  *
- * 与 IShapeFileReader 同构:后端(OCCT/truck)实现并注册到 ShapeOpsRegistry,经
- * mulan_load_backend 自注册。编辑层经注册表拿到 IShapeOps,调操作产出 Shape,
- * 不接触任何内核类型。
+ * 后端(OCCT/truck)以名称注册到 ShapeOpsRegistry,经 mulan_load_backend
+ * 自注册。runtime 只选择 IShapeOps 后端；文件读写使用独立注册表，不受此处
+ * 配置影响。编辑层经注册表拿到 IShapeOps,调操作产出 Shape,不接触任何内核类型。
  *
  * 两个并列 registry:
  *   IShapeFileReader + ShapeFileReaderRegistry —— 从外部源造 Shape(读 STEP)
@@ -29,6 +29,9 @@
 
 #include <memory>
 #include <optional>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace mulan::modeling {
 
@@ -69,14 +72,24 @@ public:
     //   virtual core::Result<Shape> shell(const ShellParams&) = 0;        // 抽壳
 };
 
-/// 建模操作注册表(单后端:直接注册实例)。
+/// 建模操作注册表。多个后端按名称共存，当前选择与插件加载顺序无关。
 class MODELING_CORE_API ShapeOpsRegistry {
 public:
     static ShapeOpsRegistry& instance();
 
-    void registerOps(std::unique_ptr<IShapeOps> ops);
+    /// 注册或替换一个命名后端。名称不区分大小写。
+    void registerOps(std::string backend, std::unique_ptr<IShapeOps> ops);
 
-    /// 返回已注册的 ops;未注册返回 nullptr。
+    /// 选择建模操作后端。允许先选择、后加载插件；未加载时 ops() 返回 nullptr。
+    void selectBackend(std::string backend);
+
+    /// 当前选择的后端名称。
+    std::string selectedBackend() const;
+
+    /// 已注册的后端名称。
+    std::vector<std::string> availableBackends() const;
+
+    /// 返回当前选择后端的 ops;该后端未注册时返回 nullptr，不隐式回退。
     IShapeOps* ops() const;
 
     ShapeOpsRegistry(const ShapeOpsRegistry&) = delete;
@@ -84,7 +97,8 @@ public:
 
 private:
     ShapeOpsRegistry() = default;
-    std::unique_ptr<IShapeOps> ops_;
+    std::unordered_map<std::string, std::unique_ptr<IShapeOps>> backends_;
+    std::string selectedBackend_ = "occt";
 };
 
 }  // namespace mulan::modeling

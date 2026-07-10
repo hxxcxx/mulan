@@ -4,8 +4,9 @@
  * @author hxxcxx
  * @date 2026-07-10
  *
- * TruckShapeOps 经 backend_entry.cpp 注册到 ShapeOpsRegistry。默认构建不开启；
- * 只有启用 MULAN_ENABLE_TRUCK_BACKEND 并在运行时选择 truck 时才接管建模操作。
+ * TruckShapeOps 经 backend_entry.cpp 以 truck 名称注册到 ShapeOpsRegistry。
+ * 只有启用 MULAN_ENABLE_TRUCK_BACKEND 并通过 MULAN_SHAPE_OPS_BACKEND 选择 truck
+ * 时才接管建模操作；文件读写仍由 OCCT 提供。
  */
 #pragma once
 

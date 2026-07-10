@@ -2,26 +2,14 @@
 
 #include <mulan/modeling/core/shape_ops.h>
 
-#include <cstdlib>
-#include <cstring>
 #include <memory>
-
-namespace {
-
-bool truckBackendRequested() {
-    const char* backend = std::getenv("MULAN_MODELING_BACKEND");
-    return backend && std::strcmp(backend, "truck") == 0;
-}
-
-}  // namespace
 
 extern "C" {
 
 __declspec(dllexport) void mulan_load_backend() {
-    if (!truckBackendRequested())
-        return;
-
-    mulan::modeling::ShapeOpsRegistry::instance().registerOps(std::make_unique<mulan::modeling::TruckShapeOps>());
+    // 仅注册建模操作。文件读写能力固定由 OCCT 插件提供。
+    mulan::modeling::ShapeOpsRegistry::instance().registerOps("truck",
+                                                              std::make_unique<mulan::modeling::TruckShapeOps>());
 }
 
 }  // extern "C"

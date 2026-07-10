@@ -1,11 +1,18 @@
 #include "runtime.h"
 
+#include <cstdlib>
 #include <filesystem>
 #include <string>
 #include <system_error>
 
+#include <mulan/modeling/core/shape_ops.h>
+
 #ifdef _WIN32
 #include <windows.h>
+#endif
+
+#ifndef MULAN_DEFAULT_SHAPE_OPS_BACKEND
+#define MULAN_DEFAULT_SHAPE_OPS_BACKEND "occt"
 #endif
 
 namespace mulan::runtime {
@@ -34,9 +41,20 @@ bool loadBackendDll(const std::filesystem::path& dllPath) {
 #endif
 }
 
+/// ShapeOps 使用独立配置。新名称明确限定能力，旧名称仅用于兼容已有启动脚本。
+std::string configuredShapeOpsBackend() {
+    if (const char* backend = std::getenv("MULAN_SHAPE_OPS_BACKEND"); backend && *backend)
+        return backend;
+    if (const char* backend = std::getenv("MULAN_MODELING_BACKEND"); backend && *backend)
+        return backend;
+    return MULAN_DEFAULT_SHAPE_OPS_BACKEND;
+}
+
 }  // namespace
 
 void init() {
+    modeling::ShapeOpsRegistry::instance().selectBackend(configuredShapeOpsBackend());
+
     // 扫描可执行文件同目录的 backends/ 子目录，加载所有后端插件。
     // runtime 不点名任何后端，插件可热插拔。
     namespace fs = std::filesystem;

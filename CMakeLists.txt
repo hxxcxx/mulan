@@ -24,7 +24,26 @@ option(MULAN_ENABLE_DEV_RUNTIME_COPY "Copy the minimal runtime set needed for F5
 option(MULAN_ENABLE_POST_BUILD_DEPLOY "Copy runtime dependencies after every app build." OFF)
 option(MULAN_ENABLE_RUNTIME_DEPLOY_TARGET "Create an explicit runtime deploy target for standalone runs." ON)
 option(MULAN_DEPLOY_QT_WITH_WINDEPLOYQT "Run windeployqt from the explicit deploy target." ON)
-option(MULAN_ENABLE_TRUCK_BACKEND "Build the optional truck-bridge modeling backend." OFF)
+option(MULAN_ENABLE_TRUCK_BACKEND "Build the optional truck-bridge modeling backend." ON)
+set(MULAN_DEFAULT_SHAPE_OPS_BACKEND "truck" CACHE STRING
+    "Default IShapeOps backend used when no runtime environment override is set")
+set_property(CACHE MULAN_DEFAULT_SHAPE_OPS_BACKEND PROPERTY STRINGS occt truck)
+
+string(TOLOWER "${MULAN_DEFAULT_SHAPE_OPS_BACKEND}" MULAN_DEFAULT_SHAPE_OPS_BACKEND_NORMALIZED)
+if(NOT MULAN_DEFAULT_SHAPE_OPS_BACKEND_NORMALIZED STREQUAL "occt"
+   AND NOT MULAN_DEFAULT_SHAPE_OPS_BACKEND_NORMALIZED STREQUAL "truck")
+    message(FATAL_ERROR
+        "Unsupported MULAN_DEFAULT_SHAPE_OPS_BACKEND='${MULAN_DEFAULT_SHAPE_OPS_BACKEND}'. "
+        "Expected occt or truck."
+    )
+endif()
+
+set(MULAN_EFFECTIVE_DEFAULT_SHAPE_OPS_BACKEND "${MULAN_DEFAULT_SHAPE_OPS_BACKEND_NORMALIZED}")
+if(NOT MULAN_ENABLE_TRUCK_BACKEND AND MULAN_EFFECTIVE_DEFAULT_SHAPE_OPS_BACKEND STREQUAL "truck")
+    set(MULAN_EFFECTIVE_DEFAULT_SHAPE_OPS_BACKEND "occt")
+    message(STATUS "truck backend is disabled; defaulting IShapeOps to occt")
+endif()
+message(STATUS "Default IShapeOps backend: ${MULAN_EFFECTIVE_DEFAULT_SHAPE_OPS_BACKEND}")
 
 set(MULAN_TRUCK_BRIDGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/truck-bridge" CACHE PATH
     "truck-bridge source directory")

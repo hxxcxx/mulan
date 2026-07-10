@@ -4,8 +4,8 @@
  * @author hxxcxx
  * @date 2026-07-10
  *
- * 模块内部头:经 backend_entry 的 mulan_load_backend 注册到 ShapeOpsRegistry。
- * OCCT 头只在 .cpp 出现。
+ * 模块内部头:经 backend_entry 的 mulan_load_backend 以 occt 名称注册到
+ * ShapeOpsRegistry。OCCT 头只在 .cpp 出现。
  */
 #pragma once
 

@@ -10,8 +10,9 @@ extern "C" {
 
 /// 把 OCCT 后端的所有能力注册进 modeling_core 的中立注册表。
 __declspec(dllexport) void mulan_load_backend() {
+    // 文件读取始终由 OCCT 提供，不受 ShapeOps 后端选择影响。
     mulan::modeling::registerOccStepReader();
-    mulan::modeling::ShapeOpsRegistry::instance().registerOps(std::make_unique<mulan::modeling::OccShapeOps>());
+    mulan::modeling::ShapeOpsRegistry::instance().registerOps("occt", std::make_unique<mulan::modeling::OccShapeOps>());
 }
 
 }  // extern "C"
