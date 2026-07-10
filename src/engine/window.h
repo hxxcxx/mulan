@@ -17,7 +17,7 @@ namespace mulan::engine {
 
 struct RenderConfig {
     // --- 背景 ---
-    float clearColor[4] = { 97.0f / 255, 101.0f / 255, 118.0f / 255, 1.0f };
+    float clearColor[4] = { 63.0f / 255, 63.0f / 255, 63.0f / 255, 1.0f };
     float clearDepth = 1.0f;
 
     // --- 抗锯齿 ---

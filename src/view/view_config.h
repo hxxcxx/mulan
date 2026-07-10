@@ -39,7 +39,7 @@ struct ViewConfig {
     /// 线程路径仍在迭代，当前默认走稳定的同步运行时；可显式设为 Threaded 进行验证。
     RenderExecutionMode executionMode = RenderExecutionMode::Synchronous;
 
-    float clearColor[4] = { 97.0f / 255, 101.0f / 255, 118.0f / 255, 1.0f };
+    float clearColor[4] = { 63.0f / 255, 63.0f / 255, 63.0f / 255, 1.0f };
 
     /// IBL（环境光反射）开关。默认关闭：需要 hdrPath 指向一张可读的 HDR 文件。
     /// 开启时启动时一次性烘焙 irradiance/prefilter/BRDF LUT；关闭则完全跳过烘焙。

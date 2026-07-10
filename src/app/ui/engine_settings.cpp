@@ -150,11 +150,14 @@ void EngineSettings::load() {
     backend_ = intToBackend(qsettings_.value("backend", backendToInt(GraphicsBackend::Vulkan)).toInt());
     msaa_ = intToMsaa(qsettings_.value("msaa", 4).toInt());
     vsync_ = qsettings_.value("vsync", true).toBool();
-    RenderConfig defaults;
-    bgcolor_ = qsettings_
-                       .value("backgroundColor", QColor::fromRgbF(defaults.clearColor[0], defaults.clearColor[1],
-                                                                  defaults.clearColor[2], defaults.clearColor[3]))
-                       .value<QColor>();
+    const QColor defaultBackground = QColor::fromRgb(63, 63, 63);
+    const QColor previousDefaultBackground = QColor::fromRgb(97, 101, 118);
+    bgcolor_ = qsettings_.value("backgroundColor", defaultBackground).value<QColor>();
+    // 将旧版默认值迁移到新默认值，同时保留用户主动选择的其他背景色。
+    if (bgcolor_ == previousDefaultBackground) {
+        bgcolor_ = defaultBackground;
+        qsettings_.setValue("backgroundColor", bgcolor_);
+    }
     ibl_enabled_ = qsettings_.value("iblEnabled", false).toBool();
     hdr_path_ = qsettings_.value("hdrPath", QStringLiteral("assets/envmap.hdr")).toString();
 }
