@@ -1,6 +1,7 @@
 #include "ui/main_window.h"
 #include <mulan/modeling/runtime/runtime.h>
 #include <QApplication>
+#include <QIcon>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -22,6 +23,7 @@ int main(int argc, char* argv[]) {
 
     QApplication app(argc, argv);
     app.setAttribute(Qt::AA_UseHighDpiPixmaps);
+    app.setWindowIcon(QIcon(":/app/branding/app-icon.png"));
 
     MainWindow window;
     window.show();

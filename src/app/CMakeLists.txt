@@ -81,6 +81,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Widgets
 )
 
+if(WIN32)
+    list(APPEND MULAN_APP_SOURCES resource/app-icon.rc)
+endif()
+
 # truck 实验关闭后清理可能由旧构建遗留的运行库，避免 runtime 继续扫描加载。
 if(NOT MULAN_ENABLE_TRUCK_BACKEND)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

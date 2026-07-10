@@ -1,4 +1,7 @@
 <RCC>
+    <qresource prefix="/app/branding">
+        <file>app-icon.png</file>
+    </qresource>
     <qresource prefix="/app/icons">
         <file>icon/file-new.svg</file>
         <file>icon/file-open.svg</file>
