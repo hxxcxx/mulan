@@ -107,6 +107,8 @@ public:
     std::optional<PickResult> pick(const math::Ray3& ray, double lineToleranceWorld = 0.0) const;
     void collectPickCandidates(const math::Ray3& ray, double lineToleranceWorld, std::vector<PickResult>& out) const;
     const math::AABB3& sceneBounds() const { return scene_bounds_; }
+    /// 由可见实体世界 AABB 汇总得到的保守世界包围球，用于相机裁剪范围。
+    const math::Sphere3& sceneBoundsSphere() const { return scene_bounds_sphere_; }
     const std::vector<engine::Light>& lights() const { return lights_; }
 
     template <typename Func>
@@ -120,6 +122,7 @@ private:
 
     SyncStats last_sync_stats_;
     math::AABB3 scene_bounds_;
+    math::Sphere3 scene_bounds_sphere_;
     std::unordered_map<scene::EntityId, SceneProxy> proxies_;
     std::vector<engine::Light> lights_;
     const asset::AssetLibrary* assets_ = nullptr;

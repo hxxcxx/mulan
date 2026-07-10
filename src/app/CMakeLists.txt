@@ -36,6 +36,8 @@ set(MULAN_APP_SOURCES
     editor/polyline_tool.cpp
     editor/circle_tool.cpp
     editor/face_tool.cpp
+    editor/extrude_tool.cpp
+    editor/selection_extrude_tool.cpp
     editor/line_tool.cpp
     editor/grip_drag_tool.cpp
     editor/grip_marker_builder.cpp

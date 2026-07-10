@@ -35,6 +35,8 @@ public:
 
     void refresh();
     void fitAll();
+    /// 相机移动后只读取已缓存的世界包围球更新投影裁剪面，不同步或修改场景范围。
+    void updateCameraClipPlanes();
     void syncRenderCache();
     void injectRenderCache();
     void fitCameraClipPlanesToSceneBounds();

@@ -78,8 +78,10 @@ private:
     QAction* action_draw_bspline_ = nullptr;
     QAction* action_draw_nurbs_ = nullptr;
     QAction* action_draw_face_ = nullptr;
+    QAction* action_model_extrude_ = nullptr;
     QAction* action_edit_move_ = nullptr;
     QAction* action_edit_copy_ = nullptr;
+    QAction* action_edit_delete_ = nullptr;
     QAction* action_engine_settings_ = nullptr;
     QAction* action_display_edges_ = nullptr;
     QAction* action_display_wireframe_ = nullptr;

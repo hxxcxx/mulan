@@ -184,6 +184,19 @@ void Camera::fitClipPlanesToBox(const math::AABB3& box, double padding) {
     setClipPlanes(nearZ, farZ);
 }
 
+void Camera::fitClipPlanesToSphere(const math::Sphere3& sphere, double padding) {
+    if (!sphere.isValid()) {
+        return;
+    }
+
+    const double centerDistance = (sphere.center.asVec() - eyePosition()).length();
+    const double radius = std::max(sphere.radius, min_distance_);
+    const double margin = std::max(radius * (std::max(1.0, padding) - 1.0), min_distance_);
+    const double nearZ = std::max(min_distance_, centerDistance - radius - margin);
+    const double farZ = std::max({ nearZ + min_distance_, centerDistance + radius + margin, nearZ * 2.0 });
+    setClipPlanes(nearZ, farZ);
+}
+
 // ============================================================
 // 速度参数
 // ============================================================

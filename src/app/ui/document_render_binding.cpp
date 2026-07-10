@@ -53,6 +53,10 @@ void DocumentRenderBinding::fitAll() {
     view_->renderFrame();
 }
 
+void DocumentRenderBinding::updateCameraClipPlanes() {
+    fitCameraClipPlanesToSceneBounds();
+}
+
 void DocumentRenderBinding::syncRenderCache() {
     if (view_) {
         const bool synced = render_cache_.sync(session_);
@@ -74,9 +78,9 @@ void DocumentRenderBinding::fitCameraClipPlanesToSceneBounds() {
         return;
     }
 
-    const auto& bounds = render_cache_.sceneBounds();
-    if (!bounds.isEmpty()) {
-        view_->camera().fitClipPlanesToBox(bounds);
+    const auto& sphere = render_cache_.sceneBoundsSphere();
+    if (sphere.isValid()) {
+        view_->camera().fitClipPlanesToSphere(sphere);
     }
 }
 

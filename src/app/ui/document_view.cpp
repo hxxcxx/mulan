@@ -75,6 +75,8 @@ bool DocumentView::handleInput(const mulan::engine::InputEvent& event) {
 
     const bool consumed = view_context_.handleInput(event);
     if (consumed) {
+        // 只依据实体更新时缓存的世界包围球更新投影，不会重算场景范围。
+        binding_.updateCameraClipPlanes();
         editor_session_.refreshGrips();
     }
     return consumed;

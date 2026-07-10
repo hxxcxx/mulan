@@ -7,6 +7,8 @@
 
 #include "editor_session.h"
 
+#include "selection_extrude_tool.h"
+
 #include "grip_drag_tool.h"
 #include "snap_marker_builder.h"
 #include "transform_tool.h"
@@ -16,8 +18,10 @@
 #include <mulan/math/math.h>
 #include <mulan/view/view_context.h>
 
+#include <algorithm>
 #include <optional>
 #include <utility>
+#include <vector>
 
 namespace mulan::app {
 
@@ -106,6 +110,39 @@ bool EditorSession::canStartTransformTool(TransformEditCommitMode commitMode) co
     const TransformEditContext context =
             TransformEditContext::fromSelection(*session_->document(), selection_service_.selected());
     return hasTransformableEntitySubject(context);
+}
+
+bool EditorSession::startSelectionExtrudeTool() {
+    if (!isReady() || !session_ || !session_->document()) {
+        return false;
+    }
+    startTool(std::make_unique<SelectionExtrudeTool>(*session_->document()));
+    return true;
+}
+
+bool EditorSession::deleteSelectedEntities() {
+    if (!isReady() || !binding_ || selection_service_.empty()) {
+        return false;
+    }
+
+    std::vector<scene::EntityId> entities;
+    for (const EditorSelectionReference& selected : selection_service_.selected()) {
+        if (selected.entity && std::find(entities.begin(), entities.end(), selected.entity) == entities.end()) {
+            entities.push_back(selected.entity);
+        }
+    }
+    if (entities.empty()) {
+        return false;
+    }
+
+    cancelActiveTool();
+    const bool changed = operation_executor_.execute(DocumentOperation::removeEntities(std::move(entities), true));
+    if (changed) {
+        selection_service_.clear();
+        binding_->clearSelection();
+        refreshGrips();
+    }
+    return changed;
 }
 
 bool EditorSession::undo() {

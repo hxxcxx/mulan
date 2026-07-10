@@ -12,6 +12,7 @@
 
 #include "editor/circle_tool.h"
 #include "editor/editor_session.h"
+#include "editor/extrude_tool.h"
 #include "editor/face_tool.h"
 #include "editor/line_tool.h"
 #include "editor/param_curve_tool.h"
@@ -122,6 +123,23 @@ CommandOutcome startDrawTool(CommandHost& host) {
     return {};
 }
 
+/// 固定在世界 XY 工作平面绘制，但不改变用户当前的观察视角。
+template <typename Tool>
+CommandOutcome startWorldXYDrawTool(CommandHost& host) {
+    EditorSession* editor = host.editorSession();
+    if (!canUseDrawingCommands(host)) {
+        return std::unexpected(
+                core::Error::make(core::ErrorCode::InvalidArg, "Drawing is unavailable for imported documents"));
+    }
+    if (!editor || !editor->isReady()) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+    }
+
+    editor->setWorkPlane(mulan::engine::WorkPlane::worldXY());
+    editor->startTool(std::make_unique<Tool>());
+    return {};
+}
+
 CommandOutcome startParametricCurveTool(CommandHost& host, ParametricCurveToolKind kind) {
     EditorSession* editor = host.editorSession();
     if (!canUseDrawingCommands(host)) {
@@ -140,6 +158,7 @@ CommandOutcome startParametricCurveTool(CommandHost& host, ParametricCurveToolKi
     return {};
 }
 
+template <typename Tool>
 CommandOutcome startViewPlaneDrawTool(CommandHost& host) {
     EditorSession* editor = host.editorSession();
     DocumentView* view = host.documentView();
@@ -152,7 +171,7 @@ CommandOutcome startViewPlaneDrawTool(CommandHost& host) {
     }
 
     editor->setWorkPlane(mulan::engine::WorkPlane::fromView(view->viewContext().camera()));
-    editor->startTool(std::make_unique<FaceTool>());
+    editor->startTool(std::make_unique<Tool>());
     return {};
 }
 
@@ -226,7 +245,35 @@ public:
     CommandState state(const CommandHost& host) const override { return drawingState(*this, host); }
 
 protected:
-    CommandOutcome perform(CommandHost& host) override { return startViewPlaneDrawTool(host); }
+    CommandOutcome perform(CommandHost& host) override { return startViewPlaneDrawTool<FaceTool>(host); }
+};
+
+class DrawExtrudeCommand final : public Command {
+public:
+    std::string_view id() const override { return "draw.extrude"; }
+    std::string_view title() const override { return "Extrude"; }
+    CommandState state(const CommandHost& host) const override {
+        return hiddenDrawingState(*this, "Direct profile extrusion is hidden");
+    }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override { return startWorldXYDrawTool<ExtrudeTool>(host); }
+};
+
+class ModelExtrudeCommand final : public Command {
+public:
+    std::string_view id() const override { return "model.extrude"; }
+    std::string_view title() const override { return "Extrude"; }
+    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override {
+        EditorSession* editor = host.editorSession();
+        if (!editor || !editor->startSelectionExtrudeTool()) {
+            return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+        }
+        return {};
+    }
 };
 
 class DrawBezierCommand final : public Command {
@@ -293,6 +340,27 @@ protected:
     }
 };
 
+class EditDeleteCommand final : public Command {
+public:
+    std::string_view id() const override { return "edit.delete"; }
+    std::string_view title() const override { return "Delete"; }
+    std::string_view shortcut() const override { return "Del"; }
+    CommandState state(const CommandHost& host) const override {
+        const EditorSession* editor = host.editorSession();
+        return commandState(*this, editor && editor->isReady() && !editor->selectionContext().empty(),
+                            "No selected entity");
+    }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override {
+        EditorSession* editor = host.editorSession();
+        if (!editor || !editor->deleteSelectedEntities()) {
+            return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No selected entity"));
+        }
+        return {};
+    }
+};
+
 class EditUndoCommand final : public Command {
 public:
     std::string_view id() const override { return "edit.undo"; }
@@ -335,10 +403,13 @@ void registerBuiltinCommands(CommandManager& manager) {
     manager.add(std::make_unique<EditRedoCommand>());
     manager.add(std::make_unique<EditMoveCommand>());
     manager.add(std::make_unique<EditCopyCommand>());
+    manager.add(std::make_unique<EditDeleteCommand>());
     manager.add(std::make_unique<DrawLineCommand>());
     manager.add(std::make_unique<DrawPolylineCommand>());
     manager.add(std::make_unique<DrawCircleCommand>());
     manager.add(std::make_unique<DrawFaceCommand>());
+    manager.add(std::make_unique<DrawExtrudeCommand>());
+    manager.add(std::make_unique<ModelExtrudeCommand>());
     manager.add(std::make_unique<DrawBezierCommand>());
     manager.add(std::make_unique<DrawBSplineCommand>());
     manager.add(std::make_unique<DrawNurbsCommand>());

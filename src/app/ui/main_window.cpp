@@ -160,6 +160,7 @@ void MainWindow::buildRibbonHomeCategory() {
 
     action_draw_face_ = createCommandAction(":/app/bright/icon/shaded.svg", "draw.face");
     panel_draw_->addLargeAction(action_draw_face_);
+
     category_home_->addPanel(panel_draw_);
 
     panel_edit_ = new SARibbonPanel(tr("Edit"), category_home_);
@@ -168,6 +169,12 @@ void MainWindow::buildRibbonHomeCategory() {
 
     action_edit_copy_ = createCommandAction(":/app/bright/icon/copy-figure.svg", "edit.copy");
     panel_edit_->addLargeAction(action_edit_copy_);
+
+    action_edit_delete_ = createCommandAction(":/app/bright/icon/removeRow.svg", "edit.delete");
+    panel_edit_->addLargeAction(action_edit_delete_);
+
+    action_model_extrude_ = createCommandAction(":/app/bright/icon/shaded.svg", "model.extrude");
+    panel_edit_->addLargeAction(action_model_extrude_);
     category_home_->addPanel(panel_edit_);
 
     // ── Navigation 面板 ──

@@ -49,6 +49,8 @@ public:
     void startTool(std::unique_ptr<EditorTool> tool);
     bool canStartTransformTool(TransformEditCommitMode commitMode) const;
     bool startTransformTool(TransformEditCommitMode commitMode);
+    bool startSelectionExtrudeTool();
+    bool deleteSelectedEntities();
     bool undo();
     bool redo();
     bool canUndo() const { return operation_executor_.canUndo(); }

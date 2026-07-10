@@ -134,6 +134,7 @@ void RenderScene::sync(scene::Scene& scene, const asset::AssetLibrary& assets) {
         });
 
         last_sync_stats_.proxyCount = proxies_.size();
+        scene_bounds_sphere_ = math::Sphere3::fromAABB(scene_bounds_);
         // Consume all render-related dirty flags after a full rebuild.
         scene.clearDirty(scene::EntityDirty::RenderRelated | scene::EntityDirty::Created |
                          scene::EntityDirty::Destroyed | scene::EntityDirty::Bounds);
@@ -193,6 +194,7 @@ void RenderScene::sync(scene::Scene& scene, const asset::AssetLibrary& assets) {
     }
     last_sync_stats_.visibleProxyCount = visibleCount;
     last_sync_stats_.proxyCount = proxies_.size();
+    scene_bounds_sphere_ = math::Sphere3::fromAABB(scene_bounds_);
 
     // Clear only the dirty flags consumed by this render sync.
     scene.clearDirty(scene::EntityDirty::RenderRelated | scene::EntityDirty::Created | scene::EntityDirty::Destroyed |
@@ -208,6 +210,7 @@ void RenderScene::sync(scene::Scene& scene, const asset::AssetLibrary& assets) {
 void RenderScene::clear() {
     last_sync_stats_ = {};
     scene_bounds_.reset();
+    scene_bounds_sphere_.reset();
     proxies_.clear();
     lights_.clear();
     assets_ = nullptr;

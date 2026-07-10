@@ -115,6 +115,7 @@ public:
     void zoom(double delta);
     void fitToBox(const math::AABB3& box, double padding = 1.2);
     void fitClipPlanesToBox(const math::AABB3& box, double padding = 1.2);
+    void fitClipPlanesToSphere(const math::Sphere3& sphere, double padding = 1.2);
 
     // ==================== 速度参数 ====================
 

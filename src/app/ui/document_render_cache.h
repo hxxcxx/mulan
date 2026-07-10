@@ -22,6 +22,7 @@ public:
     const view::RenderScene* renderScene() const;
     const asset::AssetLibrary* assets() const { return assets_; }
     const math::AABB3& sceneBounds() const { return render_scene_.sceneBounds(); }
+    const math::Sphere3& sceneBoundsSphere() const { return render_scene_.sceneBoundsSphere(); }
     std::span<const engine::Light> lights() const;
 
 private:

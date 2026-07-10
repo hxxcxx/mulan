@@ -52,6 +52,12 @@ scene::EntityId DocumentEditor::createMesh(std::string name, std::vector<asset::
 scene::EntityId DocumentEditor::createBody(std::string name, modeling::Shape shape) {
     const scene::EntityId entity = document_.addBody(std::move(shape), std::move(name));
     if (entity) {
+        if (const asset::AssetId geometry = geometryAssetForEntity(entity); geometry) {
+            if (const auto* brep = dynamic_cast<const asset::BRepAsset*>(document_.assets()->asset(geometry))) {
+                // 让 RenderScene 重建代理并据新实体的世界包围盒重算相机近远裁剪面。
+                document_.markGeometryChanged(entity, brep->localBounds());
+            }
+        }
         document_.markDirty();
     }
     return entity;

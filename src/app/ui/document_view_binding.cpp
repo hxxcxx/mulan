@@ -27,6 +27,10 @@ void DocumentViewBinding::fitAll() {
     render_binding_.fitAll();
 }
 
+void DocumentViewBinding::updateCameraClipPlanes() {
+    render_binding_.updateCameraClipPlanes();
+}
+
 const mulan::view::RenderScene* DocumentViewBinding::renderScene() const {
     return render_binding_.renderScene();
 }
