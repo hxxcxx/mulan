@@ -9,7 +9,6 @@
 #pragma once
 
 #include "render_surface.h"
-#include "render_submission_builder.h"
 #include "render_runtime_command.h"
 #include "renderer.h"
 #include "view_config.h"
@@ -26,18 +25,9 @@
 #include <string>
 #include <vector>
 
-namespace mulan::asset {
-class AssetLibrary;
-}
-
 namespace mulan::engine {
 class RHIDevice;
 }
-
-namespace mulan::view {
-class RenderScene;
-class PreviewLayer;
-}  // namespace mulan::view
 
 namespace mulan::view {
 
@@ -49,9 +39,9 @@ public:
     RenderRuntime(const RenderRuntime&) = delete;
     RenderRuntime& operator=(const RenderRuntime&) = delete;
 
-    core::Result<void> initWindow(const ViewConfig& config, int width, int height, engine::LightEnvironment& lightEnv);
+    core::Result<void> initWindow(const ViewConfig& config, int width, int height);
 
-    core::Result<void> initOffscreen(int width, int height, engine::LightEnvironment& lightEnv);
+    core::Result<void> initOffscreen(int width, int height);
 
     void shutdown();
 
@@ -60,10 +50,7 @@ public:
     /// 同步执行生命周期命令。未来线程化时，此入口将改为投递有序命令并等待结果。
     RenderRuntimeCommandResult execute(RenderRuntimeCommand command);
 
-    void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
-    void setPreviewLayer(const PreviewLayer* preview);
-
-    void render(const ViewState& viewState);
+    void render(const RenderSubmission& submission);
     void resize(int width, int height);
     void enableIBL(const std::string& hdrPath);
 
@@ -74,20 +61,17 @@ public:
 
     RenderSurface& surface() { return surface_; }
     const RenderSurface& surface() const { return surface_; }
-    const RenderWorldSyncStats& lastWorldSyncStats() const { return submission_builder_.lastStats(); }
-    const RenderSubmissionDiagnostics& renderSubmissionDiagnostics() const { return submission_builder_.diagnostics(); }
     const engine::RenderWorkloadStats& lastRenderWorkloadStats() const { return renderer_.lastRenderWorkloadStats(); }
     const engine::RenderCompilerStats& lastRenderCompilerStats() const { return renderer_.lastRenderCompilerStats(); }
 
 private:
-    core::Result<void> initRendering(engine::LightEnvironment& lightEnv);
+    core::Result<void> initRendering();
     void shutdownNow();
 
     std::unique_ptr<engine::RHIDevice> device_;
     RenderSurface surface_;
-    RenderSubmissionBuilder submission_builder_;
     Renderer renderer_;
-    const asset::AssetLibrary* asset_source_ = nullptr;
+    engine::LightEnvironment light_environment_;
     bool initialized_ = false;
 };
 

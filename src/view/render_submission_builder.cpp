@@ -16,6 +16,23 @@
 
 namespace mulan::view {
 
+void RenderSubmissionBuilder::reset() {
+    scene_ = nullptr;
+    assets_ = nullptr;
+    preview_ = nullptr;
+    last_scene_generation_ = 0;
+    last_geometry_generation_ = 0;
+    last_preview_generation_ = 0;
+    submission_generation_ = 0;
+    scene_source_dirty_ = true;
+    preview_source_dirty_ = true;
+    render_world_.clear();
+    world_snapshot_.reset();
+    last_sync_stats_ = {};
+    diagnostics_ = {};
+    light_environment_ = {};
+}
+
 void RenderSubmissionBuilder::setScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
     if (scene_ == scene && assets_ == assets) {
         return;
@@ -35,9 +52,14 @@ void RenderSubmissionBuilder::setPreviewLayer(const PreviewLayer* preview) {
     preview_source_dirty_ = true;
 }
 
+void RenderSubmissionBuilder::setLightEnvironment(const engine::LightEnvironment& lightEnvironment) {
+    light_environment_ = lightEnvironment;
+}
+
 RenderSubmission RenderSubmissionBuilder::build(const ViewState& viewState) {
     RenderSubmission submission;
     submission.view = viewState;
+    submission.lightEnvironment = light_environment_;
     submission.sceneGeneration = scene_ ? scene_->generation() : 0;
     submission.geometryGeneration = scene_ ? scene_->geometryGeneration() : 0;
     submission.previewGeneration = preview_ ? preview_->generation() : 0;

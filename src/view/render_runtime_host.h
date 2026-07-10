@@ -9,8 +9,15 @@
 #pragma once
 
 #include "render_runtime.h"
+#include "render_submission_builder.h"
+
+namespace mulan::asset {
+class AssetLibrary;
+}
 
 namespace mulan::view {
+class PreviewLayer;
+class RenderScene;
 
 class RenderRuntimeHost {
 public:
@@ -20,9 +27,9 @@ public:
     RenderRuntimeHost(const RenderRuntimeHost&) = delete;
     RenderRuntimeHost& operator=(const RenderRuntimeHost&) = delete;
 
-    core::Result<void> initWindow(const ViewConfig& config, int width, int height, engine::LightEnvironment& lightEnv);
+    core::Result<void> initWindow(const ViewConfig& config, int width, int height);
 
-    core::Result<void> initOffscreen(int width, int height, engine::LightEnvironment& lightEnv);
+    core::Result<void> initOffscreen(int width, int height);
 
     void shutdown();
 
@@ -30,6 +37,7 @@ public:
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
     void setPreviewLayer(const PreviewLayer* preview);
+    void setLightEnvironment(const engine::LightEnvironment& lightEnvironment);
 
     void render(const ViewState& viewState);
     void resize(int width, int height);
@@ -49,7 +57,9 @@ public:
     const engine::RenderCompilerStats& lastRenderCompilerStats() const;
 
 private:
+    RenderSubmissionBuilder submission_builder_;
     RenderRuntime runtime_;
+    const asset::AssetLibrary* asset_source_ = nullptr;
 };
 
 }  // namespace mulan::view

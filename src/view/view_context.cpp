@@ -46,10 +46,11 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
     ibl_enabled_ = cfg.iblEnabled;
     hdr_path_ = cfg.hdrPath;
 
-    if (!runtime_host_.initWindow(cfg, width, height, light_env_)) {
+    if (!runtime_host_.initWindow(cfg, width, height)) {
         return false;
     }
     runtime_host_.setPreviewLayer(&preview_layer_);
+    runtime_host_.setLightEnvironment(light_env_);
 
     width_ = static_cast<int>(runtime_host_.surfaceWidth());
     height_ = static_cast<int>(runtime_host_.surfaceHeight());
@@ -67,10 +68,11 @@ bool ViewContext::initOffscreen(int width, int height) {
     width_ = width;
     height_ = height;
 
-    if (!runtime_host_.initOffscreen(width, height, light_env_)) {
+    if (!runtime_host_.initOffscreen(width, height)) {
         return false;
     }
     runtime_host_.setPreviewLayer(&preview_layer_);
+    runtime_host_.setLightEnvironment(light_env_);
 
     width_ = static_cast<int>(runtime_host_.surfaceWidth());
     height_ = static_cast<int>(runtime_host_.surfaceHeight());
@@ -119,6 +121,7 @@ void ViewContext::setSceneLights(std::span<const engine::Light> lights) {
     for (const auto& light : lights) {
         light_env_.addLight(light);
     }
+    runtime_host_.setLightEnvironment(light_env_);
 }
 
 void ViewContext::clearPreview() {

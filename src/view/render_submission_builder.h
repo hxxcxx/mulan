@@ -10,6 +10,7 @@
 #include "render_submission.h"
 
 #include <mulan/engine/render/frontend/render_world.h>
+#include <mulan/engine/render/light_environment.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -35,8 +36,10 @@ struct RenderSubmissionDiagnostics {
 
 class RenderSubmissionBuilder {
 public:
+    void reset();
     void setScene(const RenderScene* scene, const asset::AssetLibrary* assets);
     void setPreviewLayer(const PreviewLayer* preview);
+    void setLightEnvironment(const engine::LightEnvironment& lightEnvironment);
 
     RenderSubmission build(const ViewState& viewState);
 
@@ -63,6 +66,7 @@ private:
     std::shared_ptr<const engine::RenderWorldSnapshot> world_snapshot_;
     RenderWorldSyncStats last_sync_stats_;
     RenderSubmissionDiagnostics diagnostics_;
+    engine::LightEnvironment light_environment_;
 };
 
 }  // namespace mulan::view

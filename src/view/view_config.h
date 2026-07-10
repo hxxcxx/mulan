@@ -18,6 +18,12 @@
 
 namespace mulan::view {
 
+/// 渲染运行时执行模式。同步模式用于调试和单线程回退。
+enum class RenderExecutionMode : uint8_t {
+    Synchronous,
+    Threaded,
+};
+
 struct ViewConfig {
     engine::GraphicsBackend backend = engine::GraphicsBackend::Vulkan;
 
@@ -30,6 +36,7 @@ struct ViewConfig {
     bool stencilBuffer = false;
 
     bool enableValidation = true;
+    RenderExecutionMode executionMode = RenderExecutionMode::Threaded;
 
     float clearColor[4] = { 97.0f / 255, 101.0f / 255, 118.0f / 255, 1.0f };
 

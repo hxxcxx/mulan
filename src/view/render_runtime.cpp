@@ -27,8 +27,7 @@ RenderRuntime::~RenderRuntime() {
     shutdown();
 }
 
-core::Result<void> RenderRuntime::initWindow(const ViewConfig& cfg, int width, int height,
-                                             engine::LightEnvironment& lightEnv) {
+core::Result<void> RenderRuntime::initWindow(const ViewConfig& cfg, int width, int height) {
     if (initialized_) {
         return {};
     }
@@ -56,7 +55,7 @@ core::Result<void> RenderRuntime::initWindow(const ViewConfig& cfg, int width, i
         return std::unexpected(runtimeError(core::ErrorCode::Internal, "Failed to initialize window render surface."));
     }
 
-    auto init = initRendering(lightEnv);
+    auto init = initRendering();
     if (!init) {
         shutdown();
         return init;
@@ -66,7 +65,7 @@ core::Result<void> RenderRuntime::initWindow(const ViewConfig& cfg, int width, i
     return {};
 }
 
-core::Result<void> RenderRuntime::initOffscreen(int width, int height, engine::LightEnvironment& lightEnv) {
+core::Result<void> RenderRuntime::initOffscreen(int width, int height) {
     if (initialized_) {
         return {};
     }
@@ -95,7 +94,7 @@ core::Result<void> RenderRuntime::initOffscreen(int width, int height, engine::L
                 runtimeError(core::ErrorCode::Internal, "Failed to initialize offscreen render surface."));
     }
 
-    auto init = initRendering(lightEnv);
+    auto init = initRendering();
     if (!init) {
         shutdown();
         return init;
@@ -190,30 +189,14 @@ void RenderRuntime::shutdownNow() {
         surface_.shutdown(*device_);
     }
     device_.reset();
-    asset_source_ = nullptr;
-    submission_builder_.setScene(nullptr, nullptr);
-    submission_builder_.setPreviewLayer(nullptr);
     initialized_ = false;
 }
 
-void RenderRuntime::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
-    if (assets != asset_source_) {
-        execute(ClearAssetResourcesCommand{});
-    }
-    asset_source_ = assets;
-    submission_builder_.setScene(scene, assets);
-}
-
-void RenderRuntime::setPreviewLayer(const PreviewLayer* preview) {
-    submission_builder_.setPreviewLayer(preview);
-}
-
-void RenderRuntime::render(const ViewState& viewState) {
+void RenderRuntime::render(const RenderSubmission& submission) {
     if (!initialized_ || !device_) {
         return;
     }
-    RenderSubmission submission = submission_builder_.build(viewState);
-    submission.surfaceGeneration = surface_.generation();
+    light_environment_ = submission.lightEnvironment;
     renderer_.render(*device_, surface_, submission);
 }
 
@@ -251,13 +234,13 @@ std::optional<RenderSurfaceDesc> RenderRuntime::offscreenSurfaceDesc() const {
     return surface_.offscreenDesc();
 }
 
-core::Result<void> RenderRuntime::initRendering(engine::LightEnvironment& lightEnv) {
+core::Result<void> RenderRuntime::initRendering() {
     if (!device_) {
         return std::unexpected(
                 runtimeError(core::ErrorCode::InvalidArg, "RenderRuntime cannot initialize without a device."));
     }
 
-    if (!renderer_.init(*device_, lightEnv, surface_.colorFormat(*device_), surface_.depthFormat(*device_),
+    if (!renderer_.init(*device_, light_environment_, surface_.colorFormat(*device_), surface_.depthFormat(*device_),
                         surface_.sampleCount())) {
         return std::unexpected(runtimeError(core::ErrorCode::Internal, "Failed to initialize renderer."));
     }

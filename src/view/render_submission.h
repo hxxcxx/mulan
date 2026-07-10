@@ -15,6 +15,7 @@
 
 #include <mulan/engine/render/frontend/render_resource_prepare.h>
 #include <mulan/engine/render/frontend/render_world_snapshot.h>
+#include <mulan/engine/render/light_environment.h>
 
 #include <cstdint>
 #include <memory>
@@ -28,6 +29,8 @@ struct RenderSubmission {
     engine::RenderResourcePrepareList prepare;
     /// 相机、显示模式、选择和 overlay 等当帧值状态。
     ViewState view;
+    /// 光照值快照；渲染端不再引用 ViewContext 的可变环境。
+    engine::LightEnvironment lightEnvironment;
     RenderWorldSyncStats syncStats;
     uint64_t sceneGeneration = 0;
     uint64_t geometryGeneration = 0;

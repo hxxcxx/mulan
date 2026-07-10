@@ -6,17 +6,18 @@ RenderRuntimeHost::~RenderRuntimeHost() {
     shutdown();
 }
 
-core::Result<void> RenderRuntimeHost::initWindow(const ViewConfig& config, int width, int height,
-                                                 engine::LightEnvironment& lightEnv) {
-    return runtime_.initWindow(config, width, height, lightEnv);
+core::Result<void> RenderRuntimeHost::initWindow(const ViewConfig& config, int width, int height) {
+    return runtime_.initWindow(config, width, height);
 }
 
-core::Result<void> RenderRuntimeHost::initOffscreen(int width, int height, engine::LightEnvironment& lightEnv) {
-    return runtime_.initOffscreen(width, height, lightEnv);
+core::Result<void> RenderRuntimeHost::initOffscreen(int width, int height) {
+    return runtime_.initOffscreen(width, height);
 }
 
 void RenderRuntimeHost::shutdown() {
     runtime_.shutdown();
+    submission_builder_.reset();
+    asset_source_ = nullptr;
 }
 
 bool RenderRuntimeHost::isInitialized() const {
@@ -24,15 +25,25 @@ bool RenderRuntimeHost::isInitialized() const {
 }
 
 void RenderRuntimeHost::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
-    runtime_.setRenderScene(scene, assets);
+    if (assets != asset_source_) {
+        runtime_.execute(ClearAssetResourcesCommand{});
+    }
+    asset_source_ = assets;
+    submission_builder_.setScene(scene, assets);
 }
 
 void RenderRuntimeHost::setPreviewLayer(const PreviewLayer* preview) {
-    runtime_.setPreviewLayer(preview);
+    submission_builder_.setPreviewLayer(preview);
+}
+
+void RenderRuntimeHost::setLightEnvironment(const engine::LightEnvironment& lightEnvironment) {
+    submission_builder_.setLightEnvironment(lightEnvironment);
 }
 
 void RenderRuntimeHost::render(const ViewState& viewState) {
-    runtime_.render(viewState);
+    RenderSubmission submission = submission_builder_.build(viewState);
+    submission.surfaceGeneration = runtime_.surface().generation();
+    runtime_.render(submission);
 }
 
 void RenderRuntimeHost::resize(int width, int height) {
@@ -73,11 +84,11 @@ std::optional<RenderSurfaceDesc> RenderRuntimeHost::offscreenSurfaceDesc() const
 }
 
 const RenderWorldSyncStats& RenderRuntimeHost::lastWorldSyncStats() const {
-    return runtime_.lastWorldSyncStats();
+    return submission_builder_.lastStats();
 }
 
 const RenderSubmissionDiagnostics& RenderRuntimeHost::renderSubmissionDiagnostics() const {
-    return runtime_.renderSubmissionDiagnostics();
+    return submission_builder_.diagnostics();
 }
 
 const engine::RenderWorkloadStats& RenderRuntimeHost::lastRenderWorkloadStats() const {
