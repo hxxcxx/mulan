@@ -7,6 +7,7 @@ add_executable(ModelingTests
 target_link_libraries(ModelingTests PRIVATE runtime modeling_core GTest::gtest GTest::gtest_main)
 target_compile_definitions(ModelingTests PRIVATE
     MULAN_TEST_DEFAULT_SHAPE_OPS_BACKEND="${MULAN_EFFECTIVE_DEFAULT_SHAPE_OPS_BACKEND}"
+    MULAN_TEST_HAS_TRUCK_BACKEND=$<BOOL:${MULAN_ENABLE_TRUCK_BACKEND}>
 )
 add_dependencies(ModelingTests modeling_occt)
 if(TARGET modeling_truck)

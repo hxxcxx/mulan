@@ -81,6 +81,18 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Widgets
 )
 
+# truck 实验关闭后清理可能由旧构建遗留的运行库，避免 runtime 继续扫描加载。
+if(NOT MULAN_ENABLE_TRUCK_BACKEND)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E rm -f
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/mulan_modeling_truck.dll"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/mulan_modeling_truck.pdb"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/truck_bridge.dll"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/backends/mulan_modeling_truck.dll"
+        COMMENT "Removing disabled truck backend runtime artifacts..."
+    )
+endif()
+
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_BINARY_DIR}/include

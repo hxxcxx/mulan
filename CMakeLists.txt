@@ -24,8 +24,8 @@ option(MULAN_ENABLE_DEV_RUNTIME_COPY "Copy the minimal runtime set needed for F5
 option(MULAN_ENABLE_POST_BUILD_DEPLOY "Copy runtime dependencies after every app build." OFF)
 option(MULAN_ENABLE_RUNTIME_DEPLOY_TARGET "Create an explicit runtime deploy target for standalone runs." ON)
 option(MULAN_DEPLOY_QT_WITH_WINDEPLOYQT "Run windeployqt from the explicit deploy target." ON)
-option(MULAN_ENABLE_TRUCK_BACKEND "Build the optional truck-bridge modeling backend." ON)
-set(MULAN_DEFAULT_SHAPE_OPS_BACKEND "truck" CACHE STRING
+option(MULAN_ENABLE_TRUCK_BACKEND "Build the experimental truck-bridge modeling backend." OFF)
+set(MULAN_DEFAULT_SHAPE_OPS_BACKEND "occt" CACHE STRING
     "Default IShapeOps backend used when no runtime environment override is set")
 set_property(CACHE MULAN_DEFAULT_SHAPE_OPS_BACKEND PROPERTY STRINGS occt truck)
 
