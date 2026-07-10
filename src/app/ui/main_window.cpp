@@ -23,12 +23,16 @@
 #include <QActionGroup>
 #include <QCryptographicHash>
 #include <QDir>
+#include <QImage>
+#include <QPainter>
 #include <QPointer>
 #include <QSignalBlocker>
 #include <QStandardPaths>
 #include <QToolButton>
 #include <QTimer>
 
+#include <algorithm>
+#include <cstdlib>
 #include <memory>
 #include <sstream>
 
@@ -45,6 +49,43 @@ void logImportReport(const mulan::io::ImportReport& report) {
     for (const auto& warning : report.warnings) {
         mulan::core::log::log(mulan::core::log::Level::Warn, warning);
     }
+}
+
+QImage frameThumbnailToContent(const QImage& image) {
+    if (image.isNull() || image.width() < 2 || image.height() < 2)
+        return image;
+
+    const QColor background = image.pixelColor(0, 0);
+    QRect contentBounds;
+    constexpr int kBackgroundTolerance = 20;
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            const QColor pixel = image.pixelColor(x, y);
+            const int difference =
+                    std::max({ std::abs(pixel.red() - background.red()), std::abs(pixel.green() - background.green()),
+                               std::abs(pixel.blue() - background.blue()) });
+            if (pixel.alpha() > 0 && difference > kBackgroundTolerance) {
+                contentBounds |= QRect(x, y, 1, 1);
+            }
+        }
+    }
+    if (contentBounds.isNull())
+        return image;
+
+    const int padding = std::max(8, std::min(image.width(), image.height()) / 14);
+    contentBounds.adjust(-padding, -padding, padding, padding);
+    contentBounds = contentBounds.intersected(image.rect());
+
+    const QImage cropped = image.copy(contentBounds);
+    QImage framed(image.size(), image.format());
+    framed.fill(background);
+
+    QPainter painter(&framed);
+    const QSize targetSize = cropped.size().scaled(framed.size(), Qt::KeepAspectRatio);
+    const QRect targetRect((framed.width() - targetSize.width()) / 2, (framed.height() - targetSize.height()) / 2,
+                           targetSize.width(), targetSize.height());
+    painter.drawImage(targetRect, cropped);
+    return framed;
 }
 
 }  // namespace
@@ -523,7 +564,7 @@ void MainWindow::scheduleRecentThumbnailCapture(DocWidget* docWidget, const QStr
             return;
 
         mulan::view::ViewContext thumbnailContext;
-        if (!thumbnailContext.initOffscreen(320, 180))
+        if (!thumbnailContext.initOffscreen(640, 360))
             return;
 
         DocumentViewBinding thumbnailBinding;
@@ -531,8 +572,8 @@ void MainWindow::scheduleRecentThumbnailCapture(DocWidget* docWidget, const QStr
 
         mulan::view::CaptureRequest request;
         request.name = "recent-thumbnail";
-        request.desc.width = 320;
-        request.desc.height = 180;
+        request.desc.width = 640;
+        request.desc.height = 360;
         request.desc.format = mulan::engine::TextureFormat::RGBA8_UNorm;
         request.desc.readback = true;
         request.camera = thumbnailContext.camera();
@@ -545,7 +586,11 @@ void MainWindow::scheduleRecentThumbnailCapture(DocWidget* docWidget, const QStr
             return;
 
         auto saved = mulan::view::CaptureImageEncoder::savePNG(*captured, thumbnailPath.toStdString());
-        if (saved) {
+        if (!saved)
+            return;
+
+        const QImage framed = frameThumbnailToContent(QImage(thumbnailPath));
+        if (!framed.isNull() && framed.save(thumbnailPath, "PNG")) {
             doc_area_->setRecentThumbnail(filePath, thumbnailPath);
         }
     });

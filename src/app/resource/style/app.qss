@@ -47,28 +47,17 @@ QToolButton[uiRole="ribbonCollapse"]:pressed {
 QToolButton[uiRole="quickAccess"]:focus,
 QToolButton[uiRole="ribbonCollapse"]:focus { outline: none; }
 
-#recentFileList {
+QToolButton[uiRole="recentFile"] {
     background: transparent;
+    border: none;
     color: palette(text);
-    outline: none;
+    padding: 0;
+    text-align: center;
 }
 
-#recentFileList::item {
+QToolButton[uiRole="recentFile"]:hover {
     background: transparent;
-    border: 1px solid palette(midlight);
-    border-radius: 5px;
-    padding: 8px;
-}
-
-#recentFileList::item:hover {
-    background: palette(alternate-base);
-    border-color: palette(highlight);
-}
-
-#recentFileList::item:selected {
-    background: palette(highlight);
-    border-color: palette(highlight);
-    color: palette(highlighted-text);
+    color: #497CAD;
 }
 
 #startupPage,

@@ -2,15 +2,13 @@
 
 #include <QFileInfo>
 #include <QDir>
-#include <QFrame>
+#include <QGridLayout>
 #include <QIcon>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QListWidget>
 #include <QMessageBox>
 #include <QPixmap>
 #include <QSettings>
-#include <QStyle>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -18,9 +16,9 @@
 
 namespace {
 
-constexpr int kFilePathRole = Qt::UserRole;
-constexpr int kThumbnailPathRole = Qt::UserRole + 1;
 constexpr int kMaximumRecentFiles = 10;
+constexpr auto kSettingsOrganization = "mulan";
+constexpr auto kSettingsApplication = "MuLan";
 
 QString readableFileSize(qint64 bytes) {
     static constexpr const char* suffixes[] = { "B", "KB", "MB", "GB", "TB" };
@@ -86,9 +84,9 @@ StartupPage::StartupPage(QWidget* parent) : QWidget(parent) {
         button->setText(text);
         button->setIcon(QIcon(iconPath));
         button->setProperty("uiRole", "startupAction");
-        button->setIconSize(QSize(34, 34));
+        button->setIconSize(QSize(28, 28));
         button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-        button->setFixedSize(204, 62);
+        button->setFixedSize(180, 52);
         return button;
     };
     auto* newButton = makeActionButton(tr("New document"), ":/app/icons/icon/file-new.svg");
@@ -99,34 +97,30 @@ StartupPage::StartupPage(QWidget* parent) : QWidget(parent) {
     actionRow->addWidget(openButton);
     actionRow->addStretch();
     layout->addLayout(actionRow);
-    layout->addSpacing(34);
+    layout->addSpacing(28);
 
     auto* recentTitle = new QLabel(tr("Recent files"), content);
     recentTitle->setObjectName("sectionTitle");
     layout->addWidget(recentTitle);
     layout->addSpacing(12);
 
-    file_list_ = new QListWidget(content);
-    file_list_->setObjectName("recentFileList");
-    file_list_->setViewMode(QListView::IconMode);
-    file_list_->setResizeMode(QListView::Adjust);
-    file_list_->setMovement(QListView::Static);
-    file_list_->setWrapping(true);
-    file_list_->setWordWrap(true);
-    file_list_->setSpacing(10);
-    file_list_->setIconSize(QSize(88, 72));
-    file_list_->setGridSize(QSize(176, 132));
-    file_list_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    file_list_->setFrameShape(QFrame::NoFrame);
-    connect(file_list_, &QListWidget::itemClicked, this, &StartupPage::activateItem);
-    layout->addWidget(file_list_, 1);
+    recent_tiles_ = new QWidget(content);
+    recent_tiles_->setObjectName("recentFileTiles");
+    recent_tiles_layout_ = new QGridLayout(recent_tiles_);
+    recent_tiles_layout_->setContentsMargins(0, 0, 0, 0);
+    recent_tiles_layout_->setHorizontalSpacing(12);
+    recent_tiles_layout_->setVerticalSpacing(16);
+    recent_tiles_layout_->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    // Keep the first two recent-file columns exactly aligned with the two
+    // 180px start actions above (with the same 12px gutter).
+    recent_tiles_layout_->setColumnMinimumWidth(0, 180);
+    recent_tiles_layout_->setColumnMinimumWidth(1, 180);
+    layout->addWidget(recent_tiles_, 1);
 
-    empty_state_ = new QLabel(tr("No recent files yet. Open a model to see it here."), file_list_->viewport());
+    empty_state_ = new QLabel(tr("No recent files yet. Open a model to see it here."), recent_tiles_);
     empty_state_->setObjectName("emptyState");
     empty_state_->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     empty_state_->setAttribute(Qt::WA_TransparentForMouseEvents);
-    empty_state_->adjustSize();
-    empty_state_->move(8, 8);
 
     pageLayout->addStretch();
     pageLayout->addWidget(content, 1);
@@ -187,10 +181,7 @@ void StartupPage::setRecentThumbnail(const QString& filePath, const QString& thu
     }
 }
 
-void StartupPage::activateItem(QListWidgetItem* item) {
-    if (!item)
-        return;
-    const QString path = item->data(kFilePathRole).toString();
+void StartupPage::activateRecentFile(const QString& path) {
     if (!QFileInfo::exists(path)) {
         QMessageBox::warning(this, tr("Recent File Missing"),
                              tr("The file no longer exists and will be removed from Recent Files:\n%1").arg(path));
@@ -201,7 +192,10 @@ void StartupPage::activateItem(QListWidgetItem* item) {
 }
 
 void StartupPage::loadRecentFiles() {
-    QSettings settings;
+    // Do not rely on QApplication's implicit identity here: it can differ
+    // between a debug executable and an installed build, making recents look
+    // as if they vanished after restarting the application.
+    QSettings settings(kSettingsOrganization, kSettingsApplication);
     const int count = settings.beginReadArray("recentFiles");
     for (int i = 0; i < count; ++i) {
         settings.setArrayIndex(i);
@@ -216,7 +210,7 @@ void StartupPage::loadRecentFiles() {
 }
 
 void StartupPage::saveRecentFiles() const {
-    QSettings settings;
+    QSettings settings(kSettingsOrganization, kSettingsApplication);
     settings.beginWriteArray("recentFiles");
     for (int i = 0; i < recent_files_.size(); ++i) {
         settings.setArrayIndex(i);
@@ -225,6 +219,7 @@ void StartupPage::saveRecentFiles() const {
         settings.setValue("thumbnailPath", recent_files_[i].thumbnailPath);
     }
     settings.endArray();
+    settings.sync();
 }
 
 QIcon StartupPage::recentFileIcon(const RecentFileEntry& entry) const {
@@ -252,14 +247,34 @@ QString StartupPage::recentFileTooltip(const RecentFileEntry& entry) const {
 }
 
 void StartupPage::rebuildItems() {
-    file_list_->clear();
-
-    for (const RecentFileEntry& entry : recent_files_) {
-        const QFileInfo info(entry.path);
-        auto* item = new QListWidgetItem(recentFileIcon(entry), info.fileName(), file_list_);
-        item->setData(kFilePathRole, entry.path);
-        item->setData(kThumbnailPathRole, entry.thumbnailPath);
-        item->setToolTip(recentFileTooltip(entry));
+    while (QLayoutItem* item = recent_tiles_layout_->takeAt(0)) {
+        QWidget* widget = item->widget();
+        if (widget != empty_state_)
+            delete widget;
+        delete item;
     }
-    empty_state_->setVisible(recent_files_.isEmpty());
+
+    empty_state_->hide();
+
+    constexpr int kRecentColumns = 4;
+    for (int index = 0; index < recent_files_.size(); ++index) {
+        const RecentFileEntry& entry = recent_files_[index];
+        const QFileInfo info(entry.path);
+        auto* tile = new QToolButton(recent_tiles_);
+        tile->setProperty("uiRole", "recentFile");
+        tile->setAutoRaise(true);
+        tile->setFixedSize(180, 132);
+        tile->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        tile->setIcon(recentFileIcon(entry));
+        tile->setIconSize(QSize(180, 101));
+        tile->setText(info.fileName());
+        tile->setToolTip(recentFileTooltip(entry));
+        connect(tile, &QToolButton::clicked, this, [this, path = entry.path]() { activateRecentFile(path); });
+        recent_tiles_layout_->addWidget(tile, index / kRecentColumns, index % kRecentColumns);
+    }
+
+    if (recent_files_.isEmpty()) {
+        recent_tiles_layout_->addWidget(empty_state_, 0, 0, Qt::AlignLeft | Qt::AlignTop);
+        empty_state_->show();
+    }
 }

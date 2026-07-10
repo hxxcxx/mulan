@@ -3,8 +3,7 @@
 #include <QDateTime>
 #include <QWidget>
 
-class QListWidget;
-class QListWidgetItem;
+class QGridLayout;
 class QIcon;
 class QLabel;
 
@@ -23,9 +22,6 @@ signals:
     void openDocumentRequested();
     void recentFileRequested(const QString& filePath);
 
-private slots:
-    void activateItem(QListWidgetItem* item);
-
 private:
     struct RecentFileEntry {
         QString path;
@@ -36,11 +32,13 @@ private:
     void loadRecentFiles();
     void saveRecentFiles() const;
     void rebuildItems();
+    void activateRecentFile(const QString& filePath);
     QIcon recentFileIcon(const RecentFileEntry& entry) const;
     QString recentFileTooltip(const RecentFileEntry& entry) const;
     static QString normalizedPath(const QString& filePath);
 
-    QListWidget* file_list_ = nullptr;
+    QWidget* recent_tiles_ = nullptr;
+    QGridLayout* recent_tiles_layout_ = nullptr;
     QLabel* empty_state_ = nullptr;
     QList<RecentFileEntry> recent_files_;
 };
