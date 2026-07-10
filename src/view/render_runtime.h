@@ -75,6 +75,7 @@ public:
     RenderSurface& surface() { return surface_; }
     const RenderSurface& surface() const { return surface_; }
     const RenderWorldSyncStats& lastWorldSyncStats() const { return submission_builder_.lastStats(); }
+    const RenderSubmissionDiagnostics& renderSubmissionDiagnostics() const { return submission_builder_.diagnostics(); }
     const engine::RenderWorkloadStats& lastRenderWorkloadStats() const { return renderer_.lastRenderWorkloadStats(); }
     const engine::RenderCompilerStats& lastRenderCompilerStats() const { return renderer_.lastRenderCompilerStats(); }
 

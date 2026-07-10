@@ -38,8 +38,12 @@ void RenderSubmissionBuilder::setPreviewLayer(const PreviewLayer* preview) {
 RenderSubmission RenderSubmissionBuilder::build(const ViewState& viewState) {
     RenderSubmission submission;
     submission.view = viewState;
+    submission.sceneGeneration = scene_ ? scene_->generation() : 0;
+    submission.geometryGeneration = scene_ ? scene_->geometryGeneration() : 0;
+    submission.previewGeneration = preview_ ? preview_->generation() : 0;
 
-    if (needsRebuild()) {
+    submission.rebuiltWorld = needsRebuild();
+    if (submission.rebuiltWorld) {
         rebuild(submission);
     }
 
@@ -50,6 +54,16 @@ RenderSubmission RenderSubmissionBuilder::build(const ViewState& viewState) {
         submission_generation_ = 1;
         submission.generation = submission_generation_;
     }
+    ++diagnostics_.submissionCount;
+    if (submission.rebuiltWorld) {
+        ++diagnostics_.worldRebuildCount;
+    } else {
+        ++diagnostics_.worldReuseCount;
+    }
+    diagnostics_.lastResourceUpdateCount = submission.prepare.geometries().size();
+    diagnostics_.lastSceneGeneration = submission.sceneGeneration;
+    diagnostics_.lastGeometryGeneration = submission.geometryGeneration;
+    diagnostics_.lastPreviewGeneration = submission.previewGeneration;
     return submission;
 }
 

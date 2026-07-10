@@ -106,6 +106,9 @@ public:
     bool showOverlays() const { return show_overlays_; }
     void setShowOverlays(bool show) { show_overlays_ = show; }
     const RenderWorldSyncStats& renderWorldSyncStats() const { return runtime_host_.lastWorldSyncStats(); }
+    const RenderSubmissionDiagnostics& renderSubmissionDiagnostics() const {
+        return runtime_host_.renderSubmissionDiagnostics();
+    }
     const engine::RenderWorkloadStats& renderWorkloadStats() const { return runtime_host_.lastRenderWorkloadStats(); }
     const engine::RenderCompilerStats& renderCompilerStats() const { return runtime_host_.lastRenderCompilerStats(); }
 

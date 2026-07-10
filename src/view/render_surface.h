@@ -68,6 +68,8 @@ public:
 
     int width() const { return width_; }
     int height() const { return height_; }
+    /// 表面资源版本；resize、重建或销毁后递增，可用于丢弃旧帧提交。
+    uint64_t generation() const { return generation_; }
     uint32_t bytesPerPixel() const { return bytes_per_pixel_; }
     uint32_t rowBytes() const { return row_bytes_; }
     std::optional<RenderSurfaceDesc> offscreenDesc() const;
@@ -79,6 +81,7 @@ public:
 private:
     bool createReadbackBuffer(engine::RHIDevice& device);
     bool offscreenDescMatches(const RenderSurfaceDesc& desc) const;
+    void advanceGeneration();
 
     std::unique_ptr<engine::SwapChain> swapchain_;
     std::unique_ptr<engine::RenderTarget> render_target_;
@@ -90,6 +93,7 @@ private:
 
     int width_ = 0;
     int height_ = 0;
+    uint64_t generation_ = 1;
 };
 
 }  // namespace mulan::view

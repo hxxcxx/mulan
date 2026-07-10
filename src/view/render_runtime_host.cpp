@@ -76,6 +76,10 @@ const RenderWorldSyncStats& RenderRuntimeHost::lastWorldSyncStats() const {
     return runtime_.lastWorldSyncStats();
 }
 
+const RenderSubmissionDiagnostics& RenderRuntimeHost::renderSubmissionDiagnostics() const {
+    return runtime_.renderSubmissionDiagnostics();
+}
+
 const engine::RenderWorkloadStats& RenderRuntimeHost::lastRenderWorkloadStats() const {
     return runtime_.lastRenderWorkloadStats();
 }

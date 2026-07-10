@@ -11,6 +11,7 @@
 
 #include <mulan/engine/render/frontend/render_world.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 
@@ -22,6 +23,16 @@ namespace mulan::view {
 class PreviewLayer;
 class RenderScene;
 
+struct RenderSubmissionDiagnostics {
+    uint64_t submissionCount = 0;
+    uint64_t worldRebuildCount = 0;
+    uint64_t worldReuseCount = 0;
+    size_t lastResourceUpdateCount = 0;
+    uint64_t lastSceneGeneration = 0;
+    uint64_t lastGeometryGeneration = 0;
+    uint64_t lastPreviewGeneration = 0;
+};
+
 class RenderSubmissionBuilder {
 public:
     void setScene(const RenderScene* scene, const asset::AssetLibrary* assets);
@@ -30,6 +41,7 @@ public:
     RenderSubmission build(const ViewState& viewState);
 
     const RenderWorldSyncStats& lastStats() const { return last_sync_stats_; }
+    const RenderSubmissionDiagnostics& diagnostics() const { return diagnostics_; }
 
 private:
     bool needsRebuild() const;
@@ -50,6 +62,7 @@ private:
     engine::RenderWorld render_world_;
     std::shared_ptr<const engine::RenderWorldSnapshot> world_snapshot_;
     RenderWorldSyncStats last_sync_stats_;
+    RenderSubmissionDiagnostics diagnostics_;
 };
 
 }  // namespace mulan::view

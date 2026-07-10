@@ -212,7 +212,9 @@ void RenderRuntime::render(const ViewState& viewState) {
     if (!initialized_ || !device_) {
         return;
     }
-    renderer_.render(*device_, surface_, submission_builder_.build(viewState));
+    RenderSubmission submission = submission_builder_.build(viewState);
+    submission.surfaceGeneration = surface_.generation();
+    renderer_.render(*device_, surface_, submission);
 }
 
 void RenderRuntime::resize(int width, int height) {

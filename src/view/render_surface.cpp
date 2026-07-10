@@ -44,6 +44,7 @@ bool RenderSurface::initWindowSurface(engine::RHIDevice& device, const ViewConfi
     if (!sc)
         return false;
     swapchain_ = std::move(*sc);
+    advanceGeneration();
     return true;
 }
 
@@ -87,6 +88,7 @@ bool RenderSurface::initOffscreenSurface(engine::RHIDevice& device, const Render
         render_target_.reset();
         return false;
     }
+    advanceGeneration();
     return true;
 }
 
@@ -117,6 +119,8 @@ bool RenderSurface::configureOffscreenSurface(engine::RHIDevice& device, const R
     row_bytes_ = static_cast<uint32_t>(width_) * bytes_per_pixel_;
 
     if (formatChanged) {
+        // 旧 target 已失效，即使新 target 创建失败也必须让旧帧提交失配。
+        advanceGeneration();
         render_target_.reset();
         staging_buffer_.reset();
         return initOffscreenSurface(device, desc);
@@ -124,9 +128,12 @@ bool RenderSurface::configureOffscreenSurface(engine::RHIDevice& device, const R
 
     render_target_->resize(static_cast<uint32_t>(desc.width), static_cast<uint32_t>(desc.height));
     if (readbackChanged || desc.readback) {
-        return createReadbackBuffer(device);
+        const bool ready = createReadbackBuffer(device);
+        advanceGeneration();
+        return ready;
     }
     staging_buffer_.reset();
+    advanceGeneration();
     return true;
 }
 
@@ -142,9 +149,13 @@ void RenderSurface::shutdown(engine::RHIDevice& device) {
     row_bytes_ = 0;
     width_ = 0;
     height_ = 0;
+    advanceGeneration();
 }
 
 void RenderSurface::resize(engine::RHIDevice& device, int width, int height) {
+    if (!isInitialized() || width <= 0 || height <= 0) {
+        return;
+    }
     width_ = width;
     height_ = height;
 
@@ -162,6 +173,7 @@ void RenderSurface::resize(engine::RHIDevice& device, int width, int height) {
         device.clearCaches();
         swapchain_->resize(width, height);
     }
+    advanceGeneration();
 }
 
 bool RenderSurface::readbackPixels(engine::RHIDevice& device, std::vector<uint8_t>& pixels) {
@@ -216,6 +228,13 @@ bool RenderSurface::offscreenDescMatches(const RenderSurfaceDesc& desc) const {
            offscreen_desc_.colorFormat == desc.colorFormat && offscreen_desc_.depthFormat == desc.depthFormat &&
            offscreen_desc_.hasDepth == desc.hasDepth && offscreen_desc_.sampleCount == desc.sampleCount &&
            offscreen_desc_.readback == desc.readback;
+}
+
+void RenderSurface::advanceGeneration() {
+    ++generation_;
+    if (generation_ == 0) {
+        generation_ = 1;
+    }
 }
 
 engine::TextureFormat RenderSurface::colorFormat(engine::RHIDevice& /*device*/) const {

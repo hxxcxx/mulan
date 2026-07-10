@@ -29,6 +29,11 @@ struct RenderSubmission {
     /// 相机、显示模式、选择和 overlay 等当帧值状态。
     ViewState view;
     RenderWorldSyncStats syncStats;
+    uint64_t sceneGeneration = 0;
+    uint64_t geometryGeneration = 0;
+    uint64_t previewGeneration = 0;
+    uint64_t surfaceGeneration = 0;
+    bool rebuiltWorld = false;
     uint64_t generation = 0;
 
     bool hasWorld() const { return static_cast<bool>(world); }
