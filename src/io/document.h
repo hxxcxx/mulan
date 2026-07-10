@@ -13,7 +13,7 @@
 #include <mulan/asset/face_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/math/math.h>
-#include <mulan/modeling_core/shape.h>
+#include <mulan/modeling/core/shape.h>
 #include <mulan/scene/entity_id.h>
 
 #include <memory>

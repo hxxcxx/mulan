@@ -4,7 +4,7 @@
 #include <mulan/asset/brep_asset.h>
 #include <mulan/asset/face_asset.h>
 #include <mulan/asset/mesh_asset.h>
-#include <mulan/modeling_core/shape.h>
+#include <mulan/modeling/core/shape.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/scene.h>
 

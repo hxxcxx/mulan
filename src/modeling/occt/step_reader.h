@@ -14,7 +14,7 @@
 
 #include "modeling_occt_export.h"
 
-#include <mulan/modeling_core/shape_file_reader.h>
+#include <mulan/modeling/core/shape_file_reader.h>
 
 namespace mulan::modeling {
 

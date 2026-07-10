@@ -17,8 +17,8 @@
 
 #include "geometry_asset.h"
 
-#include <mulan/modeling_core/shape.h>
-#include <mulan/modeling_core/tessellation.h>
+#include <mulan/modeling/core/shape.h>
+#include <mulan/modeling/core/tessellation.h>
 
 #include <utility>
 

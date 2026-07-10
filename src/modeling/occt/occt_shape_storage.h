@@ -11,7 +11,7 @@
 
 #include "modeling_occt_export.h"
 
-#include <mulan/modeling_core/shape.h>
+#include <mulan/modeling/core/shape.h>
 
 #include <TopoDS_Shape.hxx>
 

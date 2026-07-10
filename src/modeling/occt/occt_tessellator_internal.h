@@ -9,7 +9,7 @@
 #pragma once
 
 #include <mulan/core/result/error.h>
-#include <mulan/modeling_core/tessellation.h>
+#include <mulan/modeling/core/tessellation.h>
 
 #include <TopoDS_Shape.hxx>
 

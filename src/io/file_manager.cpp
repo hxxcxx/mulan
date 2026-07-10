@@ -4,7 +4,7 @@
 
 #include <mulan/core/result/error.h>
 #include <mulan/io/document.h>
-#include <mulan/modeling_core/shape_file_reader.h>
+#include <mulan/modeling/core/shape_file_reader.h>
 
 #include <algorithm>
 #include <cctype>

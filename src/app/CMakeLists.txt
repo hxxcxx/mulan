@@ -71,6 +71,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     view
     engine
     $<LINK_LIBRARY:WHOLE_ARCHIVE,io>
+    runtime
     SARibbon
     Qt6::Core
     Qt6::Gui
