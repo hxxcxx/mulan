@@ -131,13 +131,17 @@ void Camera::zoom(double delta) {
 }
 
 void Camera::fitToBox(const math::AABB3& box, double padding) {
-    if (box.isEmpty()) {
+    fitToSphere(math::Sphere3::fromAABB(box), padding);
+}
+
+void Camera::fitToSphere(const math::Sphere3& sphere, double padding) {
+    if (!sphere.isValid()) {
         return;
     }
 
-    target_ = box.center().asVec();
+    target_ = sphere.center.asVec();
     pan_offset_ = { 0, 0, 0 };  // 重新适配时清除平移偏移
-    double radius = std::max((box.max - box.min).length() * 0.5, min_distance_);
+    const double radius = std::max(sphere.radius, min_distance_);
 
     if (ortho_) {
         ortho_size_ = radius * padding;
@@ -150,8 +154,7 @@ void Camera::fitToBox(const math::AABB3& box, double padding) {
     if (distance_ < min_distance_)
         distance_ = radius * 5.0 + 1.0;
 
-    near_z_ = distance_ * 0.01;
-    far_z_ = distance_ * 10.0;
+    fitClipPlanesToSphere(sphere, padding);
 }
 
 void Camera::fitClipPlanesToBox(const math::AABB3& box, double padding) {

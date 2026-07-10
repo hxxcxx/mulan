@@ -4,7 +4,25 @@
 
 #include <mulan/view/view_context.h>
 
+#include <algorithm>
+#include <cmath>
+
 namespace mulan::app {
+namespace {
+
+bool sphereChanged(const math::Sphere3& before, const math::Sphere3& after) {
+    if (before.isValid() != after.isValid()) {
+        return true;
+    }
+    if (!after.isValid()) {
+        return false;
+    }
+    const double scale = std::max({ 1.0, before.radius, after.radius });
+    return before.center.distance(after.center) > scale * 1.0e-9 ||
+           std::abs(before.radius - after.radius) > scale * 1.0e-9;
+}
+
+}  // namespace
 
 DocumentRenderBinding::~DocumentRenderBinding() {
     unbind();
@@ -34,8 +52,15 @@ void DocumentRenderBinding::refresh() {
     if (!isBound()) {
         return;
     }
+    const math::Sphere3 previousSphere = render_cache_.sceneBoundsSphere();
     syncRenderCache();
-    fitCameraClipPlanesToSceneBounds();
+    const math::Sphere3& currentSphere = render_cache_.sceneBoundsSphere();
+    if (sphereChanged(previousSphere, currentSphere)) {
+        // 仅实体/可见性/变换改变世界范围时自动扩展视口；选择变化不会触发。
+        view_->camera().fitToSphere(currentSphere);
+    } else {
+        fitCameraClipPlanesToSceneBounds();
+    }
     injectRenderCache();
     view_->renderFrame();
 }
@@ -45,9 +70,9 @@ void DocumentRenderBinding::fitAll() {
         return;
     }
     syncRenderCache();
-    const auto& bounds = render_cache_.sceneBounds();
-    if (!bounds.isEmpty()) {
-        view_->camera().fitToBox(bounds);
+    const auto& sphere = render_cache_.sceneBoundsSphere();
+    if (sphere.isValid()) {
+        view_->camera().fitToSphere(sphere);
     }
     injectRenderCache();
     view_->renderFrame();
@@ -104,9 +129,9 @@ void DocumentRenderBinding::applyViewPreferences() {
         view_->enableIBL();
     }
 
-    const auto& bounds = render_cache_.sceneBounds();
-    if (!bounds.isEmpty()) {
-        view_->camera().fitToBox(bounds);
+    const auto& sphere = render_cache_.sceneBoundsSphere();
+    if (sphere.isValid()) {
+        view_->camera().fitToSphere(sphere);
     }
 }
 
