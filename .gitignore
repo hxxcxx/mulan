@@ -45,10 +45,11 @@ Thumbs.db
 
 other/
 docs/
-truck/
+/truck/
 .codex
 glTF-Sample-Models
 BeyondFlat
 BeyondConvex
 OCCT-master
-truck-bridge
+
+/truck-bridge/

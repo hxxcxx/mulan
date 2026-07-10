@@ -24,6 +24,64 @@ option(MULAN_ENABLE_DEV_RUNTIME_COPY "Copy the minimal runtime set needed for F5
 option(MULAN_ENABLE_POST_BUILD_DEPLOY "Copy runtime dependencies after every app build." OFF)
 option(MULAN_ENABLE_RUNTIME_DEPLOY_TARGET "Create an explicit runtime deploy target for standalone runs." ON)
 option(MULAN_DEPLOY_QT_WITH_WINDEPLOYQT "Run windeployqt from the explicit deploy target." ON)
+option(MULAN_ENABLE_TRUCK_BACKEND "Build the optional truck-bridge modeling backend." OFF)
+
+set(MULAN_TRUCK_BRIDGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/truck-bridge" CACHE PATH
+    "truck-bridge source directory")
+
+if(MULAN_ENABLE_TRUCK_BACKEND)
+    find_program(CARGO_EXECUTABLE cargo REQUIRED)
+
+    if(NOT EXISTS "${MULAN_TRUCK_BRIDGE_SOURCE_DIR}/Cargo.toml")
+        message(FATAL_ERROR "truck-bridge Cargo.toml not found: ${MULAN_TRUCK_BRIDGE_SOURCE_DIR}/Cargo.toml")
+    endif()
+
+    file(GLOB_RECURSE MULAN_TRUCK_BRIDGE_RUST_SOURCES CONFIGURE_DEPENDS
+        "${MULAN_TRUCK_BRIDGE_SOURCE_DIR}/src/*.rs"
+    )
+
+    set(MULAN_TRUCK_BRIDGE_TARGET_DIR "${CMAKE_BINARY_DIR}/truck-bridge-target")
+    set(MULAN_TRUCK_BRIDGE_INCLUDE_DIR "${MULAN_TRUCK_BRIDGE_SOURCE_DIR}/include")
+    set(MULAN_TRUCK_BRIDGE_HEADER "${MULAN_TRUCK_BRIDGE_INCLUDE_DIR}/truck_bridge.h")
+    set(MULAN_TRUCK_BRIDGE_DLL "${MULAN_TRUCK_BRIDGE_TARGET_DIR}/release/truck_bridge.dll")
+    set(MULAN_TRUCK_BRIDGE_IMPLIB "${MULAN_TRUCK_BRIDGE_TARGET_DIR}/release/truck_bridge.dll.lib")
+    file(MAKE_DIRECTORY "${MULAN_TRUCK_BRIDGE_INCLUDE_DIR}")
+
+    add_custom_command(
+        OUTPUT
+            "${MULAN_TRUCK_BRIDGE_DLL}"
+            "${MULAN_TRUCK_BRIDGE_IMPLIB}"
+            "${MULAN_TRUCK_BRIDGE_HEADER}"
+        COMMAND ${CMAKE_COMMAND} -E env
+            "CARGO_TARGET_DIR=${MULAN_TRUCK_BRIDGE_TARGET_DIR}"
+            "${CARGO_EXECUTABLE}" build --release --locked
+                --manifest-path "${MULAN_TRUCK_BRIDGE_SOURCE_DIR}/Cargo.toml"
+        DEPENDS
+            "${MULAN_TRUCK_BRIDGE_SOURCE_DIR}/Cargo.toml"
+            "${MULAN_TRUCK_BRIDGE_SOURCE_DIR}/Cargo.lock"
+            "${MULAN_TRUCK_BRIDGE_SOURCE_DIR}/build.rs"
+            "${MULAN_TRUCK_BRIDGE_SOURCE_DIR}/cbindgen.toml"
+            ${MULAN_TRUCK_BRIDGE_RUST_SOURCES}
+        WORKING_DIRECTORY "${MULAN_TRUCK_BRIDGE_SOURCE_DIR}"
+        COMMENT "Building truck-bridge with Cargo..."
+        VERBATIM
+    )
+
+    add_custom_target(truck_bridge_build
+        DEPENDS
+            "${MULAN_TRUCK_BRIDGE_DLL}"
+            "${MULAN_TRUCK_BRIDGE_IMPLIB}"
+            "${MULAN_TRUCK_BRIDGE_HEADER}"
+    )
+
+    add_library(truck_bridge SHARED IMPORTED GLOBAL)
+    set_target_properties(truck_bridge PROPERTIES
+        IMPORTED_LOCATION "${MULAN_TRUCK_BRIDGE_DLL}"
+        IMPORTED_IMPLIB "${MULAN_TRUCK_BRIDGE_IMPLIB}"
+        INTERFACE_INCLUDE_DIRECTORIES "${MULAN_TRUCK_BRIDGE_INCLUDE_DIR}"
+    )
+    add_dependencies(truck_bridge truck_bridge_build)
+endif()
 
 # ── OpenCASCADE ──
 # 查找路径优先级: CMakePresets / -DOCCT_ROOT / 环境变量 OCCT_ROOT
@@ -168,6 +226,9 @@ add_subdirectory(src/modeling/core)
 add_subdirectory(src/asset)
 add_subdirectory(src/scene)
 add_subdirectory(src/modeling/occt)
+if(MULAN_ENABLE_TRUCK_BACKEND)
+    add_subdirectory(src/modeling/truck)
+endif()
 add_subdirectory(src/view)
 add_subdirectory(src/io)
 add_subdirectory(src/modeling/runtime)
