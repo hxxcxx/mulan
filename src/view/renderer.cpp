@@ -5,7 +5,6 @@
  */
 
 #include "renderer.h"
-#include "preview_layer.h"
 #include "render_surface.h"
 
 #include "mulan/engine/rhi/device.h"
@@ -57,46 +56,29 @@ void Renderer::shutdown(engine::RHIDevice& device) {
     initialized_ = false;
 }
 
-void Renderer::setScene(engine::RHIDevice* device, const RenderScene* scene, const asset::AssetLibrary* assets) {
-    // 文档切换：assets 指针变化时，释放旧文档派生的 GPU 资源（几何 buffer 等）。
-    // 资产身份 key 与旧文档绑定，新文档的资产身份不同，必须清空避免悬垂 + 释放显存。
-    if (assets_ != assets && initialized_ && device) {
-        render_renderer_.clearAssetResources(*device);
+void Renderer::clearAssetResources(engine::RHIDevice& device) {
+    if (initialized_) {
+        render_renderer_.clearAssetResources(device);
     }
-    scene_ = scene;
-    assets_ = assets;
-    world_dirty_ = true;
-}
-
-void Renderer::setPreviewLayer(const PreviewLayer* preview) {
-    if (preview_ == preview) {
-        return;
-    }
-
-    preview_ = preview;
-    synced_preview_generation_ = 0;
-    world_dirty_ = true;
 }
 
 void Renderer::enableIBL(engine::RHIDevice& device, const std::string& hdrPath) {
     render_renderer_.enableIBL(device, hdrPath);
 }
 
-void Renderer::render(engine::RHIDevice& device, RenderSurface& surface, const ViewState& viewState) {
+void Renderer::render(engine::RHIDevice& device, RenderSurface& surface, const RenderSubmission& submission) {
     if (!initialized_)
         return;
 
-    syncEngineWorld();
-
-    auto request = buildRequest(surface, viewState);
+    auto request = buildRequest(surface, submission);
     render_renderer_.render(device, surfaceBinding(surface), request);
-    resource_prepare_pending_ = false;
 }
 
-engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewState& viewState) {
+engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const RenderSubmission& submission) {
+    const ViewState& viewState = submission.view;
     engine::RenderRequest request;
-    request.world = (scene_ && assets_) ? &world_snapshot_ : nullptr;
-    request.prepare = (scene_ && assets_ && resource_prepare_pending_) ? &resource_prepare_ : nullptr;
+    request.world = submission.world.get();
+    request.prepare = submission.hasResourceUpdates() ? &submission.prepare : nullptr;
     request.view.viewMatrix = viewState.viewMatrix;
     request.view.projectionMatrix = viewState.projectionMatrix;
     request.view.cameraPosition = viewState.cameraPosition;
@@ -124,35 +106,6 @@ engine::RenderRequest Renderer::buildRequest(RenderSurface& surface, const ViewS
     request.options.viewCubeLayout = viewState.viewCubeLayout;
     request.options.viewCubeInteraction = viewState.viewCubeInteraction;
     return request;
-}
-
-void Renderer::syncEngineWorld() {
-    const uint64_t previewGeneration = preview_ ? preview_->generation() : 0;
-    const bool previewDirty = previewGeneration != synced_preview_generation_;
-    const bool previewOnlyDirty = previewDirty && !world_dirty_;
-    if (previewDirty) {
-        world_dirty_ = true;
-    }
-
-    if (!world_dirty_) {
-        return;
-    }
-
-    if (!scene_ || !assets_) {
-        render_world_.clear();
-        world_snapshot_ = {};
-        resource_prepare_.clear();
-        render_world_sync_.clearStats();
-        resource_prepare_pending_ = false;
-        world_dirty_ = false;
-        return;
-    }
-
-    render_world_sync_.rebuild(*scene_, *assets_, preview_, render_world_, &resource_prepare_, !previewOnlyDirty);
-    world_snapshot_ = render_world_.snapshot();
-    resource_prepare_pending_ = true;
-    world_dirty_ = false;
-    synced_preview_generation_ = previewGeneration;
 }
 
 engine::RenderSurfaceBinding Renderer::surfaceBinding(RenderSurface& surface) const {

@@ -102,22 +102,29 @@ void RenderRuntime::shutdown() {
         surface_.shutdown(*device_);
     }
     device_.reset();
+    asset_source_ = nullptr;
+    submission_builder_.setScene(nullptr, nullptr);
+    submission_builder_.setPreviewLayer(nullptr);
     initialized_ = false;
 }
 
 void RenderRuntime::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
-    renderer_.setScene(device_.get(), scene, assets);
+    if (assets != asset_source_ && device_) {
+        renderer_.clearAssetResources(*device_);
+    }
+    asset_source_ = assets;
+    submission_builder_.setScene(scene, assets);
 }
 
 void RenderRuntime::setPreviewLayer(const PreviewLayer* preview) {
-    renderer_.setPreviewLayer(preview);
+    submission_builder_.setPreviewLayer(preview);
 }
 
 void RenderRuntime::render(const ViewState& viewState) {
     if (!initialized_ || !device_) {
         return;
     }
-    renderer_.render(*device_, surface_, viewState);
+    renderer_.render(*device_, surface_, submission_builder_.build(viewState));
 }
 
 void RenderRuntime::resize(int width, int height) {

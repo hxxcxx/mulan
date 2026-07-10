@@ -4,8 +4,8 @@
  * @author hxxcxx
  * @date 2026-07-03
  *
- * 从 ViewContext 抽出的视图渲染适配层。负责把 RenderScene + camera 同步为
- * engine frontend 的 RenderRequest，并交给 engine backend 执行。
+ * 从 ViewContext 抽出的视图渲染适配层。负责消费 RenderSubmission 并交给
+ * engine frontend/backend 执行。
  *
  * 不处理 Qt 事件，不修改 Document，不持有 UI widget。
  * lightEnv 由 ViewContext 拥有，init 时绑定引用；相机数据来自每帧 ViewState 快照。
@@ -13,8 +13,7 @@
 
 #pragma once
 
-#include "render_world_sync.h"
-#include "view_state.h"
+#include "render_submission.h"
 
 #include "mulan/engine/render/backend/render_renderer.h"
 #include "mulan/engine/render/frontend/render_world.h"
@@ -25,15 +24,6 @@
 namespace mulan::engine {
 class RHIDevice;
 }  // namespace mulan::engine
-
-namespace mulan::view {
-class RenderScene;
-class PreviewLayer;
-}  // namespace mulan::view
-
-namespace mulan::asset {
-class AssetLibrary;
-}
 
 namespace mulan::view {
 
@@ -54,40 +44,27 @@ public:
 
     void shutdown(engine::RHIDevice& device);
 
-    void setScene(engine::RHIDevice* device, const RenderScene* scene, const asset::AssetLibrary* assets);
-    void setPreviewLayer(const PreviewLayer* preview);
+    /// 清空当前文档派生的 GPU 缓存；文档资产源发生切换时调用。
+    void clearAssetResources(engine::RHIDevice& device);
 
     /// 按需烘焙 IBL 三件套（irradiance/prefilter/BRDF LUT）。
     /// 已烘焙过则跳过（幂等）。HDR 文件不存在则静默失败。
     /// 调用时机：DocumentSession 在 attachViewContext 时按模型类型决定是否调用。
     void enableIBL(engine::RHIDevice& device, const std::string& hdrPath);
 
-    /// 执行一帧渲染。viewState 是当帧只读视图快照（相机矩阵等）。
-    void render(engine::RHIDevice& device, RenderSurface& surface, const ViewState& viewState);
+    /// 执行一帧渲染。提交对象不引用 editor / view 的活对象。
+    void render(engine::RHIDevice& device, RenderSurface& surface, const RenderSubmission& submission);
 
     bool isInitialized() const { return initialized_; }
-    const RenderWorldSyncStats& lastWorldSyncStats() const { return render_world_sync_.lastStats(); }
     const engine::RenderWorkloadStats& lastRenderWorkloadStats() const { return render_renderer_.lastWorkloadStats(); }
     const engine::RenderCompilerStats& lastRenderCompilerStats() const { return render_renderer_.lastCompilerStats(); }
 
 private:
-    void syncEngineWorld();
-    engine::RenderRequest buildRequest(RenderSurface& surface, const ViewState& viewState);
+    engine::RenderRequest buildRequest(RenderSurface& surface, const RenderSubmission& submission);
     engine::RenderSurfaceBinding surfaceBinding(RenderSurface& surface) const;
 
-    const RenderScene* scene_ = nullptr;
-    const asset::AssetLibrary* assets_ = nullptr;
-    const PreviewLayer* preview_ = nullptr;
-
-    RenderWorldSync render_world_sync_;
-    engine::RenderWorld render_world_;
-    engine::RenderWorldSnapshot world_snapshot_;
-    engine::RenderResourcePrepareList resource_prepare_;
     engine::RenderRenderer render_renderer_;
 
-    bool world_dirty_ = true;
-    uint64_t synced_preview_generation_ = 0;
-    bool resource_prepare_pending_ = false;
     bool initialized_ = false;
 };
 

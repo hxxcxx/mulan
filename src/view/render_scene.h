@@ -98,6 +98,10 @@ public:
     void clear();
 
     const SyncStats& lastSyncStats() const { return last_sync_stats_; }
+    /// RenderScene 内容版本；实体可见性、变换、选择、材质、灯光等变化后递增。
+    uint64_t generation() const { return generation_; }
+    /// 几何资源版本；仅在 GPU mesh 可能需要重新上传时递增。
+    uint64_t geometryGeneration() const { return geometry_generation_; }
     size_t proxyCount() const { return proxies_.size(); }
     const SceneProxy* proxy(scene::EntityId id) const;
     std::optional<PickResult> pick(const math::Ray3& ray, double lineToleranceWorld = 0.0) const;
@@ -119,6 +123,8 @@ private:
     std::unordered_map<scene::EntityId, SceneProxy> proxies_;
     std::vector<engine::Light> lights_;
     const asset::AssetLibrary* assets_ = nullptr;
+    uint64_t generation_ = 1;
+    uint64_t geometry_generation_ = 1;
     bool initialized_ = false;  // 首次 sync 全量，之后增量
 };
 

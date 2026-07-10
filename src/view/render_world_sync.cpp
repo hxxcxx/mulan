@@ -184,7 +184,7 @@ void appendPreviewDrawables(const PreviewLayer& preview, engine::RenderWorld& wo
         geometryDesc.vertexLayout = mesh.layout;
         geometryDesc.empty = mesh.empty();
         if (prepare) {
-            prepare->addGeometry(geometryDesc.resourceKey, &mesh);
+            prepare->addGeometry(geometryDesc.resourceKey, mesh);
         }
 
         if (!mesh.bounds.isEmpty()) {
@@ -209,8 +209,9 @@ void appendPreviewReferences(const PreviewLayer& preview, const RenderScene& sce
                              engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare,
                              RenderWorldSyncStats& stats,
                              std::unordered_map<uint64_t, engine::GeometryHandle>& geometryHandles,
-                             engine::RenderMaterialHandle toolMaterial, engine::RenderMaterialHandle snapMaterial,
-                             engine::RenderMaterialHandle gripMaterial, engine::RenderMaterialHandle gripHotMaterial) {
+                             bool prepareSceneGeometry, engine::RenderMaterialHandle toolMaterial,
+                             engine::RenderMaterialHandle snapMaterial, engine::RenderMaterialHandle gripMaterial,
+                             engine::RenderMaterialHandle gripHotMaterial) {
     const auto& references = preview.references();
     if (references.empty()) {
         return;
@@ -264,8 +265,8 @@ void appendPreviewReferences(const PreviewLayer& preview, const RenderScene& sce
                 geometryDesc.topology = mesh.topology;
                 geometryDesc.vertexLayout = mesh.layout;
                 geometryDesc.empty = mesh.empty();
-                if (prepare) {
-                    prepare->addGeometry(geometryDesc.resourceKey, &mesh);
+                if (prepare && prepareSceneGeometry) {
+                    prepare->addGeometry(geometryDesc.resourceKey, mesh);
                 }
                 geometryIt =
                         geometryHandles.emplace(item.geometryKey, world.addGeometry(std::move(geometryDesc))).first;
@@ -292,7 +293,7 @@ void appendPreviewReferences(const PreviewLayer& preview, const RenderScene& sce
 
 void appendPreview(const RenderScene& scene, const asset::AssetLibrary& assets, const PreviewLayer* preview,
                    engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare, RenderWorldSyncStats& stats,
-                   std::unordered_map<uint64_t, engine::GeometryHandle>& geometryHandles) {
+                   std::unordered_map<uint64_t, engine::GeometryHandle>& geometryHandles, bool prepareSceneGeometry) {
     if (!preview || preview->empty()) {
         return;
     }
@@ -304,15 +305,15 @@ void appendPreview(const RenderScene& scene, const asset::AssetLibrary& assets, 
             world.addMaterial(previewMaterialDesc(PreviewVisualRole::GripHot));
 
     appendPreviewDrawables(*preview, world, prepare, stats, toolMaterial, snapMaterial, gripMaterial, gripHotMaterial);
-    appendPreviewReferences(*preview, scene, assets, world, prepare, stats, geometryHandles, toolMaterial, snapMaterial,
-                            gripMaterial, gripHotMaterial);
+    appendPreviewReferences(*preview, scene, assets, world, prepare, stats, geometryHandles, prepareSceneGeometry,
+                            toolMaterial, snapMaterial, gripMaterial, gripHotMaterial);
 }
 
 }  // namespace
 
 void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrary& assets, const PreviewLayer* preview,
                               engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare,
-                              bool forceSceneGeometryUpdate) const {
+                              bool prepareSceneGeometry, bool forceSceneGeometryUpdate) const {
     last_stats_.reset();
     world.clear();
     if (prepare) {
@@ -362,8 +363,8 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
                 geometryDesc.topology = mesh.topology;                            // 冗余标量，避免渲染端解引用
                 geometryDesc.vertexLayout = mesh.layout;
                 geometryDesc.empty = mesh.empty();
-                if (prepare) {
-                    prepare->addGeometry(geometryDesc.resourceKey, &mesh, forceSceneGeometryUpdate);
+                if (prepare && prepareSceneGeometry) {
+                    prepare->addGeometry(geometryDesc.resourceKey, mesh, forceSceneGeometryUpdate);
                 }
                 geometryIt = geometryHandles.emplace(geometryKey, world.addGeometry(std::move(geometryDesc))).first;
             }
@@ -390,7 +391,7 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
         }
     });
 
-    appendPreview(scene, assets, preview, world, prepare, last_stats_, geometryHandles);
+    appendPreview(scene, assets, preview, world, prepare, last_stats_, geometryHandles, prepareSceneGeometry);
     last_stats_.worldObjectCount = world.objectCount();
     last_stats_.worldGeometryCount = world.geometryCount();
     last_stats_.worldMaterialCount = world.materialCount();

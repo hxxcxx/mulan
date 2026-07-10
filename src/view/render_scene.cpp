@@ -106,6 +106,9 @@ std::optional<SceneProxy> buildProxy(const scene::Scene& scene, const asset::Ass
 // ============================================================
 
 void RenderScene::sync(scene::Scene& scene, const asset::AssetLibrary& assets) {
+    if (assets_ && assets_ != &assets) {
+        initialized_ = false;
+    }
     assets_ = &assets;
     collectLights(scene, lights_);
 
@@ -135,6 +138,8 @@ void RenderScene::sync(scene::Scene& scene, const asset::AssetLibrary& assets) {
         scene.clearDirty(scene::EntityDirty::RenderRelated | scene::EntityDirty::Created |
                          scene::EntityDirty::Destroyed | scene::EntityDirty::Bounds);
         initialized_ = true;
+        ++generation_;
+        ++geometry_generation_;
         return;
     }
 
@@ -143,13 +148,23 @@ void RenderScene::sync(scene::Scene& scene, const asset::AssetLibrary& assets) {
     last_sync_stats_.entityCount = scene.entityCount();
     last_sync_stats_.assetCount = assets.count();
 
+    bool changed = false;
+    bool geometryChanged = false;
+
     // Remove destroyed proxies first.
-    scene.forEachDirty(scene::EntityDirty::Destroyed,
-                       [&](scene::EntityId id, uint64_t /*flags*/) { proxies_.erase(id); });
+    scene.forEachDirty(scene::EntityDirty::Destroyed, [&](scene::EntityId id, uint64_t /*flags*/) {
+        proxies_.erase(id);
+        changed = true;
+        geometryChanged = true;
+    });
 
     // Rebuild proxies for created or render-affecting entity changes.
     scene.forEachDirty(scene::EntityDirty::RenderRelated | scene::EntityDirty::Created | scene::EntityDirty::Bounds,
                        [&](scene::EntityId id, uint64_t flags) {
+                           changed = true;
+                           geometryChanged = geometryChanged ||
+                                             scene::hasAnyDirty(flags, scene::EntityDirty::Geometry) ||
+                                             scene::hasAnyDirty(flags, scene::EntityDirty::Created);
                            // A dirty entity can be destroyed and recreated in the same frame; validate before use.
                            if (!scene.isValid(id)) {
                                proxies_.erase(id);
@@ -182,6 +197,12 @@ void RenderScene::sync(scene::Scene& scene, const asset::AssetLibrary& assets) {
     // Clear only the dirty flags consumed by this render sync.
     scene.clearDirty(scene::EntityDirty::RenderRelated | scene::EntityDirty::Created | scene::EntityDirty::Destroyed |
                      scene::EntityDirty::Bounds);
+    if (changed) {
+        ++generation_;
+    }
+    if (geometryChanged) {
+        ++geometry_generation_;
+    }
 }
 
 void RenderScene::clear() {
@@ -191,6 +212,8 @@ void RenderScene::clear() {
     lights_.clear();
     assets_ = nullptr;
     initialized_ = false;
+    ++generation_;
+    ++geometry_generation_;
 }
 
 const SceneProxy* RenderScene::proxy(scene::EntityId id) const {

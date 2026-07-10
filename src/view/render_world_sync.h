@@ -43,7 +43,7 @@ class RenderWorldSync {
 public:
     void rebuild(const RenderScene& scene, const asset::AssetLibrary& assets, const PreviewLayer* preview,
                  engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare = nullptr,
-                 bool forceSceneGeometryUpdate = false) const;
+                 bool prepareSceneGeometry = true, bool forceSceneGeometryUpdate = false) const;
 
     const RenderWorldSyncStats& lastStats() const { return last_stats_; }
     void clearStats() const { last_stats_.reset(); }

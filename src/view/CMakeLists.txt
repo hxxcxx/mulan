@@ -12,6 +12,7 @@ add_library(view STATIC
     render_surface.cpp
     render_thread.cpp
     render_item_builder.cpp
+    render_submission_builder.cpp
     renderer.cpp
     render_world_sync.cpp
     geometry_query.cpp

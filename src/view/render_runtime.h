@@ -9,6 +9,7 @@
 #pragma once
 
 #include "render_surface.h"
+#include "render_submission_builder.h"
 #include "renderer.h"
 #include "view_config.h"
 #include "view_state.h"
@@ -69,7 +70,7 @@ public:
 
     RenderSurface& surface() { return surface_; }
     const RenderSurface& surface() const { return surface_; }
-    const RenderWorldSyncStats& lastWorldSyncStats() const { return renderer_.lastWorldSyncStats(); }
+    const RenderWorldSyncStats& lastWorldSyncStats() const { return submission_builder_.lastStats(); }
     const engine::RenderWorkloadStats& lastRenderWorkloadStats() const { return renderer_.lastRenderWorkloadStats(); }
     const engine::RenderCompilerStats& lastRenderCompilerStats() const { return renderer_.lastRenderCompilerStats(); }
 
@@ -78,7 +79,9 @@ private:
 
     std::unique_ptr<engine::RHIDevice> device_;
     RenderSurface surface_;
+    RenderSubmissionBuilder submission_builder_;
     Renderer renderer_;
+    const asset::AssetLibrary* asset_source_ = nullptr;
     bool initialized_ = false;
 };
 
