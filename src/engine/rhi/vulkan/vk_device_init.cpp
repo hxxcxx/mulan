@@ -160,11 +160,11 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
         queueCIs.push_back(qCI);
     }
 
-    // Device extensions — 仅在有 surface 时需要 swapchain
+    // Device extensions — 视口和离屏缩略图可能在同一进程内先后创建 Vulkan 设备。
+    // Vulkan-Hpp 使用全局动态分发器；离屏设备若不加载 swapchain 入口，会覆盖主视口后续
+    // acquire/present 所需的函数指针。桌面 GPU 上始终启用该扩展以保持分发器完整。
     std::vector<const char*> deviceExtensions;
-    if (surface_) {
-        deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-    }
+    deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     deviceExtensions.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
 
     // Features
