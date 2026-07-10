@@ -1,0 +1,42 @@
+# truck-bridge: C ABI export of the truck geometric kernel.
+#
+# This crate ONLY exposes a C ABI (cdylib + staticlib).
+# C++ (or any other language) wrappers are intentionally NOT provided here —
+# consumers build their own RAII layer on top of `include/truck_bridge.h`.
+[package]
+name = "truck-bridge"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "C ABI export of the truck Rust CAD/geometry kernel"
+homepage = "https://github.com/ricosjp/truck"
+repository = "https://github.com/ricosjp/truck"
+publish = false
+
+[lib]
+name = "truck_bridge"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+# Version is pinned (=, not ^): truck is still pre-1.0 and a minor bump may
+# change internal layout of types held behind opaque handles. Upgrading truck
+# is an explicit, deliberate action.
+truck-polymesh = "=0.6.0"
+# truck-modeling brings the concrete topology layer (Vertex/Edge/.../Solid,
+# already monomorphized to <Point3, Curve, Surface> by its `prelude!` macro),
+# plus the builder API. Used from stage 4 onward.
+truck-modeling = "=0.6.0"
+# truck-meshalgo provides tessellation: Solid/Shell -> PolygonMesh via the
+# RobustMeshableShape + MeshedShape traits. Used from stage 4d onward.
+truck-meshalgo = "=0.4.0"
+# truck-shapeops provides boolean operations: and / or / not on Solid.
+# Used from stage 5 onward.
+truck-shapeops = "=0.4.0"
+
+[build-dependencies]
+cbindgen = "0.27"
+
+[profile.release]
+# Keep unwind so that the per-FFI-function catch_unwind guard can convert
+# panics into TruckError instead of aborting the host process.
+panic = "unwind"

@@ -1,6 +1,3 @@
 [submodule "msdf-atlas-gen"]
 	path = 3rdparty/msdf-atlas-gen
 	url = https://github.com/Chlumsky/msdf-atlas-gen.git
-[submodule "3rdparty/truck-bridge"]
-	path = 3rdparty/truck-bridge
-	url = https://github.com/hxxcxx/truck-bridge.git
