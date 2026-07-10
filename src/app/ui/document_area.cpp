@@ -1,8 +1,8 @@
 #include "document_area.h"
 #include "doc_widget.h"
 #include "document_session.h"
+#include "startup_page.h"
 
-#include <QLabel>
 #include <QTabBar>
 #include <QVBoxLayout>
 #include <QStackedWidget>
@@ -16,15 +16,14 @@ DocumentArea::DocumentArea(QWidget* parent) : QWidget(parent) {
     layout->setContentsMargins(0, 0, 0, 0);
 
     stack_ = new QStackedWidget(this);
+    stack_->setStyleSheet("QStackedWidget { background: palette(window); border: none; }");
 
-    // Page 0: 欢迎页
-    welcome_page_ = new QLabel(
-            "<h2 style='color:#888;'>mulan</h2>"
-            "<p style='color:#aaa;'>Open a model file to begin: File → Open, or drag & drop</p>",
-            this);
-    welcome_page_->setAlignment(Qt::AlignCenter);
-    welcome_page_->setStyleSheet("background-color: #373a45;");
-    stack_->addWidget(welcome_page_);
+    // Page 0: 启动页 / 最近文件
+    startup_page_ = new StartupPage(this);
+    connect(startup_page_, &StartupPage::newDocumentRequested, this, &DocumentArea::startupNewRequested);
+    connect(startup_page_, &StartupPage::openDocumentRequested, this, &DocumentArea::startupOpenRequested);
+    connect(startup_page_, &StartupPage::recentFileRequested, this, &DocumentArea::startupRecentFileRequested);
+    stack_->addWidget(startup_page_);
 
     // Page 1: 文档标签区
     tab_widget_ = new QTabWidget(this);
@@ -113,6 +112,14 @@ DocWidget* DocumentArea::currentDocWidget() const {
 
 int DocumentArea::documentCount() const {
     return static_cast<int>(docs_.size());
+}
+
+void DocumentArea::recordOpenedFile(const QString& filePath) {
+    startup_page_->recordOpenedFile(filePath);
+}
+
+void DocumentArea::removeRecentFile(const QString& filePath) {
+    startup_page_->removeRecentFile(filePath);
 }
 
 void DocumentArea::onTabCloseRequested(int index) {

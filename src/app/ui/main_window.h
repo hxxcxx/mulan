@@ -47,6 +47,7 @@ private:
     void bindCommandAction(QAction* action, std::string_view commandId);
     mulan::app::CommandHost currentCommandHost() const;
     void executeCommand(std::string_view id);
+    bool openFilePath(const QString& filePath, bool recordRecent = true);
 
     void dragEnterEvent(QDragEnterEvent* e) override;
     void dropEvent(QDropEvent* e) override;

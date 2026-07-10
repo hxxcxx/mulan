@@ -56,6 +56,10 @@ MainWindow::MainWindow(QWidget* parent) : SARibbonMainWindow(parent) {
 
     connect(doc_area_, &DocumentArea::currentDocumentChanged, this, &MainWindow::onCurrentDocumentChanged);
     connect(doc_area_, &DocumentArea::currentDocumentCommandStateInvalidated, this, &MainWindow::updateDisplayActions);
+    connect(doc_area_, &DocumentArea::startupNewRequested, this, &MainWindow::onNewDocument);
+    connect(doc_area_, &DocumentArea::startupOpenRequested, this, &MainWindow::onOpenFile);
+    connect(doc_area_, &DocumentArea::startupRecentFileRequested, this,
+            [this](const QString& path) { openFilePath(path); });
 
     // 构建 Ribbon
     buildRibbon();
@@ -434,17 +438,22 @@ void MainWindow::onOpenFile() {
     }
     filter += " )";
 
-    QString filePath = QFileDialog::getOpenFileName(this, "Open Model File", {}, filter);
-    if (filePath.isEmpty())
+    const QStringList filePaths = QFileDialog::getOpenFileNames(this, "Open Model Files", {}, filter);
+    if (filePaths.isEmpty())
         return;
 
+    for (const QString& filePath : filePaths)
+        openFilePath(filePath);
+}
+
+bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
     statusBar()->showMessage("Loading: " + filePath);
 
     auto opened = doc_manager_.openFile(filePath.toStdString());
     if (!opened) {
         QMessageBox::warning(this, "Import Error", QString::fromStdString(opened.error().message));
         statusBar()->showMessage("Ready");
-        return;
+        return false;
     }
 
     logImportReport(opened->import.report);
@@ -452,9 +461,12 @@ void MainWindow::onOpenFile() {
     QString title = QString::fromStdString(doc->displayName());
     auto* session = new DocumentSession(std::move(doc), std::move(opened->import.report));
     doc_area_->addDocument(session, title);
+    if (recordRecent)
+        doc_area_->recordOpenedFile(filePath);
 
     updateDisplayActions();
     statusBar()->showMessage(QString("Loaded: %1").arg(title));
+    return true;
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* e) {
@@ -467,25 +479,9 @@ void MainWindow::dropEvent(QDropEvent* e) {
     if (urls.isEmpty())
         return;
 
-    QString filePath = urls[0].toLocalFile();
-    if (filePath.isEmpty())
-        return;
-
-    statusBar()->showMessage("Loading: " + filePath);
-
-    auto opened = doc_manager_.openFile(filePath.toStdString());
-    if (!opened) {
-        QMessageBox::warning(this, "Import Error", QString::fromStdString(opened.error().message));
-        statusBar()->showMessage("Ready");
-        return;
+    for (const QUrl& url : urls) {
+        const QString filePath = url.toLocalFile();
+        if (!filePath.isEmpty())
+            openFilePath(filePath);
     }
-
-    logImportReport(opened->import.report);
-    auto doc = std::move(opened->document);
-    QString title = QString::fromStdString(doc->displayName());
-    auto* session = new DocumentSession(std::move(doc), std::move(opened->import.report));
-    doc_area_->addDocument(session, title);
-
-    updateDisplayActions();
-    statusBar()->showMessage(QString("Loaded: %1").arg(title));
 }

@@ -50,6 +50,7 @@ set(MULAN_APP_SOURCES
     ui/document_view.cpp
     ui/document_view_binding.cpp
     ui/document_area.cpp
+    ui/startup_page.cpp
     ui/main_window.cpp
     ui/doc_widget.cpp
     ui/engine_settings.cpp
@@ -58,10 +59,15 @@ set(MULAN_APP_SOURCES
 
 set(MULAN_APP_QT_HEADERS
     ui/document_area.h
+    ui/startup_page.h
     ui/main_window.h
     ui/doc_widget.h
     ui/engine_settings_dialog.h
 )
+
+if(WIN32)
+    list(APPEND MULAN_APP_SOURCES resource/app-icon.rc)
+endif()
 
 add_executable(${PROJECT_NAME}
     ${MULAN_APP_SOURCES}
@@ -80,10 +86,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Svg
     Qt6::Widgets
 )
-
-if(WIN32)
-    list(APPEND MULAN_APP_SOURCES resource/app-icon.rc)
-endif()
 
 # truck 实验关闭后清理可能由旧构建遗留的运行库，避免 runtime 继续扫描加载。
 if(NOT MULAN_ENABLE_TRUCK_BACKEND)

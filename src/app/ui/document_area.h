@@ -10,9 +10,9 @@
 #include <QTabWidget>
 #include <unordered_map>
 
-class QLabel;
 class DocWidget;
 class DocumentSession;
+class StartupPage;
 
 class DocumentArea : public QWidget {
     Q_OBJECT
@@ -35,6 +35,9 @@ public:
     /// 当前打开的文档数量
     int documentCount() const;
 
+    void recordOpenedFile(const QString& filePath);
+    void removeRecentFile(const QString& filePath);
+
 signals:
     /// 文档切换，name 为文档显示名，空表示切到了欢迎页
     void currentDocumentChanged(const QString& name);
@@ -47,6 +50,9 @@ signals:
 
     /// 当前文档的编辑状态变化，需要刷新命令可用性
     void currentDocumentCommandStateInvalidated();
+    void startupNewRequested();
+    void startupOpenRequested();
+    void startupRecentFileRequested(const QString& filePath);
 
 private slots:
     void onTabCloseRequested(int index);
@@ -55,7 +61,7 @@ private slots:
 private:
     QStackedWidget* stack_ = nullptr;
     QTabWidget* tab_widget_ = nullptr;
-    QLabel* welcome_page_ = nullptr;
+    StartupPage* startup_page_ = nullptr;
 
     // DocWidget 到 DocumentSession 的映射，管理会话生命周期。
     std::unordered_map<DocWidget*, DocumentSession*> docs_;
