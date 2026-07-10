@@ -6,6 +6,7 @@ add_library(io STATIC
     importer_factory.cpp
     file_manager.cpp
     import_builder.cpp
+    parsed_scene_loader.cpp
     document.cpp
     document_editor.cpp
 )

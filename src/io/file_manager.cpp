@@ -1,6 +1,7 @@
 #include "file_manager.h"
 #include "file_importer.h"
 #include "importer_factory.h"
+#include "parsed_scene_loader.h"
 
 #include <mulan/core/result/error.h>
 #include <mulan/io/document.h>
@@ -24,6 +25,36 @@ std::string lowerExtension(std::string_view path) {
     return ext;
 }
 
+/// STEP/IGES 路径:把 ShapeFileReader 产出的 NamedShape 列表包成 ParsedScene(brep 分区)。
+core::Result<ParsedScene> parseShapeFile(const std::string& path, const std::string& ext) {
+    auto reader = modeling::ShapeFileReaderRegistry::instance().create(ext);
+    if (!reader) {
+        return std::unexpected(
+                core::Error::make(core::ErrorCode::NotSupported, "No shape reader for extension: ." + ext));
+    }
+
+    auto shapes = reader->read(path);
+    if (!shapes)
+        return std::unexpected(shapes.error());
+
+    ParsedScene scene;
+    for (auto& ns : *shapes) {
+        ParsedBRep brep;
+        brep.name = ns.name;
+        brep.shape = std::move(ns.shape);
+
+        ParsedNode node;
+        node.name = ns.name;
+        node.parent = SIZE_MAX;
+        node.brepIndex = scene.breps.size();
+
+        scene.breps.push_back(std::move(brep));
+        scene.nodes.push_back(std::move(node));
+        scene.rootNodes.push_back(scene.nodes.size() - 1);
+    }
+    return scene;
+}
+
 }  // namespace
 
 core::Result<OpenDocumentResult> FileManager::openFile(const std::string& path, const ImportOptions& options) {
@@ -33,31 +64,22 @@ core::Result<OpenDocumentResult> FileManager::openFile(const std::string& path, 
     auto doc = std::make_unique<mulan::io::Document>(std::move(displayName));
     doc->setFilePath(path);
 
-    ImportResult importResult;
+    // 解析 → ParsedScene(两条路:io 自有 importer 或 shape reader)
+    core::Result<ParsedScene> sceneResult =
+            std::unexpected(core::Error::make(core::ErrorCode::NotSupported, "No importer for extension: ." + ext));
 
-    // 1) io 自有导入器：glTF/Assimp 等非 B-Rep 格式。
     if (auto importer = ImporterFactory::instance().create(ext)) {
-        auto result = importer->import(path, *doc, options);
-        if (!result)
-            return std::unexpected(result.error());
-        importResult = std::move(*result);
+        sceneResult = importer->parse(path, options);
+    } else if (modeling::ShapeFileReaderRegistry::instance().create(ext)) {
+        sceneResult = parseShapeFile(path, ext);
     }
-    // 2) modeling_core 形状读取器：STEP/IGES 等 B-Rep 格式（后端经虚分发读取）。
-    else if (auto reader = modeling::ShapeFileReaderRegistry::instance().create(ext)) {
-        auto shapes = reader->read(path);
-        if (!shapes)
-            return std::unexpected(shapes.error());
 
-        importResult.entities.reserve((*shapes).size());
-        for (auto& ns : *shapes) {
-            if (auto id = doc->addBody(std::move(ns.shape), std::move(ns.name)))
-                importResult.entities.push_back(id);
-        }
-        importResult.report.entityCount = importResult.entities.size();
-        importResult.report.brepAssetCount = importResult.entities.size();
-    } else {
-        return std::unexpected(core::Error::make(core::ErrorCode::NotSupported, "No importer for extension: ." + ext));
-    }
+    if (!sceneResult)
+        return std::unexpected(sceneResult.error());
+
+    // 装载 → Document
+    ParsedSceneLoader loader(*doc);
+    auto importResult = loader.load(*sceneResult, options);
 
     return OpenDocumentResult{ std::move(doc), std::move(importResult) };
 }

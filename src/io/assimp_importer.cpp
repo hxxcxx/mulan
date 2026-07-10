@@ -1,10 +1,8 @@
 #include "assimp_importer.h"
-#include "importer_factory.h"
-#include "import_builder.h"
+#include "import_builder.h"  // buildStandardMesh / StandardMeshSource
+#include "parsed_scene.h"
 
 #include <mulan/core/result/error.h>
-#include <mulan/io/document.h>
-#include <mulan/scene/scene.h>
 
 #include <assimp/Importer.hpp>
 #include <assimp/GltfMaterial.h>
@@ -15,7 +13,6 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <expected>
 #include <string>
 #include <utility>
 
@@ -58,58 +55,42 @@ math::Mat4 toMat4(const aiMatrix4x4& value) {
     return result;
 }
 
-math::AABB3 transformBounds(const math::AABB3& bounds, const math::Mat4& transform) {
-    if (bounds.isEmpty())
-        return math::AABB3::empty();
-
-    math::AABB3 result = math::AABB3::empty();
-    for (int x = 0; x < 2; ++x) {
-        for (int y = 0; y < 2; ++y) {
-            for (int z = 0; z < 2; ++z) {
-                const math::Point3 corner{ x == 0 ? bounds.min.x : bounds.max.x, y == 0 ? bounds.min.y : bounds.max.y,
-                                           z == 0 ? bounds.min.z : bounds.max.z };
-                result.expand(corner.transformedBy(transform));
-            }
-        }
-    }
-    return result;
-}
-
 std::string materialName(const aiMaterial& material, size_t index) {
     aiString name;
-    if (material.Get(AI_MATKEY_NAME, name) == AI_SUCCESS && name.length > 0) {
+    if (material.Get(AI_MATKEY_NAME, name) == AI_SUCCESS && name.length > 0)
         return name.C_Str();
-    }
     return "Material_" + std::to_string(index);
 }
 
-asset::AlphaMode alphaModeFromAssimp(const aiMaterial& material) {
+graphics::AlphaMode alphaModeFromAssimp(const aiMaterial& material) {
 #ifdef AI_MATKEY_GLTF_ALPHAMODE
     aiString blendMode;
     if (material.Get(AI_MATKEY_GLTF_ALPHAMODE, blendMode) == AI_SUCCESS) {
         const std::string value = blendMode.C_Str();
         if (value == "BLEND")
-            return asset::AlphaMode::Blend;
+            return graphics::AlphaMode::Blend;
         if (value == "MASK")
-            return asset::AlphaMode::Mask;
+            return graphics::AlphaMode::Mask;
     }
 #else
     (void) material;
 #endif
-    return asset::AlphaMode::Opaque;
+    return graphics::AlphaMode::Opaque;
 }
 
-asset::AssetId importTexture(const aiScene& scene, aiMaterial& material, aiTextureType type, ImportBuilder& builder,
-                             const std::filesystem::path& baseDirectory) {
+// ============================================================
+// 纹理:产出 ParsedTexture,返回 ParsedScene.textures 索引(SIZE_MAX = 失败)
+// ============================================================
+size_t importTexture(const aiScene& scene, aiMaterial& material, aiTextureType type, ParsedScene& parsed,
+                     const std::filesystem::path& baseDirectory) {
     if (material.GetTextureCount(type) == 0)
-        return asset::AssetId::invalid();
+        return SIZE_MAX;
 
     aiString path;
-    if (material.GetTexture(type, 0, &path) != AI_SUCCESS || path.length == 0) {
-        return asset::AssetId::invalid();
-    }
+    if (material.GetTexture(type, 0, &path) != AI_SUCCESS || path.length == 0)
+        return SIZE_MAX;
 
-    ImportedTextureDesc desc;
+    ParsedTexture desc;
     std::filesystem::path texturePath(path.C_Str());
     const std::string texturePathString = texturePath.string();
     if (!texturePathString.empty() && texturePathString.front() == '*') {
@@ -120,33 +101,35 @@ asset::AssetId importTexture(const aiScene& scene, aiMaterial& material, aiTextu
         try {
             textureIndex = static_cast<size_t>(std::stoull(texturePathString.substr(1)));
         } catch (...) {
-            return asset::AssetId::invalid();
+            return SIZE_MAX;
         }
-
-        if (textureIndex >= scene.mNumTextures || !scene.mTextures[textureIndex]) {
-            return asset::AssetId::invalid();
-        }
+        if (textureIndex >= scene.mNumTextures || !scene.mTextures[textureIndex])
+            return SIZE_MAX;
 
         const aiTexture& embedded = *scene.mTextures[textureIndex];
-        if (!embedded.pcData || embedded.mWidth == 0 || embedded.mHeight != 0) {
-            return asset::AssetId::invalid();
-        }
+        if (!embedded.pcData || embedded.mWidth == 0 || embedded.mHeight != 0)
+            return SIZE_MAX;
 
         const auto* begin = reinterpret_cast<const std::byte*>(embedded.pcData);
         desc.data.assign(begin, begin + embedded.mWidth);
-        if (embedded.achFormatHint[0] != '\0') {
+        if (embedded.achFormatHint[0] != '\0')
             desc.mimeType = std::string("image/") + embedded.achFormatHint;
-        }
     } else {
         desc.name = texturePath.filename().string();
         desc.sourcePath = texturePath.is_relative() ? (baseDirectory / texturePath).string() : texturePath.string();
     }
-    return builder.createTexture(desc);
+
+    size_t idx = parsed.textures.size();
+    parsed.textures.push_back(std::move(desc));
+    return idx;
 }
 
-std::vector<asset::AssetId> importMaterials(const aiScene& scene, ImportBuilder& builder,
-                                            const std::filesystem::path& baseDirectory, const ImportOptions& options) {
-    std::vector<asset::AssetId> materials(scene.mNumMaterials, asset::AssetId::invalid());
+// ============================================================
+// 材质:产出 ParsedMaterial,纹理用 ParsedScene.textures 索引
+// ============================================================
+std::vector<size_t> importMaterials(const aiScene& scene, ParsedScene& parsed,
+                                    const std::filesystem::path& baseDirectory, const ImportOptions& options) {
+    std::vector<size_t> materials(scene.mNumMaterials, SIZE_MAX);
     if (!options.importMaterials)
         return materials;
 
@@ -155,7 +138,7 @@ std::vector<asset::AssetId> importMaterials(const aiScene& scene, ImportBuilder&
         if (!source)
             continue;
 
-        ImportedMaterialDesc desc;
+        ParsedMaterial desc;
         desc.name = materialName(*source, i);
 
         aiColor4D baseColor;
@@ -165,40 +148,35 @@ std::vector<asset::AssetId> importMaterials(const aiScene& scene, ImportBuilder&
         }
 
         float roughness = 0.5f;
-        if (source->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness) == AI_SUCCESS) {
+        if (source->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness) == AI_SUCCESS)
             desc.roughness = roughness;
-        }
 
         float metallic = 0.0f;
-        if (source->Get(AI_MATKEY_METALLIC_FACTOR, metallic) == AI_SUCCESS) {
+        if (source->Get(AI_MATKEY_METALLIC_FACTOR, metallic) == AI_SUCCESS)
             desc.metallic = metallic;
-        }
 
         int twoSided = 0;
-        if (source->Get(AI_MATKEY_TWOSIDED, twoSided) == AI_SUCCESS) {
+        if (source->Get(AI_MATKEY_TWOSIDED, twoSided) == AI_SUCCESS)
             desc.doubleSided = twoSided != 0;
-        }
 
         desc.alphaMode = alphaModeFromAssimp(*source);
-
-        // sRGB 由 material slot 决定：albedo 类 → sRGB；normal/metallic → linear（数据贴图）
         desc.baseColorTextureSrgb = true;
         desc.normalTextureSrgb = false;
         desc.metallicRoughnessTextureSrgb = false;
 
         if (options.importTextures) {
-            desc.baseColorTexture = importTexture(scene, *source, aiTextureType_BASE_COLOR, builder, baseDirectory);
-            if (!desc.baseColorTexture.valid()) {
-                desc.baseColorTexture = importTexture(scene, *source, aiTextureType_DIFFUSE, builder, baseDirectory);
-            }
-            desc.normalTexture = importTexture(scene, *source, aiTextureType_NORMALS, builder, baseDirectory);
+            desc.baseColorTexture = importTexture(scene, *source, aiTextureType_BASE_COLOR, parsed, baseDirectory);
+            if (desc.baseColorTexture == SIZE_MAX)
+                desc.baseColorTexture = importTexture(scene, *source, aiTextureType_DIFFUSE, parsed, baseDirectory);
+            desc.normalTexture = importTexture(scene, *source, aiTextureType_NORMALS, parsed, baseDirectory);
             desc.metallicRoughnessTexture =
-                    importTexture(scene, *source, aiTextureType_METALNESS, builder, baseDirectory);
+                    importTexture(scene, *source, aiTextureType_METALNESS, parsed, baseDirectory);
         }
 
-        materials[i] = builder.createMaterial(desc);
+        size_t idx = parsed.materials.size();
+        parsed.materials.push_back(std::move(desc));
+        materials[i] = idx;
     }
-
     return materials;
 }
 
@@ -223,7 +201,6 @@ graphics::Mesh buildMesh(const aiMesh& source) {
         const aiFace& face = source.mFaces[i];
         if (face.mNumIndices != 3)
             continue;
-
         indices.push_back(face.mIndices[0]);
         indices.push_back(face.mIndices[1]);
         indices.push_back(face.mIndices[2]);
@@ -240,15 +217,11 @@ graphics::Mesh buildMesh(const aiMesh& source) {
     });
 }
 
-struct ImportedMeshRecord {
-    ImportedMeshAsset asset;
-    std::string name;
-};
-
-std::vector<std::optional<ImportedMeshRecord>> importMeshAssets(const aiScene& scene, ImportBuilder& builder,
-                                                                std::span<const asset::AssetId> materials,
-                                                                ImportReport& report) {
-    std::vector<std::optional<ImportedMeshRecord>> records(scene.mNumMeshes);
+// ============================================================
+// 网格:每个 aiMesh → ParsedMesh,材质用 materials 索引
+// ============================================================
+std::vector<size_t> importMeshAssets(const aiScene& scene, ParsedScene& parsed, const std::vector<size_t>& materials) {
+    std::vector<size_t> indices(scene.mNumMeshes, SIZE_MAX);
 
     for (size_t i = 0; i < scene.mNumMeshes; ++i) {
         const aiMesh* source = scene.mMeshes[i];
@@ -256,100 +229,92 @@ std::vector<std::optional<ImportedMeshRecord>> importMeshAssets(const aiScene& s
             continue;
 
         graphics::Mesh mesh = buildMesh(*source);
-        if (mesh.empty()) {
-            report.warnings.push_back("Skipped empty imported mesh: " + std::to_string(i));
+        if (mesh.empty())
             continue;
-        }
-
-        asset::AssetId material = asset::AssetId::invalid();
-        if (source->mMaterialIndex < materials.size()) {
-            material = materials[source->mMaterialIndex];
-        }
 
         std::string name = source->mName.length > 0 ? source->mName.C_Str() : "Mesh_" + std::to_string(i);
-        builder.addPrimitive(std::move(mesh), material, std::move(name));
 
-        auto asset = builder.commitAsset(source->mName.length > 0 ? source->mName.C_Str()
-                                                                  : "MeshAsset_" + std::to_string(i));
-        if (!asset) {
-            report.warnings.push_back("Failed to create imported mesh asset: " + std::to_string(i));
-            continue;
-        }
+        ParsedMesh pm;
+        pm.name = name;
+        asset::MeshPrimitive prim;
+        prim.mesh = std::move(mesh);
+        pm.primitives.push_back(std::move(prim));
 
-        records[i] = ImportedMeshRecord{ std::move(*asset), source->mName.length > 0 ? source->mName.C_Str()
-                                                                                     : "Mesh_" + std::to_string(i) };
+        size_t matIdx = SIZE_MAX;
+        if (source->mMaterialIndex < materials.size())
+            matIdx = materials[source->mMaterialIndex];
+        pm.materialIndices.push_back(matIdx);
+
+        indices[i] = parsed.meshes.size();
+        parsed.meshes.push_back(std::move(pm));
     }
-
-    return records;
+    return indices;
 }
 
-scene::EntityId createNodeEntity(io::Document& doc, const std::string& name, scene::EntityId parent,
-                                 const math::Mat4& local, const math::Mat4& world, ImportResult& result) {
-    auto* scene = doc.scene();
-    if (!scene)
-        return scene::EntityId::invalid();
-
-    scene::EntityId entity = scene->createEntity(name);
-    if (parent)
-        scene->setParent(entity, parent);
-    scene->setLocalTransform(entity, local);
-    scene->setWorldTransform(entity, world);
-    result.entities.push_back(entity);
-    return entity;
-}
-
-void applyMeshToEntity(io::Document& doc, scene::EntityId entity, const ImportedMeshRecord& mesh,
-                       const math::Mat4& world) {
-    auto* scene = doc.scene();
-    if (!scene || !entity)
-        return;
-
-    scene->setGeometry(entity, mesh.asset.geometry);
-    scene->setMaterialSlots(entity, mesh.asset.materialSlots);
-    scene->setWorldBounds(entity, transformBounds(mesh.asset.bounds, world));
-}
-
-void importNodeRecursive(const aiNode& node, io::Document& doc,
-                         std::span<const std::optional<ImportedMeshRecord>> meshes, scene::EntityId parent,
-                         const math::Mat4& parentWorld, ImportResult& result) {
+// ============================================================
+// 节点树 → ParsedNode(不碰 Document)
+// 多 mesh 节点:每个 mesh 建一个子节点。
+// ============================================================
+void importNode(const aiNode& node, ParsedScene& parsed, const std::vector<size_t>& meshes, size_t parentIdx) {
     const std::string nodeName = node.mName.length > 0 ? node.mName.C_Str() : "Node";
     const math::Mat4 local = toMat4(node.mTransformation);
-    const math::Mat4 world = parentWorld * local;
 
-    scene::EntityId nodeEntity = createNodeEntity(doc, nodeName, parent, local, world, result);
+    if (node.mNumMeshes <= 1) {
+        ParsedNode pn;
+        pn.name = nodeName;
+        pn.parent = parentIdx;
+        pn.localTransform = local;
+        if (node.mNumMeshes == 1) {
+            const unsigned int meshIndex = node.mMeshes[0];
+            if (meshIndex < meshes.size() && meshes[meshIndex] != SIZE_MAX)
+                pn.meshIndex = meshes[meshIndex];
+        }
+        size_t selfIdx = parsed.nodes.size();
+        parsed.nodes.push_back(std::move(pn));
 
-    if (node.mNumMeshes == 1) {
-        const unsigned int meshIndex = node.mMeshes[0];
-        if (meshIndex < meshes.size() && meshes[meshIndex]) {
-            applyMeshToEntity(doc, nodeEntity, *meshes[meshIndex], world);
-        } else {
-            result.report.warnings.push_back("Node references missing mesh: " + nodeName);
+        for (size_t i = 0; i < node.mNumChildren; ++i) {
+            if (node.mChildren[i])
+                importNode(*node.mChildren[i], parsed, meshes, selfIdx);
         }
     } else {
+        // 多 mesh 节点:先建容器节点,每个 mesh 一个子节点
+        ParsedNode container;
+        container.name = nodeName;
+        container.parent = parentIdx;
+        container.localTransform = local;
+        size_t containerIdx = parsed.nodes.size();
+        parsed.nodes.push_back(std::move(container));
+
         for (size_t i = 0; i < node.mNumMeshes; ++i) {
             const unsigned int meshIndex = node.mMeshes[i];
-            if (meshIndex >= meshes.size() || !meshes[meshIndex]) {
-                result.report.warnings.push_back("Node references missing mesh: " + nodeName);
+            if (meshIndex >= meshes.size() || meshes[meshIndex] == SIZE_MAX)
                 continue;
-            }
-
-            const ImportedMeshRecord& mesh = *meshes[meshIndex];
-            scene::EntityId meshEntity = createNodeEntity(doc, mesh.name, nodeEntity, math::Mat4{ 1.0 }, world, result);
-            applyMeshToEntity(doc, meshEntity, mesh, world);
+            ParsedNode meshNode;
+            const auto& pm = parsed.meshes[meshes[meshIndex]];
+            meshNode.name = pm.name;
+            meshNode.parent = containerIdx;
+            meshNode.localTransform = math::Mat4{ 1.0 };
+            meshNode.meshIndex = meshes[meshIndex];
+            parsed.nodes.push_back(std::move(meshNode));
         }
-    }
 
-    for (size_t i = 0; i < node.mNumChildren; ++i) {
-        if (node.mChildren[i]) {
-            importNodeRecursive(*node.mChildren[i], doc, meshes, nodeEntity, world, result);
+        for (size_t i = 0; i < node.mNumChildren; ++i) {
+            if (node.mChildren[i])
+                importNode(*node.mChildren[i], parsed, meshes, containerIdx);
         }
     }
 }
 
 }  // namespace
 
-core::Result<ImportResult> AssimpImporter::import(const std::string& path, mulan::io::Document& doc,
-                                                  const ImportOptions& options) {
+// ============================================================
+// AssimpImporter
+// ============================================================
+
+core::Result<ParsedScene> AssimpImporter::parse(const std::string& path, const ImportOptions& options) {
+    ParsedScene scene;
+    scene.unitScale = options.unitScale > 0.0 ? options.unitScale : 1.0;
+
     Assimp::Importer importer;
     const unsigned int flags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices |
                                aiProcess_ImproveCacheLocality | aiProcess_RemoveRedundantMaterials |
@@ -357,45 +322,26 @@ core::Result<ImportResult> AssimpImporter::import(const std::string& path, mulan
                                aiProcess_SortByPType |
                                (options.generateMissingNormals ? aiProcess_GenSmoothNormals : 0u);
 
-    const aiScene* scene = importer.ReadFile(path, flags);
-    if (!scene || !scene->mRootNode) {
+    const aiScene* aiScene = importer.ReadFile(path, flags);
+    if (!aiScene || !aiScene->mRootNode) {
         return std::unexpected(core::Error::make(
                 core::ErrorCode::Io, std::string("Assimp failed to import model: ") + importer.GetErrorString()));
     }
 
-    ImportBuilder builder(doc);
     const std::filesystem::path baseDirectory = std::filesystem::path(path).parent_path();
-    std::vector<asset::AssetId> materials = importMaterials(*scene, builder, baseDirectory, options);
+    auto materials = importMaterials(*aiScene, scene, baseDirectory, options);
+    auto meshes = importMeshAssets(*aiScene, scene, materials);
 
-    ImportResult result;
-    ImportReport importReport;
-    auto meshes = importMeshAssets(*scene, builder, materials, importReport);
-    const bool hasMeshAsset =
-            std::any_of(meshes.begin(), meshes.end(), [](const auto& mesh) { return mesh.has_value(); });
-    if (!hasMeshAsset) {
+    bool hasMesh = std::any_of(meshes.begin(), meshes.end(), [](size_t idx) { return idx != SIZE_MAX; });
+    if (!hasMesh) {
         return std::unexpected(
                 core::Error::make(core::ErrorCode::InvalidArg, "Imported model contains no renderable meshes"));
     }
 
-    if (options.flattenNodeHierarchy) {
-        importReport.warnings.push_back("Assimp import currently preserves node hierarchy; flattening is not applied");
-    }
+    importNode(*aiScene->mRootNode, scene, meshes, SIZE_MAX);
+    scene.rootNodes.push_back(0);  // 根节点是第一个(index 0)
 
-    const double unitScale = options.unitScale > 0.0 ? options.unitScale : 1.0;
-    if (options.unitScale <= 0.0) {
-        importReport.warnings.push_back("Invalid import unit scale; using 1.0");
-    }
-
-    const math::Mat4 rootWorld = math::Mat4::scale(math::Vec3(unitScale));
-    importNodeRecursive(*scene->mRootNode, doc, meshes, scene::EntityId::invalid(), rootWorld, result);
-    auto nodeWarnings = std::move(result.report.warnings);
-
-    result.report = builder.report();
-    result.report.entityCount = result.entities.size();
-    result.report.warnings.insert(result.report.warnings.end(), importReport.warnings.begin(),
-                                  importReport.warnings.end());
-    result.report.warnings.insert(result.report.warnings.end(), nodeWarnings.begin(), nodeWarnings.end());
-    return result;
+    return scene;
 }
 
 std::vector<std::string> AssimpImporter::supportedExtensions() const {
