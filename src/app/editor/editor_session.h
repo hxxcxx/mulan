@@ -22,6 +22,7 @@
 #include <mulan/engine/interaction/work_plane.h>
 
 #include <memory>
+#include <string_view>
 
 class DocumentSession;
 class DocumentViewBinding;
@@ -45,6 +46,10 @@ public:
 
     bool isReady() const;
     bool hasActiveTool() const { return tool_controller_.hasActiveTool(); }
+    std::string_view activeToolId() const {
+        const EditorTool* tool = tool_controller_.activeTool();
+        return tool ? tool->id() : std::string_view{};
+    }
 
     void startTool(std::unique_ptr<EditorTool> tool);
     bool canStartTransformTool(TransformEditCommitMode commitMode) const;

@@ -301,7 +301,14 @@ mulan::app::CommandHost MainWindow::currentCommandHost() const {
 }
 
 void MainWindow::executeCommand(std::string_view id) {
-    auto result = command_manager_.execute(id, currentCommandHost());
+    mulan::app::CommandHost host = currentCommandHost();
+    if (mulan::app::EditorSession* editor = host.editorSession(); editor && editor->activeToolId() == id) {
+        editor->cancelActiveTool();
+        updateDisplayActions();
+        return;
+    }
+
+    auto result = command_manager_.execute(id, host);
     if (!result) {
         statusBar()->showMessage(QString::fromStdString(result.error().message));
     }

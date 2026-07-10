@@ -71,7 +71,18 @@ CommandState drawingState(const Command& command, const CommandHost& host) {
     if (!session->allowsDrawingCommands()) {
         return hiddenDrawingState(command, "Drawing is unavailable for imported documents");
     }
-    return readyEditorState(command, host);
+    CommandState state = readyEditorState(command, host);
+    state.checkable = true;
+    const EditorSession* editor = host.editorSession();
+    state.checked = editor && editor->activeToolId() == command.id();
+    return state;
+}
+
+CommandState activeToolState(const Command& command, const CommandHost& host, CommandState state) {
+    state.checkable = true;
+    const EditorSession* editor = host.editorSession();
+    state.checked = editor && editor->activeToolId() == command.id();
+    return state;
 }
 
 CommandState transformState(const Command& command, const CommandHost& host, TransformEditCommitMode commitMode) {
@@ -264,7 +275,9 @@ class ModelExtrudeCommand final : public Command {
 public:
     std::string_view id() const override { return "model.extrude"; }
     std::string_view title() const override { return "Extrude"; }
-    CommandState state(const CommandHost& host) const override { return readyEditorState(*this, host); }
+    CommandState state(const CommandHost& host) const override {
+        return activeToolState(*this, host, readyEditorState(*this, host));
+    }
 
 protected:
     CommandOutcome perform(CommandHost& host) override {
