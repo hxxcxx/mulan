@@ -10,6 +10,7 @@
 
 #include "render_surface.h"
 #include "render_submission_builder.h"
+#include "render_runtime_command.h"
 #include "renderer.h"
 #include "view_config.h"
 #include "view_state.h"
@@ -56,6 +57,9 @@ public:
 
     bool isInitialized() const { return initialized_; }
 
+    /// 同步执行生命周期命令。未来线程化时，此入口将改为投递有序命令并等待结果。
+    RenderRuntimeCommandResult execute(RenderRuntimeCommand command);
+
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
     void setPreviewLayer(const PreviewLayer* preview);
 
@@ -76,6 +80,7 @@ public:
 
 private:
     core::Result<void> initRendering(engine::LightEnvironment& lightEnv);
+    void shutdownNow();
 
     std::unique_ptr<engine::RHIDevice> device_;
     RenderSurface surface_;
