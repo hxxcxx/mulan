@@ -70,6 +70,8 @@ public:
 private:
     // 后端构造 Shape 时注入具体 ShapeStorage。
     friend Shape makeShapeFromStorage(std::shared_ptr<ShapeStorage> storage);
+    /// 后端经此取 Shape 内部 storage(布尔第二操作数等)。仅后端 .cpp 使用。
+    friend std::shared_ptr<ShapeStorage> storageOf(const Shape& s);
     explicit Shape(std::shared_ptr<ShapeStorage> storage) : storage_(std::move(storage)) {}
 
     std::shared_ptr<ShapeStorage> storage_;
@@ -78,6 +80,11 @@ private:
 /// 后端把具体 ShapeStorage 包成中立 Shape 的统一入口。
 inline Shape makeShapeFromStorage(std::shared_ptr<ShapeStorage> storage) {
     return Shape(std::move(storage));
+}
+
+/// 后端取 Shape 内部 storage(返回 shared_ptr<ShapeStorage>,后端再 dynamic_cast 到具体类型)。
+inline std::shared_ptr<ShapeStorage> storageOf(const Shape& s) {
+    return s.storage_;
 }
 
 }  // namespace mulan::modeling

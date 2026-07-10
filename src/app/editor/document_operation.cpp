@@ -23,6 +23,15 @@ DocumentOperation DocumentOperation::createMesh(std::string name, std::vector<as
     return DocumentOperation(CreateMeshOperation{ std::move(name), std::move(primitives) });
 }
 
+DocumentOperation DocumentOperation::extrudeFace(std::string name, modeling::ExtrudeParams params) {
+    return DocumentOperation(ExtrudeFaceOperation{ std::move(name), std::move(params) });
+}
+
+DocumentOperation DocumentOperation::booleanSubtract(scene::EntityId target, scene::EntityId tool,
+                                                     modeling::BooleanOp op) {
+    return DocumentOperation(BooleanOperation{ target, tool, op });
+}
+
 DocumentOperation DocumentOperation::updateCurve(scene::EntityId entity, asset::CurveElementId element,
                                                  asset::CurvePrimitive primitive) {
     return updateGeometry(GeometryEditRequest{

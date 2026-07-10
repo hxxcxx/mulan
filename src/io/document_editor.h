@@ -14,6 +14,8 @@
 #include <mulan/asset/curve_asset.h>
 #include <mulan/asset/face_asset.h>
 #include <mulan/asset/mesh_asset.h>
+#include <mulan/modeling/core/shape.h>
+#include <mulan/modeling/core/shape_ops.h>
 #include <mulan/scene/entity_id.h>
 
 #include <cstddef>
@@ -39,6 +41,11 @@ public:
     CurveCreateResult createCurve(std::string name, asset::CurvePrimitive primitive);
     scene::EntityId createFace(std::string name, asset::FaceDefinition face);
     scene::EntityId createMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
+    /// 拉伸/布尔等建模操作产出的 Shape 落成 BRepAsset 实体。
+    scene::EntityId createBody(std::string name, modeling::Shape shape);
+    /// 两体布尔:target ⊕ tool。结果更新到 target 的 BRepAsset,删除 tool 实体。
+    /// 本轮不捕获 target 旧 Shape(undo 待后续完善)。
+    bool booleanSubtract(scene::EntityId target, scene::EntityId tool, modeling::BooleanOp op);
     bool updateCurve(scene::EntityId entity, asset::CurveElementId element, asset::CurvePrimitive primitive);
     bool updateCurveAsset(scene::EntityId entity, asset::AssetId geometry, asset::CurveElementId element,
                           asset::CurvePrimitive primitive);

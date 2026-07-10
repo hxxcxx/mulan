@@ -8,6 +8,7 @@ add_library(modeling_occt SHARED
     occt_tessellator_internal.cpp
     shape_factory.cpp
     step_reader.cpp
+    occt_shape_ops.cpp
     backend_entry.cpp
 )
 

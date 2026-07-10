@@ -3,6 +3,7 @@
 #include "document.h"
 
 #include <mulan/asset/asset_library.h>
+#include <mulan/asset/brep_asset.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/components/name_component.h>
 #include <mulan/scene/components/render_component.h>
@@ -46,6 +47,55 @@ scene::EntityId DocumentEditor::createMesh(std::string name, std::vector<asset::
         document_.markDirty();
     }
     return entity;
+}
+
+scene::EntityId DocumentEditor::createBody(std::string name, modeling::Shape shape) {
+    const scene::EntityId entity = document_.addBody(std::move(shape), std::move(name));
+    if (entity) {
+        document_.markDirty();
+    }
+    return entity;
+}
+
+bool DocumentEditor::booleanSubtract(scene::EntityId target, scene::EntityId tool, modeling::BooleanOp op) {
+    auto* ops = modeling::ShapeOpsRegistry::instance().ops();
+    if (!ops || !document_.assets() || !document_.scene())
+        return false;
+
+    // 解析两个实体的 BRepAsset shape。
+    auto resolveShape = [&](scene::EntityId entity) -> std::optional<modeling::Shape> {
+        asset::AssetId geometryId = geometryAssetForEntity(entity);
+        if (!geometryId)
+            return std::nullopt;
+        auto* asset = document_.assets()->asset(geometryId);
+        auto* brep = dynamic_cast<asset::BRepAsset*>(asset);
+        if (!brep)
+            return std::nullopt;
+        return brep->shape();
+    };
+
+    auto targetShape = resolveShape(target);
+    auto toolShape = resolveShape(tool);
+    if (!targetShape || !toolShape)
+        return false;
+
+    auto result = ops->boolean(*targetShape, *toolShape, op);
+    if (!result)
+        return false;
+
+    // 结果更新到 target 的 BRepAsset;删除 tool 实体。
+    asset::AssetId targetGeometry = geometryAssetForEntity(target);
+    if (targetGeometry) {
+        if (auto* asset = document_.assets()->asset(targetGeometry)) {
+            if (auto* brep = dynamic_cast<asset::BRepAsset*>(asset)) {
+                brep->setShape(std::move(*result));
+                document_.markGeometryChanged(target, brep->localBounds());
+            }
+        }
+    }
+    document_.removeEntity(tool, true);
+    document_.markDirty();
+    return true;
 }
 
 bool DocumentEditor::updateCurve(scene::EntityId entity, asset::CurveElementId element,

@@ -3,6 +3,7 @@
 add_library(modeling_core SHARED
     shape.cpp
     shape_file_reader.cpp
+    shape_ops.cpp
 )
 
 mulan_copy_public_headers(modeling_core modeling/core)

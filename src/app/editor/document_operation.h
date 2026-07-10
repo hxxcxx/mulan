@@ -12,6 +12,7 @@
 #include <mulan/asset/face_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/math/math.h>
+#include <mulan/modeling/core/shape_ops.h>
 #include <mulan/scene/entity_id.h>
 
 #include <string>
@@ -29,6 +30,17 @@ struct CreateCurveOperation {
 struct CreateMeshOperation {
     std::string name;
     std::vector<asset::MeshPrimitive> primitives;
+};
+
+struct ExtrudeFaceOperation {
+    std::string name;
+    modeling::ExtrudeParams params;
+};
+
+struct BooleanOperation {
+    scene::EntityId target = scene::EntityId::invalid();
+    scene::EntityId tool = scene::EntityId::invalid();
+    modeling::BooleanOp op = modeling::BooleanOp::Difference;
 };
 
 struct CreateFaceOperation {
@@ -67,15 +79,17 @@ struct RemoveEntitiesOperation {
 };
 
 using DocumentOperationData =
-        std::variant<CreateCurveOperation, CreateFaceOperation, CreateMeshOperation, UpdateCurveOperation,
-                     UpdateGeometryOperation, UpdateEntityTransformsOperation, CopyEntityTransformsOperation,
-                     RemoveEntitiesOperation>;
+        std::variant<CreateCurveOperation, CreateFaceOperation, CreateMeshOperation, ExtrudeFaceOperation,
+                     BooleanOperation, UpdateCurveOperation, UpdateGeometryOperation, UpdateEntityTransformsOperation,
+                     CopyEntityTransformsOperation, RemoveEntitiesOperation>;
 
 class DocumentOperation {
 public:
     static DocumentOperation createCurve(std::string name, asset::CurvePrimitive primitive);
     static DocumentOperation createFace(std::string name, asset::FaceDefinition face);
     static DocumentOperation createMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
+    static DocumentOperation extrudeFace(std::string name, modeling::ExtrudeParams params);
+    static DocumentOperation booleanSubtract(scene::EntityId target, scene::EntityId tool, modeling::BooleanOp op);
     static DocumentOperation updateCurve(scene::EntityId entity, asset::CurveElementId element,
                                          asset::CurvePrimitive primitive);
     static DocumentOperation updateGeometry(GeometryEditRequest request);
