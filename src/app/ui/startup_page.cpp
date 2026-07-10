@@ -61,7 +61,7 @@ StartupPage::StartupPage(QWidget* parent) : QWidget(parent) {
 
     auto* brandText = new QVBoxLayout();
     brandText->setSpacing(3);
-    auto* title = new QLabel(tr("Mulan"), content);
+    auto* title = new QLabel(tr("MuLan"), content);
     title->setObjectName("startupTitle");
     auto* subtitle = new QLabel(tr("Geometry modeling and visualization"), content);
     subtitle->setObjectName("startupSubtitle");
@@ -85,6 +85,7 @@ StartupPage::StartupPage(QWidget* parent) : QWidget(parent) {
         auto* button = new QToolButton(content);
         button->setText(text);
         button->setIcon(QIcon(iconPath));
+        button->setProperty("uiRole", "startupAction");
         button->setIconSize(QSize(34, 34));
         button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         button->setFixedSize(204, 62);
@@ -106,6 +107,7 @@ StartupPage::StartupPage(QWidget* parent) : QWidget(parent) {
     layout->addSpacing(12);
 
     file_list_ = new QListWidget(content);
+    file_list_->setObjectName("recentFileList");
     file_list_->setViewMode(QListView::IconMode);
     file_list_->setResizeMode(QListView::Adjust);
     file_list_->setMovement(QListView::Static);
@@ -116,12 +118,6 @@ StartupPage::StartupPage(QWidget* parent) : QWidget(parent) {
     file_list_->setGridSize(QSize(176, 132));
     file_list_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     file_list_->setFrameShape(QFrame::NoFrame);
-    file_list_->setStyleSheet(R"(
-        QListWidget { background: transparent; color: palette(text); outline: none; }
-        QListWidget::item { background: transparent; border: 1px solid palette(midlight); border-radius: 5px; padding: 8px; }
-        QListWidget::item:hover { background: palette(alternate-base); border-color: palette(highlight); }
-        QListWidget::item:selected { background: palette(highlight); color: palette(highlighted-text); border-color: palette(highlight); }
-    )");
     connect(file_list_, &QListWidget::itemClicked, this, &StartupPage::activateItem);
     layout->addWidget(file_list_, 1);
 
@@ -136,19 +132,6 @@ StartupPage::StartupPage(QWidget* parent) : QWidget(parent) {
     pageLayout->addWidget(content, 1);
     pageLayout->addStretch();
 
-    setStyleSheet(R"(
-        #startupPage, #startupContent { background: palette(window); }
-        #startupTitle { color: palette(window-text); font-size: 25px; font-weight: 600; }
-        #startupSubtitle { color: palette(mid); font-size: 12px; }
-        #sectionTitle { color: palette(window-text); font-size: 15px; font-weight: 600; }
-        #emptyState { color: palette(mid); font-size: 12px; background: transparent; }
-        QToolButton {
-            color: palette(button-text); background: palette(button); border: 1px solid palette(mid);
-            border-radius: 6px; padding: 10px 16px; font-size: 13px; text-align: left;
-        }
-        QToolButton:hover { background: palette(alternate-base); border-color: palette(highlight); }
-        QToolButton:pressed { background: palette(highlight); color: palette(highlighted-text); }
-    )");
     loadRecentFiles();
     rebuildItems();
 }

@@ -18,6 +18,7 @@
 
 class DocumentArea;
 class DocumentSession;
+class DocWidget;
 class EngineSettingsDialog;
 
 class MainWindow : public SARibbonMainWindow {
@@ -48,6 +49,7 @@ private:
     mulan::app::CommandHost currentCommandHost() const;
     void executeCommand(std::string_view id);
     bool openFilePath(const QString& filePath, bool recordRecent = true);
+    void scheduleRecentThumbnailCapture(DocWidget* docWidget, const QString& filePath);
 
     void dragEnterEvent(QDragEnterEvent* e) override;
     void dropEvent(QDropEvent* e) override;

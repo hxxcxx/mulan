@@ -38,6 +38,7 @@ public:
 
     void recordOpenedFile(const QString& filePath);
     void removeRecentFile(const QString& filePath);
+    void setRecentThumbnail(const QString& filePath, const QString& thumbnailPath);
 
 signals:
     /// 文档切换，name 为文档显示名，空表示切到了欢迎页

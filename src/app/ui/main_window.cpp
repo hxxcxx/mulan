@@ -2,12 +2,15 @@
 #include "document_area.h"
 #include "doc_widget.h"
 #include "document_session.h"
+#include "document_view_binding.h"
 #include "engine_settings_dialog.h"
 #include "command/builtin_commands.h"
 
 #include <mulan/io/file_manager.h>
 #include <mulan/io/import_result.h>
 #include <mulan/core/log/log.h>
+#include <mulan/view/capture_image_encoder.h>
+#include <mulan/view/view_context.h>
 
 #include <QFileDialog>
 #include <QStatusBar>
@@ -18,7 +21,13 @@
 #include <QFileInfo>
 #include <QMenu>
 #include <QActionGroup>
+#include <QCryptographicHash>
+#include <QDir>
+#include <QPointer>
 #include <QSignalBlocker>
+#include <QStandardPaths>
+#include <QToolButton>
+#include <QTimer>
 
 #include <memory>
 #include <sstream>
@@ -45,7 +54,7 @@ void logImportReport(const mulan::io::ImportReport& report) {
 //===================================================
 
 MainWindow::MainWindow(QWidget* parent) : SARibbonMainWindow(parent) {
-    setWindowTitle("mulan");
+    setWindowTitle({});
     resize(1280, 720);
     setAcceptDrops(true);
 
@@ -80,25 +89,9 @@ void MainWindow::buildRibbon() {
     if (auto* rightControls = ribbon->rightButtonGroup()) {
         rightControls->setObjectName("ribbonRightControls");
         rightControls->setIconSize(QSize(18, 18));
-        rightControls->setStyleSheet(R"(
-            #ribbonRightControls QToolButton {
-                background: transparent;
-                border: 1px solid transparent;
-                border-radius: 5px;
-                margin: 1px;
-                padding: 3px;
-                outline: none;
-            }
-            #ribbonRightControls QToolButton:hover {
-                background: rgba(73, 124, 173, 26);
-                border-color: rgba(73, 124, 173, 55);
-            }
-            #ribbonRightControls QToolButton:pressed {
-                background: rgba(73, 124, 173, 52);
-                border-color: rgba(73, 124, 173, 95);
-            }
-            #ribbonRightControls QToolButton:focus { outline: none; }
-        )");
+        for (QToolButton* button : rightControls->findChildren<QToolButton*>(QString(), Qt::FindDirectChildrenOnly)) {
+            button->setProperty("uiRole", "ribbonCollapse");
+        }
     }
 
     buildRibbonHomeCategory();
@@ -308,32 +301,18 @@ void MainWindow::buildQuickAccessBar() {
 
     bar->setObjectName("quickAccessBar");
     bar->setIconSize(QSize(18, 18));
-    bar->setStyleSheet(R"(
-        #quickAccessBar QToolButton {
-            background: transparent;
-            border: 1px solid transparent;
-            border-radius: 5px;
-            margin: 1px;
-            padding: 3px;
-            outline: none;
-        }
-        #quickAccessBar QToolButton:hover {
-            background: rgba(73, 124, 173, 26);
-            border-color: rgba(73, 124, 173, 55);
-        }
-        #quickAccessBar QToolButton:pressed,
-        #quickAccessBar QToolButton:checked {
-            background: rgba(73, 124, 173, 52);
-            border-color: rgba(73, 124, 173, 95);
-        }
-        #quickAccessBar QToolButton:focus { outline: none; }
-    )");
 
     action_undo_ = createCommandAction(":/app/icons/icon/history-undo.svg", "edit.undo");
     bar->addAction(action_undo_);
 
     action_redo_ = createCommandAction(":/app/icons/icon/history-redo.svg", "edit.redo");
     bar->addAction(action_redo_);
+
+    for (QAction* action : { action_undo_, action_redo_ }) {
+        if (auto* button = qobject_cast<QToolButton*>(bar->widgetForAction(action))) {
+            button->setProperty("uiRole", "quickAccess");
+        }
+    }
 }
 
 void MainWindow::buildRightButtonBar() {
@@ -506,13 +485,70 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
     auto doc = std::move(opened->document);
     QString title = QString::fromStdString(doc->displayName());
     auto* session = new DocumentSession(std::move(doc), std::move(opened->import.report));
-    doc_area_->addDocument(session, title);
-    if (recordRecent)
+    DocWidget* docWidget = doc_area_->addDocument(session, title);
+    if (recordRecent) {
         doc_area_->recordOpenedFile(filePath);
+        scheduleRecentThumbnailCapture(docWidget, filePath);
+    }
 
     updateDisplayActions();
     statusBar()->showMessage(QString("Loaded: %1").arg(title));
     return true;
+}
+
+void MainWindow::scheduleRecentThumbnailCapture(DocWidget* docWidget, const QString& filePath) {
+    if (!docWidget || filePath.isEmpty())
+        return;
+
+    const QString cacheRoot = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    if (cacheRoot.isEmpty())
+        return;
+
+    const QString thumbnailDirectory = QDir(cacheRoot).filePath("recent-thumbnails");
+    if (!QDir().mkpath(thumbnailDirectory))
+        return;
+
+    const QString absolutePath = QFileInfo(filePath).absoluteFilePath();
+    const QByteArray key = QCryptographicHash::hash(absolutePath.toUtf8(), QCryptographicHash::Sha256).toHex();
+    const QString thumbnailPath = QDir(thumbnailDirectory).filePath(QString::fromLatin1(key) + ".png");
+    const QPointer<DocWidget> guardedWidget(docWidget);
+
+    // 使用独立的引擎离屏上下文渲染，不读取桌面或 Qt 原生窗口像素。
+    QTimer::singleShot(0, this, [this, guardedWidget, filePath, thumbnailPath]() {
+        if (!guardedWidget)
+            return;
+
+        DocumentSession* session = guardedWidget->documentView().session();
+        if (!session)
+            return;
+
+        mulan::view::ViewContext thumbnailContext;
+        if (!thumbnailContext.initOffscreen(320, 180))
+            return;
+
+        DocumentViewBinding thumbnailBinding;
+        thumbnailBinding.bind(*session, thumbnailContext);
+
+        mulan::view::CaptureRequest request;
+        request.name = "recent-thumbnail";
+        request.desc.width = 320;
+        request.desc.height = 180;
+        request.desc.format = mulan::engine::TextureFormat::RGBA8_UNorm;
+        request.desc.readback = true;
+        request.camera = thumbnailContext.camera();
+        request.visual.style = mulan::view::CaptureRenderStyle::ShadedWithEdges;
+        request.visual.showViewCube = false;
+        request.visual.showOverlays = false;
+
+        auto captured = thumbnailContext.capture(request);
+        if (!captured)
+            return;
+
+        auto saved = mulan::view::CaptureImageEncoder::savePNG(*captured, thumbnailPath.toStdString());
+        if (saved) {
+            doc_area_->setRecentThumbnail(filePath, thumbnailPath);
+        }
+    });
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* e) {

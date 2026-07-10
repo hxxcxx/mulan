@@ -17,7 +17,7 @@ DocumentArea::DocumentArea(QWidget* parent) : QWidget(parent) {
     layout->setContentsMargins(0, 0, 0, 0);
 
     stack_ = new QStackedWidget(this);
-    stack_->setStyleSheet("QStackedWidget { background: palette(window); border: none; }");
+    stack_->setObjectName("documentAreaStack");
 
     // Page 0: 启动页 / 最近文件
     startup_page_ = new StartupPage(this);
@@ -36,18 +36,6 @@ DocumentArea::DocumentArea(QWidget* parent) : QWidget(parent) {
     document_tab_bar_->setObjectName("documentTabBar");
     document_tab_bar_->setTabsClosable(false);
     document_tab_bar_->setMovable(true);
-    document_tab_bar_->setStyleSheet(R"(
-        #documentTabBar QToolButton {
-            background: transparent;
-            border: none;
-            border-radius: 10px;
-            margin: 0 4px 0 2px;
-            padding: 0;
-        }
-        #documentTabBar QToolButton:hover { background: #F2D8D5; }
-        #documentTabBar QToolButton:pressed { background: #EBC4C0; }
-        #documentTabBar QToolButton:focus { outline: none; }
-    )");
     document_tab_bar_->hide();
 
     document_stack_ = new SARibbonStackedWidget(document_page_);
@@ -89,10 +77,9 @@ DocWidget* DocumentArea::addDocument(DocumentSession* session, const QString& ti
     const int idx = document_stack_->addWidget(docWidget);
     document_tab_bar_->addTab(title);
     auto* closeButton = new QToolButton(document_tab_bar_);
+    closeButton->setProperty("uiRole", "documentClose");
     closeButton->setAutoRaise(true);
     closeButton->setFixedSize(24, 24);
-    closeButton->setIcon(QIcon(":/app/icons/icon/tab-close.svg"));
-    closeButton->setIconSize(QSize(20, 20));
     closeButton->setToolTip(tr("Close document"));
     connect(closeButton, &QToolButton::clicked, this, [this, docWidget]() {
         const int tabIndex = document_stack_->indexOf(docWidget);
@@ -160,6 +147,10 @@ void DocumentArea::recordOpenedFile(const QString& filePath) {
 
 void DocumentArea::removeRecentFile(const QString& filePath) {
     startup_page_->removeRecentFile(filePath);
+}
+
+void DocumentArea::setRecentThumbnail(const QString& filePath, const QString& thumbnailPath) {
+    startup_page_->setRecentThumbnail(filePath, thumbnailPath);
 }
 
 void DocumentArea::onTabCloseRequested(int index) {

@@ -1,0 +1,125 @@
+/* Shared application chrome. Keep visual rules here; C++ assigns object names and state only. */
+
+#documentAreaStack {
+    background: palette(window);
+    border: none;
+}
+
+QToolButton[uiRole="documentClose"] {
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    image: url(:/app/icons/icon/tab-close.svg);
+    margin: 0 4px 0 2px;
+    padding: 0;
+}
+
+QToolButton[uiRole="documentClose"]:hover {
+    image: url(:/app/icons/icon/tab-close-hover.svg);
+}
+
+QToolButton[uiRole="documentClose"]:pressed { background: #EBC4C0; }
+QToolButton[uiRole="documentClose"]:focus { outline: none; }
+
+QToolButton[uiRole="quickAccess"],
+QToolButton[uiRole="ribbonCollapse"] {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    margin: 1px;
+    padding: 3px;
+    outline: none;
+}
+
+QToolButton[uiRole="quickAccess"]:hover,
+QToolButton[uiRole="ribbonCollapse"]:hover {
+    background: rgba(73, 124, 173, 26);
+    border-color: rgba(73, 124, 173, 55);
+}
+
+QToolButton[uiRole="quickAccess"]:pressed,
+QToolButton[uiRole="quickAccess"]:checked,
+QToolButton[uiRole="ribbonCollapse"]:pressed {
+    background: rgba(73, 124, 173, 52);
+    border-color: rgba(73, 124, 173, 95);
+}
+
+QToolButton[uiRole="quickAccess"]:focus,
+QToolButton[uiRole="ribbonCollapse"]:focus { outline: none; }
+
+#recentFileList {
+    background: transparent;
+    color: palette(text);
+    outline: none;
+}
+
+#recentFileList::item {
+    background: transparent;
+    border: 1px solid palette(midlight);
+    border-radius: 5px;
+    padding: 8px;
+}
+
+#recentFileList::item:hover {
+    background: palette(alternate-base);
+    border-color: palette(highlight);
+}
+
+#recentFileList::item:selected {
+    background: palette(highlight);
+    border-color: palette(highlight);
+    color: palette(highlighted-text);
+}
+
+#startupPage,
+#startupContent { background: palette(window); }
+
+#startupTitle {
+    color: palette(window-text);
+    font-size: 25px;
+    font-weight: 600;
+}
+
+#startupSubtitle,
+#emptyState {
+    color: palette(mid);
+    font-size: 12px;
+}
+
+#sectionTitle {
+    color: palette(window-text);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+#emptyState { background: transparent; }
+
+QToolButton[uiRole="startupAction"] {
+    background: palette(button);
+    border: 1px solid palette(mid);
+    border-radius: 6px;
+    color: palette(button-text);
+    font-size: 13px;
+    padding: 10px 16px;
+    text-align: left;
+}
+
+QToolButton[uiRole="startupAction"]:hover {
+    background: palette(alternate-base);
+    border-color: palette(highlight);
+}
+
+QToolButton[uiRole="startupAction"]:pressed {
+    background: palette(highlight);
+    color: palette(highlighted-text);
+}
+
+#engineSettingsHint {
+    color: palette(mid);
+    font-size: 10pt;
+}
+
+#engineBackgroundColorButton {
+    min-height: 24px;
+    padding: 3px 8px;
+}

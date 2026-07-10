@@ -1,6 +1,7 @@
 #include "ui/main_window.h"
 #include <mulan/modeling/runtime/runtime.h>
 #include <QApplication>
+#include <QFile>
 #include <QIcon>
 
 #ifdef _WIN32
@@ -24,6 +25,10 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     app.setAttribute(Qt::AA_UseHighDpiPixmaps);
     app.setWindowIcon(QIcon(":/app/branding/app-icon.png"));
+    QFile appStyleFile(":/app/style/app.qss");
+    if (appStyleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        app.setStyleSheet(QString::fromUtf8(appStyleFile.readAll()));
+    }
 
     MainWindow window;
     window.show();

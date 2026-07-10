@@ -8,6 +8,7 @@
 #include <QColorDialog>
 #include <QDialogButtonBox>
 #include <QLabel>
+#include <QPalette>
 #include <QPushButton>
 
 using namespace mulan::engine;
@@ -34,6 +35,7 @@ EngineSettingsDialog::EngineSettingsDialog(QWidget* parent) : QDialog(parent) {
 
     // --- 背景色 ---
     button_color_ = new QPushButton(this);
+    button_color_->setObjectName("engineBackgroundColorButton");
     connect(button_color_, &QPushButton::clicked, this, &EngineSettingsDialog::onChooseBackgroundColor);
     layout->addRow(tr("Background:"), button_color_);
 
@@ -48,7 +50,7 @@ EngineSettingsDialog::EngineSettingsDialog(QWidget* parent) : QDialog(parent) {
 
     // --- 提示 ---
     auto* hint = new QLabel(tr("Changes take effect on next document tab."), this);
-    hint->setStyleSheet("color: gray; font-size: 10pt;");
+    hint->setObjectName("engineSettingsHint");
     layout->addRow(hint);
 
     // --- 按钮 ---
@@ -103,5 +105,8 @@ void EngineSettingsDialog::updateBackgroundButton() {
     if (!button_color_)
         return;
     button_color_->setText(background_color_.name(QColor::HexArgb).toUpper());
-    button_color_->setStyleSheet(QString("background-color: %1;").arg(background_color_.name(QColor::HexArgb)));
+    QPalette palette = button_color_->palette();
+    palette.setColor(QPalette::Button, background_color_);
+    palette.setColor(QPalette::ButtonText, background_color_.lightness() < 128 ? Qt::white : Qt::black);
+    button_color_->setPalette(palette);
 }
