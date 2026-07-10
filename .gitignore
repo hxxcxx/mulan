@@ -44,13 +44,6 @@ CTestTestfile.cmake
 .DS_Store
 Thumbs.db
 
-other/
 docs/
-/truck/
 .codex
 glTF-Sample-Models
-BeyondFlat
-BeyondConvex
-OCCT-master
-
-/truck-bridge/
