@@ -20,7 +20,8 @@ namespace mulan::engine {
 
 class DX12Sampler : public Sampler {
 public:
-    /// 创建 DX12Sampler。heap 为空或分配失败 → SamplerCreateFailed。
+    /// 创建 DX12Sampler。samplerHeap 为空时按 static-sampler 模式构造占位对象
+    ///（采样器由 root signature 中的 static sampler 提供，不分配 descriptor）。
     static core::Result<std::unique_ptr<DX12Sampler>> create(const SamplerDesc& desc, ID3D12Device* device,
                                                              DX12DescriptorAllocator* samplerHeap);
     ~DX12Sampler();

@@ -4,7 +4,6 @@
 #include <mulan/core/result/error.h>
 #include "../../engine_error_code.h"
 
-#include <cstdio>
 #include <string>
 
 namespace mulan::engine {
@@ -68,10 +67,9 @@ static D3D12_COMPARISON_FUNC toDX12ComparisonFunc(CompareFunc f) {
 
 core::Result<std::unique_ptr<DX12Sampler>> DX12Sampler::create(const SamplerDesc& desc, ID3D12Device* device,
                                                                DX12DescriptorAllocator* samplerHeap) {
-    if (!samplerHeap) {
-        return std::unexpected(
-                makeError(EngineErrorCode::SamplerCreateFailed, "DX12Sampler requires a non-null sampler heap"));
-    }
+    // samplerHeap 可为空：当前 root signature 使用 static sampler，采样器烘焙进
+    // root signature，无需 descriptor。此时构造占位对象，仅保留 desc_ 供查询，
+    // 供统一渲染资源接口持有。descriptor_ 保持零值，draw 时不被消费。
     try {
         return std::unique_ptr<DX12Sampler>(new DX12Sampler(desc, device, samplerHeap));
     } catch (const std::exception& e) {
@@ -101,9 +99,10 @@ DX12Sampler::DX12Sampler(const SamplerDesc& desc, ID3D12Device* device, DX12Desc
     if (samplerHeap) {
         descriptor_ = samplerHeap->allocate();
         device->CreateSampler(&d3dDesc, descriptor_.cpu);
-    } else {
-        std::fprintf(stderr, "[DX12Sampler] No sampler heap provided\n");
     }
+    // samplerHeap 为空（static-sampler 模式）时，descriptor_ 保持零值：
+    // 采样状态由 root signature 中的 D3D12_STATIC_SAMPLER_DESC 提供，
+    // 此对象仅作为统一渲染资源接口的占位持有者。
 }
 
 DX12Sampler::~DX12Sampler() {

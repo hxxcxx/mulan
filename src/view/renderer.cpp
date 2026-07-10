@@ -50,8 +50,9 @@ bool Renderer::init(engine::RHIDevice& device, engine::LightEnvironment& lightEn
 }
 
 void Renderer::shutdown(engine::RHIDevice& device) {
-    if (!initialized_)
-        return;
+    // 即使 init() 未能完成（initialized_ 仍为 false），render_renderer_ 内部也可能
+    // 已分配部分 RHI 资源。必须无条件下推 shutdown 以释放它们，否则这些资源会在
+    // device 析构时触发 assertNoLiveResources 断言。
     render_renderer_.shutdown(device);
     initialized_ = false;
 }

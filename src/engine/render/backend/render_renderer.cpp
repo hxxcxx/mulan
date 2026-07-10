@@ -87,18 +87,20 @@ bool RenderRenderer::init(RHIDevice& device, LightEnvironment& lightEnv, Texture
 }
 
 void RenderRenderer::shutdown(RHIDevice& device) {
-    if (!initialized_)
-        return;
+    // 即使 init() 未能完成（initialized_ 仍为 false），也可能已分配部分 RHI 资源
+    //（如 GeometryDrawSharedResources 的 UBO）。因此 shutdown 必须无条件执行清理，
+    // 否则这些资源会在 device 析构时触发 assertNoLiveResources 断言。
     device.waitIdle();
+    clearCompiledCommands();
     text_stage_.reset();
     view_cube_stage_.reset();
     highlight_stage_.reset();
     edge_stage_.reset();
     face_stage_.reset();
+    ibl_.reset();
     geometry_resources_.reset();
     asset_gpu_registry_.reset();
     material_cache_.reset();
-    ibl_.reset();
     initialized_ = false;
 }
 

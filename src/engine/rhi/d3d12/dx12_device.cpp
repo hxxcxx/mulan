@@ -57,6 +57,7 @@ DX12Device::~DX12Device() {
     upload_context_.reset();
     frames_.clear();
     shader_visible_heap_.reset();
+    sampler_heap_.reset();
     command_queue_.Reset();
     device_.Reset();
     factory_.Reset();
@@ -86,6 +87,12 @@ void DX12Device::init(const DeviceCreateInfo& ci) {
 
     shader_visible_heap_ = std::make_unique<DX12DescriptorAllocator>(
             device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 1024);
+
+    // sampler descriptor heap：非 shader-visible。当前 root signature 使用 static
+    // sampler，此处仅创建堆供 createSampler 分配 descriptor（保持与 Vulkan 后端的
+    // 对称语义），绘制时尚未接入 SetDescriptorHeaps。
+    sampler_heap_ = std::make_unique<DX12DescriptorAllocator>(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
+                                                              D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 64);
 
     caps_.backend = GraphicsBackend::D3D12;
 
@@ -345,8 +352,9 @@ core::Result<std::unique_ptr<RenderTarget>> DX12Device::createRenderTarget(const
 
 core::Result<std::unique_ptr<Sampler>> DX12Device::createSampler(const SamplerDesc& desc) {
     // Sampler 仅持有 descriptor handle（非 COM 对象），无需命名。
-    // 传 nullptr samplerHeap 会被 create() 拒绝并返回错误。
-    auto result = DX12Sampler::create(desc, device_.Get(), nullptr);
+    // sampler_heap_ 非空时分配 descriptor；当前 root signature 使用 static sampler，
+    // 即便 descriptor 未被绘制消费，Sampler 对象仍需成功创建以保持后端中性语义。
+    auto result = DX12Sampler::create(desc, device_.Get(), sampler_heap_.get());
     if (!result)
         return std::unexpected(result.error());
     (*result)->trackResource(*this, RHIResourceKind::Sampler, "Sampler");

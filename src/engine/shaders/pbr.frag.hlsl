@@ -8,7 +8,7 @@
  *   binding 5 = MetallicRoughness(t5) — B=metal, G=roughness
  *   binding 6 = Emissive (t6)    — HDR emissive
  *   binding 7 = AO (t7)          — ambient occlusion
- *   binding 8 = Sampler (s4)     — shared linear sampler
+ *   binding 8 = Sampler (s8)     — shared linear sampler
  *   binding 9 = IrradianceMap (t9)  — Texture2D equirect, diffuse IBL
  *   binding 10 = PrefilterMap (t10) — Texture2D equirect, specular IBL
  *   binding 11 = BrdfLUT      (t11) — Texture2D RG, split-sum BRDF 积分
@@ -24,7 +24,7 @@
 [[vk::binding(5, 0)]] Texture2D    MRTex        : register(t5);
 [[vk::binding(6, 0)]] Texture2D    EmissiveTex  : register(t6);
 [[vk::binding(7, 0)]] Texture2D    AOTex        : register(t7);
-[[vk::binding(8, 0)]] SamplerState PbrSampler   : register(s4);
+[[vk::binding(8, 0)]] SamplerState PbrSampler   : register(s8);
 [[vk::binding(9, 0)]]  Texture2D   IrradianceMap : register(t9);
 [[vk::binding(10, 0)]] Texture2D   PrefilterMap  : register(t10);
 [[vk::binding(11, 0)]] Texture2D   BrdfLUT       : register(t11);
