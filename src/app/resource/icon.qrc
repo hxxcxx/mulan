@@ -27,5 +27,7 @@
         <file>icon/view-cube.svg</file>
         <file>icon/history-undo.svg</file>
         <file>icon/history-redo.svg</file>
+        <file>icon/tab-close.svg</file>
+        <file>icon/tab-close-hover.svg</file>
     </qresource>
 </RCC>

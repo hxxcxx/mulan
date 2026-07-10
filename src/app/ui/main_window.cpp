@@ -77,6 +77,29 @@ void MainWindow::buildRibbon() {
     auto* ribbon = ribbonBar();
     // 使用默认的 LooseThreeRow 风格，大按钮有足够高度显示 32x32 图标
     ribbon->showMinimumModeButton();
+    if (auto* rightControls = ribbon->rightButtonGroup()) {
+        rightControls->setObjectName("ribbonRightControls");
+        rightControls->setIconSize(QSize(18, 18));
+        rightControls->setStyleSheet(R"(
+            #ribbonRightControls QToolButton {
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 5px;
+                margin: 1px;
+                padding: 3px;
+                outline: none;
+            }
+            #ribbonRightControls QToolButton:hover {
+                background: rgba(73, 124, 173, 26);
+                border-color: rgba(73, 124, 173, 55);
+            }
+            #ribbonRightControls QToolButton:pressed {
+                background: rgba(73, 124, 173, 52);
+                border-color: rgba(73, 124, 173, 95);
+            }
+            #ribbonRightControls QToolButton:focus { outline: none; }
+        )");
+    }
 
     buildRibbonHomeCategory();
     buildRibbonViewCategory();
@@ -282,6 +305,29 @@ void MainWindow::buildQuickAccessBar() {
     auto* bar = ribbonBar()->quickAccessBar();
     if (!bar)
         return;
+
+    bar->setObjectName("quickAccessBar");
+    bar->setIconSize(QSize(18, 18));
+    bar->setStyleSheet(R"(
+        #quickAccessBar QToolButton {
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 5px;
+            margin: 1px;
+            padding: 3px;
+            outline: none;
+        }
+        #quickAccessBar QToolButton:hover {
+            background: rgba(73, 124, 173, 26);
+            border-color: rgba(73, 124, 173, 55);
+        }
+        #quickAccessBar QToolButton:pressed,
+        #quickAccessBar QToolButton:checked {
+            background: rgba(73, 124, 173, 52);
+            border-color: rgba(73, 124, 173, 95);
+        }
+        #quickAccessBar QToolButton:focus { outline: none; }
+    )");
 
     action_undo_ = createCommandAction(":/app/icons/icon/history-undo.svg", "edit.undo");
     bar->addAction(action_undo_);

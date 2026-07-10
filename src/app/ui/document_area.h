@@ -1,18 +1,19 @@
 /**
  * @file document_area.h
- * @brief 多文档标签管理区 — 封装 QTabWidget + 欢迎页 + 文档生命周期
+ * @brief 多文档标签管理区 — 封装 SARibbonTabBar + SARibbonStackedWidget + 启动页 + 文档生命周期
  * @author hxxcxx
  * @date 2026-04-23
  */
 #pragma once
 
 #include <QStackedWidget>
-#include <QTabWidget>
 #include <unordered_map>
 
 class DocWidget;
 class DocumentSession;
 class StartupPage;
+class SARibbonStackedWidget;
+class SARibbonTabBar;
 
 class DocumentArea : public QWidget {
     Q_OBJECT
@@ -60,7 +61,9 @@ private slots:
 
 private:
     QStackedWidget* stack_ = nullptr;
-    QTabWidget* tab_widget_ = nullptr;
+    QWidget* document_page_ = nullptr;
+    SARibbonTabBar* document_tab_bar_ = nullptr;
+    SARibbonStackedWidget* document_stack_ = nullptr;
     StartupPage* startup_page_ = nullptr;
 
     // DocWidget 到 DocumentSession 的映射，管理会话生命周期。

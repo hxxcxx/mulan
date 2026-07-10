@@ -150,8 +150,8 @@ void EngineSettings::load() {
     backend_ = intToBackend(qsettings_.value("backend", backendToInt(GraphicsBackend::Vulkan)).toInt());
     msaa_ = intToMsaa(qsettings_.value("msaa", 4).toInt());
     vsync_ = qsettings_.value("vsync", true).toBool();
-    const QColor defaultBackground = QColor::fromRgb(25, 36, 48);
-    const QColor previousDefaultBackground = QColor::fromRgb(63, 63, 63);
+    const QColor defaultBackground = QColor::fromRgb(63, 63, 63);
+    const QColor previousDefaultBackground = QColor::fromRgb(25, 36, 48);
     const QColor legacyDefaultBackground = QColor::fromRgb(97, 101, 118);
     bgcolor_ = qsettings_.value("backgroundColor", defaultBackground).value<QColor>();
     // 将旧版默认值迁移到新默认值，同时保留用户主动选择的其他背景色。
