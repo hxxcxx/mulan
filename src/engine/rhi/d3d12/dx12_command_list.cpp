@@ -8,6 +8,7 @@
 #include <mulan/core/result/error.h>
 #include "../../engine_error_code.h"
 
+#include <cstdio>
 #include <string>
 
 namespace mulan::engine {
@@ -162,58 +163,67 @@ void DX12CommandList::bindGroup(BindGroup& group) {
         dx12Group->markAllDirty();
     }
 
-    // --- 复用未变脏的缓存（无脏 binding 时直接绑定，零分配）---
-    if (!dx12Group->dirty() && dx12Group->cachedGpuHandle().ptr) {
-        auto cachedGpu = dx12Group->cachedGpuHandle();
-        for (uint8_t i = 0; i < dx12Group->entryCount(); ++i) {
-            const auto& e = dx12Group->entries()[i];
-            if (e.buffer) {
-                auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
-                cmd_list_->SetGraphicsRootConstantBufferView(e.binding, dx12Buf->gpuAddress() + e.offset);
-            } else if (e.texture) {
-                cmd_list_->SetGraphicsRootDescriptorTable(e.binding, cachedGpu);
-            }
-        }
-        return;
+    // 统计 texture binding 数：每个 texture 占 descriptor heap 的一个独立 slot。
+    // 与 Vulkan 的 descriptor set 不同，DX12 每个 SRV root parameter 指向独立的
+    // 1-descriptor table，因此必须为每个 texture 分配独立的 descriptor 槽，
+    // 否则多个 texture 会互相覆盖（表现为贴图丢失）。
+    uint32_t texCount = 0;
+    for (uint8_t i = 0; i < dx12Group->entryCount(); ++i) {
+        if (dx12Group->entries()[i].texture)
+            ++texCount;
     }
 
-    // --- 分配或复用 descriptor heap 区段（texture 用）---
-    // 全脏（首帧）时分配整段 cached handle；局部脏时复用已分配区段，仅重写脏 texture 的槽。
-    D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = dx12Group->cachedGpuHandle();
-    if (!gpuHandle.ptr) {
-        gpuHandle.ptr = desc_gpu_base_.ptr + desc_alloc_count_ * desc_size_;
-        ++desc_alloc_count_;
-        dx12Group->setCachedGpuHandle(gpuHandle);
+    // --- 分配或复用一段连续 descriptor 区段（texCount 个 slot）---
+    // 区段起点缓存于 BindGroup；跨帧/首帧失效后重新分配。
+    D3D12_GPU_DESCRIPTOR_HANDLE gpuBase = dx12Group->cachedGpuHandle();
+    if (!gpuBase.ptr) {
+        if (desc_alloc_count_ + texCount > 1024) {
+            std::fprintf(stderr, "[DX12 bindGroup] shader-visible descriptor heap exhausted\n");
+            return;
+        }
+        gpuBase.ptr = desc_gpu_base_.ptr + desc_alloc_count_ * desc_size_;
+        desc_alloc_count_ += texCount;
+        dx12Group->setCachedGpuHandle(gpuBase);
     }
 
     ID3D12Device* device = nullptr;
     cmd_list_->GetDevice(IID_PPV_ARGS(&device));
 
+    // 遍历 entries，按类型绑定：
+    //   UBO     → root CBV（直接 GPU 地址，无需 descriptor heap）
+    //   Texture → 独立 descriptor slot（区段内第 texSlot 个），脏时重写
+    //   Sampler → 跳过（由 root signature 的 static sampler 提供）
     const uint16_t mask = dx12Group->dirtyMask();
     uint16_t written = 0;
+    uint32_t texSlot = 0;
 
     for (uint8_t i = 0; i < dx12Group->entryCount(); ++i) {
         const auto& e = dx12Group->entries()[i];
+        uint32_t rootIdx = dx12Group->rootIndexForBinding(e.binding);
+        if (rootIdx == DX12BindGroup::kInvalidRootIndex)
+            continue;  // Sampler：跳过
+
         if (e.buffer) {
             // UBO：root CBV 每 draw 必须重设（offset 变化），不依赖脏位
             auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
-            cmd_list_->SetGraphicsRootConstantBufferView(e.binding, dx12Buf->gpuAddress() + e.offset);
+            cmd_list_->SetGraphicsRootConstantBufferView(rootIdx, dx12Buf->gpuAddress() + e.offset);
         } else if (e.texture) {
-            // texture：仅脏时重写 descriptor 槽，非脏复用上一轮 CopyDescriptorsSimple 结果
-            if (((mask >> i) & 1u) == 0) {
-                cmd_list_->SetGraphicsRootDescriptorTable(e.binding, gpuHandle);
-                continue;
-            }
-            auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
-            if (!dx12Tex->srv().ptr)
-                continue;
+            // 当前 texture 在区段中的 GPU/CPU handle
+            D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle;
+            gpuHandle.ptr = gpuBase.ptr + texSlot * desc_size_;
             D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle;
             cpuHandle.ptr = desc_cpu_base_.ptr + (gpuHandle.ptr - desc_gpu_base_.ptr);
-            if (device) {
-                device->CopyDescriptorsSimple(1, cpuHandle, dx12Tex->srv(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+            // 仅脏时重写 descriptor 槽，非脏复用上一轮结果
+            if (((mask >> i) & 1u) != 0) {
+                auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
+                if (dx12Tex && dx12Tex->srv().ptr && device) {
+                    device->CopyDescriptorsSimple(1, cpuHandle, dx12Tex->srv(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+                }
+                written |= (uint16_t(1) << i);
             }
-            cmd_list_->SetGraphicsRootDescriptorTable(e.binding, gpuHandle);
-            written |= (uint16_t(1) << i);
+            cmd_list_->SetGraphicsRootDescriptorTable(rootIdx, gpuHandle);
+            ++texSlot;
         }
     }
 
@@ -223,6 +233,10 @@ void DX12CommandList::bindGroup(BindGroup& group) {
 }
 
 void DX12CommandList::bindResources(const BindGroupDesc& desc) {
+    // 注意：此便捷路径仅接收 BindGroupDesc（无 BindGroupLayout），无法得知各 binding
+    // 的 DescriptorType，因此无法做 binding→root-parameter-index 映射。当前引擎渲染
+    // 路径一律走 bindGroup(BindGroup&)（后者有完整映射）。若将来启用此路径且 PSO 含
+    // static sampler，需改为接收 layout 或 PSO 以正确计算 root index。
     for (uint8_t i = 0; i < desc.count; ++i) {
         const auto& e = desc.entries[i];
         if (e.buffer) {
@@ -257,6 +271,15 @@ void DX12CommandList::setDescriptorHeap(ID3D12DescriptorHeap* heap, D3D12_CPU_DE
     desc_gpu_base_ = gpuBase;
     desc_size_ = descriptorSize;
     desc_alloc_count_ = 0;
+
+    // 把 shader-visible descriptor heap 绑定到命令列表。
+    // D3D12 要求：使用 root descriptor table 引用 GPU handle 前，必须先
+    // SetDescriptorHeaps，否则 descriptor table 引用的 GPU handle 无效。
+    // 每帧 beginFrame 会 reset heap 后重新调用此函数，此处随之重新绑定。
+    if (heap && cmd_list_) {
+        ID3D12DescriptorHeap* heaps[] = { heap };
+        cmd_list_->SetDescriptorHeaps(1, heaps);
+    }
 }
 
 void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState) {

@@ -222,14 +222,36 @@ inline D3D12_RESOURCE_STATES toDX12ResourceStates(ResourceState state) {
 
 inline DXGI_FORMAT toDXGIFormat(VertexFormat fmt) {
     switch (fmt) {
+    // Float
     case VertexFormat::Float: return DXGI_FORMAT_R32_FLOAT;
     case VertexFormat::Float2: return DXGI_FORMAT_R32G32_FLOAT;
     case VertexFormat::Float3: return DXGI_FORMAT_R32G32B32_FLOAT;
     case VertexFormat::Float4: return DXGI_FORMAT_R32G32B32A32_FLOAT;
+    // Half
+    case VertexFormat::Half2: return DXGI_FORMAT_R16G16_FLOAT;
+    case VertexFormat::Half4: return DXGI_FORMAT_R16G16B16A16_FLOAT;
+    // SNorm (i16 / i8 → [-1,1])
+    case VertexFormat::SNorm2: return DXGI_FORMAT_R16G16_SNORM;
+    case VertexFormat::SNorm4: return DXGI_FORMAT_R16G16B16A16_SNORM;
+    case VertexFormat::Byte4N: return DXGI_FORMAT_R8G8B8A8_SNORM;
+    // UNorm (u16 / u8 → [0,1])
+    case VertexFormat::UNorm2: return DXGI_FORMAT_R16G16_UNORM;
+    case VertexFormat::UNorm4: return DXGI_FORMAT_R16G16B16A16_UNORM;
+    case VertexFormat::UByte4N: return DXGI_FORMAT_R8G8B8A8_UNORM;
+    // Integer (i32)
+    case VertexFormat::Int: return DXGI_FORMAT_R32_SINT;
+    case VertexFormat::Int2: return DXGI_FORMAT_R32G32_SINT;
+    case VertexFormat::Int3: return DXGI_FORMAT_R32G32B32_SINT;
+    case VertexFormat::Int4: return DXGI_FORMAT_R32G32B32A32_SINT;
+    // Unsigned integer (u32)
     case VertexFormat::UInt: return DXGI_FORMAT_R32_UINT;
     case VertexFormat::UInt2: return DXGI_FORMAT_R32G32_UINT;
     case VertexFormat::UInt3: return DXGI_FORMAT_R32G32B32_UINT;
     case VertexFormat::UInt4: return DXGI_FORMAT_R32G32B32A32_UINT;
+    case VertexFormat::UByte4: return DXGI_FORMAT_R8G8B8A8_UINT;
+    // Packed
+    case VertexFormat::RGB10A2: return DXGI_FORMAT_R10G10B10A2_UNORM;
+    case VertexFormat::RG11B10F: return DXGI_FORMAT_R11G11B10_FLOAT;
     default: return DXGI_FORMAT_UNKNOWN;
     }
 }
