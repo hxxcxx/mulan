@@ -1,7 +1,7 @@
 #pragma once
 
-#include "editor_grip.h"
-#include "editor_selection.h"
+#include "core/grip/editor_grip.h"
+#include "core/selection/editor_selection.h"
 
 #include <cstdint>
 #include <memory>

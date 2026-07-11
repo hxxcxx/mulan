@@ -1,6 +1,6 @@
-#include "grip_drag_tool.h"
+#include "core/tools/grip_drag_tool.h"
 
-#include "control_polygon_builder.h"
+#include "core/operation/control_polygon_builder.h"
 
 #include <cmath>
 #include <iterator>

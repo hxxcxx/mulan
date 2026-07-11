@@ -6,8 +6,8 @@
  */
 #pragma once
 
-#include "editor_input.h"
-#include "editor_selection.h"
+#include "core/selection/editor_input.h"
+#include "core/selection/editor_selection.h"
 
 #include <mulan/interaction/input_event.h>
 

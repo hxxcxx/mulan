@@ -1,7 +1,7 @@
 #pragma once
 
-#include "draft_geometry.h"
-#include "editor_grip.h"
+#include "core/operation/draft_geometry.h"
+#include "core/grip/editor_grip.h"
 
 #include <mulan/render/camera/camera.h>
 

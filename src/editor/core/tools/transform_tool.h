@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "editor_tool.h"
-#include "transform_edit_context.h"
+#include "core/tools/editor_tool.h"
+#include "core/operation/transform_edit_context.h"
 
 #include <optional>
 

@@ -1,4 +1,4 @@
-#include "editor_snap_resolver.h"
+#include "core/snap/editor_snap_resolver.h"
 
 namespace mulan::app {
 namespace {

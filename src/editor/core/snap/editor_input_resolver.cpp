@@ -1,7 +1,7 @@
-#include "editor_input_resolver.h"
+#include "core/snap/editor_input_resolver.h"
 
-#include "editor_snap_collector.h"
-#include "editor_snap_resolver.h"
+#include "core/snap/editor_snap_collector.h"
+#include "core/snap/editor_snap_resolver.h"
 
 #include <mulan/render/camera/camera.h>
 

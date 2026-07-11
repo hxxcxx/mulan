@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "geometry_mutation.h"
+#include "core/operation/geometry_mutation.h"
 
 #include <mulan/io/document.h>
 

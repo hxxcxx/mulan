@@ -1,6 +1,6 @@
-#include "editor_pick_service.h"
+#include "core/selection/editor_pick_service.h"
 
-#include "editor_render_pick_conversion.h"
+#include "core/selection/editor_render_pick_conversion.h"
 #include "document/document_session.h"
 #include "document/document_view_binding.h"
 

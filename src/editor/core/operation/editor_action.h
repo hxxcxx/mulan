@@ -6,8 +6,8 @@
  */
 #pragma once
 
-#include "document_operation.h"
-#include "draft_geometry.h"
+#include "core/operation/document_operation.h"
+#include "core/operation/draft_geometry.h"
 
 #include <mulan/view/core/preview_layer.h>
 

@@ -1,4 +1,4 @@
-#include "editor_grip_provider.h"
+#include "core/grip/editor_grip_provider.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/io/document.h>

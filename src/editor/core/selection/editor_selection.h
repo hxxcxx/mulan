@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "editor_input.h"
-#include "selection_target.h"
+#include "core/selection/editor_input.h"
+#include "core/operation/selection_target.h"
 
 #include <cstdint>
 #include <optional>

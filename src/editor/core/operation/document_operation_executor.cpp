@@ -1,6 +1,6 @@
-#include "document_operation_executor.h"
+#include "core/operation/document_operation_executor.h"
 
-#include "geometry_edit_service.h"
+#include "core/operation/geometry_edit_service.h"
 #include "document/document_session.h"
 #include "document/document_view_binding.h"
 

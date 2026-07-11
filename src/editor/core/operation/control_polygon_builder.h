@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "draft_geometry.h"
+#include "core/operation/draft_geometry.h"
 
 #include <mulan/render/camera/camera.h>
 

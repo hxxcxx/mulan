@@ -6,8 +6,8 @@
  */
 #pragma once
 
-#include "command_history.h"
-#include "document_operation.h"
+#include "core/operation/command_history.h"
+#include "core/operation/document_operation.h"
 
 #include <optional>
 

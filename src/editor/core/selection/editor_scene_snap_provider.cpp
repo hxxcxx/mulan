@@ -1,4 +1,4 @@
-#include "editor_scene_snap_provider.h"
+#include "core/selection/editor_scene_snap_provider.h"
 
 #include <mulan/render/camera/camera.h>
 

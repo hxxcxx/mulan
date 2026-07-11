@@ -1,6 +1,6 @@
-#include "selection_extrude_tool.h"
+#include "core/tools/selection_extrude_tool.h"
 
-#include "editor_selection.h"
+#include "core/selection/editor_selection.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/curve_asset.h>

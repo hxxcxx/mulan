@@ -5,7 +5,7 @@
  * @date 2026-07-08
  */
 
-#include "editor_action.h"
+#include "core/operation/editor_action.h"
 
 #include <utility>
 

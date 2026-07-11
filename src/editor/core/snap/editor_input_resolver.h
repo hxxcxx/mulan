@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "editor_input.h"
+#include "core/selection/editor_input.h"
 
 namespace mulan::app {
 

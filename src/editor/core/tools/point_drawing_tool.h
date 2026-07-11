@@ -1,6 +1,6 @@
 #pragma once
 
-#include "editor_tool.h"
+#include "core/tools/editor_tool.h"
 
 #include <cstddef>
 #include <optional>

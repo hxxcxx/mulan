@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "editor_selection.h"
+#include "core/selection/editor_selection.h"
 
 #include <optional>
 #include <span>

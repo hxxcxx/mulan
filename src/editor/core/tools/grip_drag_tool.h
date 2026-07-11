@@ -1,8 +1,8 @@
 #pragma once
 
-#include "drag_edit_session.h"
-#include "editor_grip.h"
-#include "editor_tool.h"
+#include "core/operation/drag_edit_session.h"
+#include "core/grip/editor_grip.h"
+#include "core/tools/editor_tool.h"
 
 #include <optional>
 

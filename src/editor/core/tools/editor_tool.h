@@ -6,8 +6,8 @@
  */
 #pragma once
 
-#include "editor_action.h"
-#include "editor_input.h"
+#include "core/operation/editor_action.h"
+#include "core/selection/editor_input.h"
 
 #include <string_view>
 

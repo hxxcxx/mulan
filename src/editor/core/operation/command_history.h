@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "document_operation.h"
+#include "core/operation/document_operation.h"
 
 #include <optional>
 #include <vector>

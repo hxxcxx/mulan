@@ -1,7 +1,7 @@
 #pragma once
 
-#include "editor_tool.h"
-#include "selection_target.h"
+#include "core/tools/editor_tool.h"
+#include "core/operation/selection_target.h"
 
 #include <mulan/asset/face_asset.h>
 

@@ -5,7 +5,7 @@
  * @date 2026-07-08
  */
 
-#include "tool_controller.h"
+#include "core/tools/tool_controller.h"
 
 namespace mulan::app {
 

@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "point_drawing_tool.h"
+#include "core/tools/point_drawing_tool.h"
 
 #include <optional>
 #include <string>

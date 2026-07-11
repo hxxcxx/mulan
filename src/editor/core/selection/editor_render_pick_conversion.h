@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "editor_input.h"
+#include "core/selection/editor_input.h"
 
 #include <mulan/view/scene_sync/render_scene.h>
 

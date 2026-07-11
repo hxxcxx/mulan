@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "document_operation.h"
-#include "selection_target.h"
+#include "core/operation/document_operation.h"
+#include "core/operation/selection_target.h"
 
 #include <mulan/math/math.h>
 #include <mulan/scene/entity_id.h>

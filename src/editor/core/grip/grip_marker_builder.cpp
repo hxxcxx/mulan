@@ -1,6 +1,6 @@
-#include "grip_marker_builder.h"
+#include "core/grip/grip_marker_builder.h"
 
-#include "control_polygon_builder.h"
+#include "core/operation/control_polygon_builder.h"
 
 #include <algorithm>
 #include <cmath>

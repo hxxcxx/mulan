@@ -1,7 +1,7 @@
 #pragma once
 
-#include "draft_geometry.h"
-#include "editor_input.h"
+#include "core/operation/draft_geometry.h"
+#include "core/selection/editor_input.h"
 
 namespace mulan::app {
 

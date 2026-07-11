@@ -1,6 +1,6 @@
-#include "param_curve_tool.h"
+#include "core/tools/param_curve_tool.h"
 
-#include "control_polygon_builder.h"
+#include "core/operation/control_polygon_builder.h"
 
 #include <algorithm>
 #include <cmath>
