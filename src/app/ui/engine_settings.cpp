@@ -118,8 +118,7 @@ static GraphicsBackend intToBackend(int v) {
     case GraphicsBackend::OpenGL: return GraphicsBackend::OpenGL;
     case GraphicsBackend::Vulkan: return GraphicsBackend::Vulkan;
     case GraphicsBackend::D3D12: return GraphicsBackend::D3D12;
-    // D3D11 后端仍未恢复，旧配置回退到 Vulkan
-    case GraphicsBackend::D3D11:
+    case GraphicsBackend::D3D11: return GraphicsBackend::D3D11;
     default: return GraphicsBackend::Vulkan;
     }
 }
