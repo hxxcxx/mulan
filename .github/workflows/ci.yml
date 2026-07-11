@@ -82,13 +82,6 @@ jobs:
           "OCCT_ROOT=$occtRoot" >> $env:GITHUB_ENV
           "OCCT_3RDPARTY_DIR=$thirdPartyDir" >> $env:GITHUB_ENV
 
-      # ── Vulkan SDK ──
-      - name: Install Vulkan SDK
-        uses: humbletim/install-vulkan-sdk@v1.2
-        with:
-          version: 1.4.335.0
-          cache: true
-
       # ── vcpkg ──
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11

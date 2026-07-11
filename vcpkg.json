@@ -5,6 +5,10 @@
     "dependencies": [
         "vulkan",
         "vulkan-memory-allocator",
+        {
+            "name": "directx-dxc",
+            "host": true
+        },
         "stb",
         "nlohmann-json",
         "fastgltf",

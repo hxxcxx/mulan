@@ -20,19 +20,15 @@ function(mulan_add_hlsl_shaders shader_target)
         return()
     endif()
 
-    find_program(MULAN_DXC_EXECUTABLE dxc
-        HINTS
-            "$ENV{VULKAN_SDK}/Bin"
-            "${Vulkan_INSTALL_DIR}/Bin"
-            "C:/VulkanSDK/*/Bin"
-    )
+    find_package(directx-dxc CONFIG REQUIRED)
+    set(MULAN_DXC_EXECUTABLE "${DIRECTX_DXC_TOOL}")
 
     file(MAKE_DIRECTORY "${ARG_OUTPUT_DIR}")
 
-    if(NOT MULAN_DXC_EXECUTABLE)
+    if(NOT MULAN_DXC_EXECUTABLE OR NOT EXISTS "${MULAN_DXC_EXECUTABLE}")
         message(FATAL_ERROR
-            "dxc not found, but an enabled rendering backend requires compiled shaders. "
-            "Set VULKAN_SDK, MULAN_DXC_EXECUTABLE, or install dxc."
+            "The directx-dxc vcpkg package did not provide a usable dxc tool: "
+            "${MULAN_DXC_EXECUTABLE}"
         )
     endif()
 
