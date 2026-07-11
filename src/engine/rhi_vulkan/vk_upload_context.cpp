@@ -124,22 +124,27 @@ void VKUploadContext::uploadTexture(VKTexture* dst, const TextureUploadDesc& upl
 StagingSlice VKUploadContext::allocStaging(uint32_t size) {
     std::lock_guard lock(mutex_);
 
+    // 同一个 staging buffer 中的 copy 区段保持 256 字节对齐。该值覆盖当前
+    // buffer copy 与未压缩 texture copy 的对齐要求，也让后续扩展格式时行为稳定。
+    constexpr uint32_t kStagingAlignment = 256;
+
     for (auto& slab : slabs_) {
-        if (slab.used + size <= slab.capacity) {
+        const uint32_t offset = alignUp(slab.used, kStagingAlignment);
+        if (static_cast<uint64_t>(offset) + size <= slab.capacity) {
             StagingSlice slice;
             slice.buffer = slab.buffer;
             slice.allocation = slab.allocation;
             slice.mapped = slab.mapped;
-            slice.offset = slab.used;
+            slice.offset = offset;
             slice.size = size;
-            slab.used += size;
+            slab.used = offset + size;
             return slice;
         }
     }
 
-    uint32_t slabSize = (std::max) (uint32_t(4 * 1024 * 1024), alignUp(size, 256));
-    auto slab = createSlab(slabSize);
-    slabs_.push_back(slab);
+    const uint32_t slabSize = (std::max) (uint32_t(4 * 1024 * 1024), alignUp(size, kStagingAlignment));
+    slabs_.push_back(createSlab(slabSize));
+    auto& slab = slabs_.back();
 
     StagingSlice slice;
     slice.buffer = slab.buffer;
