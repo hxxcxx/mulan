@@ -5,6 +5,7 @@
   "dependencies": [
     "vulkan",
     "vulkan-memory-allocator",
+    "glad",
     {
       "name": "directx-dxc",
       "host": true

@@ -8,6 +8,7 @@
 
 option(MULAN_ENABLE_VULKAN_BACKEND "Build Vulkan RHI backend" ON)
 option(MULAN_ENABLE_D3D12_BACKEND "Build DX12 RHI backend (Windows only)" ${WIN32})
+option(MULAN_ENABLE_OPENGL_BACKEND "Build native OpenGL RHI backend (Windows only)" ${WIN32})
 
 add_subdirectory(rhi)
 
@@ -19,6 +20,10 @@ endif()
 
 if(MULAN_ENABLE_D3D12_BACKEND AND WIN32)
     add_subdirectory(rhi_dx12)
+endif()
+
+if(MULAN_ENABLE_OPENGL_BACKEND AND WIN32)
+    add_subdirectory(rhi_opengl)
 endif()
 
 add_subdirectory(render)

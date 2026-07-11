@@ -115,10 +115,10 @@ static int backendToInt(GraphicsBackend b) {
 }
 static GraphicsBackend intToBackend(int v) {
     switch (static_cast<GraphicsBackend>(v)) {
+    case GraphicsBackend::OpenGL: return GraphicsBackend::OpenGL;
     case GraphicsBackend::Vulkan: return GraphicsBackend::Vulkan;
     case GraphicsBackend::D3D12: return GraphicsBackend::D3D12;
-    // OpenGL / D3D11 后端已移除，旧配置回退到 Vulkan
-    case GraphicsBackend::OpenGL:
+    // D3D11 后端仍未恢复，旧配置回退到 Vulkan
     case GraphicsBackend::D3D11:
     default: return GraphicsBackend::Vulkan;
     }
