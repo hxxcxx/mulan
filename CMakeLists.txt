@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.24)
 project(mulan VERSION 1.0.0 LANGUAGES C CXX)
 
+# 当前平台层、建模后端和运行时部署仅支持 Windows。
+if(NOT WIN32)
+    message(FATAL_ERROR "Mulan currently supports Windows only.")
+endif()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
