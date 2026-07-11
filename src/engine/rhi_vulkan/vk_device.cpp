@@ -1,0 +1,188 @@
+// VMA 实现（必须在 #include <vk_mem_alloc.h> 之前）
+#define VMA_IMPLEMENTATION
+
+#include "vk_device.h"
+
+// Vulkan-Hpp 动态 dispatch 存储（必须在 #include <vulkan/vulkan.hpp> 之后）
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+
+#include <algorithm>
+#include <cstdio>
+#include <string>
+#include <mulan/core/result/error.h>
+#include "../rhi/engine_error_code.h"
+#include "vk_debug_name.h"
+#include "vk_bind_group.h"
+#include "vk_compute_pipeline.h"
+
+namespace mulan::engine {
+
+// ============================================================
+// 资源创建
+// ============================================================
+
+core::Result<std::unique_ptr<Buffer>> VKDevice::createBuffer(const BufferDesc& desc) {
+    return resource_factory_->createBuffer(desc);
+}
+
+core::Result<std::unique_ptr<Texture>> VKDevice::createTexture(const TextureDesc& desc) {
+    return resource_factory_->createTexture(desc);
+}
+
+core::Result<std::unique_ptr<Shader>> VKDevice::createShader(const ShaderDesc& desc) {
+    return resource_factory_->createShader(desc);
+}
+
+core::Result<std::unique_ptr<PipelineState>> VKDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
+    return resource_factory_->createPipelineState(desc);
+}
+
+core::Result<std::unique_ptr<ComputePipelineState>> VKDevice::createComputePipelineState(
+        const ComputePipelineDesc& desc) {
+    return resource_factory_->createComputePipelineState(desc);
+}
+
+core::Result<std::unique_ptr<CommandList>> VKDevice::createCommandList() {
+    auto result = frame_scheduler_->createStandaloneCommandList();
+    if (!result)
+        return std::unexpected(result.error());
+    (*result)->trackResource(*this, RHIResourceKind::CommandList, "StandaloneCommandList");
+    return result;
+}
+
+core::Result<std::unique_ptr<SwapChain>> VKDevice::createSwapChain(const SwapChainDesc& desc) {
+    VKSwapChain::InitParams params;
+    params.instance = instance_;
+    params.physicalDevice = physical_device_;
+    params.device = device_;
+    params.allocator = allocator_;
+    params.graphicsQueueFamily = graphics_queue_family_;
+    params.presentQueueFamily = present_queue_family_;
+    params.graphicsQueue = graphics_queue_;
+    params.presentQueue = present_queue_;
+    params.surface = surface_;
+
+    auto result = VKSwapChain::create(desc, params, render_config_);
+    if (!result)
+        return std::unexpected(result.error());
+    auto& swapchain = *result;
+
+    frame_scheduler_->ensureSwapchainImageSync(swapchain->imageCount());
+    (*result)->trackResource(*this, RHIResourceKind::SwapChain, "SwapChain");
+    return result;
+}
+
+core::Result<std::unique_ptr<Fence>> VKDevice::createFence(uint64_t initialValue) {
+    return resource_factory_->createFence(initialValue);
+}
+
+core::Result<std::unique_ptr<BindGroup>> VKDevice::createBindGroup(const BindGroupLayout& layout,
+                                                                   const BindGroupDesc& desc) {
+    return resource_factory_->createBindGroup(layout, desc);
+}
+
+void VKDevice::uploadTextureData(Texture* dst, const void* data, uint32_t width, uint32_t height,
+                                 TextureFormat format) {
+    upload_context_->uploadTexture(static_cast<VKTexture*>(dst), data, width, height, format);
+}
+
+void VKDevice::beginUploadBatch() {
+    upload_context_->beginUploadBatch();
+}
+
+void VKDevice::flushUploadBatch() {
+    upload_context_->flushUploadBatch();
+}
+
+core::Result<std::unique_ptr<RenderTarget>> VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
+    frame_scheduler_->ensureSwapchainImageSync(1);
+    RenderTargetDesc resolvedDesc = desc;
+    if (resolvedDesc.sampleCount > caps_.maxSampleCount)
+        resolvedDesc.sampleCount = caps_.maxSampleCount;
+    if (resolvedDesc.sampleCount != 1 && resolvedDesc.sampleCount != 2 && resolvedDesc.sampleCount != 4 &&
+        resolvedDesc.sampleCount != 8) {
+        resolvedDesc.sampleCount = 1;
+    }
+    return resource_factory_->createRenderTarget(resolvedDesc);
+}
+
+core::Result<std::unique_ptr<Sampler>> VKDevice::createSampler(const SamplerDesc& desc) {
+    return resource_factory_->createSampler(desc);
+}
+
+void VKDevice::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence, uint64_t fenceValue) {
+    // vulkan-hpp 的 submit() 为异常版：验证层发现的录制错误（缺 sampler、
+    // layout 冲突等）会在这一步抛 vk::Error。公共签名是 void，异常若逃逸会
+    // 变成未捕获崩溃。这里接住并记日志，保持提交失败可见而非静默崩溃。
+    // 注意：真正的异步 GPU 执行错误（device lost）在此处查不到，需在
+    // waitIdle / 下一帧 fence 检查时发现。
+    std::vector<vk::CommandBuffer> cmdBuffers(count);
+    for (uint32_t i = 0; i < count; ++i) {
+        cmdBuffers[i] = static_cast<VKCommandList*>(cmdLists[i])->cmdBuffer();
+    }
+
+    vk::SubmitInfo submitInfo;
+    submitInfo.commandBufferCount = count;
+    submitInfo.pCommandBuffers = cmdBuffers.data();
+
+    try {
+        if (fence) {
+            auto* vkFence = static_cast<VKFence*>(fence);
+            vk::TimelineSemaphoreSubmitInfo timelineInfo;
+            timelineInfo.signalSemaphoreValueCount = 1;
+            uint64_t signalValue = fenceValue;
+            timelineInfo.pSignalSemaphoreValues = &signalValue;
+
+            vk::Semaphore semaphore = vkFence->semaphore();
+            submitInfo.signalSemaphoreCount = 1;
+            submitInfo.pSignalSemaphores = &semaphore;
+            submitInfo.pNext = &timelineInfo;
+
+            graphics_queue_.submit(submitInfo);
+        } else {
+            graphics_queue_.submit(submitInfo);
+        }
+    } catch (const vk::Error& e) {
+        std::fprintf(stderr, "[VK ERROR] submit failed: %s\n", e.what());
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "[VK ERROR] submit failed (non-Vulkan): %s\n", e.what());
+    }
+}
+
+void VKDevice::waitIdle() {
+    device_.waitIdle();
+}
+
+// ============================================================
+// 帧循环
+// ============================================================
+
+void VKDevice::beginFrame(SwapChain* swapchain) {
+    frame_scheduler_->beginFrame(swapchain);
+}
+
+void VKDevice::clearCaches() {
+    // dynamic rendering: 无需 Framebuffer 缓存
+}
+
+CommandList* VKDevice::frameCommandList() {
+    return frame_scheduler_->frameCommandList();
+}
+
+void VKDevice::submitAndPresent(SwapChain* swapchain) {
+    submit();
+    present(swapchain);
+}
+
+void VKDevice::submit() {
+    frame_scheduler_->submit();
+}
+
+void VKDevice::present(SwapChain* swapchain) {
+    frame_scheduler_->present(swapchain);
+}
+
+void VKDevice::submitOffscreen() {
+    frame_scheduler_->submitOffscreen();
+}
+}  // namespace mulan::engine

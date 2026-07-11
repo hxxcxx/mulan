@@ -82,6 +82,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     rhi
     platform
     $<LINK_LIBRARY:WHOLE_ARCHIVE,io>
+    $<$<TARGET_EXISTS:rhi_vulkan>:$<LINK_LIBRARY:WHOLE_ARCHIVE,rhi_vulkan>>
+    $<$<TARGET_EXISTS:rhi_dx12>:$<LINK_LIBRARY:WHOLE_ARCHIVE,rhi_dx12>>
     runtime
     SARibbon
     Qt6::Core
