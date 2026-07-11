@@ -31,6 +31,7 @@ ViewContext::ViewContext() : default_op_(std::make_unique<engine::CameraManipula
     camera_.setOrthographic(true);
     camera_.setOrthoSize(5.0);
     camera_.setDistance(10.0);
+    setCameraToWorldXY();
 }
 
 ViewContext::~ViewContext() {
