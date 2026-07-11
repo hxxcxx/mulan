@@ -1,7 +1,8 @@
 function(mulan_add_hlsl_shaders shader_target)
+    set(options SPIRV DXIL)
     set(one_value_args SOURCE_DIR OUTPUT_DIR)
     set(multi_value_args SOURCES)
-    cmake_parse_arguments(ARG "" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
     if(NOT ARG_SOURCE_DIR)
         message(FATAL_ERROR "mulan_add_hlsl_shaders requires SOURCE_DIR")
@@ -11,6 +12,12 @@ function(mulan_add_hlsl_shaders shader_target)
     endif()
     if(NOT ARG_SOURCES)
         message(FATAL_ERROR "mulan_add_hlsl_shaders requires SOURCES")
+    endif()
+
+    if(NOT ARG_SPIRV AND NOT ARG_DXIL)
+        add_custom_target(${shader_target})
+        message(STATUS "No rendering backend requires HLSL shader output")
+        return()
     endif()
 
     find_program(MULAN_DXC_EXECUTABLE dxc
@@ -23,9 +30,10 @@ function(mulan_add_hlsl_shaders shader_target)
     file(MAKE_DIRECTORY "${ARG_OUTPUT_DIR}")
 
     if(NOT MULAN_DXC_EXECUTABLE)
-        add_custom_target(${shader_target})
-        message(WARNING "dxc not found; shaders will not be compiled. Set VULKAN_SDK or install dxc.")
-        return()
+        message(FATAL_ERROR
+            "dxc not found, but an enabled rendering backend requires compiled shaders. "
+            "Set VULKAN_SDK, MULAN_DXC_EXECUTABLE, or install dxc."
+        )
     endif()
 
     message(STATUS "Found dxc: ${MULAN_DXC_EXECUTABLE}")
@@ -55,36 +63,40 @@ function(mulan_add_hlsl_shaders shader_target)
             list(APPEND shader_depends "${ARG_SOURCE_DIR}/pbr.frag.hlsl")
         endif()
 
-        string(REPLACE ".hlsl" ".spv" spv_file "${shader_file}")
-        set(spv_output "${ARG_OUTPUT_DIR}/${spv_file}")
-        add_custom_command(
-            OUTPUT "${spv_output}"
-            COMMAND "${MULAN_DXC_EXECUTABLE}"
-                -T ${shader_stage}_6_0
-                -E ${shader_entry}
-                -spirv
-                -I "${ARG_SOURCE_DIR}"
-                -Fo "${spv_output}"
-                "${shader_input}"
-            DEPENDS ${shader_depends}
-            COMMENT "Compiling shader: ${shader_file} -> ${spv_file} (SPIR-V)"
-        )
-        list(APPEND shader_outputs "${spv_output}")
+        if(ARG_SPIRV)
+            string(REPLACE ".hlsl" ".spv" spv_file "${shader_file}")
+            set(spv_output "${ARG_OUTPUT_DIR}/${spv_file}")
+            add_custom_command(
+                OUTPUT "${spv_output}"
+                COMMAND "${MULAN_DXC_EXECUTABLE}"
+                    -T ${shader_stage}_6_0
+                    -E ${shader_entry}
+                    -spirv
+                    -I "${ARG_SOURCE_DIR}"
+                    -Fo "${spv_output}"
+                    "${shader_input}"
+                DEPENDS ${shader_depends}
+                COMMENT "Compiling shader: ${shader_file} -> ${spv_file} (SPIR-V)"
+            )
+            list(APPEND shader_outputs "${spv_output}")
+        endif()
 
-        string(REPLACE ".hlsl" ".dxil" dxil_file "${shader_file}")
-        set(dxil_output "${ARG_OUTPUT_DIR}/${dxil_file}")
-        add_custom_command(
-            OUTPUT "${dxil_output}"
-            COMMAND "${MULAN_DXC_EXECUTABLE}"
-                -T ${shader_stage}_6_0
-                -E ${shader_entry}
-                -I "${ARG_SOURCE_DIR}"
-                -Fo "${dxil_output}"
-                "${shader_input}"
-            DEPENDS ${shader_depends}
-            COMMENT "Compiling shader: ${shader_file} -> ${dxil_file} (DXIL)"
-        )
-        list(APPEND shader_outputs "${dxil_output}")
+        if(ARG_DXIL)
+            string(REPLACE ".hlsl" ".dxil" dxil_file "${shader_file}")
+            set(dxil_output "${ARG_OUTPUT_DIR}/${dxil_file}")
+            add_custom_command(
+                OUTPUT "${dxil_output}"
+                COMMAND "${MULAN_DXC_EXECUTABLE}"
+                    -T ${shader_stage}_6_0
+                    -E ${shader_entry}
+                    -I "${ARG_SOURCE_DIR}"
+                    -Fo "${dxil_output}"
+                    "${shader_input}"
+                DEPENDS ${shader_depends}
+                COMMENT "Compiling shader: ${shader_file} -> ${dxil_file} (DXIL)"
+            )
+            list(APPEND shader_outputs "${dxil_output}")
+        endif()
     endforeach()
 
     add_custom_target(${shader_target} ALL DEPENDS ${shader_outputs})
