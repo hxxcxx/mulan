@@ -36,12 +36,7 @@ namespace mulan::engine {
 // 后端类型
 // ============================================================
 
-enum class GraphicsBackend : uint8_t {
-    OpenGL,
-    Vulkan,
-    D3D12,
-    D3D11,
-};
+enum class GraphicsBackend : uint8_t { OpenGL, Vulkan, D3D11, D3D12 };
 
 // ============================================================
 // 设备能力信息（后端初始化后填充）
@@ -75,7 +70,6 @@ struct DeviceCreateInfo {
 // RHI 设备基类
 //
 // 所有 GPU 资源的工厂 + 帧循环管理。
-// 后端实现继承此类，UI 层只依赖此接口。
 //
 // 资源所有权约定：
 //   createXxx() 返回 std::unique_ptr<X>，所有权转移给调用方。
