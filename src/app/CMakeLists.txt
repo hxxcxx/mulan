@@ -224,11 +224,20 @@ endif()
 if(MULAN_ENABLE_RUNTIME_DEPLOY_TARGET)
     set(MULAN_RUNTIME_DEPLOY_DEPENDS)
 
+    if(TARGET modeling_occt)
+        list(APPEND MULAN_RUNTIME_DEPLOY_DEPENDS modeling_occt)
+    endif()
+    if(TARGET modeling_truck)
+        list(APPEND MULAN_RUNTIME_DEPLOY_DEPENDS modeling_truck)
+    endif()
+
     mulan_add_copy_files_target(${PROJECT_NAME}_deploy_runtime_files
         DESTINATION "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
         DEPENDS ${PROJECT_NAME}
-        FILES ${MULAN_RUNTIME_DLL_FILES}
-        COMMENT "Deploying OCCT runtime DLLs..."
+        FILES
+            $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}>
+            ${MULAN_RUNTIME_DLL_FILES}
+        COMMENT "Deploying linked and OCCT runtime DLLs..."
     )
     list(APPEND MULAN_RUNTIME_DEPLOY_DEPENDS ${PROJECT_NAME}_deploy_runtime_files)
 
