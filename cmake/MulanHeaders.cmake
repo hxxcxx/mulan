@@ -9,6 +9,9 @@ function(mulan_copy_public_headers target module)
         "${CMAKE_CURRENT_SOURCE_DIR}/*.hxx"
     )
 
+    # 排除 detail/ 子目录：内部实现头不对外暴露。
+    list(FILTER public_headers EXCLUDE REGEX "/detail/")
+
     set(generated_headers)
     foreach(header IN LISTS public_headers)
         file(RELATIVE_PATH relative_header "${CMAKE_CURRENT_SOURCE_DIR}" "${header}")

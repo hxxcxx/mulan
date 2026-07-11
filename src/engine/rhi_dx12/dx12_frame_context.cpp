@@ -1,4 +1,4 @@
-#include "dx12_frame_context.h"
+#include "detail/dx12_frame_context.h"
 
 namespace mulan::engine {
 

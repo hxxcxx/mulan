@@ -1,7 +1,7 @@
-#include "dx12_upload_context.h"
-#include "dx12_buffer.h"
-#include "dx12_texture.h"
-#include "dx12_convert.h"
+#include "detail/dx12_upload_context.h"
+#include "detail/dx12_buffer.h"
+#include "detail/dx12_texture.h"
+#include "detail/dx12_convert.h"
 
 namespace mulan::engine {
 

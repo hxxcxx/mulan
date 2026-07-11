@@ -1,4 +1,4 @@
-#include "dx12_shader.h"
+#include "detail/dx12_shader.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"

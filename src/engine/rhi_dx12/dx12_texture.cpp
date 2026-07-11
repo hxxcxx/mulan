@@ -1,5 +1,5 @@
-#include "dx12_texture.h"
-#include "dx12_convert.h"
+#include "detail/dx12_texture.h"
+#include "detail/dx12_convert.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"

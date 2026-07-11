@@ -1,4 +1,4 @@
-#include "dx12_bind_group.h"
+#include "detail/dx12_bind_group.h"
 #include "../rhi/buffer.h"
 #include "../rhi/texture.h"
 #include "../rhi/sampler.h"

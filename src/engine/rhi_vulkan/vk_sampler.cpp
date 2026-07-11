@@ -1,5 +1,5 @@
-#include "vk_sampler.h"
-#include "vk_convert.h"
+#include "detail/vk_sampler.h"
+#include "detail/vk_convert.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"

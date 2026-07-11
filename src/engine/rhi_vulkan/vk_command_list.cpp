@@ -1,9 +1,9 @@
-#include "vk_command_list.h"
-#include "vk_texture.h"
-#include "vk_sampler.h"
-#include "vk_descriptor_allocator.h"
-#include "vk_device.h"
-#include "vk_bind_group.h"
+#include "detail/vk_command_list.h"
+#include "detail/vk_texture.h"
+#include "detail/vk_sampler.h"
+#include "detail/vk_descriptor_allocator.h"
+#include "detail/vk_device.h"
+#include "detail/vk_bind_group.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"

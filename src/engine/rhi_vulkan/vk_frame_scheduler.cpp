@@ -1,6 +1,6 @@
-#include "vk_frame_scheduler.h"
+#include "detail/vk_frame_scheduler.h"
 
-#include "vk_swap_chain.h"
+#include "detail/vk_swap_chain.h"
 #include <mulan/core/result/error.h>
 
 namespace mulan::engine {

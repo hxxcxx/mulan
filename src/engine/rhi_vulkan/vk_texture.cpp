@@ -1,4 +1,4 @@
-#include "vk_texture.h"
+#include "detail/vk_texture.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"

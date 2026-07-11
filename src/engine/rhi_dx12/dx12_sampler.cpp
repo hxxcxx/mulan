@@ -1,5 +1,5 @@
-#include "dx12_sampler.h"
-#include "dx12_descriptor_allocator.h"
+#include "detail/dx12_sampler.h"
+#include "detail/dx12_descriptor_allocator.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"

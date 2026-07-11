@@ -1,7 +1,7 @@
 // VMA 实现（必须在 #include <vk_mem_alloc.h> 之前）
 #define VMA_IMPLEMENTATION
 
-#include "vk_device.h"
+#include "detail/vk_device.h"
 
 // Vulkan-Hpp 动态 dispatch 存储（必须在 #include <vulkan/vulkan.hpp> 之后）
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
@@ -11,9 +11,9 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 #include <string>
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"
-#include "vk_debug_name.h"
-#include "vk_bind_group.h"
-#include "vk_compute_pipeline.h"
+#include "detail/vk_debug_name.h"
+#include "detail/vk_bind_group.h"
+#include "detail/vk_compute_pipeline.h"
 
 namespace mulan::engine {
 

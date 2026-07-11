@@ -1,6 +1,6 @@
-#include "dx12_swap_chain.h"
-#include "dx12_command_list.h"
-#include "dx12_convert.h"
+#include "detail/dx12_swap_chain.h"
+#include "detail/dx12_command_list.h"
+#include "detail/dx12_convert.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"

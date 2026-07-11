@@ -5,7 +5,7 @@
  * @date 2026-07-11
  */
 #include "../rhi/device_factory.h"
-#include "dx12_device.h"
+#include "detail/dx12_device.h"
 
 namespace mulan::engine {
 

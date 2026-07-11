@@ -5,7 +5,7 @@
  * @date 2026-07-11
  */
 #include "../rhi/device_factory.h"
-#include "vk_device.h"
+#include "detail/vk_device.h"
 
 namespace mulan::engine {
 

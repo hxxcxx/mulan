@@ -1,4 +1,4 @@
-#include "dx12_fence.h"
+#include "detail/dx12_fence.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"

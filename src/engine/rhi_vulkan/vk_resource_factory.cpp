@@ -1,16 +1,16 @@
-#include "vk_resource_factory.h"
+#include "detail/vk_resource_factory.h"
 
-#include "vk_bind_group.h"
-#include "vk_buffer.h"
-#include "vk_compute_pipeline.h"
-#include "vk_debug_name.h"
-#include "vk_fence.h"
-#include "vk_pipeline_state.h"
-#include "vk_render_target.h"
-#include "vk_sampler.h"
-#include "vk_shader.h"
-#include "vk_texture.h"
-#include "vk_upload_context.h"
+#include "detail/vk_bind_group.h"
+#include "detail/vk_buffer.h"
+#include "detail/vk_compute_pipeline.h"
+#include "detail/vk_debug_name.h"
+#include "detail/vk_fence.h"
+#include "detail/vk_pipeline_state.h"
+#include "detail/vk_render_target.h"
+#include "detail/vk_sampler.h"
+#include "detail/vk_shader.h"
+#include "detail/vk_texture.h"
+#include "detail/vk_upload_context.h"
 
 #include <cstdio>
 #include <string>

@@ -1,5 +1,5 @@
-#include "dx12_pipeline_state.h"
-#include "dx12_shader.h"
+#include "detail/dx12_pipeline_state.h"
+#include "detail/dx12_shader.h"
 
 #include <mulan/core/result/error.h>
 #include <mulan/graphics/vertex/vertex_semantic.h>

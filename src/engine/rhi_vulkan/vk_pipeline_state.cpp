@@ -1,6 +1,6 @@
-#include "vk_pipeline_state.h"
-#include "vk_device.h"
-#include "vk_shader.h"
+#include "detail/vk_pipeline_state.h"
+#include "detail/vk_device.h"
+#include "detail/vk_shader.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"

@@ -1,7 +1,7 @@
-#include "vk_upload_context.h"
-#include "vk_buffer.h"
-#include "vk_texture.h"
-#include "vk_convert.h"
+#include "detail/vk_upload_context.h"
+#include "detail/vk_buffer.h"
+#include "detail/vk_texture.h"
+#include "detail/vk_convert.h"
 
 namespace mulan::engine {
 

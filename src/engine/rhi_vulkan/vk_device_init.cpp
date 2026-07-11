@@ -1,4 +1,4 @@
-#include "vk_device.h"
+#include "detail/vk_device.h"
 
 // VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE 和 VMA_IMPLEMENTATION
 // 由 VKDevice.cpp 提供，此文件不再重复定义。

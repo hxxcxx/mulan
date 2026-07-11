@@ -1,4 +1,4 @@
-#include "vk_descriptor_allocator.h"
+#include "detail/vk_descriptor_allocator.h"
 
 namespace mulan::engine {
 

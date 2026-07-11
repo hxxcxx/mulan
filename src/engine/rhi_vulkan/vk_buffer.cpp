@@ -1,5 +1,5 @@
-#include "vk_buffer.h"
-#include "vk_debug_name.h"
+#include "detail/vk_buffer.h"
+#include "detail/vk_debug_name.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"

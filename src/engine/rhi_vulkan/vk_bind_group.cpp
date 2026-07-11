@@ -1,4 +1,4 @@
-#include "vk_bind_group.h"
+#include "detail/vk_bind_group.h"
 #include "../rhi/buffer.h"
 #include "../rhi/texture.h"
 #include "../rhi/sampler.h"

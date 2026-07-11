@@ -1,4 +1,4 @@
-#include "dx12_descriptor_allocator.h"
+#include "detail/dx12_descriptor_allocator.h"
 
 namespace mulan::engine {
 

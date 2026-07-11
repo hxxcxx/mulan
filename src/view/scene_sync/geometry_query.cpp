@@ -6,8 +6,8 @@
  */
 #include <mulan/view/scene_sync/geometry_query.h>
 
-#include "asset_picking.h"
-#include "picking_types.h"
+#include "detail/asset_picking.h"
+#include "detail/picking_types.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/math/algo/intersect.h>

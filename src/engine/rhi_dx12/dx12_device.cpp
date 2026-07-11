@@ -1,7 +1,7 @@
-#include "dx12_device.h"
-#include "dx12_debug_name.h"
-#include "dx12_texture.h"
-#include "dx12_bind_group.h"
+#include "detail/dx12_device.h"
+#include "detail/dx12_debug_name.h"
+#include "detail/dx12_texture.h"
+#include "detail/dx12_bind_group.h"
 
 #include <cstdio>
 #include <string>

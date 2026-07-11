@@ -1,6 +1,6 @@
-#include "vk_swap_chain.h"
-#include "vk_texture.h"
-#include "vk_device.h"
+#include "detail/vk_swap_chain.h"
+#include "detail/vk_texture.h"
+#include "detail/vk_device.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"
