@@ -149,9 +149,22 @@ void GeometryDrawSharedResources::uploadSceneUBO(const DrawExecutionContext& ctx
     math::Mat4 proj = ctx.camera.projectionMatrix;
     math::Mat4 vp = clip * proj * view;
     math::Vec3 eye = ctx.camera.eyePosition;
+
     auto* dl = light_env_.primaryDirectional();
-    math::Vec3 ldir = dl ? dl->direction.normalized() : math::Vec3(-0.3, -1.0, -0.4);
-    math::Vec3 lightColor = dl ? dl->color * dl->intensity : math::Vec3(0.8);
+    math::Vec3 ldir;
+    math::Vec3 lightColor;
+    if (dl) {
+        // 模型/场景显式提供方向光时，忠实使用世界空间灯光。
+        ldir = dl->direction.normalizedOr(math::Vec3(0.0, 0.0, -1.0));
+        lightColor = dl->color * dl->intensity;
+    } else {
+        // 默认模型查看灯：相机空间左上前方的柔和方向光。它随观察方向旋转，
+        // 类似系统 3D 查看器的棚拍主光，旋转模型时不会突然进入全黑背光面。
+        const math::Vec3 viewLightDir = math::Vec3(0.35, -0.45, -0.82).normalized();
+        ldir = (math::Mat3(view).transposed() * viewLightDir).normalizedOr(math::Vec3(0.0, 0.0, -1.0));
+        lightColor = math::Vec3(0.95, 0.94, 0.92);
+    }
+
     math::Vec3 ambientColor = light_env_.ambientColor * light_env_.ambientIntensity;
     if (ambientColor.lengthSq() <= 1.0e-12) {
         ambientColor = math::Vec3(0.35);
