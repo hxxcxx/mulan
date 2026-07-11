@@ -79,7 +79,7 @@ core::Result<Shape> shapeFromAbstractSolid(AbstractShape* abstractShape, const c
 math::Vec3 normalizedDirection(const ExtrudeParams& params) {
     math::Vec3 dir = params.direction;
     if (dir.x == 0.0 && dir.y == 0.0 && dir.z == 0.0)
-        dir = params.profile.normal;
+        dir = params.profile.frame.normal;
     if (params.inward)
         dir = -dir;
     return dir;
@@ -101,7 +101,7 @@ core::Result<Shape> TruckShapeOps::extrude(const ExtrudeParams& params) {
     if (!finitePositive(params.distance))
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "extrude distance must be positive"));
 
-    const auto& points = params.profile.outer;
+    const auto& points = params.profile.outer.points;
     if (points.size() < 3)
         return std::unexpected(
                 core::Error::make(core::ErrorCode::InvalidArg, "truck extrude requires at least 3 profile points"));

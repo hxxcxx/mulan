@@ -40,23 +40,38 @@ enum class BooleanOp : uint8_t {
     Intersection,
 };
 
-/// 中立 profile 几何描述。由调用方从 asset::FaceDefinition 转换得到，
-/// 仅由纯 math 类型组成，建模层不依赖 asset。
-struct ProfileGeometry {
+/// 轮廓所在的平面坐标系。origin 为原点，x/y/normal 构成正交基。
+struct ProfileFrame {
     math::Point3 origin = math::Point3::origin();
     math::Vec3 x = math::Vec3::unitX();
     math::Vec3 y = math::Vec3::unitY();
     math::Vec3 normal = math::Vec3::unitZ();
-    std::vector<math::Point3> outer;
-    std::vector<std::vector<math::Point3>> holes;
 
-    bool hasOuterLoop() const { return outer.size() >= 3; }
+    math::Plane3 plane() const { return math::Plane3::fromPointNormal(origin, normal); }
+};
+
+/// 闭合环：世界坐标点序列。用于外环或孔环。
+struct ProfileLoop {
+    std::vector<math::Point3> points;
+
+    bool empty() const { return points.empty(); }
+    size_t size() const { return points.size(); }
+};
+
+/// 中立平面轮廓：坐标系 + 外环 + 孔环。由调用方从 asset::FaceDefinition 转换得到，
+/// 仅由纯 math 类型组成，建模层不依赖 asset。
+struct PlanarProfile {
+    ProfileFrame frame;
+    ProfileLoop outer;
+    std::vector<ProfileLoop> holes;
+
+    bool hasOuterLoop() const { return outer.points.size() >= 3; }
 };
 
 /// 拉伸参数:平面轮廓 + 方向距离。
-/// direction 为零向量时用 profile.normal;inward 反向。
+/// direction 为零向量时用 profile.frame.normal;inward 反向。
 struct ExtrudeParams {
-    ProfileGeometry profile;
+    PlanarProfile profile;
     /// 可选的精确圆轮廓。提供时后端应构造解析圆面而非使用 profile 的离散多边形。
     std::optional<math::Circle3> circleProfile;
     math::Vec3 direction{ 0.0, 0.0, 0.0 };

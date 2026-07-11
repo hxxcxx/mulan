@@ -104,7 +104,7 @@ EditorAction ExtrudeTool::finishExtrude() {
     }
 
     modeling::ExtrudeParams params{
-        .profile = asset::toProfileGeometry(profile_),
+        .profile = asset::toPlanarProfile(profile_),
         .direction = profile_.frame.normal,
         .distance = std::abs(signed_distance_),
         .inward = signed_distance_ < 0.0,

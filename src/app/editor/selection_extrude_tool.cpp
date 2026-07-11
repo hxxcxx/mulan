@@ -278,7 +278,7 @@ EditorAction SelectionExtrudeTool::commit() {
     }
 
     modeling::ExtrudeParams params{
-        .profile = asset::toProfileGeometry(*profile_),
+        .profile = asset::toPlanarProfile(*profile_),
         .circleProfile = circle_profile_,
         .direction = profile_->frame.normal,
         .distance = std::abs(signed_distance_),

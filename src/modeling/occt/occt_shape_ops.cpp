@@ -55,10 +55,10 @@ core::Result<Shape> OccShapeOps::extrude(const ExtrudeParams& params) {
     if (params.distance <= 0.0)
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "extrude distance must be positive"));
 
-    // 方向:零向量用 profile.normal。
+    // 方向:零向量用 profile.frame.normal。
     math::Vec3 dir = params.direction;
     if (dir.x == 0.0 && dir.y == 0.0 && dir.z == 0.0)
-        dir = params.circleProfile ? params.circleProfile->normal : params.profile.normal;
+        dir = params.circleProfile ? params.circleProfile->normal : params.profile.frame.normal;
     if (params.inward)
         dir = -dir;
 
@@ -78,7 +78,7 @@ core::Result<Shape> OccShapeOps::extrude(const ExtrudeParams& params) {
             }
             face = faceMaker.Face();
         } else {
-            BRepBuilderAPI_MakeFace faceMaker(loopToWire(params.profile.outer));
+            BRepBuilderAPI_MakeFace faceMaker(loopToWire(params.profile.outer.points));
             if (!faceMaker.IsDone()) {
                 return std::unexpected(core::Error::make(core::ErrorCode::Internal, "extrude: failed to build face"));
             }

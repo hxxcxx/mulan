@@ -69,8 +69,8 @@ std::vector<math::Point3> cleanFaceLoop(std::span<const math::Point3> points);
 FaceLoopValidation validateFaceLoop(const FacePlaneFrame& frame, std::span<const math::Point3> points);
 double signedFaceLoopArea(const FacePlaneFrame& frame, std::span<const math::Point3> points);
 
-/// 将 FaceDefinition 转换为建模层的中立 profile 几何，断开 modeling→asset 反向依赖。
-modeling::ProfileGeometry toProfileGeometry(const FaceDefinition& face);
+/// 将 FaceDefinition 转换为建模层的中立平面轮廓，断开 modeling→asset 反向依赖。
+modeling::PlanarProfile toPlanarProfile(const FaceDefinition& face);
 
 graphics::Mesh buildFaceSolidMesh(const FaceDefinition& face);
 graphics::Mesh buildFaceWireMesh(const FaceDefinition& face);
