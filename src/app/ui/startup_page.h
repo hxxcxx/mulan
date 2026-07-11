@@ -6,6 +6,7 @@
 class QGridLayout;
 class QIcon;
 class QLabel;
+class QSize;
 
 class StartupPage final : public QWidget {
     Q_OBJECT
@@ -33,10 +34,11 @@ private:
     void saveRecentFiles() const;
     void rebuildItems();
     void activateRecentFile(const QString& filePath);
-    QIcon recentFileIcon(const RecentFileEntry& entry) const;
+    QIcon recentFileIcon(const RecentFileEntry& entry, const QSize& size) const;
     QString recentFileTooltip(const RecentFileEntry& entry) const;
     static QString normalizedPath(const QString& filePath);
 
+    QWidget* content_ = nullptr;
     QWidget* recent_tiles_ = nullptr;
     QGridLayout* recent_tiles_layout_ = nullptr;
     QLabel* empty_state_ = nullptr;

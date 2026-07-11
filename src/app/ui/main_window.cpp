@@ -1,4 +1,5 @@
 #include "main_window.h"
+#include "recent_thumbnail_spec.h"
 #include "document_area.h"
 #include "doc_widget.h"
 #include "document/document_session.h"
@@ -567,7 +568,7 @@ void MainWindow::scheduleRecentThumbnailCapture(DocWidget* docWidget, const QStr
             return;
 
         mulan::view::ViewContext thumbnailContext;
-        if (!thumbnailContext.initOffscreen(640, 360))
+        if (!thumbnailContext.initOffscreen(recent_thumbnail::kCaptureWidth, recent_thumbnail::kCaptureHeight))
             return;
 
         DocumentViewBinding thumbnailBinding;
@@ -575,8 +576,8 @@ void MainWindow::scheduleRecentThumbnailCapture(DocWidget* docWidget, const QStr
 
         mulan::view::CaptureRequest request;
         request.name = "recent-thumbnail";
-        request.desc.width = 640;
-        request.desc.height = 360;
+        request.desc.width = recent_thumbnail::kCaptureWidth;
+        request.desc.height = recent_thumbnail::kCaptureHeight;
         request.desc.format = mulan::engine::TextureFormat::RGBA8_UNorm;
         request.desc.readback = true;
         request.camera = thumbnailContext.camera();

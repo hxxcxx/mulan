@@ -55,13 +55,39 @@ QToolButton[uiRole="recentFile"] {
     text-align: center;
 }
 
-QToolButton[uiRole="recentFile"]:hover {
+QToolButton[uiRole="recentFile"]:hover,
+QToolButton[uiRole="recentFeatured"]:hover {
     background: transparent;
     color: #497CAD;
 }
 
+QToolButton[uiRole="recentFeatured"] {
+    background: transparent;
+    border: none;
+    color: palette(text);
+    padding: 0;
+    text-align: left;
+}
+
 #startupPage,
 #startupContent { background: palette(window); }
+
+#startupContent {
+    border: none;
+}
+
+#startupLaunchPanel {
+    background: transparent;
+    border: none;
+}
+
+#startupDivider { color: rgba(91, 111, 160, 52); }
+
+#startupSectionEyebrow {
+    color: palette(mid);
+    font-size: 11px;
+    font-weight: 600;
+}
 
 #startupTitle {
     color: palette(window-text);
@@ -84,9 +110,9 @@ QToolButton[uiRole="recentFile"]:hover {
 #emptyState { background: transparent; }
 
 QToolButton[uiRole="startupAction"] {
-    background: palette(button);
-    border: 1px solid palette(mid);
-    border-radius: 6px;
+    background: palette(base);
+    border: 1px solid rgba(91, 111, 160, 65);
+    border-radius: 9px;
     color: palette(button-text);
     font-size: 13px;
     padding: 10px 16px;

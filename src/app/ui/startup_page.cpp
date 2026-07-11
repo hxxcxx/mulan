@@ -1,4 +1,5 @@
 #include "startup_page.h"
+#include "recent_thumbnail_spec.h"
 
 #include <QFileInfo>
 #include <QDir>
@@ -8,15 +9,23 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QPixmap>
+#include <QFrame>
 #include <QSettings>
 #include <QToolButton>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <utility>
 
 namespace {
 
 constexpr int kMaximumRecentFiles = 10;
+constexpr int kContentMaximumWidth = 1420;
+constexpr int kContentHorizontalMargin = 32;
+constexpr int kRecentTileWidth = recent_thumbnail::kDisplayWidth;
+constexpr int kRecentThumbnailHeight = recent_thumbnail::kDisplayHeight;
+constexpr int kRecentTileHeight = 160;
+constexpr int kRecentTileSpacing = 12;
 constexpr auto kSettingsOrganization = "mulan";
 constexpr auto kSettingsApplication = "MuLan";
 
@@ -32,6 +41,15 @@ QString readableFileSize(qint64 bytes) {
                        : QStringLiteral("%1 %2").arg(value, 0, 'f', value < 10.0 ? 1 : 0).arg(suffixes[suffix]);
 }
 
+QPixmap cropRecentThumbnail(const QPixmap& source, const QSize& targetSize) {
+    if (source.isNull())
+        return {};
+    const QPixmap scaled = source.scaled(targetSize, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+    const int x = std::max(0, (scaled.width() - targetSize.width()) / 2);
+    const int y = std::max(0, (scaled.height() - targetSize.height()) / 2);
+    return scaled.copy(x, y, targetSize.width(), targetSize.height());
+}
+
 }  // namespace
 
 StartupPage::StartupPage(QWidget* parent) : QWidget(parent) {
@@ -41,81 +59,86 @@ StartupPage::StartupPage(QWidget* parent) : QWidget(parent) {
     auto* pageLayout = new QHBoxLayout(this);
     pageLayout->setContentsMargins(0, 0, 0, 0);
 
-    auto* content = new QWidget(this);
-    content->setObjectName("startupContent");
-    content->setMaximumWidth(1280);
-    auto* layout = new QVBoxLayout(content);
-    layout->setContentsMargins(44, 34, 44, 30);
-    layout->setSpacing(0);
+    content_ = new QWidget(this);
+    content_->setObjectName("startupContent");
+    content_->setMaximumWidth(kContentMaximumWidth);
+    auto* layout = new QHBoxLayout(content_);
+    layout->setContentsMargins(kContentHorizontalMargin, 28, kContentHorizontalMargin, 28);
+    layout->setSpacing(28);
 
-    auto* brandRow = new QHBoxLayout();
-    brandRow->setSpacing(18);
-    auto* logo = new QLabel(content);
-    logo->setFixedSize(72, 72);
-    logo->setAlignment(Qt::AlignCenter);
+    auto* launchPanel = new QWidget(content_);
+    launchPanel->setObjectName("startupLaunchPanel");
+    launchPanel->setFixedWidth(300);
+    auto* launchLayout = new QVBoxLayout(launchPanel);
+    launchLayout->setContentsMargins(28, 18, 28, 20);
+    launchLayout->setSpacing(0);
+
+    auto* logo = new QLabel(content_);
+    logo->setFixedSize(82, 82);
+    logo->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     logo->setPixmap(
-            QPixmap(":/app/branding/app-icon.png").scaled(68, 68, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    brandRow->addWidget(logo);
-
-    auto* brandText = new QVBoxLayout();
-    brandText->setSpacing(3);
-    auto* title = new QLabel(tr("MuLan"), content);
+            QPixmap(":/app/branding/app-icon.png").scaled(78, 78, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    auto* title = new QLabel(tr("MuLan"), content_);
     title->setObjectName("startupTitle");
-    auto* subtitle = new QLabel(tr("Geometry modeling and visualization"), content);
+    auto* subtitle = new QLabel(tr("Geometry modeling and visualization"), content_);
     subtitle->setObjectName("startupSubtitle");
-    brandText->addStretch();
-    brandText->addWidget(title);
-    brandText->addWidget(subtitle);
-    brandText->addStretch();
-    brandRow->addLayout(brandText);
-    brandRow->addStretch();
-    layout->addLayout(brandRow);
-    layout->addSpacing(30);
+    subtitle->setWordWrap(true);
+    launchLayout->addWidget(logo);
+    launchLayout->addSpacing(16);
+    launchLayout->addWidget(title);
+    launchLayout->addSpacing(4);
+    launchLayout->addWidget(subtitle);
+    launchLayout->addSpacing(64);
 
-    auto* actionTitle = new QLabel(tr("Start"), content);
-    actionTitle->setObjectName("sectionTitle");
-    layout->addWidget(actionTitle);
-    layout->addSpacing(12);
+    auto* actionTitle = new QLabel(tr("START"), content_);
+    actionTitle->setObjectName("startupSectionEyebrow");
+    launchLayout->addWidget(actionTitle);
+    launchLayout->addSpacing(12);
 
-    auto* actionRow = new QHBoxLayout();
-    actionRow->setSpacing(12);
-    auto makeActionButton = [content](const QString& text, const QString& iconPath) {
-        auto* button = new QToolButton(content);
+    auto makeActionButton = [this](const QString& text, const QString& iconPath) {
+        auto* button = new QToolButton(content_);
         button->setText(text);
         button->setIcon(QIcon(iconPath));
         button->setProperty("uiRole", "startupAction");
-        button->setIconSize(QSize(28, 28));
+        button->setIconSize(QSize(34, 34));
         button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-        button->setFixedSize(180, 52);
+        button->setFixedSize(244, 72);
         return button;
     };
     auto* newButton = makeActionButton(tr("New document"), ":/app/icons/icon/file-new.svg");
     auto* openButton = makeActionButton(tr("Open files"), ":/app/icons/icon/file-open.svg");
     connect(newButton, &QToolButton::clicked, this, &StartupPage::newDocumentRequested);
     connect(openButton, &QToolButton::clicked, this, &StartupPage::openDocumentRequested);
-    actionRow->addWidget(newButton);
-    actionRow->addWidget(openButton);
-    actionRow->addStretch();
-    layout->addLayout(actionRow);
-    layout->addSpacing(28);
+    launchLayout->addWidget(newButton);
+    launchLayout->addSpacing(14);
+    launchLayout->addWidget(openButton);
+    launchLayout->addStretch();
+    layout->addWidget(launchPanel);
 
-    auto* recentTitle = new QLabel(tr("Recent files"), content);
+    auto* divider = new QFrame(content_);
+    divider->setObjectName("startupDivider");
+    divider->setFrameShape(QFrame::VLine);
+    divider->setFixedHeight(640);
+    layout->addWidget(divider, 0, Qt::AlignTop);
+
+    auto* galleryPanel = new QWidget(content_);
+    auto* galleryLayout = new QVBoxLayout(galleryPanel);
+    galleryLayout->setContentsMargins(0, 18, 0, 0);
+    galleryLayout->setSpacing(14);
+
+    auto* recentTitle = new QLabel(tr("Recent files"), content_);
     recentTitle->setObjectName("sectionTitle");
-    layout->addWidget(recentTitle);
-    layout->addSpacing(12);
+    galleryLayout->addWidget(recentTitle);
 
-    recent_tiles_ = new QWidget(content);
+    recent_tiles_ = new QWidget(content_);
     recent_tiles_->setObjectName("recentFileTiles");
     recent_tiles_layout_ = new QGridLayout(recent_tiles_);
     recent_tiles_layout_->setContentsMargins(0, 0, 0, 0);
-    recent_tiles_layout_->setHorizontalSpacing(12);
+    recent_tiles_layout_->setHorizontalSpacing(kRecentTileSpacing);
     recent_tiles_layout_->setVerticalSpacing(16);
     recent_tiles_layout_->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-    // Keep the first two recent-file columns exactly aligned with the two
-    // 180px start actions above (with the same 12px gutter).
-    recent_tiles_layout_->setColumnMinimumWidth(0, 180);
-    recent_tiles_layout_->setColumnMinimumWidth(1, 180);
-    layout->addWidget(recent_tiles_, 1);
+    galleryLayout->addWidget(recent_tiles_, 1);
+    layout->addWidget(galleryPanel, 1);
 
     empty_state_ = new QLabel(tr("No recent files yet. Open a model to see it here."), recent_tiles_);
     empty_state_->setObjectName("emptyState");
@@ -123,7 +146,7 @@ StartupPage::StartupPage(QWidget* parent) : QWidget(parent) {
     empty_state_->setAttribute(Qt::WA_TransparentForMouseEvents);
 
     pageLayout->addStretch();
-    pageLayout->addWidget(content, 1);
+    pageLayout->addWidget(content_, 1);
     pageLayout->addStretch();
 
     loadRecentFiles();
@@ -222,11 +245,11 @@ void StartupPage::saveRecentFiles() const {
     settings.sync();
 }
 
-QIcon StartupPage::recentFileIcon(const RecentFileEntry& entry) const {
+QIcon StartupPage::recentFileIcon(const RecentFileEntry& entry, const QSize& size) const {
     if (!entry.thumbnailPath.isEmpty() && QFileInfo::exists(entry.thumbnailPath)) {
         const QPixmap thumbnail(entry.thumbnailPath);
         if (!thumbnail.isNull())
-            return QIcon(thumbnail);
+            return QIcon(cropRecentThumbnail(thumbnail, size));
     }
     // TODO: 离屏渲染完成后由 setRecentThumbnail() 回填；当前按文件类型显示占位图。
     const QString suffix = QFileInfo(entry.path).suffix().toLower();
@@ -256,21 +279,27 @@ void StartupPage::rebuildItems() {
 
     empty_state_->hide();
 
-    constexpr int kRecentColumns = 4;
     for (int index = 0; index < recent_files_.size(); ++index) {
         const RecentFileEntry& entry = recent_files_[index];
         const QFileInfo info(entry.path);
         auto* tile = new QToolButton(recent_tiles_);
-        tile->setProperty("uiRole", "recentFile");
+        const bool featured = index == 0;
+        tile->setProperty("uiRole", featured ? "recentFeatured" : "recentFile");
         tile->setAutoRaise(true);
-        tile->setFixedSize(180, 132);
+        const QSize imageSize = featured ? QSize(360, 300) : QSize(kRecentTileWidth, kRecentThumbnailHeight);
+        tile->setFixedSize(featured ? QSize(360, 331) : QSize(kRecentTileWidth, kRecentTileHeight));
         tile->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-        tile->setIcon(recentFileIcon(entry));
-        tile->setIconSize(QSize(180, 101));
+        tile->setIcon(recentFileIcon(entry, imageSize));
+        tile->setIconSize(imageSize);
         tile->setText(info.fileName());
         tile->setToolTip(recentFileTooltip(entry));
         connect(tile, &QToolButton::clicked, this, [this, path = entry.path]() { activateRecentFile(path); });
-        recent_tiles_layout_->addWidget(tile, index / kRecentColumns, index % kRecentColumns);
+        if (featured) {
+            recent_tiles_layout_->addWidget(tile, 0, 0, 3, 1, Qt::AlignTop);
+        } else {
+            const int compactIndex = index - 1;
+            recent_tiles_layout_->addWidget(tile, compactIndex / 3, 1 + compactIndex % 3, Qt::AlignTop);
+        }
     }
 
     if (recent_files_.isEmpty()) {
