@@ -1,7 +1,7 @@
 #include "editor_preview_controller.h"
 
-#include <mulan/view/preview_layer.h>
-#include <mulan/view/view_context.h>
+#include <mulan/view/core/preview_layer.h>
+#include <mulan/view/core/view_context.h>
 
 namespace mulan::app {
 

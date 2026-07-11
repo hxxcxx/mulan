@@ -10,7 +10,7 @@
 
 #include <SARibbon.h>
 #include <mulan/io/file_manager.h>
-#include <mulan/view/view_state.h>
+#include <mulan/view/core/view_state.h>
 
 #include <string>
 #include <string_view>

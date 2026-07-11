@@ -7,7 +7,7 @@
 #pragma once
 
 #include <mulan/rhi/window.h>
-#include <mulan/view/view_config.h>
+#include <mulan/view/core/view_config.h>
 #include <QColor>
 #include <QSettings>
 #include <QString>

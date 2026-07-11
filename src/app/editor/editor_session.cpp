@@ -16,7 +16,7 @@
 #include "ui/document_view_binding.h"
 
 #include <mulan/math/math.h>
-#include <mulan/view/view_context.h>
+#include <mulan/view/core/view_context.h>
 
 #include <algorithm>
 #include <optional>

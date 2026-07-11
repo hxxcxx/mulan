@@ -2,7 +2,7 @@
 
 #include "document_session.h"
 
-#include <mulan/view/view_context.h>
+#include <mulan/view/core/view_context.h>
 
 namespace mulan::app {
 

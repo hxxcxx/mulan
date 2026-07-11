@@ -1,23 +1,23 @@
 # View - 消费 RenderScene 的视图运行时
 add_library(view STATIC
-    capture_batch.cpp
-    capture_image_encoder.cpp
-    capture_request.cpp
-    capture_service.cpp
-    preview_layer.cpp
-    view_context.cpp
-    render_queue.cpp
-    render_runtime.cpp
-    render_runtime_host.cpp
-    render_surface.cpp
-    render_thread.cpp
-    threaded_render_runtime.cpp
-    render_item_builder.cpp
-    render_submission_builder.cpp
-    renderer.cpp
-    render_world_sync.cpp
-    geometry_query.cpp
-    render_scene.cpp
+    core/view_context.cpp
+    core/preview_layer.cpp
+    capture/capture_batch.cpp
+    capture/capture_image_encoder.cpp
+    capture/capture_request.cpp
+    capture/capture_service.cpp
+    runtime/render_queue.cpp
+    runtime/render_runtime.cpp
+    runtime/render_runtime_host.cpp
+    runtime/render_thread.cpp
+    runtime/threaded_render_runtime.cpp
+    scene_sync/render_item_builder.cpp
+    scene_sync/render_submission_builder.cpp
+    scene_sync/renderer.cpp
+    scene_sync/render_world_sync.cpp
+    scene_sync/geometry_query.cpp
+    scene_sync/render_scene.cpp
+    scene_sync/render_surface.cpp
 )
 
 mulan_copy_public_headers(view view)
@@ -26,7 +26,6 @@ target_link_libraries(view PUBLIC
     render
     interaction
     rhi
-    platform
     asset
     scene
 )

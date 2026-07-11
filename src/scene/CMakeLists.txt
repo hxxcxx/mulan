@@ -5,7 +5,7 @@ add_library(scene STATIC
 
 mulan_copy_public_headers(scene scene)
 
-target_link_libraries(scene PUBLIC asset graphics math)
+target_link_libraries(scene PUBLIC asset math)
 
 target_precompile_headers(scene PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/pch.h

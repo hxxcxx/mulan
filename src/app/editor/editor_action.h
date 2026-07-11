@@ -9,7 +9,7 @@
 #include "document_operation.h"
 #include "draft_geometry.h"
 
-#include <mulan/view/preview_layer.h>
+#include <mulan/view/core/preview_layer.h>
 
 #include <optional>
 #include <vector>

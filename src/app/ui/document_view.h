@@ -12,8 +12,8 @@
 #include "editor/editor_session.h"
 
 #include <mulan/interaction/input_event.h>
-#include <mulan/view/view_config.h>
-#include <mulan/view/view_context.h>
+#include <mulan/view/core/view_config.h>
+#include <mulan/view/core/view_context.h>
 
 class DocumentSession;
 

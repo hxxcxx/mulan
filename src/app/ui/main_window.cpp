@@ -9,8 +9,8 @@
 #include <mulan/io/file_manager.h>
 #include <mulan/io/import_result.h>
 #include <mulan/core/log/log.h>
-#include <mulan/view/capture_image_encoder.h>
-#include <mulan/view/view_context.h>
+#include <mulan/view/capture/capture_image_encoder.h>
+#include <mulan/view/core/view_context.h>
 
 #include <QFileDialog>
 #include <QStatusBar>

@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <mulan/view/render_scene.h>
+#include <mulan/view/scene_sync/render_scene.h>
 
 #include <span>
 

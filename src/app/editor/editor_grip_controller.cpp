@@ -5,7 +5,7 @@
 #include "ui/document_session.h"
 
 #include <mulan/io/document.h>
-#include <mulan/view/view_context.h>
+#include <mulan/view/core/view_context.h>
 
 #include <cmath>
 #include <utility>
