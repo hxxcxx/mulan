@@ -7,7 +7,7 @@
         {
             "label": "CMake: Configure",
             "type": "shell",
-            "command": "cmake --preset debug",
+            "command": "cmake --preset msvc",
             "group": "build",
             "problemMatcher": []
         },

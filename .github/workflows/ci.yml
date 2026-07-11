@@ -98,22 +98,15 @@ jobs:
       - name: Cache vcpkg installed packages
         uses: actions/cache@v4
         with:
-          path: build/vcpkg_installed
+          path: build/msvc/vcpkg_installed
           key: vcpkg-installed-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
 
       # ── Configure & Build ──
       - name: Configure CMake
-        shell: pwsh
-        run: |
-          cmake -S . -B build `
-            -G "Visual Studio 17 2022" -A x64 `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
-            -DOCCT_ROOT="$env:OCCT_ROOT" `
-            -DOCCT_3RDPARTY_DIR="$env:OCCT_3RDPARTY_DIR" `
-            -DCMAKE_PREFIX_PATH="$env:Qt6_DIR"
+        run: cmake --preset msvc
 
       - name: Build
-        run: cmake --build build --config ${{ env.BUILD_TYPE }} -- /maxcpucount
+        run: cmake --build --preset release -- /maxcpucount
 
       - name: Test
-        run: ctest --test-dir build -C ${{ env.BUILD_TYPE }} --output-on-failure
+        run: ctest --test-dir build/msvc -C ${{ env.BUILD_TYPE }} --output-on-failure

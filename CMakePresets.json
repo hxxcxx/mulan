@@ -3,51 +3,46 @@
     "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
     "configurePresets": [
         {
-            "name": "base",
-            "hidden": true,
+            "name": "msvc",
+            "displayName": "MSVC x64",
+            "generator": "Visual Studio 17 2022",
+            "architecture": "x64",
+            "binaryDir": "${sourceDir}/build/msvc",
             "toolchainFile": "$penv{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_PREFIX_PATH": {
                     "type": "PATH",
                     "value": "$penv{QTDIR}"
                 },
-                "OCCT_ROOT": "$penv{OCCT_ROOT}",
-                "OCCT_3RDPARTY_DIR": "$penv{OCCT_3RDPARTY_DIR}"
+                "Qt6_DIR": {
+                    "type": "PATH",
+                    "value": "$penv{Qt6_DIR}"
+                },
+                "OCCT_ROOT": {
+                    "type": "PATH",
+                    "value": "$penv{OCCT_ROOT}"
+                },
+                "OCCT_3RDPARTY_DIR": {
+                    "type": "PATH",
+                    "value": "$penv{OCCT_3RDPARTY_DIR}"
+                }
             }
-        },
-        {
-            "name": "debug",
-            "displayName": "Debug (MSVC x64)",
-            "inherits": "base",
-            "binaryDir": "${sourceDir}/build"
-        },
-        {
-            "name": "release",
-            "displayName": "Release (MSVC x64)",
-            "inherits": "base",
-            "binaryDir": "${sourceDir}/build"
-        },
-        {
-            "name": "relwithdebinfo",
-            "displayName": "RelWithDebInfo (MSVC x64)",
-            "inherits": "base",
-            "binaryDir": "${sourceDir}/build"
         }
     ],
     "buildPresets": [
         {
             "name": "debug",
-            "configurePreset": "debug",
+            "configurePreset": "msvc",
             "configuration": "Debug"
         },
         {
             "name": "release",
-            "configurePreset": "release",
+            "configurePreset": "msvc",
             "configuration": "Release"
         },
         {
             "name": "relwithdebinfo",
-            "configurePreset": "relwithdebinfo",
+            "configurePreset": "msvc",
             "configuration": "RelWithDebInfo"
         }
     ]
