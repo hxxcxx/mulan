@@ -142,6 +142,8 @@ void ParsedSceneLoader::loadMaterials(const ParsedScene& scene) {
         material->setMetallicRoughnessTextureSrgb(desc.metallicRoughnessTextureSrgb);
         material->setEmissiveTexture(textureAssetId(desc.emissiveTexture));
         material->setEmissiveTextureSrgb(desc.emissiveTextureSrgb);
+        material->setEmissiveFactor(desc.emissiveFactor);
+        material->setEmissiveStrength(desc.emissiveStrength);
         material->setOcclusionTexture(textureAssetId(desc.occlusionTexture));
         material->setOcclusionTextureSrgb(desc.occlusionTextureSrgb);
         material->setAlphaMode(desc.alphaMode);

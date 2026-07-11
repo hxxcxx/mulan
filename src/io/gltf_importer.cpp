@@ -199,6 +199,7 @@ std::map<size_t, size_t> importMaterials(const Asset& gltf, ParsedScene& scene, 
             desc.occlusionTexture = resolveTexture(mat.occlusionTexture->textureIndex).parsedTextureIndex;
 
         desc.emissiveFactor = { mat.emissiveFactor[0], mat.emissiveFactor[1], mat.emissiveFactor[2] };
+        desc.emissiveStrength = static_cast<double>(mat.emissiveStrength);
         desc.alphaMode = static_cast<graphics::AlphaMode>(mat.alphaMode);
         desc.doubleSided = mat.doubleSided;
 
@@ -401,7 +402,7 @@ core::Result<ParsedScene> GltfImporter::parse(const std::string& path, const Imp
     if (!fileStream.isOpen())
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "Failed to open glTF file: " + path));
 
-    Parser parser(Extensions::KHR_lights_punctual);
+    Parser parser(Extensions::KHR_lights_punctual | Extensions::KHR_materials_emissive_strength);
     constexpr auto gltfOpts = Options::LoadExternalBuffers | Options::LoadExternalImages;
     auto assetResult = parser.loadGltf(fileStream, std::filesystem::path(path).parent_path(), gltfOpts);
     if (assetResult.error() != Error::None) {

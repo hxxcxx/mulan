@@ -64,6 +64,7 @@ struct ParsedMaterial {
     size_t occlusionTexture = SIZE_MAX;
     bool occlusionTextureSrgb = false;
     math::Vec3 emissiveFactor{ 0.0, 0.0, 0.0 };
+    double emissiveStrength = 1.0;
     graphics::AlphaMode alphaMode = graphics::AlphaMode::Opaque;
     bool doubleSided = false;
 };

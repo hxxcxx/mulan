@@ -63,6 +63,8 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
     desc.material.alpha = color.w;
     desc.material.metallic = material->metallic();
     desc.material.roughness = material->roughness();
+    desc.material.emissive = material->emissiveFactor();
+    desc.material.emissiveStrength = material->emissiveStrength();
     desc.material.alphaMode = material->alphaMode();
     desc.material.doubleSided = material->doubleSided();
     desc.baseColorTexture = textureDesc(assets, materialId, &asset::MaterialAsset::baseColorTexture,

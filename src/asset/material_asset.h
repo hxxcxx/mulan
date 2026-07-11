@@ -50,6 +50,12 @@ public:
     AssetId emissiveTexture() const { return emissive_texture_; }
     void setEmissiveTexture(AssetId texture) { emissive_texture_ = texture; }
 
+    const math::Vec3& emissiveFactor() const { return emissive_factor_; }
+    void setEmissiveFactor(const math::Vec3& factor) { emissive_factor_ = factor; }
+
+    double emissiveStrength() const { return emissive_strength_; }
+    void setEmissiveStrength(double strength) { emissive_strength_ = strength; }
+
     AssetId occlusionTexture() const { return occlusion_texture_; }
     void setOcclusionTexture(AssetId texture) { occlusion_texture_ = texture; }
 
@@ -84,6 +90,8 @@ private:
     AssetId normal_texture_ = AssetId::invalid();
     AssetId metallic_roughness_texture_ = AssetId::invalid();
     AssetId emissive_texture_ = AssetId::invalid();
+    math::Vec3 emissive_factor_{ 0.0, 0.0, 0.0 };
+    double emissive_strength_ = 1.0;
     AssetId occlusion_texture_ = AssetId::invalid();
     bool base_color_texture_srgb_ = true;
     bool normal_texture_srgb_ = false;
