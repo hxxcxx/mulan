@@ -10,8 +10,8 @@
                 "${env:WIN10_SDK_INCLUDE}/um",
                 "${env:WIN10_SDK_INCLUDE}/shared",
                 "${env:WIN10_SDK_INCLUDE}/ucrt",
-                "${workspaceFolder}/build/vcpkg_installed/x64-windows/include",
-                "${workspaceFolder}/build/include"
+                "${workspaceFolder}/build/msvc/vcpkg_installed/x64-windows/include",
+                "${workspaceFolder}/build/msvc/include"
             ],
             "defines": [
                 "_DEBUG",

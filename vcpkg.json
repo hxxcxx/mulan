@@ -1,21 +1,21 @@
 {
   "name": "mulan",
   "version": "1.0.0",
-  "builtin-baseline": "296b89248ad13be09e9324488eb4f74dd322d26c",
-    "dependencies": [
-        "vulkan",
-        "vulkan-memory-allocator",
-        {
-            "name": "directx-dxc",
-            "host": true
-        },
-        "stb",
-        "nlohmann-json",
-        "fastgltf",
-        "assimp",
-        "spdlog",
-        "freetype",
-        "tomlplusplus",
-        "gtest"
-    ]
+  "builtin-baseline": "616affa24b974b710a4fc26257e90b7fda6d6826",
+  "dependencies": [
+    "vulkan",
+    "vulkan-memory-allocator",
+    {
+      "name": "directx-dxc",
+      "host": true
+    },
+    "stb",
+    "nlohmann-json",
+    "fastgltf",
+    "assimp",
+    "spdlog",
+    "freetype",
+    "tomlplusplus",
+    "gtest"
+  ]
 }
