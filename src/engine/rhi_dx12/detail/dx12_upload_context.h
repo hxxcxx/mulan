@@ -27,7 +27,7 @@ public:
 
     /// 上传像素数据到纹理：staging 拷贝 + 资源状态转到 PIXEL_SHADER_RESOURCE。
     /// 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式。
-    void uploadTexture(DX12Texture* dst, const void* data, uint32_t width, uint32_t height, TextureFormat format);
+    void uploadTexture(DX12Texture* dst, const TextureUploadDesc& upload);
 
     /// 开始批量上传：后续 uploadBuffer/uploadTexture 只录制到同一 cmd list，不提交。
     /// 配合 flushUploadBatch() 把多个上传合并成一次提交 + 一次 GPU 同步等待，
@@ -66,7 +66,7 @@ private:
     };
 
     std::vector<StagingSlab> slabs_;
-    StagingSlab& getOrCreateSlab(uint32_t minSize);
+    StagingSlab& getOrCreateSlab(uint64_t minSize, uint32_t alignment, uint32_t& alignedOffset);
 };
 
 }  // namespace mulan::engine

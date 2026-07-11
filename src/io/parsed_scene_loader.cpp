@@ -77,17 +77,32 @@ void ParsedSceneLoader::loadTextures(const ParsedScene& scene) {
 
         std::vector<std::byte> encodedBytes = desc.data.empty() ? readBinaryFile(desc.sourcePath) : desc.data;
         std::shared_ptr<core::Image> image;
+        std::string decodeError;
+        core::ImageDecodeOptions decodeOptions;
+        decodeOptions.outputOrigin = core::ImageOrigin::TopLeft;
+        decodeOptions.channels = core::ImageChannelLayout::RGBA;
         if (!desc.data.empty()) {
-            image = core::Image::loadFromMemory(reinterpret_cast<const uint8_t*>(desc.data.data()), desc.data.size());
+            auto decoded = core::Image::loadFromMemory(std::span<const std::byte>(desc.data), decodeOptions);
+            if (decoded) {
+                image = std::move(decoded).value();
+            } else {
+                decodeError = decoded.error().message;
+            }
         } else if (!desc.sourcePath.empty()) {
-            image = core::Image::load(desc.sourcePath);
+            auto decoded = core::Image::load(desc.sourcePath, decodeOptions);
+            if (decoded) {
+                image = std::move(decoded).value();
+            } else {
+                decodeError = decoded.error().message;
+            }
         }
 
         if (image && image->valid()) {
             texture->setImage(std::move(image));
         } else if (!desc.sourcePath.empty() || !desc.data.empty()) {
             const std::string source = desc.sourcePath.empty() ? desc.name : desc.sourcePath;
-            report_.warnings.push_back("Failed to decode texture image: " + source);
+            report_.warnings.push_back("Failed to decode texture image: " + source +
+                                       (decodeError.empty() ? std::string{} : " (" + decodeError + ")"));
         }
 
         if (!encodedBytes.empty()) {

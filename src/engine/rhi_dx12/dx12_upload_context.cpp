@@ -33,15 +33,21 @@ DX12UploadContext::~DX12UploadContext() {
         CloseHandle(fence_event_);
 }
 
-DX12UploadContext::StagingSlab& DX12UploadContext::getOrCreateSlab(uint32_t minSize) {
+DX12UploadContext::StagingSlab& DX12UploadContext::getOrCreateSlab(uint64_t minSize, uint32_t alignment,
+                                                                   uint32_t& alignedOffset) {
+    if (minSize > UINT32_MAX)
+        throw std::overflow_error("DX12 staging allocation exceeds 4 GiB");
     // 在已有 slab 中找空间
     for (auto& slab : slabs_) {
-        if (slab.capacity - slab.used >= minSize)
+        const uint64_t offset = (static_cast<uint64_t>(slab.used) + alignment - 1) & ~(alignment - 1ull);
+        if (offset + minSize <= slab.capacity) {
+            alignedOffset = static_cast<uint32_t>(offset);
             return slab;
+        }
     }
 
     // 创建新 slab
-    uint32_t slabSize = (minSize > kStagingSize) ? minSize : kStagingSize;
+    uint32_t slabSize = static_cast<uint32_t>(std::max<uint64_t>(minSize, kStagingSize));
 
     StagingSlab slab;
     slab.capacity = slabSize;
@@ -71,18 +77,17 @@ DX12UploadContext::StagingSlab& DX12UploadContext::getOrCreateSlab(uint32_t minS
     slab.resource->Map(0, &range, &slab.mapped);
 
     slabs_.push_back(std::move(slab));
+    alignedOffset = 0;
     return slabs_.back();
 }
 
 void DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* data, uint32_t size, uint32_t dstOffset) {
-    auto& slab = getOrCreateSlab(size);
-    uint32_t offset = slab.used;
+    uint32_t offset = 0;
+    auto& slab = getOrCreateSlab(size, 256, offset);
 
     // 拷贝到 staging
     memcpy(static_cast<uint8_t*>(slab.mapped) + offset, data, size);
-    slab.used += size;
-    // 对齐到 256 字节（D3D12 要求）
-    slab.used = (slab.used + 255u) & ~255u;
+    slab.used = offset + size;
 
     // 非批量模式：每次提交都需 Reset 重新开录；批量模式：cmd_list 已 open，直接 Record
     if (!batch_active_) {
@@ -109,44 +114,39 @@ void DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* data, uint32_t
     dst->markUploaded();
 }
 
-void DX12UploadContext::uploadTexture(DX12Texture* dst, const void* data, uint32_t width, uint32_t height,
-                                      TextureFormat format) {
-    const uint32_t bpp = textureFormatBytesPerPixel(format);
-    if (bpp == 0 || width == 0 || height == 0)
+void DX12UploadContext::uploadTexture(DX12Texture* dst, const TextureUploadDesc& upload) {
+    const uint32_t bpp = textureFormatBytesPerPixel(upload.format);
+    const uint32_t sourceRowPitch = upload.sourceRowPitch ? upload.sourceRowPitch : upload.width * bpp;
+    if (!dst || upload.data.empty() || bpp == 0 || upload.width == 0 || upload.height == 0 ||
+        sourceRowPitch < upload.width * bpp ||
+        upload.data.size_bytes() < static_cast<size_t>(sourceRowPitch) * upload.height)
         return;
 
-    // 用 GetCopyableFootprints 计算对齐后的 row pitch 与总 staging 大小
-    D3D12_RESOURCE_DESC texDesc{};
-    texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    texDesc.Alignment = 0;
-    texDesc.Width = width;
-    texDesc.Height = height;
-    texDesc.DepthOrArraySize = 1;
-    texDesc.MipLevels = 1;
-    texDesc.Format = toDXGIFormat(format);
-    texDesc.SampleDesc.Count = 1;
-    texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    texDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+    const auto texDesc = dst->resource()->GetDesc();
+    const uint32_t subresource = upload.mipLevel + upload.arrayLayer * dst->desc().mipLevels;
+    if (upload.mipLevel >= dst->desc().mipLevels || upload.arrayLayer >= dst->desc().arraySize ||
+        upload.format != dst->desc().format || upload.width != std::max(1u, dst->desc().width >> upload.mipLevel) ||
+        upload.height != std::max(1u, dst->desc().height >> upload.mipLevel))
+        return;
 
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
     UINT numRows = 0;
     UINT64 rowSizeInBytes = 0;
     UINT64 totalSize = 0;
-    device_->GetCopyableFootprints(&texDesc, 0, 1, 0, &footprint, &numRows, &rowSizeInBytes, &totalSize);
+    device_->GetCopyableFootprints(&texDesc, subresource, 1, 0, &footprint, &numRows, &rowSizeInBytes, &totalSize);
 
     // 分配 staging（按 256 对齐 slab.used）
-    auto& slab = getOrCreateSlab(static_cast<uint32_t>(totalSize));
-    const uint32_t slabOffset = slab.used;
+    uint32_t slabOffset = 0;
+    auto& slab = getOrCreateSlab(totalSize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, slabOffset);
 
     // 逐行拷贝：源行距 = width*bpp，目标行距 = footprint.Footprint.RowPitch
-    const auto* src = static_cast<const uint8_t*>(data);
+    const auto* src = reinterpret_cast<const uint8_t*>(upload.data.data());
     auto* dstPtr = static_cast<uint8_t*>(slab.mapped) + slabOffset;
-    const uint32_t srcRowSize = width * bpp;
+    const uint32_t srcRowSize = upload.width * bpp;
     for (UINT r = 0; r < numRows; ++r) {
-        memcpy(dstPtr + r * footprint.Footprint.RowPitch, src + r * srcRowSize, srcRowSize);
+        memcpy(dstPtr + r * footprint.Footprint.RowPitch, src + r * sourceRowPitch, srcRowSize);
     }
-    slab.used += static_cast<uint32_t>(totalSize);
-    slab.used = (slab.used + 255u) & ~255u;
+    slab.used = slabOffset + static_cast<uint32_t>(totalSize);
 
     // 录制
     if (!batch_active_) {
@@ -171,7 +171,7 @@ void DX12UploadContext::uploadTexture(DX12Texture* dst, const void* data, uint32
     D3D12_TEXTURE_COPY_LOCATION dstLoc{};
     dstLoc.pResource = dst->resource();
     dstLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    dstLoc.SubresourceIndex = 0;
+    dstLoc.SubresourceIndex = subresource;
 
     cmd_list_->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
 

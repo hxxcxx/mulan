@@ -38,7 +38,7 @@ public:
 
     /// 上传像素数据到纹理：staging 拷贝 + layout 转换到 eShaderReadOnlyOptimal。
     /// 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式。
-    void uploadTexture(VKTexture* dst, const void* data, uint32_t width, uint32_t height, TextureFormat format);
+    void uploadTexture(VKTexture* dst, const TextureUploadDesc& upload);
 
     StagingSlice allocStaging(uint32_t size);
     void resetSlabs();

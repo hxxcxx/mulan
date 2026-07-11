@@ -81,9 +81,8 @@ core::Result<std::unique_ptr<BindGroup>> VKDevice::createBindGroup(const BindGro
     return resource_factory_->createBindGroup(layout, desc);
 }
 
-void VKDevice::uploadTextureData(Texture* dst, const void* data, uint32_t width, uint32_t height,
-                                 TextureFormat format) {
-    upload_context_->uploadTexture(static_cast<VKTexture*>(dst), data, width, height, format);
+void VKDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+    upload_context_->uploadTexture(static_cast<VKTexture*>(dst), upload);
 }
 
 void VKDevice::beginUploadBatch() {

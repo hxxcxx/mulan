@@ -49,28 +49,27 @@ void VKUploadContext::uploadBufferInit(VKBuffer* dst) {
     dst->markUploaded();
 }
 
-void VKUploadContext::uploadTexture(VKTexture* dst, const void* data, uint32_t width, uint32_t height,
-                                    TextureFormat format) {
-    const uint32_t bpp = textureFormatBytesPerPixel(format);
-    if (bpp == 0 || width == 0 || height == 0)
+void VKUploadContext::uploadTexture(VKTexture* dst, const TextureUploadDesc& upload) {
+    const uint32_t bpp = textureFormatBytesPerPixel(upload.format);
+    const uint32_t sourceRowPitch = upload.sourceRowPitch ? upload.sourceRowPitch : upload.width * bpp;
+    const uint64_t tightRowPitch = static_cast<uint64_t>(upload.width) * bpp;
+    const uint64_t dataSize64 = tightRowPitch * upload.height;
+    if (!dst || upload.data.empty() || bpp == 0 || upload.width == 0 || upload.height == 0 ||
+        sourceRowPitch < tightRowPitch ||
+        upload.data.size_bytes() < static_cast<size_t>(sourceRowPitch) * upload.height || dataSize64 > UINT32_MAX)
         return;
 
-    // Vulkan 要求 bufferRowLength 对齐到 4 字节；颜色格式 bpp 通常 ≥ 4，
-    // 但 R8 需显式对齐。staging 内的行距 = 对齐后的 bytesPerRow。
-    const uint32_t rowSize = width * bpp;
-    const uint32_t rowAlign = 4;
-    const uint32_t rowStride = (rowSize + rowAlign - 1) & ~(rowAlign - 1);
-    const uint32_t dataSize = rowStride * height;
+    const uint32_t rowSize = static_cast<uint32_t>(tightRowPitch);
+    const uint32_t dataSize = static_cast<uint32_t>(dataSize64);
 
     auto slice = allocStaging(dataSize);
     auto* dstPtr = static_cast<uint8_t*>(slice.mapped) + slice.offset;
-    if (rowStride == rowSize) {
-        memcpy(dstPtr, data, dataSize);
+    if (sourceRowPitch == rowSize) {
+        memcpy(dstPtr, upload.data.data(), dataSize);
     } else {
-        // 行距 > 行实际大小时逐行拷贝
-        const auto* src = static_cast<const uint8_t*>(data);
-        for (uint32_t y = 0; y < height; ++y) {
-            memcpy(dstPtr + y * rowStride, src + y * rowSize, rowSize);
+        const auto* src = reinterpret_cast<const uint8_t*>(upload.data.data());
+        for (uint32_t y = 0; y < upload.height; ++y) {
+            memcpy(dstPtr + y * rowSize, src + y * sourceRowPitch, rowSize);
         }
     }
     vmaFlushAllocation(allocator_, slice.allocation, slice.offset, dataSize);
@@ -87,11 +86,11 @@ void VKUploadContext::uploadTexture(VKTexture* dst, const void* data, uint32_t w
         b1.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         b1.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         b1.image = image;
-        b1.subresourceRange.aspectMask =
-                VKTexture::isDepthFormat(format) ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
-        b1.subresourceRange.baseMipLevel = 0;
+        b1.subresourceRange.aspectMask = VKTexture::isDepthFormat(upload.format) ? vk::ImageAspectFlagBits::eDepth
+                                                                                 : vk::ImageAspectFlagBits::eColor;
+        b1.subresourceRange.baseMipLevel = upload.mipLevel;
         b1.subresourceRange.levelCount = 1;
-        b1.subresourceRange.baseArrayLayer = 0;
+        b1.subresourceRange.baseArrayLayer = upload.arrayLayer;
         b1.subresourceRange.layerCount = 1;
         cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, {}, {},
                             nullptr, b1);
@@ -99,14 +98,14 @@ void VKUploadContext::uploadTexture(VKTexture* dst, const void* data, uint32_t w
         // buffer → image
         vk::BufferImageCopy region;
         region.bufferOffset = slice.offset;
-        region.bufferRowLength = rowStride / bpp;  // 以 texel 为单位
-        region.bufferImageHeight = height;
+        region.bufferRowLength = 0;  // staging 已紧密打包
+        region.bufferImageHeight = 0;
         region.imageSubresource.aspectMask = b1.subresourceRange.aspectMask;
-        region.imageSubresource.mipLevel = 0;
-        region.imageSubresource.baseArrayLayer = 0;
+        region.imageSubresource.mipLevel = upload.mipLevel;
+        region.imageSubresource.baseArrayLayer = upload.arrayLayer;
         region.imageSubresource.layerCount = 1;
         region.imageOffset = vk::Offset3D(0, 0, 0);
-        region.imageExtent = vk::Extent3D(width, height, 1);
+        region.imageExtent = vk::Extent3D(upload.width, upload.height, upload.depth);
         cmd.copyBufferToImage(slice.buffer, image, vk::ImageLayout::eTransferDstOptimal, 1, &region);
 
         // eTransferDstOptimal → eShaderReadOnlyOptimal

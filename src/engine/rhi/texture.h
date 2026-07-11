@@ -9,7 +9,9 @@
 
 #include "resource.h"
 
+#include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string_view>
 
 namespace mulan::engine {
@@ -110,6 +112,30 @@ constexpr uint32_t textureFormatBytesPerPixel(TextureFormat fmt) {
     default: return 0;  // 深度/压缩不支持 CPU 直接上传
     }
 }
+
+struct TextureUploadDesc {
+    std::span<const std::byte> data;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t depth = 1;
+    uint32_t sourceRowPitch = 0;
+    uint32_t sourceSlicePitch = 0;
+    uint32_t mipLevel = 0;
+    uint32_t arrayLayer = 0;
+    TextureFormat format = TextureFormat::Unknown;
+
+    static TextureUploadDesc tightlyPackedBytes(std::span<const std::byte> pixels, uint32_t width, uint32_t height,
+                                                TextureFormat format) {
+        const auto rowPitch = width * textureFormatBytesPerPixel(format);
+        return { pixels, width, height, 1, rowPitch, rowPitch * height, 0, 0, format };
+    }
+
+    template <typename T, size_t Extent>
+    static TextureUploadDesc tightlyPacked(std::span<T, Extent> pixels, uint32_t width, uint32_t height,
+                                           TextureFormat format) {
+        return tightlyPackedBytes(std::as_bytes(pixels), width, height, format);
+    }
+};
 
 // ============================================================
 // 纹理描述结构体

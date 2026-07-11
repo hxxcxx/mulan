@@ -197,8 +197,9 @@ std::unique_ptr<Texture> AssetGpuRegistry::createRHITexture(const core::Image& i
     }
 
     if (uploadImage->data() && uploadImage->totalBytes() > 0) {
-        device_.uploadTextureData(result->get(), uploadImage->data(), uploadImage->width(), uploadImage->height(),
-                                  desc.format);
+        device_.uploadTextureData(result->get(), TextureUploadDesc::tightlyPacked(
+                                                         std::span(uploadImage->data(), uploadImage->totalBytes()),
+                                                         uploadImage->width(), uploadImage->height(), desc.format));
     }
 
     // TODO: Generate the mip chain on GPU when RHIDevice exposes a portable path.

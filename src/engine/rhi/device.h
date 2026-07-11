@@ -127,8 +127,7 @@ public:
     // 把 CPU 端像素数据同步上传到 GPU 纹理，并在内部完成到 SHADER_READ 的状态转换。
     // 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式（bpp 由公共工具统一计算）。
     // 后端各自实现，经此接口避免向 render 层泄漏后端 UploadContext 类型。
-    virtual void uploadTextureData(Texture* dst, const void* data, uint32_t width, uint32_t height,
-                                   TextureFormat format) = 0;
+    virtual void uploadTextureData(Texture* dst, const TextureUploadDesc& upload) = 0;
 
     /// 批量刷新所有待上传资源（beginUpload → 所有 pending upload → flushUploadBatch）。
     /// 在批量加载大量资源后调用一次，替代每个资源单独的 submit+wait。

@@ -284,9 +284,18 @@ core::Result<std::unique_ptr<BindGroup>> GLDevice::createBindGroup(const BindGro
             makeError(EngineErrorCode::BackendNotSupported, "OpenGL bind-group objects are not implemented"));
 }
 
-void GLDevice::uploadTextureData(Texture* dst, const void* data, uint32_t, uint32_t, TextureFormat) {
-    if (auto* texture = dynamic_cast<GLTexture*>(dst))
-        texture->upload(0, data);
+void GLDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+    const uint32_t bpp = textureFormatBytesPerPixel(upload.format);
+    const uint32_t rowPitch = upload.sourceRowPitch ? upload.sourceRowPitch : upload.width * bpp;
+    if (auto* texture = dynamic_cast<GLTexture*>(dst);
+        texture && !upload.data.empty() && bpp && rowPitch % bpp == 0 &&
+        upload.data.size_bytes() >= static_cast<size_t>(rowPitch) * upload.height) {
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, static_cast<GLint>(rowPitch / bpp));
+        texture->upload(upload.mipLevel, upload.data.data());
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    }
 }
 
 void GLDevice::executeCommandLists(CommandList**, uint32_t, Fence*, uint64_t) {

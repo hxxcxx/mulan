@@ -4,6 +4,7 @@
 #include <stb_image_write.h>
 
 #include <algorithm>
+#include <limits>
 #include <utility>
 
 namespace mulan::core {
@@ -12,8 +13,8 @@ namespace mulan::core {
 // 构造
 // ============================================================
 
-Image::Image(uint32_t w, uint32_t h, PixelFormat fmt, std::vector<uint8_t> pixels)
-    : width_(w), height_(h), format_(fmt), pixels_(std::move(pixels)) {
+Image::Image(uint32_t w, uint32_t h, PixelFormat fmt, ImageOrigin origin, std::vector<uint8_t> pixels)
+    : width_(w), height_(h), format_(fmt), origin_(origin), pixels_(std::move(pixels)) {
 }
 
 // ============================================================
@@ -35,18 +36,19 @@ const uint8_t* Image::scanline(uint32_t row) const {
 // 变换
 // ============================================================
 
-void Image::flipVertically() {
+std::shared_ptr<Image> Image::convertedOrigin(ImageOrigin target) const {
     if (!valid())
-        return;
-    uint32_t rb = rowBytes();
-    std::vector<uint8_t> tmp(rb);
-    for (uint32_t top = 0, bot = height_ - 1; top < bot; ++top, --bot) {
-        uint8_t* pTop = pixels_.data() + top * rb;
-        uint8_t* pBot = pixels_.data() + bot * rb;
-        std::memcpy(tmp.data(), pTop, rb);
-        std::memcpy(pTop, pBot, rb);
-        std::memcpy(pBot, tmp.data(), rb);
+        return nullptr;
+    auto pixels = pixels_;
+    if (target != origin_) {
+        const uint32_t rb = rowBytes();
+        for (uint32_t top = 0, bottom = height_ - 1; top < bottom; ++top, --bottom) {
+            auto* topRow = pixels.data() + static_cast<size_t>(top) * rb;
+            auto* bottomRow = pixels.data() + static_cast<size_t>(bottom) * rb;
+            std::swap_ranges(topRow, topRow + rb, bottomRow);
+        }
     }
+    return createFromBuffer(width_, height_, format_, std::move(pixels), target);
 }
 
 std::shared_ptr<Image> Image::toRGBA() const {
@@ -90,7 +92,7 @@ std::shared_ptr<Image> Image::toRGBA() const {
         }
     }
 
-    return createFromBuffer(width_, height_, PixelFormat::RGBA8, std::move(rgba));
+    return createFromBuffer(width_, height_, PixelFormat::RGBA8, std::move(rgba), origin_);
 }
 
 std::vector<uint8_t> Image::detachPixels() {
@@ -154,83 +156,68 @@ bool Image::saveJPG(std::string_view path, int quality) const {
 // 工厂：从文件加载
 // ============================================================
 
-std::shared_ptr<Image> Image::load(std::string_view path) {
-    auto result = loadExpected(path);
-    return result ? *result : nullptr;
-}
-
-core::Result<std::shared_ptr<Image>> Image::loadExpected(std::string_view path) {
-    auto image = load(path, 0);
-    if (!image || !image->valid()) {
-        return std::unexpected(Error::make(ErrorCode::Io, "Failed to load image."));
+namespace {
+PixelFormat pixelFormatForChannels(int channels) {
+    switch (channels) {
+    case 1: return PixelFormat::R8;
+    case 2: return PixelFormat::RG8;
+    case 3: return PixelFormat::RGB8;
+    case 4: return PixelFormat::RGBA8;
+    default: return PixelFormat::Unknown;
     }
-    return image;
 }
 
-std::shared_ptr<Image> Image::load(std::string_view path, int forceChannels) {
+core::Result<std::shared_ptr<Image>> finishDecode(stbi_uc* raw, int width, int height, int sourceChannels,
+                                                  const ImageDecodeOptions& options) {
+    if (!raw)
+        return std::unexpected(
+                Error::make(ErrorCode::Io, stbi_failure_reason() ? stbi_failure_reason() : "Failed to decode image."));
+    const int channels =
+            options.channels == ImageChannelLayout::Preserve ? sourceChannels : static_cast<int>(options.channels);
+    const auto format = pixelFormatForChannels(channels);
+    const bool dimensionsValid = width > 0 && height > 0 && static_cast<uint32_t>(width) <= options.maxWidth &&
+                                 static_cast<uint32_t>(height) <= options.maxHeight;
+    const uint64_t byteCount =
+            dimensionsValid ? static_cast<uint64_t>(width) * static_cast<uint64_t>(height) * channels : 0;
+    if (!dimensionsValid || format == PixelFormat::Unknown || byteCount > options.maxDecodedBytes ||
+        byteCount > std::numeric_limits<size_t>::max()) {
+        stbi_image_free(raw);
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Decoded image exceeds configured limits."));
+    }
+    std::vector<uint8_t> pixels(raw, raw + static_cast<size_t>(byteCount));
+    stbi_image_free(raw);
+    auto image = Image::createFromBuffer(static_cast<uint32_t>(width), static_cast<uint32_t>(height), format,
+                                         std::move(pixels), ImageOrigin::TopLeft);
+    return options.outputOrigin == ImageOrigin::TopLeft ? image : image->convertedOrigin(options.outputOrigin);
+}
+}  // namespace
+
+core::Result<std::shared_ptr<Image>> Image::load(std::string_view path, const ImageDecodeOptions& options) {
     std::string p(path);
-    int w = 0, h = 0, ch = 0;
-    stbi_set_flip_vertically_on_load(true);
-
-    unsigned char* raw = stbi_load(p.c_str(), &w, &h, &ch, forceChannels);
-    if (!raw)
-        return nullptr;
-
-    int outCh = (forceChannels > 0) ? forceChannels : ch;
-    size_t total = static_cast<size_t>(w) * h * outCh;
-
-    PixelFormat fmt = PixelFormat::Unknown;
-    switch (outCh) {
-    case 1: fmt = PixelFormat::R8; break;
-    case 2: fmt = PixelFormat::RG8; break;
-    case 3: fmt = PixelFormat::RGB8; break;
-    case 4: fmt = PixelFormat::RGBA8; break;
-    }
-
-    std::vector<uint8_t> pixels(raw, raw + total);
-    stbi_image_free(raw);
-
-    return createFromBuffer(static_cast<uint32_t>(w), static_cast<uint32_t>(h), fmt, std::move(pixels));
+    int width = 0, height = 0, channels = 0;
+    const int requestedChannels = static_cast<int>(options.channels);
+    auto* raw = stbi_load(p.c_str(), &width, &height, &channels, requestedChannels);
+    return finishDecode(raw, width, height, channels, options);
 }
 
-std::shared_ptr<Image> Image::loadFromMemory(const uint8_t* data, size_t size) {
-    return loadFromMemory(data, size, 0);
-}
-
-std::shared_ptr<Image> Image::loadFromMemory(const uint8_t* data, size_t size, int forceChannels) {
-    if (!data || size == 0)
-        return nullptr;
-
-    int w = 0, h = 0, ch = 0;
-    stbi_set_flip_vertically_on_load(true);
-
-    unsigned char* raw = stbi_load_from_memory(data, static_cast<int>(size), &w, &h, &ch, forceChannels);
-    if (!raw)
-        return nullptr;
-
-    int outCh = (forceChannels > 0) ? forceChannels : ch;
-    size_t total = static_cast<size_t>(w) * h * outCh;
-
-    PixelFormat fmt = PixelFormat::Unknown;
-    switch (outCh) {
-    case 1: fmt = PixelFormat::R8; break;
-    case 2: fmt = PixelFormat::RG8; break;
-    case 3: fmt = PixelFormat::RGB8; break;
-    case 4: fmt = PixelFormat::RGBA8; break;
-    }
-
-    std::vector<uint8_t> pixels(raw, raw + total);
-    stbi_image_free(raw);
-
-    return createFromBuffer(static_cast<uint32_t>(w), static_cast<uint32_t>(h), fmt, std::move(pixels));
+core::Result<std::shared_ptr<Image>> Image::loadFromMemory(std::span<const std::byte> encoded,
+                                                           const ImageDecodeOptions& options) {
+    if (encoded.empty() || encoded.size() > static_cast<size_t>(std::numeric_limits<int>::max()))
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Encoded image buffer is empty or too large."));
+    int width = 0, height = 0, channels = 0;
+    const int requestedChannels = static_cast<int>(options.channels);
+    auto* raw = stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(encoded.data()),
+                                      static_cast<int>(encoded.size()), &width, &height, &channels, requestedChannels);
+    return finishDecode(raw, width, height, channels, options);
 }
 
 // ============================================================
 // 工厂：从缓冲区构建
 // ============================================================
 
-std::shared_ptr<Image> Image::createFromBuffer(uint32_t w, uint32_t h, PixelFormat fmt, std::vector<uint8_t> pixels) {
-    return std::shared_ptr<Image>(new Image(w, h, fmt, std::move(pixels)));
+std::shared_ptr<Image> Image::createFromBuffer(uint32_t w, uint32_t h, PixelFormat fmt, std::vector<uint8_t> pixels,
+                                               ImageOrigin origin) {
+    return std::shared_ptr<Image>(new Image(w, h, fmt, origin, std::move(pixels)));
 }
 
 std::shared_ptr<Image> Image::create(uint32_t w, uint32_t h, PixelFormat fmt) {

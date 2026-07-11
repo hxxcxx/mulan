@@ -55,8 +55,7 @@ public:
                                                              const BindGroupDesc& desc) override;
 
     // --- 资源上传 ---
-    void uploadTextureData(Texture* dst, const void* data, uint32_t width, uint32_t height,
-                           TextureFormat format) override;
+    void uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
     void beginUploadBatch() override;
     void flushUploadBatch() override;
 

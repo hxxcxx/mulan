@@ -6,6 +6,8 @@
  *
  * 设计思路：
  *  - Image 是不可变值对象，创建后 width/height/format 不可变
+ *  - 解码后的第 0 行始终代表图片顶部；需要其他原点时必须显式转换
+ *  - 解码不修改 stb 全局状态，可安全地从多个线程并行调用
  *  - 通过工厂函数加载（返回 shared_ptr 便于缓存共享）
  *  - 支持离屏渲染回写：createFromBuffer() + saveToFile()
  *  - 所有像素操作通过 const 方法查询，非 const 通过 detachPixels 移出
@@ -20,6 +22,7 @@
 #include <cstring>
 #include <expected>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -36,6 +39,17 @@ enum class PixelFormat : uint8_t {
     RG8,    ///< 双通道 8-bit
     RGB8,   ///< 三通道 8-bit
     RGBA8,  ///< 四通道 8-bit（推荐默认）
+};
+
+enum class ImageOrigin : uint8_t { TopLeft, BottomLeft };
+enum class ImageChannelLayout : uint8_t { Preserve = 0, R = 1, RG = 2, RGB = 3, RGBA = 4 };
+
+struct ImageDecodeOptions {
+    ImageOrigin outputOrigin = ImageOrigin::TopLeft;
+    ImageChannelLayout channels = ImageChannelLayout::Preserve;
+    uint32_t maxWidth = 32768;
+    uint32_t maxHeight = 32768;
+    uint64_t maxDecodedBytes = 1ull << 30;
 };
 
 /// 每像素字节数
@@ -70,13 +84,14 @@ public:
     Image() = default;
 
     /// 从已有像素缓冲构建（用于离屏渲染回写）
-    Image(uint32_t w, uint32_t h, PixelFormat fmt, std::vector<uint8_t> pixels);
+    Image(uint32_t w, uint32_t h, PixelFormat fmt, ImageOrigin origin, std::vector<uint8_t> pixels);
 
     // --- 查询 ---
 
     uint32_t width() const { return width_; }
     uint32_t height() const { return height_; }
     PixelFormat format() const { return format_; }
+    ImageOrigin origin() const { return origin_; }
     bool valid() const;
 
     uint32_t rowBytes() const { return width_ * bytesPerPixel(format_); }
@@ -88,8 +103,7 @@ public:
 
     // --- 变换 ---
 
-    /// 垂直翻转（原地修改）
-    void flipVertically();
+    std::shared_ptr<Image> convertedOrigin(ImageOrigin target) const;
 
     /// 转换到 RGBA8 格式（如已是 RGBA8 则返回自身的 shared_ptr）
     std::shared_ptr<Image> toRGBA() const;
@@ -114,24 +128,16 @@ public:
 
     // --- 工厂：从文件加载 ---
 
-    /// 从文件加载图像（自动检测格式，返回 nullptr 表示失败）
-    static std::shared_ptr<Image> load(std::string_view path);
-    static core::Result<std::shared_ptr<Image>> loadExpected(std::string_view path);
-
-    /// 从文件加载，强制指定通道数
-    static std::shared_ptr<Image> load(std::string_view path, int forceChannels);
-
-    /// 从内存加载
-    static std::shared_ptr<Image> loadFromMemory(const uint8_t* data, size_t size);
-
-    /// 从内存加载，强制指定通道数
-    static std::shared_ptr<Image> loadFromMemory(const uint8_t* data, size_t size, int forceChannels);
+    /// 从文件加载图像；失败返回带原因的 Error。
+    static core::Result<std::shared_ptr<Image>> load(std::string_view path, const ImageDecodeOptions& options = {});
+    static core::Result<std::shared_ptr<Image>> loadFromMemory(std::span<const std::byte> encoded,
+                                                               const ImageDecodeOptions& options = {});
 
     // --- 工厂：从缓冲区构建 ---
 
     /// 从已有像素缓冲创建（用于离屏渲染回写）
-    static std::shared_ptr<Image> createFromBuffer(uint32_t w, uint32_t h, PixelFormat fmt,
-                                                   std::vector<uint8_t> pixels);
+    static std::shared_ptr<Image> createFromBuffer(uint32_t w, uint32_t h, PixelFormat fmt, std::vector<uint8_t> pixels,
+                                                   ImageOrigin origin = ImageOrigin::TopLeft);
 
     /// 创建空白图像
     static std::shared_ptr<Image> create(uint32_t w, uint32_t h, PixelFormat fmt);
@@ -145,6 +151,7 @@ private:
     uint32_t width_ = 0;
     uint32_t height_ = 0;
     PixelFormat format_ = PixelFormat::Unknown;
+    ImageOrigin origin_ = ImageOrigin::TopLeft;
     std::vector<uint8_t> pixels_;
 };
 

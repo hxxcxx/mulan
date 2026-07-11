@@ -148,11 +148,14 @@ core::Result<std::unique_ptr<BindGroup>> DX11Device::createBindGroup(const BindG
             makeError(EngineErrorCode::BackendNotSupported, "D3D11 bind-group objects are not implemented"));
 }
 
-void DX11Device::uploadTextureData(Texture* dst, const void* data, uint32_t width, uint32_t, TextureFormat format) {
+void DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     auto* texture = dynamic_cast<DX11Texture*>(dst);
-    const auto bpp = textureFormatBytesPerPixel(format);
-    if (texture && data && bpp)
-        m_immediateCtx->UpdateSubresource(texture->resource(), 0, nullptr, data, width * bpp, 0);
+    const auto bpp = textureFormatBytesPerPixel(upload.format);
+    const uint32_t rowPitch = upload.sourceRowPitch ? upload.sourceRowPitch : upload.width * bpp;
+    if (texture && !upload.data.empty() && bpp &&
+        upload.data.size_bytes() >= static_cast<size_t>(rowPitch) * upload.height)
+        m_immediateCtx->UpdateSubresource(texture->resource(), upload.mipLevel, nullptr, upload.data.data(), rowPitch,
+                                          upload.sourceSlicePitch);
 }
 
 void DX11Device::executeCommandLists(CommandList**, uint32_t, Fence* fence, uint64_t value) {

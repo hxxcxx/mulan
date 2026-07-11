@@ -380,9 +380,8 @@ core::Result<std::unique_ptr<BindGroup>> DX12Device::createBindGroup(const BindG
     return bindGroup;
 }
 
-void DX12Device::uploadTextureData(Texture* dst, const void* data, uint32_t width, uint32_t height,
-                                   TextureFormat format) {
-    upload_context_->uploadTexture(static_cast<DX12Texture*>(dst), data, width, height, format);
+void DX12Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+    upload_context_->uploadTexture(static_cast<DX12Texture*>(dst), upload);
 }
 
 void DX12Device::beginUploadBatch() {

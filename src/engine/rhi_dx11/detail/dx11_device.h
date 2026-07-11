@@ -50,8 +50,7 @@ public:
     core::Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout,
                                                              const BindGroupDesc& desc) override;
 
-    void uploadTextureData(Texture* dst, const void* data, uint32_t width, uint32_t height,
-                           TextureFormat format) override;
+    void uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
     void beginUploadBatch() override {}
     void flushUploadBatch() override {}
 

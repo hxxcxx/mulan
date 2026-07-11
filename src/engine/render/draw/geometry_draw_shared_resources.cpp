@@ -26,7 +26,8 @@ std::unique_ptr<Texture> createDefaultRGBA8Texture(RHIDevice& device, const char
     }
 
     auto texture = std::move(*result);
-    device.uploadTextureData(texture.get(), rgba, 1, 1, TextureFormat::RGBA8_UNorm);
+    device.uploadTextureData(texture.get(), TextureUploadDesc::tightlyPacked(std::span(rgba, size_t{ 4 }), 1, 1,
+                                                                             TextureFormat::RGBA8_UNorm));
     return texture;
 }
 
@@ -113,7 +114,8 @@ bool GeometryDrawSharedResources::createDefaultResources() {
     }
     default_ibl_tex_ = std::move(*iblResult);
     const float black[4] = { 0.f, 0.f, 0.f, 1.f };
-    device_.uploadTextureData(default_ibl_tex_.get(), black, 1, 1, TextureFormat::RGBA16_Float);
+    device_.uploadTextureData(default_ibl_tex_.get(),
+                              TextureUploadDesc::tightlyPacked(std::span(black), 1, 1, TextureFormat::RGBA16_Float));
 
     TextureDesc lutDesc;
     lutDesc.name = "DefaultBrdfLUT";
@@ -130,7 +132,8 @@ bool GeometryDrawSharedResources::createDefaultResources() {
     }
     default_brdf_lut_ = std::move(*lutResult);
     const uint16_t lutData[2] = { 0x3C00, 0x0000 };
-    device_.uploadTextureData(default_brdf_lut_.get(), lutData, 1, 1, TextureFormat::RG16_Float);
+    device_.uploadTextureData(default_brdf_lut_.get(),
+                              TextureUploadDesc::tightlyPacked(std::span(lutData), 1, 1, TextureFormat::RG16_Float));
     return true;
 }
 

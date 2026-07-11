@@ -88,8 +88,10 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
         return false;
     }
     auto sourceEquirect = std::move(*eqR);
-    device.uploadTextureData(sourceEquirect.get(), (*image)->data(), (*image)->width(), (*image)->height(),
-                             TextureFormat::RGBA32_Float);
+    device.uploadTextureData(
+            sourceEquirect.get(),
+            TextureUploadDesc::tightlyPacked(std::span((*image)->data(), (*image)->totalBytes() / sizeof(float)),
+                                             (*image)->width(), (*image)->height(), TextureFormat::RGBA32_Float));
 
     // 2. 创建三张输出纹理（2D equirect 表示）
     auto make2D = [](RHIDevice& dev, uint32_t width, uint32_t height, TextureFormat fmt,
