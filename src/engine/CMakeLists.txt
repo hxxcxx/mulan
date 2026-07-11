@@ -9,12 +9,11 @@
 option(MULAN_ENABLE_VULKAN_BACKEND "Build Vulkan RHI backend" ON)
 option(MULAN_ENABLE_D3D12_BACKEND "Build DX12 RHI backend (Windows only)" ${WIN32})
 
-find_package(Vulkan REQUIRED)
-find_package(VulkanMemoryAllocator CONFIG REQUIRED)
-
 add_subdirectory(rhi)
 
 if(MULAN_ENABLE_VULKAN_BACKEND)
+    find_package(Vulkan REQUIRED)
+    find_package(VulkanMemoryAllocator CONFIG REQUIRED)
     add_subdirectory(rhi_vulkan)
 endif()
 
