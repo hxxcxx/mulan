@@ -9,6 +9,7 @@ endif()
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
 include(CTest)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -150,6 +151,19 @@ if(NOT EXISTS "${OCCT_INCLUDE_DIR}")
     message(FATAL_ERROR "OCCT include dir not found: ${OCCT_INCLUDE_DIR}")
 endif()
 
+set(OCCT_VERSION_HEADER "${OCCT_INCLUDE_DIR}/Standard_Version.hxx")
+if(NOT EXISTS "${OCCT_VERSION_HEADER}")
+    message(FATAL_ERROR "OCCT version header not found: ${OCCT_VERSION_HEADER}")
+endif()
+file(STRINGS "${OCCT_VERSION_HEADER}" OCCT_VERSION_LINE
+    REGEX "^#define OCC_VERSION_COMPLETE \"[0-9]+\\.[0-9]+\\.[0-9]+\""
+)
+string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" OCCT_VERSION "${OCCT_VERSION_LINE}")
+if(OCCT_VERSION VERSION_LESS "7.9" OR NOT OCCT_VERSION VERSION_LESS "8.0")
+    message(FATAL_ERROR "Unsupported OCCT version ${OCCT_VERSION}; expected 7.9.x")
+endif()
+message(STATUS "OCCT version: ${OCCT_VERSION}")
+
 set(OCCT_LIBS
     TKernel TKMath
     TKG2d TKG3d TKGeomBase TKBRep
@@ -243,7 +257,11 @@ endif()
 
 # ── Qt6 ──
 # 查找路径优先级: CMakePresets / -DCMAKE_PREFIX_PATH / Qt6_DIR 环境变量
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Svg)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets Svg)
+message(STATUS "Qt version: ${Qt6_VERSION}")
+message(STATUS "MSVC version: ${MSVC_VERSION}")
+message(STATUS "Generator platform: ${CMAKE_GENERATOR_PLATFORM}")
+message(STATUS "MSVC runtime: ${CMAKE_MSVC_RUNTIME_LIBRARY}")
 
 # ── 3rdparty ──
 add_subdirectory(3rdparty/SARibbon)
