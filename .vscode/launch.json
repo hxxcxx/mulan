@@ -5,25 +5,25 @@
             "name": "Debug mulan",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/bin/Debug/mulan.exe",
+            "program": "${workspaceFolder}/build/msvc/bin/Debug/mulan.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build/bin/Debug",
+            "cwd": "${workspaceFolder}/build/msvc/bin/Debug",
             "environment": [],
             "console": "integratedTerminal",
-            "preLaunchTask": "CMake: Build (Debug)"
+            "preLaunchTask": "CMake: Deploy (Debug)"
         },
         {
             "name": "Debug mulan (RelWithDebInfo)",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/bin/RelWithDebInfo/mulan.exe",
+            "program": "${workspaceFolder}/build/msvc/bin/RelWithDebInfo/mulan.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build/bin/RelWithDebInfo",
+            "cwd": "${workspaceFolder}/build/msvc/bin/RelWithDebInfo",
             "environment": [],
             "console": "integratedTerminal",
-            "preLaunchTask": "CMake: Build (RelWithDebInfo)"
+            "preLaunchTask": "CMake: Deploy (RelWithDebInfo)"
         }
     ]
 }
