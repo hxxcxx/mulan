@@ -70,18 +70,18 @@ void DocWidget::mousePressEvent(QMouseEvent* e) {
         left_press_consumed_ = false;
     }
 
-    const bool hadEditorTool = document_view_.editorSession().hasActiveTool();
+    const bool hadEditorTool = document_view_.hasActiveEditorTool();
     auto ev = makeMousePressEvent(*e);
     const bool consumed = document_view_.handleInput(ev);
     if (e->button() == Qt::LeftButton) {
-        left_press_consumed_ = consumed && (hadEditorTool || document_view_.editorSession().hasActiveTool());
+        left_press_consumed_ = consumed && (hadEditorTool || document_view_.hasActiveEditorTool());
     }
     requestFrame();
     emit commandStateInvalidated();
 }
 
 void DocWidget::mouseReleaseEvent(QMouseEvent* e) {
-    const bool hadEditorTool = document_view_.editorSession().hasActiveTool();
+    const bool hadEditorTool = document_view_.hasActiveEditorTool();
     auto ev = makeMouseReleaseEvent(*e);
     const bool consumed = document_view_.handleInput(ev);
 
@@ -112,7 +112,7 @@ void DocWidget::mouseMoveEvent(QMouseEvent* e) {
         if (!document_view_.viewContext().hasHoveredViewCubeFace()) {
             updateHoverAtFramebuffer(framebufferPosition(e->pos()));
         } else {
-            document_view_.editorSession().clearHover();
+            document_view_.clearEditorHover();
         }
     }
     requestFrame();
@@ -147,7 +147,7 @@ void DocWidget::keyReleaseEvent(QKeyEvent* e) {
 
 void DocWidget::leaveEvent(QEvent* e) {
     QWidget::leaveEvent(e);
-    document_view_.editorSession().clearHover();
+    document_view_.clearEditorHover();
     document_view_.viewContext().clearHoveredPickId();
     document_view_.viewContext().clearViewCubeInteraction();
     requestFrame();

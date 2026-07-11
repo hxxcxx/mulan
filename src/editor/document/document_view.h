@@ -9,6 +9,7 @@
 
 #include "document_view_binding.h"
 
+#include "../command/command.h"
 #include "../core/session/editor_session.h"
 
 #include <mulan/interaction/input_event.h>
@@ -41,10 +42,20 @@ public:
     DocumentViewBinding& binding() { return binding_; }
     const DocumentViewBinding& binding() const { return binding_; }
 
-    mulan::editor::EditorSession& editorSession() { return editor_session_; }
-    const mulan::editor::EditorSession& editorSession() const { return editor_session_; }
-
     bool handleInput(const mulan::engine::InputEvent& event);
+
+    // ── 编辑器交互（转发，app 层不直接接触 EditorSession）──
+
+    bool isEditorReady() const { return editor_session_.isReady(); }
+    bool hasActiveEditorTool() const { return editor_session_.hasActiveTool(); }
+    std::string_view activeEditorToolId() const { return editor_session_.activeToolId(); }
+    void cancelActiveEditorTool() { editor_session_.cancelActiveTool(); }
+    void clearEditorHover() { editor_session_.clearHover(); }
+    bool canEditorUndo() const { return editor_session_.canUndo(); }
+    bool canEditorRedo() const { return editor_session_.canRedo(); }
+
+    /// 构造命令宿主，供 CommandManager 执行命令。
+    mulan::editor::CommandHost commandHost() { return mulan::editor::CommandHost(this, &editor_session_); }
 
     void updateHoverAtFramebuffer(double x, double y);
     void selectAtFramebuffer(double x, double y);

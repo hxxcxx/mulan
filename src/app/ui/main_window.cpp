@@ -367,17 +367,20 @@ void MainWindow::buildRightButtonBar() {
 mulan::editor::CommandHost MainWindow::currentCommandHost() const {
     auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
     auto* view = doc ? &doc->documentView() : nullptr;
-    return mulan::editor::CommandHost(view, view ? &view->editorSession() : nullptr);
+    return view ? view->commandHost() : mulan::editor::CommandHost{};
 }
 
 void MainWindow::executeCommand(std::string_view id) {
-    mulan::editor::CommandHost host = currentCommandHost();
-    if (mulan::editor::EditorSession* editor = host.editorSession(); editor && editor->activeToolId() == id) {
-        editor->cancelActiveTool();
+    auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
+    auto* view = doc ? &doc->documentView() : nullptr;
+
+    if (view && view->activeEditorToolId() == id) {
+        view->cancelActiveEditorTool();
         updateDisplayActions();
         return;
     }
 
+    mulan::editor::CommandHost host = currentCommandHost();
     auto result = command_manager_.execute(id, host);
     if (!result) {
         statusBar()->showMessage(QString::fromStdString(result.error().message));
