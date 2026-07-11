@@ -1,46 +1,51 @@
 # editor - 编辑逻辑层：工具/选择/捕捉/夹点/会话/操作/命令/文档桥接。
 # 零 Qt 依赖，可在无 Qt 环境下编译测试。
 add_library(editor STATIC
-    # command/
+    # command/ — 命令管理
     command/command_manager.cpp
     command/builtin_commands.cpp
-    # core/ — 编辑核心：工具/选择/捕捉/夹点/会话/操作
-    core/command_history.cpp
-    core/document_operation.cpp
-    core/document_operation_executor.cpp
-    core/control_polygon_builder.cpp
-    core/drag_edit_session.cpp
-    core/draft_geometry.cpp
-    core/editor_action.cpp
-    core/editor_grip_controller.cpp
-    core/editor_overlay_service.cpp
-    core/editor_preview_controller.cpp
-    core/editor_input_resolver.cpp
-    core/editor_pick_service.cpp
-    core/editor_pick_query_world.cpp
-    core/editor_render_pick_conversion.cpp
-    core/editor_grip_provider.cpp
-    core/editor_scene_snap_provider.cpp
-    core/editor_selection.cpp
-    core/editor_selection_service.cpp
-    core/editor_snap_collector.cpp
-    core/editor_snap_resolver.cpp
-    core/editor_session.cpp
-    core/geometry_edit_service.cpp
-    core/point_drawing_tool.cpp
-    core/tool_controller.cpp
-    core/transform_edit_context.cpp
-    core/transform_tool.cpp
-    core/param_curve_tool.cpp
-    core/polyline_tool.cpp
-    core/circle_tool.cpp
-    core/face_tool.cpp
-    core/extrude_tool.cpp
-    core/selection_extrude_tool.cpp
-    core/line_tool.cpp
-    core/grip_drag_tool.cpp
-    core/grip_marker_builder.cpp
-    core/snap_marker_builder.cpp
+    # core/operation/ — 操作历史与几何修改
+    core/operation/command_history.cpp
+    core/operation/document_operation.cpp
+    core/operation/document_operation_executor.cpp
+    core/operation/geometry_edit_service.cpp
+    core/operation/draft_geometry.cpp
+    core/operation/drag_edit_session.cpp
+    core/operation/transform_edit_context.cpp
+    core/operation/control_polygon_builder.cpp
+    core/operation/editor_action.cpp
+    # core/tools/ — 绘制与编辑工具
+    core/tools/point_drawing_tool.cpp
+    core/tools/line_tool.cpp
+    core/tools/polyline_tool.cpp
+    core/tools/circle_tool.cpp
+    core/tools/face_tool.cpp
+    core/tools/extrude_tool.cpp
+    core/tools/selection_extrude_tool.cpp
+    core/tools/param_curve_tool.cpp
+    core/tools/grip_drag_tool.cpp
+    core/tools/transform_tool.cpp
+    core/tools/tool_controller.cpp
+    # core/selection/ — 选择与拾取
+    core/selection/editor_selection.cpp
+    core/selection/editor_selection_service.cpp
+    core/selection/editor_pick_service.cpp
+    core/selection/editor_pick_query_world.cpp
+    core/selection/editor_render_pick_conversion.cpp
+    core/selection/editor_scene_snap_provider.cpp
+    # core/snap/ — 捕捉
+    core/snap/editor_snap_collector.cpp
+    core/snap/editor_snap_resolver.cpp
+    core/snap/snap_marker_builder.cpp
+    core/snap/editor_input_resolver.cpp
+    # core/grip/ — 夹点
+    core/grip/editor_grip_controller.cpp
+    core/grip/editor_grip_provider.cpp
+    core/grip/grip_marker_builder.cpp
+    # core/session/ — 编辑会话总控
+    core/session/editor_session.cpp
+    core/session/editor_overlay_service.cpp
+    core/session/editor_preview_controller.cpp
     # document/ — 纯逻辑文档桥接层
     document/document_session.cpp
     document/document_render_cache.cpp

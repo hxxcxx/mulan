@@ -5,7 +5,7 @@
  * @date 2026-07-08
  */
 
-#include "core/editor_session.h"
+#include "core/session/editor_session.h"
 
 #include "selection_extrude_tool.h"
 
