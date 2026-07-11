@@ -20,15 +20,50 @@ function(mulan_add_hlsl_shaders shader_target)
         return()
     endif()
 
-    find_package(directx-dxc CONFIG REQUIRED)
-    set(MULAN_DXC_EXECUTABLE "${DIRECTX_DXC_TOOL}")
+    # DXC is a build tool, not a runtime dependency. Building the vcpkg
+    # directx-dxc port pulls in LLVM/tablegen and is unnecessarily expensive
+    # for CI. Allow callers to pin a tool explicitly, retain compatibility
+    # with an already-installed vcpkg package, then discover SDK installations.
+    set(MULAN_DXC_EXECUTABLE "${MULAN_DXC_EXECUTABLE}" CACHE FILEPATH
+        "Path to the DirectX Shader Compiler executable")
+
+    if(NOT MULAN_DXC_EXECUTABLE)
+        find_package(directx-dxc CONFIG QUIET)
+        if(DIRECTX_DXC_TOOL AND EXISTS "${DIRECTX_DXC_TOOL}")
+            set(MULAN_DXC_EXECUTABLE "${DIRECTX_DXC_TOOL}")
+        endif()
+    endif()
+
+    if(NOT MULAN_DXC_EXECUTABLE)
+        set(_mulan_dxc_hints)
+        if(DEFINED ENV{VULKAN_SDK})
+            list(APPEND _mulan_dxc_hints
+                "$ENV{VULKAN_SDK}/Bin"
+                "$ENV{VULKAN_SDK}/Bin32")
+        endif()
+        if(WIN32)
+            file(GLOB _mulan_windows_sdk_bins LIST_DIRECTORIES TRUE
+                "C:/Program Files (x86)/Windows Kits/10/bin/*/x64")
+            list(SORT _mulan_windows_sdk_bins COMPARE NATURAL ORDER DESCENDING)
+            list(APPEND _mulan_dxc_hints ${_mulan_windows_sdk_bins})
+        endif()
+        find_program(_mulan_discovered_dxc
+            NAMES dxc dxc.exe
+            HINTS ${_mulan_dxc_hints}
+            DOC "Discovered DirectX Shader Compiler executable")
+        if(_mulan_discovered_dxc)
+            set(MULAN_DXC_EXECUTABLE "${_mulan_discovered_dxc}" CACHE FILEPATH
+                "Path to the DirectX Shader Compiler executable" FORCE)
+        endif()
+    endif()
 
     file(MAKE_DIRECTORY "${ARG_OUTPUT_DIR}")
 
     if(NOT MULAN_DXC_EXECUTABLE OR NOT EXISTS "${MULAN_DXC_EXECUTABLE}")
         message(FATAL_ERROR
-            "The directx-dxc vcpkg package did not provide a usable dxc tool: "
-            "${MULAN_DXC_EXECUTABLE}"
+            "A usable DirectX Shader Compiler (dxc) was not found. Install a "
+            "Windows or Vulkan SDK containing dxc, or configure with "
+            "-DMULAN_DXC_EXECUTABLE=<absolute path to dxc>."
         )
     endif()
 

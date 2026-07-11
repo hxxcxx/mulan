@@ -6,10 +6,6 @@
     "vulkan",
     "vulkan-memory-allocator",
     "glad",
-    {
-      "name": "directx-dxc",
-      "host": true
-    },
     "stb",
     "nlohmann-json",
     "fastgltf",

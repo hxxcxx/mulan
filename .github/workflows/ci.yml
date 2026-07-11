@@ -88,6 +88,34 @@ jobs:
         with:
           vcpkgGitCommitId: "616affa24b974b710a4fc26257e90b7fda6d6826"
 
+      # DXC is a build tool. Use Microsoft's pinned prebuilt distribution
+      # instead of compiling the LLVM-based directx-dxc vcpkg port in CI.
+      - name: Cache DXC
+        id: cache-dxc
+        uses: actions/cache@v4
+        with:
+          path: C:\DXC
+          key: dxc-v1.8.2505.1-windows-x64
+
+      - name: Install DXC
+        if: steps.cache-dxc.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $archive = "$env:RUNNER_TEMP\dxc.zip"
+          $url = "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2505.1/dxc_2025_07_14.zip"
+          Invoke-WebRequest -Uri $url -OutFile $archive -MaximumRetryCount 3
+          Expand-Archive -Path $archive -DestinationPath "C:\DXC" -Force
+
+      - name: Add DXC to PATH
+        shell: pwsh
+        run: |
+          $dxc = Get-ChildItem "C:\DXC" -Filter dxc.exe -File -Recurse |
+            Where-Object { $_.FullName -match '[\\/]x64[\\/]' } |
+            Select-Object -First 1
+          if (-not $dxc) { throw "dxc.exe was not found in the DXC distribution" }
+          $dxc.DirectoryName >> $env:GITHUB_PATH
+          Write-Host "Using DXC: $($dxc.FullName)"
+
       - name: Cache vcpkg installed packages
         uses: actions/cache@v4
         with:
