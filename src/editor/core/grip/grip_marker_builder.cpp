@@ -1,12 +1,12 @@
-#include "core/grip/grip_marker_builder.h"
+#include "grip_marker_builder.h"
 
-#include "core/operation/control_polygon_builder.h"
+#include "../operation/control_polygon_builder.h"
 
 #include <algorithm>
 #include <cmath>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 constexpr double kControlPointMarkerPixels = 7.0;
@@ -161,4 +161,4 @@ DraftGeometry GripMarkerBuilder::buildHot(const EditorGrip& grip, const engine::
     return DraftGeometry::geometry(std::move(curves), std::move(meshes));
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

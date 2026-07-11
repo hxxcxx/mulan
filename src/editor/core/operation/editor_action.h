@@ -6,15 +6,15 @@
  */
 #pragma once
 
-#include "core/operation/document_operation.h"
-#include "core/operation/draft_geometry.h"
+#include "document_operation.h"
+#include "draft_geometry.h"
 
 #include <mulan/view/core/preview_layer.h>
 
 #include <optional>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 enum class ToolFinishReason {
     Finished,
@@ -66,4 +66,4 @@ private:
     std::optional<DocumentOperation> operation_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

@@ -47,7 +47,7 @@ public:
     bool clearSelection();
 
 private:
-    mulan::app::DocumentRenderBinding render_binding_;
-    mulan::app::DocumentPickBridge pick_bridge_;
-    mulan::app::DocumentSelectionBridge selection_bridge_;
+    mulan::editor::DocumentRenderBinding render_binding_;
+    mulan::editor::DocumentPickBridge pick_bridge_;
+    mulan::editor::DocumentSelectionBridge selection_bridge_;
 };

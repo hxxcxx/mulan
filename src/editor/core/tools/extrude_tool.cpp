@@ -1,11 +1,11 @@
-#include "core/tools/extrude_tool.h"
+#include "extrude_tool.h"
 
 #include <algorithm>
 #include <cmath>
 #include <utility>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 constexpr double kMinimumEdgeLengthSq = 1.0e-12;
@@ -231,4 +231,4 @@ double ExtrudeTool::profileScale() const {
     return std::max(1.0, math::Vec3(maxX - minX, maxY - minY, maxZ - minZ).length());
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

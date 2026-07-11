@@ -1,14 +1,14 @@
-#include "core/snap/editor_input_resolver.h"
+#include "editor_input_resolver.h"
 
-#include "core/snap/editor_snap_collector.h"
-#include "core/snap/editor_snap_resolver.h"
+#include "editor_snap_collector.h"
+#include "editor_snap_resolver.h"
 
 #include <mulan/render/camera/camera.h>
 
 #include <algorithm>
 #include <cmath>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 bool hasCursorPosition(engine::InputEvent::Type type) {
@@ -117,4 +117,4 @@ EditorInput EditorInputResolver::resolve(const engine::InputEvent& event, const 
     return resolve(event, context);
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

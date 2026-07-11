@@ -5,13 +5,13 @@
  * @date 2026-07-08
  */
 
-#include "core/session/editor_session.h"
+#include "editor_session.h"
 
-#include "core/tools/selection_extrude_tool.h"
+#include "../tools/selection_extrude_tool.h"
 
-#include "core/tools/grip_drag_tool.h"
-#include "core/snap/snap_marker_builder.h"
-#include "core/tools/transform_tool.h"
+#include "../tools/grip_drag_tool.h"
+#include "../snap/snap_marker_builder.h"
+#include "../tools/transform_tool.h"
 #include "document/document_session.h"
 #include "document/document_view_binding.h"
 
@@ -23,7 +23,7 @@
 #include <utility>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 namespace {
 
@@ -348,4 +348,4 @@ bool EditorSession::applyAction(EditorAction action) {
     return consumed;
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

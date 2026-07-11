@@ -24,7 +24,7 @@ namespace mulan::view {
 class RenderScene;
 }
 
-namespace mulan::app {
+namespace mulan::editor {
 
 enum class EditorPointSource {
     None,
@@ -238,4 +238,4 @@ struct EditorInput {
     }
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

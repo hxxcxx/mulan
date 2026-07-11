@@ -15,7 +15,7 @@
 
 class DocumentView;
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class EditorSession;
 
@@ -102,4 +102,4 @@ protected:
     }
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

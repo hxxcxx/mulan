@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core/tools/point_drawing_tool.h"
+#include "point_drawing_tool.h"
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class LineTool final : public PointDrawingTool {
 public:
@@ -17,4 +17,4 @@ private:
     EditorAction updateRubberBand(const ToolPoint& point) const;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

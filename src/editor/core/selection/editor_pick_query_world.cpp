@@ -1,8 +1,8 @@
-#include "core/selection/editor_input.h"
+#include "editor_input.h"
 
-#include "core/selection/editor_render_pick_conversion.h"
+#include "editor_render_pick_conversion.h"
 
-namespace mulan::app {
+namespace mulan::editor {
 
 EditorPickQueryWorld::EditorPickQueryWorld(const view::RenderScene* renderScene) : render_scene_(renderScene) {
 }
@@ -31,4 +31,4 @@ void EditorPickQueryWorld::collectCandidates(const math::Ray3& ray, double lineT
     }
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

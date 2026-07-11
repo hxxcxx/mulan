@@ -1,10 +1,10 @@
 #pragma once
 
-#include "core/selection/editor_input.h"
+#include "../selection/editor_input.h"
 
 #include <span>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 struct EditorSnapResolveInput {
     std::span<const EditorSnapCandidate> candidates;
@@ -18,4 +18,4 @@ public:
     static std::optional<EditorPoint> resolve(const EditorSnapResolveInput& input);
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

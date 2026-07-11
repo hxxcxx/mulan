@@ -6,13 +6,13 @@
  */
 #pragma once
 
-#include "core/operation/draft_geometry.h"
+#include "draft_geometry.h"
 
 #include <mulan/render/camera/camera.h>
 
 #include <span>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 struct ControlMarkerBasis {
     math::Vec3 x = math::Vec3::unitX();
@@ -30,4 +30,4 @@ DraftGeometry buildControlPolygonGeometry(std::span<const math::Point3> points, 
 DraftGeometry buildControlPolygonGeometry(std::span<const math::Point3> points, const ControlMarkerBasis& basis,
                                           const engine::Camera& camera, double markerPixels);
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

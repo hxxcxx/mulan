@@ -6,14 +6,14 @@
  */
 #pragma once
 
-#include "core/tools/point_drawing_tool.h"
+#include "point_drawing_tool.h"
 
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 enum class ParametricCurveToolKind {
     Bezier,
@@ -42,4 +42,4 @@ private:
     ParametricCurveToolKind kind_ = ParametricCurveToolKind::Bezier;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

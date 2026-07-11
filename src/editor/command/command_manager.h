@@ -14,7 +14,7 @@
 #include <string_view>
 #include <unordered_map>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class CommandManager {
 public:
@@ -28,4 +28,4 @@ private:
     std::unordered_map<std::string, std::unique_ptr<Command>> commands_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

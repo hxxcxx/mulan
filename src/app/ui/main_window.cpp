@@ -102,7 +102,7 @@ MainWindow::MainWindow(QWidget* parent) : SARibbonMainWindow(parent) {
     // 中央多文档区
     doc_area_ = new DocumentArea(this);
     setCentralWidget(doc_area_);
-    mulan::app::registerBuiltinCommands(command_manager_);
+    mulan::editor::registerBuiltinCommands(command_manager_);
 
     connect(doc_area_, &DocumentArea::currentDocumentChanged, this, &MainWindow::onCurrentDocumentChanged);
     connect(doc_area_, &DocumentArea::currentDocumentCommandStateInvalidated, this, &MainWindow::updateDisplayActions);
@@ -142,7 +142,7 @@ void MainWindow::buildRibbon() {
 }
 
 QAction* MainWindow::createCommandAction(const QString& iconPath, std::string_view commandId) {
-    const mulan::app::CommandState state = command_manager_.state(commandId, currentCommandHost());
+    const mulan::editor::CommandState state = command_manager_.state(commandId, currentCommandHost());
     auto* action = new QAction(QIcon(iconPath), QString::fromStdString(state.title), this);
     action->setEnabled(state.enabled);
     action->setVisible(state.visible);
@@ -164,13 +164,13 @@ void MainWindow::bindCommandAction(QAction* action, std::string_view commandId) 
 }
 
 void MainWindow::updateCommandActions() {
-    const mulan::app::CommandHost host = currentCommandHost();
+    const mulan::editor::CommandHost host = currentCommandHost();
     for (const CommandActionBinding& binding : command_actions_) {
         if (!binding.action) {
             continue;
         }
 
-        const mulan::app::CommandState state = command_manager_.state(binding.commandId, host);
+        const mulan::editor::CommandState state = command_manager_.state(binding.commandId, host);
         const QSignalBlocker blocker(binding.action);
         binding.action->setText(QString::fromStdString(state.title));
         binding.action->setEnabled(state.enabled);
@@ -364,15 +364,15 @@ void MainWindow::buildRightButtonBar() {
 // 文档操作
 //===================================================
 
-mulan::app::CommandHost MainWindow::currentCommandHost() const {
+mulan::editor::CommandHost MainWindow::currentCommandHost() const {
     auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
     auto* view = doc ? &doc->documentView() : nullptr;
-    return mulan::app::CommandHost(view, view ? &view->editorSession() : nullptr);
+    return mulan::editor::CommandHost(view, view ? &view->editorSession() : nullptr);
 }
 
 void MainWindow::executeCommand(std::string_view id) {
-    mulan::app::CommandHost host = currentCommandHost();
-    if (mulan::app::EditorSession* editor = host.editorSession(); editor && editor->activeToolId() == id) {
+    mulan::editor::CommandHost host = currentCommandHost();
+    if (mulan::editor::EditorSession* editor = host.editorSession(); editor && editor->activeToolId() == id) {
         editor->cancelActiveTool();
         updateDisplayActions();
         return;

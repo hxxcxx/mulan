@@ -1,9 +1,9 @@
-#include "core/tools/polyline_tool.h"
+#include "polyline_tool.h"
 
 #include <utility>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 constexpr double kMinimumSegmentLengthSq = 1.0e-12;
@@ -72,4 +72,4 @@ DraftGeometry PolylineTool::previewGeometry(const std::optional<math::Point3>& c
     return DraftGeometry::curve(asset::CurvePrimitive::polyline(math::Polyline3(std::move(preview), false)));
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

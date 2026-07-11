@@ -1,4 +1,4 @@
-#include "core/snap/snap_marker_builder.h"
+#include "snap_marker_builder.h"
 
 #include <mulan/render/camera/camera.h>
 
@@ -7,7 +7,7 @@
 #include <optional>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 struct MarkerBasis {
@@ -148,4 +148,4 @@ DraftGeometry SnapMarkerBuilder::build(const EditorInput& input) {
     return DraftGeometry::curves(std::move(curves));
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

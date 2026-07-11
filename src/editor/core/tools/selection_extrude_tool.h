@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core/tools/editor_tool.h"
-#include "core/operation/selection_target.h"
+#include "editor_tool.h"
+#include "../operation/selection_target.h"
 
 #include <mulan/asset/face_asset.h>
 
@@ -12,7 +12,7 @@ namespace mulan::io {
 class Document;
 }
 
-namespace mulan::app {
+namespace mulan::editor {
 
 /// 启动后点击 FaceAsset 或闭合曲线，再执行法线拉伸。
 class SelectionExtrudeTool final : public EditorTool {
@@ -48,4 +48,4 @@ private:
     double signed_distance_ = 0.0;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

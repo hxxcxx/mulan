@@ -6,7 +6,7 @@
 #include <mulan/io/document.h>
 #include <mulan/scene/scene.h>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 void DocumentSelectionBridge::bind(DocumentSession& session, DocumentRenderBinding& renderBinding) {
     session_ = &session;
@@ -42,4 +42,4 @@ bool DocumentSelectionBridge::clearSelection() {
     return changed;
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

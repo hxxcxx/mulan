@@ -1,8 +1,8 @@
-#include "core/operation/drag_edit_session.h"
+#include "drag_edit_session.h"
 
 #include <utility>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 DragEditSession::DragEditSession(DragEditDescriptor descriptor)
     : descriptor_(std::move(descriptor)), start_local_(descriptor_.startWorld.transformedBy(descriptor_.worldToLocal)) {
@@ -27,4 +27,4 @@ DragEditSample DragEditSession::update(const math::Point3& currentWorld) {
     return *last_sample_;
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

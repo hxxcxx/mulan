@@ -6,12 +6,12 @@
  */
 #pragma once
 
-#include "core/operation/editor_action.h"
-#include "core/selection/editor_input.h"
+#include "../operation/editor_action.h"
+#include "../selection/editor_input.h"
 
 #include <string_view>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class EditorTool {
 public:
@@ -28,4 +28,4 @@ public:
     }
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

@@ -1,8 +1,8 @@
-#include "core/tools/line_tool.h"
+#include "line_tool.h"
 
 #include <utility>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 constexpr double kMinimumLineLengthSq = 1.0e-12;
@@ -61,4 +61,4 @@ EditorAction LineTool::updateRubberBand(const ToolPoint& point) const {
     return EditorAction::setPreview(DraftGeometry::segment(segment));
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

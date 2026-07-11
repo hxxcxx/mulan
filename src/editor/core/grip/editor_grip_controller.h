@@ -6,9 +6,9 @@
  */
 #pragma once
 
-#include "core/grip/editor_grip.h"
-#include "core/grip/editor_grip_provider.h"
-#include "core/selection/editor_selection.h"
+#include "editor_grip.h"
+#include "editor_grip_provider.h"
+#include "../selection/editor_selection.h"
 
 #include <optional>
 #include <vector>
@@ -19,7 +19,7 @@ namespace mulan::view {
 class ViewContext;
 }
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class EditorOverlayService;
 
@@ -47,4 +47,4 @@ private:
     std::optional<EditorGripId> hovered_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

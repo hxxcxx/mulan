@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "core/selection/editor_selection.h"
+#include "editor_selection.h"
 
 #include <optional>
 #include <span>
@@ -15,7 +15,7 @@ namespace mulan::view {
 class ViewContext;
 }
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class EditorSelectionService {
 public:
@@ -41,4 +41,4 @@ private:
     view::ViewContext* view_ = nullptr;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

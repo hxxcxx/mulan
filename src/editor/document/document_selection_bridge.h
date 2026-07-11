@@ -11,7 +11,7 @@
 
 class DocumentSession;
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class DocumentRenderBinding;
 
@@ -29,4 +29,4 @@ private:
     DocumentRenderBinding* render_binding_ = nullptr;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

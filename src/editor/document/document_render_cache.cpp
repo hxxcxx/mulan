@@ -5,7 +5,7 @@
 #include <mulan/io/document.h>
 #include <mulan/scene/scene.h>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 void DocumentRenderCache::clear() {
     assets_ = nullptr;
@@ -34,4 +34,4 @@ std::span<const engine::Light> DocumentRenderCache::lights() const {
     return render_scene_.lights();
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

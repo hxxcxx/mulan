@@ -1,10 +1,10 @@
-#include "core/tools/face_tool.h"
+#include "face_tool.h"
 
 #include <cmath>
 #include <utility>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 constexpr double kMinimumEdgeLengthSq = 1.0e-12;
@@ -168,4 +168,4 @@ bool FaceTool::closesToFirst(const ToolPoint& point) const {
     return first->world().distanceSq(point.world()) <= kMinimumEdgeLengthSq;
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

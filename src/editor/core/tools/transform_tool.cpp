@@ -1,11 +1,11 @@
-#include "core/tools/transform_tool.h"
+#include "transform_tool.h"
 
 #include <mulan/view/core/preview_layer.h>
 
 #include <vector>
 #include <utility>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 bool isLeftPress(const engine::InputEvent& event) {
@@ -181,4 +181,4 @@ std::optional<math::Mat4> TransformTool::worldDelta(const math::Point3& worldPoi
     return std::nullopt;
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

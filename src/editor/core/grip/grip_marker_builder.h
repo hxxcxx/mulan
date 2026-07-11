@@ -1,14 +1,14 @@
 #pragma once
 
-#include "core/operation/draft_geometry.h"
-#include "core/grip/editor_grip.h"
+#include "../operation/draft_geometry.h"
+#include "editor_grip.h"
 
 #include <mulan/render/camera/camera.h>
 
 #include <optional>
 #include <span>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class GripMarkerBuilder {
 public:
@@ -17,4 +17,4 @@ public:
     static DraftGeometry buildHot(const EditorGrip& grip, const engine::Camera& camera);
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

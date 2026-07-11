@@ -13,7 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 struct EditorGripId {
     uint64_t value = 0;
@@ -58,4 +58,4 @@ struct EditorGrip {
     double pickRadiusPixels = 9.0;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

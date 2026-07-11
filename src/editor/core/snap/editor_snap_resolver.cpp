@@ -1,6 +1,6 @@
-#include "core/snap/editor_snap_resolver.h"
+#include "editor_snap_resolver.h"
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 std::optional<EditorPoint> pointFromCandidate(const EditorSnapCandidate& candidate, EditorPointSource source) {
@@ -72,4 +72,4 @@ std::optional<EditorPoint> EditorSnapResolver::resolve(const EditorSnapResolveIn
     return resolveResult(input).point;
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

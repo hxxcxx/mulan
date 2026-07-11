@@ -1,12 +1,12 @@
 #pragma once
 
-#include "core/selection/editor_input.h"
+#include "editor_input.h"
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class EditorSceneSnapProvider {
 public:
     static void collect(const EditorSnapQuery& query, std::vector<EditorSnapCandidate>& out);
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

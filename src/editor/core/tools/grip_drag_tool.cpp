@@ -1,6 +1,6 @@
-#include "core/tools/grip_drag_tool.h"
+#include "grip_drag_tool.h"
 
-#include "core/operation/control_polygon_builder.h"
+#include "../operation/control_polygon_builder.h"
 
 #include <cmath>
 #include <iterator>
@@ -8,7 +8,7 @@
 #include <variant>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 constexpr double kMinimumRadius = 1.0e-6;
@@ -487,4 +487,4 @@ DraftGeometry GripDragTool::previewGeometry(const EditorInput& input, const asse
     return DraftGeometry::geometry(std::move(curves), std::move(controlMeshes));
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

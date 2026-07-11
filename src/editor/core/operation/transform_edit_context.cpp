@@ -1,4 +1,4 @@
-#include "core/operation/transform_edit_context.h"
+#include "transform_edit_context.h"
 
 #include <mulan/io/document.h>
 #include <mulan/scene/components/transform_component.h>
@@ -6,7 +6,7 @@
 
 #include <unordered_set>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 TransformEditSubjectKind subjectKindForTarget(const SelectionTarget& target) {
@@ -69,4 +69,4 @@ void TransformEditContext::addSubject(const io::Document& document, const Select
     subjects_.push_back(subject);
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

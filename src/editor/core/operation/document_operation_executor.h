@@ -6,15 +6,15 @@
  */
 #pragma once
 
-#include "core/operation/command_history.h"
-#include "core/operation/document_operation.h"
+#include "command_history.h"
+#include "document_operation.h"
 
 #include <optional>
 
 class DocumentSession;
 class DocumentViewBinding;
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class DocumentOperationExecutor {
 public:
@@ -44,4 +44,4 @@ private:
     CommandHistory history_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

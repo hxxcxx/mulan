@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class DraftGeometry {
 public:
@@ -37,4 +37,4 @@ private:
     std::vector<graphics::Mesh> meshes_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

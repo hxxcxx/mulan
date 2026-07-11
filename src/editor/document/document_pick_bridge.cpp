@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 double linePickToleranceWorld(const engine::Camera& camera) {
@@ -46,4 +46,4 @@ std::optional<view::RenderScene::PickResult> DocumentPickBridge::pickAt(const en
     return scene->pick(camera.screenRay(x, y), linePickToleranceWorld(camera));
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

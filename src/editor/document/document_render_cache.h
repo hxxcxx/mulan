@@ -12,7 +12,7 @@
 
 class DocumentSession;
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class DocumentRenderCache {
 public:
@@ -30,4 +30,4 @@ private:
     const asset::AssetLibrary* assets_ = nullptr;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

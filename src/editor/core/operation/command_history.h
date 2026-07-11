@@ -6,12 +6,12 @@
  */
 #pragma once
 
-#include "core/operation/document_operation.h"
+#include "document_operation.h"
 
 #include <optional>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class CommandHistory {
 public:
@@ -39,4 +39,4 @@ private:
     std::vector<Entry> redo_stack_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

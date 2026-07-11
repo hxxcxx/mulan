@@ -1,8 +1,8 @@
-#include "core/tools/point_drawing_tool.h"
+#include "point_drawing_tool.h"
 
 #include <utility>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 bool isLeftPress(const engine::InputEvent& event) {
@@ -163,4 +163,4 @@ void PointDrawingTool::configurePointPolicy(EditorPointPolicy& policy) const {
 void PointDrawingTool::resetDrawingState() {
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

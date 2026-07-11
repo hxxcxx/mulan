@@ -1,8 +1,8 @@
-#include "core/session/editor_overlay_service.h"
+#include "editor_overlay_service.h"
 
 #include <utility>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 void EditorOverlayService::bind(view::ViewContext* view) {
     preview_.bind(view);
@@ -46,4 +46,4 @@ void EditorOverlayService::submit(EditorOverlayReferenceSubmission submission) {
     }
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

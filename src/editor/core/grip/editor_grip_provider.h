@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core/grip/editor_grip.h"
-#include "core/selection/editor_selection.h"
+#include "editor_grip.h"
+#include "../selection/editor_selection.h"
 
 #include <cstdint>
 #include <memory>
@@ -11,7 +11,7 @@ namespace mulan::io {
 class Document;
 }
 
-namespace mulan::app {
+namespace mulan::editor {
 
 struct EditorGripBuildContext {
     const io::Document& document;
@@ -40,4 +40,4 @@ private:
     std::vector<std::unique_ptr<EditorGripSource>> sources_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

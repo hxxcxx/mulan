@@ -19,7 +19,7 @@ namespace mulan::view {
 class ViewContext;
 }
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class DocumentRenderBinding {
 public:
@@ -53,4 +53,4 @@ private:
     DocumentRenderCache render_cache_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

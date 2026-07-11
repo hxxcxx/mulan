@@ -1,12 +1,12 @@
 #pragma once
 
-#include "core/operation/drag_edit_session.h"
-#include "core/grip/editor_grip.h"
-#include "core/tools/editor_tool.h"
+#include "../operation/drag_edit_session.h"
+#include "../grip/editor_grip.h"
+#include "editor_tool.h"
 
 #include <optional>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class GripDragTool final : public EditorTool {
 public:
@@ -29,4 +29,4 @@ private:
     std::optional<asset::CurvePrimitive> current_primitive_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

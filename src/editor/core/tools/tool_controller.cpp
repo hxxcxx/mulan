@@ -5,9 +5,9 @@
  * @date 2026-07-08
  */
 
-#include "core/tools/tool_controller.h"
+#include "tool_controller.h"
 
-namespace mulan::app {
+namespace mulan::editor {
 
 ToolController::~ToolController() = default;
 
@@ -54,4 +54,4 @@ EditorAction ToolController::clear(ToolFinishReason reason) {
     return tool->end(reason);
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

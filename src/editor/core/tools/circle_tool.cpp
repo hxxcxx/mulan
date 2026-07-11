@@ -1,8 +1,8 @@
-#include "core/tools/circle_tool.h"
+#include "circle_tool.h"
 
 #include <utility>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 constexpr double kMinimumRadius = 1.0e-6;
@@ -66,4 +66,4 @@ std::optional<math::Circle3> CircleTool::makeCircle(const EditorInput& input, co
     return math::Circle3(center->world(), radius, normal);
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

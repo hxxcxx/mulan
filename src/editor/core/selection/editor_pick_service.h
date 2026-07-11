@@ -6,8 +6,8 @@
  */
 #pragma once
 
-#include "core/selection/editor_input.h"
-#include "core/selection/editor_selection.h"
+#include "editor_input.h"
+#include "editor_selection.h"
 
 #include <mulan/interaction/input_event.h>
 
@@ -20,7 +20,7 @@ namespace mulan::view {
 class ViewContext;
 }  // namespace mulan::view
 
-namespace mulan::app {
+namespace mulan::editor {
 
 struct EditorPickInput {
     bool tested = false;
@@ -46,4 +46,4 @@ private:
     DocumentViewBinding* binding_ = nullptr;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

@@ -7,14 +7,14 @@
 
 #pragma once
 
-#include "core/operation/selection_target.h"
+#include "selection_target.h"
 
 #include <mulan/math/math.h>
 
 #include <cstdint>
 #include <optional>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 enum class DragEditSubjectKind : uint8_t {
     Entity,
@@ -59,4 +59,4 @@ private:
     std::optional<DragEditSample> last_sample_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

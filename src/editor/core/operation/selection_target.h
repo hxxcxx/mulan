@@ -14,7 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 enum class EditorSelectionDomain : uint8_t {
     Entity,
@@ -95,4 +95,4 @@ struct SelectionTarget {
 
 using EditorSelectionReference = SelectionTarget;
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

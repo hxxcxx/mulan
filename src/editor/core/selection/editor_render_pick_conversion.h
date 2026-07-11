@@ -6,12 +6,12 @@
  */
 #pragma once
 
-#include "core/selection/editor_input.h"
+#include "editor_input.h"
 
 #include <mulan/view/scene_sync/render_scene.h>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 EditorPickHit editorPickHitFromRenderPick(const view::RenderScene::PickResult& pick);
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "core/operation/draft_geometry.h"
+#include "../operation/draft_geometry.h"
 
 #include <mulan/view/core/preview_layer.h>
 
@@ -16,7 +16,7 @@ namespace mulan::view {
 class ViewContext;
 }
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class EditorPreviewController {
 public:
@@ -41,4 +41,4 @@ private:
     view::ViewContext* view_ = nullptr;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

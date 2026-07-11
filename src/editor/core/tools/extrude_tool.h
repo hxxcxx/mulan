@@ -1,10 +1,10 @@
 #pragma once
 
-#include "core/tools/point_drawing_tool.h"
+#include "point_drawing_tool.h"
 
 #include <mulan/asset/face_asset.h>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 /// 两阶段体绘制：先采集闭合轮廓，再沿轮廓法线用鼠标确定拉伸距离。
 class ExtrudeTool final : public PointDrawingTool {
@@ -44,4 +44,4 @@ private:
     double signed_distance_ = 0.0;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

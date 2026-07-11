@@ -5,9 +5,9 @@
  * @date 2026-07-08
  */
 
-#include "core/operation/draft_geometry.h"
+#include "draft_geometry.h"
 
-namespace mulan::app {
+namespace mulan::editor {
 
 DraftGeometry DraftGeometry::curve(asset::CurvePrimitive primitive) {
     std::vector<asset::CurvePrimitive> curves;
@@ -37,4 +37,4 @@ DraftGeometry DraftGeometry::geometry(std::vector<asset::CurvePrimitive> curves,
     return DraftGeometry(std::move(curves), std::move(meshes));
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

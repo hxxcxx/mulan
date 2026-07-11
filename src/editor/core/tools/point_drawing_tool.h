@@ -1,12 +1,12 @@
 #pragma once
 
-#include "core/tools/editor_tool.h"
+#include "editor_tool.h"
 
 #include <cstddef>
 #include <optional>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 struct ToolPoint {
     EditorPoint point;
@@ -60,4 +60,4 @@ private:
     std::vector<ToolPoint> accepted_points_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

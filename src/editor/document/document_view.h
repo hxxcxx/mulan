@@ -9,7 +9,7 @@
 
 #include "document_view_binding.h"
 
-#include "core/session/editor_session.h"
+#include "../core/session/editor_session.h"
 
 #include <mulan/interaction/input_event.h>
 #include <mulan/view/core/view_config.h>
@@ -41,8 +41,8 @@ public:
     DocumentViewBinding& binding() { return binding_; }
     const DocumentViewBinding& binding() const { return binding_; }
 
-    mulan::app::EditorSession& editorSession() { return editor_session_; }
-    const mulan::app::EditorSession& editorSession() const { return editor_session_; }
+    mulan::editor::EditorSession& editorSession() { return editor_session_; }
+    const mulan::editor::EditorSession& editorSession() const { return editor_session_; }
 
     bool handleInput(const mulan::engine::InputEvent& event);
 
@@ -53,5 +53,5 @@ private:
     DocumentSession* session_ = nullptr;
     DocumentViewBinding binding_;
     mulan::view::ViewContext view_context_;
-    mulan::app::EditorSession editor_session_;
+    mulan::editor::EditorSession editor_session_;
 };

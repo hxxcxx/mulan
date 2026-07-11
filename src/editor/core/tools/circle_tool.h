@@ -1,10 +1,10 @@
 #pragma once
 
-#include "core/tools/point_drawing_tool.h"
+#include "point_drawing_tool.h"
 
 #include <optional>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class CircleTool final : public PointDrawingTool {
 public:
@@ -20,4 +20,4 @@ private:
     std::optional<math::Circle3> makeCircle(const EditorInput& input, const math::Point3& radiusPoint) const;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

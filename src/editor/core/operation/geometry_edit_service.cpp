@@ -1,4 +1,4 @@
-#include "core/operation/geometry_edit_service.h"
+#include "geometry_edit_service.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/io/document_editor.h>
@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <utility>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 template <typename... T>
@@ -139,4 +139,4 @@ bool GeometryEditService::applyMutation(scene::EntityId entity, asset::AssetId g
                       mutation);
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "core/selection/editor_input.h"
+#include "../selection/editor_input.h"
 
 #include <optional>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 struct EditorSnapCollectInput {
     EditorSnapQuery query;
@@ -15,4 +15,4 @@ public:
     static void collect(const EditorSnapCollectInput& input, std::vector<EditorSnapCandidate>& out);
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "core/tools/point_drawing_tool.h"
+#include "point_drawing_tool.h"
 
 #include <optional>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class PolylineTool final : public PointDrawingTool {
 public:
@@ -21,4 +21,4 @@ private:
     DraftGeometry previewGeometry(const std::optional<math::Point3>& cursor) const;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

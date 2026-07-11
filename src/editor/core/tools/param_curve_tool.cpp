@@ -1,6 +1,6 @@
-#include "core/tools/param_curve_tool.h"
+#include "param_curve_tool.h"
 
-#include "core/operation/control_polygon_builder.h"
+#include "../operation/control_polygon_builder.h"
 
 #include <algorithm>
 #include <cmath>
@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 constexpr double kMinimumControlPointDistanceSq = 1.0e-12;
@@ -151,4 +151,4 @@ std::string ParametricCurveTool::curveName() const {
     return "Curve";
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

@@ -1,11 +1,11 @@
-#include "core/snap/editor_snap_collector.h"
+#include "editor_snap_collector.h"
 
-#include "core/selection/editor_scene_snap_provider.h"
+#include "../selection/editor_scene_snap_provider.h"
 
 #include <algorithm>
 #include <cmath>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 constexpr double kWorkPlanePriority = 0.0;
@@ -215,4 +215,4 @@ void EditorSnapCollector::collect(const EditorSnapCollectInput& input, std::vect
     addGeometryCandidates(input, out);
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

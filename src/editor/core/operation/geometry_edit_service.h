@@ -6,11 +6,11 @@
  */
 #pragma once
 
-#include "core/operation/geometry_mutation.h"
+#include "geometry_mutation.h"
 
 #include <mulan/io/document.h>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class GeometryEditService {
 public:
@@ -25,4 +25,4 @@ private:
     io::Document& document_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "core/tools/point_drawing_tool.h"
+#include "point_drawing_tool.h"
 
 #include <mulan/asset/face_asset.h>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class FaceTool final : public PointDrawingTool {
 public:
@@ -30,4 +30,4 @@ private:
     asset::FacePlaneFrame frame_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

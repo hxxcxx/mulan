@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "core/tools/editor_tool.h"
-#include "core/operation/transform_edit_context.h"
+#include "editor_tool.h"
+#include "../operation/transform_edit_context.h"
 
 #include <optional>
 
@@ -16,7 +16,7 @@ namespace mulan::io {
 class Document;
 }
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class TransformTool final : public EditorTool {
 public:
@@ -48,4 +48,4 @@ private:
     bool drag_preview_started_ = false;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

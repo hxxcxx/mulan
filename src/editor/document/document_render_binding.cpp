@@ -4,7 +4,7 @@
 
 #include <mulan/view/core/view_context.h>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 DocumentRenderBinding::~DocumentRenderBinding() {
     unbind();
@@ -111,4 +111,4 @@ void DocumentRenderBinding::applyViewPreferences() {
     }
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

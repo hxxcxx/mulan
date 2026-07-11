@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "core/selection/editor_input.h"
-#include "core/operation/selection_target.h"
+#include "editor_input.h"
+#include "../operation/selection_target.h"
 
 #include <cstdint>
 #include <optional>
@@ -18,7 +18,7 @@ namespace mulan::io {
 class Document;
 }
 
-namespace mulan::app {
+namespace mulan::editor {
 
 struct EditorSelectionFilter {
     bool allowEntities = true;
@@ -68,4 +68,4 @@ private:
 bool sameSelectionReference(const EditorSelectionReference& lhs, const EditorSelectionReference& rhs);
 EditorSelectionHit makeEditorSelectionHit(const EditorPickHit& pick, const io::Document& document);
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

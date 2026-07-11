@@ -1,6 +1,6 @@
-#include "core/selection/editor_render_pick_conversion.h"
+#include "editor_render_pick_conversion.h"
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 EditorPickHitKind toEditorPickHitKind(view::RenderScene::PickHitKind kind) {
@@ -53,4 +53,4 @@ EditorPickHit editorPickHitFromRenderPick(const view::RenderScene::PickResult& p
     };
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

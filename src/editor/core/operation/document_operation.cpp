@@ -5,11 +5,11 @@
  * @date 2026-07-08
  */
 
-#include "core/operation/document_operation.h"
+#include "document_operation.h"
 
 #include <utility>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 DocumentOperation DocumentOperation::createCurve(std::string name, asset::CurvePrimitive primitive) {
     return DocumentOperation(CreateCurveOperation{ std::move(name), std::move(primitive) });
@@ -63,4 +63,4 @@ DocumentOperation DocumentOperation::removeEntities(std::vector<scene::EntityId>
     return DocumentOperation(RemoveEntitiesOperation{ std::move(entities), removeGeometryAssets });
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

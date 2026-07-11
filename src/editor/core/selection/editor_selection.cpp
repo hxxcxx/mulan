@@ -1,4 +1,4 @@
-#include "core/selection/editor_selection.h"
+#include "editor_selection.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/face_asset.h>
@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 const asset::CurveAsset* curveAssetForEntity(const io::Document& document, scene::EntityId entity) {
@@ -262,4 +262,4 @@ EditorSelectionHit makeEditorSelectionHit(const EditorPickHit& pick, const io::D
     return EditorSelectionHit{ .reference = reference, .pick = pick };
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "core/operation/geometry_mutation.h"
+#include "geometry_mutation.h"
 
 #include <mulan/asset/curve_asset.h>
 #include <mulan/asset/face_asset.h>
@@ -20,7 +20,7 @@
 #include <variant>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 struct CreateCurveOperation {
     std::string name;
@@ -107,4 +107,4 @@ private:
     DocumentOperationData data_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

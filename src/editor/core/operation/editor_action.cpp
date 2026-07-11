@@ -5,11 +5,11 @@
  * @date 2026-07-08
  */
 
-#include "core/operation/editor_action.h"
+#include "editor_action.h"
 
 #include <utility>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 EditorAction EditorAction::ignored() {
     return EditorAction{};
@@ -78,4 +78,4 @@ EditorAction& EditorAction::cancelTool() {
     return *this;
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

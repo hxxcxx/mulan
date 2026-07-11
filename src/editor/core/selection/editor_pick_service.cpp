@@ -1,13 +1,13 @@
-#include "core/selection/editor_pick_service.h"
+#include "editor_pick_service.h"
 
-#include "core/selection/editor_render_pick_conversion.h"
+#include "editor_render_pick_conversion.h"
 #include "document/document_session.h"
 #include "document/document_view_binding.h"
 
 #include <mulan/io/document.h>
 #include <mulan/view/core/view_context.h>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 void EditorPickService::bind(DocumentSession* session, view::ViewContext* view, DocumentViewBinding* binding) {
     session_ = session;
@@ -87,4 +87,4 @@ std::optional<EditorSelectionHit> EditorPickService::selectionHitAtFramebuffer(d
     return makeEditorSelectionHit(*pick, *session_->document());
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

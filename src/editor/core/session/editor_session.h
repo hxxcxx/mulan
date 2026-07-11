@@ -6,17 +6,17 @@
  */
 #pragma once
 
-#include "core/selection/editor_input.h"
-#include "core/snap/editor_input_resolver.h"
-#include "core/grip/editor_grip_controller.h"
-#include "core/session/editor_overlay_service.h"
-#include "core/selection/editor_pick_service.h"
-#include "core/selection/editor_selection.h"
-#include "core/selection/editor_selection_service.h"
-#include "core/tools/editor_tool.h"
-#include "core/operation/document_operation_executor.h"
-#include "core/tools/tool_controller.h"
-#include "core/operation/transform_edit_context.h"
+#include "../selection/editor_input.h"
+#include "../snap/editor_input_resolver.h"
+#include "../grip/editor_grip_controller.h"
+#include "editor_overlay_service.h"
+#include "../selection/editor_pick_service.h"
+#include "../selection/editor_selection.h"
+#include "../selection/editor_selection_service.h"
+#include "../tools/editor_tool.h"
+#include "../operation/document_operation_executor.h"
+#include "../tools/tool_controller.h"
+#include "../operation/transform_edit_context.h"
 
 #include <mulan/interaction/input_event.h>
 #include <mulan/interaction/work_plane.h>
@@ -31,7 +31,7 @@ namespace mulan::view {
 class ViewContext;
 }
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class EditorSession {
 public:
@@ -92,4 +92,4 @@ private:
     ToolController tool_controller_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

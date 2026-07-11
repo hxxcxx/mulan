@@ -7,10 +7,10 @@
  */
 #pragma once
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class CommandManager;
 
 void registerBuiltinCommands(CommandManager& manager);
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

@@ -1,9 +1,9 @@
-#include "core/session/editor_preview_controller.h"
+#include "editor_preview_controller.h"
 
 #include <mulan/view/core/preview_layer.h>
 #include <mulan/view/core/view_context.h>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 void EditorPreviewController::clearAll() {
     if (view_) {
@@ -96,4 +96,4 @@ void EditorPreviewController::setGripHotGeometry(DraftGeometry geometry) {
     view_->previewLayer().setGripHotGeometry(geometry.takeCurves(), geometry.takeMeshes());
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

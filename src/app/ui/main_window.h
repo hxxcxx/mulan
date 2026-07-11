@@ -46,7 +46,7 @@ private:
     void updateCommandActions();
     QAction* createCommandAction(const QString& iconPath, std::string_view commandId);
     void bindCommandAction(QAction* action, std::string_view commandId);
-    mulan::app::CommandHost currentCommandHost() const;
+    mulan::editor::CommandHost currentCommandHost() const;
     void executeCommand(std::string_view id);
     bool openFilePath(const QString& filePath, bool recordRecent = true);
     void scheduleRecentThumbnailCapture(DocWidget* docWidget, const QString& filePath);
@@ -59,7 +59,7 @@ private:
 
     // --- 文档管理 ---
     mulan::io::FileManager doc_manager_;
-    mulan::app::CommandManager command_manager_;
+    mulan::editor::CommandManager command_manager_;
 
     struct CommandActionBinding {
         std::string commandId;

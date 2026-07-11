@@ -14,7 +14,7 @@
 #include <optional>
 #include <variant>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 struct CurveElementGeometryMutation {
     asset::CurveElementId element = asset::CurveElementId::invalid();
@@ -44,4 +44,4 @@ struct GeometryEditResult {
     bool createdUniqueGeometry = false;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

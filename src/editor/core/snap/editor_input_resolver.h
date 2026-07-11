@@ -4,9 +4,9 @@
  */
 #pragma once
 
-#include "core/selection/editor_input.h"
+#include "../selection/editor_input.h"
 
-namespace mulan::app {
+namespace mulan::editor {
 
 struct EditorInputResolveContext {
     const engine::Camera* camera = nullptr;
@@ -29,4 +29,4 @@ private:
     engine::WorkPlane work_plane_ = engine::WorkPlane::worldXY();
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

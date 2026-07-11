@@ -1,6 +1,6 @@
 #include "editor_grip_controller.h"
 
-#include "editor_overlay_service.h"
+#include "../session/editor_overlay_service.h"
 #include "grip_marker_builder.h"
 #include "document/document_session.h"
 
@@ -10,7 +10,7 @@
 #include <cmath>
 #include <utility>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 struct ScreenPoint {
@@ -161,4 +161,4 @@ const EditorGrip* EditorGripController::gripById(EditorGripId id) const {
     return nullptr;
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

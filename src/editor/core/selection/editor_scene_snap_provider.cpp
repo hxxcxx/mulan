@@ -1,4 +1,4 @@
-#include "core/selection/editor_scene_snap_provider.h"
+#include "editor_scene_snap_provider.h"
 
 #include <mulan/render/camera/camera.h>
 
@@ -6,7 +6,7 @@
 #include <cmath>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 constexpr double kFacePointPriority = 1.5;
@@ -254,4 +254,4 @@ void EditorSceneSnapProvider::collect(const EditorSnapQuery& query, std::vector<
     }
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

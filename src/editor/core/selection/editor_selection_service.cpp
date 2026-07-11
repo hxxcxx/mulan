@@ -1,9 +1,9 @@
-#include "core/selection/editor_selection_service.h"
+#include "editor_selection_service.h"
 
 #include <mulan/render/frontend/selection_visual_state.h>
 #include <mulan/view/core/view_context.h>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 engine::SelectionVisualDomain visualDomain(EditorSelectionDomain domain, EditorSubEntityKind kind) {
@@ -182,4 +182,4 @@ void EditorSelectionService::syncVisualState() {
     view_->setSelectionVisualState(std::move(state));
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

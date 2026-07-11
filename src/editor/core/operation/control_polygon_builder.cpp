@@ -1,4 +1,4 @@
-#include "core/operation/control_polygon_builder.h"
+#include "control_polygon_builder.h"
 
 #include <mulan/graphics/vertex/vertex_buffer.h>
 
@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 constexpr int kDiskSegments = 24;
@@ -127,4 +127,4 @@ DraftGeometry buildControlPolygonGeometry(std::span<const math::Point3> points, 
     return DraftGeometry::geometry(std::move(curves), std::move(meshes));
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

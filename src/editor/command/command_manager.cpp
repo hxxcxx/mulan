@@ -8,7 +8,7 @@
 
 #include "command_manager.h"
 
-namespace mulan::app {
+namespace mulan::editor {
 
 bool CommandManager::add(std::unique_ptr<Command> command) {
     if (!command || command->id().empty()) {
@@ -45,4 +45,4 @@ CommandOutcome CommandManager::execute(std::string_view id, CommandHost host) {
     return command->execute(host);
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

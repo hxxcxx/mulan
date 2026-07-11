@@ -10,13 +10,13 @@
 
 #include "command_manager.h"
 
-#include "core/tools/circle_tool.h"
-#include "core/session/editor_session.h"
-#include "core/tools/extrude_tool.h"
-#include "core/tools/face_tool.h"
-#include "core/tools/line_tool.h"
-#include "core/tools/param_curve_tool.h"
-#include "core/tools/polyline_tool.h"
+#include "../core/tools/circle_tool.h"
+#include "../core/session/editor_session.h"
+#include "../core/tools/extrude_tool.h"
+#include "../core/tools/face_tool.h"
+#include "../core/tools/line_tool.h"
+#include "../core/tools/param_curve_tool.h"
+#include "../core/tools/polyline_tool.h"
 
 #include "document/document_session.h"
 #include "document/document_view.h"
@@ -25,7 +25,7 @@
 #include <string>
 #include <utility>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 CommandState commandState(const Command& command, bool enabled, std::string statusText = {}) {
@@ -428,4 +428,4 @@ void registerBuiltinCommands(CommandManager& manager) {
     manager.add(std::make_unique<DrawNurbsCommand>());
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

@@ -6,8 +6,8 @@
  */
 #pragma once
 
-#include "core/operation/draft_geometry.h"
-#include "core/session/editor_preview_controller.h"
+#include "../operation/draft_geometry.h"
+#include "editor_preview_controller.h"
 
 #include <mulan/view/core/preview_layer.h>
 
@@ -18,7 +18,7 @@ namespace mulan::view {
 class ViewContext;
 }
 
-namespace mulan::app {
+namespace mulan::editor {
 
 enum class EditorOverlayRole {
     Tool,
@@ -59,4 +59,4 @@ private:
     EditorPreviewController preview_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

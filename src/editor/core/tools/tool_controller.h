@@ -6,11 +6,11 @@
  */
 #pragma once
 
-#include "core/tools/editor_tool.h"
+#include "editor_tool.h"
 
 #include <memory>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 class ToolController {
 public:
@@ -33,4 +33,4 @@ private:
     std::unique_ptr<EditorTool> active_tool_;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

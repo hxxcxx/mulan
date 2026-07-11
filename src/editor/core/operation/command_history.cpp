@@ -1,8 +1,8 @@
-#include "core/operation/command_history.h"
+#include "command_history.h"
 
 #include <utility>
 
-namespace mulan::app {
+namespace mulan::editor {
 
 void CommandHistory::clear() {
     undo_stack_.clear();
@@ -50,4 +50,4 @@ void CommandHistory::pushUndo(Entry entry) {
     undo_stack_.push_back(std::move(entry));
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

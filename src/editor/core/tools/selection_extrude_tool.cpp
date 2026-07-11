@@ -1,6 +1,6 @@
-#include "core/tools/selection_extrude_tool.h"
+#include "selection_extrude_tool.h"
 
-#include "core/selection/editor_selection.h"
+#include "../selection/editor_selection.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/curve_asset.h>
@@ -16,7 +16,7 @@
 #include <variant>
 #include <vector>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 constexpr double kMinimumExtrudeDistance = 1.0e-9;
@@ -322,4 +322,4 @@ EditorAction SelectionExtrudeTool::selectSource(const EditorInput& input) {
     return updatePreview(0.0);
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

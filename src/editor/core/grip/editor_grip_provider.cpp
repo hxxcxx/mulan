@@ -1,4 +1,4 @@
-#include "core/grip/editor_grip_provider.h"
+#include "editor_grip_provider.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/io/document.h>
@@ -13,7 +13,7 @@
 #include <utility>
 #include <variant>
 
-namespace mulan::app {
+namespace mulan::editor {
 namespace {
 
 struct CurveGripBuildContext {
@@ -299,4 +299,4 @@ std::vector<EditorGrip> EditorGripProvider::build(const io::Document& document,
     return grips;
 }
 
-}  // namespace mulan::app
+}  // namespace mulan::editor

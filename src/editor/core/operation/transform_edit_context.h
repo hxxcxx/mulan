@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "core/operation/document_operation.h"
-#include "core/operation/selection_target.h"
+#include "document_operation.h"
+#include "selection_target.h"
 
 #include <mulan/math/math.h>
 #include <mulan/scene/entity_id.h>
@@ -21,7 +21,7 @@ namespace mulan::io {
 class Document;
 }
 
-namespace mulan::app {
+namespace mulan::editor {
 
 enum class TransformEditMode : uint8_t {
     Translate,
@@ -75,4 +75,4 @@ private:
     bool has_anchor_world_ = false;
 };
 
-}  // namespace mulan::app
+}  // namespace mulan::editor
