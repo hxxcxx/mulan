@@ -6,7 +6,7 @@
 
 #include "render_surface.h"
 
-#include "mulan/engine/rhi/device.h"
+#include "mulan/rhi/device.h"
 
 #include <cstdio>
 #include <utility>

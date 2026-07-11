@@ -13,9 +13,9 @@
 #include "render_world_sync.h"
 #include "view_state.h"
 
-#include <mulan/engine/render/frontend/render_resource_prepare.h>
-#include <mulan/engine/render/frontend/render_world_snapshot.h>
-#include <mulan/engine/render/light_environment.h>
+#include <mulan/render/frontend/render_resource_prepare.h>
+#include <mulan/render/frontend/render_world_snapshot.h>
+#include <mulan/render/light_environment.h>
 
 #include <cstdint>
 #include <memory>

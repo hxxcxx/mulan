@@ -1,6 +1,6 @@
 #include "editor_selection_service.h"
 
-#include <mulan/engine/render/frontend/selection_visual_state.h>
+#include <mulan/render/frontend/selection_visual_state.h>
 #include <mulan/view/view_context.h>
 
 namespace mulan::app {

@@ -3,7 +3,7 @@
 
 #include <mulan/core/result/error.h>
 #include <mulan/graphics/vertex/vertex_semantic.h>
-#include "../../engine_error_code.h"
+#include "../engine_error_code.h"
 
 #include <deque>
 #include <string>

@@ -11,7 +11,7 @@
 
 #include "editor/editor_session.h"
 
-#include <mulan/engine/interaction/input_event.h>
+#include <mulan/interaction/input_event.h>
 #include <mulan/view/view_config.h>
 #include <mulan/view/view_context.h>
 

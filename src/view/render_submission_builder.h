@@ -9,8 +9,8 @@
 
 #include "render_submission.h"
 
-#include <mulan/engine/render/frontend/render_world.h>
-#include <mulan/engine/render/light_environment.h>
+#include <mulan/render/frontend/render_world.h>
+#include <mulan/render/light_environment.h>
 
 #include <cstddef>
 #include <cstdint>

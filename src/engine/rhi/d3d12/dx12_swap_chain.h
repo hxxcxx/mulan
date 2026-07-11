@@ -11,7 +11,7 @@
 #include "dx12_convert.h"
 #include "dx12_texture.h"
 #include "dx12_descriptor_allocator.h"
-#include "../../window.h"
+#include "../window.h"
 
 #include <mulan/core/result/error.h>
 

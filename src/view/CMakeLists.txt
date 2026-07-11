@@ -23,7 +23,10 @@ add_library(view STATIC
 mulan_copy_public_headers(view view)
 
 target_link_libraries(view PUBLIC
-    engine
+    render
+    interaction
+    rhi
+    platform
     asset
     scene
 )

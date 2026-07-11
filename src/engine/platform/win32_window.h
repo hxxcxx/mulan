@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "../window.h"
+#include <mulan/rhi/window.h>
 
 #ifdef _WIN32
 

@@ -8,7 +8,7 @@
 #pragma once
 
 #include <mulan/asset/curve_asset.h>
-#include <mulan/engine/render/frontend/pick_identity.h>
+#include <mulan/render/frontend/pick_identity.h>
 #include <mulan/scene/entity_id.h>
 
 #include <cstddef>

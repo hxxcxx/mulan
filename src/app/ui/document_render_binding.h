@@ -9,7 +9,7 @@
 
 #include "document_render_cache.h"
 
-#include <mulan/engine/render/light_environment.h>
+#include <mulan/render/light_environment.h>
 
 #include <span>
 

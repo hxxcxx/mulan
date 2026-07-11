@@ -1,6 +1,6 @@
 #include "render_runtime.h"
 
-#include <mulan/engine/rhi/device.h>
+#include <mulan/rhi/device.h>
 
 #include <string_view>
 #include <utility>

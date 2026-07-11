@@ -6,8 +6,8 @@
  */
 #pragma once
 
-#include <mulan/engine/render/overlay/view_cube_model.h>
-#include <mulan/engine/render/frontend/selection_visual_state.h>
+#include <mulan/render/overlay/view_cube_model.h>
+#include <mulan/render/frontend/selection_visual_state.h>
 #include <mulan/math/math.h>
 
 #include <cstdint>

@@ -15,8 +15,8 @@
 #include "view_state.h"
 
 #include <mulan/core/result/error.h>
-#include <mulan/engine/render/frontend/render_capture.h>
-#include <mulan/engine/render/light_environment.h>
+#include <mulan/render/frontend/render_capture.h>
+#include <mulan/render/light_environment.h>
 
 #include <cstdint>
 #include <expected>

@@ -9,8 +9,8 @@
 
 #include "scene_proxy.h"
 
-#include <mulan/engine/render/light_environment.h>
-#include <mulan/engine/render/frontend/pick_identity.h>
+#include <mulan/render/light_environment.h>
+#include <mulan/render/frontend/pick_identity.h>
 #include <cstddef>
 #include <cstdint>
 #include <optional>

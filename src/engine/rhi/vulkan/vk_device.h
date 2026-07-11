@@ -9,7 +9,7 @@
 
 #include "vk_common.h"
 #include "../device.h"
-#include "../../window.h"
+#include "../window.h"
 #include "vk_convert.h"
 #include "vk_buffer.h"
 #include "vk_texture.h"

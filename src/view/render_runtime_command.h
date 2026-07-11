@@ -12,7 +12,7 @@
 
 #include "render_surface.h"
 
-#include <mulan/engine/render/frontend/render_capture.h>
+#include <mulan/render/frontend/render_capture.h>
 
 #include <cstdint>
 #include <string>

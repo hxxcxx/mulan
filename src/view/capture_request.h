@@ -9,8 +9,8 @@
 
 #include "view_state.h"
 
-#include <mulan/engine/render/camera/camera.h>
-#include <mulan/engine/render/frontend/render_capture.h>
+#include <mulan/render/camera/camera.h>
+#include <mulan/render/frontend/render_capture.h>
 #include <mulan/core/result/error.h>
 
 #include <cstddef>

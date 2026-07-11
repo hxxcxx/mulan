@@ -2,7 +2,7 @@
 #include "../text/text_types.h"
 #include "../../rhi/command_list.h"
 #include "../../rhi/device.h"
-#include "../../engine_error_code.h"
+#include <mulan/rhi/engine_error_code.h>
 #include "../gpu_scene_contract.h"
 
 #include <mulan/core/result/error.h>

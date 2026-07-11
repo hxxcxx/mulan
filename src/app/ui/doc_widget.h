@@ -12,7 +12,7 @@
 #include <QPoint>
 #include <QPointF>
 
-#include <mulan/engine/interaction/input_event.h>
+#include <mulan/interaction/input_event.h>
 #include <mulan/view/view_config.h>
 
 class DocumentSession;

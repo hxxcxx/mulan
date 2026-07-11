@@ -12,7 +12,7 @@
 
 #include <mulan/core/image/image.h>
 #include <mulan/core/result/error.h>
-#include <mulan/engine/render/frontend/render_capture.h>
+#include <mulan/render/frontend/render_capture.h>
 
 #include <expected>
 #include <memory>

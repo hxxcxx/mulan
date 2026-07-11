@@ -18,7 +18,7 @@
 #include "texture.h"
 #include "bind_group.h"
 #include <mulan/math/math.h>
-#include "../window.h"
+#include "window.h"
 
 #include <mulan/core/result/error.h>
 

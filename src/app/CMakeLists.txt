@@ -77,7 +77,10 @@ add_executable(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     view
-    engine
+    render
+    interaction
+    rhi
+    platform
     $<LINK_LIBRARY:WHOLE_ARCHIVE,io>
     runtime
     SARibbon

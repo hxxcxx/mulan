@@ -18,8 +18,8 @@
 #include "tool_controller.h"
 #include "transform_edit_context.h"
 
-#include <mulan/engine/interaction/input_event.h>
-#include <mulan/engine/interaction/work_plane.h>
+#include <mulan/interaction/input_event.h>
+#include <mulan/interaction/work_plane.h>
 
 #include <memory>
 #include <string_view>

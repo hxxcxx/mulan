@@ -6,9 +6,9 @@
  */
 #pragma once
 
-#include <mulan/engine/interaction/input_event.h>
-#include <mulan/engine/interaction/work_plane.h>
-#include <mulan/engine/render/frontend/pick_identity.h>
+#include <mulan/interaction/input_event.h>
+#include <mulan/interaction/work_plane.h>
+#include <mulan/render/frontend/pick_identity.h>
 #include <mulan/math/math.h>
 #include <mulan/scene/entity_id.h>
 

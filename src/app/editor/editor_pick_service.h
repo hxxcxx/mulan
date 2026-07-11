@@ -9,7 +9,7 @@
 #include "editor_input.h"
 #include "editor_selection.h"
 
-#include <mulan/engine/interaction/input_event.h>
+#include <mulan/interaction/input_event.h>
 
 #include <optional>
 

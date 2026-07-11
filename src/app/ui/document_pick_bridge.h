@@ -7,7 +7,7 @@
  */
 #pragma once
 
-#include <mulan/engine/render/camera/camera.h>
+#include <mulan/render/camera/camera.h>
 #include <mulan/view/render_scene.h>
 
 #include <optional>

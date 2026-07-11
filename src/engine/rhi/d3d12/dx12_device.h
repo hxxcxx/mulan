@@ -7,7 +7,7 @@
 #pragma once
 
 #include "../device.h"
-#include "../../window.h"
+#include "../window.h"
 #include "dx12_common.h"
 #include "dx12_convert.h"
 #include "dx12_fence.h"

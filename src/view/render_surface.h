@@ -11,9 +11,9 @@
 
 #pragma once
 
-#include "mulan/engine/rhi/buffer.h"
-#include "mulan/engine/rhi/render_target.h"
-#include "mulan/engine/rhi/swap_chain.h"
+#include "mulan/rhi/buffer.h"
+#include "mulan/rhi/render_target.h"
+#include "mulan/rhi/swap_chain.h"
 #include "view_config.h"
 
 #include <cstdint>

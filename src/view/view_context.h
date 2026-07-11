@@ -13,12 +13,12 @@
 #include "capture_batch.h"
 
 #include "mulan/core/result/error.h"
-#include "mulan/engine/interaction/camera_manipulator.h"
-#include "mulan/engine/interaction/input_event.h"
-#include "mulan/engine/interaction/operator.h"
-#include "mulan/engine/render/light_environment.h"
-#include "mulan/engine/render/camera/camera.h"
-#include "mulan/engine/render/overlay/view_cube_model.h"
+#include "mulan/interaction/camera_manipulator.h"
+#include "mulan/interaction/input_event.h"
+#include "mulan/interaction/operator.h"
+#include "mulan/render/light_environment.h"
+#include "mulan/render/camera/camera.h"
+#include "mulan/render/overlay/view_cube_model.h"
 
 #include <cstdint>
 #include <expected>

@@ -2,7 +2,7 @@
 
 #include <mulan/asset/asset_id.h>
 #include <mulan/asset/geometry_asset.h>
-#include <mulan/engine/render/frontend/render_object.h>
+#include <mulan/render/frontend/render_object.h>
 #include <mulan/graphics/mesh.h>
 #include "preview_layer.h"
 
