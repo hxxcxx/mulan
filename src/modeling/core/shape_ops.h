@@ -22,7 +22,6 @@
 
 #include "modeling_core_export.h"
 
-#include <mulan/asset/face_asset.h>
 #include <mulan/core/result/error.h>
 #include <mulan/math/math.h>
 #include <mulan/modeling/core/shape.h>
@@ -41,10 +40,23 @@ enum class BooleanOp : uint8_t {
     Intersection,
 };
 
+/// 中立 profile 几何描述。由调用方从 asset::FaceDefinition 转换得到，
+/// 仅由纯 math 类型组成，建模层不依赖 asset。
+struct ProfileGeometry {
+    math::Point3 origin = math::Point3::origin();
+    math::Vec3 x = math::Vec3::unitX();
+    math::Vec3 y = math::Vec3::unitY();
+    math::Vec3 normal = math::Vec3::unitZ();
+    std::vector<math::Point3> outer;
+    std::vector<std::vector<math::Point3>> holes;
+
+    bool hasOuterLoop() const { return outer.size() >= 3; }
+};
+
 /// 拉伸参数:平面轮廓 + 方向距离。
-/// direction 为零向量时用 profile.frame.normal;inward 反向。
+/// direction 为零向量时用 profile.normal;inward 反向。
 struct ExtrudeParams {
-    asset::FaceDefinition profile;
+    ProfileGeometry profile;
     /// 可选的精确圆轮廓。提供时后端应构造解析圆面而非使用 profile 的离散多边形。
     std::optional<math::Circle3> circleProfile;
     math::Vec3 direction{ 0.0, 0.0, 0.0 };

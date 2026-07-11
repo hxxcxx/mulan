@@ -189,6 +189,19 @@ double signedFaceLoopArea(const FacePlaneFrame& frame, std::span<const math::Poi
     return signedArea(projected);
 }
 
+modeling::ProfileGeometry toProfileGeometry(const FaceDefinition& face) {
+    modeling::ProfileGeometry profile;
+    profile.origin = face.frame.origin;
+    profile.x = face.frame.x;
+    profile.y = face.frame.y;
+    profile.normal = face.frame.normal;
+    profile.outer = face.outer.points;
+    profile.holes.reserve(face.holes.size());
+    for (const FaceLoop& hole : face.holes)
+        profile.holes.push_back(hole.points);
+    return profile;
+}
+
 FaceLoopValidation validateFaceLoop(const FacePlaneFrame& frame, std::span<const math::Point3> points) {
     FaceLoopValidation validation;
     if (points.empty()) {

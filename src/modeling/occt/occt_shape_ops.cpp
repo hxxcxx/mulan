@@ -38,10 +38,10 @@ core::Result<TopoDS_Shape> topoFromShape(const Shape& s) {
     return occt->topoShape();
 }
 
-/// 把 FaceLoop(世界坐标点)构造成 OCCT Wire(闭合多边形)。
-TopoDS_Wire loopToWire(const asset::FaceLoop& loop) {
+/// 把世界坐标点序列构造成 OCCT Wire(闭合多边形)。
+TopoDS_Wire loopToWire(std::span<const math::Point3> points) {
     BRepBuilderAPI_MakePolygon poly;
-    for (const auto& p : loop.points)
+    for (const auto& p : points)
         poly.Add(gp_Pnt(p.x, p.y, p.z));
     poly.Close();
     return poly.Wire();
@@ -55,10 +55,10 @@ core::Result<Shape> OccShapeOps::extrude(const ExtrudeParams& params) {
     if (params.distance <= 0.0)
         return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "extrude distance must be positive"));
 
-    // 方向:零向量用 frame.normal。
+    // 方向:零向量用 profile.normal。
     math::Vec3 dir = params.direction;
     if (dir.x == 0.0 && dir.y == 0.0 && dir.z == 0.0)
-        dir = params.circleProfile ? params.circleProfile->normal : params.profile.frame.normal;
+        dir = params.circleProfile ? params.circleProfile->normal : params.profile.normal;
     if (params.inward)
         dir = -dir;
 
