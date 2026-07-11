@@ -1,6 +1,6 @@
 #include "doc_widget.h"
 
-#include "document_session.h"
+#include "document/document_session.h"
 #include "engine_settings.h"
 
 #include <QShowEvent>

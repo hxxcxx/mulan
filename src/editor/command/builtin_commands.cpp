@@ -10,16 +10,16 @@
 
 #include "command_manager.h"
 
-#include "editor/circle_tool.h"
-#include "editor/editor_session.h"
-#include "editor/extrude_tool.h"
-#include "editor/face_tool.h"
-#include "editor/line_tool.h"
-#include "editor/param_curve_tool.h"
-#include "editor/polyline_tool.h"
+#include "core/circle_tool.h"
+#include "core/editor_session.h"
+#include "core/extrude_tool.h"
+#include "core/face_tool.h"
+#include "core/line_tool.h"
+#include "core/param_curve_tool.h"
+#include "core/polyline_tool.h"
 
-#include "ui/document_session.h"
-#include "ui/document_view.h"
+#include "document/document_session.h"
+#include "document/document_view.h"
 
 #include <memory>
 #include <string>

@@ -5,15 +5,15 @@
  * @date 2026-07-08
  */
 
-#include "editor_session.h"
+#include "core/editor_session.h"
 
 #include "selection_extrude_tool.h"
 
 #include "grip_drag_tool.h"
 #include "snap_marker_builder.h"
 #include "transform_tool.h"
-#include "ui/document_session.h"
-#include "ui/document_view_binding.h"
+#include "document/document_session.h"
+#include "document/document_view_binding.h"
 
 #include <mulan/math/math.h>
 #include <mulan/view/core/view_context.h>

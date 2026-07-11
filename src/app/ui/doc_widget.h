@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "document_view.h"
+#include "document/document_view.h"
 
 #include <QWidget>
 #include <QPoint>

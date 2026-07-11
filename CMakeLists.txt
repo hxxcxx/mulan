@@ -251,6 +251,7 @@ endif()
 add_subdirectory(src/view)
 add_subdirectory(src/io)
 add_subdirectory(src/modeling/runtime)
+add_subdirectory(src/editor)
 add_subdirectory(src/app)
 
 if(BUILD_TESTING)

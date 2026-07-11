@@ -1,8 +1,8 @@
 #include "document_operation_executor.h"
 
 #include "geometry_edit_service.h"
-#include "ui/document_session.h"
-#include "ui/document_view_binding.h"
+#include "document/document_session.h"
+#include "document/document_view_binding.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/curve_asset.h>

@@ -2,7 +2,7 @@
 
 #include "editor_overlay_service.h"
 #include "grip_marker_builder.h"
-#include "ui/document_session.h"
+#include "document/document_session.h"
 
 #include <mulan/io/document.h>
 #include <mulan/view/core/view_context.h>

@@ -1,6 +1,6 @@
 #include "document_area.h"
 #include "doc_widget.h"
-#include "document_session.h"
+#include "document/document_session.h"
 #include "startup_page.h"
 
 #include <SARibbon.h>

@@ -1,8 +1,8 @@
 #include "main_window.h"
 #include "document_area.h"
 #include "doc_widget.h"
-#include "document_session.h"
-#include "document_view_binding.h"
+#include "document/document_session.h"
+#include "document/document_view_binding.h"
 #include "engine_settings_dialog.h"
 #include "command/builtin_commands.h"
 

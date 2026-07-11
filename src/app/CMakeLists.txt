@@ -1,54 +1,9 @@
-# Application executable and Qt UI layer.
+# Application executable: Qt UI 壳。编辑逻辑在 editor STATIC target 中。
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 set(MULAN_APP_SOURCES
     main.cpp
-    command/command_manager.cpp
-    command/builtin_commands.cpp
-    editor/command_history.cpp
-    editor/document_operation.cpp
-    editor/document_operation_executor.cpp
-    editor/control_polygon_builder.cpp
-    editor/drag_edit_session.cpp
-    editor/draft_geometry.cpp
-    editor/editor_action.cpp
-    editor/editor_grip_controller.cpp
-    editor/editor_overlay_service.cpp
-    editor/editor_preview_controller.cpp
-    editor/editor_input_resolver.cpp
-    editor/editor_pick_service.cpp
-    editor/editor_pick_query_world.cpp
-    editor/editor_render_pick_conversion.cpp
-    editor/editor_grip_provider.cpp
-    editor/editor_scene_snap_provider.cpp
-    editor/editor_selection.cpp
-    editor/editor_selection_service.cpp
-    editor/editor_snap_collector.cpp
-    editor/editor_snap_resolver.cpp
-    editor/editor_session.cpp
-    editor/geometry_edit_service.cpp
-    editor/point_drawing_tool.cpp
-    editor/tool_controller.cpp
-    editor/transform_edit_context.cpp
-    editor/transform_tool.cpp
-    editor/param_curve_tool.cpp
-    editor/polyline_tool.cpp
-    editor/circle_tool.cpp
-    editor/face_tool.cpp
-    editor/extrude_tool.cpp
-    editor/selection_extrude_tool.cpp
-    editor/line_tool.cpp
-    editor/grip_drag_tool.cpp
-    editor/grip_marker_builder.cpp
-    editor/snap_marker_builder.cpp
-    ui/document_session.cpp
-    ui/document_render_cache.cpp
-    ui/document_render_binding.cpp
-    ui/document_pick_bridge.cpp
-    ui/document_selection_bridge.cpp
-    ui/document_view.cpp
-    ui/document_view_binding.cpp
     ui/document_area.cpp
     ui/startup_page.cpp
     ui/main_window.cpp
@@ -76,15 +31,11 @@ add_executable(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    view
-    render
-    interaction
-    rhi
+    editor
     platform
     $<LINK_LIBRARY:WHOLE_ARCHIVE,io>
     $<$<TARGET_EXISTS:rhi_vulkan>:$<LINK_LIBRARY:WHOLE_ARCHIVE,rhi_vulkan>>
     $<$<TARGET_EXISTS:rhi_dx12>:$<LINK_LIBRARY:WHOLE_ARCHIVE,rhi_dx12>>
-    runtime
     SARibbon
     Qt6::Core
     Qt6::Gui

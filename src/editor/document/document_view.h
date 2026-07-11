@@ -9,7 +9,7 @@
 
 #include "document_view_binding.h"
 
-#include "editor/editor_session.h"
+#include "core/editor_session.h"
 
 #include <mulan/interaction/input_event.h>
 #include <mulan/view/core/view_config.h>

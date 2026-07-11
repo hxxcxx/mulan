@@ -1,8 +1,8 @@
 #include "editor_pick_service.h"
 
 #include "editor_render_pick_conversion.h"
-#include "ui/document_session.h"
-#include "ui/document_view_binding.h"
+#include "document/document_session.h"
+#include "document/document_view_binding.h"
 
 #include <mulan/io/document.h>
 #include <mulan/view/core/view_context.h>
