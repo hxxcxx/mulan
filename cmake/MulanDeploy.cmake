@@ -139,12 +139,19 @@ function(mulan_add_copy_files_target target)
         set(ARG_COMMENT "Copying runtime files for ${target}")
     endif()
 
-    add_custom_target(${target}
-        ${copy_commands}
-        DEPENDS ${ARG_DEPENDS}
-        COMMENT "${ARG_COMMENT}"
-        COMMAND_EXPAND_LISTS
-    )
+    if(copy_commands)
+        add_custom_target(${target}
+            ${copy_commands}
+            DEPENDS ${ARG_DEPENDS}
+            COMMENT "${ARG_COMMENT}"
+            COMMAND_EXPAND_LISTS
+        )
+    else()
+        add_custom_target(${target}
+            DEPENDS ${ARG_DEPENDS}
+            COMMENT "${ARG_COMMENT}"
+        )
+    endif()
 endfunction()
 
 function(mulan_copy_target_runtime_dlls_post_build target)

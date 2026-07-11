@@ -55,6 +55,17 @@ if(NOT MULAN_ENABLE_TRUCK_BACKEND)
     )
 endif()
 
+# OCCT 关闭后清理旧构建遗留的后端，避免 runtime 继续扫描加载。
+if(NOT MULAN_ENABLE_OCCT_BACKEND)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E rm -f
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/mulan_modeling_occt.dll"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/mulan_modeling_occt.pdb"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/backends/mulan_modeling_occt.dll"
+        COMMENT "Removing disabled OCCT backend runtime artifacts..."
+    )
+endif()
+
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_BINARY_DIR}/include
