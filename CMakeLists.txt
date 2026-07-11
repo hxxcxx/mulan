@@ -22,7 +22,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(MULAN_SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
 
 option(MULAN_ENABLE_DEV_RUNTIME_ENV "Configure debugger runtime paths for F5 without copying runtime DLLs." ON)
-option(MULAN_ENABLE_DEV_RUNTIME_COPY "Copy the minimal runtime set needed for F5/debug runs." ON)
+option(MULAN_ENABLE_DEV_RUNTIME_COPY "Copy the minimal runtime set needed for F5/debug runs." OFF)
 option(MULAN_ENABLE_POST_BUILD_DEPLOY "Copy runtime dependencies after every app build." OFF)
 option(MULAN_ENABLE_RUNTIME_DEPLOY_TARGET "Create an explicit runtime deploy target for standalone runs." ON)
 option(MULAN_DEPLOY_QT_WITH_WINDEPLOYQT "Run windeployqt from the explicit deploy target." ON)
