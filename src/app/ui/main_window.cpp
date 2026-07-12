@@ -2,9 +2,9 @@
 #include "recent_thumbnail_spec.h"
 #include "document_area.h"
 #include "doc_widget.h"
+#include "engine_settings_dialog.h"
 #include <mulan/editor/document/document_session.h>
 #include <mulan/editor/document/document_view_binding.h>
-#include "engine_settings_dialog.h"
 #include <mulan/editor/command/builtin_commands.h>
 
 #include <mulan/io/file_manager.h>
