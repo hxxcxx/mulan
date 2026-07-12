@@ -106,6 +106,8 @@ MainWindow::MainWindow(QWidget* parent) : SARibbonMainWindow(parent) {
 
     connect(doc_area_, &DocumentArea::currentDocumentChanged, this, &MainWindow::onCurrentDocumentChanged);
     connect(doc_area_, &DocumentArea::currentDocumentCommandStateInvalidated, this, &MainWindow::updateDisplayActions);
+    connect(doc_area_, &DocumentArea::documentClosing, this,
+            [this](DocWidget* document, const QString& filePath) { captureRecentThumbnail(document, filePath); });
     connect(doc_area_, &DocumentArea::startupNewRequested, this, &MainWindow::onNewDocument);
     connect(doc_area_, &DocumentArea::startupOpenRequested, this, &MainWindow::onOpenFile);
     connect(doc_area_, &DocumentArea::startupRecentFileRequested, this,
@@ -544,10 +546,23 @@ void MainWindow::scheduleRecentThumbnailCapture(DocWidget* docWidget, const QStr
     if (!docWidget || filePath.isEmpty())
         return;
 
+    const QPointer<DocWidget> guardedWidget(docWidget);
+
+    QTimer::singleShot(0, this, [this, guardedWidget, filePath]() {
+        if (!guardedWidget)
+            return;
+
+        captureRecentThumbnail(guardedWidget, filePath);
+    });
+}
+
+void MainWindow::captureRecentThumbnail(DocWidget* docWidget, const QString& filePath) {
+    if (!docWidget || filePath.isEmpty())
+        return;
+
     const QString cacheRoot = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     if (cacheRoot.isEmpty())
         return;
-
     const QString thumbnailDirectory = QDir(cacheRoot).filePath("recent-thumbnails");
     if (!QDir().mkpath(thumbnailDirectory))
         return;
@@ -555,41 +570,35 @@ void MainWindow::scheduleRecentThumbnailCapture(DocWidget* docWidget, const QStr
     const QString absolutePath = QFileInfo(filePath).absoluteFilePath();
     const QByteArray key = QCryptographicHash::hash(absolutePath.toUtf8(), QCryptographicHash::Sha256).toHex();
     const QString thumbnailPath = QDir(thumbnailDirectory).filePath(QString::fromLatin1(key) + ".png");
-    const QPointer<DocWidget> guardedWidget(docWidget);
 
     // 截图复用文档视图已有的 RHI Device。运行时持有同级离屏表面，
     // 因此既不读取 Qt 像素，也不会为缩略图创建第二个 Device 或后端。
-    QTimer::singleShot(0, this, [this, guardedWidget, filePath, thumbnailPath]() {
-        if (!guardedWidget)
-            return;
+    auto& viewContext = docWidget->viewContext();
+    if (!viewContext.isInitialized())
+        return;
 
-        auto& viewContext = guardedWidget->viewContext();
-        if (!viewContext.isInitialized())
-            return;
+    mulan::view::CaptureRequest request;
+    request.name = "recent-thumbnail";
+    request.desc.width = recent_thumbnail::kCaptureWidth;
+    request.desc.height = recent_thumbnail::kCaptureHeight;
+    request.desc.format = mulan::engine::TextureFormat::RGBA8_UNorm;
+    request.desc.readback = true;
+    request.camera = viewContext.camera();
+    request.visual.style = mulan::view::CaptureRenderStyle::ShadedWithEdges;
+    request.visual.showViewCube = false;
+    request.visual.showOverlays = false;
 
-        mulan::view::CaptureRequest request;
-        request.name = "recent-thumbnail";
-        request.desc.width = recent_thumbnail::kCaptureWidth;
-        request.desc.height = recent_thumbnail::kCaptureHeight;
-        request.desc.format = mulan::engine::TextureFormat::RGBA8_UNorm;
-        request.desc.readback = true;
-        request.camera = viewContext.camera();
-        request.visual.style = mulan::view::CaptureRenderStyle::ShadedWithEdges;
-        request.visual.showViewCube = false;
-        request.visual.showOverlays = false;
+    auto captured = viewContext.capture(request);
+    if (!captured)
+        return;
+    auto saved = mulan::view::CaptureImageEncoder::savePNG(*captured, thumbnailPath.toStdString());
+    if (!saved)
+        return;
 
-        auto captured = viewContext.capture(request);
-        if (!captured)
-            return;
-        auto saved = mulan::view::CaptureImageEncoder::savePNG(*captured, thumbnailPath.toStdString());
-        if (!saved)
-            return;
-
-        const QImage framed = frameThumbnailToContent(QImage(thumbnailPath));
-        if (!framed.isNull() && framed.save(thumbnailPath, "PNG")) {
-            doc_area_->setRecentThumbnail(filePath, thumbnailPath);
-        }
-    });
+    const QImage framed = frameThumbnailToContent(QImage(thumbnailPath));
+    if (!framed.isNull() && framed.save(thumbnailPath, "PNG")) {
+        doc_area_->setRecentThumbnail(filePath, thumbnailPath);
+    }
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* e) {

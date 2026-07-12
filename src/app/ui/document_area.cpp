@@ -115,6 +115,11 @@ void DocumentArea::closeDocument(int index) {
     // Unbind the view before deleting the session; the widget itself is deleted later.
     auto it = docs_.find(docWidget);
     if (it != docs_.end()) {
+        const auto* document = it->second->document();
+        const QString filePath = document ? QString::fromStdString(document->filePath()) : QString{};
+        if (!filePath.isEmpty()) {
+            emit documentClosing(docWidget, filePath);
+        }
         docWidget->setDocumentSession(nullptr);
         delete it->second;
         docs_.erase(it);

@@ -50,6 +50,9 @@ signals:
     /// 文档被关闭
     void documentClosed();
 
+    /// 文档即将关闭；此时视图和会话仍有效，可同步保存最终视角的缩略图。
+    void documentClosing(DocWidget* document, const QString& filePath);
+
     /// 当前文档的编辑状态变化，需要刷新命令可用性
     void currentDocumentCommandStateInvalidated();
     void startupNewRequested();
