@@ -12,7 +12,8 @@ cbuffer TextParams : register(b0) {
     float4x4 OrthoProjection;    // 正交投影矩阵
     float4   BgColor;            // 背景色
     float    PxRange;            // MSDF 像素范围 (通常 4.0)
-    float3   _pad;
+    float2   AtlasSize;
+    float    _pad;
 };
 
 struct VS_INPUT {
