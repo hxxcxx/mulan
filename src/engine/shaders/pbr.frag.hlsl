@@ -172,20 +172,19 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
     // ── IBL 环境光照（split-sum 近似，equirect 表示）──
     float3 R = reflect(-V, N);
 
-    // Diffuse IBL: irradiance equirect 沿法线采样（已离线卷积）。
-    // 无 IBL 时（CAD 文档）IrradianceMap 是黑色 fallback，diffuseIBL 贡献为 0。
+    // Diffuse IBL: irradiance equirect 沿法线采样（HDR 时为离线卷积，默认时为内置环境光照）。
+    // 未启用 HDR 时，binding 9 使用内置默认环境，避免背光面陷入纯黑。
     float3 irradiance = IrradianceMap.Sample(PbrSampler, directionToEquirectUV(N)).rgb;
     float3 diffuseIBL = irradiance * kD * albedo * ao;
 
     // Specular IBL: prefilter equirect 沿反射方向采样（单档 roughness，运行时不再按 mip 选）。
-    // 同上，无 IBL 时贡献为 0。
+    // 未启用 HDR 时，binding 10 同样提供默认环境反射。
     float3 prefiltered = PrefilterMap.Sample(PbrSampler, directionToEquirectUV(R)).rgb;
     // BRDF LUT: 输入 (NdotV, roughness)，输出 (scale, bias)
     float2 brdf = BrdfLUT.Sample(PbrSampler, float2(NdotV, roughness)).rg;
     float3 specularIBL = prefiltered * (F * brdf.x + brdf.y) * ao;
 
-    // 基础环境光：与 IBL 无关的常数项，保证无 IBL（CAD/工程视图）时背光面不全黑。
-    // 上面 IBL 项是黑色 fallback 时，至少有 baseAmbient 让模型可见。
+    // 基础环境光：与 IBL 无关的常数项，保证工程视图的背光面仍有最低可见度。
     // kD * albedo：让基础环境光也走 PBR 漫反射（金属几乎无漫反射，符合物理）。
     float3 baseAmbient = kD * albedo * ao;
 

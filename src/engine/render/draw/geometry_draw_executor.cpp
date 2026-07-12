@@ -145,8 +145,8 @@ bool GeometryDrawExecutor::createFrameBindGroup(TextureFormat, TextureFormat, bo
                                                                  : shared_resources_.defaultWhiteTexture());
         bg.addTexture(7, shared_resources_.defaultWhiteTexture());
         bg.addSampler(8, shared_resources_.defaultSampler());
-        // IBL 三件套：先用 fallback，每帧 execute 时刷新为真实烘焙产物。
-        // 若 IBL fallback 未创建（创建失败），退化到 defaultWhite 以保证 descriptor 非 null
+        // IBL 三件套：先用内置默认环境光照，每帧 execute 时刷新为真实烘焙产物。
+        // 若 fallback 创建失败，退化到 defaultWhite 以保证 descriptor 非 null
         // —— 避免 Vulkan 验证层 "descriptor never updated" 错误。
         Texture* iblFallback = shared_resources_.defaultIBLTexture() ? shared_resources_.defaultIBLTexture()
                                                                      : shared_resources_.defaultWhiteTexture();

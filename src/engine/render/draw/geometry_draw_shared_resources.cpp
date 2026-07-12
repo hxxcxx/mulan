@@ -5,6 +5,9 @@
 #include "../mesh_draw_command.h"
 #include "../../rhi/device.h"
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstdio>
 
 namespace mulan::engine {
@@ -28,6 +31,69 @@ std::unique_ptr<Texture> createDefaultRGBA8Texture(RHIDevice& device, const char
     auto texture = std::move(*result);
     device.uploadTextureData(texture.get(), TextureUploadDesc::tightlyPacked(std::span(rgba, size_t{ 4 }), 1, 1,
                                                                              TextureFormat::RGBA8_UNorm));
+    return texture;
+}
+
+std::unique_ptr<Texture> createDefaultEnvironmentIBLTexture(RHIDevice& device) {
+    // 内置默认环境光照，保证未加载 HDR 时 PBR 仍有完整的环境明暗关系。
+    constexpr uint32_t width = 16;
+    constexpr uint32_t height = 8;
+    std::array<float, width * height * 4> pixels{};
+
+    for (uint32_t y = 0; y < height; ++y) {
+        const float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(height);
+        const float elevation = 1.0f - v;
+        const float skyBlend = std::clamp((elevation + 0.15f) / 0.75f, 0.0f, 1.0f);
+
+        const std::array<float, 3> horizon = { 0.56f, 0.59f, 0.64f };
+        const std::array<float, 3> sky = { 0.78f, 0.84f, 0.94f };
+        const std::array<float, 3> ground = { 0.26f, 0.23f, 0.21f };
+        std::array<float, 3> rowColor{};
+        if (elevation >= -0.15f) {
+            for (int c = 0; c < 3; ++c) {
+                rowColor[c] = horizon[c] + (sky[c] - horizon[c]) * skyBlend;
+            }
+        } else {
+            const float groundBlend = std::clamp((-elevation - 0.15f) / 0.85f, 0.0f, 1.0f);
+            for (int c = 0; c < 3; ++c) {
+                rowColor[c] = horizon[c] + (ground[c] - horizon[c]) * groundBlend;
+            }
+        }
+
+        for (uint32_t x = 0; x < width; ++x) {
+            const float u = (static_cast<float>(x) + 0.5f) / static_cast<float>(width);
+            const float keyDistance = std::abs(u - 0.22f);
+            const float key = std::clamp(1.0f - keyDistance / 0.16f, 0.0f, 1.0f) *
+                              std::clamp(1.0f - std::abs(elevation - 0.42f) / 0.28f, 0.0f, 1.0f);
+            const float rimDistance = std::abs(u - 0.72f);
+            const float rim = std::clamp(1.0f - rimDistance / 0.12f, 0.0f, 1.0f) *
+                              std::clamp(1.0f - std::abs(elevation - 0.25f) / 0.32f, 0.0f, 1.0f);
+
+            const size_t offset = (static_cast<size_t>(y) * width + x) * 4;
+            pixels[offset + 0] = rowColor[0] + key * 1.05f + rim * 0.30f;
+            pixels[offset + 1] = rowColor[1] + key * 1.00f + rim * 0.34f;
+            pixels[offset + 2] = rowColor[2] + key * 0.92f + rim * 0.42f;
+            pixels[offset + 3] = 1.0f;
+        }
+    }
+
+    TextureDesc texDesc;
+    texDesc.name = "DefaultEnvironmentIBL";
+    texDesc.format = TextureFormat::RGBA32_Float;
+    texDesc.dimension = TextureDimension::Texture2D;
+    texDesc.usage = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
+    texDesc.width = width;
+    texDesc.height = height;
+    texDesc.depth = 1;
+
+    auto result = device.createTexture(texDesc);
+    if (!result) {
+        return nullptr;
+    }
+
+    auto texture = std::move(*result);
+    device.uploadTextureData(texture.get(), TextureUploadDesc::tightlyPacked(std::span(pixels), width, height,
+                                                                             TextureFormat::RGBA32_Float));
     return texture;
 }
 
@@ -99,23 +165,11 @@ bool GeometryDrawSharedResources::createDefaultResources() {
         return false;
     }
 
-    TextureDesc iblDesc;
-    iblDesc.name = "DefaultIBL";
-    iblDesc.format = TextureFormat::RGBA16_Float;
-    iblDesc.dimension = TextureDimension::Texture2D;
-    iblDesc.usage = TextureUsageFlags::ShaderResource | TextureUsageFlags::GenerateMips;
-    iblDesc.width = 1;
-    iblDesc.height = 1;
-    iblDesc.depth = 1;
-    auto iblResult = device_.createTexture(iblDesc);
-    if (!iblResult) {
-        std::fprintf(stderr, "[GeometryDrawSharedResources] create default IBL texture failed\n");
+    default_ibl_tex_ = createDefaultEnvironmentIBLTexture(device_);
+    if (!default_ibl_tex_) {
+        std::fprintf(stderr, "[GeometryDrawSharedResources] create default environment IBL texture failed\n");
         return false;
     }
-    default_ibl_tex_ = std::move(*iblResult);
-    const float black[4] = { 0.f, 0.f, 0.f, 1.f };
-    device_.uploadTextureData(default_ibl_tex_.get(),
-                              TextureUploadDesc::tightlyPacked(std::span(black), 1, 1, TextureFormat::RGBA16_Float));
 
     TextureDesc lutDesc;
     lutDesc.name = "DefaultBrdfLUT";
