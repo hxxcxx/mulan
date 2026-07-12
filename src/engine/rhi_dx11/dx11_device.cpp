@@ -129,8 +129,12 @@ core::Result<std::unique_ptr<CommandList>> DX11Device::createCommandList() {
                                                             m_immediateCtx.Get());
 }
 core::Result<std::unique_ptr<SwapChain>> DX11Device::createSwapChain(const SwapChainDesc& desc) {
+    if (!desc.window.valid()) {
+        return std::unexpected(
+                makeError(EngineErrorCode::SwapChainCreateFailed, "DX11 swap chain requires a native window handle"));
+    }
     return createDX11Resource<SwapChain, DX11SwapChain>(EngineErrorCode::SwapChainCreateFailed, desc, m_device.Get(),
-                                                        m_factory.Get(), m_immediateCtx.Get(), m_window,
+                                                        m_factory.Get(), m_immediateCtx.Get(), desc.window,
                                                         m_renderConfig);
 }
 core::Result<std::unique_ptr<RenderTarget>> DX11Device::createRenderTarget(const RenderTargetDesc& desc) {

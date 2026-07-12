@@ -25,11 +25,13 @@ public:
     ThreadedRenderRuntime& operator=(const ThreadedRenderRuntime&) = delete;
 
     core::Result<void> initWindow(const ViewConfig& config, int width, int height);
+    core::Result<void> initOffscreen(const ViewConfig& config, int width, int height);
     core::Result<void> initOffscreen(int width, int height);
     void shutdown();
     bool isInitialized() const { return initialized_.load(); }
 
     void submitFrame(RenderSubmission submission);
+    core::Result<engine::RenderCaptureResult> capture(RenderSubmission submission, engine::RenderCaptureDesc desc);
     void resize(int width, int height);
     void enableIBL(std::string hdrPath);
     void clearAssetResources();
@@ -46,12 +48,14 @@ private:
     struct ControlTask {
         std::function<void(RenderRuntime&)> execute;
         bool flushFrame = false;
+        // 队列请求可能晚于提交它的视图销毁；关闭时丢弃请求也必须唤醒调用方。
+        std::function<void()> cancel;
     };
 
     core::Result<void> start(std::function<core::Result<void>(RenderRuntime&)> initialize);
     void run(std::stop_token stopToken, std::function<core::Result<void>(RenderRuntime&)> initialize,
              std::promise<core::Result<void>> ready);
-    void enqueue(ControlTask task);
+    bool enqueue(ControlTask task);
     void renderLatest(RenderRuntime& runtime);
     void publishSurfaceState(const RenderRuntime& runtime);
 

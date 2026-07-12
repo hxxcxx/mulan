@@ -378,17 +378,17 @@ void DX12CommandList::transitionResource(Texture* texture, ResourceState newStat
     dx12Tex->setState(after);
 }
 
-void DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+bool DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     auto* dx12Tex = static_cast<DX12Texture*>(src);
     auto* dx12Buf = static_cast<DX12Buffer*>(dst);
     if (!dx12Tex || !dx12Buf || !dx12Tex->resource() || !dx12Buf->resource())
-        return;
+        return false;
 
     // 取 device 用于 GetCopyableFootprints（与 bindResources 同模式）
     ID3D12Device* device = nullptr;
     cmd_list_->GetDevice(IID_PPV_ARGS(&device));
     if (!device)
-        return;
+        return false;
 
     // 构建与纹理一致的 resource desc，用于计算可拷贝的 footprint
     const auto& td = dx12Tex->desc();
@@ -411,13 +411,18 @@ void DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     device->GetCopyableFootprints(&texDesc, 0, 1, 0, &footprint, &numRows, &rowSizeInBytes, &totalSize);
     device->Release();
 
+    if (dx12Buf->size() < totalSize) {
+        std::fprintf(stderr, "[DX12 copyTextureToBuffer] destination buffer is too small for texture footprint\n");
+        return false;
+    }
+
     const D3D12_RESOURCE_STATES originalTexState = dx12Tex->state();
     const D3D12_RESOURCE_STATES originalBufState = dx12Buf->state();
 
     if (originalBufState != D3D12_RESOURCE_STATE_COPY_DEST &&
         (dx12Buf->usage() == BufferUsage::Staging || dx12Buf->usage() == BufferUsage::Dynamic)) {
         std::fprintf(stderr, "[DX12 copyTextureToBuffer] destination buffer is not in COPY_DEST state\n");
-        return;
+        return false;
     }
 
     // Transition the source only when necessary. The caller may already have
@@ -473,6 +478,7 @@ void DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
         cmd_list_->ResourceBarrier(1, &texBarrier);
         dx12Tex->setState(originalTexState);
     }
+    return true;
 }
 
 void DX12CommandList::clearColor(float r, float g, float b, float a) {

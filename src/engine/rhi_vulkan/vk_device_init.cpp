@@ -127,32 +127,32 @@ void VKDevice::pickPhysicalDevice(const std::vector<vk::PhysicalDevice>& devices
 // ============================================================
 
 void VKDevice::createLogicalDevice(bool enableValidation) {
-    // Queue families
+    // 队列族
     auto queueFamilies = physical_device_.getQueueFamilyProperties();
     bool hasComputeQueue = false;
+    bool hasGraphicsQueue = false;
     for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
         if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) {
-            graphics_queue_family_ = i;
+            // 保留一个稳定的图形队列用于渲染；呈现队列在原生窗口实际创建后，
+            // 再按 surface 分别选择。
+            if (!hasGraphicsQueue) {
+                graphics_queue_family_ = i;
+                hasGraphicsQueue = true;
+            }
         }
         if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) {
             hasComputeQueue = true;
-        }
-        if (surface_) {
-            auto supported = physical_device_.getSurfaceSupportKHR(i, surface_);
-            if (supported) {
-                present_queue_family_ = i;
-            }
         }
     }
     caps_.computeShader = hasComputeQueue;
 
     float queuePriority = 1.0f;
     std::vector<vk::DeviceQueueCreateInfo> queueCIs;
-    std::set<uint32_t> uniqueQueues = { graphics_queue_family_ };
-    if (surface_)
-        uniqueQueues.insert(present_queue_family_);
-
-    for (uint32_t qf : uniqueQueues) {
+    // surface 不再参与 Device 创建。每个可用队列族均请求一个队列，
+    // 以便稍后创建的 surface 在图形队列不能呈现时使用独立的呈现队列族。
+    for (uint32_t qf = 0; qf < queueFamilies.size(); ++qf) {
+        if (queueFamilies[qf].queueCount == 0)
+            continue;
         vk::DeviceQueueCreateInfo qCI;
         qCI.queueFamilyIndex = qf;
         qCI.queueCount = 1;
@@ -188,11 +188,6 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
     VULKAN_HPP_DEFAULT_DISPATCHER.init(device_);
 
     graphics_queue_ = device_.getQueue(graphics_queue_family_, 0);
-    if (present_queue_family_ != graphics_queue_family_ || surface_) {
-        present_queue_ = device_.getQueue(present_queue_family_, 0);
-    } else {
-        present_queue_ = graphics_queue_;
-    }
 }
 
 // ============================================================
@@ -228,7 +223,6 @@ vk::SurfaceKHR VKDevice::createSurface(const NativeWindowHandle& window) {
 // ============================================================
 
 void VKDevice::init(const DeviceCreateInfo& ci) {
-    native_window_ = ci.window;
     render_config_ = ci.renderConfig;
 
     // --- Dynamic dispatch loader ---
@@ -264,21 +258,15 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
 
     std::vector<const char*> instanceExtensions;
 
-    // 仅在需要窗口时添加 Surface 扩展
-    if (ci.window.valid()) {
-        instanceExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-    }
-
-    // 根据窗口类型添加平台 Surface 扩展
-    switch (ci.window.type) {
+    // Device 有意不绑定 surface：窗口和截图目标可在 Device 创建后再附加。
+    // 因此预先启用平台 surface 扩展，而不是从第一个窗口推导扩展集合。
+    instanceExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 #ifdef VK_KHR_win32_surface
-    case NativeWindowHandle::Type::Win32: instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME); break;
+    instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #endif
 #ifdef VK_KHR_xcb_surface
-    case NativeWindowHandle::Type::XCB: instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME); break;
+    instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #endif
-    default: break;
-    }
 
     std::vector<const char*> instanceLayers;
     if (ci.enableValidation) {
@@ -314,11 +302,6 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
             createFn(VkInstance(instance_), &dbgCI, nullptr, &messenger);
             debug_messenger_ = vk::DebugUtilsMessengerEXT(messenger);
         }
-    }
-
-    // --- Surface（根据平台创建）---
-    if (ci.window.valid()) {
-        surface_ = createSurface(ci.window);
     }
 
     // --- Physical Device ---
@@ -374,10 +357,6 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
 void VKDevice::shutdown() {
     if (allocator_) {
         vmaDestroyAllocator(allocator_);
-    }
-
-    if (surface_) {
-        instance_.destroySurfaceKHR(surface_);
     }
 
     if (device_) {

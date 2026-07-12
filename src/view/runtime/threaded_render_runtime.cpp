@@ -1,5 +1,7 @@
 #include <mulan/view/runtime/threaded_render_runtime.h>
 
+#include <future>
+
 namespace mulan::view {
 
 ThreadedRenderRuntime::~ThreadedRenderRuntime() {
@@ -10,8 +12,13 @@ core::Result<void> ThreadedRenderRuntime::initWindow(const ViewConfig& config, i
     return start([config, width, height](RenderRuntime& runtime) { return runtime.initWindow(config, width, height); });
 }
 
+core::Result<void> ThreadedRenderRuntime::initOffscreen(const ViewConfig& config, int width, int height) {
+    return start(
+            [config, width, height](RenderRuntime& runtime) { return runtime.initOffscreen(config, width, height); });
+}
+
 core::Result<void> ThreadedRenderRuntime::initOffscreen(int width, int height) {
-    return start([width, height](RenderRuntime& runtime) { return runtime.initOffscreen(width, height); });
+    return initOffscreen(ViewConfig{}, width, height);
 }
 
 core::Result<void> ThreadedRenderRuntime::start(std::function<core::Result<void>(RenderRuntime&)> initialize) {
@@ -87,14 +94,40 @@ void ThreadedRenderRuntime::submitFrame(RenderSubmission submission) {
     wake_.notify_one();
 }
 
-void ThreadedRenderRuntime::enqueue(ControlTask task) {
+core::Result<engine::RenderCaptureResult> ThreadedRenderRuntime::capture(RenderSubmission submission,
+                                                                         engine::RenderCaptureDesc desc) {
+    auto promise = std::make_shared<std::promise<core::Result<engine::RenderCaptureResult>>>();
+    auto future = promise->get_future();
+    {
+        std::scoped_lock lock(mutex_);
+        if (closing_ || !initialized_.load()) {
+            return std::unexpected(
+                    core::Error::make(core::ErrorCode::InvalidArg, "Threaded render runtime is not available."));
+        }
+        controls_.push_back({
+                [submission = std::move(submission), desc, promise](RenderRuntime& runtime) mutable {
+                    promise->set_value(runtime.capture(submission, desc));
+                },
+                true,
+                [promise] {
+                    promise->set_value(std::unexpected(
+                            core::Error::make(core::ErrorCode::InvalidArg, "Capture was cancelled during shutdown.")));
+                },
+        });
+    }
+    wake_.notify_one();
+    return future.get();
+}
+
+bool ThreadedRenderRuntime::enqueue(ControlTask task) {
     {
         std::scoped_lock lock(mutex_);
         if (closing_)
-            return;
+            return false;
         controls_.push_back(std::move(task));
     }
     wake_.notify_one();
+    return true;
 }
 
 void ThreadedRenderRuntime::resize(int width, int height) {
@@ -109,12 +142,14 @@ void ThreadedRenderRuntime::clearAssetResources() {
 bool ThreadedRenderRuntime::readbackPixels(std::vector<uint8_t>& pixels) {
     auto promise = std::make_shared<std::promise<std::vector<uint8_t>>>();
     auto future = promise->get_future();
-    enqueue({ [promise](RenderRuntime& runtime) {
-                 std::vector<uint8_t> result;
-                 runtime.readbackPixels(result);
-                 promise->set_value(std::move(result));
-             },
-              true });
+    if (!enqueue({ [promise](RenderRuntime& runtime) {
+                      std::vector<uint8_t> result;
+                      runtime.readbackPixels(result);
+                      promise->set_value(std::move(result));
+                  },
+                   true, [promise] { promise->set_value({}); } })) {
+        return false;
+    }
     pixels = future.get();
     return !pixels.empty();
 }
@@ -122,26 +157,38 @@ bool ThreadedRenderRuntime::configureCaptureSurface(const engine::RenderCaptureD
                                                     uint32_t height) {
     auto promise = std::make_shared<std::promise<bool>>();
     auto future = promise->get_future();
-    enqueue({ [desc, width, height, promise](RenderRuntime& runtime) {
-        promise->set_value(runtime.configureCaptureSurface(desc, width, height));
-    } });
+    if (!enqueue({ [desc, width, height, promise](RenderRuntime& runtime) {
+                      promise->set_value(runtime.configureCaptureSurface(desc, width, height));
+                  },
+                   false, [promise] { promise->set_value(false); } })) {
+        return false;
+    }
     return future.get();
 }
 bool ThreadedRenderRuntime::configureOffscreenSurface(const RenderSurfaceDesc& desc) {
     auto promise = std::make_shared<std::promise<bool>>();
     auto future = promise->get_future();
-    enqueue({ [desc, promise](RenderRuntime& runtime) {
-        promise->set_value(runtime.configureOffscreenSurface(desc));
-    } });
+    if (!enqueue({ [desc, promise](RenderRuntime& runtime) {
+                      promise->set_value(runtime.configureOffscreenSurface(desc));
+                  },
+                   false, [promise] { promise->set_value(false); } })) {
+        return false;
+    }
     return future.get();
 }
 void ThreadedRenderRuntime::shutdown() {
+    std::deque<ControlTask> cancelled;
     {
         std::scoped_lock lock(mutex_);
         if (closing_)
             return;
         closing_ = true;
         latest_frame_.reset();
+        cancelled = std::move(controls_);
+    }
+    for (auto& control : cancelled) {
+        if (control.cancel)
+            control.cancel();
     }
     wake_.notify_all();
     if (worker_.joinable() && worker_.get_id() != std::this_thread::get_id())

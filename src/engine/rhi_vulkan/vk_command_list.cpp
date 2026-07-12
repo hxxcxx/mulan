@@ -287,9 +287,11 @@ void VKCommandList::transitionResource(Texture* texture, ResourceState newState)
     vkTex->setCurrentLayout(barrier.newLayout);
 }
 
-void VKCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+bool VKCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     auto* vkTex = static_cast<VKTexture*>(src);
     auto* vkBuf = static_cast<VKBuffer*>(dst);
+    if (!vkTex || !vkBuf)
+        return false;
 
     vk::BufferImageCopy region;
     region.bufferOffset = 0;
@@ -303,6 +305,7 @@ void VKCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     region.imageExtent = vk::Extent3D(vkTex->desc().width, vkTex->desc().height, 1);
 
     cmd_buffer_.copyImageToBuffer(vkTex->image(), vk::ImageLayout::eTransferSrcOptimal, vkBuf->vkBuffer(), 1, &region);
+    return true;
 }
 
 void VKCommandList::clearColor(float r, float g, float b, float a) {

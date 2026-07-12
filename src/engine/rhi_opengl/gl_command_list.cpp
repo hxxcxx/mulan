@@ -303,11 +303,11 @@ void GLCommandList::transitionResource(Texture* texture, ResourceState newState)
         glMemoryBarrier(barriers);
 }
 
-void GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+bool GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     auto* texture = dynamic_cast<GLTexture*>(src);
     auto* buffer = dynamic_cast<GLBuffer*>(dst);
     if (!texture || !buffer || texture->desc().dimension != TextureDimension::Texture2D)
-        return;
+        return false;
 
     GLint previous_fbo = 0;
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previous_fbo);
@@ -370,6 +370,7 @@ void GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     const uint32_t bytes_per_pixel = textureFormatBytesPerPixel(texture->desc().format);
     const size_t row_bytes = static_cast<size_t>(texture->desc().width) * bytes_per_pixel;
     const size_t image_bytes = row_bytes * texture->desc().height;
+    bool copied = false;
     if (bytes_per_pixel && image_bytes <= buffer->desc().size) {
         auto* mapped = static_cast<uint8_t*>(glMapBufferRange(
                 GL_PIXEL_PACK_BUFFER, 0, static_cast<GLsizeiptr>(image_bytes), GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
@@ -383,6 +384,7 @@ void GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
                 std::memcpy(bottom, row.data(), row_bytes);
             }
             glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+            copied = true;
         }
     }
     glPixelStorei(GL_PACK_ALIGNMENT, 4);
@@ -395,6 +397,7 @@ void GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
         glDeleteFramebuffers(1, &resolve_fbo);
     if (read_fbo)
         glDeleteFramebuffers(1, &read_fbo);
+    return copied;
 }
 
 void GLCommandList::clearColor(float r, float g, float b, float a) {

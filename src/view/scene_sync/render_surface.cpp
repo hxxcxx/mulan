@@ -12,6 +12,20 @@
 #include <utility>
 
 namespace mulan::view {
+namespace {
+
+uint32_t readbackRowBytes(const engine::RHIDevice& device, int width, uint32_t bytesPerPixel) {
+    const uint32_t tightRowBytes = static_cast<uint32_t>(width) * bytesPerPixel;
+    if (device.backend() != engine::GraphicsBackend::D3D12) {
+        return tightRowBytes;
+    }
+
+    // D3D12 CopyTextureRegion 的 footprint 行距必须按 256 字节对齐。
+    constexpr uint32_t kD3D12TextureDataPitchAlignment = 256;
+    return (tightRowBytes + kD3D12TextureDataPitchAlignment - 1) & ~(kD3D12TextureDataPitchAlignment - 1);
+}
+
+}  // namespace
 
 RenderSurface::~RenderSurface() {
     // 资源由 shutdown() 显式释放；这里兜底 reset。
@@ -31,6 +45,7 @@ bool RenderSurface::initWindowSurface(engine::RHIDevice& device, const ViewConfi
     engine::RenderConfig renderCfg = device.renderConfig();
 
     engine::SwapChainDesc scDesc;
+    scDesc.window = window;
     scDesc.width = static_cast<uint32_t>(width);
     scDesc.height = static_cast<uint32_t>(height);
     scDesc.format = engine::TextureFormat::BGRA8_UNorm;
@@ -69,7 +84,7 @@ bool RenderSurface::initOffscreenSurface(engine::RHIDevice& device, const Render
     width_ = desc.width;
     height_ = desc.height;
     bytes_per_pixel_ = bpp;
-    row_bytes_ = static_cast<uint32_t>(width_) * bytes_per_pixel_;
+    row_bytes_ = readbackRowBytes(device, width_, bytes_per_pixel_);
 
     engine::RenderTargetDesc rtDesc;
     rtDesc.width = static_cast<uint32_t>(desc.width);
@@ -116,7 +131,7 @@ bool RenderSurface::configureOffscreenSurface(engine::RHIDevice& device, const R
     width_ = desc.width;
     height_ = desc.height;
     bytes_per_pixel_ = nextBytesPerPixel;
-    row_bytes_ = static_cast<uint32_t>(width_) * bytes_per_pixel_;
+    row_bytes_ = readbackRowBytes(device, width_, bytes_per_pixel_);
 
     if (formatChanged) {
         // 旧 target 已失效，即使新 target 创建失败也必须让旧帧提交失配。
@@ -165,7 +180,7 @@ void RenderSurface::resize(engine::RHIDevice& device, int width, int height) {
         offscreen_desc_.width = width;
         offscreen_desc_.height = height;
         render_target_->resize(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
-        row_bytes_ = static_cast<uint32_t>(width_) * bytes_per_pixel_;
+        row_bytes_ = readbackRowBytes(device, width_, bytes_per_pixel_);
         if (!createReadbackBuffer(device)) {
             std::fprintf(stderr, "[RenderSurface] resize staging buffer failed\n");
         }
@@ -180,8 +195,6 @@ bool RenderSurface::readbackPixels(engine::RHIDevice& device, std::vector<uint8_
     if (!render_target_ || !staging_buffer_)
         return false;
 
-    device.waitIdle();
-
     auto cmdResult = device.createCommandList();
     if (!cmdResult) {
         std::fprintf(stderr, "[RenderSurface] readbackPixels createCommandList: %s\n",
@@ -191,11 +204,23 @@ bool RenderSurface::readbackPixels(engine::RHIDevice& device, std::vector<uint8_
     auto cmd = std::move(*cmdResult);
     cmd->begin();
     cmd->transitionResource(render_target_->colorTexture(), engine::ResourceState::CopySrc);
-    cmd->copyTextureToBuffer(render_target_->colorTexture(), staging_buffer_.get());
+    const bool copyRecorded = cmd->copyTextureToBuffer(render_target_->colorTexture(), staging_buffer_.get());
+    // 截图表面会复用；恢复下一次渲染通道所需的状态，不能让纹理停留在 CopySrc。
+    cmd->transitionResource(render_target_->colorTexture(), engine::ResourceState::RenderTarget);
     cmd->end();
+    if (!copyRecorded)
+        return false;
 
-    device.executeCommandList(cmd.get());
-    device.waitIdle();
+    auto fenceResult = device.createFence(0);
+    if (!fenceResult) {
+        std::fprintf(stderr, "[RenderSurface] readbackPixels createFence: %s\n", fenceResult.error().message.c_str());
+        return false;
+    }
+    auto fence = std::move(*fenceResult);
+    device.executeCommandList(cmd.get(), fence.get(), 1);
+    // 不能改为 waitIdle()：命令列表与 fence 必须存活到本次 GPU 复制完成，
+    // 但无需排空之后提交到其他队列的工作。
+    fence->wait(1);
 
     uint32_t byteSize = row_bytes_ * static_cast<uint32_t>(height_);
     pixels.resize(byteSize);

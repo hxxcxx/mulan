@@ -10,6 +10,7 @@
 #include "resource.h"
 #include "texture.h"
 #include "render_types.h"
+#include "window.h"
 
 #include <cstdint>
 
@@ -22,6 +23,8 @@ class CommandList;
 // ============================================================
 
 struct SwapChainDesc {
+    /// 呈现 surface 属于交换链而非 RHIDevice，使一个 Device 可服务多个窗口和离屏客户端。
+    NativeWindowHandle window = {};
     uint32_t width = 0;
     uint32_t height = 0;
     TextureFormat format = TextureFormat::RGBA8_UNorm;

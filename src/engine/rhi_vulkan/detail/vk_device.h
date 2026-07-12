@@ -26,7 +26,6 @@
 
 #include <vector>
 #include <memory>
-#include <set>
 #include <array>
 #include <span>
 #include <unordered_map>
@@ -103,14 +102,10 @@ private:
     vk::DebugUtilsMessengerEXT debug_messenger_;
     vk::PhysicalDevice physical_device_;
     vk::Device device_;
-    vk::SurfaceKHR surface_;
     vk::Queue graphics_queue_;
-    vk::Queue present_queue_;
     VmaAllocator allocator_ = nullptr;
 
     uint32_t graphics_queue_family_ = 0;
-    uint32_t present_queue_family_ = 0;
-    NativeWindowHandle native_window_;
     RenderConfig render_config_;
 
     GPUDeviceCapabilities caps_;

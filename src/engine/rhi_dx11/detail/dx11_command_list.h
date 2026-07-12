@@ -41,7 +41,7 @@ public:
 
     void transitionResource(Buffer* buffer, ResourceState newState) override;
     void transitionResource(Texture* texture, ResourceState newState) override;
-    void copyTextureToBuffer(Texture* src, Buffer* dst) override;
+    bool copyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     void clearColor(float r, float g, float b, float a) override;
     void clearDepth(float depth) override;

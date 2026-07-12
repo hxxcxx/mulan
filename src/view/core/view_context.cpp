@@ -62,14 +62,16 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
     return true;
 }
 
-bool ViewContext::initOffscreen(int width, int height) {
+bool ViewContext::initOffscreen(const ViewConfig& cfg, int width, int height) {
     if (runtime_host_.isInitialized())
         return true;
 
     width_ = width;
     height_ = height;
+    ibl_enabled_ = cfg.iblEnabled;
+    hdr_path_ = cfg.hdrPath;
 
-    if (!runtime_host_.initOffscreen(width, height)) {
+    if (!runtime_host_.initOffscreen(cfg, width, height)) {
         return false;
     }
     runtime_host_.setPreviewLayer(&preview_layer_);
@@ -82,6 +84,10 @@ bool ViewContext::initOffscreen(int width, int height) {
     camera_.fitToBox(math::AABB3(math::Point3(-1, -1, -1), math::Point3(1, 1, 1)));
 
     return true;
+}
+
+bool ViewContext::initOffscreen(int width, int height) {
+    return initOffscreen(ViewConfig{}, width, height);
 }
 
 void ViewContext::shutdown() {
@@ -392,6 +398,11 @@ core::Result<CaptureImage> ViewContext::capture(const CaptureRequest& request) {
 
 CaptureBatchResult ViewContext::capture(const CaptureBatch& batch) {
     return CaptureService{}.capture(*this, batch);
+}
+
+core::Result<engine::RenderCaptureResult> ViewContext::captureFrame(const ViewState& viewState,
+                                                                    const engine::RenderCaptureDesc& desc) {
+    return runtime_host_.capture(viewState, desc);
 }
 
 ViewState ViewContext::buildViewState() const {

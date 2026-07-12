@@ -4,7 +4,6 @@
 #include "doc_widget.h"
 #include "engine_settings_dialog.h"
 #include <mulan/editor/document/document_session.h>
-#include <mulan/editor/document/document_view_binding.h>
 #include <mulan/editor/command/builtin_commands.h>
 
 #include <mulan/io/file_manager.h>
@@ -558,21 +557,15 @@ void MainWindow::scheduleRecentThumbnailCapture(DocWidget* docWidget, const QStr
     const QString thumbnailPath = QDir(thumbnailDirectory).filePath(QString::fromLatin1(key) + ".png");
     const QPointer<DocWidget> guardedWidget(docWidget);
 
-    // 使用独立的引擎离屏上下文渲染，不读取桌面或 Qt 原生窗口像素。
+    // 截图复用文档视图已有的 RHI Device。运行时持有同级离屏表面，
+    // 因此既不读取 Qt 像素，也不会为缩略图创建第二个 Device 或后端。
     QTimer::singleShot(0, this, [this, guardedWidget, filePath, thumbnailPath]() {
         if (!guardedWidget)
             return;
 
-        DocumentSession* session = guardedWidget->documentView().session();
-        if (!session)
+        auto& viewContext = guardedWidget->viewContext();
+        if (!viewContext.isInitialized())
             return;
-
-        mulan::view::ViewContext thumbnailContext;
-        if (!thumbnailContext.initOffscreen(recent_thumbnail::kCaptureWidth, recent_thumbnail::kCaptureHeight))
-            return;
-
-        DocumentViewBinding thumbnailBinding;
-        thumbnailBinding.bind(*session, thumbnailContext);
 
         mulan::view::CaptureRequest request;
         request.name = "recent-thumbnail";
@@ -580,15 +573,14 @@ void MainWindow::scheduleRecentThumbnailCapture(DocWidget* docWidget, const QStr
         request.desc.height = recent_thumbnail::kCaptureHeight;
         request.desc.format = mulan::engine::TextureFormat::RGBA8_UNorm;
         request.desc.readback = true;
-        request.camera = thumbnailContext.camera();
+        request.camera = viewContext.camera();
         request.visual.style = mulan::view::CaptureRenderStyle::ShadedWithEdges;
         request.visual.showViewCube = false;
         request.visual.showOverlays = false;
 
-        auto captured = thumbnailContext.capture(request);
+        auto captured = viewContext.capture(request);
         if (!captured)
             return;
-
         auto saved = mulan::view::CaptureImageEncoder::savePNG(*captured, thumbnailPath.toStdString());
         if (!saved)
             return;

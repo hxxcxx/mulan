@@ -30,6 +30,7 @@ public:
 
     core::Result<void> initWindow(const ViewConfig& config, int width, int height);
 
+    core::Result<void> initOffscreen(const ViewConfig& config, int width, int height);
     core::Result<void> initOffscreen(int width, int height);
 
     void shutdown();
@@ -41,6 +42,8 @@ public:
     void setLightEnvironment(const engine::LightEnvironment& lightEnvironment);
 
     void render(const ViewState& viewState);
+    core::Result<engine::RenderCaptureResult> capture(const ViewState& viewState,
+                                                      const engine::RenderCaptureDesc& desc);
     void resize(int width, int height);
     void enableIBL(const std::string& hdrPath);
 
@@ -59,7 +62,7 @@ public:
 
 private:
     RenderSubmissionBuilder submission_builder_;
-    RenderRuntime runtime_;
+    std::shared_ptr<RenderRuntime> runtime_ = std::make_shared<RenderRuntime>();
     std::unique_ptr<ThreadedRenderRuntime> threaded_runtime_;
     RenderExecutionMode execution_mode_ = RenderExecutionMode::Synchronous;
     const asset::AssetLibrary* asset_source_ = nullptr;

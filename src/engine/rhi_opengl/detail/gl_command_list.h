@@ -105,7 +105,7 @@ public:
     void transitionResource(Texture* texture, ResourceState newState) override;
 
     /// 复制纹理到缓冲区（用于 GPU→CPU 数据回读）
-    void copyTextureToBuffer(Texture* src, Buffer* dst) override;
+    bool copyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- 清除 ---
 

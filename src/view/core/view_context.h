@@ -47,6 +47,7 @@ public:
     ViewContext& operator=(const ViewContext&) = delete;
 
     bool init(const ViewConfig& config, int width, int height);
+    bool initOffscreen(const ViewConfig& config, int width, int height);
     bool initOffscreen(int width, int height);
     void shutdown();
 
@@ -140,6 +141,8 @@ private:
     bool configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
     std::optional<RenderSurfaceDesc> captureSurfaceSnapshot() const;
     bool restoreCaptureSurface(const RenderSurfaceDesc& desc);
+    core::Result<engine::RenderCaptureResult> captureFrame(const ViewState& viewState,
+                                                           const engine::RenderCaptureDesc& desc);
 
     RenderRuntimeHost runtime_host_;
     engine::Camera camera_{ engine::CameraMode::Trackball };

@@ -21,6 +21,10 @@ core::Result<std::unique_ptr<VKSwapChain>> VKSwapChain::create(const SwapChainDe
 
 VKSwapChain::~VKSwapChain() {
     cleanup();
+    if (surface_) {
+        params_.instance.destroySurfaceKHR(surface_);
+        surface_ = nullptr;
+    }
 }
 
 bool VKSwapChain::acquireNextImage(vk::Semaphore imageAvailable) {
@@ -39,7 +43,7 @@ void VKSwapChain::presentWithSemaphores(vk::Semaphore renderFinished) {
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &swapchain_;
     presentInfo.pImageIndices = &current_image_index_;
-    params_.presentQueue.presentKHR(&presentInfo);
+    (void) params_.presentQueue.presentKHR(&presentInfo);
 }
 
 void VKSwapChain::present() {
@@ -47,7 +51,7 @@ void VKSwapChain::present() {
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &swapchain_;
     presentInfo.pImageIndices = &current_image_index_;
-    params_.presentQueue.presentKHR(&presentInfo);
+    (void) params_.presentQueue.presentKHR(&presentInfo);
 }
 
 void VKSwapChain::resize(uint32_t width, uint32_t height) {

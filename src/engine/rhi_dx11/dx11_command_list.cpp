@@ -5,6 +5,8 @@
 #include "detail/dx11_shader.h"
 #include "detail/dx11_convert.h"
 
+#include <cstdio>
+
 namespace mulan::engine {
 
 DX11CommandList::DX11CommandList(ID3D11DeviceContext* ctx) : m_ctx(ctx) {
@@ -135,10 +137,12 @@ void DX11CommandList::transitionResource(Texture*, ResourceState) {
     // D3D11 无需显式资源状态转换
 }
 
-void DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
-    auto* dx11Tex = static_cast<DX11Texture*>(src);
-    auto* dx11Buf = static_cast<DX11Buffer*>(dst);
-    m_ctx->CopyResource(dx11Buf->buffer(), dx11Tex->resource());
+bool DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+    (void) src;
+    (void) dst;
+    // D3D11 的 CPU 回读目标必须是 staging Texture，不能直接从 Texture 复制到 Buffer。
+    std::fprintf(stderr, "[DX11 copyTextureToBuffer] texture-to-buffer readback is not implemented\n");
+    return false;
 }
 
 void DX11CommandList::clearColor(float r, float g, float b, float a) {

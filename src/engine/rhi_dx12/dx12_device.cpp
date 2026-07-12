@@ -3,6 +3,8 @@
 #include "detail/dx12_texture.h"
 #include "detail/dx12_bind_group.h"
 
+#include "../rhi/engine_error_code.h"
+
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -333,7 +335,12 @@ core::Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
 core::Result<std::unique_ptr<SwapChain>> DX12Device::createSwapChain(const SwapChainDesc& desc) {
     SwapChainDesc resolvedDesc = desc;
     resolvedDesc.sampleCount = render_config_.sampleCount();
-    auto result = DX12SwapChain::create(resolvedDesc, device_.Get(), factory_.Get(), command_queue_.Get(), window_);
+    if (!resolvedDesc.window.valid()) {
+        return std::unexpected(
+                makeError(EngineErrorCode::SwapChainCreateFailed, "DX12 swap chain requires a native window handle"));
+    }
+    auto result = DX12SwapChain::create(resolvedDesc, device_.Get(), factory_.Get(), command_queue_.Get(),
+                                        resolvedDesc.window);
     if (!result)
         return std::unexpected(result.error());
     (*result)->trackResource(*this, RHIResourceKind::SwapChain, "SwapChain");

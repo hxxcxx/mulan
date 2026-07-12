@@ -7,6 +7,7 @@ add_library(view STATIC
     capture/capture_request.cpp
     capture/capture_service.cpp
     runtime/render_queue.cpp
+    runtime/render_device_context.cpp
     runtime/render_runtime.cpp
     runtime/render_runtime_host.cpp
     runtime/render_thread.cpp

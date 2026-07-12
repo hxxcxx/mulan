@@ -51,20 +51,52 @@ core::Result<std::unique_ptr<CommandList>> VKDevice::createCommandList() {
 }
 
 core::Result<std::unique_ptr<SwapChain>> VKDevice::createSwapChain(const SwapChainDesc& desc) {
+    if (!desc.window.valid()) {
+        return std::unexpected(
+                makeError(EngineErrorCode::SwapChainCreateFailed, "Vulkan swap chain requires a native window handle"));
+    }
+
+    vk::SurfaceKHR surface;
+    try {
+        surface = createSurface(desc.window);
+    } catch (const std::exception& e) {
+        return std::unexpected(makeError(EngineErrorCode::SwapChainCreateFailed, e.what()));
+    }
+    if (!surface) {
+        return std::unexpected(makeError(EngineErrorCode::SwapChainCreateFailed, "Vulkan surface creation failed"));
+    }
+    uint32_t presentQueueFamily = UINT32_MAX;
+    const auto queueFamilies = physical_device_.getQueueFamilyProperties();
+    for (uint32_t family = 0; family < queueFamilies.size(); ++family) {
+        if (queueFamilies[family].queueCount != 0 && physical_device_.getSurfaceSupportKHR(family, surface)) {
+            presentQueueFamily = family;
+            // 优先使用图形队列，避免额外的所有权转移；仍完整支持独立呈现队列。
+            if (family == graphics_queue_family_)
+                break;
+        }
+    }
+    if (presentQueueFamily == UINT32_MAX) {
+        instance_.destroySurfaceKHR(surface);
+        return std::unexpected(
+                makeError(EngineErrorCode::SurfaceNotSupported, "No Vulkan queue family can present to this surface"));
+    }
+
     VKSwapChain::InitParams params;
     params.instance = instance_;
     params.physicalDevice = physical_device_;
     params.device = device_;
     params.allocator = allocator_;
     params.graphicsQueueFamily = graphics_queue_family_;
-    params.presentQueueFamily = present_queue_family_;
+    params.presentQueueFamily = presentQueueFamily;
     params.graphicsQueue = graphics_queue_;
-    params.presentQueue = present_queue_;
-    params.surface = surface_;
+    params.presentQueue = device_.getQueue(presentQueueFamily, 0);
+    params.surface = surface;
 
     auto result = VKSwapChain::create(desc, params, render_config_);
-    if (!result)
+    if (!result) {
+        instance_.destroySurfaceKHR(surface);
         return std::unexpected(result.error());
+    }
     auto& swapchain = *result;
 
     frame_scheduler_->ensureSwapchainImageSync(swapchain->imageCount());

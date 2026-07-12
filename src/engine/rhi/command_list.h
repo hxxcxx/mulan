@@ -120,10 +120,12 @@ public:
         (void) newState;
     }
 
-    /// 将渲染目标 color 纹理复制到 staging buffer（用于 CPU 回读）
-    virtual void copyTextureToBuffer(Texture* src, Buffer* dst) {
+    /// 将渲染目标 color 纹理复制到 staging buffer（用于 CPU 回读）。
+    /// 返回 false 表示当前后端或资源组合不支持该复制。
+    virtual bool copyTextureToBuffer(Texture* src, Buffer* dst) {
         (void) src;
         (void) dst;
+        return false;
     }
 
     // --- RenderPass ---
