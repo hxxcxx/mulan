@@ -86,13 +86,12 @@ void DX12Device::init(const DeviceCreateInfo& ci) {
     frame_cmd_wrapper_ = std::make_unique<DX12CommandList>(nullptr);
 
     shader_visible_heap_ = std::make_unique<DX12DescriptorAllocator>(
-            device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 1024);
+            device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 8192);
 
-    // sampler descriptor heap：非 shader-visible。当前 root signature 使用 static
-    // sampler，此处仅创建堆供 createSampler 分配 descriptor（保持与 Vulkan 后端的
-    // 对称语义），绘制时尚未接入 SetDescriptorHeaps。
+    // Sampler descriptor heap：sampler 会在创建时写入持久 descriptor，
+    // 绘制时通过 root descriptor table 直接引用 GPU handle。
     sampler_heap_ = std::make_unique<DX12DescriptorAllocator>(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
-                                                              D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 64);
+                                                              D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 64);
 
     caps_.backend = GraphicsBackend::D3D12;
 
@@ -318,6 +317,12 @@ core::Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
         return std::unexpected(result.error());
     auto& cmd = *result;
     cmd->setIndirectSignatures(drawIndirectSignature(), dispatchIndirectSignature());
+    if (auto* heap = shader_visible_heap_->heap()) {
+        const auto cpuBase = heap->GetCPUDescriptorHandleForHeapStart();
+        const auto gpuBase = heap->GetGPUDescriptorHandleForHeapStart();
+        cmd->setDescriptorHeap(heap, cpuBase, gpuBase, shader_visible_heap_->descriptorSize(),
+                               sampler_heap_ ? sampler_heap_->heap() : nullptr, shader_visible_heap_->capacity());
+    }
     char nm[64];
     std::snprintf(nm, sizeof(nm), "CommandList@%p", cmd.get());
     setDebugName(cmd->commandList(), nm);
@@ -352,8 +357,8 @@ core::Result<std::unique_ptr<RenderTarget>> DX12Device::createRenderTarget(const
 
 core::Result<std::unique_ptr<Sampler>> DX12Device::createSampler(const SamplerDesc& desc) {
     // Sampler 仅持有 descriptor handle（非 COM 对象），无需命名。
-    // sampler_heap_ 非空时分配 descriptor；当前 root signature 使用 static sampler，
-    // 即便 descriptor 未被绘制消费，Sampler 对象仍需成功创建以保持后端中性语义。
+    // Descriptors are allocated from the persistent shader-visible sampler heap
+    // and consumed by the sampler descriptor-table root parameter.
     auto result = DX12Sampler::create(desc, device_.Get(), sampler_heap_.get());
     if (!result)
         return std::unexpected(result.error());
@@ -488,7 +493,9 @@ CommandList* DX12Device::frameCommandList() {
         D3D12_CPU_DESCRIPTOR_HANDLE cpuBase = heap->GetCPUDescriptorHandleForHeapStart();
         D3D12_GPU_DESCRIPTOR_HANDLE gpuBase = heap->GetGPUDescriptorHandleForHeapStart();
         uint32_t descSize = shader_visible_heap_->descriptorSize();
-        frame_cmd_wrapper_->setDescriptorHeap(heap, cpuBase, gpuBase, descSize);
+        frame_cmd_wrapper_->setDescriptorHeap(heap, cpuBase, gpuBase, descSize,
+                                              sampler_heap_ ? sampler_heap_->heap() : nullptr,
+                                              shader_visible_heap_->capacity());
     }
 
     return frame_cmd_wrapper_.get();

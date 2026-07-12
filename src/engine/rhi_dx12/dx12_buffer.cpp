@@ -65,6 +65,8 @@ DX12Buffer::DX12Buffer(const BufferDesc& desc, ID3D12Device* device) : desc_(des
         break;
     }
 
+    state_ = initialState;
+
     heapProps.CreationNodeMask = 1;
     heapProps.VisibleNodeMask = 1;
 
@@ -72,8 +74,9 @@ DX12Buffer::DX12Buffer(const BufferDesc& desc, ID3D12Device* device) : desc_(des
                                                  IID_PPV_ARGS(&resource_));
     DX12_CHECK(hr);
 
-    // Upload/Readback 堆立即映射
-    if (desc.usage == BufferUsage::Dynamic || desc.usage == BufferUsage::Staging) {
+    // Upload 堆保持持久映射。Readback 堆在 readback() 中按 CPU 读取范围映射，
+    // 避免对同一个资源重复 Map/Unmap。
+    if (desc.usage == BufferUsage::Dynamic) {
         D3D12_RANGE range = { 0, 0 };  // 不读
         resource_->Map(0, &range, &mapped_data_);
     }
@@ -111,9 +114,11 @@ void DX12Buffer::update(uint32_t offset, uint32_t size, const void* data) {
 }
 
 bool DX12Buffer::readback(uint32_t offset, uint32_t size, void* outData) {
-    if (!mapped_data_)
+    if (desc_.usage != BufferUsage::Staging || !resource_ || !outData || offset > desc_.size ||
+        size > desc_.size - offset)
         return false;
-    // Readback heap: 读取映射的数据
+
+    // Readback heap: 仅在 CPU 真正读取时映射，并声明读取范围。
     D3D12_RANGE readRange = { offset, offset + size };
     void* mapped = nullptr;
     HRESULT hr = resource_->Map(0, &readRange, &mapped);

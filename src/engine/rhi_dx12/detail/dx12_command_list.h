@@ -79,9 +79,12 @@ public:
         dispatch_indirect_sig_ = dispatchSig;
     }
 
-    /// 设置当前帧的描述符堆（纹理绑定时分配 SRV 句柄）
+    /// 设置当前帧的 CBV/SRV/UAV heap 和 sampler heap。
+    /// 两个 heap 必须在同一次 SetDescriptorHeaps 调用中绑定，
+    /// 否则后绑定的 heap 会覆盖前一个 heap。
     void setDescriptorHeap(ID3D12DescriptorHeap* heap, D3D12_CPU_DESCRIPTOR_HANDLE cpuBase,
-                           D3D12_GPU_DESCRIPTOR_HANDLE gpuBase, uint32_t descriptorSize);
+                           D3D12_GPU_DESCRIPTOR_HANDLE gpuBase, uint32_t descriptorSize,
+                           ID3D12DescriptorHeap* samplerHeap = nullptr, uint32_t descriptorCapacity = 0);
 
     // 注入当前帧的 frame token（由 DX12Device::frameCommandList 设置）。
     // bindGroup 据此判断 BindGroup 缓存的 GPU descriptor handle 是否跨帧失效。
@@ -90,9 +93,12 @@ public:
 private:
     /// 独立模式私有构造（create() 使用）
     DX12CommandList(ID3D12Device* device, ID3D12CommandAllocator* allocator);
+    void bindDescriptorHeaps();
 
+    ComPtr<ID3D12CommandAllocator> allocator_;
     ComPtr<ID3D12GraphicsCommandList> cmd_list_;
     bool owns_cmd_list_ = true;            // 是否在析构时释放
+    bool recording_ = false;
     uint32_t cached_stride_ = 0;           // 从 PSO vertexLayout 缓存的 stride
     bool rp_present_source_ = false;       // endRenderPass 中决定 barrier 目标状态（PRESENT vs SRV）
     DX12Texture* rp_color_tex_ = nullptr;  // 当前 render pass 的颜色附件
@@ -100,9 +106,11 @@ private:
 
     // 纹理绑定用：当前帧的描述符堆
     ID3D12DescriptorHeap* desc_heap_ = nullptr;
+    ID3D12DescriptorHeap* sampler_heap_ = nullptr;
     D3D12_CPU_DESCRIPTOR_HANDLE desc_cpu_base_ = {};
     D3D12_GPU_DESCRIPTOR_HANDLE desc_gpu_base_ = {};
     uint32_t desc_size_ = 0;
+    uint32_t desc_capacity_ = 1024;
     uint32_t desc_alloc_count_ = 0;  // 当前帧已分配数
 
     uint64_t frame_token_ = 0;       // 当前帧 token，0=独立/未注入

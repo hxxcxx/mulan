@@ -12,6 +12,94 @@
 
 namespace mulan::engine {
 
+namespace {
+
+struct VKImageAccessInfo {
+    vk::PipelineStageFlags stages{};
+    vk::AccessFlags access{};
+};
+
+VKImageAccessInfo accessInfoForLayout(vk::ImageLayout layout) {
+    switch (layout) {
+    case vk::ImageLayout::eUndefined: return { vk::PipelineStageFlagBits::eTopOfPipe, {} };
+    case vk::ImageLayout::eColorAttachmentOptimal:
+        return { vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::AccessFlagBits::eColorAttachmentWrite };
+    case vk::ImageLayout::eDepthStencilAttachmentOptimal:
+        return { vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
+                 vk::AccessFlagBits::eDepthStencilAttachmentWrite };
+    case vk::ImageLayout::eDepthStencilReadOnlyOptimal:
+        return { vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
+                 vk::AccessFlagBits::eDepthStencilAttachmentRead };
+    case vk::ImageLayout::eShaderReadOnlyOptimal:
+        return { vk::PipelineStageFlagBits::eAllGraphics | vk::PipelineStageFlagBits::eComputeShader,
+                 vk::AccessFlagBits::eShaderRead };
+    case vk::ImageLayout::eTransferSrcOptimal:
+        return { vk::PipelineStageFlagBits::eTransfer, vk::AccessFlagBits::eTransferRead };
+    case vk::ImageLayout::eTransferDstOptimal:
+        return { vk::PipelineStageFlagBits::eTransfer, vk::AccessFlagBits::eTransferWrite };
+    case vk::ImageLayout::ePresentSrcKHR: return { vk::PipelineStageFlagBits::eBottomOfPipe, {} };
+    case vk::ImageLayout::eGeneral:
+        return { vk::PipelineStageFlagBits::eAllCommands,
+                 vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eShaderWrite };
+    default: return { vk::PipelineStageFlagBits::eAllCommands, {} };
+    }
+}
+
+vk::ImageLayout imageLayoutForState(ResourceState state) {
+    switch (state) {
+    case ResourceState::ShaderResource: return vk::ImageLayout::eShaderReadOnlyOptimal;
+    case ResourceState::UnorderedAccess: return vk::ImageLayout::eGeneral;
+    case ResourceState::RenderTarget: return vk::ImageLayout::eColorAttachmentOptimal;
+    case ResourceState::DepthWrite: return vk::ImageLayout::eDepthStencilAttachmentOptimal;
+    case ResourceState::DepthRead: return vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+    case ResourceState::Present: return vk::ImageLayout::ePresentSrcKHR;
+    case ResourceState::CopyDest: return vk::ImageLayout::eTransferDstOptimal;
+    case ResourceState::CopySrc: return vk::ImageLayout::eTransferSrcOptimal;
+    case ResourceState::Common:
+    case ResourceState::VertexBuffer:
+    case ResourceState::IndexBuffer:
+    case ResourceState::UniformBuffer: return vk::ImageLayout::eGeneral;
+    default: return vk::ImageLayout::eGeneral;
+    }
+}
+
+VKImageAccessInfo accessInfoForState(ResourceState state) {
+    switch (state) {
+    case ResourceState::ShaderResource:
+        return { vk::PipelineStageFlagBits::eAllGraphics | vk::PipelineStageFlagBits::eComputeShader,
+                 vk::AccessFlagBits::eShaderRead };
+    case ResourceState::UnorderedAccess:
+        return { vk::PipelineStageFlagBits::eFragmentShader | vk::PipelineStageFlagBits::eComputeShader,
+                 vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eShaderWrite };
+    case ResourceState::RenderTarget:
+        return { vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::AccessFlagBits::eColorAttachmentWrite };
+    case ResourceState::DepthWrite:
+        return { vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
+                 vk::AccessFlagBits::eDepthStencilAttachmentWrite };
+    case ResourceState::DepthRead:
+        return { vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
+                 vk::AccessFlagBits::eDepthStencilAttachmentRead };
+    case ResourceState::CopyDest: return { vk::PipelineStageFlagBits::eTransfer, vk::AccessFlagBits::eTransferWrite };
+    case ResourceState::CopySrc: return { vk::PipelineStageFlagBits::eTransfer, vk::AccessFlagBits::eTransferRead };
+    case ResourceState::Present: return { vk::PipelineStageFlagBits::eBottomOfPipe, {} };
+    case ResourceState::Common: return { vk::PipelineStageFlagBits::eAllCommands, {} };
+    case ResourceState::VertexBuffer:
+    case ResourceState::IndexBuffer:
+    case ResourceState::UniformBuffer:
+    default: return { vk::PipelineStageFlagBits::eAllCommands, {} };
+    }
+}
+
+vk::ImageAspectFlags aspectMaskForTexture(TextureFormat format) {
+    if (!VKTexture::isDepthFormat(format))
+        return vk::ImageAspectFlagBits::eColor;
+    if (format == TextureFormat::D24_UNorm_S8_UInt || format == TextureFormat::D32_Float_S8X24_UInt)
+        return vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+    return vk::ImageAspectFlagBits::eDepth;
+}
+
+}  // namespace
+
 core::Result<std::unique_ptr<VKCommandList>> VKCommandList::create(vk::Device device, uint32_t queueFamilyIndex,
                                                                    VKDescriptorAllocator* allocator) {
     vk::CommandPoolCreateInfo poolCI;
@@ -59,7 +147,7 @@ void VKCommandList::begin() {
         device_.resetCommandPool(pool_);
     }
 
-    swapchain_color_image_.reset();
+    swapchain_color_texture_ = nullptr;
     rp_present_source_ = false;
 
     vk::CommandBufferBeginInfo beginInfo;
@@ -169,60 +257,31 @@ void VKCommandList::transitionResource(Buffer*, ResourceState) {
 
 void VKCommandList::transitionResource(Texture* texture, ResourceState newState) {
     auto* vkTex = static_cast<VKTexture*>(texture);
+    const vk::ImageLayout oldLayout = vkTex->currentLayout();
+    const vk::ImageLayout newLayout = imageLayoutForState(newState);
+    if (oldLayout == newLayout)
+        return;
+
+    const auto srcInfo = accessInfoForLayout(oldLayout);
+    const auto dstInfo = accessInfoForState(newState);
 
     vk::ImageMemoryBarrier barrier;
     barrier.image = vkTex->image();
-    barrier.subresourceRange.aspectMask =
-            VKTexture::isDepthFormat(vkTex->desc().format)
-                    ? (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil)
-                    : vk::ImageAspectFlagBits::eColor;
+    barrier.subresourceRange.aspectMask = aspectMaskForTexture(vkTex->desc().format);
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = vkTex->desc().mipLevels;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = vkTex->desc().arraySize;
 
     // 使用纹理跟踪的当前布局，避免丢弃已有内容
-    barrier.oldLayout = vkTex->currentLayout();
-    barrier.srcAccessMask = {};
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+    barrier.srcAccessMask = srcInfo.access;
+    barrier.dstAccessMask = dstInfo.access;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
-    vk::PipelineStageFlags srcStage = vk::PipelineStageFlagBits::eAllCommands;
-    vk::PipelineStageFlags dstStage = vk::PipelineStageFlagBits::eAllCommands;
-
-    switch (newState) {
-    case ResourceState::RenderTarget:
-        barrier.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
-        barrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-        srcStage = vk::PipelineStageFlagBits::eTopOfPipe;
-        dstStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-        break;
-    case ResourceState::ShaderResource:
-        barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-        srcStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-        dstStage = vk::PipelineStageFlagBits::eFragmentShader;
-        break;
-    case ResourceState::CopySrc:
-        barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-        barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
-        srcStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-        dstStage = vk::PipelineStageFlagBits::eTransfer;
-        break;
-    case ResourceState::CopyDest:
-        barrier.newLayout = vk::ImageLayout::eTransferDstOptimal;
-        barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
-        srcStage = vk::PipelineStageFlagBits::eTopOfPipe;
-        dstStage = vk::PipelineStageFlagBits::eTransfer;
-        break;
-    case ResourceState::DepthWrite:
-        barrier.newLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-        barrier.dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-        srcStage = vk::PipelineStageFlagBits::eTopOfPipe;
-        dstStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
-        break;
-    default: barrier.newLayout = vk::ImageLayout::eGeneral; break;
-    }
-
-    cmd_buffer_.pipelineBarrier(srcStage, dstStage, {}, nullptr, nullptr, barrier);
+    cmd_buffer_.pipelineBarrier(srcInfo.stages, dstInfo.stages, {}, nullptr, nullptr, barrier);
 
     // 更新纹理的布局跟踪
     vkTex->setCurrentLayout(barrier.newLayout);
@@ -345,41 +404,50 @@ void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
     if (rp_present_source_ && info.colorCount > 0 && info.colorAttachments[0].target) {
         Texture* presentTexture = info.colorAttachments[0].resolveTarget ? info.colorAttachments[0].resolveTarget
                                                                          : info.colorAttachments[0].target;
-        swapchain_color_image_ = static_cast<VKTexture*>(presentTexture)->image();
+        swapchain_color_texture_ = static_cast<VKTexture*>(presentTexture);
     }
 
     // Color attachment barriers: transition to COLOR_ATTACHMENT_OPTIMAL
     for (uint8_t i = 0; i < info.colorCount; ++i) {
         auto* tex = static_cast<VKTexture*>(info.colorAttachments[i].target);
-        vk::ImageMemoryBarrier barrier;
-        barrier.image = tex->image();
-        barrier.oldLayout = vk::ImageLayout::eUndefined;
-        barrier.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
-        barrier.srcAccessMask = {};
-        barrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-        barrier.subresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        const vk::ImageLayout oldLayout = tex->currentLayout();
+        const vk::ImageLayout newLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        if (oldLayout != newLayout) {
+            const auto srcInfo = accessInfoForLayout(oldLayout);
+            const auto dstInfo = accessInfoForState(ResourceState::RenderTarget);
+            vk::ImageMemoryBarrier barrier;
+            barrier.image = tex->image();
+            barrier.oldLayout = oldLayout;
+            barrier.newLayout = newLayout;
+            barrier.srcAccessMask = srcInfo.access;
+            barrier.dstAccessMask = dstInfo.access;
+            barrier.subresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
-        cmd_buffer_.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,
-                                    vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, nullptr, nullptr, barrier);
+            cmd_buffer_.pipelineBarrier(srcInfo.stages, dstInfo.stages, {}, nullptr, nullptr, barrier);
+        }
         tex->setCurrentLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         if (info.colorAttachments[i].resolveTarget) {
             auto* resolveTex = static_cast<VKTexture*>(info.colorAttachments[i].resolveTarget);
-            vk::ImageMemoryBarrier resolveBarrier;
-            resolveBarrier.image = resolveTex->image();
-            resolveBarrier.oldLayout = vk::ImageLayout::eUndefined;
-            resolveBarrier.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
-            resolveBarrier.srcAccessMask = {};
-            resolveBarrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-            resolveBarrier.subresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
-            resolveBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            resolveBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            const vk::ImageLayout resolveOldLayout = resolveTex->currentLayout();
+            if (resolveOldLayout != vk::ImageLayout::eColorAttachmentOptimal) {
+                const auto srcInfo = accessInfoForLayout(resolveOldLayout);
+                const auto dstInfo = accessInfoForState(ResourceState::RenderTarget);
+                vk::ImageMemoryBarrier resolveBarrier;
+                resolveBarrier.image = resolveTex->image();
+                resolveBarrier.oldLayout = resolveOldLayout;
+                resolveBarrier.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
+                resolveBarrier.srcAccessMask = srcInfo.access;
+                resolveBarrier.dstAccessMask = dstInfo.access;
+                resolveBarrier.subresourceRange =
+                        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+                resolveBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                resolveBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
-            cmd_buffer_.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,
-                                        vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, nullptr, nullptr,
-                                        resolveBarrier);
+                cmd_buffer_.pipelineBarrier(srcInfo.stages, dstInfo.stages, {}, nullptr, nullptr, resolveBarrier);
+            }
             resolveTex->setCurrentLayout(vk::ImageLayout::eColorAttachmentOptimal);
         }
     }
@@ -387,19 +455,24 @@ void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
     // Depth attachment barrier: transition to DEPTH_STENCIL_ATTACHMENT_OPTIMAL
     if (info.depthAttachment.target) {
         auto* depthTex = static_cast<VKTexture*>(info.depthAttachment.target);
-        vk::ImageMemoryBarrier barrier;
-        barrier.image = depthTex->image();
-        barrier.oldLayout = vk::ImageLayout::eUndefined;
-        barrier.newLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-        barrier.srcAccessMask = {};
-        barrier.dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-        barrier.subresourceRange = vk::ImageSubresourceRange(
-                vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil, 0, 1, 0, 1);
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        const vk::ImageLayout oldLayout = depthTex->currentLayout();
+        const vk::ImageLayout newLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+        if (oldLayout != newLayout) {
+            const auto srcInfo = accessInfoForLayout(oldLayout);
+            const auto dstInfo = accessInfoForState(ResourceState::DepthWrite);
+            vk::ImageMemoryBarrier barrier;
+            barrier.image = depthTex->image();
+            barrier.oldLayout = oldLayout;
+            barrier.newLayout = newLayout;
+            barrier.srcAccessMask = srcInfo.access;
+            barrier.dstAccessMask = dstInfo.access;
+            barrier.subresourceRange =
+                    vk::ImageSubresourceRange(aspectMaskForTexture(depthTex->desc().format), 0, 1, 0, 1);
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
-        cmd_buffer_.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,
-                                    vk::PipelineStageFlagBits::eEarlyFragmentTests, {}, nullptr, nullptr, barrier);
+            cmd_buffer_.pipelineBarrier(srcInfo.stages, dstInfo.stages, {}, nullptr, nullptr, barrier);
+        }
         depthTex->setCurrentLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
     }
 
@@ -449,21 +522,26 @@ void VKCommandList::endRenderPass() {
     cmd_buffer_.endRendering();
 
     // Swapchain present: transition color attachment to PRESENT_SRC_KHR
-    if (rp_present_source_ && swapchain_color_image_) {
+    if (rp_present_source_ && swapchain_color_texture_) {
+        auto* presentTexture = swapchain_color_texture_;
         vk::ImageMemoryBarrier barrier;
-        barrier.image = *swapchain_color_image_;
-        barrier.oldLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        barrier.image = presentTexture->image();
+        barrier.oldLayout = presentTexture->currentLayout();
         barrier.newLayout = vk::ImageLayout::ePresentSrcKHR;
-        barrier.srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-        barrier.dstAccessMask = {};
+        const auto srcInfo = accessInfoForLayout(barrier.oldLayout);
+        const auto dstInfo = accessInfoForState(ResourceState::Present);
+        barrier.srcAccessMask = srcInfo.access;
+        barrier.dstAccessMask = dstInfo.access;
         barrier.subresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
-        cmd_buffer_.pipelineBarrier(vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                                    vk::PipelineStageFlagBits::eBottomOfPipe, {}, nullptr, nullptr, barrier);
+        if (barrier.oldLayout != barrier.newLayout) {
+            cmd_buffer_.pipelineBarrier(srcInfo.stages, dstInfo.stages, {}, nullptr, nullptr, barrier);
+        }
+        presentTexture->setCurrentLayout(vk::ImageLayout::ePresentSrcKHR);
 
-        swapchain_color_image_.reset();
+        swapchain_color_texture_ = nullptr;
     }
     rp_present_source_ = false;
 }

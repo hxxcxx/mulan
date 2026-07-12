@@ -18,12 +18,12 @@
 #include <array>
 #include <expected>
 #include <memory>
-#include <optional>
 
 namespace mulan::engine {
 
 class VKDescriptorAllocator;
 class VKDevice;
+class VKTexture;
 
 class VKCommandList : public CommandList {
 public:
@@ -113,9 +113,9 @@ private:
     vk::DescriptorSetLayout current_desc_set_layout_;
     VKDescriptorAllocator* allocator_ = nullptr;
     bool rp_present_source_ = false;
-    std::optional<vk::Image> swapchain_color_image_;  // endRenderPass 时转 PRESENT_SRC_KHR
+    VKTexture* swapchain_color_texture_ = nullptr;  // endRenderPass 时转 PRESENT_SRC_KHR
     bool owns_pool_;
-    uint64_t frame_token_ = 0;                        // 当前帧 token，0=独立/未注入
+    uint64_t frame_token_ = 0;                      // 当前帧 token，0=独立/未注入
 };
 
 }  // namespace mulan::engine

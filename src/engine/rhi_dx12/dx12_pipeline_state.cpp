@@ -6,6 +6,7 @@
 #include "../rhi/engine_error_code.h"
 
 #include <deque>
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -54,38 +55,28 @@ DX12PipelineState::DX12PipelineState(const GraphicsPipelineDesc& desc, ID3D12Dev
 DX12PipelineState::~DX12PipelineState() = default;
 
 void DX12PipelineState::createRootSignature() {
-    // 根据 descriptorBindings 构建 root parameters
-    // 策略：
-    //   UniformBuffer → Root CBV (直接 GPU 地址)
-    //   TextureSRV    → Descriptor Table (1 个 SRV range)
-    //   Sampler       → (未来) static sampler
-    //
-    // 纹理绑定数由 desc_.descriptorBindingCount 中的 TextureSRV 项决定
-
-    // 第一遍：统计 TextureSRV bindings 数量
-    uint32_t texBindingCount = 0;
+    // 根据 canonical binding 顺序构建 root parameters。BindGroupLayout 会按
+    // binding 排序，DX12 root signature 也必须使用同一顺序，否则 root index
+    // 映射会在 descriptorBindings 未按序填写时错位。
+    std::vector<PipelineBinding> descriptorBindings;
+    descriptorBindings.reserve(desc_.descriptorBindingCount);
     for (uint8_t i = 0; i < desc_.descriptorBindingCount; ++i) {
-        if (desc_.descriptorBindings[i].type == DescriptorType::TextureSRV)
-            ++texBindingCount;
+        if (desc_.descriptorBindings[i].count > 0)
+            descriptorBindings.push_back(desc_.descriptorBindings[i]);
     }
+    std::sort(descriptorBindings.begin(), descriptorBindings.end(),
+              [](const PipelineBinding& a, const PipelineBinding& b) { return a.binding < b.binding; });
 
     // 用 deque 持有 descriptor range：deque 的 push_back 不会搬迁既有元素，
     // 因此 &texRanges.back() 指针在后续 push_back 后仍然有效。
     // （vector 会因扩容整体搬迁内存，使之前记录的 pDescriptorRanges 失效。）
     std::deque<D3D12_DESCRIPTOR_RANGE> texRanges;
+    std::deque<D3D12_DESCRIPTOR_RANGE> samplerRanges;
 
     std::vector<D3D12_ROOT_PARAMETER> rootParams;
-    rootParams.reserve(desc_.descriptorBindingCount);
+    rootParams.reserve(descriptorBindings.size());
 
-    // Static samplers（每个 Sampler binding 一个，Linear + Repeat）
-    std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplers;
-    staticSamplers.reserve(desc_.descriptorBindingCount);
-
-    for (uint8_t i = 0; i < desc_.descriptorBindingCount; ++i) {
-        const auto& db = desc_.descriptorBindings[i];
-        if (db.count == 0)
-            continue;
-
+    for (const auto& db : descriptorBindings) {
         D3D12_ROOT_PARAMETER param = {};
         D3D12_SHADER_VISIBILITY visibility = D3D12_SHADER_VISIBILITY_ALL;
         if (db.stages == PipelineBinding::kStageVertex) {
@@ -120,24 +111,19 @@ void DX12PipelineState::createRootSignature() {
         }
 
         case DescriptorType::Sampler: {
-            // 收集为 StaticSampler（Linear 过滤 + Repeat 寻址）
-            // shader register 与 binding 编号一致，space=0
-            D3D12_STATIC_SAMPLER_DESC ss = {};
-            ss.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-            ss.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-            ss.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-            ss.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-            ss.MipLODBias = 0.0f;
-            ss.MaxAnisotropy = 1;
-            ss.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-            ss.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
-            ss.MinLOD = -D3D12_FLOAT32_MAX;
-            ss.MaxLOD = D3D12_FLOAT32_MAX;
-            ss.ShaderRegister = db.binding;
-            ss.RegisterSpace = 0;
-            ss.ShaderVisibility = visibility;
-            staticSamplers.push_back(ss);
-            continue;  // static sampler 不占 root parameter
+            D3D12_DESCRIPTOR_RANGE range = {};
+            range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+            range.NumDescriptors = db.count;
+            range.BaseShaderRegister = db.binding;
+            range.RegisterSpace = 0;
+            range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+            samplerRanges.push_back(range);
+
+            param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            param.DescriptorTable.NumDescriptorRanges = 1;
+            param.DescriptorTable.pDescriptorRanges = &samplerRanges.back();
+            param.ShaderVisibility = visibility;
+            break;
         }
         }
 
@@ -147,8 +133,8 @@ void DX12PipelineState::createRootSignature() {
     D3D12_ROOT_SIGNATURE_DESC rsDesc = {};
     rsDesc.NumParameters = static_cast<UINT>(rootParams.size());
     rsDesc.pParameters = rootParams.data();
-    rsDesc.NumStaticSamplers = static_cast<UINT>(staticSamplers.size());
-    rsDesc.pStaticSamplers = staticSamplers.data();
+    rsDesc.NumStaticSamplers = 0;
+    rsDesc.pStaticSamplers = nullptr;
     rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
     ComPtr<ID3DBlob> signature;

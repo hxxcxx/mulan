@@ -12,8 +12,8 @@
 
 #include "ibl_common.hlsli"
 
-[[vk::binding(1, 0)]] Texture2D    SourceEquirect : register(t0);
-[[vk::binding(2, 0)]] SamplerState LinearSamp    : register(s0);
+[[vk::binding(1, 0)]] Texture2D    SourceEquirect : register(t1);
+[[vk::binding(2, 0)]] SamplerState LinearSamp    : register(s2);
 
 // IBLParams UBO
 cbuffer IBLParams : register(b0) {

@@ -37,6 +37,8 @@ public:
 
     /// 描述符大小
     uint32_t descriptorSize() const { return descriptor_size_; }
+    /// 描述符容量
+    uint32_t capacity() const { return capacity_; }
 
     /// 获取底层堆（用于绑定到命令列表）
     ID3D12DescriptorHeap* heap() const { return heap_.Get(); }

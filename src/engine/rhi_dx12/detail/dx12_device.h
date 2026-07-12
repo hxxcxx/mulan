@@ -112,8 +112,8 @@ private:
 
     // Shader-visible descriptor heap for CBV/SRV/UAV
     std::unique_ptr<DX12DescriptorAllocator> shader_visible_heap_;
-    // Non-shader-visible sampler descriptor heap（供 descriptor-based sampler 预留；
-    // 当前 root signature 使用 static sampler，此堆暂不参与绘制绑定）
+    // 着色器可见的采样器描述符堆。
+    // 采样器通过root signature中的描述符表进行绑定。
     std::unique_ptr<DX12DescriptorAllocator> sampler_heap_;
 };
 

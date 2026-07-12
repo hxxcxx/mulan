@@ -28,6 +28,8 @@ public:
     bool readback(uint32_t offset, uint32_t size, void* outData) override;
 
     ID3D12Resource* resource() const { return resource_.Get(); }
+    D3D12_RESOURCE_STATES state() const { return state_; }
+    void setState(D3D12_RESOURCE_STATES state) { state_ = state; }
     D3D12_GPU_VIRTUAL_ADDRESS gpuAddress() const { return resource_->GetGPUVirtualAddress(); }
     void* mappedData() const { return mapped_data_; }
     uint64_t uploadFenceValue() const { return upload_fence_value_; }
@@ -45,6 +47,7 @@ private:
 
     BufferDesc desc_;
     ComPtr<ID3D12Resource> resource_;
+    D3D12_RESOURCE_STATES state_ = D3D12_RESOURCE_STATE_COMMON;
     void* mapped_data_ = nullptr;
     uint64_t upload_fence_value_ = 0;
     std::vector<uint8_t> pending_data_;  // Immutable buffer 的待上传数据

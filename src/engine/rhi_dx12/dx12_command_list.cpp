@@ -4,6 +4,7 @@
 #include "detail/dx12_pipeline_state.h"
 #include "detail/dx12_convert.h"
 #include "detail/dx12_bind_group.h"
+#include "detail/dx12_sampler.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"
@@ -23,7 +24,8 @@ core::Result<std::unique_ptr<DX12CommandList>> DX12CommandList::create(ID3D12Dev
     }
 }
 
-DX12CommandList::DX12CommandList(ID3D12Device* device, ID3D12CommandAllocator* allocator) : owns_cmd_list_(true) {
+DX12CommandList::DX12CommandList(ID3D12Device* device, ID3D12CommandAllocator* allocator)
+    : allocator_(allocator), owns_cmd_list_(true) {
     HRESULT hr =
             device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, nullptr, IID_PPV_ARGS(&cmd_list_));
     DX12_CHECK(hr);
@@ -49,16 +51,32 @@ void DX12CommandList::setCommandList(ID3D12GraphicsCommandList* cmdList) {
     }
     cmd_list_ = cmdList;
     owns_cmd_list_ = false;
+    recording_ = cmdList != nullptr;
 }
 
 void DX12CommandList::begin() {
-    // 帧循环模式：cmd list 已由 DX12FrameContext::resetCommandAllocator() Reset
-    // 独立模式：需要外部 Reset allocator 后调用
+    if (!cmd_list_)
+        return;
+
+    if (owns_cmd_list_) {
+        // 独立命令列表由 create() 先关闭；begin() 负责复用 allocator 并重新打开。
+        if (recording_ || !allocator_)
+            return;
+        DX12_CHECK(allocator_->Reset());
+        DX12_CHECK(cmd_list_->Reset(allocator_.Get(), nullptr));
+    }
+
+    // 帧循环模式的 allocator/list 已由 DX12FrameContext reset；这里仅标记录制状态。
+    recording_ = true;
+    bindDescriptorHeaps();
 }
 
 void DX12CommandList::end() {
+    if (!cmd_list_ || !recording_)
+        return;
     HRESULT hr = cmd_list_->Close();
     DX12_CHECK(hr);
+    recording_ = false;
 }
 
 void DX12CommandList::setPipelineState(PipelineState* pso) {
@@ -152,38 +170,28 @@ void DX12CommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t siz
 
 void DX12CommandList::bindGroup(BindGroup& group) {
     auto* dx12Group = static_cast<DX12BindGroup*>(&group);
-    if (dx12Group->entryCount() == 0 || !desc_heap_)
+    if (dx12Group->entryCount() == 0 || (!desc_heap_ && !sampler_heap_))
         return;
 
     // --- 跨帧失效：per-frame heap reset 已回收上一帧的 descriptor 区段，
-    // 若 BindGroup 缓存句柄不属于当前帧则丢弃并强制本帧完整重写。
+    // 若 BindGroup 缓存的 descriptor handles 不属于当前帧则丢弃并强制本帧完整重写。
     if (dx12Group->frameToken() != frame_token_) {
-        dx12Group->setCachedGpuHandle({});
+        dx12Group->clearCachedTextureHandles();
         dx12Group->setFrameToken(frame_token_);
         dx12Group->markAllDirty();
     }
 
-    // 统计 texture binding 数：每个 texture 占 descriptor heap 的一个独立 slot。
-    // 与 Vulkan 的 descriptor set 不同，DX12 每个 SRV root parameter 指向独立的
-    // 1-descriptor table，因此必须为每个 texture 分配独立的 descriptor 槽，
-    // 否则多个 texture 会互相覆盖（表现为贴图丢失）。
-    uint32_t texCount = 0;
+    bool hasTexture = false;
     for (uint8_t i = 0; i < dx12Group->entryCount(); ++i) {
-        if (dx12Group->entries()[i].texture)
-            ++texCount;
+        if (dx12Group->entries()[i].texture) {
+            hasTexture = true;
+            break;
+        }
     }
 
-    // --- 分配或复用一段连续 descriptor 区段（texCount 个 slot）---
-    // 区段起点缓存于 BindGroup；跨帧/首帧失效后重新分配。
-    D3D12_GPU_DESCRIPTOR_HANDLE gpuBase = dx12Group->cachedGpuHandle();
-    if (!gpuBase.ptr) {
-        if (desc_alloc_count_ + texCount > 1024) {
-            std::fprintf(stderr, "[DX12 bindGroup] shader-visible descriptor heap exhausted\n");
-            return;
-        }
-        gpuBase.ptr = desc_gpu_base_.ptr + desc_alloc_count_ * desc_size_;
-        desc_alloc_count_ += texCount;
-        dx12Group->setCachedGpuHandle(gpuBase);
+    if (hasTexture && !desc_heap_) {
+        std::fprintf(stderr, "[DX12 bindGroup] CBV/SRV/UAV heap is not bound\n");
+        return;
     }
 
     ID3D12Device* device = nullptr;
@@ -191,39 +199,62 @@ void DX12CommandList::bindGroup(BindGroup& group) {
 
     // 遍历 entries，按类型绑定：
     //   UBO     → root CBV（直接 GPU 地址，无需 descriptor heap）
-    //   Texture → 独立 descriptor slot（区段内第 texSlot 个），脏时重写
-    //   Sampler → 跳过（由 root signature 的 static sampler 提供）
+    //   Texture → 当前 binding 的不可变 descriptor snapshot
+    //   Sampler → sampler heap 中的持久 descriptor table
+    //
+    // 不能把纹理 descriptor 原地覆盖：同一 command list 中较早的 draw 可能尚未
+    // 执行，覆盖后它也会看到后一个 draw 的纹理。纹理发生变化时为该 binding
+    // 分配新 slot；未变化时复用旧 slot。
     const uint16_t mask = dx12Group->dirtyMask();
     uint16_t written = 0;
-    uint32_t texSlot = 0;
 
     for (uint8_t i = 0; i < dx12Group->entryCount(); ++i) {
         const auto& e = dx12Group->entries()[i];
         uint32_t rootIdx = dx12Group->rootIndexForBinding(e.binding);
         if (rootIdx == DX12BindGroup::kInvalidRootIndex)
-            continue;  // Sampler：跳过
+            continue;
 
         if (e.buffer) {
             // UBO：root CBV 每 draw 必须重设（offset 变化），不依赖脏位
             auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
             cmd_list_->SetGraphicsRootConstantBufferView(rootIdx, dx12Buf->gpuAddress() + e.offset);
         } else if (e.texture) {
-            // 当前 texture 在区段中的 GPU/CPU handle
-            D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle;
-            gpuHandle.ptr = gpuBase.ptr + texSlot * desc_size_;
-            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle;
-            cpuHandle.ptr = desc_cpu_base_.ptr + (gpuHandle.ptr - desc_gpu_base_.ptr);
-
-            // 仅脏时重写 descriptor 槽，非脏复用上一轮结果
-            if (((mask >> i) & 1u) != 0) {
+            D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = dx12Group->cachedTextureHandle(i);
+            const bool descriptorDirty = ((mask >> i) & 1u) != 0;
+            if (!gpuHandle.ptr || descriptorDirty) {
                 auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
-                if (dx12Tex && dx12Tex->srv().ptr && device) {
-                    device->CopyDescriptorsSimple(1, cpuHandle, dx12Tex->srv(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+                if (!dx12Tex || !dx12Tex->srv().ptr || !device) {
+                    std::fprintf(stderr, "[DX12 bindGroup] texture has no valid SRV\n");
+                    continue;
                 }
+                if (desc_alloc_count_ >= desc_capacity_) {
+                    std::fprintf(stderr, "[DX12 bindGroup] shader-visible descriptor heap exhausted\n");
+                    continue;
+                }
+
+                gpuHandle.ptr = desc_gpu_base_.ptr + desc_alloc_count_ * desc_size_;
+                D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle;
+                cpuHandle.ptr = desc_cpu_base_.ptr + desc_alloc_count_ * desc_size_;
+                device->CopyDescriptorsSimple(1, cpuHandle, dx12Tex->srv(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+                ++desc_alloc_count_;
+                dx12Group->setCachedTextureHandle(i, gpuHandle);
                 written |= (uint16_t(1) << i);
             }
-            cmd_list_->SetGraphicsRootDescriptorTable(rootIdx, gpuHandle);
-            ++texSlot;
+
+            if (gpuHandle.ptr)
+                cmd_list_->SetGraphicsRootDescriptorTable(rootIdx, gpuHandle);
+        } else if (e.sampler) {
+            auto* dx12Sampler = static_cast<DX12Sampler*>(e.sampler);
+            const D3D12_GPU_DESCRIPTOR_HANDLE samplerHandle = dx12Sampler->gpuHandle();
+            if (!samplerHandle.ptr || !sampler_heap_) {
+                std::fprintf(stderr, "[DX12 bindGroup] sampler descriptor is not shader-visible\n");
+                continue;
+            }
+
+            // Sampler descriptors are allocated from a persistent shader-visible
+            // heap at sampler creation time, so no per-frame copy is required.
+            cmd_list_->SetGraphicsRootDescriptorTable(rootIdx, samplerHandle);
+            written |= (uint16_t(1) << i);
         }
     }
 
@@ -235,8 +266,8 @@ void DX12CommandList::bindGroup(BindGroup& group) {
 void DX12CommandList::bindResources(const BindGroupDesc& desc) {
     // 注意：此便捷路径仅接收 BindGroupDesc（无 BindGroupLayout），无法得知各 binding
     // 的 DescriptorType，因此无法做 binding→root-parameter-index 映射。当前引擎渲染
-    // 路径一律走 bindGroup(BindGroup&)（后者有完整映射）。若将来启用此路径且 PSO 含
-    // static sampler，需改为接收 layout 或 PSO 以正确计算 root index。
+    // 路径一律走 bindGroup(BindGroup&)（后者有完整映射）。该便捷路径也不处理 sampler；
+    // 如需绑定 sampler，必须改为接收 layout 或 PSO 以正确计算 root index。
     for (uint8_t i = 0; i < desc.count; ++i) {
         const auto& e = desc.entries[i];
         if (e.buffer) {
@@ -246,6 +277,10 @@ void DX12CommandList::bindResources(const BindGroupDesc& desc) {
             auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
             if (!dx12Tex->srv().ptr)
                 continue;
+            if (desc_alloc_count_ >= desc_capacity_) {
+                std::fprintf(stderr, "[DX12 bindResources] shader-visible descriptor heap exhausted\n");
+                continue;
+            }
 
             D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = desc_cpu_base_;
             cpuHandle.ptr += desc_alloc_count_ * desc_size_;
@@ -265,49 +300,89 @@ void DX12CommandList::bindResources(const BindGroupDesc& desc) {
 }
 
 void DX12CommandList::setDescriptorHeap(ID3D12DescriptorHeap* heap, D3D12_CPU_DESCRIPTOR_HANDLE cpuBase,
-                                        D3D12_GPU_DESCRIPTOR_HANDLE gpuBase, uint32_t descriptorSize) {
+                                        D3D12_GPU_DESCRIPTOR_HANDLE gpuBase, uint32_t descriptorSize,
+                                        ID3D12DescriptorHeap* samplerHeap, uint32_t descriptorCapacity) {
     desc_heap_ = heap;
+    sampler_heap_ = samplerHeap;
     desc_cpu_base_ = cpuBase;
     desc_gpu_base_ = gpuBase;
     desc_size_ = descriptorSize;
+    desc_capacity_ = descriptorCapacity > 0 ? descriptorCapacity : 1024;
     desc_alloc_count_ = 0;
 
     // 把 shader-visible descriptor heap 绑定到命令列表。
     // D3D12 要求：使用 root descriptor table 引用 GPU handle 前，必须先
     // SetDescriptorHeaps，否则 descriptor table 引用的 GPU handle 无效。
     // 每帧 beginFrame 会 reset heap 后重新调用此函数，此处随之重新绑定。
-    if (heap && cmd_list_) {
-        ID3D12DescriptorHeap* heaps[] = { heap };
-        cmd_list_->SetDescriptorHeaps(1, heaps);
-    }
+    bindDescriptorHeaps();
+}
+
+void DX12CommandList::bindDescriptorHeaps() {
+    if (!cmd_list_ || !recording_)
+        return;
+
+    ID3D12DescriptorHeap* heaps[2] = {};
+    UINT heapCount = 0;
+    if (desc_heap_)
+        heaps[heapCount++] = desc_heap_;
+    if (sampler_heap_)
+        heaps[heapCount++] = sampler_heap_;
+    if (heapCount > 0)
+        cmd_list_->SetDescriptorHeaps(heapCount, heaps);
 }
 
 void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState) {
-    // 未实现：buffer 资源状态当前未跟踪（DX12Buffer 无 state_ 字段，与 Texture 不同）。
-    // 之前的实现把 StateBefore 写死 GENERIC_READ，对 staging/COPY_DEST 等是错的。
-    // 当前无调用方；要正确实现需先给 DX12Buffer 加状态跟踪。
-    (void) buffer;
-    (void) newState;
-    assert(false &&
-           "transitionResource(Buffer*) not implemented: "
-           "DX12Buffer lacks per-resource state tracking");
+    auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
+    if (!dx12Buf || !dx12Buf->resource())
+        return;
+
+    const D3D12_RESOURCE_STATES before = dx12Buf->state();
+    const D3D12_RESOURCE_STATES after = toDX12ResourceStates(newState);
+    if (before == after)
+        return;
+
+    // Upload/readback heaps have restricted legal states. In particular, a
+    // readback buffer must remain COPY_DEST while the GPU writes into it.
+    if (dx12Buf->usage() == BufferUsage::Staging || dx12Buf->usage() == BufferUsage::Dynamic) {
+        std::fprintf(stderr, "[DX12 transitionResource] buffer heap does not support requested state transition\n");
+        return;
+    }
+
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = dx12Buf->resource();
+    barrier.Transition.StateBefore = before;
+    barrier.Transition.StateAfter = after;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    cmd_list_->ResourceBarrier(1, &barrier);
+    dx12Buf->setState(after);
 }
 
 void DX12CommandList::transitionResource(Texture* texture, ResourceState newState) {
     auto* dx12Tex = static_cast<DX12Texture*>(texture);
+    if (!dx12Tex || !dx12Tex->resource())
+        return;
+
+    const D3D12_RESOURCE_STATES before = dx12Tex->state();
+    const D3D12_RESOURCE_STATES after = toDX12ResourceStates(newState);
+    if (before == after)
+        return;
+
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     barrier.Transition.pResource = dx12Tex->resource();
-    barrier.Transition.StateBefore = dx12Tex->state();
-    barrier.Transition.StateAfter = toDX12ResourceStates(newState);
+    barrier.Transition.StateBefore = before;
+    barrier.Transition.StateAfter = after;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     cmd_list_->ResourceBarrier(1, &barrier);
-    dx12Tex->setState(toDX12ResourceStates(newState));
+    dx12Tex->setState(after);
 }
 
 void DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     auto* dx12Tex = static_cast<DX12Texture*>(src);
     auto* dx12Buf = static_cast<DX12Buffer*>(dst);
+    if (!dx12Tex || !dx12Buf || !dx12Tex->resource() || !dx12Buf->resource())
+        return;
 
     // 取 device 用于 GetCopyableFootprints（与 bindResources 同模式）
     ID3D12Device* device = nullptr;
@@ -336,23 +411,42 @@ void DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     device->GetCopyableFootprints(&texDesc, 0, 1, 0, &footprint, &numRows, &rowSizeInBytes, &totalSize);
     device->Release();
 
-    // src texture: COMMON/COPY_DEST → COPY_SOURCE
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource = dx12Tex->resource();
-    barrier.Transition.StateBefore = dx12Tex->state();
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmd_list_->ResourceBarrier(1, &barrier);
+    const D3D12_RESOURCE_STATES originalTexState = dx12Tex->state();
+    const D3D12_RESOURCE_STATES originalBufState = dx12Buf->state();
 
-    // dst buffer: GENERIC_READ → COPY_DEST
+    if (originalBufState != D3D12_RESOURCE_STATE_COPY_DEST &&
+        (dx12Buf->usage() == BufferUsage::Staging || dx12Buf->usage() == BufferUsage::Dynamic)) {
+        std::fprintf(stderr, "[DX12 copyTextureToBuffer] destination buffer is not in COPY_DEST state\n");
+        return;
+    }
+
+    // Transition the source only when necessary. The caller may already have
+    // transitioned it through CommandList::transitionResource().
+    D3D12_RESOURCE_BARRIER texBarrier = {};
+    texBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    texBarrier.Transition.pResource = dx12Tex->resource();
+    texBarrier.Transition.StateBefore = originalTexState;
+    texBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+    texBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    if (originalTexState != D3D12_RESOURCE_STATE_COPY_SOURCE) {
+        cmd_list_->ResourceBarrier(1, &texBarrier);
+        dx12Tex->setState(D3D12_RESOURCE_STATE_COPY_SOURCE);
+    }
+
+    // Readback heaps are created directly in COPY_DEST and must remain there;
+    // do not fabricate a COMMON -> COPY_DEST -> COMMON sequence for them.
     D3D12_RESOURCE_BARRIER bufBarrier = {};
-    bufBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    bufBarrier.Transition.pResource = dx12Buf->resource();
-    bufBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
-    bufBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
-    bufBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmd_list_->ResourceBarrier(1, &bufBarrier);
+    bool bufferTransitioned = false;
+    if (originalBufState != D3D12_RESOURCE_STATE_COPY_DEST) {
+        bufBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        bufBarrier.Transition.pResource = dx12Buf->resource();
+        bufBarrier.Transition.StateBefore = originalBufState;
+        bufBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+        bufBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        cmd_list_->ResourceBarrier(1, &bufBarrier);
+        dx12Buf->setState(D3D12_RESOURCE_STATE_COPY_DEST);
+        bufferTransitioned = true;
+    }
 
     D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
     srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
@@ -366,14 +460,19 @@ void DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
 
     cmd_list_->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
 
-    // 还原状态
-    bufBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    bufBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COMMON;
-    cmd_list_->ResourceBarrier(1, &bufBarrier);
+    if (bufferTransitioned) {
+        bufBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+        bufBarrier.Transition.StateAfter = originalBufState;
+        cmd_list_->ResourceBarrier(1, &bufBarrier);
+        dx12Buf->setState(originalBufState);
+    }
 
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    barrier.Transition.StateAfter = dx12Tex->state();
-    cmd_list_->ResourceBarrier(1, &barrier);
+    if (originalTexState != D3D12_RESOURCE_STATE_COPY_SOURCE) {
+        texBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+        texBarrier.Transition.StateAfter = originalTexState;
+        cmd_list_->ResourceBarrier(1, &texBarrier);
+        dx12Tex->setState(originalTexState);
+    }
 }
 
 void DX12CommandList::clearColor(float r, float g, float b, float a) {
