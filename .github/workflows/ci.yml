@@ -88,8 +88,7 @@ jobs:
         with:
           vcpkgGitCommitId: "616affa24b974b710a4fc26257e90b7fda6d6826"
 
-      # DXC is a build tool. Use Microsoft's pinned prebuilt distribution
-      # instead of compiling the LLVM-based directx-dxc vcpkg port in CI.
+      # DXC 是构建工具。CI 使用 Microsoft 预编译版本，避免现场编译 LLVM。
       - name: Cache DXC
         id: cache-dxc
         uses: actions/cache@v4
@@ -114,6 +113,7 @@ jobs:
             Select-Object -First 1
           if (-not $dxc) { throw "dxc.exe was not found in the DXC distribution" }
           $dxc.DirectoryName >> $env:GITHUB_PATH
+          "MULAN_DXC_EXECUTABLE=$($dxc.FullName)" >> $env:GITHUB_ENV
           Write-Host "Using DXC: $($dxc.FullName)"
 
       - name: Cache vcpkg installed packages
@@ -124,7 +124,8 @@ jobs:
 
       # ── Configure & Build ──
       - name: Configure CMake
-        run: cmake --preset msvc
+        shell: pwsh
+        run: cmake --preset msvc -DMULAN_DXC_EXECUTABLE="$env:MULAN_DXC_EXECUTABLE"
 
       - name: Build
         run: cmake --build --preset release -- /maxcpucount
