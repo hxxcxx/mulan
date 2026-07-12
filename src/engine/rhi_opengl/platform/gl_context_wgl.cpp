@@ -52,31 +52,37 @@ bool WGLContext::initialize(const GLContextCreateInfo& ci) {
         return false;
 
     HGLRC temporary = wglCreateContext(hdc_);
-    if (!temporary || !wglMakeCurrent(hdc_, temporary))
+    if (!temporary)
         return false;
+    if (!wglMakeCurrent(hdc_, temporary)) {
+        wglDeleteContext(temporary);
+        return false;
+    }
 
     auto create_context = reinterpret_cast<CreateContextAttribsProc>(wglGetProcAddress("wglCreateContextAttribsARB"));
-    if (create_context) {
-        const int flags = ci.enableValidation ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
-        const int attributes[] = {
-            WGL_CONTEXT_MAJOR_VERSION_ARB,
-            static_cast<int>(ci.majorVersion),
-            WGL_CONTEXT_MINOR_VERSION_ARB,
-            static_cast<int>(ci.minorVersion),
-            WGL_CONTEXT_PROFILE_MASK_ARB,
-            WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-            WGL_CONTEXT_FLAGS_ARB,
-            flags,
-            0,
-        };
-        hglrc_ = create_context(hdc_, nullptr, attributes);
+    if (!create_context) {
+        wglMakeCurrent(nullptr, nullptr);
+        wglDeleteContext(temporary);
+        return false;
     }
+
+    const int flags = ci.enableValidation ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
+    const int attributes[] = {
+        WGL_CONTEXT_MAJOR_VERSION_ARB,
+        static_cast<int>(ci.majorVersion),
+        WGL_CONTEXT_MINOR_VERSION_ARB,
+        static_cast<int>(ci.minorVersion),
+        WGL_CONTEXT_PROFILE_MASK_ARB,
+        WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+        WGL_CONTEXT_FLAGS_ARB,
+        flags,
+        0,
+    };
+    hglrc_ = create_context(hdc_, nullptr, attributes);
 
     wglMakeCurrent(nullptr, nullptr);
     wglDeleteContext(temporary);
 
-    if (!hglrc_)
-        hglrc_ = wglCreateContext(hdc_);
     if (!hglrc_)
         return false;
 

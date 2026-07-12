@@ -55,7 +55,7 @@ static GLenum toGLCompareFunc(CompareFunc f) {
 // ============================================================
 
 GLSampler::GLSampler(const SamplerDesc& desc) : desc_(desc) {
-    glGenSamplers(1, &handle_);
+    glCreateSamplers(1, &handle_);
     if (!handle_)
         return;
 

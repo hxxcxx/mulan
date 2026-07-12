@@ -126,33 +126,31 @@ void GLTexture::create() {
     internal_format_ = toGLInternalFormat(desc_.format);
     GLsizei mips = static_cast<GLsizei>(desc_.mipLevels);
 
-    glGenTextures(1, &handle_);
+    glCreateTextures(target_, 1, &handle_);
     if (!handle_) {
-        std::fprintf(stderr, "[GLTexture] glGenTextures failed: %s\n", std::string(desc_.name).c_str());
+        std::fprintf(stderr, "[GLTexture] glCreateTextures failed: %s\n", std::string(desc_.name).c_str());
         return;
     }
 
-    glBindTexture(target_, handle_);
-
-    // 使用不可变存储（GL 4.2+）
+    // 使用 DSA 不可变存储（GL 4.5+）
     switch (target_) {
-    case GL_TEXTURE_1D: glTexStorage1D(GL_TEXTURE_1D, mips, internal_format_, static_cast<GLsizei>(desc_.width)); break;
+    case GL_TEXTURE_1D: glTextureStorage1D(handle_, mips, internal_format_, static_cast<GLsizei>(desc_.width)); break;
 
     case GL_TEXTURE_2D:
     case GL_TEXTURE_CUBE_MAP:
-        glTexStorage2D(target_, mips, internal_format_, static_cast<GLsizei>(desc_.width),
-                       static_cast<GLsizei>(desc_.height));
+        glTextureStorage2D(handle_, mips, internal_format_, static_cast<GLsizei>(desc_.width),
+                           static_cast<GLsizei>(desc_.height));
         break;
 
     case GL_TEXTURE_2D_MULTISAMPLE:
         // MSAA 纹理无 mip
-        glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, static_cast<GLsizei>(desc_.sampleCount), internal_format_,
-                                  static_cast<GLsizei>(desc_.width), static_cast<GLsizei>(desc_.height), GL_TRUE);
+        glTextureStorage2DMultisample(handle_, static_cast<GLsizei>(desc_.sampleCount), internal_format_,
+                                      static_cast<GLsizei>(desc_.width), static_cast<GLsizei>(desc_.height), GL_TRUE);
         break;
 
     case GL_TEXTURE_3D:
-        glTexStorage3D(GL_TEXTURE_3D, mips, internal_format_, static_cast<GLsizei>(desc_.width),
-                       static_cast<GLsizei>(desc_.height), static_cast<GLsizei>(desc_.depth));
+        glTextureStorage3D(handle_, mips, internal_format_, static_cast<GLsizei>(desc_.width),
+                           static_cast<GLsizei>(desc_.height), static_cast<GLsizei>(desc_.depth));
         break;
 
     default: break;
@@ -160,16 +158,14 @@ void GLTexture::create() {
 
     // 默认采样参数
     if (target_ != GL_TEXTURE_2D_MULTISAMPLE) {
-        glTexParameteri(target_, GL_TEXTURE_MIN_FILTER, mips > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
-        glTexParameteri(target_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(target_, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(target_, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTextureParameteri(handle_, GL_TEXTURE_MIN_FILTER, mips > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
+        glTextureParameteri(handle_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureParameteri(handle_, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTextureParameteri(handle_, GL_TEXTURE_WRAP_T, GL_REPEAT);
         if (target_ == GL_TEXTURE_3D || target_ == GL_TEXTURE_CUBE_MAP) {
-            glTexParameteri(target_, GL_TEXTURE_WRAP_R, GL_REPEAT);
+            glTextureParameteri(handle_, GL_TEXTURE_WRAP_R, GL_REPEAT);
         }
     }
-
-    glBindTexture(target_, 0);
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
@@ -199,22 +195,16 @@ void GLTexture::upload(uint32_t mipLevel, const void* data) {
     GLsizei h = static_cast<GLsizei>(std::max(1u, desc_.height >> mipLevel));
     GLsizei d = static_cast<GLsizei>(std::max(1u, desc_.depth >> mipLevel));
 
-    glBindTexture(target_, handle_);
-
     switch (target_) {
-    case GL_TEXTURE_1D:
-        glTexSubImage1D(GL_TEXTURE_1D, static_cast<GLint>(mipLevel), 0, w, baseFormat, type, data);
-        break;
+    case GL_TEXTURE_1D: glTextureSubImage1D(handle_, static_cast<GLint>(mipLevel), 0, w, baseFormat, type, data); break;
     case GL_TEXTURE_2D:
-        glTexSubImage2D(GL_TEXTURE_2D, static_cast<GLint>(mipLevel), 0, 0, w, h, baseFormat, type, data);
+        glTextureSubImage2D(handle_, static_cast<GLint>(mipLevel), 0, 0, w, h, baseFormat, type, data);
         break;
     case GL_TEXTURE_3D:
-        glTexSubImage3D(GL_TEXTURE_3D, static_cast<GLint>(mipLevel), 0, 0, 0, w, h, d, baseFormat, type, data);
+        glTextureSubImage3D(handle_, static_cast<GLint>(mipLevel), 0, 0, 0, w, h, d, baseFormat, type, data);
         break;
     default: break;
     }
-
-    glBindTexture(target_, 0);
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
@@ -239,10 +229,8 @@ void GLTexture::uploadCubeFace(uint32_t face, uint32_t mipLevel, const void* dat
     GLsizei w = static_cast<GLsizei>(std::max(1u, desc_.width >> mipLevel));
     GLsizei h = static_cast<GLsizei>(std::max(1u, desc_.height >> mipLevel));
 
-    glBindTexture(GL_TEXTURE_CUBE_MAP, handle_);
-    glTexSubImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, static_cast<GLint>(mipLevel), 0, 0, w, h, baseFormat, type,
-                    data);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+    glTextureSubImage3D(handle_, static_cast<GLint>(mipLevel), 0, 0, static_cast<GLint>(face), w, h, 1, baseFormat,
+                        type, data);
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
@@ -253,9 +241,7 @@ void GLTexture::uploadCubeFace(uint32_t face, uint32_t mipLevel, const void* dat
 void GLTexture::generateMipmaps() {
     if (!handle_ || desc_.mipLevels <= 1)
         return;
-    glBindTexture(target_, handle_);
-    glGenerateMipmap(target_);
-    glBindTexture(target_, 0);
+    glGenerateTextureMipmap(handle_);
 }
 
 }  // namespace mulan::engine

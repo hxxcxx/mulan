@@ -69,17 +69,15 @@ RenderPassBeginInfo GLSwapChain::renderPassBeginInfo() {
 void GLSwapChain::present() {
     if (msaa_target_) {
         GLuint read_fbo = 0;
-        glGenFramebuffers(1, &read_fbo);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fbo);
+        glCreateFramebuffers(1, &read_fbo);
         auto* color = dynamic_cast<GLTexture*>(msaa_target_->colorTexture());
         if (color) {
-            glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color->target(), color->handle(), 0);
-            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-            glBlitFramebuffer(0, 0, static_cast<GLint>(desc_.width), static_cast<GLint>(desc_.height), 0, 0,
-                              static_cast<GLint>(desc_.width), static_cast<GLint>(desc_.height), GL_COLOR_BUFFER_BIT,
-                              GL_NEAREST);
+            glNamedFramebufferTexture(read_fbo, GL_COLOR_ATTACHMENT0, color->handle(), 0);
+            glNamedFramebufferReadBuffer(read_fbo, GL_COLOR_ATTACHMENT0);
+            glBlitNamedFramebuffer(read_fbo, 0, 0, 0, static_cast<GLint>(desc_.width), static_cast<GLint>(desc_.height),
+                                   0, 0, static_cast<GLint>(desc_.width), static_cast<GLint>(desc_.height),
+                                   GL_COLOR_BUFFER_BIT, GL_NEAREST);
         }
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glDeleteFramebuffers(1, &read_fbo);
     }
     context_.swapBuffers();

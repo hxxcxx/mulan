@@ -10,13 +10,14 @@
 #include "../rhi/render_types.h"
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
 #include <array>
 #include <vector>
 
 namespace mulan::engine {
 
 GLCommandList::GLCommandList() {
-    glGenVertexArrays(1, &vao_);
+    glCreateVertexArrays(1, &vao_);
 }
 
 GLCommandList::~GLCommandList() {
@@ -144,15 +145,12 @@ void GLCommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType ty
     index_buffer_Offset = offset;
     index_type_ = type;
 
-    // IBO 绑定必须在 VAO 绑定中才能被 VAO 记录
-    glBindVertexArray(vao_);
     if (buffer) {
         auto* glBuf = static_cast<GLBuffer*>(buffer);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glBuf->handle());
+        glVertexArrayElementBuffer(vao_, glBuf->handle());
     } else {
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        glVertexArrayElementBuffer(vao_, 0);
     }
-    glBindVertexArray(0);
 }
 
 void GLCommandList::draw(const DrawAttribs& attribs) {
@@ -208,11 +206,29 @@ void GLCommandList::draw(const DrawAttribs& attribs) {
 }
 
 void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
+#if defined(_WIN32)
+    if (!wglGetCurrentContext()) {
+        std::fprintf(stderr, "[GLCommandList] drawIndexed skipped: no current WGL context\n");
+        return;
+    }
+#endif
+    if (!glDrawElements) {
+        std::fprintf(stderr, "[GLCommandList] drawIndexed skipped: glDrawElements is not loaded\n");
+        return;
+    }
+
     applyPipelineState();
 
     // 绑定 VAO 并更新顶点属性指针
     glBindVertexArray(vao_);
     setupVertexAttributes();
+
+    auto* glIndexBuffer = dynamic_cast<GLBuffer*>(index_buffer_);
+    if (!glIndexBuffer || !glIndexBuffer->isValid()) {
+        std::fprintf(stderr, "[GLCommandList] drawIndexed skipped: no valid index buffer is bound\n");
+        glBindVertexArray(0);
+        return;
+    }
 
     if (viewport_Dirty) {
         const GLint y = framebuffer_height_ > 0
@@ -243,9 +259,31 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
     }
     const GLenum indexFormat = indexTypeToGLFormat(attribs.indexType);
     const uint32_t indexStride = attribs.indexType == IndexType::UInt16 ? 2u : 4u;
-    const auto indexOffset =
-            static_cast<uintptr_t>(index_buffer_Offset) + static_cast<uintptr_t>(attribs.startIndex) * indexStride;
-    const void* indexPointer = reinterpret_cast<const void*>(indexOffset);
+    const uint64_t indexOffset =
+            static_cast<uint64_t>(index_buffer_Offset) + static_cast<uint64_t>(attribs.startIndex) * indexStride;
+    const uint64_t indexEnd = indexOffset + static_cast<uint64_t>(attribs.indexCount) * indexStride;
+    if (indexEnd > glIndexBuffer->size()) {
+        std::fprintf(stderr,
+                     "[GLCommandList] drawIndexed skipped: index range exceeds buffer (offset: %llu, count: %u, "
+                     "stride: %u, buffer: %u)\n",
+                     static_cast<unsigned long long>(indexOffset), attribs.indexCount, indexStride,
+                     glIndexBuffer->size());
+        glBindVertexArray(0);
+        return;
+    }
+
+#ifdef _DEBUG
+    GLint boundIndexBuffer = 0;
+    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &boundIndexBuffer);
+    if (boundIndexBuffer != static_cast<GLint>(glIndexBuffer->handle())) {
+        std::fprintf(stderr, "[GLCommandList] drawIndexed skipped: VAO EBO mismatch (expected: %u, actual: %d)\n",
+                     glIndexBuffer->handle(), boundIndexBuffer);
+        glBindVertexArray(0);
+        return;
+    }
+#endif
+
+    const void* indexPointer = reinterpret_cast<const void*>(static_cast<uintptr_t>(indexOffset));
     if (attribs.instanceCount > 1) {
         glDrawElementsInstancedBaseVertexBaseInstance(topology, static_cast<GLsizei>(attribs.indexCount), indexFormat,
                                                       indexPointer, attribs.instanceCount, attribs.baseVertex,
@@ -313,32 +351,30 @@ bool GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previous_fbo);
 
     GLuint read_fbo = 0;
-    glGenFramebuffers(1, &read_fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, read_fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture->target(), texture->handle(), 0);
+    glCreateFramebuffers(1, &read_fbo);
+    glNamedFramebufferTexture(read_fbo, GL_COLOR_ATTACHMENT0, texture->handle(), 0);
+    glNamedFramebufferReadBuffer(read_fbo, GL_COLOR_ATTACHMENT0);
 
     GLuint resolve_fbo = 0;
     GLuint resolve_texture = 0;
     const bool multisampled = texture->desc().sampleCount > 1;
     if (multisampled) {
-        glGenFramebuffers(1, &resolve_fbo);
-        glGenTextures(1, &resolve_texture);
-        glBindTexture(GL_TEXTURE_2D, resolve_texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GLTexture::toGLInternalFormat(texture->desc().format),
-                     static_cast<GLsizei>(texture->desc().width), static_cast<GLsizei>(texture->desc().height), 0,
-                     GLTexture::toGLBaseFormat(texture->desc().format), GLTexture::toGLType(texture->desc().format),
-                     nullptr);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolve_fbo);
-        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, resolve_texture, 0);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fbo);
-        glBlitFramebuffer(0, 0, static_cast<GLint>(texture->desc().width), static_cast<GLint>(texture->desc().height),
-                          0, 0, static_cast<GLint>(texture->desc().width), static_cast<GLint>(texture->desc().height),
-                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, resolve_fbo);
+        glCreateFramebuffers(1, &resolve_fbo);
+        glCreateTextures(GL_TEXTURE_2D, 1, &resolve_texture);
+        glTextureStorage2D(resolve_texture, 1, GLTexture::toGLInternalFormat(texture->desc().format),
+                           static_cast<GLsizei>(texture->desc().width), static_cast<GLsizei>(texture->desc().height));
+        glTextureParameteri(resolve_texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTextureParameteri(resolve_texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glNamedFramebufferTexture(resolve_fbo, GL_COLOR_ATTACHMENT0, resolve_texture, 0);
+        glNamedFramebufferDrawBuffer(resolve_fbo, GL_COLOR_ATTACHMENT0);
+        glBlitNamedFramebuffer(read_fbo, resolve_fbo, 0, 0, static_cast<GLint>(texture->desc().width),
+                               static_cast<GLint>(texture->desc().height), 0, 0,
+                               static_cast<GLint>(texture->desc().width), static_cast<GLint>(texture->desc().height),
+                               GL_COLOR_BUFFER_BIT, GL_NEAREST);
     } else {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fbo);
+        glNamedFramebufferReadBuffer(read_fbo, GL_COLOR_ATTACHMENT0);
     }
+    const GLuint readback_fbo = multisampled ? resolve_fbo : read_fbo;
 
     GLenum read_format = GL_RGBA;
     GLenum read_type = GL_UNSIGNED_BYTE;
@@ -363,6 +399,7 @@ bool GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     default: break;
     }
 
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, readback_fbo);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, buffer->handle());
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glReadPixels(0, 0, static_cast<GLsizei>(texture->desc().width), static_cast<GLsizei>(texture->desc().height),
@@ -372,8 +409,8 @@ bool GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     const size_t image_bytes = row_bytes * texture->desc().height;
     bool copied = false;
     if (bytes_per_pixel && image_bytes <= buffer->desc().size) {
-        auto* mapped = static_cast<uint8_t*>(glMapBufferRange(
-                GL_PIXEL_PACK_BUFFER, 0, static_cast<GLsizeiptr>(image_bytes), GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
+        auto* mapped = static_cast<uint8_t*>(glMapNamedBufferRange(
+                buffer->handle(), 0, static_cast<GLsizeiptr>(image_bytes), GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
         if (mapped) {
             std::vector<uint8_t> row(row_bytes);
             for (uint32_t y = 0; y < texture->desc().height / 2; ++y) {
@@ -383,7 +420,7 @@ bool GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
                 std::memcpy(top, bottom, row_bytes);
                 std::memcpy(bottom, row.data(), row_bytes);
             }
-            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+            glUnmapNamedBuffer(buffer->handle());
             copied = true;
         }
     }
@@ -461,32 +498,34 @@ void GLCommandList::setupVertexAttributes() {
 
     GLsizei stride = static_cast<GLsizei>(layout.stride());
 
-    // 先禁用所有属性，再按布局重新开启
+    // 通过 DSA 先禁用所有属性，再按布局重新开启
     for (GLuint i = 0; i < 16; ++i)
-        glDisableVertexAttribArray(i);
+        glDisableVertexArrayAttrib(vao_, i);
+
+    const uint32_t slotCount = std::min<uint32_t>(layout.bufferCount(), MAX_VERTEX_BUFFERS);
+    for (uint32_t slot = 0; slot < slotCount; ++slot) {
+        auto* glBuf = vertex_buffers_[slot] ? static_cast<GLBuffer*>(vertex_buffers_[slot]) : nullptr;
+        glVertexArrayVertexBuffer(vao_, slot, glBuf ? glBuf->handle() : 0,
+                                  glBuf ? static_cast<GLintptr>(vertex_buffer_offsets_[slot]) : 0, stride);
+        glVertexArrayBindingDivisor(vao_, slot, 0);
+    }
 
     for (uint8_t i = 0; i < layout.attrCount(); ++i) {
         const auto& attr = layout[i];
         GLuint location = static_cast<GLuint>(i);  // location = attribute index
 
-        // 绑定该 slot 对应的 VBO
         uint8_t slot = attr.bufferSlot;
-        if (slot < vertex_buffer_count_ && vertex_buffers_[slot]) {
-            auto* glBuf = static_cast<GLBuffer*>(vertex_buffers_[slot]);
-            glBindBuffer(GL_ARRAY_BUFFER, glBuf->handle());
-        } else {
+        if (slot >= slotCount || !vertex_buffers_[slot]) {
             continue;  // 该 slot 无 VBO，跳过
         }
 
         auto glType = vertexFormatToGL(attr.format);
-        const void* offsetPtr =
-                reinterpret_cast<const void*>(static_cast<uintptr_t>(attr.offset + vertex_buffer_offsets_[slot]));
-
-        glEnableVertexAttribArray(location);
+        glEnableVertexArrayAttrib(vao_, location);
+        glVertexArrayAttribBinding(vao_, location, slot);
         if (glType.isInteger) {
-            glVertexAttribIPointer(location, glType.components, glType.type, stride, offsetPtr);
+            glVertexArrayAttribIFormat(vao_, location, glType.components, glType.type, attr.offset);
         } else {
-            glVertexAttribPointer(location, glType.components, glType.type, glType.normalized, stride, offsetPtr);
+            glVertexArrayAttribFormat(vao_, location, glType.components, glType.type, glType.normalized, attr.offset);
         }
     }
 
@@ -597,15 +636,14 @@ void GLCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
 void GLCommandList::endRenderPass() {
     if (render_pass_active_ && resolve_source_ && resolve_target_ && resolve_target_->desc().sampleCount == 1) {
         GLuint resolve_fbo = 0;
-        glGenFramebuffers(1, &resolve_fbo);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolve_fbo);
-        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, resolve_target_->target(),
-                               resolve_target_->handle(), 0);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, active_framebuffer_);
-        glBlitFramebuffer(0, 0, static_cast<GLint>(resolve_source_->desc().width),
-                          static_cast<GLint>(resolve_source_->desc().height), 0, 0,
-                          static_cast<GLint>(resolve_target_->desc().width),
-                          static_cast<GLint>(resolve_target_->desc().height), GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        glCreateFramebuffers(1, &resolve_fbo);
+        glNamedFramebufferTexture(resolve_fbo, GL_COLOR_ATTACHMENT0, resolve_target_->handle(), 0);
+        glNamedFramebufferDrawBuffer(resolve_fbo, GL_COLOR_ATTACHMENT0);
+        glBlitNamedFramebuffer(active_framebuffer_, resolve_fbo, 0, 0,
+                               static_cast<GLint>(resolve_source_->desc().width),
+                               static_cast<GLint>(resolve_source_->desc().height), 0, 0,
+                               static_cast<GLint>(resolve_target_->desc().width),
+                               static_cast<GLint>(resolve_target_->desc().height), GL_COLOR_BUFFER_BIT, GL_NEAREST);
         glDeleteFramebuffers(1, &resolve_fbo);
     }
     if (render_pass_active_)

@@ -142,7 +142,7 @@ private:
     /// 应用当前管线状态到 GL
     void applyPipelineState();
 
-    /// 按 VertexLayout 重新设置 glVertexAttribPointer
+    /// 按 VertexLayout 通过 DSA 重新设置顶点属性
     void setupVertexAttributes();
 
     /// 转换 IndexType 到 GL 格式

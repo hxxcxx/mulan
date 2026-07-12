@@ -54,23 +54,24 @@ GLRenderTarget::~GLRenderTarget() {
 void GLRenderTarget::createResources() {
     // --- Color 纹理 ---
     GLuint colorTex = 0;
-    glGenTextures(1, &colorTex);
     const GLenum colorTarget = desc_.sampleCount > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
-    glBindTexture(colorTarget, colorTex);
-    if (desc_.sampleCount > 1) {
-        glTexStorage2DMultisample(colorTarget, static_cast<GLsizei>(desc_.sampleCount),
-                                  toGLInternalFormat(desc_.colorFormat), static_cast<GLsizei>(desc_.width),
-                                  static_cast<GLsizei>(desc_.height), GL_TRUE);
-    } else {
-        glTexImage2D(colorTarget, 0, toGLInternalFormat(desc_.colorFormat), static_cast<GLsizei>(desc_.width),
-                     static_cast<GLsizei>(desc_.height), 0, GLTexture::toGLBaseFormat(desc_.colorFormat),
-                     GLTexture::toGLType(desc_.colorFormat), nullptr);
-        glTexParameteri(colorTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(colorTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(colorTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(colorTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glCreateTextures(colorTarget, 1, &colorTex);
+    if (!colorTex) {
+        std::fprintf(stderr, "[GLRenderTarget] Failed to create color texture\n");
+        return;
     }
-    glBindTexture(colorTarget, 0);
+    if (desc_.sampleCount > 1) {
+        glTextureStorage2DMultisample(colorTex, static_cast<GLsizei>(desc_.sampleCount),
+                                      toGLInternalFormat(desc_.colorFormat), static_cast<GLsizei>(desc_.width),
+                                      static_cast<GLsizei>(desc_.height), GL_TRUE);
+    } else {
+        glTextureStorage2D(colorTex, 1, toGLInternalFormat(desc_.colorFormat), static_cast<GLsizei>(desc_.width),
+                           static_cast<GLsizei>(desc_.height));
+        glTextureParameteri(colorTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(colorTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureParameteri(colorTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(colorTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
 
     TextureDesc colorDesc = TextureDesc::renderTarget(desc_.width, desc_.height, desc_.colorFormat, "GLOffscreenColor",
                                                       desc_.sampleCount);
@@ -87,45 +88,35 @@ void GLRenderTarget::createResources() {
     GLuint depthTex = 0;
     const GLenum depthTarget = desc_.sampleCount > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
     if (desc_.hasDepth) {
-        glGenTextures(1, &depthTex);
-        glBindTexture(depthTarget, depthTex);
+        glCreateTextures(depthTarget, 1, &depthTex);
+        if (!depthTex) {
+            std::fprintf(stderr, "[GLRenderTarget] Failed to create depth texture\n");
+            destroyResources();
+            return;
+        }
 
         // 根据深度格式选择 GL 内部格式
         GLenum internalFmt = GL_DEPTH24_STENCIL8;
-        GLenum pixelFmt = GL_DEPTH_STENCIL;
-        GLenum pixelType = GL_UNSIGNED_INT_24_8;
         switch (desc_.depthFormat) {
-        case TextureFormat::D16_UNorm:
-            internalFmt = GL_DEPTH_COMPONENT16;
-            pixelFmt = GL_DEPTH_COMPONENT;
-            pixelType = GL_UNSIGNED_SHORT;
-            break;
-        case TextureFormat::D32_Float:
-            internalFmt = GL_DEPTH_COMPONENT32F;
-            pixelFmt = GL_DEPTH_COMPONENT;
-            pixelType = GL_FLOAT;
-            break;
-        case TextureFormat::D32_Float_S8X24_UInt:
-            internalFmt = GL_DEPTH32F_STENCIL8;
-            pixelFmt = GL_DEPTH_STENCIL;
-            pixelType = GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
-            break;
+        case TextureFormat::D16_UNorm: internalFmt = GL_DEPTH_COMPONENT16; break;
+        case TextureFormat::D32_Float: internalFmt = GL_DEPTH_COMPONENT32F; break;
+        case TextureFormat::D32_Float_S8X24_UInt: internalFmt = GL_DEPTH32F_STENCIL8; break;
         default:  // D24_UNorm_S8_UInt
             break;
         }
 
         if (desc_.sampleCount > 1) {
-            glTexStorage2DMultisample(depthTarget, static_cast<GLsizei>(desc_.sampleCount), internalFmt,
-                                      static_cast<GLsizei>(desc_.width), static_cast<GLsizei>(desc_.height), GL_TRUE);
+            glTextureStorage2DMultisample(depthTex, static_cast<GLsizei>(desc_.sampleCount), internalFmt,
+                                          static_cast<GLsizei>(desc_.width), static_cast<GLsizei>(desc_.height),
+                                          GL_TRUE);
         } else {
-            glTexImage2D(depthTarget, 0, internalFmt, static_cast<GLsizei>(desc_.width),
-                         static_cast<GLsizei>(desc_.height), 0, pixelFmt, pixelType, nullptr);
-            glTexParameteri(depthTarget, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(depthTarget, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(depthTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(depthTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTextureStorage2D(depthTex, 1, internalFmt, static_cast<GLsizei>(desc_.width),
+                               static_cast<GLsizei>(desc_.height));
+            glTextureParameteri(depthTex, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTextureParameteri(depthTex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTextureParameteri(depthTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTextureParameteri(depthTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         }
-        glBindTexture(depthTarget, 0);
 
         TextureDesc depthDesc = TextureDesc::depthStencil(desc_.width, desc_.height, desc_.depthFormat,
                                                           "GLOffscreenDepth", desc_.sampleCount);
@@ -133,29 +124,33 @@ void GLRenderTarget::createResources() {
     }
 
     // --- FBO ---
-    glGenFramebuffers(1, &fbo_);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+    glCreateFramebuffers(1, &fbo_);
+    if (!fbo_) {
+        std::fprintf(stderr, "[GLRenderTarget] Failed to create framebuffer\n");
+        return;
+    }
 
     // Attach color
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, colorTarget, colorTex, 0);
+    glNamedFramebufferTexture(fbo_, GL_COLOR_ATTACHMENT0, colorTex, 0);
 
     // Attach depth
     if (desc_.hasDepth && depthTex) {
         GLenum depthAttach = toGLDepthAttachment(desc_.depthFormat);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, depthAttach, depthTarget, depthTex, 0);
+        glNamedFramebufferTexture(fbo_, depthAttach, depthTex, 0);
     }
 
+    const GLenum drawBuffer = GL_COLOR_ATTACHMENT0;
+    glNamedFramebufferDrawBuffers(fbo_, 1, &drawBuffer);
+    glNamedFramebufferReadBuffer(fbo_, GL_COLOR_ATTACHMENT0);
+
     // 完整性检查
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    GLenum status = glCheckNamedFramebufferStatus(fbo_, GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
         std::fprintf(stderr, "[GLRenderTarget] Framebuffer incomplete (status: 0x%X)\n", status);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glDeleteFramebuffers(1, &fbo_);
         fbo_ = 0;
         return;
     }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     std::fprintf(stdout, "[GLRenderTarget] Created FBO %u (%ux%u color=%u depth=%u)\n", fbo_, desc_.width, desc_.height,
                  colorTex, depthTex);

@@ -76,7 +76,7 @@ private:
     /// 更新 Dynamic 缓冲区（使用 DISCARD 或 persistent mapping）
     void updateDynamic(uint32_t offset, uint32_t size, const void* data);
 
-    /// 更新 Default 缓冲区（使用 glBufferSubData）
+    /// 更新 Default 缓冲区（使用 glNamedBufferSubData）
     void updateDefault(uint32_t offset, uint32_t size, const void* data);
 
     // --- 成员变量 ---

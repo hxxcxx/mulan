@@ -30,6 +30,30 @@ bool isExtensionSupported(const char* name) {
     }
     return false;
 }
+
+void APIENTRY glDebugMessageCallbackProc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+                                         const GLchar* message, const void* /*userParam*/) noexcept {
+    if (severity == GL_DEBUG_SEVERITY_NOTIFICATION)
+        return;
+
+    const char* severity_name = "UNKNOWN";
+    switch (severity) {
+    case GL_DEBUG_SEVERITY_HIGH: severity_name = "HIGH"; break;
+    case GL_DEBUG_SEVERITY_MEDIUM: severity_name = "MEDIUM"; break;
+    case GL_DEBUG_SEVERITY_LOW: severity_name = "LOW"; break;
+    case GL_DEBUG_SEVERITY_NOTIFICATION: severity_name = "NOTIFICATION"; break;
+    }
+
+    if (!message) {
+        std::fprintf(stderr, "[GL %s] source=0x%X type=0x%X id=%u <null debug message>\n", severity_name, source, type,
+                     id);
+    } else if (length >= 0) {
+        std::fprintf(stderr, "[GL %s] source=0x%X type=0x%X id=%u %.*s\n", severity_name, source, type, id,
+                     static_cast<int>(length), message);
+    } else {
+        std::fprintf(stderr, "[GL %s] source=0x%X type=0x%X id=%u %s\n", severity_name, source, type, id, message);
+    }
+}
 }  // anonymous namespace
 
 // ============================================================
@@ -71,6 +95,14 @@ void GLDevice::init(const CreateInfo& ci) {
         return;
     }
 
+    GLint profile_mask = 0;
+    glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &profile_mask);
+    if ((profile_mask & GL_CONTEXT_CORE_PROFILE_BIT) == 0) {
+        std::fprintf(stderr, "[GLDevice] OpenGL Core Profile is required (profile mask: 0x%X)\n", profile_mask);
+        shutdown();
+        return;
+    }
+
     std::fprintf(stdout, "[GLDevice] OpenGL %s | %s | %s\n", reinterpret_cast<const char*>(glGetString(GL_VERSION)),
                  reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
                  reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
@@ -80,21 +112,9 @@ void GLDevice::init(const CreateInfo& ci) {
     if (ci.enableValidation && glDebugMessageCallback) {
         glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-        glDebugMessageCallback(
-                [](GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei /*length*/, const GLchar* message,
-                   const void* /*userParam*/) {
-                    if (severity == GL_DEBUG_SEVERITY_NOTIFICATION)
-                        return;
-                    const char* sevStr = "???";
-                    switch (severity) {
-                    case GL_DEBUG_SEVERITY_HIGH: sevStr = "HIGH"; break;
-                    case GL_DEBUG_SEVERITY_MEDIUM: sevStr = "MEDIUM"; break;
-                    case GL_DEBUG_SEVERITY_LOW: sevStr = "LOW"; break;
-                    case GL_DEBUG_SEVERITY_NOTIFICATION: sevStr = "NOTIFY"; break;
-                    }
-                    std::fprintf(stderr, "[GL %s] %s\n", sevStr, message);
-                },
-                nullptr);
+        glDebugMessageCallback(&glDebugMessageCallbackProc, nullptr);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW, 0, nullptr, GL_FALSE);
     }
 #endif
 
@@ -287,8 +307,8 @@ void GLDevice::waitIdle() {
 }
 
 void GLDevice::beginFrame(SwapChain*) {
-    if (context_)
-        context_->makeCurrent();
+    if (context_ && !context_->makeCurrent())
+        std::fprintf(stderr, "[GLDevice] Failed to make the OpenGL context current for the frame\n");
 }
 
 void GLDevice::clearCaches() {

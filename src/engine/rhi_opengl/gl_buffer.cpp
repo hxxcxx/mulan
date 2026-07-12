@@ -78,26 +78,19 @@ GLenum GLBuffer::determineBufferUsage(BufferUsage usage) {
 
 void GLBuffer::createBuffer() {
     // 创建缓冲区对象
-    glGenBuffers(1, &buffer_);
+    glCreateBuffers(1, &buffer_);
     if (buffer_ == 0) {
-        std::fprintf(stderr, "[GLBuffer] glGenBuffers failed\n");
+        std::fprintf(stderr, "[GLBuffer] glCreateBuffers failed\n");
         return;
     }
 
-    // 绑定缓冲区
-    glBindBuffer(buffer_Target, buffer_);
-
     // 分配内存并上传初始数据
-    if (desc_.initData) {
-        glBufferData(buffer_Target, desc_.size, desc_.initData, buffer_Usage);
-    } else {
-        glBufferData(buffer_Target, desc_.size, nullptr, buffer_Usage);
-    }
+    glNamedBufferData(buffer_, static_cast<GLsizeiptr>(desc_.size), desc_.initData, buffer_Usage);
 
     // 检查错误
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        std::fprintf(stderr, "[GLBuffer] glBufferData failed (error: 0x%X, name: %s)\n", err,
+        std::fprintf(stderr, "[GLBuffer] glNamedBufferData failed (error: 0x%X, name: %s)\n", err,
                      std::string(desc_.name).c_str());
         glDeleteBuffers(1, &buffer_);
         buffer_ = 0;
@@ -136,26 +129,19 @@ void GLBuffer::update(uint32_t offset, uint32_t size, const void* data) {
 }
 
 void GLBuffer::updateDefault(uint32_t offset, uint32_t size, const void* data) {
-    // 使用 glBufferSubData 更新部分数据
-    glBindBuffer(buffer_Target, buffer_);
-    glBufferSubData(buffer_Target, offset, size, data);
+    // 使用 DSA 更新部分数据
+    glNamedBufferSubData(buffer_, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        std::fprintf(stderr, "[GLBuffer] glBufferSubData failed (error: 0x%X, offset: %u, size: %u)\n", err, offset,
-                     size);
+        std::fprintf(stderr, "[GLBuffer] glNamedBufferSubData failed (error: 0x%X, offset: %u, size: %u)\n", err,
+                     offset, size);
     }
 }
 
 void GLBuffer::updateDynamic(uint32_t offset, uint32_t size, const void* data) {
-    glBindBuffer(buffer_Target, buffer_);
-
-    // 方案 1: 使用 glBufferSubData（通常足够）
-    // 方案 2: 使用 DISCARD + 重新映射（GL 4.5+ glNamedBufferData）
-    // 方案 3: 使用 persistent mapping（GL 4.4+）
-
-    // 这里使用简单的 glBufferSubData，对于动态缓冲区大小的内容可以接受
-    glBufferSubData(buffer_Target, offset, size, data);
+    // 这里使用简单的 DSA 更新，对于动态缓冲区大小的内容可以接受
+    glNamedBufferSubData(buffer_, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
@@ -178,10 +164,8 @@ bool GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
         return false;
     }
 
-    glBindBuffer(GL_COPY_READ_BUFFER, buffer_);
-
-    // 使用 glGetBufferSubData 读取数据
-    glGetBufferSubData(GL_COPY_READ_BUFFER, offset, size, outData);
+    // 使用 DSA 读取数据
+    glGetNamedBufferSubData(buffer_, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), outData);
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
