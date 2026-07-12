@@ -54,17 +54,17 @@ GLenum getGLUsageHint(BufferUsage usage) {
 // GLBuffer 实现
 // ============================================================
 
-GLBuffer::GLBuffer(const BufferDesc& desc) : m_desc(desc) {
-    m_bufferTarget = determinePrimaryTarget(desc.bindFlags);
-    m_bufferUsage = getGLUsageHint(desc.usage);
+GLBuffer::GLBuffer(const BufferDesc& desc) : desc_(desc) {
+    buffer_Target = determinePrimaryTarget(desc.bindFlags);
+    buffer_Usage = getGLUsageHint(desc.usage);
 
     createBuffer();
 }
 
 GLBuffer::~GLBuffer() {
-    if (m_buffer != 0) {
-        glDeleteBuffers(1, &m_buffer);
-        m_buffer = 0;
+    if (buffer_ != 0) {
+        glDeleteBuffers(1, &buffer_);
+        buffer_ = 0;
     }
 }
 
@@ -78,47 +78,47 @@ GLenum GLBuffer::determineBufferUsage(BufferUsage usage) {
 
 void GLBuffer::createBuffer() {
     // 创建缓冲区对象
-    glGenBuffers(1, &m_buffer);
-    if (m_buffer == 0) {
+    glGenBuffers(1, &buffer_);
+    if (buffer_ == 0) {
         std::fprintf(stderr, "[GLBuffer] glGenBuffers failed\n");
         return;
     }
 
     // 绑定缓冲区
-    glBindBuffer(m_bufferTarget, m_buffer);
+    glBindBuffer(buffer_Target, buffer_);
 
     // 分配内存并上传初始数据
-    if (m_desc.initData) {
-        glBufferData(m_bufferTarget, m_desc.size, m_desc.initData, m_bufferUsage);
+    if (desc_.initData) {
+        glBufferData(buffer_Target, desc_.size, desc_.initData, buffer_Usage);
     } else {
-        glBufferData(m_bufferTarget, m_desc.size, nullptr, m_bufferUsage);
+        glBufferData(buffer_Target, desc_.size, nullptr, buffer_Usage);
     }
 
     // 检查错误
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
         std::fprintf(stderr, "[GLBuffer] glBufferData failed (error: 0x%X, name: %s)\n", err,
-                     std::string(m_desc.name).c_str());
-        glDeleteBuffers(1, &m_buffer);
-        m_buffer = 0;
+                     std::string(desc_.name).c_str());
+        glDeleteBuffers(1, &buffer_);
+        buffer_ = 0;
         return;
     }
 
-    std::fprintf(stdout, "[GLBuffer] Created buffer (handle: %u, size: %u, name: %s)\n", m_buffer, m_desc.size,
-                 std::string(m_desc.name).c_str());
+    std::fprintf(stdout, "[GLBuffer] Created buffer (handle: %u, size: %u, name: %s)\n", buffer_, desc_.size,
+                 std::string(desc_.name).c_str());
 }
 
 void GLBuffer::update(uint32_t offset, uint32_t size, const void* data) {
     if (!isValid() || !data)
         return;
 
-    if (offset + size > m_desc.size) {
+    if (offset + size > desc_.size) {
         std::fprintf(stderr, "[GLBuffer] Update out of bounds (offset: %u, size: %u, buffer size: %u)\n", offset, size,
-                     m_desc.size);
+                     desc_.size);
         return;
     }
 
-    switch (m_desc.usage) {
+    switch (desc_.usage) {
     case BufferUsage::Immutable:
         // 不可修改
         std::fprintf(stderr, "[GLBuffer] Cannot update Immutable buffer\n");
@@ -137,8 +137,8 @@ void GLBuffer::update(uint32_t offset, uint32_t size, const void* data) {
 
 void GLBuffer::updateDefault(uint32_t offset, uint32_t size, const void* data) {
     // 使用 glBufferSubData 更新部分数据
-    glBindBuffer(m_bufferTarget, m_buffer);
-    glBufferSubData(m_bufferTarget, offset, size, data);
+    glBindBuffer(buffer_Target, buffer_);
+    glBufferSubData(buffer_Target, offset, size, data);
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
@@ -148,14 +148,14 @@ void GLBuffer::updateDefault(uint32_t offset, uint32_t size, const void* data) {
 }
 
 void GLBuffer::updateDynamic(uint32_t offset, uint32_t size, const void* data) {
-    glBindBuffer(m_bufferTarget, m_buffer);
+    glBindBuffer(buffer_Target, buffer_);
 
     // 方案 1: 使用 glBufferSubData（通常足够）
     // 方案 2: 使用 DISCARD + 重新映射（GL 4.5+ glNamedBufferData）
     // 方案 3: 使用 persistent mapping（GL 4.4+）
 
     // 这里使用简单的 glBufferSubData，对于动态缓冲区大小的内容可以接受
-    glBufferSubData(m_bufferTarget, offset, size, data);
+    glBufferSubData(buffer_Target, offset, size, data);
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
@@ -167,18 +167,18 @@ bool GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
     if (!isValid() || !outData)
         return false;
 
-    if (m_desc.usage != BufferUsage::Staging) {
+    if (desc_.usage != BufferUsage::Staging) {
         std::fprintf(stderr, "[GLBuffer] readback only supported for Staging buffers\n");
         return false;
     }
 
-    if (offset + size > m_desc.size) {
+    if (offset + size > desc_.size) {
         std::fprintf(stderr, "[GLBuffer] Readback out of bounds (offset: %u, size: %u, buffer size: %u)\n", offset,
-                     size, m_desc.size);
+                     size, desc_.size);
         return false;
     }
 
-    glBindBuffer(GL_COPY_READ_BUFFER, m_buffer);
+    glBindBuffer(GL_COPY_READ_BUFFER, buffer_);
 
     // 使用 glGetBufferSubData 读取数据
     glGetBufferSubData(GL_COPY_READ_BUFFER, offset, size, outData);

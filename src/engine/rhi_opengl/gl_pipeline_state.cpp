@@ -4,6 +4,7 @@
 #include "../rhi/render_types.h"
 
 #include <cstdio>
+#include <algorithm>
 #include <string>
 
 namespace mulan::engine {
@@ -124,94 +125,93 @@ GLenum getGLPrimitiveType(PrimitiveTopology topology) {
 // GLPipelineState 实现
 // ============================================================
 
-GLPipelineState::GLPipelineState(const GraphicsPipelineDesc& desc) : m_desc(desc) {
+GLPipelineState::GLPipelineState(const GraphicsPipelineDesc& desc) : desc_(desc) {
     linkProgram();
 }
 
 GLPipelineState::~GLPipelineState() {
-    if (m_program != 0) {
-        glDeleteProgram(m_program);
-        m_program = 0;
+    if (program_ != 0) {
+        glDeleteProgram(program_);
+        program_ = 0;
     }
 }
 
 void GLPipelineState::linkProgram() {
-    if (!m_desc.vs || !m_desc.ps) {
+    if (!desc_.vs || !desc_.ps) {
         std::fprintf(stderr, "[GLPipelineState] Missing vertex or pixel shader (name: %s)\n",
-                     std::string(m_desc.name).c_str());
+                     std::string(desc_.name).c_str());
         return;
     }
 
     // 获取编译后的着色器对象
-    GLShader* vs = static_cast<GLShader*>(m_desc.vs);
-    GLShader* ps = static_cast<GLShader*>(m_desc.ps);
+    GLShader* vs = static_cast<GLShader*>(desc_.vs);
+    GLShader* ps = static_cast<GLShader*>(desc_.ps);
 
     if (!vs->isValid() || !ps->isValid()) {
-        std::fprintf(stderr, "[GLPipelineState] Invalid shader (name: %s)\n", std::string(m_desc.name).c_str());
+        std::fprintf(stderr, "[GLPipelineState] Invalid shader (name: %s)\n", std::string(desc_.name).c_str());
         return;
     }
 
     // 创建程序对象
-    m_program = glCreateProgram();
-    if (m_program == 0) {
+    program_ = glCreateProgram();
+    if (program_ == 0) {
         std::fprintf(stderr, "[GLPipelineState] glCreateProgram failed\n");
         return;
     }
 
     // 附加着色器
-    glAttachShader(m_program, vs->handle());
-    glAttachShader(m_program, ps->handle());
+    glAttachShader(program_, vs->handle());
+    glAttachShader(program_, ps->handle());
 
     // 如果提供了 geometry shader，也附加
-    if (m_desc.gs) {
-        GLShader* gs = static_cast<GLShader*>(m_desc.gs);
+    if (desc_.gs) {
+        GLShader* gs = static_cast<GLShader*>(desc_.gs);
         if (gs->isValid()) {
-            glAttachShader(m_program, gs->handle());
+            glAttachShader(program_, gs->handle());
         }
     }
 
     // 链接
-    glLinkProgram(m_program);
+    glLinkProgram(program_);
 
     // 检查链接状态
     GLint linkStatus = 0;
-    glGetProgramiv(m_program, GL_LINK_STATUS, &linkStatus);
+    glGetProgramiv(program_, GL_LINK_STATUS, &linkStatus);
     if (linkStatus == GL_FALSE) {
         GLint logLen = 0;
-        glGetProgramiv(m_program, GL_INFO_LOG_LENGTH, &logLen);
+        glGetProgramiv(program_, GL_INFO_LOG_LENGTH, &logLen);
 
         if (logLen > 0) {
             char* logBuf = new char[logLen];
-            glGetProgramInfoLog(m_program, logLen, nullptr, logBuf);
+            glGetProgramInfoLog(program_, logLen, nullptr, logBuf);
             std::fprintf(stderr, "[GLPipelineState] Program link failed (name: %s):\n%s\n",
-                         std::string(m_desc.name).c_str(), logBuf);
+                         std::string(desc_.name).c_str(), logBuf);
             delete[] logBuf;
         } else {
-            std::fprintf(stderr, "[GLPipelineState] Program link failed (name: %s)\n",
-                         std::string(m_desc.name).c_str());
+            std::fprintf(stderr, "[GLPipelineState] Program link failed (name: %s)\n", std::string(desc_.name).c_str());
         }
 
-        glDeleteProgram(m_program);
-        m_program = 0;
+        glDeleteProgram(program_);
+        program_ = 0;
         return;
     }
 
     // 分离着色器（可选，程序已链接后可安全分离）
-    glDetachShader(m_program, vs->handle());
-    glDetachShader(m_program, ps->handle());
-    if (m_desc.gs) {
-        GLShader* gs = static_cast<GLShader*>(m_desc.gs);
+    glDetachShader(program_, vs->handle());
+    glDetachShader(program_, ps->handle());
+    if (desc_.gs) {
+        GLShader* gs = static_cast<GLShader*>(desc_.gs);
         if (gs->isValid()) {
-            glDetachShader(m_program, gs->handle());
+            glDetachShader(program_, gs->handle());
         }
     }
 
-    std::fprintf(stdout, "[GLPipelineState] Linked program (name: %s, handle: %u)\n", std::string(m_desc.name).c_str(),
-                 m_program);
+    std::fprintf(stdout, "[GLPipelineState] Linked program (name: %s, handle: %u)\n", std::string(desc_.name).c_str(),
+                 program_);
 }
 
 void GLPipelineState::applyRenderState() const {
-    if (m_program == 0)
+    if (program_ == 0)
         return;
 
     applyRasterizerState();
@@ -221,7 +221,7 @@ void GLPipelineState::applyRenderState() const {
 }
 
 void GLPipelineState::applyRasterizerState() const {
-    const auto& desc = m_desc;
+    const auto& desc = desc_;
 
     // 剔除模式
     GLenum cullFace = getGLCullFace(desc.cullMode);
@@ -241,7 +241,7 @@ void GLPipelineState::applyRasterizerState() const {
 }
 
 void GLPipelineState::applyDepthStencilState() const {
-    const auto& ds = m_desc.depthStencil;
+    const auto& ds = desc_.depthStencil;
 
     // 深度测试
     if (ds.depthEnable) {
@@ -282,37 +282,65 @@ void GLPipelineState::applyDepthStencilState() const {
 }
 
 void GLPipelineState::applyBlendState() const {
-    const auto& blend = m_desc.blend;
+    const auto& blend = desc_.blend;
+    const uint32_t target_count = blend.independentBlend ? std::max<uint32_t>(1, desc_.colorTargetCount) : 1;
 
-    if (blend.renderTargets[0].blendEnable) {
-        glEnable(GL_BLEND);
+    if (!blend.independentBlend) {
+        for (uint32_t i = 0; i < 8; ++i)
+            glDisablei(GL_BLEND, i);
+    }
 
-        glBlendFuncSeparate(getGLBlendFactor(blend.renderTargets[0].srcBlend),
-                            getGLBlendFactor(blend.renderTargets[0].dstBlend),
-                            getGLBlendFactor(blend.renderTargets[0].srcBlendAlpha),
-                            getGLBlendFactor(blend.renderTargets[0].dstBlendAlpha));
+    for (uint32_t i = 0; i < 8; ++i) {
+        const auto& target = blend.renderTargets[i];
+        const bool enabled = i < target_count && target.blendEnable;
+        if (blend.independentBlend)
+            (enabled ? glEnablei : glDisablei)(GL_BLEND, i);
+        else if (i == 0) {
+            if (enabled)
+                glEnable(GL_BLEND);
+            else
+                glDisable(GL_BLEND);
+        }
 
-        glBlendEquationSeparate(getGLBlendOp(blend.renderTargets[0].blendOp),
-                                getGLBlendOp(blend.renderTargets[0].blendOpAlpha));
+        if (!enabled) {
+            const uint8_t mask = target.writeMask;
+            if (blend.independentBlend)
+                glColorMaski(i, (mask & 0x01) != 0, (mask & 0x02) != 0, (mask & 0x04) != 0, (mask & 0x08) != 0);
+            else if (i == 0)
+                glColorMask((mask & 0x01) != 0, (mask & 0x02) != 0, (mask & 0x04) != 0, (mask & 0x08) != 0);
+            continue;
+        }
 
-        // 颜色写入掩码
-        uint8_t mask = blend.renderTargets[0].writeMask;
-        glColorMask((mask & 0x01) != 0,  // R
-                    (mask & 0x02) != 0,  // G
-                    (mask & 0x04) != 0,  // B
-                    (mask & 0x08) != 0   // A
-        );
-    } else {
-        glDisable(GL_BLEND);
+        const GLenum src_color = getGLBlendFactor(target.srcBlend);
+        const GLenum dst_color = getGLBlendFactor(target.dstBlend);
+        const GLenum src_alpha = getGLBlendFactor(target.srcBlendAlpha);
+        const GLenum dst_alpha = getGLBlendFactor(target.dstBlendAlpha);
+        if (blend.independentBlend)
+            glBlendFuncSeparatei(i, src_color, dst_color, src_alpha, dst_alpha);
+        else
+            glBlendFuncSeparate(src_color, dst_color, src_alpha, dst_alpha);
+
+        const GLenum color_op = getGLBlendOp(target.blendOp);
+        const GLenum alpha_op = getGLBlendOp(target.blendOpAlpha);
+        if (blend.independentBlend)
+            glBlendEquationSeparatei(i, color_op, alpha_op);
+        else
+            glBlendEquationSeparate(color_op, alpha_op);
+
+        const uint8_t mask = target.writeMask;
+        if (blend.independentBlend)
+            glColorMaski(i, (mask & 0x01) != 0, (mask & 0x02) != 0, (mask & 0x04) != 0, (mask & 0x08) != 0);
+        else
+            glColorMask((mask & 0x01) != 0, (mask & 0x02) != 0, (mask & 0x04) != 0, (mask & 0x08) != 0);
+    }
+
+    if (!blend.independentBlend && !blend.renderTargets[0].blendEnable)
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    }
 
-    // Alpha-to-coverage (简化，仅当 MSAA 支持时)
-    if (blend.alphaToCoverage) {
+    if (blend.alphaToCoverage)
         glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-    } else {
+    else
         glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-    }
 }
 
 void GLPipelineState::applyTopology() const {
@@ -320,7 +348,7 @@ void GLPipelineState::applyTopology() const {
 }
 
 GLenum GLPipelineState::glTopology() const {
-    return getGLPrimitiveType(m_desc.topology);
+    return getGLPrimitiveType(desc_.topology);
 }
 
 }  // namespace mulan::engine

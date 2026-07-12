@@ -54,42 +54,44 @@ static GLenum toGLCompareFunc(CompareFunc f) {
 // GLSampler
 // ============================================================
 
-GLSampler::GLSampler(const SamplerDesc& desc) : m_desc(desc) {
-    glGenSamplers(1, &m_handle);
+GLSampler::GLSampler(const SamplerDesc& desc) : desc_(desc) {
+    glGenSamplers(1, &handle_);
+    if (!handle_)
+        return;
 
-    glSamplerParameteri(m_handle, GL_TEXTURE_MIN_FILTER, toGLFilter(desc.minFilter, desc.magFilter, desc.mipFilter));
-    glSamplerParameteri(m_handle, GL_TEXTURE_MAG_FILTER, toGLMagFilter(desc.magFilter));
-    glSamplerParameteri(m_handle, GL_TEXTURE_WRAP_S, toGLAddressMode(desc.addressU));
-    glSamplerParameteri(m_handle, GL_TEXTURE_WRAP_T, toGLAddressMode(desc.addressV));
-    glSamplerParameteri(m_handle, GL_TEXTURE_WRAP_R, toGLAddressMode(desc.addressW));
+    glSamplerParameteri(handle_, GL_TEXTURE_MIN_FILTER, toGLFilter(desc.minFilter, desc.magFilter, desc.mipFilter));
+    glSamplerParameteri(handle_, GL_TEXTURE_MAG_FILTER, toGLMagFilter(desc.magFilter));
+    glSamplerParameteri(handle_, GL_TEXTURE_WRAP_S, toGLAddressMode(desc.addressU));
+    glSamplerParameteri(handle_, GL_TEXTURE_WRAP_T, toGLAddressMode(desc.addressV));
+    glSamplerParameteri(handle_, GL_TEXTURE_WRAP_R, toGLAddressMode(desc.addressW));
 
-    glSamplerParameterf(m_handle, GL_TEXTURE_LOD_BIAS, desc.mipLodBias);
-    glSamplerParameterf(m_handle, GL_TEXTURE_MIN_LOD, desc.minLod);
-    glSamplerParameterf(m_handle, GL_TEXTURE_MAX_LOD, desc.maxLod);
+    glSamplerParameterf(handle_, GL_TEXTURE_LOD_BIAS, desc.mipLodBias);
+    glSamplerParameterf(handle_, GL_TEXTURE_MIN_LOD, desc.minLod);
+    glSamplerParameterf(handle_, GL_TEXTURE_MAX_LOD, desc.maxLod);
 
-    if (desc.anisotropyEnable) {
-        glSamplerParameterf(m_handle, GL_TEXTURE_MAX_ANISOTROPY, desc.maxAniso);
+    if (desc.anisotropyEnable && glExtensionSupported("GL_EXT_texture_filter_anisotropic")) {
+        glSamplerParameterf(handle_, GL_TEXTURE_MAX_ANISOTROPY, desc.maxAniso);
     }
 
     if (desc.compareEnable) {
-        glSamplerParameteri(m_handle, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-        glSamplerParameteri(m_handle, GL_TEXTURE_COMPARE_FUNC, toGLCompareFunc(desc.compareFunc));
+        glSamplerParameteri(handle_, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+        glSamplerParameteri(handle_, GL_TEXTURE_COMPARE_FUNC, toGLCompareFunc(desc.compareFunc));
     } else {
-        glSamplerParameteri(m_handle, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+        glSamplerParameteri(handle_, GL_TEXTURE_COMPARE_MODE, GL_NONE);
     }
 
     if (desc.addressU == SamplerAddressMode::ClampToBorder || desc.addressV == SamplerAddressMode::ClampToBorder ||
         desc.addressW == SamplerAddressMode::ClampToBorder) {
-        glSamplerParameterfv(m_handle, GL_TEXTURE_BORDER_COLOR, desc.borderColor);
+        glSamplerParameterfv(handle_, GL_TEXTURE_BORDER_COLOR, desc.borderColor);
     }
 
     GL_CHECK();
 }
 
 GLSampler::~GLSampler() {
-    if (m_handle) {
-        glDeleteSamplers(1, &m_handle);
-        m_handle = 0;
+    if (handle_) {
+        glDeleteSamplers(1, &handle_);
+        handle_ = 0;
     }
 }
 

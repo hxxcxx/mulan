@@ -19,6 +19,7 @@ GLenum GLTexture::toGLInternalFormat(TextureFormat fmt) {
     case TextureFormat::BGRA8_sRGB: return GL_SRGB8_ALPHA8;
     case TextureFormat::RGBA16_Float: return GL_RGBA16F;
     case TextureFormat::R16_Float: return GL_R16F;
+    case TextureFormat::RG16_Float: return GL_RG16F;
     case TextureFormat::RGBA32_Float: return GL_RGBA32F;
     case TextureFormat::R32_Float: return GL_R32F;
     case TextureFormat::RG32_Float: return GL_RG32F;
@@ -43,6 +44,7 @@ GLenum GLTexture::toGLBaseFormat(TextureFormat fmt) {
     case TextureFormat::R16_Float:
     case TextureFormat::R32_Float: return GL_RED;
 
+    case TextureFormat::RG16_Float:
     case TextureFormat::RG32_Float: return GL_RG;
 
     case TextureFormat::D16_UNorm:
@@ -67,7 +69,8 @@ GLenum GLTexture::toGLType(TextureFormat fmt) {
     case TextureFormat::R8_UNorm: return GL_UNSIGNED_BYTE;
 
     case TextureFormat::RGBA16_Float:
-    case TextureFormat::R16_Float: return GL_HALF_FLOAT;
+    case TextureFormat::R16_Float:
+    case TextureFormat::RG16_Float: return GL_HALF_FLOAT;
 
     case TextureFormat::RGBA32_Float:
     case TextureFormat::R32_Float:
@@ -88,20 +91,20 @@ GLenum GLTexture::toGLType(TextureFormat fmt) {
 // 构造 / 析构
 // ============================================================
 
-GLTexture::GLTexture(const TextureDesc& desc) : m_desc(desc) {
+GLTexture::GLTexture(const TextureDesc& desc) : desc_(desc) {
     create();
 }
 
-GLTexture::GLTexture(const TextureDesc& desc, GLuint existingHandle) : m_desc(desc), m_handle(existingHandle) {
+GLTexture::GLTexture(const TextureDesc& desc, GLuint existingHandle) : desc_(desc), handle_(existingHandle) {
     // 从 target 推断（仅 Texture2D 路径供 GLRenderTarget 使用）
-    m_target = GL_TEXTURE_2D;
-    m_internalFormat = toGLInternalFormat(m_desc.format);
+    target_ = desc_.sampleCount > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
+    internal_format_ = toGLInternalFormat(desc_.format);
 }
 
 GLTexture::~GLTexture() {
-    if (m_handle) {
-        glDeleteTextures(1, &m_handle);
-        m_handle = 0;
+    if (handle_) {
+        glDeleteTextures(1, &handle_);
+        handle_ = 0;
     }
 }
 
@@ -111,70 +114,68 @@ GLTexture::~GLTexture() {
 
 void GLTexture::create() {
     // 确定 GL target
-    bool isMultisample = m_desc.sampleCount > 1;
-    switch (m_desc.dimension) {
-    case TextureDimension::Texture1D: m_target = GL_TEXTURE_1D; break;
-    case TextureDimension::Texture2D: m_target = isMultisample ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D; break;
-    case TextureDimension::Texture3D: m_target = GL_TEXTURE_3D; break;
-    case TextureDimension::TextureCube: m_target = GL_TEXTURE_CUBE_MAP; break;
-    default: m_target = GL_TEXTURE_2D; break;
+    bool isMultisample = desc_.sampleCount > 1;
+    switch (desc_.dimension) {
+    case TextureDimension::Texture1D: target_ = GL_TEXTURE_1D; break;
+    case TextureDimension::Texture2D: target_ = isMultisample ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D; break;
+    case TextureDimension::Texture3D: target_ = GL_TEXTURE_3D; break;
+    case TextureDimension::TextureCube: target_ = GL_TEXTURE_CUBE_MAP; break;
+    default: target_ = GL_TEXTURE_2D; break;
     }
 
-    m_internalFormat = toGLInternalFormat(m_desc.format);
-    GLsizei mips = static_cast<GLsizei>(m_desc.mipLevels);
+    internal_format_ = toGLInternalFormat(desc_.format);
+    GLsizei mips = static_cast<GLsizei>(desc_.mipLevels);
 
-    glGenTextures(1, &m_handle);
-    if (!m_handle) {
-        std::fprintf(stderr, "[GLTexture] glGenTextures failed: %s\n", std::string(m_desc.name).c_str());
+    glGenTextures(1, &handle_);
+    if (!handle_) {
+        std::fprintf(stderr, "[GLTexture] glGenTextures failed: %s\n", std::string(desc_.name).c_str());
         return;
     }
 
-    glBindTexture(m_target, m_handle);
+    glBindTexture(target_, handle_);
 
     // 使用不可变存储（GL 4.2+）
-    switch (m_target) {
-    case GL_TEXTURE_1D:
-        glTexStorage1D(GL_TEXTURE_1D, mips, m_internalFormat, static_cast<GLsizei>(m_desc.width));
-        break;
+    switch (target_) {
+    case GL_TEXTURE_1D: glTexStorage1D(GL_TEXTURE_1D, mips, internal_format_, static_cast<GLsizei>(desc_.width)); break;
 
     case GL_TEXTURE_2D:
     case GL_TEXTURE_CUBE_MAP:
-        glTexStorage2D(m_target, mips, m_internalFormat, static_cast<GLsizei>(m_desc.width),
-                       static_cast<GLsizei>(m_desc.height));
+        glTexStorage2D(target_, mips, internal_format_, static_cast<GLsizei>(desc_.width),
+                       static_cast<GLsizei>(desc_.height));
         break;
 
     case GL_TEXTURE_2D_MULTISAMPLE:
         // MSAA 纹理无 mip
-        glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, static_cast<GLsizei>(m_desc.sampleCount), m_internalFormat,
-                                  static_cast<GLsizei>(m_desc.width), static_cast<GLsizei>(m_desc.height), GL_TRUE);
+        glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, static_cast<GLsizei>(desc_.sampleCount), internal_format_,
+                                  static_cast<GLsizei>(desc_.width), static_cast<GLsizei>(desc_.height), GL_TRUE);
         break;
 
     case GL_TEXTURE_3D:
-        glTexStorage3D(GL_TEXTURE_3D, mips, m_internalFormat, static_cast<GLsizei>(m_desc.width),
-                       static_cast<GLsizei>(m_desc.height), static_cast<GLsizei>(m_desc.depth));
+        glTexStorage3D(GL_TEXTURE_3D, mips, internal_format_, static_cast<GLsizei>(desc_.width),
+                       static_cast<GLsizei>(desc_.height), static_cast<GLsizei>(desc_.depth));
         break;
 
     default: break;
     }
 
     // 默认采样参数
-    if (m_target != GL_TEXTURE_2D_MULTISAMPLE) {
-        glTexParameteri(m_target, GL_TEXTURE_MIN_FILTER, mips > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
-        glTexParameteri(m_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(m_target, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(m_target, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        if (m_target == GL_TEXTURE_3D || m_target == GL_TEXTURE_CUBE_MAP) {
-            glTexParameteri(m_target, GL_TEXTURE_WRAP_R, GL_REPEAT);
+    if (target_ != GL_TEXTURE_2D_MULTISAMPLE) {
+        glTexParameteri(target_, GL_TEXTURE_MIN_FILTER, mips > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
+        glTexParameteri(target_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(target_, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(target_, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        if (target_ == GL_TEXTURE_3D || target_ == GL_TEXTURE_CUBE_MAP) {
+            glTexParameteri(target_, GL_TEXTURE_WRAP_R, GL_REPEAT);
         }
     }
 
-    glBindTexture(m_target, 0);
+    glBindTexture(target_, 0);
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        std::fprintf(stderr, "[GLTexture] create error 0x%X: %s\n", err, std::string(m_desc.name).c_str());
-        glDeleteTextures(1, &m_handle);
-        m_handle = 0;
+        std::fprintf(stderr, "[GLTexture] create error 0x%X: %s\n", err, std::string(desc_.name).c_str());
+        glDeleteTextures(1, &handle_);
+        handle_ = 0;
     }
 }
 
@@ -183,24 +184,24 @@ void GLTexture::create() {
 // ============================================================
 
 void GLTexture::upload(uint32_t mipLevel, const void* data) {
-    if (!m_handle || !data)
+    if (!handle_ || !data)
         return;
-    if (m_target != GL_TEXTURE_2D && m_target != GL_TEXTURE_1D && m_target != GL_TEXTURE_3D) {
+    if (target_ != GL_TEXTURE_2D && target_ != GL_TEXTURE_1D && target_ != GL_TEXTURE_3D) {
         std::fprintf(stderr, "[GLTexture] upload: use uploadCubeFace for cube textures\n");
         return;
     }
 
-    GLenum baseFormat = toGLBaseFormat(m_desc.format);
-    GLenum type = toGLType(m_desc.format);
+    GLenum baseFormat = toGLBaseFormat(desc_.format);
+    GLenum type = toGLType(desc_.format);
 
     // 计算当前 mip 层的尺寸
-    GLsizei w = static_cast<GLsizei>(std::max(1u, m_desc.width >> mipLevel));
-    GLsizei h = static_cast<GLsizei>(std::max(1u, m_desc.height >> mipLevel));
-    GLsizei d = static_cast<GLsizei>(std::max(1u, m_desc.depth >> mipLevel));
+    GLsizei w = static_cast<GLsizei>(std::max(1u, desc_.width >> mipLevel));
+    GLsizei h = static_cast<GLsizei>(std::max(1u, desc_.height >> mipLevel));
+    GLsizei d = static_cast<GLsizei>(std::max(1u, desc_.depth >> mipLevel));
 
-    glBindTexture(m_target, m_handle);
+    glBindTexture(target_, handle_);
 
-    switch (m_target) {
+    switch (target_) {
     case GL_TEXTURE_1D:
         glTexSubImage1D(GL_TEXTURE_1D, static_cast<GLint>(mipLevel), 0, w, baseFormat, type, data);
         break;
@@ -213,7 +214,7 @@ void GLTexture::upload(uint32_t mipLevel, const void* data) {
     default: break;
     }
 
-    glBindTexture(m_target, 0);
+    glBindTexture(target_, 0);
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
@@ -222,9 +223,9 @@ void GLTexture::upload(uint32_t mipLevel, const void* data) {
 }
 
 void GLTexture::uploadCubeFace(uint32_t face, uint32_t mipLevel, const void* data) {
-    if (!m_handle || !data)
+    if (!handle_ || !data)
         return;
-    if (m_target != GL_TEXTURE_CUBE_MAP) {
+    if (target_ != GL_TEXTURE_CUBE_MAP) {
         std::fprintf(stderr, "[GLTexture] uploadCubeFace: texture is not a cube map\n");
         return;
     }
@@ -233,12 +234,12 @@ void GLTexture::uploadCubeFace(uint32_t face, uint32_t mipLevel, const void* dat
         return;
     }
 
-    GLenum baseFormat = toGLBaseFormat(m_desc.format);
-    GLenum type = toGLType(m_desc.format);
-    GLsizei w = static_cast<GLsizei>(std::max(1u, m_desc.width >> mipLevel));
-    GLsizei h = static_cast<GLsizei>(std::max(1u, m_desc.height >> mipLevel));
+    GLenum baseFormat = toGLBaseFormat(desc_.format);
+    GLenum type = toGLType(desc_.format);
+    GLsizei w = static_cast<GLsizei>(std::max(1u, desc_.width >> mipLevel));
+    GLsizei h = static_cast<GLsizei>(std::max(1u, desc_.height >> mipLevel));
 
-    glBindTexture(GL_TEXTURE_CUBE_MAP, m_handle);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, handle_);
     glTexSubImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, static_cast<GLint>(mipLevel), 0, 0, w, h, baseFormat, type,
                     data);
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
@@ -250,11 +251,11 @@ void GLTexture::uploadCubeFace(uint32_t face, uint32_t mipLevel, const void* dat
 }
 
 void GLTexture::generateMipmaps() {
-    if (!m_handle || m_desc.mipLevels <= 1)
+    if (!handle_ || desc_.mipLevels <= 1)
         return;
-    glBindTexture(m_target, m_handle);
-    glGenerateMipmap(m_target);
-    glBindTexture(m_target, 0);
+    glBindTexture(target_, handle_);
+    glGenerateMipmap(target_);
+    glBindTexture(target_, 0);
 }
 
 }  // namespace mulan::engine

@@ -21,19 +21,20 @@ public:
     explicit GLRenderTarget(const RenderTargetDesc& desc);
     ~GLRenderTarget();
 
-    const RenderTargetDesc& desc() const override { return m_desc; }
+    const RenderTargetDesc& desc() const override { return desc_; }
 
-    Texture* colorTexture() override { return m_colorTexture.get(); }
-    Texture* depthTexture() override { return m_depthTexture.get(); }
+    Texture* colorTexture() override { return color_texture_.get(); }
+    Texture* depthTexture() override { return depth_texture_.get(); }
+    RenderPassBeginInfo renderPassBeginInfo() override;
 
     void resize(uint32_t width, uint32_t height) override;
 
     /// FBO 句柄（供外部 blit 使用）
-    GLuint fbo() const { return m_fbo; }
+    GLuint fbo() const { return fbo_; }
 
-    bool isValid() const { return m_fbo != 0; }
+    bool isValid() const { return fbo_ != 0; }
 
-    uint64_t nativeRenderPassHandle() const override { return m_fbo; }
+    uint64_t nativeRenderPassHandle() const override { return fbo_; }
 
 private:
     void createResources();
@@ -42,10 +43,11 @@ private:
     static GLenum toGLInternalFormat(TextureFormat fmt);
     static GLenum toGLDepthAttachment(TextureFormat fmt);
 
-    RenderTargetDesc m_desc;
-    GLuint m_fbo = 0;
-    std::unique_ptr<GLTexture> m_colorTexture;
-    std::unique_ptr<GLTexture> m_depthTexture;
+    RenderTargetDesc desc_;
+    GLuint fbo_ = 0;
+    std::unique_ptr<GLTexture> color_texture_;
+    std::unique_ptr<GLTexture> msaa_color_texture_;
+    std::unique_ptr<GLTexture> depth_texture_;
 };
 
 }  // namespace mulan::engine

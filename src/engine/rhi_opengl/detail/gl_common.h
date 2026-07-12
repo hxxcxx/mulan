@@ -31,8 +31,20 @@ typedef HGLRC(WINAPI* PFNWGLCREATECONTEXTATTRIBSARBPROC)(HDC hDC, HGLRC hShareCo
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 namespace mulan::engine {
+
+inline bool glExtensionSupported(const char* name) {
+    GLint count = 0;
+    glGetIntegerv(GL_NUM_EXTENSIONS, &count);
+    for (GLint i = 0; i < count; ++i) {
+        const auto* extension = reinterpret_cast<const char*>(glGetStringi(GL_EXTENSIONS, static_cast<GLuint>(i)));
+        if (extension && std::strcmp(extension, name) == 0)
+            return true;
+    }
+    return false;
+}
 
 /// 检查 OpenGL 错误（Debug 模式下使用）
 inline void glCheckError(const char* file, int line) {

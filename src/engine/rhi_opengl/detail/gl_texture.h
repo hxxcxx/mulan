@@ -33,19 +33,19 @@ public:
 
     ~GLTexture() override;
 
-    const TextureDesc& desc() const override { return m_desc; }
+    const TextureDesc& desc() const override { return desc_; }
 
     /// OpenGL 纹理对象句柄
-    GLuint handle() const { return m_handle; }
+    GLuint handle() const { return handle_; }
 
     /// OpenGL 纹理目标 (GL_TEXTURE_2D, GL_TEXTURE_CUBE_MAP, ...)
-    GLenum target() const { return m_target; }
+    GLenum target() const { return target_; }
 
     /// 内部格式
-    GLenum internalFormat() const { return m_internalFormat; }
+    GLenum internalFormat() const { return internal_format_; }
 
     /// 是否有效
-    bool isValid() const { return m_handle != 0; }
+    bool isValid() const { return handle_ != 0; }
 
     /// 上传像素数据到指定 mip 层（仅 Texture2D）
     /// @param mipLevel  Mip 层级（0 = 基础层）
@@ -73,10 +73,10 @@ public:
 private:
     void create();
 
-    TextureDesc m_desc;
-    GLuint m_handle = 0;
-    GLenum m_target = GL_TEXTURE_2D;
-    GLenum m_internalFormat = GL_RGBA8;
+    TextureDesc desc_;
+    GLuint handle_ = 0;
+    GLenum target_ = GL_TEXTURE_2D;
+    GLenum internal_format_ = GL_RGBA8;
 };
 
 }  // namespace mulan::engine

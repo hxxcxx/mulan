@@ -2,32 +2,37 @@
 #include "detail/gl_buffer.h"
 #include "detail/gl_pipeline_state.h"
 #include "detail/gl_texture.h"
+#include "detail/gl_sampler.h"
 #include "detail/gl_render_target.h"
+#include "detail/gl_bind_group.h"
 #include "../rhi/buffer.h"
 #include "../rhi/render_types.h"
 #include "../rhi/render_types.h"
 #include <cstdio>
 #include <cstring>
+#include <array>
+#include <vector>
 
 namespace mulan::engine {
 
 GLCommandList::GLCommandList() {
-    glGenVertexArrays(1, &m_vao);
+    glGenVertexArrays(1, &vao_);
 }
 
 GLCommandList::~GLCommandList() {
-    if (m_vao) {
-        glDeleteVertexArrays(1, &m_vao);
-        m_vao = 0;
+    if (vao_) {
+        glDeleteVertexArrays(1, &vao_);
+        vao_ = 0;
     }
 }
 
 void GLCommandList::begin() {
     // OpenGL 立即模式，begin/end 不做实质工作
-    m_pipelineStateApplied = false;
-    m_vertexLayoutDirty = true;
-    m_viewportDirty = true;
-    m_scissorDirty = true;
+    pipeline_state_applied_ = false;
+    vertex_layout_dirty_ = true;
+    viewport_Dirty = true;
+    scissor_dirty_ = true;
+    glDisable(GL_SCISSOR_TEST);
 }
 
 void GLCommandList::end() {
@@ -35,48 +40,72 @@ void GLCommandList::end() {
 }
 
 void GLCommandList::setPipelineState(PipelineState* pso) {
-    if (m_currentPipeline == pso)
+    if (current_pipeline_ == pso)
         return;
 
-    m_currentPipeline = pso;
-    m_pipelineStateApplied = false;
-    m_vertexLayoutDirty = true;  // 新 PSO 可能有不同的 VertexLayout
+    current_pipeline_ = pso;
+    pipeline_state_applied_ = false;
+    vertex_layout_dirty_ = true;  // 新 PSO 可能有不同的 VertexLayout
 }
 
 void GLCommandList::setViewport(const Viewport& vp) {
-    if (std::memcmp(&m_viewport, &vp, sizeof(Viewport)) == 0) {
+    if (std::memcmp(&viewport_, &vp, sizeof(Viewport)) == 0) {
         return;  // 无变化
     }
 
-    m_viewport = vp;
-    m_viewportDirty = true;
+    viewport_ = vp;
+    viewport_Dirty = true;
 }
 
 void GLCommandList::setScissorRect(const ScissorRect& rect) {
-    if (std::memcmp(&m_scissorRect, &rect, sizeof(ScissorRect)) == 0) {
+    if (std::memcmp(&scissor_rect_, &rect, sizeof(ScissorRect)) == 0) {
         return;  // 无变化
     }
 
-    m_scissorRect = rect;
-    m_scissorDirty = true;
+    scissor_rect_ = rect;
+    scissor_dirty_ = true;
 }
 
 void GLCommandList::bindGroup(BindGroup& group) {
-    BindGroupDesc desc;
-    for (uint8_t i = 0; i < group.entryCount() && i < BindGroupDesc::kMaxEntries; ++i)
-        desc.entries[desc.count++] = group.entries()[i];
-    bindResources(desc);
+    bindResources(group);
+    group.markClean();
 }
 
 void GLCommandList::bindResources(const BindGroupDesc& group) {
-    for (uint8_t i = 0; i < group.count; ++i) {
-        const auto& e = group.entries[i];
-        if (e.buffer) {
-            GLuint glBuf = static_cast<GLBuffer*>(e.buffer)->handle();
-            glBindBufferRange(GL_UNIFORM_BUFFER, e.binding, glBuf, static_cast<GLintptr>(e.offset),
-                              static_cast<GLsizeiptr>(e.size));
-        }
-        // texture → glActiveTexture + glBindTexture
+    for (uint8_t i = 0; i < group.count; ++i)
+        bindEntry(group.entries[i]);
+}
+
+void GLCommandList::bindResources(const BindGroup& group) {
+    for (uint8_t i = 0; i < group.entryCount(); ++i)
+        bindEntry(group.entries()[i]);
+}
+
+void GLCommandList::bindEntry(const BindGroupEntry& e) {
+    if (e.binding >= 32)
+        return;
+
+    if (e.buffer) {
+        auto* glBuffer = dynamic_cast<GLBuffer*>(e.buffer);
+        if (!glBuffer)
+            return;
+        const GLsizeiptr size =
+                e.size ? static_cast<GLsizeiptr>(e.size) : static_cast<GLsizeiptr>(glBuffer->desc().size - e.offset);
+        glBindBufferRange(GL_UNIFORM_BUFFER, e.binding, glBuffer->handle(), static_cast<GLintptr>(e.offset), size);
+        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, e.binding, glBuffer->handle(), static_cast<GLintptr>(e.offset),
+                          size);
+    }
+
+    if (e.texture) {
+        auto* glTexture = dynamic_cast<GLTexture*>(e.texture);
+        if (glTexture)
+            glBindTextureUnit(e.binding, glTexture->handle());
+    }
+
+    if (e.sampler) {
+        auto* glSampler = dynamic_cast<GLSampler*>(e.sampler);
+        if (glSampler)
+            glBindSampler(e.binding, glSampler->handle());
     }
 }
 
@@ -86,18 +115,18 @@ void GLCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offs
         return;
     }
 
-    if (m_vertexBuffers[slot] == buffer && m_vertexBufferOffsets[slot] == offset) {
+    if (vertex_buffers_[slot] == buffer && vertex_buffer_offsets_[slot] == offset) {
         return;  // 无变化
     }
 
-    m_vertexBuffers[slot] = buffer;
-    m_vertexBufferOffsets[slot] = offset;
+    vertex_buffers_[slot] = buffer;
+    vertex_buffer_offsets_[slot] = offset;
 
-    if (slot >= m_vertexBufferCount) {
-        m_vertexBufferCount = slot + 1;
+    if (slot >= vertex_buffer_count_) {
+        vertex_buffer_count_ = slot + 1;
     }
 
-    m_vertexLayoutDirty = true;  // VBO 更换，需重新绑定属性指针
+    vertex_layout_dirty_ = true;  // VBO 更换，需重新绑定属性指针
 }
 
 void GLCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
@@ -107,16 +136,16 @@ void GLCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer*
 }
 
 void GLCommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
-    if (m_indexBuffer == buffer && m_indexBufferOffset == offset && m_indexType == type) {
+    if (index_buffer_ == buffer && index_buffer_Offset == offset && index_type_ == type) {
         return;  // 无变化
     }
 
-    m_indexBuffer = buffer;
-    m_indexBufferOffset = offset;
-    m_indexType = type;
+    index_buffer_ = buffer;
+    index_buffer_Offset = offset;
+    index_type_ = type;
 
     // IBO 绑定必须在 VAO 绑定中才能被 VAO 记录
-    glBindVertexArray(m_vao);
+    glBindVertexArray(vao_);
     if (buffer) {
         auto* glBuf = static_cast<GLBuffer*>(buffer);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glBuf->handle());
@@ -130,28 +159,45 @@ void GLCommandList::draw(const DrawAttribs& attribs) {
     applyPipelineState();
 
     // 绑定 VAO 并更新顶点属性指针
-    glBindVertexArray(m_vao);
+    glBindVertexArray(vao_);
     setupVertexAttributes();
 
-    if (m_viewportDirty) {
-        glViewport(static_cast<GLint>(m_viewport.x), static_cast<GLint>(m_viewport.y),
-                   static_cast<GLint>(m_viewport.width), static_cast<GLint>(m_viewport.height));
-        glDepthRange(m_viewport.minDepth, m_viewport.maxDepth);
-        m_viewportDirty = false;
+    if (viewport_Dirty) {
+        const GLint y = framebuffer_height_ > 0
+                                ? framebuffer_height_ - static_cast<GLint>(viewport_.y + viewport_.height)
+                                : static_cast<GLint>(viewport_.y);
+        glViewport(static_cast<GLint>(viewport_.x), y, static_cast<GLint>(viewport_.width),
+                   static_cast<GLint>(viewport_.height));
+        glDepthRange(viewport_.minDepth, viewport_.maxDepth);
+        viewport_Dirty = false;
     }
 
-    if (m_scissorDirty) {
-        glScissor(static_cast<GLint>(m_scissorRect.x), static_cast<GLint>(m_scissorRect.y),
-                  static_cast<GLint>(m_scissorRect.width), static_cast<GLint>(m_scissorRect.height));
-        m_scissorDirty = false;
+    if (scissor_dirty_) {
+        const GLint y = framebuffer_height_ > 0 ? framebuffer_height_ - scissor_rect_.y - scissor_rect_.height
+                                                : scissor_rect_.y;
+        if (scissor_rect_.width > 0 && scissor_rect_.height > 0)
+            glEnable(GL_SCISSOR_TEST);
+        else
+            glDisable(GL_SCISSOR_TEST);
+        glScissor(static_cast<GLint>(scissor_rect_.x), y, static_cast<GLint>(scissor_rect_.width),
+                  static_cast<GLint>(scissor_rect_.height));
+        scissor_dirty_ = false;
     }
 
     GLenum topology = GL_TRIANGLES;
-    if (m_currentPipeline) {
-        auto* glPso = static_cast<GLPipelineState*>(m_currentPipeline);
+    if (current_pipeline_) {
+        auto* glPso = static_cast<GLPipelineState*>(current_pipeline_);
         topology = glPso->glTopology();
     }
-    glDrawArrays(topology, attribs.startVertex, attribs.vertexCount);
+    if (attribs.instanceCount > 1) {
+        if (attribs.startInstance > 0)
+            glDrawArraysInstancedBaseInstance(topology, attribs.startVertex, attribs.vertexCount, attribs.instanceCount,
+                                              attribs.startInstance);
+        else
+            glDrawArraysInstanced(topology, attribs.startVertex, attribs.vertexCount, attribs.instanceCount);
+    } else {
+        glDrawArrays(topology, attribs.startVertex, attribs.vertexCount);
+    }
 
     glBindVertexArray(0);
 
@@ -165,30 +211,51 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
     applyPipelineState();
 
     // 绑定 VAO 并更新顶点属性指针
-    glBindVertexArray(m_vao);
+    glBindVertexArray(vao_);
     setupVertexAttributes();
 
-    if (m_viewportDirty) {
-        glViewport(static_cast<GLint>(m_viewport.x), static_cast<GLint>(m_viewport.y),
-                   static_cast<GLint>(m_viewport.width), static_cast<GLint>(m_viewport.height));
-        glDepthRange(m_viewport.minDepth, m_viewport.maxDepth);
-        m_viewportDirty = false;
+    if (viewport_Dirty) {
+        const GLint y = framebuffer_height_ > 0
+                                ? framebuffer_height_ - static_cast<GLint>(viewport_.y + viewport_.height)
+                                : static_cast<GLint>(viewport_.y);
+        glViewport(static_cast<GLint>(viewport_.x), y, static_cast<GLint>(viewport_.width),
+                   static_cast<GLint>(viewport_.height));
+        glDepthRange(viewport_.minDepth, viewport_.maxDepth);
+        viewport_Dirty = false;
     }
 
-    if (m_scissorDirty) {
-        glScissor(static_cast<GLint>(m_scissorRect.x), static_cast<GLint>(m_scissorRect.y),
-                  static_cast<GLint>(m_scissorRect.width), static_cast<GLint>(m_scissorRect.height));
-        m_scissorDirty = false;
+    if (scissor_dirty_) {
+        const GLint y = framebuffer_height_ > 0 ? framebuffer_height_ - scissor_rect_.y - scissor_rect_.height
+                                                : scissor_rect_.y;
+        if (scissor_rect_.width > 0 && scissor_rect_.height > 0)
+            glEnable(GL_SCISSOR_TEST);
+        else
+            glDisable(GL_SCISSOR_TEST);
+        glScissor(static_cast<GLint>(scissor_rect_.x), y, static_cast<GLint>(scissor_rect_.width),
+                  static_cast<GLint>(scissor_rect_.height));
+        scissor_dirty_ = false;
     }
 
     GLenum topology = GL_TRIANGLES;
-    if (m_currentPipeline) {
-        auto* glPso = static_cast<GLPipelineState*>(m_currentPipeline);
+    if (current_pipeline_) {
+        auto* glPso = static_cast<GLPipelineState*>(current_pipeline_);
         topology = glPso->glTopology();
     }
-    GLenum indexFormat = indexTypeToGLFormat(m_indexType);
-    glDrawElements(topology, static_cast<GLsizei>(attribs.indexCount), indexFormat,
-                   reinterpret_cast<const void*>(static_cast<uintptr_t>(m_indexBufferOffset + attribs.startIndex)));
+    const GLenum indexFormat = indexTypeToGLFormat(attribs.indexType);
+    const uint32_t indexStride = attribs.indexType == IndexType::UInt16 ? 2u : 4u;
+    const auto indexOffset =
+            static_cast<uintptr_t>(index_buffer_Offset) + static_cast<uintptr_t>(attribs.startIndex) * indexStride;
+    const void* indexPointer = reinterpret_cast<const void*>(indexOffset);
+    if (attribs.instanceCount > 1) {
+        glDrawElementsInstancedBaseVertexBaseInstance(topology, static_cast<GLsizei>(attribs.indexCount), indexFormat,
+                                                      indexPointer, attribs.instanceCount, attribs.baseVertex,
+                                                      attribs.startInstance);
+    } else if (attribs.baseVertex != 0) {
+        glDrawElementsBaseVertex(topology, static_cast<GLsizei>(attribs.indexCount), indexFormat, indexPointer,
+                                 attribs.baseVertex);
+    } else {
+        glDrawElements(topology, static_cast<GLsizei>(attribs.indexCount), indexFormat, indexPointer);
+    }
 
     glBindVertexArray(0);
 
@@ -207,22 +274,127 @@ void GLCommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size,
 }
 
 void GLCommandList::transitionResource(Buffer* buffer, ResourceState newState) {
-    // GL 无需显式资源状态转换
     (void) buffer;
-    (void) newState;
+    GLbitfield barriers = 0;
+    switch (newState) {
+    case ResourceState::VertexBuffer: barriers |= GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT; break;
+    case ResourceState::IndexBuffer: barriers |= GL_ELEMENT_ARRAY_BARRIER_BIT; break;
+    case ResourceState::UniformBuffer: barriers |= GL_UNIFORM_BARRIER_BIT; break;
+    case ResourceState::ShaderResource: barriers |= GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT; break;
+    case ResourceState::UnorderedAccess: barriers |= GL_SHADER_STORAGE_BARRIER_BIT; break;
+    default: break;
+    }
+    if (barriers)
+        glMemoryBarrier(barriers);
 }
 
 void GLCommandList::transitionResource(Texture* texture, ResourceState newState) {
-    // GL 无需显式资源状态转换
     (void) texture;
-    (void) newState;
+    GLbitfield barriers = 0;
+    switch (newState) {
+    case ResourceState::ShaderResource: barriers = GL_TEXTURE_FETCH_BARRIER_BIT; break;
+    case ResourceState::UnorderedAccess: barriers = GL_SHADER_IMAGE_ACCESS_BARRIER_BIT; break;
+    case ResourceState::RenderTarget: barriers = GL_FRAMEBUFFER_BARRIER_BIT; break;
+    case ResourceState::CopySrc:
+    case ResourceState::CopyDest: barriers = GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT; break;
+    default: break;
+    }
+    if (barriers)
+        glMemoryBarrier(barriers);
 }
 
 void GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
-    // TODO: 实现纹理→缓冲区复制
-    // 使用 glReadPixels 或 glGetTexImage
-    (void) src;
-    (void) dst;
+    auto* texture = dynamic_cast<GLTexture*>(src);
+    auto* buffer = dynamic_cast<GLBuffer*>(dst);
+    if (!texture || !buffer || texture->desc().dimension != TextureDimension::Texture2D)
+        return;
+
+    GLint previous_fbo = 0;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previous_fbo);
+
+    GLuint read_fbo = 0;
+    glGenFramebuffers(1, &read_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, read_fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture->target(), texture->handle(), 0);
+
+    GLuint resolve_fbo = 0;
+    GLuint resolve_texture = 0;
+    const bool multisampled = texture->desc().sampleCount > 1;
+    if (multisampled) {
+        glGenFramebuffers(1, &resolve_fbo);
+        glGenTextures(1, &resolve_texture);
+        glBindTexture(GL_TEXTURE_2D, resolve_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GLTexture::toGLInternalFormat(texture->desc().format),
+                     static_cast<GLsizei>(texture->desc().width), static_cast<GLsizei>(texture->desc().height), 0,
+                     GLTexture::toGLBaseFormat(texture->desc().format), GLTexture::toGLType(texture->desc().format),
+                     nullptr);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolve_fbo);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, resolve_texture, 0);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fbo);
+        glBlitFramebuffer(0, 0, static_cast<GLint>(texture->desc().width), static_cast<GLint>(texture->desc().height),
+                          0, 0, static_cast<GLint>(texture->desc().width), static_cast<GLint>(texture->desc().height),
+                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, resolve_fbo);
+    } else {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fbo);
+    }
+
+    GLenum read_format = GL_RGBA;
+    GLenum read_type = GL_UNSIGNED_BYTE;
+    switch (texture->desc().format) {
+    case TextureFormat::R8_UNorm: read_format = GL_RED; break;
+    case TextureFormat::BGRA8_UNorm:
+    case TextureFormat::BGRA8_sRGB: read_format = GL_BGRA; break;
+    case TextureFormat::RG16_Float:
+        read_format = GL_RG;
+        read_type = GL_HALF_FLOAT;
+        break;
+    case TextureFormat::RGBA16_Float: read_type = GL_HALF_FLOAT; break;
+    case TextureFormat::RGBA32_Float: read_type = GL_FLOAT; break;
+    case TextureFormat::R16_Float:
+        read_format = GL_RED;
+        read_type = GL_HALF_FLOAT;
+        break;
+    case TextureFormat::R32_Float:
+        read_format = GL_RED;
+        read_type = GL_FLOAT;
+        break;
+    default: break;
+    }
+
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, buffer->handle());
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, static_cast<GLsizei>(texture->desc().width), static_cast<GLsizei>(texture->desc().height),
+                 read_format, read_type, nullptr);
+    const uint32_t bytes_per_pixel = textureFormatBytesPerPixel(texture->desc().format);
+    const size_t row_bytes = static_cast<size_t>(texture->desc().width) * bytes_per_pixel;
+    const size_t image_bytes = row_bytes * texture->desc().height;
+    if (bytes_per_pixel && image_bytes <= buffer->desc().size) {
+        auto* mapped = static_cast<uint8_t*>(glMapBufferRange(
+                GL_PIXEL_PACK_BUFFER, 0, static_cast<GLsizeiptr>(image_bytes), GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
+        if (mapped) {
+            std::vector<uint8_t> row(row_bytes);
+            for (uint32_t y = 0; y < texture->desc().height / 2; ++y) {
+                auto* top = mapped + static_cast<size_t>(y) * row_bytes;
+                auto* bottom = mapped + static_cast<size_t>(texture->desc().height - 1 - y) * row_bytes;
+                std::memcpy(row.data(), top, row_bytes);
+                std::memcpy(top, bottom, row_bytes);
+                std::memcpy(bottom, row.data(), row_bytes);
+            }
+            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+        }
+    }
+    glPixelStorei(GL_PACK_ALIGNMENT, 4);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previous_fbo));
+    if (resolve_texture)
+        glDeleteTextures(1, &resolve_texture);
+    if (resolve_fbo)
+        glDeleteFramebuffers(1, &resolve_fbo);
+    if (read_fbo)
+        glDeleteFramebuffers(1, &read_fbo);
 }
 
 void GLCommandList::clearColor(float r, float g, float b, float a) {
@@ -231,7 +403,7 @@ void GLCommandList::clearColor(float r, float g, float b, float a) {
 }
 
 void GLCommandList::clearDepth(float depth) {
-    glClearDepthf(depth);
+    glClearDepth(static_cast<GLdouble>(depth));
     glClear(GL_DEPTH_BUFFER_BIT);
 }
 
@@ -243,7 +415,7 @@ void GLCommandList::clearStencil(uint8_t stencil) {
 Buffer* GLCommandList::currentVertexBuffer(uint32_t slot) const {
     if (slot >= MAX_VERTEX_BUFFERS)
         return nullptr;
-    return m_vertexBuffers[slot];
+    return vertex_buffers_[slot];
 }
 
 GLCommandList::GLAttribType GLCommandList::vertexFormatToGL(VertexFormat fmt) {
@@ -275,12 +447,12 @@ GLCommandList::GLAttribType GLCommandList::vertexFormatToGL(VertexFormat fmt) {
 }
 
 void GLCommandList::setupVertexAttributes() {
-    if (!m_vertexLayoutDirty)
+    if (!vertex_layout_dirty_)
         return;
-    if (!m_currentPipeline)
+    if (!current_pipeline_)
         return;
 
-    const auto& layout = m_currentPipeline->desc().vertexLayout;
+    const auto& layout = current_pipeline_->desc().vertexLayout;
     if (layout.empty())
         return;
 
@@ -296,8 +468,8 @@ void GLCommandList::setupVertexAttributes() {
 
         // 绑定该 slot 对应的 VBO
         uint8_t slot = attr.bufferSlot;
-        if (slot < m_vertexBufferCount && m_vertexBuffers[slot]) {
-            auto* glBuf = static_cast<GLBuffer*>(m_vertexBuffers[slot]);
+        if (slot < vertex_buffer_count_ && vertex_buffers_[slot]) {
+            auto* glBuf = static_cast<GLBuffer*>(vertex_buffers_[slot]);
             glBindBuffer(GL_ARRAY_BUFFER, glBuf->handle());
         } else {
             continue;  // 该 slot 无 VBO，跳过
@@ -305,7 +477,7 @@ void GLCommandList::setupVertexAttributes() {
 
         auto glType = vertexFormatToGL(attr.format);
         const void* offsetPtr =
-                reinterpret_cast<const void*>(static_cast<uintptr_t>(attr.offset + m_vertexBufferOffsets[slot]));
+                reinterpret_cast<const void*>(static_cast<uintptr_t>(attr.offset + vertex_buffer_offsets_[slot]));
 
         glEnableVertexAttribArray(location);
         if (glType.isInteger) {
@@ -315,14 +487,14 @@ void GLCommandList::setupVertexAttributes() {
         }
     }
 
-    m_vertexLayoutDirty = false;
+    vertex_layout_dirty_ = false;
 }
 
 void GLCommandList::applyPipelineState() {
-    if (!m_currentPipeline || m_pipelineStateApplied)
+    if (!current_pipeline_ || pipeline_state_applied_)
         return;
 
-    auto* glPipeline = static_cast<GLPipelineState*>(m_currentPipeline);
+    auto* glPipeline = static_cast<GLPipelineState*>(current_pipeline_);
 
     // 应用着色器程序
     glUseProgram(glPipeline->program());
@@ -330,7 +502,7 @@ void GLCommandList::applyPipelineState() {
     // 应用渲染状态（栅格化、深度测试、混合等）
     glPipeline->applyRenderState();
 
-    m_pipelineStateApplied = true;
+    pipeline_state_applied_ = true;
 }
 
 GLenum GLCommandList::indexTypeToGLFormat(IndexType type) {
@@ -345,8 +517,32 @@ void GLCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
     // GL FBO selection:
     // - Swapchain (presentSource=true): bind default framebuffer (0)
     // - RenderTarget: use nativeHandle (set by GLRenderTarget convenience method)
+    GLint previous_fbo = 0;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previous_fbo);
+    previous_framebuffer_ = static_cast<GLuint>(previous_fbo);
     GLuint fbo = static_cast<GLuint>(info.nativeHandle);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    active_framebuffer_ = fbo;
+    render_pass_active_ = true;
+    resolve_source_ = info.colorCount > 0 ? dynamic_cast<GLTexture*>(info.colorAttachments[0].target) : nullptr;
+    resolve_target_ = info.colorCount > 0 ? dynamic_cast<GLTexture*>(info.colorAttachments[0].resolveTarget) : nullptr;
+    framebuffer_height_ = static_cast<int32_t>(info.height);
+
+    if (info.colorCount > 0) {
+        std::array<GLenum, RenderPassBeginInfo::kMaxColorTargets> draw_buffers{};
+        for (uint8_t i = 0; i < info.colorCount; ++i)
+            draw_buffers[i] = GL_COLOR_ATTACHMENT0 + i;
+        if (fbo != 0)
+            glDrawBuffers(info.colorCount, draw_buffers.data());
+
+        const auto* color = dynamic_cast<GLTexture*>(info.colorAttachments[0].target);
+        const bool srgb = color && (color->desc().format == TextureFormat::RGBA8_sRGB ||
+                                    color->desc().format == TextureFormat::BGRA8_sRGB);
+        if (srgb)
+            glEnable(GL_FRAMEBUFFER_SRGB);
+        else
+            glDisable(GL_FRAMEBUFFER_SRGB);
+    }
 
     glViewport(0, 0, static_cast<GLsizei>(info.width), static_cast<GLsizei>(info.height));
 
@@ -360,10 +556,25 @@ void GLCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
         }
     }
     if (info.depthAttachment.loadAction == LoadAction::Clear && (info.depthAttachment.target || info.presentSource)) {
-        glClearDepthf(info.clearDepth);
+        glClearDepth(static_cast<GLdouble>(info.clearDepth));
         clearBits |= GL_DEPTH_BUFFER_BIT;
+        if (auto* depth = dynamic_cast<GLTexture*>(info.depthAttachment.target);
+            depth && (depth->desc().format == TextureFormat::D24_UNorm_S8_UInt ||
+                      depth->desc().format == TextureFormat::D32_Float_S8X24_UInt)) {
+            glClearStencil(info.clearStencil);
+            clearBits |= GL_STENCIL_BUFFER_BIT;
+        } else if (info.presentSource) {
+            GLint stencil_bits = 0;
+            glGetIntegerv(GL_STENCIL_BITS, &stencil_bits);
+            if (stencil_bits > 0) {
+                glClearStencil(info.clearStencil);
+                clearBits |= GL_STENCIL_BUFFER_BIT;
+            }
+        }
     }
     if (clearBits != 0) {
+        const GLboolean scissor_enabled = glIsEnabled(GL_SCISSOR_TEST);
+        glDisable(GL_SCISSOR_TEST);
         if (clearBits & GL_COLOR_BUFFER_BIT) {
             glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         }
@@ -371,15 +582,35 @@ void GLCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
             glDepthMask(GL_TRUE);
         }
         glClear(clearBits);
+        if (scissor_enabled)
+            glEnable(GL_SCISSOR_TEST);
     }
 
     // Mark viewport dirty since we overrode it
-    m_viewportDirty = true;
+    viewport_Dirty = true;
+    scissor_dirty_ = true;
 }
 
 void GLCommandList::endRenderPass() {
-    // GL has no explicit render pass end. Reset to default FBO.
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (render_pass_active_ && resolve_source_ && resolve_target_ && resolve_target_->desc().sampleCount == 1) {
+        GLuint resolve_fbo = 0;
+        glGenFramebuffers(1, &resolve_fbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolve_fbo);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, resolve_target_->target(),
+                               resolve_target_->handle(), 0);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, active_framebuffer_);
+        glBlitFramebuffer(0, 0, static_cast<GLint>(resolve_source_->desc().width),
+                          static_cast<GLint>(resolve_source_->desc().height), 0, 0,
+                          static_cast<GLint>(resolve_target_->desc().width),
+                          static_cast<GLint>(resolve_target_->desc().height), GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        glDeleteFramebuffers(1, &resolve_fbo);
+    }
+    if (render_pass_active_)
+        glBindFramebuffer(GL_FRAMEBUFFER, previous_framebuffer_);
+    active_framebuffer_ = 0;
+    render_pass_active_ = false;
+    resolve_source_ = nullptr;
+    resolve_target_ = nullptr;
 }
 
 }  // namespace mulan::engine

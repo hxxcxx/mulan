@@ -17,13 +17,14 @@ public:
     GLSampler(const SamplerDesc& desc);
     ~GLSampler();
 
-    const SamplerDesc& desc() const override { return m_desc; }
+    const SamplerDesc& desc() const override { return desc_; }
 
-    GLuint handle() const { return m_handle; }
+    GLuint handle() const { return handle_; }
+    bool isValid() const { return handle_ != 0; }
 
 private:
-    SamplerDesc m_desc;
-    GLuint m_handle = 0;
+    SamplerDesc desc_;
+    GLuint handle_ = 0;
 };
 
 }  // namespace mulan::engine

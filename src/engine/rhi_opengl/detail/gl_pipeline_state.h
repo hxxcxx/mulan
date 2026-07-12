@@ -31,15 +31,15 @@ public:
 
     // --- PipelineState 接口实现 ---
 
-    const GraphicsPipelineDesc& desc() const override { return m_desc; }
+    const GraphicsPipelineDesc& desc() const override { return desc_; }
 
     // --- OpenGL 特有接口 ---
 
     /// 获取链接的着色器程序
-    GLuint program() const { return m_program; }
+    GLuint program() const { return program_; }
 
     /// 检查管线是否成功链接
-    bool isValid() const { return m_program != 0; }
+    bool isValid() const { return program_ != 0; }
 
     /// 应用管线状态（光栅化、深度、混合等）
     /// 注意：program binding 由 CommandList 负责
@@ -59,8 +59,8 @@ private:
     void applyTopology() const;
 
     // 成员
-    GraphicsPipelineDesc m_desc;
-    GLuint m_program = 0;  // Linked shader program
+    GraphicsPipelineDesc desc_;
+    GLuint program_ = 0;  // Linked shader program
 };
 
 }  // namespace mulan::engine

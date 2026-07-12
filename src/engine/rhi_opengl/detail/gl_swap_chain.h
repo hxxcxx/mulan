@@ -8,6 +8,8 @@
 #pragma once
 
 #include "gl_common.h"
+#include "gl_context.h"
+#include "gl_render_target.h"
 #include "../../rhi/swap_chain.h"
 #include "../../rhi/window.h"
 
@@ -28,25 +30,16 @@ class CommandList;
  */
 class GLSwapChain : public SwapChain {
 public:
-#if defined(_WIN32)
-    struct InitParams {
-        HDC hdc = nullptr;
-        HWND hwnd = nullptr;
-    };
-#else
-    struct InitParams {};
-#endif
-
-    GLSwapChain(const SwapChainDesc& desc, const InitParams& params, const RenderConfig& renderConfig);
+    GLSwapChain(const SwapChainDesc& desc, GLContext& context, const RenderConfig& renderConfig);
 
     ~GLSwapChain() override = default;
 
     // ---- SwapChain 接口 ----
 
-    const SwapChainDesc& desc() const override { return m_desc; }
+    const SwapChainDesc& desc() const override { return desc_; }
 
-    Texture* currentBackBuffer() override { return nullptr; }  // 默认 FBO，无独立 Texture 对象
-    Texture* depthTexture() override { return nullptr; }       // 默认 FBO 的 depth buffer
+    Texture* currentBackBuffer() override { return msaa_target_ ? msaa_target_->colorTexture() : nullptr; }
+    Texture* depthTexture() override { return msaa_target_ ? msaa_target_->depthTexture() : nullptr; }
 
     RenderPassBeginInfo renderPassBeginInfo() override;
 
@@ -55,13 +48,11 @@ public:
     void resize(uint32_t width, uint32_t height) override;
 
 private:
-    SwapChainDesc m_desc;
-    RenderConfig m_renderConfig;
+    SwapChainDesc desc_;
+    RenderConfig render_config_;
 
-#ifdef _WIN32
-    HDC m_hdc = nullptr;
-    HWND m_hwnd = nullptr;
-#endif
+    GLContext& context_;
+    std::unique_ptr<GLRenderTarget> msaa_target_;
 };
 
 }  // namespace mulan::engine

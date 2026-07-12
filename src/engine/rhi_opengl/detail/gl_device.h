@@ -8,6 +8,7 @@
 #pragma once
 
 #include "gl_common.h"
+#include "gl_context.h"
 #include "gl_command_list.h"
 #include "gl_sampler.h"
 #include "../../rhi/device.h"
@@ -54,9 +55,9 @@ public:
 
     GraphicsBackend backend() const override { return GraphicsBackend::OpenGL; }
 
-    const GPUDeviceCapabilities& capabilities() const override { return m_caps; }
+    const GPUDeviceCapabilities& capabilities() const override { return caps_; }
 
-    const RenderConfig& renderConfig() const override { return m_renderConfig; }
+    const RenderConfig& renderConfig() const override { return render_config_; }
 
     math::Mat4 clipSpaceCorrectionMatrix() const override {
         return math::Mat4(1.0);  // OpenGL: 标准右手坐标，无需修正
@@ -92,7 +93,7 @@ public:
     // --- 帧循环 ---
 
     void beginFrame(SwapChain* swapchain = nullptr) override;
-    void clearCaches() override {}
+    void clearCaches() override;
     CommandList* frameCommandList() override;
     void submitAndPresent(SwapChain* swapchain) override;
     void submit() override;
@@ -101,33 +102,24 @@ public:
 
     // --- OpenGL 特有访问器 ---
 
-#ifdef _WIN32
-    HDC hdc() const { return m_hdc; }
-    HGLRC hglrc() const { return m_hglrc; }
-#endif
+    GLContext* context() const { return context_.get(); }
 
-    bool isInitialized() const { return m_initialized; }
+    bool isInitialized() const { return initialized_; }
 
 private:
     void init(const CreateInfo& ci);
     void shutdown();
     void queryCapabilities();
 
-#ifdef _WIN32
-    bool createWGLContext(HWND hwnd, bool enableValidation);
-    HDC m_hdc = nullptr;
-    HGLRC m_hglrc = nullptr;
-    HWND m_hwnd = nullptr;
-#endif
-
-    bool m_initialized = false;
-    NativeWindowHandle m_nativeWindow;
-    RenderConfig m_renderConfig;
-    GPUDeviceCapabilities m_caps;
+    bool initialized_ = false;
+    NativeWindowHandle native_window_;
+    RenderConfig render_config_;
+    GPUDeviceCapabilities caps_;
+    std::unique_ptr<GLContext> context_;
 
     // 帧命令列表缓存（直接成员，避免堆指针被污染）
-    //GLCommandList m_frameCommandList;
-    std::unique_ptr<GLCommandList> m_frameCommandList;
+    //GLCommandList frame_command_list_;
+    std::unique_ptr<GLCommandList> frame_command_list_;
 };
 
 }  // namespace mulan::engine

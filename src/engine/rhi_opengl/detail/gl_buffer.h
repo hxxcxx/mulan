@@ -36,7 +36,7 @@ public:
 
     // --- Buffer 接口实现 ---
 
-    const BufferDesc& desc() const override { return m_desc; }
+    const BufferDesc& desc() const override { return desc_; }
 
     /// CPU 端更新缓冲区数据
     void update(uint32_t offset, uint32_t size, const void* data) override;
@@ -47,16 +47,16 @@ public:
     // --- OpenGL 特有接口 ---
 
     /// 获取 GL 缓冲区对象
-    GLuint handle() const { return m_buffer; }
+    GLuint handle() const { return buffer_; }
 
     /// 检查缓冲区是否成功创建
-    bool isValid() const { return m_buffer != 0; }
+    bool isValid() const { return buffer_ != 0; }
 
     /// 获取 GL 缓冲区目标 (GL_ARRAY_BUFFER, GL_ELEMENT_ARRAY_BUFFER 等)
-    GLenum bufferTarget() const { return m_bufferTarget; }
+    GLenum bufferTarget() const { return buffer_Target; }
 
     /// 获取 GL 缓冲区用途 (GL_STATIC_DRAW, GL_DYNAMIC_DRAW 等)
-    GLenum bufferUsage() const { return m_bufferUsage; }
+    GLenum bufferUsage() const { return buffer_Usage; }
 
 private:
     // --- 内部方法 ---
@@ -81,14 +81,14 @@ private:
 
     // --- 成员变量 ---
 
-    BufferDesc m_desc;
-    GLuint m_buffer = 0;
-    GLenum m_bufferTarget = GL_COPY_READ_BUFFER;
-    GLenum m_bufferUsage = GL_STATIC_DRAW;
+    BufferDesc desc_;
+    GLuint buffer_ = 0;
+    GLenum buffer_Target = GL_COPY_READ_BUFFER;
+    GLenum buffer_Usage = GL_STATIC_DRAW;
 
     // 对于 Dynamic 缓冲区，缓存待上传的数据
     // （在某些实现中可能需要等待 GPU 完成前一帧的读取）
-    std::vector<uint8_t> m_pendingData;
+    std::vector<uint8_t> pending_data_;
 };
 
 }  // namespace mulan::engine

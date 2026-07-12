@@ -24,11 +24,11 @@ public:
     ~GLShader();
 
     // Shader 接口
-    const ShaderDesc& desc() const override { return m_desc; }
+    const ShaderDesc& desc() const override { return desc_; }
 
     // GLShader 特定接口
-    GLuint handle() const { return m_shader; }
-    bool isValid() const { return m_shader != 0; }
+    GLuint handle() const { return shader_; }
+    bool isValid() const { return shader_ != 0; }
 
 private:
     GLShader(const GLShader&) = delete;
@@ -53,10 +53,10 @@ private:
     static GLenum toGLShaderType(ShaderType type);
 
     // 检查编译/链接错误
-    static void checkCompileError(GLuint shader, const char* shaderName);
+    static bool checkCompileError(GLuint shader, const char* shaderName);
 
-    ShaderDesc m_desc;
-    GLuint m_shader = 0;
+    ShaderDesc desc_;
+    GLuint shader_ = 0;
 };
 
 }  // namespace mulan::engine

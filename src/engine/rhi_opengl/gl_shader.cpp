@@ -11,33 +11,30 @@ namespace mulan::engine {
 // 构造 / 析构
 // ================================================================
 
-GLShader::GLShader(const ShaderDesc& desc) : m_desc(desc) {
-    // 仅在 GL 4.6+ 时支持 SPIR-V
-    if (!isSPIRVSupported()) {
-        std::fprintf(stderr,
-                     "[GLShader] OpenGL 4.6+ required for SPIR-V support. "
-                     "Your driver may not support glSpecializeShader().\n");
-        return;
+GLShader::GLShader(const ShaderDesc& desc) : desc_(desc) {
+    if (!desc.source.empty()) {
+        createFromGLSL(desc.source.data(), static_cast<int>(desc.source.size()));
+    } else if (!desc.filePath.empty()) {
+        if (desc.language == ShaderSourceLanguage::GLSL)
+            loadGLSLFromFile(desc.filePath);
+        else
+            loadSPIRVFromFile(desc.filePath);
+    } else if (desc.byteCode && desc.byteCodeSize > 0) {
+        if (desc.language == ShaderSourceLanguage::SPIRV)
+            createFromSPIRV(desc.byteCode, desc.byteCodeSize);
+        else
+            std::fprintf(stderr, "[GLShader] Bytecode requires SPIR-V language\n");
     }
 
-    // 从字节码加载
-    if (desc.byteCode && desc.byteCodeSize > 0) {
-        createFromSPIRV(desc.byteCode, desc.byteCodeSize);
-    }
-    // 从文件加载
-    else if (!desc.filePath.empty()) {
-        loadSPIRVFromFile(desc.filePath);
-    }
-
-    if (m_shader) {
-        std::fprintf(stdout, "[GLShader] Created %s (handle: %u)\n", std::string(desc.name).c_str(), m_shader);
+    if (shader_) {
+        std::fprintf(stdout, "[GLShader] Created %s (handle: %u)\n", std::string(desc.name).c_str(), shader_);
     }
 }
 
 GLShader::~GLShader() {
-    if (m_shader) {
-        glDeleteShader(m_shader);
-        m_shader = 0;
+    if (shader_) {
+        glDeleteShader(shader_);
+        shader_ = 0;
     }
 }
 
@@ -52,21 +49,28 @@ void GLShader::createFromSPIRV(const uint8_t* spirvCode, uint32_t byteSize) {
     }
 
     // 创建着色器对象
-    GLenum glShaderType = toGLShaderType(m_desc.type);
-    m_shader = glCreateShader(glShaderType);
-    if (m_shader == 0) {
+    GLenum glShaderType = toGLShaderType(desc_.type);
+    shader_ = glCreateShader(glShaderType);
+    if (shader_ == 0) {
         std::fprintf(stderr, "[GLShader] glCreateShader failed\n");
         return;
     }
 
     // 加载 SPIR-V 二进制（GL 4.6+）
-    glShaderBinary(1, &m_shader, GL_SHADER_BINARY_FORMAT_SPIR_V, spirvCode, byteSize);
+    glShaderBinary(1, &shader_, GL_SHADER_BINARY_FORMAT_SPIR_V, spirvCode, byteSize);
 
     // 特化着色器（绑定 entry point）
-    const char* entryPoint = m_desc.entryPoint.empty() ? "main" : m_desc.entryPoint.data();
-    glSpecializeShader(m_shader, entryPoint, 0, nullptr, nullptr);
+    const char* entryPoint = desc_.entryPoint.empty() ? "main" : desc_.entryPoint.data();
+    if (!glSpecializeShader) {
+        std::fprintf(stderr, "[GLShader] glSpecializeShader is unavailable\n");
+        glDeleteShader(shader_);
+        shader_ = 0;
+        return;
+    }
+    glSpecializeShader(shader_, entryPoint, 0, nullptr, nullptr);
 
-    checkCompileError(m_shader, std::string(m_desc.name).c_str());
+    if (!checkCompileError(shader_, std::string(desc_.name).c_str()))
+        shader_ = 0;
 }
 
 // ================================================================
@@ -113,22 +117,17 @@ void GLShader::loadSPIRVFromFile(std::string_view filePath) {
 // ================================================================
 
 void GLShader::createFromGLSL(const char* source, int length) {
-    GLenum glShaderType = toGLShaderType(m_desc.type);
-    m_shader = glCreateShader(glShaderType);
-    if (m_shader == 0) {
+    GLenum glShaderType = toGLShaderType(desc_.type);
+    shader_ = glCreateShader(glShaderType);
+    if (shader_ == 0) {
         std::fprintf(stderr, "[GLShader] glCreateShader failed\n");
         return;
     }
 
-    glShaderSource(m_shader, 1, &source, length >= 0 ? &length : nullptr);
-    glCompileShader(m_shader);
-    checkCompileError(m_shader, std::string(m_desc.name).c_str());
-
-    GLint status = 0;
-    glGetShaderiv(m_shader, GL_COMPILE_STATUS, &status);
-    if (!status) {
-        glDeleteShader(m_shader);
-        m_shader = 0;
+    glShaderSource(shader_, 1, &source, length >= 0 ? &length : nullptr);
+    glCompileShader(shader_);
+    if (!checkCompileError(shader_, std::string(desc_.name).c_str())) {
+        shader_ = 0;
     }
 }
 
@@ -202,7 +201,7 @@ GLenum GLShader::toGLShaderType(ShaderType type) {
 // 检查着色器编译/特化错误
 // ================================================================
 
-void GLShader::checkCompileError(GLuint shader, const char* shaderName) {
+bool GLShader::checkCompileError(GLuint shader, const char* shaderName) {
     GLint status = 0;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
 
@@ -219,10 +218,11 @@ void GLShader::checkCompileError(GLuint shader, const char* shaderName) {
         }
 
         glDeleteShader(shader);
-        return;
+        return false;
     }
 
     std::fprintf(stdout, "[GLShader] Successfully specialized '%s'\n", shaderName);
+    return true;
 }
 
 }  // namespace mulan::engine

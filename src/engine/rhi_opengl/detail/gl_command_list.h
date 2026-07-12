@@ -34,6 +34,8 @@ using graphics::VertexFormat;
 // 前向声明
 class GLBuffer;
 class GLPipelineState;
+class GLTexture;
+class GLSampler;
 
 class GLCommandList final : public CommandList {
 public:
@@ -123,13 +125,13 @@ public:
     // --- OpenGL 特有接口 ---
 
     /// 获取当前绑定的管线状态
-    PipelineState* currentPipelineState() const { return m_currentPipeline; }
+    PipelineState* currentPipelineState() const { return current_pipeline_; }
 
     /// 获取当前绑定的顶点缓冲区
     Buffer* currentVertexBuffer(uint32_t slot) const;
 
     /// 获取当前绑定的索引缓冲区
-    Buffer* currentIndexBuffer() const { return m_indexBuffer; }
+    Buffer* currentIndexBuffer() const { return index_buffer_; }
 
     /// 检查是否处于有效状态
     bool isValid() const { return true; }
@@ -154,34 +156,42 @@ private:
         bool isInteger;
     };
     static GLAttribType vertexFormatToGL(VertexFormat fmt);
+    void bindResources(const BindGroup& group);
+    void bindEntry(const BindGroupEntry& entry);
 
     // --- 成员变量 ---
 
-    PipelineState* m_currentPipeline = nullptr;
+    PipelineState* current_pipeline_ = nullptr;
 
     // 顶点缓冲区绑定（可能有多个）
     static constexpr uint32_t MAX_VERTEX_BUFFERS = 16;
-    Buffer* m_vertexBuffers[MAX_VERTEX_BUFFERS] = {};
-    uint32_t m_vertexBufferOffsets[MAX_VERTEX_BUFFERS] = {};
-    uint32_t m_vertexBufferCount = 0;
+    Buffer* vertex_buffers_[MAX_VERTEX_BUFFERS] = {};
+    uint32_t vertex_buffer_offsets_[MAX_VERTEX_BUFFERS] = {};
+    uint32_t vertex_buffer_count_ = 0;
 
     // 索引缓冲区绑定
-    Buffer* m_indexBuffer = nullptr;
-    uint32_t m_indexBufferOffset = 0;
-    IndexType m_indexType = IndexType::UInt32;
+    Buffer* index_buffer_ = nullptr;
+    uint32_t index_buffer_Offset = 0;
+    IndexType index_type_ = IndexType::UInt32;
 
     // 视口和裁剪
-    Viewport m_viewport = {};
-    ScissorRect m_scissorRect = {};
-    bool m_viewportDirty = false;
-    bool m_scissorDirty = false;
+    Viewport viewport_ = {};
+    ScissorRect scissor_rect_ = {};
+    bool viewport_Dirty = false;
+    bool scissor_dirty_ = false;
+    int32_t framebuffer_height_ = 0;
+    GLuint previous_framebuffer_ = 0;
+    GLuint active_framebuffer_ = 0;
+    bool render_pass_active_ = false;
+    GLTexture* resolve_source_ = nullptr;
+    GLTexture* resolve_target_ = nullptr;
 
     // 记录是否已应用状态（避免冗余的 GL 调用）
-    bool m_pipelineStateApplied = false;
+    bool pipeline_state_applied_ = false;
 
     // VAO — OpenGL Core Profile 必须绑定 VAO 才能 draw
-    GLuint m_vao = 0;
-    bool m_vertexLayoutDirty = true;  // VBO/PSO 变化时重新设置属性指针
+    GLuint vao_ = 0;
+    bool vertex_layout_dirty_ = true;  // VBO/PSO 变化时重新设置属性指针
 };
 
 }  // namespace mulan::engine

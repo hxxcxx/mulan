@@ -60,6 +60,7 @@ inline core::Result<std::unique_ptr<Shader>> loadShader(RHIDevice& device, Shade
     d.type = type;
     d.byteCode = data.data();
     d.byteCodeSize = static_cast<uint32_t>(data.size());
+    d.language = ShaderSourceLanguage::SPIRV;
     return device.createShader(d);
 }
 

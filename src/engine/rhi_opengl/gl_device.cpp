@@ -3,6 +3,8 @@
 #include "detail/gl_shader.h"
 #include "detail/gl_pipeline_state.h"
 #include "detail/gl_buffer.h"
+#include "detail/gl_bind_group.h"
+#include "detail/gl_fence.h"
 #include "detail/gl_command_list.h"
 #include "detail/gl_render_target.h"
 #include "detail/gl_texture.h"
@@ -10,8 +12,10 @@
 
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
 #include <expected>
 #include <string>
+#include <utility>
 
 namespace mulan::engine {
 
@@ -33,18 +37,20 @@ bool isExtensionSupported(const char* name) {
 // ============================================================
 
 void GLDevice::init(const CreateInfo& ci) {
-    m_nativeWindow = ci.window;
-    m_renderConfig = ci.renderConfig;
+    native_window_ = ci.window;
+    render_config_ = ci.renderConfig;
 
-#ifdef _WIN32
-    if (ci.window.type == NativeWindowHandle::Type::Win32) {
-        m_hwnd = reinterpret_cast<HWND>(ci.window.win32.hWnd);
-        if (!createWGLContext(m_hwnd, ci.enableValidation)) {
-            std::fprintf(stderr, "[GLDevice] Failed to create WGL context\n");
-            return;
-        }
+    GLContextCreateInfo context_info;
+    context_info.window = ci.window;
+    context_info.renderConfig = ci.renderConfig;
+    context_info.enableValidation = ci.enableValidation;
+    auto context_result = createGLContext(context_info);
+    if (!context_result) {
+        std::fprintf(stderr, "[GLDevice] Failed to create OpenGL context: %s\n",
+                     context_result.error().message.c_str());
+        return;
     }
-#endif
+    context_ = std::move(*context_result);
 
     // 加载 OpenGL 函数指针 (GLAD)
     // Load native OpenGL entry points.
@@ -54,11 +60,22 @@ void GLDevice::init(const CreateInfo& ci) {
         return;
     }
 
+    GLint major_version = 0;
+    GLint minor_version = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &major_version);
+    glGetIntegerv(GL_MINOR_VERSION, &minor_version);
+    if (major_version < 4 || (major_version == 4 && minor_version < 6)) {
+        std::fprintf(stderr, "[GLDevice] OpenGL 4.6 Core Profile is required, got %d.%d\n", major_version,
+                     minor_version);
+        shutdown();
+        return;
+    }
+
     std::fprintf(stdout, "[GLDevice] OpenGL %s | %s | %s\n", reinterpret_cast<const char*>(glGetString(GL_VERSION)),
                  reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
                  reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
 
-    // Debug output（OpenGL 4.3+，native OpenGL 不支持）
+    // Debug output（OpenGL 4.3+）
 #ifdef _DEBUG
     if (ci.enableValidation && glDebugMessageCallback) {
         glEnable(GL_DEBUG_OUTPUT);
@@ -90,132 +107,67 @@ void GLDevice::init(const CreateInfo& ci) {
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 
-    m_frameCommandList = std::make_unique<GLCommandList>();
-    m_initialized = true;
+    frame_command_list_ = std::make_unique<GLCommandList>();
+    frame_command_list_->trackResource(*this, RHIResourceKind::CommandList, "OpenGLFrameCommandList");
+    initialized_ = true;
     std::fprintf(stdout, "[GLDevice] Initialization complete\n");
 }
 
 GLDevice::~GLDevice() {
     waitIdle();
+    frame_command_list_.reset();
     shutdown();
 }
 
 void GLDevice::shutdown() {
-#ifdef _WIN32
-    if (m_hglrc) {
-        wglMakeCurrent(nullptr, nullptr);
-        wglDeleteContext(m_hglrc);
-        m_hglrc = nullptr;
-    }
-    if (m_hdc && m_hwnd) {
-        ReleaseDC(m_hwnd, m_hdc);
-        m_hdc = nullptr;
-    }
-#endif
-    m_initialized = false;
+    context_.reset();
+    initialized_ = false;
 }
 
 void GLDevice::queryCapabilities() {
-    m_caps.backend = GraphicsBackend::OpenGL;
+    caps_.backend = GraphicsBackend::OpenGL;
 
     GLint val = 0;
+    GLint major = 0;
+    GLint minor = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &major);
+    glGetIntegerv(GL_MINOR_VERSION, &minor);
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &val);
-    m_caps.maxTextureSize = static_cast<uint32_t>(val);
+    caps_.maxTextureSize = static_cast<uint32_t>(val);
+
+    glGetIntegerv(GL_MAX_SAMPLES, &val);
+    caps_.maxSampleCount = static_cast<uint32_t>(std::max(1, val));
+    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &val);
+    caps_.minUniformBufferOffsetAlignment = static_cast<uint32_t>(std::max(1, val));
 
     // GL 4.6 makes anisotropic filtering core; for 4.5, check extension
     if (isExtensionSupported("GL_EXT_texture_filter_anisotropic")) {
         glGetIntegerv(0x84FF /*GL_MAX_TEXTURE_MAX_ANISOTROPY*/, &val);
-        m_caps.maxTextureAniso = static_cast<uint32_t>(val);
+        caps_.maxTextureAniso = static_cast<uint32_t>(val);
     }
 
-    m_caps.depthClamp = true;          // Core since GL 3.2
-    m_caps.geometryShader = true;      // Core since GL 3.2
-    m_caps.tessellationShader = true;  // Core since GL 4.0
-    m_caps.computeShader = true;       // Core since GL 4.3
+    const int version = major * 10 + minor;
+    caps_.depthClamp = version >= 32;
+    caps_.geometryShader = version >= 32;
+    caps_.tessellationShader = version >= 40;
+    caps_.computeShader = version >= 43;
 }
-
-// ============================================================
-// Win32 WGL 上下文创建
-// ============================================================
-
-#ifdef _WIN32
-
-bool GLDevice::createWGLContext(HWND hwnd, bool enableValidation) {
-    m_hdc = GetDC(hwnd);
-    if (!m_hdc)
-        return false;
-
-    // 基础像素格式（用于创建临时上下文）
-    PIXELFORMATDESCRIPTOR pfd{};
-    pfd.nSize = sizeof(pfd);
-    pfd.nVersion = 1;
-    pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-    pfd.iPixelType = PFD_TYPE_RGBA;
-    pfd.cColorBits = 32;
-    pfd.cDepthBits = 24;
-    pfd.cStencilBits = m_renderConfig.stencilBuffer ? static_cast<BYTE>(8) : static_cast<BYTE>(0);
-    pfd.iLayerType = PFD_MAIN_PLANE;
-
-    int pixelFormat = ChoosePixelFormat(m_hdc, &pfd);
-    if (!pixelFormat)
-        return false;
-    if (!SetPixelFormat(m_hdc, pixelFormat, &pfd))
-        return false;
-
-    // 临时上下文 → 加载 WGL 扩展
-    HGLRC tempRC = wglCreateContext(m_hdc);
-    if (!tempRC)
-        return false;
-    wglMakeCurrent(m_hdc, tempRC);
-
-    // 手动加载 wglCreateContextAttribsARB
-    auto wglCreateContextAttribsARB =
-            reinterpret_cast<PFNWGLCREATECONTEXTATTRIBSARBPROC>(wglGetProcAddress("wglCreateContextAttribsARB"));
-
-    if (wglCreateContextAttribsARB) {
-        int attribs[] = { WGL_CONTEXT_MAJOR_VERSION_ARB,
-                          4,
-                          WGL_CONTEXT_MINOR_VERSION_ARB,
-                          6,
-                          WGL_CONTEXT_PROFILE_MASK_ARB,
-                          WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-                          WGL_CONTEXT_FLAGS_ARB,
-                          (enableValidation ? WGL_CONTEXT_DEBUG_BIT_ARB : 0),
-                          0 };
-
-        m_hglrc = wglCreateContextAttribsARB(m_hdc, nullptr, attribs);
-    }
-
-    // 销毁临时上下文
-    wglMakeCurrent(nullptr, nullptr);
-    wglDeleteContext(tempRC);
-
-    if (!m_hglrc) {
-        std::fprintf(stderr,
-                     "[GLDevice] wglCreateContextAttribsARB failed, "
-                     "falling back to legacy context\n");
-        m_hglrc = wglCreateContext(m_hdc);
-    }
-
-    if (!m_hglrc)
-        return false;
-
-    wglMakeCurrent(m_hdc, m_hglrc);
-    return true;
-}
-
-#endif  // _WIN32
 
 // ============================================================
 // 资源创建
 // ============================================================
 
 template <typename Base, typename Impl, typename Desc>
-static core::Result<std::unique_ptr<Base>> createGLResource(const Desc& desc, EngineErrorCode code, const char* label) {
+static core::Result<std::unique_ptr<Base>> createGLResource(RHIDevice& device, const Desc& desc, EngineErrorCode code,
+                                                            RHIResourceKind kind, const char* label) {
     try {
         auto resource = std::make_unique<Impl>(desc);
         if (!resource->isValid())
             return std::unexpected(makeError(code, label));
+        if constexpr (requires { desc.name; })
+            resource->trackResource(device, kind, desc.name);
+        else
+            resource->trackResource(device, kind, label);
         return std::unique_ptr<Base>(std::move(resource));
     } catch (const std::exception& e) {
         return std::unexpected(makeError(code, e.what()));
@@ -223,22 +175,23 @@ static core::Result<std::unique_ptr<Base>> createGLResource(const Desc& desc, En
 }
 
 core::Result<std::unique_ptr<Buffer>> GLDevice::createBuffer(const BufferDesc& desc) {
-    return createGLResource<Buffer, GLBuffer>(desc, EngineErrorCode::BufferCreateFailed,
+    return createGLResource<Buffer, GLBuffer>(*this, desc, EngineErrorCode::BufferCreateFailed, RHIResourceKind::Buffer,
                                               "OpenGL buffer creation failed");
 }
 
 core::Result<std::unique_ptr<Texture>> GLDevice::createTexture(const TextureDesc& desc) {
-    return createGLResource<Texture, GLTexture>(desc, EngineErrorCode::TextureCreateFailed,
-                                                "OpenGL texture creation failed");
+    return createGLResource<Texture, GLTexture>(*this, desc, EngineErrorCode::TextureCreateFailed,
+                                                RHIResourceKind::Texture, "OpenGL texture creation failed");
 }
 
 core::Result<std::unique_ptr<Shader>> GLDevice::createShader(const ShaderDesc& desc) {
-    return createGLResource<Shader, GLShader>(desc, EngineErrorCode::ShaderCompileFailed,
-                                              "OpenGL shader creation failed");
+    return createGLResource<Shader, GLShader>(*this, desc, EngineErrorCode::ShaderCompileFailed,
+                                              RHIResourceKind::Shader, "OpenGL shader creation failed");
 }
 
 core::Result<std::unique_ptr<PipelineState>> GLDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
-    return createGLResource<PipelineState, GLPipelineState>(desc, EngineErrorCode::PipelineCreateFailed,
+    return createGLResource<PipelineState, GLPipelineState>(*this, desc, EngineErrorCode::PipelineCreateFailed,
+                                                            RHIResourceKind::PipelineState,
                                                             "OpenGL pipeline creation failed");
 }
 
@@ -249,39 +202,59 @@ core::Result<std::unique_ptr<ComputePipelineState>> GLDevice::createComputePipel
 
 core::Result<std::unique_ptr<CommandList>> GLDevice::createCommandList() {
     try {
-        return std::unique_ptr<CommandList>(std::make_unique<GLCommandList>());
+        auto command_list = std::make_unique<GLCommandList>();
+        command_list->trackResource(*this, RHIResourceKind::CommandList, "OpenGLCommandList");
+        return std::unique_ptr<CommandList>(std::move(command_list));
     } catch (const std::exception& e) {
         return std::unexpected(makeError(EngineErrorCode::CommandListCreateFailed, e.what()));
     }
 }
 
 core::Result<std::unique_ptr<SwapChain>> GLDevice::createSwapChain(const SwapChainDesc& desc) {
-    GLSwapChain::InitParams params;
-    params.hdc = m_hdc;
-    params.hwnd = m_hwnd;
-    return std::unique_ptr<SwapChain>(std::make_unique<GLSwapChain>(desc, params, m_renderConfig));
+    if (!context_)
+        return std::unexpected(makeError(EngineErrorCode::SwapChainCreateFailed, "OpenGL context is not initialized"));
+    auto swap_chain = std::make_unique<GLSwapChain>(desc, *context_, render_config_);
+    swap_chain->trackResource(*this, RHIResourceKind::SwapChain, "OpenGLSwapChain");
+    return std::unique_ptr<SwapChain>(std::move(swap_chain));
 }
 
-core::Result<std::unique_ptr<Fence>> GLDevice::createFence(uint64_t) {
-    return std::unexpected(makeError(EngineErrorCode::BackendNotSupported, "OpenGL fence is not implemented"));
+core::Result<std::unique_ptr<Fence>> GLDevice::createFence(uint64_t initialValue) {
+    try {
+        auto fence = std::make_unique<GLFence>(initialValue);
+        fence->trackResource(*this, RHIResourceKind::Fence, "OpenGLFence");
+        return std::unique_ptr<Fence>(std::move(fence));
+    } catch (const std::exception& e) {
+        return std::unexpected(makeError(EngineErrorCode::FenceCreateFailed, e.what()));
+    }
 }
 
 core::Result<std::unique_ptr<RenderTarget>> GLDevice::createRenderTarget(const RenderTargetDesc& desc) {
-    return createGLResource<RenderTarget, GLRenderTarget>(desc, EngineErrorCode::RenderTargetCreateFailed,
+    return createGLResource<RenderTarget, GLRenderTarget>(*this, desc, EngineErrorCode::RenderTargetCreateFailed,
+                                                          RHIResourceKind::RenderTarget,
                                                           "OpenGL render target creation failed");
 }
 
 core::Result<std::unique_ptr<Sampler>> GLDevice::createSampler(const SamplerDesc& desc) {
     try {
-        return std::unique_ptr<Sampler>(std::make_unique<GLSampler>(desc));
+        auto sampler = std::make_unique<GLSampler>(desc);
+        if (!sampler->isValid())
+            return std::unexpected(makeError(EngineErrorCode::SamplerCreateFailed, "OpenGL sampler creation failed"));
+        sampler->trackResource(*this, RHIResourceKind::Sampler, "OpenGLSampler");
+        return std::unique_ptr<Sampler>(std::move(sampler));
     } catch (const std::exception& e) {
         return std::unexpected(makeError(EngineErrorCode::SamplerCreateFailed, e.what()));
     }
 }
 
-core::Result<std::unique_ptr<BindGroup>> GLDevice::createBindGroup(const BindGroupLayout&, const BindGroupDesc&) {
-    return std::unexpected(
-            makeError(EngineErrorCode::BackendNotSupported, "OpenGL bind-group objects are not implemented"));
+core::Result<std::unique_ptr<BindGroup>> GLDevice::createBindGroup(const BindGroupLayout& layout,
+                                                                   const BindGroupDesc& desc) {
+    try {
+        auto bind_group = std::make_unique<GLBindGroup>(layout, desc);
+        bind_group->trackResource(*this, RHIResourceKind::BindGroup, "OpenGLBindGroup");
+        return std::unique_ptr<BindGroup>(std::move(bind_group));
+    } catch (const std::exception& e) {
+        return std::unexpected(makeError(EngineErrorCode::ResourceCreateFailed, e.what()));
+    }
 }
 
 void GLDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
@@ -290,28 +263,46 @@ void GLDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) 
     if (auto* texture = dynamic_cast<GLTexture*>(dst);
         texture && !upload.data.empty() && bpp && rowPitch % bpp == 0 &&
         upload.data.size_bytes() >= static_cast<size_t>(rowPitch) * upload.height) {
+        GLint previous_alignment = 4;
+        GLint previous_row_length = 0;
+        glGetIntegerv(GL_UNPACK_ALIGNMENT, &previous_alignment);
+        glGetIntegerv(GL_UNPACK_ROW_LENGTH, &previous_row_length);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glPixelStorei(GL_UNPACK_ROW_LENGTH, static_cast<GLint>(rowPitch / bpp));
         texture->upload(upload.mipLevel, upload.data.data());
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, previous_row_length);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, previous_alignment);
     }
 }
 
-void GLDevice::executeCommandLists(CommandList**, uint32_t, Fence*, uint64_t) {
+void GLDevice::executeCommandLists(CommandList**, uint32_t, Fence* fence, uint64_t fenceValue) {
     glFlush();
+    if (fence)
+        fence->signal(fenceValue);
 }
 
 void GLDevice::waitIdle() {
-    if (m_initialized)
+    if (initialized_)
         glFinish();
 }
 
 void GLDevice::beginFrame(SwapChain*) {
+    if (context_)
+        context_->makeCurrent();
+}
+
+void GLDevice::clearCaches() {
+    if (!context_)
+        return;
+    context_->makeCurrent();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindVertexArray(0);
+    glUseProgram(0);
+    glDisable(GL_SCISSOR_TEST);
 }
 
 CommandList* GLDevice::frameCommandList() {
-    return m_initialized ? m_frameCommandList.get() : nullptr;
+    return initialized_ ? frame_command_list_.get() : nullptr;
 }
 
 void GLDevice::submit() {
