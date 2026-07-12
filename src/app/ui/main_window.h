@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "command/command_manager.h"
+#include <mulan/editor/command/command_manager.h>
 
 #include <SARibbon.h>
 #include <mulan/io/file_manager.h>

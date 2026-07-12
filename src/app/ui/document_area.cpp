@@ -1,6 +1,6 @@
 #include "document_area.h"
 #include "doc_widget.h"
-#include "document/document_session.h"
+#include <mulan/editor/document/document_session.h>
 #include "startup_page.h"
 
 #include <SARibbon.h>

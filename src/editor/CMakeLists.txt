@@ -60,6 +60,8 @@ target_include_directories(editor PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+mulan_copy_public_headers(editor editor)
+
 target_link_libraries(editor PUBLIC
     view
     render

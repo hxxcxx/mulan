@@ -6,14 +6,13 @@
  */
 #pragma once
 
-#include "document/document_view.h"
-
 #include <QWidget>
 #include <QPoint>
 #include <QPointF>
 
 #include <mulan/interaction/input_event.h>
 #include <mulan/view/core/view_config.h>
+#include <mulan/editor/document/document_view.h>
 
 class DocumentSession;
 
