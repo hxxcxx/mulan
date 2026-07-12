@@ -96,6 +96,10 @@ void ThreadedRenderRuntime::submitFrame(RenderSubmission submission) {
 
 core::Result<engine::RenderCaptureResult> ThreadedRenderRuntime::capture(RenderSubmission submission,
                                                                          engine::RenderCaptureDesc desc) {
+    if (worker_.joinable() && worker_.get_id() == std::this_thread::get_id()) {
+        return std::unexpected(
+                core::Error::make(core::ErrorCode::InvalidArg, "Capture cannot synchronously wait on render thread."));
+    }
     auto promise = std::make_shared<std::promise<core::Result<engine::RenderCaptureResult>>>();
     auto future = promise->get_future();
     {
