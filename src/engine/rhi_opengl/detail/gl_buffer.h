@@ -23,6 +23,7 @@
 #include "gl_common.h"
 #include "../../rhi/buffer.h"
 
+#include <memory>
 #include <vector>
 
 namespace mulan::engine {
@@ -31,6 +32,7 @@ class GLBuffer final : public Buffer {
 public:
     /// 构造：创建 GL 缓冲区对象
     explicit GLBuffer(const BufferDesc& desc);
+    static std::unique_ptr<GLBuffer> createTransientUniformPage(uint32_t size);
 
     ~GLBuffer();
 
@@ -57,8 +59,11 @@ public:
 
     /// 获取 GL 缓冲区用途 (GL_STATIC_DRAW, GL_DYNAMIC_DRAW 等)
     GLenum bufferUsage() const { return buffer_Usage; }
+    void* mappedData() const { return mapped_data_; }
+    bool isTransientUniformPage() const { return transient_uniform_page_; }
 
 private:
+    explicit GLBuffer(uint32_t transientUniformPageSize);
     // --- 内部方法 ---
 
     /// 确定 GL 缓冲区目标
@@ -89,6 +94,8 @@ private:
     // 对于 Dynamic 缓冲区，缓存待上传的数据
     // （在某些实现中可能需要等待 GPU 完成前一帧的读取）
     std::vector<uint8_t> pending_data_;
+    void* mapped_data_ = nullptr;
+    bool transient_uniform_page_ = false;
 };
 
 }  // namespace mulan::engine

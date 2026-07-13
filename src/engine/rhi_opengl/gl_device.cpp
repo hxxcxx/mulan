@@ -125,7 +125,8 @@ void GLDevice::init(const CreateInfo& ci) {
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 
-    frame_command_list_ = std::make_unique<GLCommandList>();
+    frame_command_list_ =
+            std::make_unique<GLCommandList>(caps_.minUniformBufferOffsetAlignment, caps_.maxUniformBufferBindingSize);
     frame_command_list_->trackResource(*this, RHIResourceKind::CommandList, "OpenGLFrameCommandList");
     auto submissionFenceResult = createFence(0);
     if (!submissionFenceResult) {
@@ -232,7 +233,8 @@ core::Result<std::unique_ptr<ComputePipelineState>> GLDevice::createComputePipel
 
 core::Result<std::unique_ptr<CommandList>> GLDevice::createCommandList() {
     try {
-        auto command_list = std::make_unique<GLCommandList>();
+        auto command_list = std::make_unique<GLCommandList>(caps_.minUniformBufferOffsetAlignment,
+                                                            caps_.maxUniformBufferBindingSize);
         command_list->trackResource(*this, RHIResourceKind::CommandList, "OpenGLCommandList");
         return std::unique_ptr<CommandList>(std::move(command_list));
     } catch (const std::exception& e) {

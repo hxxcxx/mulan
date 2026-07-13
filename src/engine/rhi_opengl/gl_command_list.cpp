@@ -5,17 +5,21 @@
 #include "detail/gl_sampler.h"
 #include "detail/gl_render_target.h"
 #include "detail/gl_bind_group.h"
+#include "detail/gl_transient_uniform_arena.h"
 #include "../rhi/buffer.h"
+#include "../rhi/engine_error_code.h"
 #include "../rhi/render_types.h"
 #include "../rhi/render_types.h"
 #include <cstring>
 #include <algorithm>
 #include <array>
+#include <string>
 #include <vector>
 
 namespace mulan::engine {
 
-GLCommandList::GLCommandList() {
+GLCommandList::GLCommandList(uint32_t uniformAlignment, uint32_t maxUniformSize)
+    : transient_uniform_arena_(std::make_unique<GLTransientUniformArena>(uniformAlignment, maxUniformSize)) {
     glCreateVertexArrays(1, &vao_);
 }
 
@@ -28,6 +32,8 @@ GLCommandList::~GLCommandList() {
 
 void GLCommandList::begin() {
     resetResourceUsage();
+    if (!transient_uniform_arena_->beginRecording())
+        LOG_ERROR("[OpenGL] Transient uniform recording could not acquire a reusable batch");
     // OpenGL 立即模式，begin/end 不做实质工作
     pipeline_state_applied_ = false;
     vertex_layout_dirty_ = true;
@@ -37,7 +43,7 @@ void GLCommandList::begin() {
 }
 
 void GLCommandList::end() {
-    // OpenGL 立即模式，end 不做实质工作
+    transient_uniform_arena_->sealRecording();
 }
 
 void GLCommandList::setPipelineState(PipelineState* pso) {
@@ -70,8 +76,52 @@ void GLCommandList::setScissorRect(const ScissorRect& rect) {
 
 void GLCommandList::bindGroup(BindGroup& group) {
     recordBindGroupUse(group);
+    if (std::any_of(group.layout().entries().begin(), group.layout().entries().end(),
+                    [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
+        LOG_ERROR("[OpenGL] bindGroup rejected: dynamic UniformBuffer bindings are required by the layout");
+        return;
+    }
     bindResources(group);
     group.markClean();
+}
+
+void GLCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
+    recordBindGroupUse(group);
+    const std::string validationError = validateDynamicUniformBindings(
+            group.layout(), dynamicUniforms,
+            { transient_uniform_arena_->alignment(), transient_uniform_arena_->maxAllocationSize() },
+            transient_uniform_arena_->recordingGeneration());
+    if (!validationError.empty()) {
+        LOG_ERROR("[OpenGL] Dynamic uniform binding rejected: {}", validationError);
+        return;
+    }
+
+    bindResources(group);
+    glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
+    for (const auto& binding : dynamicUniforms) {
+        if (binding.binding >= 32) {
+            LOG_ERROR("[OpenGL] Dynamic uniform binding {} exceeds the backend slot limit", binding.binding);
+            continue;
+        }
+        auto* buffer = dynamic_cast<GLBuffer*>(binding.slice.backingBuffer);
+        if (!buffer || !buffer->isTransientUniformPage()) {
+            LOG_ERROR("[OpenGL] Dynamic uniform binding {} does not reference a persistent mapped page",
+                      binding.binding);
+            continue;
+        }
+        recordResourceUse(buffer);
+        glBindBufferRange(GL_UNIFORM_BUFFER, binding.binding, buffer->handle(),
+                          static_cast<GLintptr>(binding.slice.offset), static_cast<GLsizeiptr>(binding.slice.size));
+    }
+    group.markClean();
+}
+
+core::Result<UniformSlice> GLCommandList::writeUniformBytes(std::span<const std::byte> data) {
+    const auto allocation = transient_uniform_arena_->upload(data);
+    if (!allocation)
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceCreateFailed, "OpenGL transient uniform allocation failed"));
+    return UniformSlice{ allocation.backingBuffer, allocation.offset, allocation.size, allocation.recordingGeneration };
 }
 
 void GLCommandList::bindResources(const BindGroupDesc& group) {

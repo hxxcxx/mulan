@@ -6,6 +6,7 @@ add_library(rhi_opengl STATIC
     backend_register.cpp
     platform/gl_context_wgl.cpp
     gl_buffer.cpp
+    gl_transient_uniform_arena.cpp
     gl_bind_group.cpp
     gl_command_list.cpp
     gl_device.cpp

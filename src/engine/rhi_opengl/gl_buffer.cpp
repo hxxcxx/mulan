@@ -1,4 +1,5 @@
 #include "detail/gl_buffer.h"
+#include <cstddef>
 #include <cstring>
 #include <string>
 
@@ -60,8 +61,39 @@ GLBuffer::GLBuffer(const BufferDesc& desc) : desc_(desc) {
     createBuffer();
 }
 
+GLBuffer::GLBuffer(uint32_t transientUniformPageSize)
+    : desc_(BufferDesc::uniform(transientUniformPageSize, "GLTransientUniformPage")),
+      buffer_Target(GL_UNIFORM_BUFFER),
+      buffer_Usage(GL_STREAM_DRAW),
+      transient_uniform_page_(true) {
+    if (transientUniformPageSize == 0 || !glNamedBufferStorage || !glMapNamedBufferRange)
+        return;
+
+    glCreateBuffers(1, &buffer_);
+    if (!buffer_)
+        return;
+    constexpr GLbitfield storageFlags =
+            GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_DYNAMIC_STORAGE_BIT;
+    glNamedBufferStorage(buffer_, static_cast<GLsizeiptr>(transientUniformPageSize), nullptr, storageFlags);
+    mapped_data_ = glMapNamedBufferRange(buffer_, 0, static_cast<GLsizeiptr>(transientUniformPageSize),
+                                         GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+    if (!mapped_data_) {
+        glDeleteBuffers(1, &buffer_);
+        buffer_ = 0;
+    }
+}
+
+std::unique_ptr<GLBuffer> GLBuffer::createTransientUniformPage(uint32_t size) {
+    auto page = std::unique_ptr<GLBuffer>(new GLBuffer(size));
+    if (!page->isValid() || !page->mappedData())
+        return nullptr;
+    return page;
+}
+
 GLBuffer::~GLBuffer() {
     if (buffer_ != 0) {
+        if (mapped_data_)
+            glUnmapNamedBuffer(buffer_);
         glDeleteBuffers(1, &buffer_);
         buffer_ = 0;
     }
@@ -104,6 +136,11 @@ void GLBuffer::update(uint32_t offset, uint32_t size, const void* data) {
 
     if (offset + size > desc_.size) {
         LOG_ERROR("[OpenGL] Buffer update rejected: offset={}, size={}, bufferSize={}", offset, size, desc_.size);
+        return;
+    }
+
+    if (mapped_data_) {
+        std::memcpy(static_cast<std::byte*>(mapped_data_) + offset, data, size);
         return;
     }
 

@@ -26,6 +26,7 @@
 #include "../../rhi/command_list.h"
 
 #include <cstdint>
+#include <memory>
 
 namespace mulan::engine {
 
@@ -36,11 +37,12 @@ class GLBuffer;
 class GLPipelineState;
 class GLTexture;
 class GLSampler;
+class GLTransientUniformArena;
 
 class GLCommandList final : public CommandList {
 public:
     /// 构造函数
-    GLCommandList();
+    GLCommandList(uint32_t uniformAlignment, uint32_t maxUniformSize);
 
     ~GLCommandList();
 
@@ -61,7 +63,9 @@ public:
 
     /// 绑定资源组（UBO / Texture）
     void bindGroup(BindGroup& group) override;
+    void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
     void bindResources(const BindGroupDesc& desc) override;
+    core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data) override;
 
     // --- 视口 / 裁剪 ---
 
@@ -193,6 +197,7 @@ private:
     // VAO — OpenGL Core Profile 必须绑定 VAO 才能 draw
     GLuint vao_ = 0;
     bool vertex_layout_dirty_ = true;  // VBO/PSO 变化时重新设置属性指针
+    std::unique_ptr<GLTransientUniformArena> transient_uniform_arena_;
 };
 
 }  // namespace mulan::engine
