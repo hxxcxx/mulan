@@ -3,6 +3,7 @@
 add_library(rhi_vulkan STATIC
     backend_register.cpp
     vk_buffer.cpp
+    vk_transient_uniform_arena.cpp
     vk_bind_group.cpp
     vk_compute_pipeline.cpp
     vk_texture.cpp

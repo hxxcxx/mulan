@@ -19,7 +19,8 @@ namespace mulan::engine {
 
 class VKFrameScheduler {
 public:
-    VKFrameScheduler(vk::Device device, vk::Queue graphicsQueue, uint32_t graphicsQueueFamily);
+    VKFrameScheduler(vk::Device device, vk::Queue graphicsQueue, uint32_t graphicsQueueFamily, VmaAllocator allocator,
+                     uint32_t uniformAlignment, uint32_t maxUniformSize);
     ~VKFrameScheduler();
 
     VKFrameScheduler(const VKFrameScheduler&) = delete;
@@ -45,6 +46,9 @@ private:
     vk::Device device_;
     vk::Queue graphics_queue_;
     uint32_t graphics_queue_family_ = 0;
+    VmaAllocator allocator_ = nullptr;
+    uint32_t uniform_alignment_ = 1;
+    uint32_t max_uniform_size_ = 1;
 
     std::vector<std::unique_ptr<VKFrameContext>> frame_contexts_;
     std::vector<std::unique_ptr<VKDescriptorAllocator>> descriptor_allocators_;

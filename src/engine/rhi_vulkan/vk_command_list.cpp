@@ -4,11 +4,14 @@
 #include "detail/vk_descriptor_allocator.h"
 #include "detail/vk_device.h"
 #include "detail/vk_bind_group.h"
+#include "detail/vk_transient_uniform_arena.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"
 
+#include <algorithm>
 #include <string>
+#include <vector>
 
 namespace mulan::engine {
 
@@ -101,7 +104,9 @@ vk::ImageAspectFlags aspectMaskForTexture(TextureFormat format) {
 }  // namespace
 
 core::Result<std::unique_ptr<VKCommandList>> VKCommandList::create(vk::Device device, uint32_t queueFamilyIndex,
-                                                                   VKDescriptorAllocator* allocator) {
+                                                                   VKDescriptorAllocator* allocator,
+                                                                   VmaAllocator memoryAllocator,
+                                                                   uint32_t uniformAlignment, uint32_t maxUniformSize) {
     vk::CommandPoolCreateInfo poolCI;
     poolCI.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
     poolCI.queueFamilyIndex = queueFamilyIndex;
@@ -124,15 +129,27 @@ core::Result<std::unique_ptr<VKCommandList>> VKCommandList::create(vk::Device de
 
     auto obj = std::unique_ptr<VKCommandList>(new VKCommandList(device, pool, cmd));
     obj->allocator_ = allocator;
+    obj->owned_transient_uniform_arena_ =
+            std::make_unique<VKTransientUniformArena>(memoryAllocator, uniformAlignment, maxUniformSize);
+    obj->transient_uniform_arena_ = obj->owned_transient_uniform_arena_.get();
     return obj;
+}
+
+VKCommandList::VKCommandList(vk::Device device, vk::CommandPool pool, vk::CommandBuffer cmd)
+    : device_(device), pool_(pool), cmd_buffer_(cmd), owns_pool_(true) {
 }
 
 VKCommandList::VKCommandList(vk::Device device, vk::CommandBuffer externalCmd)
     : device_(device), cmd_buffer_(externalCmd), owns_pool_(false) {
 }
 
-VKCommandList::VKCommandList(vk::Device device, vk::CommandBuffer externalCmd, VKDescriptorAllocator* allocator)
-    : device_(device), cmd_buffer_(externalCmd), allocator_(allocator), owns_pool_(false) {
+VKCommandList::VKCommandList(vk::Device device, vk::CommandBuffer externalCmd, VKDescriptorAllocator* allocator,
+                             VKTransientUniformArena* transientUniformArena)
+    : device_(device),
+      cmd_buffer_(externalCmd),
+      allocator_(allocator),
+      owns_pool_(false),
+      transient_uniform_arena_(transientUniformArena) {
 }
 
 VKCommandList::~VKCommandList() {
@@ -144,12 +161,15 @@ VKCommandList::~VKCommandList() {
 
 void VKCommandList::begin() {
     resetResourceUsage();
+    dynamic_set_cache_.clear();
     if (owns_pool_) {
         device_.resetCommandPool(pool_);
     }
 
     swapchain_color_texture_ = nullptr;
     rp_present_source_ = false;
+    if (transient_uniform_arena_)
+        transient_uniform_arena_->beginRecording();
 
     vk::CommandBufferBeginInfo beginInfo;
     beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
@@ -337,7 +357,16 @@ void VKCommandList::clearStencil(uint8_t) {
 
 void VKCommandList::bindGroup(BindGroup& group) {
     recordBindGroupUse(group);
-    auto* vkGroup = static_cast<VKBindGroup*>(&group);
+    auto* vkGroup = dynamic_cast<VKBindGroup*>(&group);
+    if (!vkGroup) {
+        LOG_ERROR("[Vulkan] bindGroup rejected: bind group is not a Vulkan bind group");
+        return;
+    }
+    if (std::any_of(vkGroup->layout().entries().begin(), vkGroup->layout().entries().end(),
+                    [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
+        LOG_ERROR("[Vulkan] bindGroup rejected: dynamic UniformBuffer bindings are required by the layout");
+        return;
+    }
     if (vkGroup->entryCount() == 0 || !allocator_)
         return;
     if (!current_desc_set_layout_)
@@ -384,6 +413,112 @@ void VKCommandList::bindGroup(BindGroup& group) {
     wrapper.flush();
     wrapper.bind(cmd_buffer_, current_layout_);
     vkGroup->markClean();
+}
+
+void VKCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
+    recordBindGroupUse(group);
+    auto* vkGroup = dynamic_cast<VKBindGroup*>(&group);
+    if (!vkGroup || !allocator_ || !transient_uniform_arena_ || !current_desc_set_layout_) {
+        LOG_ERROR("[Vulkan] Dynamic bindGroup rejected: command list state is incomplete");
+        return;
+    }
+
+    const std::string validationError = validateDynamicUniformBindings(
+            vkGroup->layout(), dynamicUniforms,
+            { transient_uniform_arena_->alignment(), transient_uniform_arena_->maxAllocationSize() },
+            transient_uniform_arena_->recordingGeneration());
+    if (!validationError.empty()) {
+        LOG_ERROR("[Vulkan] Dynamic uniform binding rejected: {}", validationError);
+        return;
+    }
+
+    DynamicDescriptorSetCacheEntry cacheKey;
+    cacheKey.group = vkGroup;
+    std::vector<uint32_t> dynamicOffsets;
+    dynamicOffsets.reserve(dynamicUniforms.size());
+    for (const auto& layoutEntry : vkGroup->layout().entries()) {
+        if (layoutEntry.mode != BindingMode::Dynamic)
+            continue;
+        const auto binding = std::find_if(dynamicUniforms.begin(), dynamicUniforms.end(),
+                                          [&layoutEntry](const DynamicUniformBinding& candidate) {
+                                              return candidate.binding == layoutEntry.binding;
+                                          });
+        if (binding == dynamicUniforms.end())
+            continue;
+        auto* buffer = dynamic_cast<VKBuffer*>(binding->slice.backingBuffer);
+        if (!buffer) {
+            LOG_ERROR("[Vulkan] Dynamic uniform binding {} does not reference a Vulkan buffer", binding->binding);
+            return;
+        }
+        recordResourceUse(buffer);
+        cacheKey.buffers[cacheKey.count] = buffer;
+        cacheKey.bindings[cacheKey.count] = binding->binding;
+        cacheKey.ranges[cacheKey.count] = binding->slice.size;
+        ++cacheKey.count;
+        dynamicOffsets.push_back(binding->slice.offset);
+    }
+
+    if (vkGroup->dirty()) {
+        std::erase_if(dynamic_set_cache_,
+                      [vkGroup](const DynamicDescriptorSetCacheEntry& entry) { return entry.group == vkGroup; });
+    } else {
+        const auto cached = std::find_if(
+                dynamic_set_cache_.begin(), dynamic_set_cache_.end(),
+                [&cacheKey](const DynamicDescriptorSetCacheEntry& entry) {
+                    if (entry.group != cacheKey.group || entry.count != cacheKey.count)
+                        return false;
+                    for (uint8_t i = 0; i < entry.count; ++i) {
+                        if (entry.buffers[i] != cacheKey.buffers[i] || entry.ranges[i] != cacheKey.ranges[i]) {
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+        if (cached != dynamic_set_cache_.end()) {
+            cmd_buffer_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, current_layout_, 0, 1, &cached->set,
+                                           static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+            return;
+        }
+    }
+
+    VKDescriptorSet set = allocator_->allocate(current_desc_set_layout_);
+    for (uint8_t i = 0; i < vkGroup->entryCount(); ++i) {
+        const auto& entry = vkGroup->entries()[i];
+        if (entry.type == DescriptorType::UniformBuffer && entry.buffer) {
+            auto* buffer = dynamic_cast<VKBuffer*>(entry.buffer);
+            if (buffer)
+                set.writeUBO(entry.binding, buffer->vkBuffer(), entry.offset, entry.size);
+        } else if (entry.type == DescriptorType::TextureSRV && entry.texture) {
+            auto* texture = dynamic_cast<VKTexture*>(entry.texture);
+            if (texture)
+                set.writeSampledImage(entry.binding, texture->view());
+        } else if (entry.type == DescriptorType::Sampler && entry.sampler) {
+            auto* sampler = dynamic_cast<VKSampler*>(entry.sampler);
+            if (sampler)
+                set.writeSampler(entry.binding, sampler->handle());
+        }
+    }
+    for (uint8_t i = 0; i < cacheKey.count; ++i)
+        set.writeDynamicUBO(cacheKey.bindings[i], cacheKey.buffers[i]->vkBuffer(), cacheKey.ranges[i]);
+
+    set.flush();
+    const vk::DescriptorSet descriptorSet = set.vkSet();
+    cmd_buffer_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, current_layout_, 0, 1, &descriptorSet,
+                                   static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+    cacheKey.set = descriptorSet;
+    dynamic_set_cache_.push_back(cacheKey);
+    vkGroup->markClean();
+}
+
+core::Result<UniformSlice> VKCommandList::writeUniformBytes(std::span<const std::byte> data) {
+    if (!transient_uniform_arena_)
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceCreateFailed, "Vulkan transient uniform arena is unavailable"));
+    const auto allocation = transient_uniform_arena_->upload(data);
+    if (!allocation)
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceCreateFailed, "Vulkan transient uniform allocation failed"));
+    return UniformSlice{ allocation.backingBuffer, allocation.offset, allocation.size, allocation.recordingGeneration };
 }
 
 void VKCommandList::bindResources(const BindGroupDesc& desc) {

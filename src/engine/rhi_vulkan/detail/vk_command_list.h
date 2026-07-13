@@ -18,25 +18,32 @@
 #include <array>
 #include <expected>
 #include <memory>
+#include <vector>
 
 namespace mulan::engine {
 
 class VKDescriptorAllocator;
 class VKDevice;
 class VKTexture;
+class VKBuffer;
+class VKBindGroup;
+class VKTransientUniformArena;
 
 class VKCommandList : public CommandList {
 public:
     /// 独立模式：自建 command pool + buffer（可选 descriptor allocator）。
     /// 失败返回 CommandListCreateFailed。
     static core::Result<std::unique_ptr<VKCommandList>> create(vk::Device device, uint32_t queueFamilyIndex,
-                                                               VKDescriptorAllocator* allocator = nullptr);
+                                                               VKDescriptorAllocator* allocator,
+                                                               VmaAllocator memoryAllocator, uint32_t uniformAlignment,
+                                                               uint32_t maxUniformSize);
 
     /// 外部 buffer 模式：引用 frameContext 的 command buffer
     VKCommandList(vk::Device device, vk::CommandBuffer externalCmd);
 
     /// 外部 buffer 模式 + descriptor allocator（帧循环用）
-    VKCommandList(vk::Device device, vk::CommandBuffer externalCmd, VKDescriptorAllocator* allocator);
+    VKCommandList(vk::Device device, vk::CommandBuffer externalCmd, VKDescriptorAllocator* allocator,
+                  VKTransientUniformArena* transientUniformArena);
 
     ~VKCommandList();
 
@@ -51,7 +58,9 @@ public:
 
     // --- 资源绑定 ---
     void bindGroup(BindGroup& group) override;
+    void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
     void bindResources(const BindGroupDesc& desc) override;
+    core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data) override;
 
     // --- 视口 / 裁剪 ---
     void setViewport(const Viewport& vp) override;
@@ -102,9 +111,17 @@ public:
     void setFrameToken(uint64_t token) { frame_token_ = token; }
 
 private:
+    struct DynamicDescriptorSetCacheEntry {
+        VKBindGroup* group = nullptr;
+        std::array<VKBuffer*, BindGroupDesc::kMaxEntries> buffers{};
+        std::array<uint32_t, BindGroupDesc::kMaxEntries> bindings{};
+        std::array<uint32_t, BindGroupDesc::kMaxEntries> ranges{};
+        uint8_t count = 0;
+        vk::DescriptorSet set;
+    };
+
     // 独立模式私有构造（create() 使用）
-    VKCommandList(vk::Device device, vk::CommandPool pool, vk::CommandBuffer cmd)
-        : device_(device), pool_(pool), cmd_buffer_(cmd), owns_pool_(true) {}
+    VKCommandList(vk::Device device, vk::CommandPool pool, vk::CommandBuffer cmd);
 
     vk::Device device_;
     vk::CommandPool pool_;
@@ -116,6 +133,9 @@ private:
     VKTexture* swapchain_color_texture_ = nullptr;  // endRenderPass 时转 PRESENT_SRC_KHR
     bool owns_pool_;
     uint64_t frame_token_ = 0;                      // 当前帧 token，0=独立/未注入
+    std::unique_ptr<VKTransientUniformArena> owned_transient_uniform_arena_;
+    VKTransientUniformArena* transient_uniform_arena_ = nullptr;
+    std::vector<DynamicDescriptorSetCacheEntry> dynamic_set_cache_;
 };
 
 }  // namespace mulan::engine

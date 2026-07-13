@@ -363,7 +363,9 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
 
     // --- 私有组件 ---
     upload_context_ = std::make_unique<VKUploadContext>(device_, allocator_, graphics_queue_family_, graphics_queue_);
-    frame_scheduler_ = std::make_unique<VKFrameScheduler>(device_, graphics_queue_, graphics_queue_family_);
+    frame_scheduler_ = std::make_unique<VKFrameScheduler>(device_, graphics_queue_, graphics_queue_family_, allocator_,
+                                                          caps_.minUniformBufferOffsetAlignment,
+                                                          caps_.maxUniformBufferBindingSize);
     frame_scheduler_->initFrameContexts(ci.renderConfig.bufferCount > 0 ? ci.renderConfig.bufferCount : 2);
     resource_factory_ = std::make_unique<VKResourceFactory>(*this, device_, allocator_, *upload_context_);
     auto submissionFenceResult = createFence(0);

@@ -31,6 +31,14 @@ public:
         ++write_count_;
     }
 
+    void writeDynamicUBO(uint32_t binding, vk::Buffer buffer, vk::DeviceSize range) {
+        auto idx = write_count_;
+        buf_infos_[idx] = vk::DescriptorBufferInfo(buffer, 0, range);
+        writes_[idx] = vk::WriteDescriptorSet(set_, binding, 0, 1, vk::DescriptorType::eUniformBufferDynamic, nullptr,
+                                              &buf_infos_[idx]);
+        ++write_count_;
+    }
+
     void writeSampledImage(uint32_t binding, vk::ImageView imageView,
                            vk::ImageLayout layout = vk::ImageLayout::eShaderReadOnlyOptimal) {
         auto idx = write_count_;

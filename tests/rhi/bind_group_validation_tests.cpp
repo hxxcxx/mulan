@@ -80,6 +80,15 @@ TEST(BindGroupValidationTest, AllowsDynamicUniformToBeOmittedFromBindGroupDesc) 
     EXPECT_TRUE(validateBindGroupDesc(dynamicUniformLayout(), desc, { 256, 64 * 1024 }).empty());
 }
 
+TEST(BindGroupValidationTest, RejectsDynamicBindingsWithoutUniformSemantics) {
+    const std::array entries{ BindGroupLayoutEntry{ 2, 1, DescriptorType::TextureSRV, PipelineBinding::kStageFragment,
+                                                    BindingMode::Dynamic } };
+    const BindGroupLayout layout = BindGroupLayout::fromBindings(entries);
+    const BindGroupDesc desc;
+
+    EXPECT_FALSE(validateBindGroupDesc(layout, desc, { 256, 64 * 1024 }).empty());
+}
+
 TEST(BindGroupValidationTest, IncludesBindingModeInLayoutIdentity) {
     EXPECT_NE(uniformLayout().hash(), dynamicUniformLayout().hash());
 }

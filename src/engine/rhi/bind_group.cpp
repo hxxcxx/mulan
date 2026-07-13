@@ -52,6 +52,15 @@ std::string validateBindGroupDesc(const BindGroupLayout& layout, const BindGroup
     if (limits.minUniformBufferOffsetAlignment == 0)
         return "uniform-buffer offset alignment capability must not be zero";
 
+    for (const auto& entry : layout.entries()) {
+        if (entry.mode != BindingMode::Dynamic)
+            continue;
+        if (entry.type != DescriptorType::UniformBuffer)
+            return "dynamic bindings are restricted to UniformBuffer descriptors";
+        if (entry.count != 1)
+            return "dynamic UniformBuffer arrays are not supported";
+    }
+
     const auto staticBindingCount = static_cast<size_t>(
             std::count_if(layout.entries().begin(), layout.entries().end(),
                           [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Static; }));

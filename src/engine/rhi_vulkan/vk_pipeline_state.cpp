@@ -40,7 +40,10 @@ core::Error VKPipelineState::createRootSignature() {
             const auto& b = desc_.descriptorBindings[i];
             vk::DescriptorType vkType;
             switch (b.type) {
-            case DescriptorType::UniformBuffer: vkType = vk::DescriptorType::eUniformBuffer; break;
+            case DescriptorType::UniformBuffer:
+                vkType = b.mode == BindingMode::Dynamic ? vk::DescriptorType::eUniformBufferDynamic
+                                                        : vk::DescriptorType::eUniformBuffer;
+                break;
             case DescriptorType::TextureSRV: vkType = vk::DescriptorType::eSampledImage; break;
             case DescriptorType::Sampler: vkType = vk::DescriptorType::eSampler; break;
             }

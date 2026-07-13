@@ -2,7 +2,9 @@
 
 namespace mulan::engine {
 
-VKFrameContext::VKFrameContext(vk::Device device, uint32_t queueFamily) : device_(device) {
+VKFrameContext::VKFrameContext(vk::Device device, uint32_t queueFamily, VmaAllocator allocator,
+                               uint32_t uniformAlignment, uint32_t maxUniformSize)
+    : device_(device), transient_uniform_arena_(allocator, uniformAlignment, maxUniformSize) {
     vk::CommandPoolCreateInfo poolCI;
     poolCI.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
     poolCI.queueFamilyIndex = queueFamily;

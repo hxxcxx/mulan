@@ -6,8 +6,14 @@
 
 namespace mulan::engine {
 
-VKFrameScheduler::VKFrameScheduler(vk::Device device, vk::Queue graphicsQueue, uint32_t graphicsQueueFamily)
-    : device_(device), graphics_queue_(graphicsQueue), graphics_queue_family_(graphicsQueueFamily) {
+VKFrameScheduler::VKFrameScheduler(vk::Device device, vk::Queue graphicsQueue, uint32_t graphicsQueueFamily,
+                                   VmaAllocator allocator, uint32_t uniformAlignment, uint32_t maxUniformSize)
+    : device_(device),
+      graphics_queue_(graphicsQueue),
+      graphics_queue_family_(graphicsQueueFamily),
+      allocator_(allocator),
+      uniform_alignment_(uniformAlignment),
+      max_uniform_size_(maxUniformSize) {
 }
 
 VKFrameScheduler::~VKFrameScheduler() {
@@ -21,7 +27,8 @@ void VKFrameScheduler::initFrameContexts(uint32_t count) {
     frame_contexts_.clear();
     frame_count_ = count;
     for (uint32_t i = 0; i < count; ++i) {
-        frame_contexts_.push_back(std::make_unique<VKFrameContext>(device_, graphics_queue_family_));
+        frame_contexts_.push_back(std::make_unique<VKFrameContext>(device_, graphics_queue_family_, allocator_,
+                                                                   uniform_alignment_, max_uniform_size_));
     }
 
     descriptor_allocators_.clear();
@@ -31,7 +38,8 @@ void VKFrameScheduler::initFrameContexts(uint32_t count) {
 
     current_frame_ = 0;
     frame_cmd_list_ = std::make_unique<VKCommandList>(device_, currentFrameContext().cmdBuffer(),
-                                                      descriptor_allocators_[current_frame_].get());
+                                                      descriptor_allocators_[current_frame_].get(),
+                                                      currentFrameContext().transientUniformArena());
 }
 
 void VKFrameScheduler::ensureSwapchainImageSync(uint32_t imageCount) {
@@ -45,7 +53,8 @@ void VKFrameScheduler::ensureSwapchainImageSync(uint32_t imageCount) {
 
 core::Result<std::unique_ptr<CommandList>> VKFrameScheduler::createStandaloneCommandList() {
     auto* allocator = new VKDescriptorAllocator(device_);
-    auto result = VKCommandList::create(device_, graphics_queue_family_, allocator);
+    auto result = VKCommandList::create(device_, graphics_queue_family_, allocator, allocator_, uniform_alignment_,
+                                        max_uniform_size_);
     if (!result) {
         delete allocator;
         return std::unexpected(result.error());
@@ -70,8 +79,8 @@ void VKFrameScheduler::beginFrame(SwapChain* swapchain) {
     standalone_allocators_prev_ = std::move(standalone_allocators_);
     standalone_allocators_.clear();
 
-    frame_cmd_list_ =
-            std::make_unique<VKCommandList>(device_, frame.cmdBuffer(), descriptor_allocators_[current_frame_].get());
+    frame_cmd_list_ = std::make_unique<VKCommandList>(
+            device_, frame.cmdBuffer(), descriptor_allocators_[current_frame_].get(), frame.transientUniformArena());
 
     if (swapchain) {
         auto* sc = static_cast<VKSwapChain*>(swapchain);
