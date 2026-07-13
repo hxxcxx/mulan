@@ -6,9 +6,9 @@
 
 #include <mulan/view/scene_sync/render_surface.h>
 
+#include <mulan/core/log/log.h>
 #include "mulan/rhi/device.h"
 
-#include <cstdio>
 #include <utility>
 
 namespace mulan::view {
@@ -182,7 +182,7 @@ void RenderSurface::resize(engine::RHIDevice& device, int width, int height) {
         render_target_->resize(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
         row_bytes_ = readbackRowBytes(device, width_, bytes_per_pixel_);
         if (!createReadbackBuffer(device)) {
-            std::fprintf(stderr, "[RenderSurface] resize staging buffer failed\n");
+            LOG_ERROR("[RenderSurface] Failed to resize the readback buffer to {}x{}", width_, height_);
         }
     } else if (swapchain_) {
         device.clearCaches();
@@ -197,8 +197,7 @@ bool RenderSurface::readbackPixels(engine::RHIDevice& device, std::vector<uint8_
 
     auto cmdResult = device.createCommandList();
     if (!cmdResult) {
-        std::fprintf(stderr, "[RenderSurface] readbackPixels createCommandList: %s\n",
-                     cmdResult.error().message.c_str());
+        LOG_ERROR("[RenderSurface] Pixel readback command-list creation failed: {}", cmdResult.error().message);
         return false;
     }
     auto cmd = std::move(*cmdResult);
@@ -213,7 +212,7 @@ bool RenderSurface::readbackPixels(engine::RHIDevice& device, std::vector<uint8_
 
     auto fenceResult = device.createFence(0);
     if (!fenceResult) {
-        std::fprintf(stderr, "[RenderSurface] readbackPixels createFence: %s\n", fenceResult.error().message.c_str());
+        LOG_ERROR("[RenderSurface] Pixel readback fence creation failed: {}", fenceResult.error().message);
         return false;
     }
     auto fence = std::move(*fenceResult);

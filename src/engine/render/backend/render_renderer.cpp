@@ -9,6 +9,8 @@
 #include "../../rhi/render_types.h"
 #include "../../rhi/swap_chain.h"
 
+#include <mulan/core/log/log.h>
+
 #include <cstdio>
 #include <span>
 
@@ -72,17 +74,20 @@ bool RenderRenderer::init(RHIDevice& device, LightEnvironment& lightEnv, Texture
 
     view_cube_stage_ = std::make_unique<ViewCubeStage>(device);
     if (!view_cube_stage_->init(device, targetInfo)) {
-        std::fprintf(stderr, "[RenderRenderer] ViewCube init failed (non-fatal)\n");
+        LOG_WARN("[RenderRenderer] ViewCube stage initialization failed; continuing without it");
         view_cube_stage_.reset();
     }
 
     text_stage_ = std::make_unique<TextStage>(device);
     if (!text_stage_->init(device, targetInfo)) {
-        std::fprintf(stderr, "[RenderRenderer] TextStage init failed (non-fatal)\n");
+        LOG_WARN("[RenderRenderer] Text stage initialization failed; continuing without it");
         text_stage_.reset();
     }
 
     initialized_ = true;
+    LOG_INFO("[RenderRenderer] Initialized: colorFormat={}, depthFormat={}, sampleCount={}, viewCube={}, text={}",
+             static_cast<int>(colorFmt), static_cast<int>(depthFmt), sampleCount, view_cube_stage_ != nullptr,
+             text_stage_ != nullptr);
     return true;
 }
 
@@ -115,10 +120,7 @@ void RenderRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
     test = fopen(hdrPath.c_str(), "rb");
 #endif
     if (!test) {
-        std::fprintf(stderr,
-                     "[RenderRenderer] IBL requested but HDR not found: %s "
-                     "(place a .hdr file there)\n",
-                     hdrPath.c_str());
+        LOG_WARN("[RenderRenderer] IBL requested but HDR file was not found: {}", hdrPath);
         return;
     }
     fclose(test);
@@ -128,7 +130,9 @@ void RenderRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
         if (face_stage_) {
             face_stage_->setIBLTextures(ibl_->irradiance(), ibl_->prefilter(), ibl_->brdfLUT());
         }
+        LOG_INFO("[RenderRenderer] IBL enabled: {}", hdrPath);
     } else {
+        LOG_ERROR("[RenderRenderer] IBL bake failed: {}", hdrPath);
         ibl_.reset();
     }
 }
@@ -190,23 +194,23 @@ bool RenderRenderer::validateOutput(const RenderSurfaceBinding& surface, const R
     switch (request.output.mode) {
     case RenderTargetMode::Present:
         if (!surface.swapChain) {
-            std::fprintf(stderr, "[RenderRenderer] Present request requires a SwapChain\n");
+            LOG_ERROR("[RenderRenderer] Present request rejected: SwapChain is required");
             return false;
         }
         return true;
     case RenderTargetMode::Offscreen:
         if (!surface.renderTarget) {
-            std::fprintf(stderr, "[RenderRenderer] Offscreen request requires a RenderTarget\n");
+            LOG_ERROR("[RenderRenderer] Offscreen request rejected: RenderTarget is required");
             return false;
         }
         return true;
     case RenderTargetMode::Capture:
         if (!surface.renderTarget) {
-            std::fprintf(stderr, "[RenderRenderer] Capture request requires a RenderTarget\n");
+            LOG_ERROR("[RenderRenderer] Capture request rejected: RenderTarget is required");
             return false;
         }
         if (!request.output.readback) {
-            std::fprintf(stderr, "[RenderRenderer] Capture request should enable readback\n");
+            LOG_WARN("[RenderRenderer] Capture request has readback disabled");
         }
         return true;
     }

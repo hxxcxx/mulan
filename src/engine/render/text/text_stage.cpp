@@ -8,6 +8,7 @@
 #include "../../rhi/command_list.h"
 #include "../../rhi/device.h"
 
+#include <mulan/core/log/log.h>
 #include <mulan/graphics/vertex/vertex_layout.h>
 
 #include <algorithm>
@@ -150,7 +151,7 @@ core::Result<void> TextStage::init(RHIDevice& device, const RenderTargetInfo& ta
 
     font_manager_ = std::make_unique<FontManager>(device);
     if (!loadDefaultFont()) {
-        std::fprintf(stderr, "[TextStage] default font load failed; text draws will be skipped\n");
+        LOG_WARN("[TextStage] Default font loading failed; text draws will be skipped");
     }
 
     initialized_ = true;
@@ -229,14 +230,14 @@ TextMetrics TextStage::measureText(std::string_view fontKey, std::string_view te
 bool TextStage::loadShaders() {
     auto vs = loadShader(*device_, ShaderType::Vertex, "text.vert");
     if (!vs) {
-        std::fprintf(stderr, "[TextStage] vertex shader: %s\n", vs.error().message.c_str());
+        LOG_ERROR("[TextStage] Vertex-shader loading failed: {}", vs.error().message);
         return false;
     }
     vs_ = std::move(*vs);
 
     auto fs = loadShader(*device_, ShaderType::Pixel, "text.frag");
     if (!fs) {
-        std::fprintf(stderr, "[TextStage] fragment shader: %s\n", fs.error().message.c_str());
+        LOG_ERROR("[TextStage] Fragment-shader loading failed: {}", fs.error().message);
         return false;
     }
     fs_ = std::move(*fs);
@@ -281,7 +282,7 @@ bool TextStage::createPipeline(const RenderTargetInfo& target) {
 
     auto pso = device_->createPipelineState(desc);
     if (!pso) {
-        std::fprintf(stderr, "[TextStage] createPipelineState: %s\n", pso.error().message.c_str());
+        LOG_ERROR("[TextStage] Pipeline-state creation failed: {}", pso.error().message);
         return false;
     }
     pso_ = std::move(*pso);
@@ -296,7 +297,7 @@ bool TextStage::createBuffers(uint32_t vertexCapacity, uint32_t indexCapacity) {
     vb.bindFlags = BufferBindFlags::VertexBuffer;
     auto vertex = device_->createBuffer(vb);
     if (!vertex) {
-        std::fprintf(stderr, "[TextStage] vertex buffer: %s\n", vertex.error().message.c_str());
+        LOG_ERROR("[TextStage] Vertex-buffer creation failed: {}", vertex.error().message);
         return false;
     }
 
@@ -307,7 +308,7 @@ bool TextStage::createBuffers(uint32_t vertexCapacity, uint32_t indexCapacity) {
     ib.bindFlags = BufferBindFlags::IndexBuffer;
     auto index = device_->createBuffer(ib);
     if (!index) {
-        std::fprintf(stderr, "[TextStage] index buffer: %s\n", index.error().message.c_str());
+        LOG_ERROR("[TextStage] Index-buffer creation failed: {}", index.error().message);
         return false;
     }
 
@@ -381,7 +382,7 @@ BindGroup* TextStage::bindGroupForFont(std::string_view fontKey, FontAtlas& font
     }
 
     if (!font.atlasSampler() && device_->backend() != GraphicsBackend::D3D12) {
-        std::fprintf(stderr, "[TextStage] atlas sampler is required by this backend\n");
+        LOG_ERROR("[TextStage] Atlas sampler is required by the active backend");
         return nullptr;
     }
 
@@ -400,7 +401,7 @@ BindGroup* TextStage::bindGroupForFont(std::string_view fontKey, FontAtlas& font
 
     auto bindGroup = device_->createBindGroup(pso_->bindGroupLayout(), bg);
     if (!bindGroup) {
-        std::fprintf(stderr, "[TextStage] createBindGroup: %s\n", bindGroup.error().message.c_str());
+        LOG_ERROR("[TextStage] Bind-group creation failed: {}", bindGroup.error().message);
         return nullptr;
     }
 

@@ -6,10 +6,10 @@
 #include "../gpu_scene_contract.h"
 
 #include <mulan/core/result/error.h>
+#include <mulan/core/log/log.h>
 #include <mulan/graphics/vertex/vertex_layout.h>
 #include <mulan/math/math.h>
 
-#include <cstdio>
 #include <cstring>
 #include <cmath>
 #include <algorithm>
@@ -361,7 +361,7 @@ bool ViewCubeStage::createFaceGeometry() {
         auto r = device_->createBuffer(
                 BufferDesc::vertex(sizeof(CubeVertex) * verts.size(), verts.data(), "ViewCube_FaceVB"));
         if (!r) {
-            std::fprintf(stderr, "[ViewCube] createBuffer FaceVB: %s\n", r.error().message.c_str());
+            LOG_ERROR("[ViewCube] Face vertex-buffer creation failed: {}", r.error().message);
             return false;
         }
         face_vb_ = std::move(*r);
@@ -370,7 +370,7 @@ bool ViewCubeStage::createFaceGeometry() {
         auto r = device_->createBuffer(
                 BufferDesc::index(sizeof(uint32_t) * indices.size(), indices.data(), "ViewCube_FaceIB"));
         if (!r) {
-            std::fprintf(stderr, "[ViewCube] createBuffer FaceIB: %s\n", r.error().message.c_str());
+            LOG_ERROR("[ViewCube] Face index-buffer creation failed: {}", r.error().message);
             return false;
         }
         face_ib_ = std::move(*r);
@@ -470,7 +470,7 @@ bool ViewCubeStage::createAxisGeometry() {
         auto r = device_->createBuffer(
                 BufferDesc::vertex(sizeof(CubeVertex) * verts.size(), verts.data(), "ViewCube_AxisVB"));
         if (!r) {
-            std::fprintf(stderr, "[ViewCube] createBuffer AxisVB: %s\n", r.error().message.c_str());
+            LOG_ERROR("[ViewCube] Axis vertex-buffer creation failed: {}", r.error().message);
             return false;
         }
         axis_vb_ = std::move(*r);
@@ -479,7 +479,7 @@ bool ViewCubeStage::createAxisGeometry() {
         auto r = device_->createBuffer(
                 BufferDesc::index(sizeof(uint32_t) * indices.size(), indices.data(), "ViewCube_AxisIB"));
         if (!r) {
-            std::fprintf(stderr, "[ViewCube] createBuffer AxisIB: %s\n", r.error().message.c_str());
+            LOG_ERROR("[ViewCube] Axis index-buffer creation failed: {}", r.error().message);
             return false;
         }
         axis_ib_ = std::move(*r);

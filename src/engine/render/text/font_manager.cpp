@@ -2,7 +2,8 @@
 
 #include "font_atlas_cache.h"
 
-#include <cstdio>
+#include <mulan/core/log/log.h>
+
 #include <utility>
 
 namespace mulan::engine {
@@ -20,17 +21,17 @@ bool FontManager::loadFont(const char* key, const char* fontPath, float fontSize
     auto atlas = std::make_unique<FontAtlas>(device_);
     FontAtlasCpuData cpuData;
     if (FontAtlasCache::tryLoad(cacheKey, cpuData)) {
-        std::fprintf(stderr, "[FontAtlasCache] hit: %s\n", cacheKey.filePath.string().c_str());
+        LOG_DEBUG("[FontAtlasCache] Cache hit: {}", cacheKey.filePath.string());
         if (!atlas->loadFromCpuData(std::move(cpuData))) {
             return false;
         }
     } else {
-        std::fprintf(stderr, "[FontAtlasCache] miss: %s\n", cacheKey.filePath.string().c_str());
+        LOG_DEBUG("[FontAtlasCache] Cache miss: {}", cacheKey.filePath.string());
         if (!FontAtlas::generateCpuData(fontPath, fontSize, atlasSize, atlasSize, cpuData)) {
             return false;
         }
         if (!FontAtlasCache::save(cacheKey, cpuData)) {
-            std::fprintf(stderr, "[FontAtlasCache] save failed: %s\n", cacheKey.filePath.string().c_str());
+            LOG_WARN("[FontAtlasCache] Failed to save cache: {}", cacheKey.filePath.string());
         }
         if (!atlas->loadFromCpuData(std::move(cpuData))) {
             return false;

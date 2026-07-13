@@ -5,10 +5,11 @@
 #include "../mesh_draw_command.h"
 #include "../../rhi/device.h"
 
+#include <mulan/core/log/log.h>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <cstdio>
 
 namespace mulan::engine {
 namespace {
@@ -132,7 +133,7 @@ bool GeometryDrawSharedResources::createBuffers() {
 bool GeometryDrawSharedResources::createDefaultResources() {
     auto samplerResult = device_.createSampler(SamplerDesc::linear());
     if (!samplerResult) {
-        std::fprintf(stderr, "[GeometryDrawSharedResources] createSampler failed\n");
+        LOG_ERROR("[GeometryDrawSharedResources] Default sampler creation failed");
         return false;
     }
     default_sampler_ = std::move(*samplerResult);
@@ -140,34 +141,34 @@ bool GeometryDrawSharedResources::createDefaultResources() {
     const uint8_t white[4] = { 255, 255, 255, 255 };
     default_white_tex_ = createDefaultRGBA8Texture(device_, "DefaultWhite", white);
     if (!default_white_tex_) {
-        std::fprintf(stderr, "[GeometryDrawSharedResources] create default white texture failed\n");
+        LOG_ERROR("[GeometryDrawSharedResources] Default white texture creation failed");
         return false;
     }
 
     const uint8_t blackRGBA8[4] = { 0, 0, 0, 255 };
     default_black_tex_ = createDefaultRGBA8Texture(device_, "DefaultBlack", blackRGBA8);
     if (!default_black_tex_) {
-        std::fprintf(stderr, "[GeometryDrawSharedResources] create default black texture failed\n");
+        LOG_ERROR("[GeometryDrawSharedResources] Default black texture creation failed");
         return false;
     }
 
     const uint8_t normal[4] = { 128, 128, 255, 255 };
     default_normal_tex_ = createDefaultRGBA8Texture(device_, "DefaultNormal", normal);
     if (!default_normal_tex_) {
-        std::fprintf(stderr, "[GeometryDrawSharedResources] create default normal texture failed\n");
+        LOG_ERROR("[GeometryDrawSharedResources] Default normal texture creation failed");
         return false;
     }
 
     const uint8_t metallicRoughness[4] = { 255, 255, 0, 255 };
     default_mr_tex_ = createDefaultRGBA8Texture(device_, "DefaultMetallicRoughness", metallicRoughness);
     if (!default_mr_tex_) {
-        std::fprintf(stderr, "[GeometryDrawSharedResources] create default metallic-roughness texture failed\n");
+        LOG_ERROR("[GeometryDrawSharedResources] Default metallic-roughness texture creation failed");
         return false;
     }
 
     default_ibl_tex_ = createDefaultEnvironmentIBLTexture(device_);
     if (!default_ibl_tex_) {
-        std::fprintf(stderr, "[GeometryDrawSharedResources] create default environment IBL texture failed\n");
+        LOG_ERROR("[GeometryDrawSharedResources] Default environment IBL texture creation failed");
         return false;
     }
 
@@ -181,7 +182,7 @@ bool GeometryDrawSharedResources::createDefaultResources() {
     lutDesc.depth = 1;
     auto lutResult = device_.createTexture(lutDesc);
     if (!lutResult) {
-        std::fprintf(stderr, "[GeometryDrawSharedResources] create default brdf LUT failed\n");
+        LOG_ERROR("[GeometryDrawSharedResources] Default BRDF LUT creation failed");
         return false;
     }
     default_brdf_lut_ = std::move(*lutResult);

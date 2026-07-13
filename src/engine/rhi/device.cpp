@@ -1,8 +1,9 @@
 #include "device.h"
 
+#include <mulan/core/log/log.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstdio>
 
 namespace mulan::engine {
 
@@ -49,15 +50,15 @@ void RHIDevice::dumpLiveResources() const {
         return;
     }
 
-    std::fprintf(stderr, "[RHIDevice] live resources at device destruction: %zu\n", live_resources_.size());
+    LOG_WARN("[RHI] Device destruction detected {} live resource(s)", live_resources_.size());
     for (const auto& info : live_resources_) {
         const auto kindName = toString(info.kind);
-        std::fprintf(stderr, "  - %.*s %p", static_cast<int>(kindName.size()), kindName.data(),
-                     static_cast<const void*>(info.resource));
         if (!info.name.empty()) {
-            std::fprintf(stderr, " \"%s\"", info.name.c_str());
+            LOG_WARN("[RHI] Live resource: kind={}, address={}, name={}", kindName,
+                     static_cast<const void*>(info.resource), info.name);
+        } else {
+            LOG_WARN("[RHI] Live resource: kind={}, address={}", kindName, static_cast<const void*>(info.resource));
         }
-        std::fprintf(stderr, "\n");
     }
 }
 

@@ -17,8 +17,7 @@
 #include "../rhi/pipeline_state.h"
 
 #include <mulan/core/image/image.h>
-
-#include <cstdio>
+#include <mulan/core/log/log.h>
 
 namespace mulan::engine {
 
@@ -56,7 +55,7 @@ std::unique_ptr<PipelineState> createBakePSO(RHIDevice& device, Shader* vs, Shad
 
     auto r = device.createPipelineState(desc);
     if (!r) {
-        std::fprintf(stderr, "[IBL] createPSO failed: %s\n", r.error().message.c_str());
+        LOG_ERROR("[IBL] Pipeline-state creation failed: {}", r.error().message);
         return nullptr;
     }
     return std::move(*r);
@@ -71,7 +70,7 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
     auto image = mulan::core::FloatImage::loadHDRExpected(hdrPath, 4);
     if (!image || !(*image)->valid()) {
         const char* reason = image ? "invalid HDR image" : image.error().message.c_str();
-        std::fprintf(stderr, "[IBL] Failed to load HDR: %s (%s)\n", hdrPath.c_str(), reason);
+        LOG_ERROR("[IBL] Failed to load HDR image {}: {}", hdrPath, reason);
         return false;
     }
 
@@ -84,7 +83,7 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
     eqDesc.height = (*image)->height();
     auto eqR = device.createTexture(eqDesc);
     if (!eqR) {
-        std::fprintf(stderr, "[IBL] createTexture(source) failed\n");
+        LOG_ERROR("[IBL] Source texture creation failed");
         return false;
     }
     auto sourceEquirect = std::move(*eqR);
@@ -106,7 +105,7 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
         d.depth = 1;
         auto r = dev.createTexture(d);
         if (!r) {
-            std::fprintf(stderr, "[IBL] createTexture(%s) failed\n", name);
+            LOG_ERROR("[IBL] Output texture creation failed: {}", name);
             return nullptr;
         }
         return std::move(*r);
@@ -132,14 +131,14 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
     // 4. 加载 VS + 3 个 frag
     auto vs = loadShader(device, ShaderType::Vertex, "ibl.vert");
     if (!vs) {
-        std::fprintf(stderr, "[IBL] load vs failed\n");
+        LOG_ERROR("[IBL] Vertex-shader loading failed");
         return false;
     }
     auto irradianceFS = loadShader(device, ShaderType::Pixel, "ibl_irradiance.frag");
     auto prefilterFS = loadShader(device, ShaderType::Pixel, "ibl_prefilter.frag");
     auto brdfLutFS = loadShader(device, ShaderType::Pixel, "ibl_brdf_lut.frag");
     if (!irradianceFS || !prefilterFS || !brdfLutFS) {
-        std::fprintf(stderr, "[IBL] load frag shaders failed\n");
+        LOG_ERROR("[IBL] Fragment-shader loading failed");
         return false;
     }
 
@@ -210,8 +209,8 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
 
     sourceEquirect.reset();  // 释放源 equirect
 
-    std::fprintf(stderr, "[IBL] bake OK (irradiance=%ux%u prefilter=%ux%u lut=%ux%u)\n", kIrradianceW, kIrradianceH,
-                 kPrefilterW, kPrefilterH, kBrdfLUTSize, kBrdfLUTSize);
+    LOG_INFO("[IBL] Bake completed: irradiance={}x{}, prefilter={}x{}, lut={}x{}", kIrradianceW, kIrradianceH,
+             kPrefilterW, kPrefilterH, kBrdfLUTSize, kBrdfLUTSize);
     return true;
 }
 

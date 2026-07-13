@@ -4,6 +4,8 @@
 #include <msdfgen-ext.h>
 #include <msdf-atlas-gen/msdf-atlas-gen.h>
 
+#include <mulan/core/log/log.h>
+
 #include <cstdio>
 #include <algorithm>
 #include <array>
@@ -85,7 +87,7 @@ bool FontAtlas::generateCpuData(const char* fontPath, float fontSize, uint32_t a
     testFile = fopen(fontPath, "rb");
 #endif
     if (!testFile) {
-        std::fprintf(stderr, "[FontAtlas] Font file not found: %s\n", fontPath);
+        LOG_ERROR("[FontAtlas] Font file not found: {}", fontPath);
         return false;
     }
     fclose(testFile);
@@ -99,14 +101,14 @@ bool FontAtlas::generateCpuData(const char* fontPath, float fontSize, uint32_t a
     // --- 1. 初始化 FreeType ---
     std::unique_ptr<msdfgen::FreetypeHandle, FreetypeDeleter> ft(msdfgen::initializeFreetype());
     if (!ft) {
-        std::fprintf(stderr, "[FontAtlas] Failed to initialize FreeType\n");
+        LOG_ERROR("[FontAtlas] FreeType initialization failed");
         return false;
     }
 
     // --- 2. 加载字体 ---
     std::unique_ptr<msdfgen::FontHandle, FontDeleter> font(msdfgen::loadFont(ft.get(), fontPath));
     if (!font) {
-        std::fprintf(stderr, "[FontAtlas] Failed to load font: %s\n", fontPath);
+        LOG_ERROR("[FontAtlas] Failed to load font: {}", fontPath);
         return false;
     }
 
@@ -121,7 +123,7 @@ bool FontAtlas::generateCpuData(const char* fontPath, float fontSize, uint32_t a
     }
 
     int loaded = fontGeometry.loadCharset(font.get(), 1.0, charset);
-    std::fprintf(stderr, "[FontAtlas] Loaded %d glyphs from %s\n", loaded, fontPath);
+    LOG_INFO("[FontAtlas] Loaded {} glyphs from {}", loaded, fontPath);
 
     // --- 4. MSDF 边缘着色 ---
     const double maxCornerAngle = 3.0;
@@ -211,7 +213,7 @@ bool FontAtlas::loadFromCpuData(FontAtlasCpuData data) {
             static_cast<uint64_t>(data.atlasWidth) * static_cast<uint64_t>(data.atlasHeight) * 4u;
     if (data.atlasWidth == 0 || data.atlasHeight == 0 || data.rgbaPixels.size() != expectedBytes ||
         data.glyphs.empty()) {
-        std::fprintf(stderr, "[FontAtlas] Invalid CPU atlas data\n");
+        LOG_ERROR("[FontAtlas] Invalid CPU atlas data");
         return false;
     }
 
@@ -234,7 +236,7 @@ bool FontAtlas::loadFromCpuData(FontAtlasCpuData data) {
         samplerDesc.debugName = "MSDF_Atlas_Sampler";
         auto sampler = device_->createSampler(samplerDesc);
         if (!sampler) {
-            std::fprintf(stderr, "[FontAtlas] Failed to create atlas sampler: %s\n", sampler.error().message.c_str());
+            LOG_ERROR("[FontAtlas] Atlas sampler creation failed: {}", sampler.error().message);
         } else {
             sampler_ = std::move(*sampler);
         }
@@ -266,7 +268,7 @@ const GlyphInfo* FontAtlas::getGlyph(uint32_t unicode) const {
 
 bool FontAtlas::uploadAtlas(const std::vector<uint8_t>& rgbaData) {
     if (!device_ || rgbaData.empty() || atlas_width_ == 0 || atlas_height_ == 0) {
-        std::fprintf(stderr, "[FontAtlas] Invalid atlas upload request\n");
+        LOG_ERROR("[FontAtlas] Invalid atlas upload request");
         return false;
     }
 
@@ -283,7 +285,7 @@ bool FontAtlas::uploadAtlas(const std::vector<uint8_t>& rgbaData) {
 
     auto result = device_->createTexture(texDesc);
     if (!result) {
-        std::fprintf(stderr, "[FontAtlas] Failed to create atlas texture: %s\n", result.error().message.c_str());
+        LOG_ERROR("[FontAtlas] Atlas texture creation failed: {}", result.error().message);
         return false;
     }
     texture_ = std::move(*result);

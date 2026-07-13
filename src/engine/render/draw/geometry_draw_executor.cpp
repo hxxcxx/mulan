@@ -5,7 +5,8 @@
 #include "../../rhi/render_state.h"
 #include "../gpu_scene_contract.h"
 
-#include <cstdio>
+#include <mulan/core/log/log.h>
+
 #include <string>
 
 namespace mulan::engine {
@@ -159,7 +160,7 @@ bool GeometryDrawExecutor::createFrameBindGroup(TextureFormat, TextureFormat, bo
 
     auto result = device_.createBindGroup(pso_->bindGroupLayout(), bg);
     if (!result) {
-        std::fprintf(stderr, "[GeometryDrawExecutor] createBindGroup failed: %s\n", result.error().message.c_str());
+        LOG_ERROR("[GeometryDrawExecutor] Bind-group creation failed: {}", result.error().message);
         return false;
     }
     frame_bg_ = std::move(*result);
