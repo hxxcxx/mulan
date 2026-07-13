@@ -73,13 +73,50 @@ void GLCommandList::bindGroup(BindGroup& group) {
 }
 
 void GLCommandList::bindResources(const BindGroupDesc& group) {
-    for (uint8_t i = 0; i < group.count; ++i)
-        bindEntry(group.entries[i]);
+    bindEntries(group.entries, group.count);
 }
 
 void GLCommandList::bindResources(const BindGroup& group) {
-    for (uint8_t i = 0; i < group.entryCount(); ++i)
-        bindEntry(group.entries()[i]);
+    bindEntries(group.entries(), group.entryCount());
+}
+
+void GLCommandList::bindEntries(const BindGroupEntry* entries, uint8_t count) {
+    Sampler* sharedSampler = nullptr;
+    uint8_t samplerCount = 0;
+
+    for (uint8_t i = 0; i < count; ++i) {
+        const auto& entry = entries[i];
+        if (entry.sampler) {
+            sharedSampler = entry.sampler;
+            ++samplerCount;
+            continue;
+        }
+        bindEntry(entry);
+    }
+
+    if (samplerCount == 1) {
+        auto* glSampler = dynamic_cast<GLSampler*>(sharedSampler);
+        if (!glSampler)
+            return;
+
+        // The OpenGL Slang target exposes sampled textures as combined
+        // sampler uniforms at the texture binding. Current render bind groups
+        // intentionally have one sampler shared by their texture entries.
+        for (uint8_t i = 0; i < count; ++i) {
+            const auto& entry = entries[i];
+            if (entry.texture && entry.binding < 32)
+                glBindSampler(entry.binding, glSampler->handle());
+        }
+        return;
+    }
+
+    // Preserve the existing binding behavior for groups that expose multiple
+    // samplers. Such groups need explicit texture/sampler pairing metadata
+    // before they can use combined OpenGL sampler uniforms.
+    for (uint8_t i = 0; i < count; ++i) {
+        if (entries[i].sampler)
+            bindEntry(entries[i]);
+    }
 }
 
 void GLCommandList::bindEntry(const BindGroupEntry& e) {

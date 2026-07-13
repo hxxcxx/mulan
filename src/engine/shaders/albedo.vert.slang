@@ -1,20 +1,18 @@
 /*
- * PBR vertex shader for surface layout with tangent4.
+ * Albedo 渲染 — 顶点着色器
+ * 与 solid.vert 一致：MVP 变换 + 世界空间法线 + 透传 uv
  */
 
-#include "common.hlsli"
+#include "common.slang"
 
-VS_OUTPUT_TANGENT main(VS_INPUT_TANGENT input) {
-    VS_OUTPUT_TANGENT output;
+VS_OUTPUT main(VS_INPUT input) {
+    VS_OUTPUT output;
 
     float4 worldPos = mul(World, float4(input.position, 1.0));
     output.position = mul(ViewProjection, worldPos);
     output.worldPos = worldPos.xyz;
     output.normal   = normalize(mul(NormalMatrix, input.normal));
     output.texcoord = input.texcoord;
-
-    float3 tangent = normalize(mul(NormalMatrix, input.tangent.xyz));
-    output.tangent = float4(tangent, input.tangent.w);
 
     return output;
 }

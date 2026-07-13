@@ -157,6 +157,7 @@ private:
     };
     static GLAttribType vertexFormatToGL(VertexFormat fmt);
     void bindResources(const BindGroup& group);
+    void bindEntries(const BindGroupEntry* entries, uint8_t count);
     void bindEntry(const BindGroupEntry& entry);
 
     // --- 成员变量 ---

@@ -3,7 +3,7 @@
  * 仅变换位置，无光照
  */
 
-#include "common.hlsli"
+#include "common.slang"
 
 VS_OUTPUT_SIMPLE main(VS_INPUT_POS input) {
     VS_OUTPUT_SIMPLE output;

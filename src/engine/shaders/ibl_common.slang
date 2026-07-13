@@ -1,11 +1,11 @@
 /*
  * IBL 公共头 — 共享的常量、方向转换、采样函数
  *
- * 全部基于 equirectangular 表示（不开 cube），与运行时 pbr.frag.hlsl 一致。
+ * 全部基于 equirectangular 表示（不开 cube），与运行时 pbr.frag.slang 一致。
  */
 
-#ifndef MULAN_IBL_COMMON_HLSLI
-#define MULAN_IBL_COMMON_HLSLI
+#ifndef MULAN_IBL_COMMON_SLANG
+#define MULAN_IBL_COMMON_SLANG
 
 #define PI 3.14159265359
 
@@ -68,4 +68,4 @@ float3 importanceSampleGGX(float2 Xi, float3 N, float roughness) {
     return normalize(tangent * H.x + bitangent * H.y + N * H.z);
 }
 
-#endif // MULAN_IBL_COMMON_HLSLI
+#endif // MULAN_IBL_COMMON_SLANG

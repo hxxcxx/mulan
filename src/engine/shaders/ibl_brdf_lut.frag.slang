@@ -8,8 +8,9 @@
  * 绑定: b0 = IBLParams（SampleCount）
  */
 
-#include "ibl_common.hlsli"
+#include "ibl_common.slang"
 
+[[vk::binding(0, 0)]]
 cbuffer IBLParams : register(b0) {
     uint  SampleCount;
     float _p0; float _p1; float _p2;

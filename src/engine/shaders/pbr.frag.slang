@@ -17,17 +17,29 @@
  *   bit0 = albedo, bit1 = normal, bit2 = mr, bit3 = emissive, bit4 = ao
  */
 
-#include "common.hlsli"
+#include "common.slang"
+#include "shader_compat.slang"
 
-[[vk::binding(3, 0)]] Texture2D    AlbedoTex    : register(t3);
-[[vk::binding(4, 0)]] Texture2D    NormalTex    : register(t4);
-[[vk::binding(5, 0)]] Texture2D    MRTex        : register(t5);
-[[vk::binding(6, 0)]] Texture2D    EmissiveTex  : register(t6);
-[[vk::binding(7, 0)]] Texture2D    AOTex        : register(t7);
-[[vk::binding(8, 0)]] SamplerState PbrSampler   : register(s8);
-[[vk::binding(9, 0)]]  Texture2D   IrradianceMap : register(t9);
-[[vk::binding(10, 0)]] Texture2D   PrefilterMap  : register(t10);
-[[vk::binding(11, 0)]] Texture2D   BrdfLUT       : register(t11);
+#ifdef MULAN_OPENGL
+[[vk::binding(3, 0)]]  Sampler2D AlbedoTex;
+[[vk::binding(4, 0)]]  Sampler2D NormalTex;
+[[vk::binding(5, 0)]]  Sampler2D MRTex;
+[[vk::binding(6, 0)]]  Sampler2D EmissiveTex;
+[[vk::binding(7, 0)]]  Sampler2D AOTex;
+[[vk::binding(9, 0)]]  Sampler2D IrradianceMap;
+[[vk::binding(10, 0)]] Sampler2D PrefilterMap;
+[[vk::binding(11, 0)]] Sampler2D BrdfLUT;
+#else
+[[vk::binding(3, 0)]]  Texture2D    AlbedoTex     : register(t3);
+[[vk::binding(4, 0)]]  Texture2D    NormalTex     : register(t4);
+[[vk::binding(5, 0)]]  Texture2D    MRTex         : register(t5);
+[[vk::binding(6, 0)]]  Texture2D    EmissiveTex   : register(t6);
+[[vk::binding(7, 0)]]  Texture2D    AOTex         : register(t7);
+[[vk::binding(8, 0)]]  SamplerState PbrSampler    : register(s8);
+[[vk::binding(9, 0)]]  Texture2D    IrradianceMap : register(t9);
+[[vk::binding(10, 0)]] Texture2D    PrefilterMap  : register(t10);
+[[vk::binding(11, 0)]] Texture2D    BrdfLUT       : register(t11);
+#endif
 
 #define TF_ALBEDO   0x01u
 #define TF_NORMAL   0x02u
@@ -60,7 +72,7 @@ float smithGeometry(float NdotV, float NdotL, float roughness) {
 // ─── 切线空间法线 ─────────────────────────────────────────────
 
 float3 perturbNormal(float3 N, float3 worldPos, float2 uv) {
-    float3 tn = NormalTex.Sample(PbrSampler, uv).rgb * 2.0 - 1.0;
+    float3 tn = MULAN_SAMPLE_2D(NormalTex, PbrSampler, uv).rgb * 2.0 - 1.0;
     float3 dp1 = ddx(worldPos);
     float3 dp2 = ddy(worldPos);
     float2 duv1 = ddx(uv);
@@ -85,7 +97,7 @@ float3 perturbNormal(float3 N, float3 worldPos, float2 uv) {
 
 #ifdef MULAN_USE_VERTEX_TANGENT
 float3 perturbNormal(float3 N, float2 uv, float4 tangent) {
-    float3 tn = NormalTex.Sample(PbrSampler, uv).rgb * 2.0 - 1.0;
+    float3 tn = MULAN_SAMPLE_2D(NormalTex, PbrSampler, uv).rgb * 2.0 - 1.0;
     float3 T = normalize(tangent.xyz - N * dot(N, tangent.xyz));
     float3 B = normalize(cross(N, T) * tangent.w);
     return normalize(tn.x * T + tn.y * B + tn.z * N);
@@ -123,12 +135,12 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
     // ── 纹理采样 ──
     uint flags = TextureFlags;
 
-    float3 albedo = (flags & TF_ALBEDO)
-        ? AlbedoTex.Sample(PbrSampler, input.texcoord).rgb
+    float3 albedo = ((flags & TF_ALBEDO) != 0u)
+        ? MULAN_SAMPLE_2D(AlbedoTex, PbrSampler, input.texcoord).rgb
         : float3(1, 1, 1);
     albedo *= BaseColor;
 
-    if (flags & TF_NORMAL) {
+    if ((flags & TF_NORMAL) != 0u) {
 #ifdef MULAN_USE_VERTEX_TANGENT
         N = perturbNormal(N, input.texcoord, input.tangent);
 #else
@@ -137,15 +149,15 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
 #endif
     }
 
-    float metallic  = (flags & TF_MR) ? MRTex.Sample(PbrSampler, input.texcoord).b : Metallic;
-    float roughness = (flags & TF_MR) ? MRTex.Sample(PbrSampler, input.texcoord).g : Roughness;
+    float metallic  = ((flags & TF_MR) != 0u) ? MULAN_SAMPLE_2D(MRTex, PbrSampler, input.texcoord).b : Metallic;
+    float roughness = ((flags & TF_MR) != 0u) ? MULAN_SAMPLE_2D(MRTex, PbrSampler, input.texcoord).g : Roughness;
     roughness = max(roughness, 0.04);
 
-    float ao = (flags & TF_AO) ? AOTex.Sample(PbrSampler, input.texcoord).r : AO;
+    float ao = ((flags & TF_AO) != 0u) ? MULAN_SAMPLE_2D(AOTex, PbrSampler, input.texcoord).r : AO;
 
     float3 emissive = Emissive;
-    if (flags & TF_EMISSIVE)
-        emissive *= EmissiveTex.Sample(PbrSampler, input.texcoord).rgb;
+    if ((flags & TF_EMISSIVE) != 0u)
+        emissive *= MULAN_SAMPLE_2D(EmissiveTex, PbrSampler, input.texcoord).rgb;
 
     // ── 光照计算 ──
     float3 L = normalize(-LightDir);
@@ -174,14 +186,14 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
 
     // Diffuse IBL: irradiance equirect 沿法线采样（HDR 时为离线卷积，默认时为内置环境光照）。
     // 未启用 HDR 时，binding 9 使用内置默认环境，避免背光面陷入纯黑。
-    float3 irradiance = IrradianceMap.Sample(PbrSampler, directionToEquirectUV(N)).rgb;
+    float3 irradiance = MULAN_SAMPLE_2D(IrradianceMap, PbrSampler, directionToEquirectUV(N)).rgb;
     float3 diffuseIBL = irradiance * kD * albedo * ao;
 
     // Specular IBL: prefilter equirect 沿反射方向采样（单档 roughness，运行时不再按 mip 选）。
     // 未启用 HDR 时，binding 10 同样提供默认环境反射。
-    float3 prefiltered = PrefilterMap.Sample(PbrSampler, directionToEquirectUV(R)).rgb;
+    float3 prefiltered = MULAN_SAMPLE_2D(PrefilterMap, PbrSampler, directionToEquirectUV(R)).rgb;
     // BRDF LUT: 输入 (NdotV, roughness)，输出 (scale, bias)
-    float2 brdf = BrdfLUT.Sample(PbrSampler, float2(NdotV, roughness)).rg;
+    float2 brdf = MULAN_SAMPLE_2D(BrdfLUT, PbrSampler, float2(NdotV, roughness)).rg;
     float3 specularIBL = prefiltered * (F * brdf.x + brdf.y) * ao;
 
     // 基础环境光：与 IBL 无关的常数项，保证工程视图的背光面仍有最低可见度。

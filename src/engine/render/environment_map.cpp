@@ -22,7 +22,7 @@
 
 namespace mulan::engine {
 
-// IBL 参数 UBO 布局（与 ibl_*.frag.hlsl cbuffer IBLParams 一致）
+// IBL 参数 UBO 布局（与 ibl_*.frag.slang cbuffer IBLParams 一致）
 struct IBLParamsGPU {
     uint32_t sampleCount = 64;
     float roughness = 0.0f;

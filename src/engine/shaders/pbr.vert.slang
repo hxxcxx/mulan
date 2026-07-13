@@ -1,9 +1,9 @@
 /*
- * Solid 渲染 — 顶点着色器
- * 输入: pos + normal + uv → MVP 变换 + 世界空间法线
+ * PBR vertex shader.
+ * Standard surface layout: position + normal + uv.
  */
 
-#include "common.hlsli"
+#include "common.slang"
 
 VS_OUTPUT main(VS_INPUT input) {
     VS_OUTPUT output;

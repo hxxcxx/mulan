@@ -16,10 +16,15 @@
  *     [[vk::binding(N,0)]] 显式锁定 Vulkan binding，不依赖隐式映射。
  */
 
-#include "common.hlsli"
+#include "common.slang"
+#include "shader_compat.slang"
 
-[[vk::binding(3, 0)]] Texture2D    AlbedoTex    : register(t3);
+#ifdef MULAN_OPENGL
+[[vk::binding(3, 0)]] Sampler2D AlbedoTex;
+#else
+[[vk::binding(3, 0)]] Texture2D    AlbedoTex     : register(t3);
 [[vk::binding(4, 0)]] SamplerState AlbedoSampler : register(s4);
+#endif
 
 // ACES filmic tone mapping
 float3 acesTonemap(float3 x) {
@@ -43,7 +48,7 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
     float NdotL = max(dot(N, L), 0.0);
 
     // BaseColor × albedo 纹理（白纹理时 sampled=(1,1,1) → 等价纯色）
-    float3 sampled = AlbedoTex.Sample(AlbedoSampler, input.texcoord).rgb;
+    float3 sampled = MULAN_SAMPLE_2D(AlbedoTex, AlbedoSampler, input.texcoord).rgb;
     float3 baseColorLinear = BaseColor * sampled;
 
     // 主光漫反射（乘 LightColor 参考项目风格）

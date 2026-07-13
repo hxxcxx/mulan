@@ -13,7 +13,7 @@
 
 namespace mulan::engine {
 
-// C++ mirror of shaders/common.hlsli cbuffer Scene (b0).
+// C++ mirror of shaders/common.slang cbuffer Scene (b0).
 struct alignas(16) SceneUniforms {
     float view[16];
     float projection[16];
@@ -27,7 +27,7 @@ struct alignas(16) SceneUniforms {
 };
 static_assert(sizeof(SceneUniforms) == 288);
 
-// C++ mirror of shaders/common.hlsli cbuffer Object (b1).
+// C++ mirror of shaders/common.slang cbuffer Object (b1).
 struct alignas(16) ObjectUniforms {
     float world[16];
     float normalMat[12];

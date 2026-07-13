@@ -1,132 +1,187 @@
-function(mulan_add_hlsl_shaders shader_target)
-    set(options SPIRV DXIL)
+function(mulan_add_slang_shaders shader_target)
+    set(options SPIRV DXIL DXBC GLSPIRV)
     set(one_value_args SOURCE_DIR OUTPUT_DIR)
     set(multi_value_args SOURCES)
     cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
     if(NOT ARG_SOURCE_DIR)
-        message(FATAL_ERROR "mulan_add_hlsl_shaders requires SOURCE_DIR")
+        message(FATAL_ERROR "mulan_add_slang_shaders requires SOURCE_DIR")
     endif()
     if(NOT ARG_OUTPUT_DIR)
-        message(FATAL_ERROR "mulan_add_hlsl_shaders requires OUTPUT_DIR")
+        message(FATAL_ERROR "mulan_add_slang_shaders requires OUTPUT_DIR")
     endif()
     if(NOT ARG_SOURCES)
-        message(FATAL_ERROR "mulan_add_hlsl_shaders requires SOURCES")
+        message(FATAL_ERROR "mulan_add_slang_shaders requires SOURCES")
     endif()
 
-    if(NOT ARG_SPIRV AND NOT ARG_DXIL)
+    if(NOT ARG_SPIRV AND NOT ARG_DXIL AND NOT ARG_DXBC AND NOT ARG_GLSPIRV)
         add_custom_target(${shader_target})
-        message(STATUS "No rendering backend requires HLSL shader output")
+        message(STATUS "No rendering backend requires Slang shader output")
         return()
     endif()
 
-    # DXC is a build tool, not a runtime dependency. Building the vcpkg
-    # directx-dxc port pulls in LLVM/tablegen and is unnecessarily expensive
-    # for CI. Allow callers to pin a tool explicitly, retain compatibility
-    # with an already-installed vcpkg package, then discover SDK installations.
-    set(MULAN_DXC_EXECUTABLE "${MULAN_DXC_EXECUTABLE}" CACHE FILEPATH
-        "Path to the DirectX Shader Compiler executable")
+    # Slang is a build tool rather than a runtime dependency. The Vulkan SDK
+    # bundles slangc, but callers may pin a project-local compiler explicitly.
+    set(MULAN_SLANGC_EXECUTABLE "${MULAN_SLANGC_EXECUTABLE}" CACHE FILEPATH
+        "Path to the Slang shader compiler executable")
 
-    if(NOT MULAN_DXC_EXECUTABLE)
-        find_package(directx-dxc CONFIG QUIET)
-        if(DIRECTX_DXC_TOOL AND EXISTS "${DIRECTX_DXC_TOOL}")
-            set(MULAN_DXC_EXECUTABLE "${DIRECTX_DXC_TOOL}")
+    set(_mulan_shader_tool_hints)
+    if(DEFINED ENV{VULKAN_SDK})
+        list(APPEND _mulan_shader_tool_hints
+            "$ENV{VULKAN_SDK}/Bin"
+            "$ENV{VULKAN_SDK}/Bin32")
+    endif()
+
+    if(NOT MULAN_SLANGC_EXECUTABLE)
+        find_program(_mulan_discovered_slangc
+            NAMES slangc slangc.exe
+            HINTS ${_mulan_shader_tool_hints}
+            DOC "Discovered Slang shader compiler executable")
+        if(_mulan_discovered_slangc)
+            set(MULAN_SLANGC_EXECUTABLE "${_mulan_discovered_slangc}" CACHE FILEPATH
+                "Path to the Slang shader compiler executable" FORCE)
         endif()
     endif()
 
-    if(NOT MULAN_DXC_EXECUTABLE)
-        set(_mulan_dxc_hints)
-        if(DEFINED ENV{VULKAN_SDK})
-            list(APPEND _mulan_dxc_hints
-                "$ENV{VULKAN_SDK}/Bin"
-                "$ENV{VULKAN_SDK}/Bin32")
+    if(NOT MULAN_SLANGC_EXECUTABLE OR NOT EXISTS "${MULAN_SLANGC_EXECUTABLE}")
+        message(FATAL_ERROR
+            "A usable Slang compiler (slangc) was not found. Install a Vulkan SDK containing slangc, or configure "
+            "-DMULAN_SLANGC_EXECUTABLE=<absolute path to slangc>.")
+    endif()
+
+    if(ARG_GLSPIRV)
+        set(MULAN_GLSLANG_VALIDATOR_EXECUTABLE "${MULAN_GLSLANG_VALIDATOR_EXECUTABLE}" CACHE FILEPATH
+            "Path to the glslangValidator executable used for OpenGL SPIR-V")
+        if(NOT MULAN_GLSLANG_VALIDATOR_EXECUTABLE)
+            find_program(_mulan_discovered_glslang_validator
+                NAMES glslangValidator glslangValidator.exe
+                HINTS ${_mulan_shader_tool_hints}
+                DOC "Discovered GLSLang validator executable")
+            if(_mulan_discovered_glslang_validator)
+                set(MULAN_GLSLANG_VALIDATOR_EXECUTABLE "${_mulan_discovered_glslang_validator}" CACHE FILEPATH
+                    "Path to the glslangValidator executable used for OpenGL SPIR-V" FORCE)
+            endif()
         endif()
-        if(WIN32)
-            file(GLOB _mulan_windows_sdk_bins LIST_DIRECTORIES TRUE
-                "C:/Program Files (x86)/Windows Kits/10/bin/*/x64")
-            list(SORT _mulan_windows_sdk_bins COMPARE NATURAL ORDER DESCENDING)
-            list(APPEND _mulan_dxc_hints ${_mulan_windows_sdk_bins})
+
+        if(NOT MULAN_GLSLANG_VALIDATOR_EXECUTABLE OR NOT EXISTS "${MULAN_GLSLANG_VALIDATOR_EXECUTABLE}")
+            message(FATAL_ERROR
+                "OpenGL shader output requires glslangValidator. Install a Vulkan SDK containing glslangValidator, or "
+                "configure -DMULAN_GLSLANG_VALIDATOR_EXECUTABLE=<absolute path to glslangValidator>.")
         endif()
-        find_program(_mulan_discovered_dxc
-            NAMES dxc dxc.exe
-            HINTS ${_mulan_dxc_hints}
-            DOC "Discovered DirectX Shader Compiler executable")
-        if(_mulan_discovered_dxc)
-            set(MULAN_DXC_EXECUTABLE "${_mulan_discovered_dxc}" CACHE FILEPATH
-                "Path to the DirectX Shader Compiler executable" FORCE)
-        endif()
+    endif()
+
+    message(STATUS "Found slangc: ${MULAN_SLANGC_EXECUTABLE}")
+    if(ARG_GLSPIRV)
+        message(STATUS "Found glslangValidator: ${MULAN_GLSLANG_VALIDATOR_EXECUTABLE}")
     endif()
 
     file(MAKE_DIRECTORY "${ARG_OUTPUT_DIR}")
-
-    if(NOT MULAN_DXC_EXECUTABLE OR NOT EXISTS "${MULAN_DXC_EXECUTABLE}")
-        message(FATAL_ERROR
-            "A usable DirectX Shader Compiler (dxc) was not found. Install a "
-            "Windows or Vulkan SDK containing dxc, or configure with "
-            "-DMULAN_DXC_EXECUTABLE=<absolute path to dxc>."
-        )
-    endif()
-
-    message(STATUS "Found dxc: ${MULAN_DXC_EXECUTABLE}")
-
-    set(shader_common "${ARG_SOURCE_DIR}/common.hlsli")
-    set(ibl_common "${ARG_SOURCE_DIR}/ibl_common.hlsli")
+    file(GLOB shader_dependencies CONFIGURE_DEPENDS "${ARG_SOURCE_DIR}/*.slang")
     set(shader_outputs)
 
     foreach(shader_file IN LISTS ARG_SOURCES)
-        if("${shader_file}" MATCHES "\\.vert\\.hlsl$")
-            set(shader_stage vs)
-        elseif("${shader_file}" MATCHES "\\.frag\\.hlsl$")
-            set(shader_stage ps)
+        if("${shader_file}" MATCHES "\\.vert\\.slang$")
+            set(shader_stage vertex)
+            set(glslang_stage vert)
+            set(dxbc_profile vs_5_0)
+            set(dxil_profile vs_6_0)
+        elseif("${shader_file}" MATCHES "\\.frag\\.slang$")
+            set(shader_stage fragment)
+            set(glslang_stage frag)
+            set(dxbc_profile ps_5_0)
+            set(dxil_profile ps_6_0)
         else()
-            message(FATAL_ERROR "Cannot infer HLSL stage from shader file name: ${shader_file}")
+            message(FATAL_ERROR "Cannot infer Slang stage from shader file name: ${shader_file}")
         endif()
-        set(shader_entry main)
 
         set(shader_input "${ARG_SOURCE_DIR}/${shader_file}")
-        set(shader_depends "${shader_input}")
-        if("${shader_file}" MATCHES "^ibl_.*\\.frag\\.hlsl$")
-            list(APPEND shader_depends "${ibl_common}")
-        elseif(NOT "${shader_file}" STREQUAL "ibl.vert.hlsl")
-            list(APPEND shader_depends "${shader_common}")
-        endif()
-        if("${shader_file}" STREQUAL "pbr_tangent.frag.hlsl")
-            list(APPEND shader_depends "${ARG_SOURCE_DIR}/pbr.frag.hlsl")
-        endif()
 
         if(ARG_SPIRV)
-            string(REPLACE ".hlsl" ".spv" spv_file "${shader_file}")
-            set(spv_output "${ARG_OUTPUT_DIR}/${spv_file}")
+            string(REPLACE ".slang" ".spv" spirv_file "${shader_file}")
+            set(spirv_output "${ARG_OUTPUT_DIR}/${spirv_file}")
             add_custom_command(
-                OUTPUT "${spv_output}"
-                COMMAND "${MULAN_DXC_EXECUTABLE}"
-                    -T ${shader_stage}_6_0
-                    -E ${shader_entry}
-                    -spirv
+                OUTPUT "${spirv_output}"
+                COMMAND "${MULAN_SLANGC_EXECUTABLE}"
+                    -target spirv
+                    -profile glsl_460
+                    -entry main
+                    -stage ${shader_stage}
                     -I "${ARG_SOURCE_DIR}"
-                    -Fo "${spv_output}"
+                    -o "${spirv_output}"
                     "${shader_input}"
-                DEPENDS ${shader_depends}
-                COMMENT "Compiling shader: ${shader_file} -> ${spv_file} (SPIR-V)"
+                DEPENDS ${shader_dependencies}
+                COMMENT "Compiling Slang shader: ${shader_file} -> ${spirv_file} (Vulkan SPIR-V)"
+                VERBATIM
             )
-            list(APPEND shader_outputs "${spv_output}")
+            list(APPEND shader_outputs "${spirv_output}")
+        endif()
+
+        if(ARG_DXBC)
+            string(REPLACE ".slang" ".dxbc" dxbc_file "${shader_file}")
+            set(dxbc_output "${ARG_OUTPUT_DIR}/${dxbc_file}")
+            add_custom_command(
+                OUTPUT "${dxbc_output}"
+                COMMAND "${MULAN_SLANGC_EXECUTABLE}"
+                    -target dxbc
+                    -profile ${dxbc_profile}
+                    -entry main
+                    -I "${ARG_SOURCE_DIR}"
+                    -o "${dxbc_output}"
+                    "${shader_input}"
+                DEPENDS ${shader_dependencies}
+                COMMENT "Compiling Slang shader: ${shader_file} -> ${dxbc_file} (DX11 DXBC)"
+                VERBATIM
+            )
+            list(APPEND shader_outputs "${dxbc_output}")
         endif()
 
         if(ARG_DXIL)
-            string(REPLACE ".hlsl" ".dxil" dxil_file "${shader_file}")
+            string(REPLACE ".slang" ".dxil" dxil_file "${shader_file}")
             set(dxil_output "${ARG_OUTPUT_DIR}/${dxil_file}")
             add_custom_command(
                 OUTPUT "${dxil_output}"
-                COMMAND "${MULAN_DXC_EXECUTABLE}"
-                    -T ${shader_stage}_6_0
-                    -E ${shader_entry}
+                COMMAND "${MULAN_SLANGC_EXECUTABLE}"
+                    -target dxil
+                    -profile ${dxil_profile}
+                    -entry main
                     -I "${ARG_SOURCE_DIR}"
-                    -Fo "${dxil_output}"
+                    -o "${dxil_output}"
                     "${shader_input}"
-                DEPENDS ${shader_depends}
-                COMMENT "Compiling shader: ${shader_file} -> ${dxil_file} (DXIL)"
+                DEPENDS ${shader_dependencies}
+                COMMENT "Compiling Slang shader: ${shader_file} -> ${dxil_file} (DX12 DXIL)"
+                VERBATIM
             )
             list(APPEND shader_outputs "${dxil_output}")
+        endif()
+
+        if(ARG_GLSPIRV)
+            string(REPLACE ".slang" ".glsl" glsl_file "${shader_file}")
+            string(REPLACE ".slang" ".gl.spv" gl_spirv_file "${shader_file}")
+            set(glsl_output "${ARG_OUTPUT_DIR}/${glsl_file}")
+            set(gl_spirv_output "${ARG_OUTPUT_DIR}/${gl_spirv_file}")
+            add_custom_command(
+                OUTPUT "${gl_spirv_output}"
+                BYPRODUCTS "${glsl_output}"
+                COMMAND "${MULAN_SLANGC_EXECUTABLE}"
+                    -target glsl
+                    -profile glsl_460
+                    -entry main
+                    -stage ${shader_stage}
+                    -DMULAN_OPENGL=1
+                    -I "${ARG_SOURCE_DIR}"
+                    -o "${glsl_output}"
+                    "${shader_input}"
+                COMMAND "${MULAN_GLSLANG_VALIDATOR_EXECUTABLE}"
+                    -G
+                    -S ${glslang_stage}
+                    -e main
+                    -o "${gl_spirv_output}"
+                    "${glsl_output}"
+                DEPENDS ${shader_dependencies}
+                COMMENT "Compiling Slang shader: ${shader_file} -> ${gl_spirv_file} (OpenGL SPIR-V)"
+                VERBATIM
+            )
+            list(APPEND shader_outputs "${gl_spirv_output}")
         endif()
     endforeach()
 

@@ -3,7 +3,7 @@
  * 复用完整顶点布局 (pos+normal+uv)，变换位置 + 深度偏移防 z-fighting
  */
 
-#include "common.hlsli"
+#include "common.slang"
 
 VS_OUTPUT_SIMPLE main(VS_INPUT input) {
     VS_OUTPUT_SIMPLE output;

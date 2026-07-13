@@ -8,16 +8,21 @@
  * @date 2026-04-27
  */
 
+#include "shader_compat.slang"
+
+[[vk::binding(0, 0)]]
 cbuffer TextParams : register(b0) {
     float4x4 OrthoProjection;
     float4   BgColor;
-    float    PxRange;
-    float2   AtlasSize;
-    float    _pad;
+    float4   TextMetrics;
 };
 
+#ifdef MULAN_OPENGL
+[[vk::binding(1, 0)]] Sampler2D msdfAtlas;
+#else
 [[vk::binding(1, 0)]] Texture2D    msdfAtlas : register(t1);
 [[vk::binding(2, 0)]] SamplerState sampler0  : register(s2);
+#endif
 
 struct PS_INPUT {
     float4 position : SV_POSITION;
@@ -31,14 +36,14 @@ float median(float r, float g, float b) {
 }
 
 float screenPxRange(float2 texcoord) {
-    float2 unitRange = float2(PxRange, PxRange) / AtlasSize;
+    float2 unitRange = float2(TextMetrics.x, TextMetrics.x) / TextMetrics.yz;
     float2 screenTexSize = 1.0 / max(fwidth(texcoord), float2(1.0e-6, 1.0e-6));
     return max(0.5 * dot(unitRange, screenTexSize), 1.0);
 }
 
 float4 main(PS_INPUT input) : SV_TARGET {
     // 采样 MSDF 纹理（RGB 三通道编码距离）
-    float3 msdf = msdfAtlas.Sample(sampler0, input.texcoord).rgb;
+    float3 msdf = MULAN_SAMPLE_2D(msdfAtlas, sampler0, input.texcoord).rgb;
 
     // 提取标量距离
     float dist = median(msdf.r, msdf.g, msdf.b);

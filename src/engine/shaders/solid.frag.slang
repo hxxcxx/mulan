@@ -4,7 +4,7 @@
  * 参考中性实体视图风格
  */
 
-#include "common.hlsli"
+#include "common.slang"
 
 // ACES filmic tone mapping
 float3 acesTonemap(float3 x) {

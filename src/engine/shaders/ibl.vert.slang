@@ -10,7 +10,17 @@ struct VSOut {
     float2 uv  : TEXCOORD0;
 };
 
+uint resolveVertexId(uint id) {
+    __target_switch {
+    case glsl:
+        __intrinsic_asm "uint(gl_VertexID)";
+    default:
+        return id;
+    }
+}
+
 VSOut main(uint id : SV_VertexID) {
+    id = resolveVertexId(id);
     // id = 0,1,2 → 三个顶点构成覆盖 [-1,+1] 的大三角形
     // 经典 trick：避免 2-triangle quad 的接缝开销
     float2 p = float2((id << 1) & 2, id & 2);   // (0,0),(2,0),(0,2)

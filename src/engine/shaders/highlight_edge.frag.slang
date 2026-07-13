@@ -3,7 +3,7 @@
  * 独立绘制 hover / selected 的边线强调，不污染普通 EdgeStage。
  */
 
-#include "common.hlsli"
+#include "common.slang"
 
 float4 main(VS_OUTPUT_SIMPLE input) : SV_TARGET {
     float3 selectedColor = lerp(EdgeColor, HighlightColor, 0.72);

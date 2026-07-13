@@ -2,7 +2,7 @@
  * Prefilter 卷积 fragment — 镜面 IBL（equirect 表示，单档 roughness）
  *
  * 输出是 equirect 表示的预过滤环境贴图。固定单档 roughness（由 b0.Roughness 指定），
- * 运行时 pbr.frag.hlsl 直接按反射方向采样（不再用 mip）。
+ * 运行时 pbr.frag.slang 直接按反射方向采样（不再用 mip）。
  *
  * 注：相比 cube 多 mip 方案，单档 roughness 在低/高 roughness 处略不精确，
  * 但作为简化 IBL 已远好于"用源图 LOD 凑数"。如需更高精度后续可改图集。
@@ -13,11 +13,17 @@
  *   b0        = IBLParams（SampleCount, Roughness）
  */
 
-#include "ibl_common.hlsli"
+#include "ibl_common.slang"
+#include "shader_compat.slang"
 
+#ifdef MULAN_OPENGL
+[[vk::binding(1, 0)]] Sampler2D SourceEquirect;
+#else
 [[vk::binding(1, 0)]] Texture2D    SourceEquirect : register(t1);
 [[vk::binding(2, 0)]] SamplerState LinearSamp    : register(s2);
+#endif
 
+[[vk::binding(0, 0)]]
 cbuffer IBLParams : register(b0) {
     uint  SampleCount;
     float Roughness;
@@ -54,7 +60,7 @@ float4 main(VSOut IN) : SV_Target {
             float G = geometrySmith(N, V, L, Roughness);
             float G_Vis = (G * VoH) / max(NoH * NoV, 1e-4);
             float2 luv = directionToEquirectUV(L);
-            prefiltered += SourceEquirect.Sample(LinearSamp, luv).rgb * G_Vis;
+            prefiltered += MULAN_SAMPLE_2D(SourceEquirect, LinearSamp, luv).rgb * G_Vis;
             totalWeight += G_Vis;
         }
     }

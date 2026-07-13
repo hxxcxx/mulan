@@ -63,43 +63,49 @@ if(MSVC)
     target_compile_options(render PRIVATE /FS)
 endif()
 
-# ── HLSL shaders ──
+# ── Slang shaders ──
 set(SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../shaders")
 set(SHADER_OUTPUT_DIR "${MULAN_SHADER_OUTPUT_DIR}")
 set(SHADER_SOURCES
-    solid.vert.hlsl
-    solid.frag.hlsl
-    albedo.vert.hlsl
-    albedo.frag.hlsl
-    pbr.vert.hlsl
-    pbr.frag.hlsl
-    pbr_tangent.vert.hlsl
-    pbr_tangent.frag.hlsl
-    wireframe.vert.hlsl
-    wireframe.frag.hlsl
-    edge.vert.hlsl
-    edge.frag.hlsl
-    highlight_surface.frag.hlsl
-    highlight_edge.frag.hlsl
-    viewcube.frag.hlsl
-    viewcube_line.frag.hlsl
-    text.vert.hlsl
-    text.frag.hlsl
-    ibl.vert.hlsl
-    ibl_irradiance.frag.hlsl
-    ibl_prefilter.frag.hlsl
-    ibl_brdf_lut.frag.hlsl
+    solid.vert.slang
+    solid.frag.slang
+    albedo.vert.slang
+    albedo.frag.slang
+    pbr.vert.slang
+    pbr.frag.slang
+    pbr_tangent.vert.slang
+    pbr_tangent.frag.slang
+    wireframe.vert.slang
+    wireframe.frag.slang
+    edge.vert.slang
+    edge.frag.slang
+    highlight_surface.frag.slang
+    highlight_edge.frag.slang
+    viewcube.frag.slang
+    viewcube_line.frag.slang
+    text.vert.slang
+    text.frag.slang
+    ibl.vert.slang
+    ibl_irradiance.frag.slang
+    ibl_prefilter.frag.slang
+    ibl_brdf_lut.frag.slang
 )
 
 set(MULAN_SHADER_OUTPUT_FORMATS)
 if(MULAN_ENABLE_VULKAN_BACKEND)
     list(APPEND MULAN_SHADER_OUTPUT_FORMATS SPIRV)
 endif()
+if(MULAN_ENABLE_D3D11_BACKEND AND WIN32)
+    list(APPEND MULAN_SHADER_OUTPUT_FORMATS DXBC)
+endif()
 if(MULAN_ENABLE_D3D12_BACKEND AND WIN32)
     list(APPEND MULAN_SHADER_OUTPUT_FORMATS DXIL)
 endif()
+if(MULAN_ENABLE_OPENGL_BACKEND)
+    list(APPEND MULAN_SHADER_OUTPUT_FORMATS GLSPIRV)
+endif()
 
-mulan_add_hlsl_shaders(mulan_shaders
+mulan_add_slang_shaders(mulan_shaders
     ${MULAN_SHADER_OUTPUT_FORMATS}
     SOURCE_DIR "${SHADER_SOURCE_DIR}"
     OUTPUT_DIR "${SHADER_OUTPUT_DIR}"

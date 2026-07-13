@@ -3,7 +3,7 @@
  * 仅绘制普通边线颜色；hover / selected 高亮由 HighlightStage 独立绘制。
  */
 
-#include "common.hlsli"
+#include "common.slang"
 
 float4 main(VS_OUTPUT_SIMPLE input) : SV_TARGET {
     static const uint MaterialTypeUnlit = 0;

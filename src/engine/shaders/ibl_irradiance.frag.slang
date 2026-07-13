@@ -10,12 +10,18 @@
  *   b0        = IBLParams（SampleCount）
  */
 
-#include "ibl_common.hlsli"
+#include "ibl_common.slang"
+#include "shader_compat.slang"
 
+#ifdef MULAN_OPENGL
+[[vk::binding(1, 0)]] Sampler2D SourceEquirect;
+#else
 [[vk::binding(1, 0)]] Texture2D    SourceEquirect : register(t1);
 [[vk::binding(2, 0)]] SamplerState LinearSamp    : register(s2);
+#endif
 
 // IBLParams UBO
+[[vk::binding(0, 0)]]
 cbuffer IBLParams : register(b0) {
     uint  SampleCount;
     float _p0; float _p1; float _p2;
@@ -58,7 +64,7 @@ float4 main(VSOut IN) : SV_Target {
         float NoL = max(dot(N, L), 0.0);
         if (NoL > 0.0) {
             float2 luv = directionToEquirectUV(L);
-            irradiance += SourceEquirect.Sample(LinearSamp, luv).rgb * NoL;
+            irradiance += MULAN_SAMPLE_2D(SourceEquirect, LinearSamp, luv).rgb * NoL;
             totalWeight += NoL;
         }
     }

@@ -6,12 +6,13 @@
  * Material(b2): 仅切换时 — 材质外观 (与 MaterialGPU 布局一致)
  */
 
-#ifndef MULAN_GEO_COMMON_HLSLI
-#define MULAN_GEO_COMMON_HLSLI
+#ifndef MULAN_GEO_COMMON_SLANG
+#define MULAN_GEO_COMMON_SLANG
 
 // ============================================================
 // 场景常量（每帧更新一次, 288 bytes）
 // ============================================================
+[[vk::binding(0, 0)]]
 cbuffer Scene : register(b0) {
     float4x4 View;
     float4x4 Projection;
@@ -27,6 +28,7 @@ cbuffer Scene : register(b0) {
 // ============================================================
 // 物体常量（每 draw call 更新, 128 bytes）
 // ============================================================
+[[vk::binding(1, 0)]]
 cbuffer Object : register(b1) {
     float4x4 World;
     float3x3 NormalMatrix;
@@ -39,6 +41,7 @@ cbuffer Object : register(b1) {
 // ============================================================
 // 材质常量（仅切换时更新, 80 bytes = MaterialGPU 直传）
 // ============================================================
+[[vk::binding(2, 0)]]
 cbuffer Material : register(b2) {
     float3 BaseColor;  float  Metallic;
     float3 Emissive;   float  Roughness;
@@ -94,4 +97,4 @@ struct VS_OUTPUT_SIMPLE {
     float4 position : SV_POSITION;
 };
 
-#endif // MULAN_GEO_COMMON_HLSLI
+#endif // MULAN_GEO_COMMON_SLANG

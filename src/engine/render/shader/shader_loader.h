@@ -45,9 +45,26 @@ inline core::Result<std::unique_ptr<Shader>> loadShader(RHIDevice& device, Shade
 #else
     std::string dir = "shaders";
 #endif
-    const char* ext = ".spv";
-    if (device.backend() == GraphicsBackend::D3D12)
+    const char* ext = nullptr;
+    ShaderSourceLanguage language = ShaderSourceLanguage::SPIRV;
+    switch (device.backend()) {
+    case GraphicsBackend::OpenGL:
+        ext = ".gl.spv";
+        language = ShaderSourceLanguage::SPIRV;
+        break;
+    case GraphicsBackend::Vulkan:
+        ext = ".spv";
+        language = ShaderSourceLanguage::SPIRV;
+        break;
+    case GraphicsBackend::D3D11:
+        ext = ".dxbc";
+        language = ShaderSourceLanguage::DXBC;
+        break;
+    case GraphicsBackend::D3D12:
         ext = ".dxil";
+        language = ShaderSourceLanguage::DXIL;
+        break;
+    }
 
     std::string path = dir + "/" + name + ext;
     auto data = readFile(path.c_str());
@@ -57,10 +74,11 @@ inline core::Result<std::unique_ptr<Shader>> loadShader(RHIDevice& device, Shade
     }
 
     ShaderDesc d;
+    d.name = name;
     d.type = type;
     d.byteCode = data.data();
     d.byteCodeSize = static_cast<uint32_t>(data.size());
-    d.language = ShaderSourceLanguage::SPIRV;
+    d.language = language;
     return device.createShader(d);
 }
 

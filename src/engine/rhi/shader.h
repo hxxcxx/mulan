@@ -34,7 +34,9 @@ enum class ShaderType : uint8_t {
 enum class ShaderSourceLanguage : uint8_t {
     GLSL,
     HLSL,
-    SPIRV,  // Vulkan precompiled
+    SPIRV,  // OpenGL or Vulkan precompiled
+    DXBC,   // D3D11 precompiled
+    DXIL,   // D3D12 precompiled
     WGSL,   // WebGPU
 };
 

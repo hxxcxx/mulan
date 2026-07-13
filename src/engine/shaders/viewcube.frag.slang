@@ -1,4 +1,4 @@
-#include "common.hlsli"
+#include "common.slang"
 
 float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
     float3 n = normalize(input.normal);
