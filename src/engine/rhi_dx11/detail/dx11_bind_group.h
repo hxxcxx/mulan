@@ -24,6 +24,7 @@ public:
     const BindGroupLayout& layout() const override { return layout_; }
     const BindGroupEntry* entries() const override { return entries_.data(); }
     uint8_t entryCount() const override { return count_; }
+    bool isValid() const { return count_ <= kMaxEntries; }
 
     bool updateUBO(uint32_t binding, Buffer* buffer, uint32_t offset, uint32_t size) override;
     bool updateTexture(uint32_t binding, Texture* texture) override;

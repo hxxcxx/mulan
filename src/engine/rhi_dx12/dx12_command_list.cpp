@@ -16,12 +16,12 @@ namespace mulan::engine {
 
 core::Result<std::unique_ptr<DX12CommandList>> DX12CommandList::create(ID3D12Device* device,
                                                                        ID3D12CommandAllocator* allocator) {
-    try {
-        return std::unique_ptr<DX12CommandList>(new DX12CommandList(device, allocator));
-    } catch (const std::exception& e) {
-        return std::unexpected(makeError(EngineErrorCode::CommandListCreateFailed,
-                                         std::string("DX12CommandList create failed: ") + e.what()));
-    }
+    if (!device || !allocator)
+        return std::unexpected(makeError(EngineErrorCode::CommandListCreateFailed, "Invalid command list arguments"));
+    auto object = std::unique_ptr<DX12CommandList>(new DX12CommandList(device, allocator));
+    if (!object->cmd_list_)
+        return std::unexpected(makeError(EngineErrorCode::CommandListCreateFailed, "CreateCommandList failed"));
+    return object;
 }
 
 DX12CommandList::DX12CommandList(ID3D12Device* device, ID3D12CommandAllocator* allocator)

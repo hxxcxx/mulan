@@ -35,6 +35,7 @@ public:
     const GPUDeviceCapabilities& capabilities() const override { return m_caps; }
     const RenderConfig& renderConfig() const override { return m_renderConfig; }
     math::Mat4 clipSpaceCorrectionMatrix() const override;
+    bool isInitialized() const { return m_factory && m_device && m_immediateCtx && m_frameCmdList; }
 
     // --- 资源创建 ---
     core::Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc) override;

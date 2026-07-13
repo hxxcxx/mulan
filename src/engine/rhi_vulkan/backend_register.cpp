@@ -11,8 +11,8 @@ namespace mulan::engine {
 
 namespace {
 
-std::unique_ptr<RHIDevice> createVulkanDevice(const DeviceCreateInfo& ci) {
-    return std::make_unique<VKDevice>(ci);
+core::Result<std::unique_ptr<RHIDevice>> createVulkanDevice(const DeviceCreateInfo& ci) {
+    return std::unique_ptr<RHIDevice>(std::make_unique<VKDevice>(ci));
 }
 
 const AutoRegisterDeviceBackend _registerVulkan(GraphicsBackend::Vulkan, &createVulkanDevice);

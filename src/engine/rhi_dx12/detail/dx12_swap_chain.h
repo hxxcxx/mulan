@@ -41,12 +41,12 @@ public:
     DXGI_FORMAT rtvFormat() const { return toDXGIFormat(desc_.format); }
 
 private:
-    DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device, IDXGIFactory4* factory, ID3D12CommandQueue* queue,
-                  const NativeWindowHandle& window);
+    DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device, ID3D12CommandQueue* queue);
+    [[nodiscard]] core::Result<void> initialize(IDXGIFactory4* factory, const NativeWindowHandle& window);
 
-    void createRTVHeap();
-    void createBackBuffers();
-    void createMsaaColor();
+    bool createRTVHeap();
+    [[nodiscard]] core::Result<void> createBackBuffers();
+    [[nodiscard]] core::Result<void> createMsaaColor();
     void releaseBackBuffers();
     void logDeviceRemovedReason(HRESULT presentResult) const;
 

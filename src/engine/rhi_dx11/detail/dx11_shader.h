@@ -23,6 +23,7 @@ public:
     ID3D11VertexShader* vsShader() const { return m_vs.Get(); }
     ID3D11PixelShader* psShader() const { return m_ps.Get(); }
     ID3D11GeometryShader* gsShader() const { return m_gs.Get(); }
+    bool isValid() const { return m_vs || m_ps || m_gs; }
 
     const void* byteCodeData() const { return m_byteCode.data(); }
     size_t byteCodeSize() const { return m_byteCode.size(); }

@@ -22,6 +22,7 @@ public:
     ~DX11SwapChain() = default;
 
     const SwapChainDesc& desc() const override { return m_desc; }
+    bool isValid() const { return m_swapChain && m_backBufferTexture; }
     Texture* currentBackBuffer() override;
     Texture* depthTexture() override { return m_depthTexture ? m_depthTexture.get() : nullptr; }
     RenderPassBeginInfo renderPassBeginInfo() override;
@@ -29,7 +30,7 @@ public:
     void resize(uint32_t width, uint32_t height) override;
 
 private:
-    void createBackBuffer();
+    bool createBackBuffer();
     void releaseBackBuffer();
 
     SwapChainDesc m_desc;

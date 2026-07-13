@@ -29,6 +29,7 @@ public:
     ID3D11RasterizerState* rasterizerState() const { return m_rasterizer.Get(); }
     ID3D11BlendState* blendState() const { return m_blend.Get(); }
     ID3D11DepthStencilState* depthStencilState() const { return m_depthStencil.Get(); }
+    bool isValid() const { return m_initialized; }
 
     uint32_t stride() const { return m_desc.vertexLayout.stride(); }
 
@@ -45,6 +46,7 @@ private:
     ComPtr<ID3D11RasterizerState> m_rasterizer;
     ComPtr<ID3D11BlendState> m_blend;
     ComPtr<ID3D11DepthStencilState> m_depthStencil;
+    bool m_initialized = false;
 };
 
 }  // namespace mulan::engine

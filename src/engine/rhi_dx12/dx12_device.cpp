@@ -76,14 +76,27 @@ void DX12Device::init(const DeviceCreateInfo& ci) {
     if (ci.enableValidation)
         enableDebugLayer();
     createFactory();
+    if (!factory_)
+        return;
     findAdapter();
     createDevice();
+    if (!device_)
+        return;
     if (ci.enableValidation)
         attachInfoQueue();
     createCommandQueue();
+    if (!command_queue_)
+        return;
     createFrameContexts();
+    if (frames_.size() != frame_count_ ||
+        std::any_of(frames_.begin(), frames_.end(), [](const auto& frame) { return !frame || !frame->isValid(); }))
+        return;
 
     upload_context_ = std::make_unique<DX12UploadContext>(device_.Get(), command_queue_.Get(), frame_count_);
+    if (!upload_context_->isValid()) {
+        upload_context_.reset();
+        return;
+    }
 
     frame_cmd_wrapper_ = std::make_unique<DX12CommandList>(nullptr);
 
@@ -94,6 +107,8 @@ void DX12Device::init(const DeviceCreateInfo& ci) {
     // 绘制时通过 root descriptor table 直接引用 GPU handle。
     sampler_heap_ = std::make_unique<DX12DescriptorAllocator>(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
                                                               D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 64);
+    if (!shader_visible_heap_->isValid() || !sampler_heap_->isValid())
+        return;
 
     caps_.backend = GraphicsBackend::D3D12;
 

@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <stdexcept>
 #include <thread>
 
 namespace mulan::engine {
@@ -10,7 +9,7 @@ namespace mulan::engine {
 DX11Fence::DX11Fence(ID3D11Device* device, ID3D11DeviceContext* context, uint64_t initialValue)
     : m_device(device), m_ctx(context), m_signaled(initialValue), m_completed(initialValue) {
     if (!m_device || !m_ctx)
-        throw std::invalid_argument("DX11Fence requires a valid device and immediate context");
+        LOG_ERROR("[DX11] Fence initialization rejected: invalid device or context");
 }
 
 void DX11Fence::signal(uint64_t value) {

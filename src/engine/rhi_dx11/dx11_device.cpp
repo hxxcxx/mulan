@@ -5,7 +5,6 @@
 #include <array>
 #include <cstdio>
 #include <expected>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility>
@@ -27,13 +26,11 @@ template <typename Base, typename Impl, typename... Args>
 mulan::core::Result<std::unique_ptr<Base>> createDX11Resource(RHIDevice& device, EngineErrorCode errorCode,
                                                               RHIResourceKind resourceKind, std::string_view name,
                                                               Args&&... args) {
-    try {
-        auto resource = std::make_unique<Impl>(std::forward<Args>(args)...);
-        resource->trackResource(device, resourceKind, name);
-        return std::unique_ptr<Base>(std::move(resource));
-    } catch (const std::exception& e) {
-        return std::unexpected(makeError(errorCode, e.what()));
-    }
+    auto resource = std::make_unique<Impl>(std::forward<Args>(args)...);
+    if (!resource->isValid())
+        return std::unexpected(makeError(errorCode, "DX11 resource initialization failed"));
+    resource->trackResource(device, resourceKind, name);
+    return std::unique_ptr<Base>(std::move(resource));
 }
 
 const BindGroupLayoutEntry* findLayoutEntry(const BindGroupLayout& layout, uint32_t binding) {
@@ -171,8 +168,10 @@ void DX11Device::init(const DeviceCreateInfo& ci) {
     }
     if (!checkDX11(hr, "D3D11CreateDevice"))
         return;
-    if (!m_device || !m_immediateCtx)
-        throw std::runtime_error("D3D11CreateDevice returned an incomplete device");
+    if (!m_device || !m_immediateCtx) {
+        LOG_ERROR("[DX11] D3D11CreateDevice returned an incomplete device");
+        return;
+    }
 
     // D3D11.1 支持常量缓冲区范围绑定。缺失时 CommandList 使用 GPU copy 兼容路径，
     // 仍保证大 Object UBO 和按材质偏移的结果正确。

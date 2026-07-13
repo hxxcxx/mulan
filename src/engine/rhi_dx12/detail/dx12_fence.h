@@ -28,6 +28,7 @@ public:
     void signal(uint64_t value) override;
     void wait(uint64_t value) override;
     uint64_t completedValue() const override;
+    bool isValid() const { return fence_ && event_; }
 
     ID3D12Fence* fence() const { return fence_.Get(); }
     HANDLE event() const { return event_; }

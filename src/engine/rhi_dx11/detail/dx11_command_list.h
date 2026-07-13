@@ -57,6 +57,7 @@ public:
     void endRenderPass() override;
 
     ID3D11DeviceContext* context() const { return m_ctx; }
+    bool isValid() const { return m_device && m_ctx; }
 
 private:
     struct ActiveColorAttachment {

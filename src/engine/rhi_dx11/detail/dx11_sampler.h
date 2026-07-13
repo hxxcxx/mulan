@@ -20,6 +20,7 @@ public:
     const SamplerDesc& desc() const override { return m_desc; }
 
     ID3D11SamplerState* handle() const { return m_handle.Get(); }
+    bool isValid() const { return m_handle != nullptr; }
 
 private:
     SamplerDesc m_desc;

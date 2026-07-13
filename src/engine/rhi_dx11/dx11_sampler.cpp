@@ -1,7 +1,6 @@
 #include "detail/dx11_sampler.h"
 
 #include <algorithm>
-#include <stdexcept>
 
 namespace mulan::engine {
 
@@ -92,8 +91,10 @@ DX11Sampler::DX11Sampler(const SamplerDesc& desc, ID3D11Device* device) : m_desc
     d3dDesc.MinLOD = desc.minLod;
     d3dDesc.MaxLOD = desc.maxLod;
 
-    if (!device)
-        throw std::invalid_argument("DX11Sampler requires a valid device");
+    if (!device) {
+        LOG_ERROR("[DX11] Sampler initialization rejected: invalid device");
+        return;
+    }
     if (!checkDX11(device->CreateSamplerState(&d3dDesc, &m_handle), "ID3D11Device::CreateSamplerState"))
         return;
 }

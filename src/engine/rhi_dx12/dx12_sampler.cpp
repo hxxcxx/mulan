@@ -69,12 +69,9 @@ core::Result<std::unique_ptr<DX12Sampler>> DX12Sampler::create(const SamplerDesc
                                                                DX12DescriptorAllocator* samplerHeap) {
     // samplerHeap 为空时保留空 descriptor，供不需要 shader 绑定的调用方使用；
     // 正常 DX12Device 路径传入 shader-visible sampler heap。
-    try {
-        return std::unique_ptr<DX12Sampler>(new DX12Sampler(desc, device, samplerHeap));
-    } catch (const std::exception& e) {
-        return std::unexpected(
-                makeError(EngineErrorCode::SamplerCreateFailed, std::string("DX12Sampler create failed: ") + e.what()));
-    }
+    if (!device)
+        return std::unexpected(makeError(EngineErrorCode::SamplerCreateFailed, "DX12Sampler requires a device"));
+    return std::unique_ptr<DX12Sampler>(new DX12Sampler(desc, device, samplerHeap));
 }
 
 DX12Sampler::DX12Sampler(const SamplerDesc& desc, ID3D12Device* device, DX12DescriptorAllocator* samplerHeap)

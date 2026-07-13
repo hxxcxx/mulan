@@ -11,7 +11,6 @@
 #include <array>
 #include <cstdio>
 #include <cstring>
-#include <stdexcept>
 
 namespace {
 
@@ -42,7 +41,7 @@ namespace mulan::engine {
 DX11CommandList::DX11CommandList(ID3D11Device* device, ID3D11DeviceContext* ctx, ID3D11DeviceContext1* ctx1)
     : m_device(device), m_ctx(ctx), m_ctx1(ctx1) {
     if (!m_device || !m_ctx)
-        throw std::invalid_argument("DX11CommandList requires a valid device and immediate context");
+        LOG_ERROR("[DX11] Command list initialization rejected: invalid device or context");
 }
 
 void DX11CommandList::begin() {

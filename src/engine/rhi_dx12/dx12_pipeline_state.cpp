@@ -34,12 +34,12 @@ using graphics::VertexSemantic;
 
 core::Result<std::unique_ptr<DX12PipelineState>> DX12PipelineState::create(const GraphicsPipelineDesc& desc,
                                                                            ID3D12Device* device) {
-    try {
-        return std::unique_ptr<DX12PipelineState>(new DX12PipelineState(desc, device));
-    } catch (const std::exception& e) {
-        return std::unexpected(makeError(EngineErrorCode::PipelineCreateFailed,
-                                         std::string("DX12PipelineState create failed: ") + e.what()));
-    }
+    if (!device)
+        return std::unexpected(makeError(EngineErrorCode::PipelineCreateFailed, "DX12 pipeline requires a device"));
+    auto object = std::unique_ptr<DX12PipelineState>(new DX12PipelineState(desc, device));
+    if (!object->root_signature_ || !object->pipeline_)
+        return std::unexpected(makeError(EngineErrorCode::PipelineCreateFailed, "DX12 pipeline initialization failed"));
+    return object;
 }
 
 DX12PipelineState::DX12PipelineState(const GraphicsPipelineDesc& desc, ID3D12Device* device)

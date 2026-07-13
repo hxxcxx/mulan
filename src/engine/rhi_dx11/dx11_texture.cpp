@@ -1,28 +1,22 @@
 #include "detail/dx11_texture.h"
 #include "detail/dx11_convert.h"
 
-#include <stdexcept>
-
 namespace mulan::engine {
 
 DX11Texture::DX11Texture(const TextureDesc& desc, ID3D11Device* device) : m_desc(desc) {
-    if (!device)
-        throw std::invalid_argument("DX11Texture requires a valid device");
-    if (desc.dimension != TextureDimension::Texture2D)
-        throw std::invalid_argument("DX11Texture currently supports Texture2D only");
-    if (desc.width == 0 || desc.height == 0 || desc.mipLevels == 0 || desc.arraySize == 0 || desc.sampleCount == 0)
-        throw std::invalid_argument("DX11Texture dimensions, mipLevels, arraySize and sampleCount must be non-zero");
-    if (desc.arraySize != 1)
-        throw std::invalid_argument("DX11Texture currently supports one Texture2D array slice only");
-    if (desc.sampleCount > 1 && desc.mipLevels != 1)
-        throw std::invalid_argument("multisampled DX11Texture requires one mip level");
+    if (!device || desc.dimension != TextureDimension::Texture2D || desc.width == 0 || desc.height == 0 ||
+        desc.mipLevels == 0 || desc.arraySize != 1 || desc.sampleCount == 0 ||
+        (desc.sampleCount > 1 && desc.mipLevels != 1)) {
+        LOG_ERROR("[DX11] Texture initialization rejected: invalid descriptor or device");
+        return;
+    }
 
     const bool isDepth = desc.usage & TextureUsageFlags::DepthStencil;
     const bool isDepthFormat = isDepthFormat11(desc.format);
-    if (isDepth && !isDepthFormat)
-        throw std::invalid_argument("DX11 depth-stencil texture requires a depth format");
-    if (!isDepth && isDepthFormat)
-        throw std::invalid_argument("DX11 color texture cannot use a depth format");
+    if ((isDepth && !isDepthFormat) || (!isDepth && isDepthFormat)) {
+        LOG_ERROR("[DX11] Texture initialization rejected: format and usage mismatch");
+        return;
+    }
 
     D3D11_TEXTURE2D_DESC td = {};
     td.Width = desc.width;
@@ -55,8 +49,10 @@ DX11Texture::DX11Texture(const TextureDesc& desc, ID3D11Device* device) : m_desc
     } else {
         td.Format = toDXGIFormat11(desc.format);
     }
-    if (td.Format == DXGI_FORMAT_UNKNOWN)
-        throw std::invalid_argument("DX11Texture format is not supported by the D3D11 backend");
+    if (td.Format == DXGI_FORMAT_UNKNOWN) {
+        LOG_ERROR("[DX11] Texture initialization rejected: unsupported format");
+        return;
+    }
 
     if (!checkDX11(device->CreateTexture2D(&td, nullptr, &m_texture), "ID3D11Device::CreateTexture2D"))
         return;
@@ -72,12 +68,12 @@ DX11Texture::DX11Texture(const TextureDesc& desc, ID3D11Device* device) : m_desc
 
 DX11Texture::DX11Texture(const TextureDesc& desc, ID3D11Texture2D* existing) : m_desc(desc), m_texture(existing) {
     if (!existing)
-        throw std::invalid_argument("DX11Texture cannot wrap a null D3D11 texture");
+        LOG_ERROR("[DX11] Texture wrapping rejected: null native texture");
 }
 
 void DX11Texture::createRTV(ID3D11Device* device, DXGI_FORMAT fmt) {
     if (!device || !m_texture)
-        throw std::invalid_argument("DX11Texture::createRTV requires a valid texture and device");
+        return;
 
     D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
     rtvDesc.Format = (fmt != DXGI_FORMAT_UNKNOWN) ? fmt : toDXGIFormat11(m_desc.format);
@@ -88,7 +84,7 @@ void DX11Texture::createRTV(ID3D11Device* device, DXGI_FORMAT fmt) {
         rtvDesc.Texture2D.MipSlice = 0;
     }
     if (rtvDesc.Format == DXGI_FORMAT_UNKNOWN)
-        throw std::invalid_argument("DX11Texture cannot create RTV for an unknown format");
+        return;
 
     if (!checkDX11(device->CreateRenderTargetView(m_texture.Get(), &rtvDesc, &m_rtv),
                    "ID3D11Device::CreateRenderTargetView"))
@@ -97,7 +93,7 @@ void DX11Texture::createRTV(ID3D11Device* device, DXGI_FORMAT fmt) {
 
 void DX11Texture::createDSV(ID3D11Device* device, DXGI_FORMAT fmt) {
     if (!device || !m_texture)
-        throw std::invalid_argument("DX11Texture::createDSV requires a valid texture and device");
+        return;
 
     D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = (fmt != DXGI_FORMAT_UNKNOWN) ? fmt : toDSVFormat11(m_desc.format);
@@ -108,7 +104,7 @@ void DX11Texture::createDSV(ID3D11Device* device, DXGI_FORMAT fmt) {
         dsvDesc.Texture2D.MipSlice = 0;
     }
     if (dsvDesc.Format == DXGI_FORMAT_UNKNOWN)
-        throw std::invalid_argument("DX11Texture cannot create DSV for an unknown format");
+        return;
 
     if (!checkDX11(device->CreateDepthStencilView(m_texture.Get(), &dsvDesc, &m_dsv),
                    "ID3D11Device::CreateDepthStencilView"))
@@ -117,7 +113,7 @@ void DX11Texture::createDSV(ID3D11Device* device, DXGI_FORMAT fmt) {
 
 void DX11Texture::createSRV(ID3D11Device* device, DXGI_FORMAT fmt) {
     if (!device || !m_texture)
-        throw std::invalid_argument("DX11Texture::createSRV requires a valid texture and device");
+        return;
 
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     if (fmt != DXGI_FORMAT_UNKNOWN) {
@@ -133,7 +129,7 @@ void DX11Texture::createSRV(ID3D11Device* device, DXGI_FORMAT fmt) {
         srvDesc.Texture2D.MipLevels = m_desc.mipLevels;
     }
     if (srvDesc.Format == DXGI_FORMAT_UNKNOWN)
-        throw std::invalid_argument("DX11Texture cannot create SRV for an unknown format");
+        return;
 
     if (!checkDX11(device->CreateShaderResourceView(m_texture.Get(), &srvDesc, &m_srv),
                    "ID3D11Device::CreateShaderResourceView"))

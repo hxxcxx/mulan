@@ -39,6 +39,7 @@ public:
 
     /// 提交并等待所有上传命令完成
     void flush();
+    bool isValid() const { return device_ && queue_ && cmd_allocator_ && cmd_list_ && fence_ && fence_event_; }
 
 private:
     /// 非批量模式下：录制完立即 Close→Execute→Signal→Wait（同步提交）。

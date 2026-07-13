@@ -20,6 +20,7 @@ public:
     ~DX11RenderTarget() = default;
 
     const RenderTargetDesc& desc() const override { return m_desc; }
+    bool isValid() const { return m_colorTexture != nullptr; }
     Texture* colorTexture() override { return m_colorTexture.get(); }
     Texture* depthTexture() override { return m_depthTexture.get(); }
 
@@ -27,7 +28,7 @@ public:
     RenderPassBeginInfo renderPassBeginInfo() override;
 
 private:
-    void createResources();
+    bool createResources();
 
     RenderTargetDesc m_desc;
     ID3D11Device* m_device;

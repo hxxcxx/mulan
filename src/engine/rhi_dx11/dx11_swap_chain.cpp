@@ -4,17 +4,17 @@
 #include <algorithm>
 #include <cstdio>
 #include <iterator>
-#include <stdexcept>
 
 namespace mulan::engine {
 
 DX11SwapChain::DX11SwapChain(const SwapChainDesc& desc, ID3D11Device* device, IDXGIFactory2* factory,
                              ID3D11DeviceContext* ctx, const NativeWindowHandle& window)
     : m_desc(desc), m_device(device), m_ctx(ctx) {
-    if (!m_device || !factory || !m_ctx || window.type != NativeWindowHandle::Type::Win32 || !window.valid())
-        throw std::invalid_argument("DX11SwapChain requires a valid Win32 window, factory, device and context");
-    if (m_desc.width == 0 || m_desc.height == 0 || m_desc.bufferCount < 2)
-        throw std::invalid_argument("DX11SwapChain requires non-zero dimensions and at least two flip-model buffers");
+    if (!m_device || !factory || !m_ctx || window.type != NativeWindowHandle::Type::Win32 || !window.valid() ||
+        m_desc.width == 0 || m_desc.height == 0 || m_desc.bufferCount < 2) {
+        LOG_ERROR("[DX11] Swap chain initialization rejected: invalid arguments");
+        return;
+    }
 
     m_desc.sampleCount = m_desc.sampleCount > 1 ? m_desc.sampleCount : 1;
     DXGI_SWAP_CHAIN_DESC1 scDesc = {};
@@ -39,18 +39,20 @@ DX11SwapChain::DX11SwapChain(const SwapChainDesc& desc, ID3D11Device* device, ID
     createBackBuffer();
 }
 
-void DX11SwapChain::createBackBuffer() {
+bool DX11SwapChain::createBackBuffer() {
     if (!m_swapChain)
-        throw std::runtime_error("DX11 swap chain is not initialized");
+        return false;
 
     ComPtr<ID3D11Texture2D> backBuf;
     if (!checkDX11(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuf)), "IDXGISwapChain1::GetBuffer"))
-        return;
+        return false;
 
     TextureDesc texDesc = TextureDesc::renderTarget(m_desc.width, m_desc.height, m_desc.format, "DX11BackBuffer");
     texDesc.usage = TextureUsageFlags::RenderTarget;
     auto backBufferTexture = std::make_unique<DX11Texture>(texDesc, backBuf.Get());
     backBufferTexture->createRTV(m_device);
+    if (!backBufferTexture->isValid())
+        return false;
 
     std::unique_ptr<DX11Texture> msaaColorTexture;
     if (m_desc.sampleCount > 1) {
@@ -58,6 +60,8 @@ void DX11SwapChain::createBackBuffer() {
                                                   m_desc.sampleCount);
         msaaDesc.usage = TextureUsageFlags::RenderTarget;
         msaaColorTexture = std::make_unique<DX11Texture>(msaaDesc, m_device);
+        if (!msaaColorTexture->isValid())
+            return false;
     }
 
     std::unique_ptr<DX11Texture> depthTexture;
@@ -66,11 +70,14 @@ void DX11SwapChain::createBackBuffer() {
                                                    "DX11SwapChainDepth", m_desc.sampleCount);
         depthDesc.usage = TextureUsageFlags::DepthStencil;
         depthTexture = std::make_unique<DX11Texture>(depthDesc, m_device);
+        if (!depthTexture->isValid())
+            return false;
     }
 
     m_backBufferTexture = std::move(backBufferTexture);
     m_msaaColorTexture = std::move(msaaColorTexture);
     m_depthTexture = std::move(depthTexture);
+    return true;
 }
 
 void DX11SwapChain::releaseBackBuffer() {
@@ -132,22 +139,16 @@ void DX11SwapChain::resize(uint32_t width, uint32_t height) {
         logDX11Failure(hr, "IDXGISwapChain::ResizeBuffers");
         // Resize 失败时 DXGI 仍保留原 backbuffer；重新包装它，避免交换链对象在
         // 下一帧只因一次临时失败而永久失效。
-        try {
-            createBackBuffer();
-        } catch (const std::exception& e) {
-            LOG_ERROR("[DX11] Swap chain backbuffer restore failed: {}", e.what());
-        }
+        if (!createBackBuffer())
+            LOG_ERROR("[DX11] Swap chain backbuffer restore failed");
         return;
     }
 
     m_desc.width = width;
     m_desc.height = height;
 
-    try {
-        createBackBuffer();
-    } catch (const std::exception& e) {
-        LOG_ERROR("[DX11] Swap chain backbuffer recreation failed: {}", e.what());
-    }
+    if (!createBackBuffer())
+        LOG_ERROR("[DX11] Swap chain backbuffer recreation failed");
 }
 
 }  // namespace mulan::engine

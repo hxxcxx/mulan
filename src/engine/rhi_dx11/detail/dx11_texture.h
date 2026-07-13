@@ -21,6 +21,11 @@ public:
     const TextureDesc& desc() const override { return m_desc; }
 
     ID3D11Texture2D* resource() const { return m_texture.Get(); }
+    bool isValid() const {
+        return m_texture && (!(m_desc.usage & TextureUsageFlags::RenderTarget) || m_rtv) &&
+               (!(m_desc.usage & TextureUsageFlags::DepthStencil) || m_dsv) &&
+               (!(m_desc.usage & TextureUsageFlags::ShaderResource) || m_srv);
+    }
     ID3D11RenderTargetView* rtv() const { return m_rtv.Get(); }
     ID3D11DepthStencilView* dsv() const { return m_dsv.Get(); }
     ID3D11ShaderResourceView* srv() const { return m_srv.Get(); }

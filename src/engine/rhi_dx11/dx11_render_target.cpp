@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cstdio>
 #include <iterator>
-#include <stdexcept>
 
 namespace mulan::engine {
 
@@ -12,17 +11,17 @@ DX11RenderTarget::DX11RenderTarget(const RenderTargetDesc& desc, ID3D11Device* d
     createResources();
 }
 
-void DX11RenderTarget::createResources() {
-    if (!m_device)
-        throw std::invalid_argument("DX11RenderTarget requires a valid device");
-    if (m_desc.width == 0 || m_desc.height == 0)
-        throw std::invalid_argument("DX11RenderTarget dimensions must be greater than zero");
+bool DX11RenderTarget::createResources() {
+    if (!m_device || m_desc.width == 0 || m_desc.height == 0)
+        return false;
 
     m_desc.sampleCount = m_desc.sampleCount > 1 ? m_desc.sampleCount : 1;
 
     // colorTexture() 始终返回单采样纹理，便于后续采样与 readback。
     auto colorDesc = TextureDesc::renderTarget(m_desc.width, m_desc.height, m_desc.colorFormat, "DX11OffscreenColor");
     auto colorTexture = std::make_unique<DX11Texture>(colorDesc, m_device);
+    if (!colorTexture->isValid())
+        return false;
 
     std::unique_ptr<DX11Texture> msaaColorTexture;
     if (m_desc.sampleCount > 1) {
@@ -30,6 +29,8 @@ void DX11RenderTarget::createResources() {
                                                        "DX11OffscreenMSAAColor", m_desc.sampleCount);
         msaaColorDesc.usage = TextureUsageFlags::RenderTarget;
         msaaColorTexture = std::make_unique<DX11Texture>(msaaColorDesc, m_device);
+        if (!msaaColorTexture->isValid())
+            return false;
     }
 
     std::unique_ptr<DX11Texture> depthTexture;
@@ -39,12 +40,15 @@ void DX11RenderTarget::createResources() {
         // 当前渲染路径不采样深度，避免为 typed depth 资源创建不必要的 SRV。
         depthDesc.usage = TextureUsageFlags::DepthStencil;
         depthTexture = std::make_unique<DX11Texture>(depthDesc, m_device);
+        if (!depthTexture->isValid())
+            return false;
     }
 
     // 全部附件成功创建后再替换旧资源，使 resize 失败时仍可继续使用上一帧目标。
     m_colorTexture = std::move(colorTexture);
     m_msaaColorTexture = std::move(msaaColorTexture);
     m_depthTexture = std::move(depthTexture);
+    return true;
 }
 
 void DX11RenderTarget::resize(uint32_t width, uint32_t height) {
@@ -54,11 +58,9 @@ void DX11RenderTarget::resize(uint32_t width, uint32_t height) {
     const RenderTargetDesc previousDesc = m_desc;
     m_desc.width = width;
     m_desc.height = height;
-    try {
-        createResources();
-    } catch (const std::exception& e) {
+    if (!createResources()) {
         m_desc = previousDesc;
-        LOG_ERROR("[DX11] Render target resize failed: {}", e.what());
+        LOG_ERROR("[DX11] Render target resize failed");
     }
 }
 

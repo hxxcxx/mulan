@@ -42,6 +42,7 @@ public:
 
     /// 获取底层堆（用于绑定到命令列表）
     ID3D12DescriptorHeap* heap() const { return heap_.Get(); }
+    bool isValid() const { return heap_ != nullptr; }
 
 private:
     ComPtr<ID3D12DescriptorHeap> heap_;

@@ -26,6 +26,7 @@ public:
     DX12Fence* fence() const { return fence_.get(); }
     uint64_t fenceValue() const { return fence_value_; }
     void setFenceValue(uint64_t v) { fence_value_ = v; }
+    bool isValid() const { return cmd_allocator_ && cmd_list_ && fence_ && fence_->isValid(); }
 
 private:
     ComPtr<ID3D12CommandAllocator> cmd_allocator_;

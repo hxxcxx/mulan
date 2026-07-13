@@ -35,6 +35,8 @@ core::Result<void> DX12RenderTarget::createResources() {
     // RTV heap
     rtv_heap_ = std::make_unique<DX12DescriptorAllocator>(device_, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
                                                           D3D12_DESCRIPTOR_HEAP_FLAG_NONE, samples > 1 ? 2 : 1);
+    if (!rtv_heap_->isValid())
+        return std::unexpected(makeError(EngineErrorCode::RenderTargetCreateFailed, "RTV heap creation failed"));
     auto rtvDesc = rtv_heap_->allocate();
     device_->CreateRenderTargetView(color_texture_->resource(), nullptr, rtvDesc.cpu);
     rtv_handle_ = rtvDesc.cpu;
@@ -67,6 +69,8 @@ core::Result<void> DX12RenderTarget::createResources() {
         // DSV heap
         dsv_heap_ = std::make_unique<DX12DescriptorAllocator>(device_, D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
                                                               D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 1);
+        if (!dsv_heap_->isValid())
+            return std::unexpected(makeError(EngineErrorCode::RenderTargetCreateFailed, "DSV heap creation failed"));
         auto dsvDesc = dsv_heap_->allocate();
 
         D3D12_DEPTH_STENCIL_VIEW_DESC dsvViewDesc = {};

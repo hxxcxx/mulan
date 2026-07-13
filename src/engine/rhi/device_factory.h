@@ -17,7 +17,7 @@
 namespace mulan::engine {
 
 /// 设备创建函数签名。
-using DeviceCreator = std::unique_ptr<RHIDevice> (*)(const DeviceCreateInfo&);
+using DeviceCreator = core::Result<std::unique_ptr<RHIDevice>> (*)(const DeviceCreateInfo&);
 
 /// 后端注册表（单例）。后端通过 AutoRegisterDeviceBackend 自注册。
 class DeviceFactory {

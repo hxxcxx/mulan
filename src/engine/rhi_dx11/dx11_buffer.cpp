@@ -2,7 +2,6 @@
 
 #include <cstdio>
 #include <cstring>
-#include <stdexcept>
 
 namespace {
 
@@ -20,17 +19,17 @@ namespace mulan::engine {
 
 DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11DeviceContext* ctx)
     : m_desc(desc), m_ctx(ctx) {
-    if (!device || !ctx)
-        throw std::invalid_argument("DX11Buffer requires a valid device and immediate context");
-    if (desc.size == 0)
-        throw std::invalid_argument("DX11Buffer size must be greater than zero");
-    if (desc.usage == BufferUsage::Immutable && !desc.initData)
-        throw std::invalid_argument("D3D11 immutable buffers require initial data");
+    if (!device || !ctx || desc.size == 0 || (desc.usage == BufferUsage::Immutable && !desc.initData)) {
+        LOG_ERROR("[DX11] Buffer initialization rejected: invalid arguments");
+        return;
+    }
 
     D3D11_BUFFER_DESC bd = {};
     const bool isUniform = desc.bindFlags & BufferBindFlags::UniformBuffer;
-    if (isUniform && desc.size > UINT32_MAX - (kConstantBufferAlignment - 1u))
-        throw std::invalid_argument("DX11 uniform buffer size overflows alignment");
+    if (isUniform && desc.size > UINT32_MAX - (kConstantBufferAlignment - 1u)) {
+        LOG_ERROR("[DX11] Buffer initialization rejected: uniform size overflows alignment");
+        return;
+    }
     m_byteWidth = isUniform ? alignUp(desc.size, kConstantBufferAlignment) : desc.size;
     bd.ByteWidth = m_byteWidth;
 
@@ -75,8 +74,10 @@ DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11Devic
     case BufferUsage::Staging:
         bd.Usage = D3D11_USAGE_STAGING;
         bd.CPUAccessFlags = D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE;
-        if (bd.BindFlags != 0)
-            throw std::invalid_argument("D3D11 staging buffers cannot have bind flags");
+        if (bd.BindFlags != 0) {
+            LOG_ERROR("[DX11] Buffer initialization rejected: staging buffers cannot have bind flags");
+            return;
+        }
         break;
     }
 

@@ -13,70 +13,74 @@ namespace mulan::engine {
 core::Result<std::unique_ptr<DX12SwapChain>> DX12SwapChain::create(const SwapChainDesc& desc, ID3D12Device* device,
                                                                    IDXGIFactory4* factory, ID3D12CommandQueue* queue,
                                                                    const NativeWindowHandle& window) {
-    try {
-        return std::unique_ptr<DX12SwapChain>(new DX12SwapChain(desc, device, factory, queue, window));
-    } catch (const std::exception& e) {
-        return std::unexpected(makeError(EngineErrorCode::SwapChainCreateFailed,
-                                         std::string("DX12SwapChain create failed: ") + e.what()));
-    }
+    if (!device || !factory || !queue || !window.win32.hWnd || desc.width == 0 || desc.height == 0 ||
+        desc.bufferCount < 2)
+        return std::unexpected(makeError(EngineErrorCode::SwapChainCreateFailed, "Invalid DX12 swap chain arguments"));
+    auto object = std::unique_ptr<DX12SwapChain>(new DX12SwapChain(desc, device, queue));
+    if (auto result = object->initialize(factory, window); !result)
+        return std::unexpected(makeError(EngineErrorCode::SwapChainCreateFailed, result.error().message));
+    return object;
 }
 
-DX12SwapChain::DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device, IDXGIFactory4* factory,
-                             ID3D12CommandQueue* queue, const NativeWindowHandle& window)
+DX12SwapChain::DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device, ID3D12CommandQueue* queue)
     : desc_(desc), device_(device), queue_(queue) {
     desc_.sampleCount = desc_.sampleCount > 1 ? desc_.sampleCount : 1;
     clear_color_[0] = desc.clearColor[0];
     clear_color_[1] = desc.clearColor[1];
     clear_color_[2] = desc.clearColor[2];
     clear_color_[3] = desc.clearColor[3];
+}
 
+core::Result<void> DX12SwapChain::initialize(IDXGIFactory4* factory, const NativeWindowHandle& window) {
     DXGI_SWAP_CHAIN_DESC1 scDesc = {};
-    scDesc.Width = desc.width;
-    scDesc.Height = desc.height;
-    scDesc.Format = toDXGIFormat(desc.format);
+    scDesc.Width = desc_.width;
+    scDesc.Height = desc_.height;
+    scDesc.Format = toDXGIFormat(desc_.format);
     scDesc.Stereo = FALSE;
     scDesc.SampleDesc.Count = 1;
     scDesc.SampleDesc.Quality = 0;
     scDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    scDesc.BufferCount = desc.bufferCount;
+    scDesc.BufferCount = desc_.bufferCount;
     scDesc.Scaling = DXGI_SCALING_STRETCH;
     scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     scDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
-    scDesc.Flags = desc.vsync ? 0 : DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+    scDesc.Flags = desc_.vsync ? 0 : DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
     HWND hwnd = reinterpret_cast<HWND>(window.win32.hWnd);
     ComPtr<IDXGISwapChain1> swapChain1;
-    HRESULT hr = factory->CreateSwapChainForHwnd(queue, hwnd, &scDesc, nullptr, nullptr, &swapChain1);
-    if (!checkDX12(hr, "IDXGIFactory4::CreateSwapChainForHwnd"))
-        return;
+    HRESULT hr = factory->CreateSwapChainForHwnd(queue_, hwnd, &scDesc, nullptr, nullptr, &swapChain1);
+    if (auto result = checkDX12(hr, "IDXGIFactory4::CreateSwapChainForHwnd"); !result)
+        return result;
     hr = swapChain1.As(&swap_chain_);
-    if (!checkDX12(hr, "IDXGISwapChain1::QueryInterface(IDXGISwapChain3)"))
-        return;
-    createRTVHeap();
-    createBackBuffers();
+    if (auto result = checkDX12(hr, "IDXGISwapChain1::QueryInterface(IDXGISwapChain3)"); !result)
+        return result;
+    if (!createRTVHeap())
+        return std::unexpected(makeError(EngineErrorCode::SwapChainCreateFailed, "Descriptor heap creation failed"));
+    return createBackBuffers();
 }
 
 DX12SwapChain::~DX12SwapChain() {
     releaseBackBuffers();
 }
 
-void DX12SwapChain::createRTVHeap() {
+bool DX12SwapChain::createRTVHeap() {
     const uint32_t rtvCount = desc_.bufferCount + (desc_.sampleCount > 1 ? 1 : 0);
     rtv_heap_ = std::make_unique<DX12DescriptorAllocator>(device_, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
                                                           D3D12_DESCRIPTOR_HEAP_FLAG_NONE, rtvCount);
 
     dsv_heap_ = std::make_unique<DX12DescriptorAllocator>(device_, D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
                                                           D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 1);
+    return rtv_heap_->isValid() && dsv_heap_->isValid();
 }
 
-void DX12SwapChain::createBackBuffers() {
+core::Result<void> DX12SwapChain::createBackBuffers() {
     back_buffers_.resize(desc_.bufferCount);
     back_buffer_textures_.resize(desc_.bufferCount);
 
     for (uint32_t i = 0; i < desc_.bufferCount; ++i) {
         HRESULT hr = swap_chain_->GetBuffer(i, IID_PPV_ARGS(&back_buffers_[i]));
-        if (!checkDX12(hr, "IDXGISwapChain3::GetBuffer"))
-            return;
+        if (auto result = checkDX12(hr, "IDXGISwapChain3::GetBuffer"); !result)
+            return result;
         auto rtvDesc = rtv_heap_->allocate();
         device_->CreateRenderTargetView(back_buffers_[i].Get(), nullptr, rtvDesc.cpu);
 
@@ -87,7 +91,8 @@ void DX12SwapChain::createBackBuffers() {
         back_buffer_textures_[i]->setRTV(rtvDesc.cpu);
     }
 
-    createMsaaColor();
+    if (auto result = createMsaaColor(); !result)
+        return result;
 
     // Depth stencil —— 纯 DSV 用途，不带 ShaderResource：
     // 深度缓冲从不被 shader 采样，且带 SRV 会触发对 typed 深度格式
@@ -99,31 +104,33 @@ void DX12SwapChain::createBackBuffers() {
     if (!depthResult) {
         // createBackBuffers 被 create()/resize() 共用；失败时抛异常，
         // 由 create() 的 try/catch 转成 expected，或由 resize() 的 try/catch 消化。
-        throw std::runtime_error(depthResult.error().message);
+        return std::unexpected(depthResult.error());
     }
     depth_texture_ = std::move(*depthResult);
 
     auto dsvDesc = dsv_heap_->allocate();
     device_->CreateDepthStencilView(depth_texture_->resource(), nullptr, dsvDesc.cpu);
     depth_texture_->setDSV(dsvDesc.cpu);
+    return {};
 }
 
-void DX12SwapChain::createMsaaColor() {
+core::Result<void> DX12SwapChain::createMsaaColor() {
     msaa_color_texture_.reset();
     if (desc_.sampleCount <= 1)
-        return;
+        return {};
 
     TextureDesc colorDesc =
             TextureDesc::renderTarget(desc_.width, desc_.height, desc_.format, "SwapchainMSAAColor", desc_.sampleCount);
     colorDesc.usage = TextureUsageFlags::RenderTarget;
     auto colorResult = DX12Texture::create(colorDesc, device_, D3D12_RESOURCE_STATE_RENDER_TARGET);
     if (!colorResult)
-        throw std::runtime_error(colorResult.error().message);
+        return std::unexpected(colorResult.error());
     msaa_color_texture_ = std::move(*colorResult);
 
     auto rtvDesc = rtv_heap_->allocate();
     device_->CreateRenderTargetView(msaa_color_texture_->resource(), nullptr, rtvDesc.cpu);
     msaa_color_texture_->setRTV(rtvDesc.cpu);
+    return {};
 }
 
 void DX12SwapChain::releaseBackBuffers() {
@@ -192,17 +199,16 @@ void DX12SwapChain::resize(uint32_t width, uint32_t height) {
     desc_.width = width;
     desc_.height = height;
 
-    // resize 是基类 void 热路径契约，内部消化错误。
-    try {
-        HRESULT hr = swap_chain_->ResizeBuffers(desc_.bufferCount, width, height, toDXGIFormat(desc_.format), 0);
-        if (!checkDX12(hr, "IDXGISwapChain3::ResizeBuffers"))
-            return;
+    HRESULT hr = swap_chain_->ResizeBuffers(desc_.bufferCount, width, height, toDXGIFormat(desc_.format), 0);
+    if (!checkDX12(hr, "IDXGISwapChain3::ResizeBuffers"))
+        return;
 
-        createRTVHeap();
-        createBackBuffers();
-    } catch (const std::exception& e) {
-        LOG_ERROR("[DX12] Swap chain resize recovery failed: {}", e.what());
+    if (!createRTVHeap()) {
+        LOG_ERROR("[DX12] Swap chain resize failed: descriptor heap creation failed");
+        return;
     }
+    if (auto result = createBackBuffers(); !result)
+        LOG_ERROR("[DX12] Swap chain resize recovery failed: {}", result.error().message);
 }
 
 }  // namespace mulan::engine

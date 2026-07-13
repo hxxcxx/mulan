@@ -1,21 +1,21 @@
 #include "detail/dx11_shader.h"
 
-#include <stdexcept>
-
 namespace mulan::engine {
 
 DX11Shader::DX11Shader(const ShaderDesc& desc, ID3D11Device* device) : m_desc(desc) {
-    if (!device)
-        throw std::invalid_argument("DX11Shader requires a valid device");
-    if (desc.language != ShaderSourceLanguage::DXBC)
-        throw std::invalid_argument("D3D11 requires precompiled DXBC shader bytecode");
+    if (!device || desc.language != ShaderSourceLanguage::DXBC) {
+        LOG_ERROR("[DX11] Shader initialization rejected: invalid device or bytecode language");
+        return;
+    }
 
     if (desc.byteCode && desc.byteCodeSize > 0) {
         m_byteCode.assign(desc.byteCode, desc.byteCode + desc.byteCodeSize);
     }
 
-    if (m_byteCode.empty())
-        throw std::invalid_argument("DX11Shader bytecode is empty");
+    if (m_byteCode.empty()) {
+        LOG_ERROR("[DX11] Shader initialization rejected: empty bytecode");
+        return;
+    }
 
     const void* code = m_byteCode.data();
     size_t size = m_byteCode.size();
@@ -33,7 +33,7 @@ DX11Shader::DX11Shader(const ShaderDesc& desc, ID3D11Device* device) : m_desc(de
         if (!checkDX11(device->CreateGeometryShader(code, size, nullptr, &m_gs), "ID3D11Device::CreateGeometryShader"))
             return;
         break;
-    default: throw std::invalid_argument("DX11Shader stage is not supported by the graphics pipeline");
+    default: LOG_ERROR("[DX11] Shader initialization rejected: unsupported stage"); return;
     }
 }
 

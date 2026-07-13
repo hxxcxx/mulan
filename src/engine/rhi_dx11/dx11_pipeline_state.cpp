@@ -1,27 +1,35 @@
 #include "detail/dx11_pipeline_state.h"
 #include "detail/dx11_shader.h"
 
-#include <stdexcept>
-
 namespace mulan::engine {
 
 using graphics::VertexSemantic;
 
 DX11PipelineState::DX11PipelineState(const GraphicsPipelineDesc& desc, ID3D11Device* device)
     : m_desc(desc), m_device(device) {
+    auto* vsShader = desc.vs ? dynamic_cast<DX11Shader*>(desc.vs) : nullptr;
+    if (!device || !vsShader || !vsShader->vsShader() || vsShader->byteCodeSize() == 0) {
+        LOG_ERROR("[DX11] Pipeline initialization rejected: invalid device or vertex shader");
+        return;
+    }
     createInputLayout();
     createRasterizerState();
     createBlendState();
     createDepthStencilState();
+    m_initialized = (m_desc.vertexLayout.empty() || m_inputLayout) && m_rasterizer && m_blend && m_depthStencil;
 }
 
 void DX11PipelineState::createInputLayout() {
-    if (!m_device || !m_desc.vs)
-        throw std::invalid_argument("DX11PipelineState requires a device and a vertex shader");
+    if (!m_device || !m_desc.vs) {
+        LOG_ERROR("[DX11] Pipeline initialization rejected: missing device or vertex shader");
+        return;
+    }
 
     auto* vsShader = dynamic_cast<DX11Shader*>(m_desc.vs);
-    if (!vsShader || !vsShader->vsShader() || vsShader->byteCodeSize() == 0)
-        throw std::invalid_argument("DX11PipelineState vertex shader is not a valid DX11Shader");
+    if (!vsShader || !vsShader->vsShader() || vsShader->byteCodeSize() == 0) {
+        LOG_ERROR("[DX11] Pipeline initialization rejected: invalid vertex shader");
+        return;
+    }
 
     const auto& layout = m_desc.vertexLayout;
     if (layout.empty())
@@ -78,10 +86,10 @@ void DX11PipelineState::createInputLayout() {
         elem.SemanticName = semanticName;
         elem.SemanticIndex = semIdx;
         elem.Format = toDXGIFormat11(attr.format);
-        if (elem.Format == DXGI_FORMAT_UNKNOWN)
-            throw std::invalid_argument("DX11PipelineState vertex layout contains an unsupported vertex format");
-        if (attr.bufferSlot >= D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT)
-            throw std::invalid_argument("DX11PipelineState vertex layout uses an invalid input slot");
+        if (elem.Format == DXGI_FORMAT_UNKNOWN || attr.bufferSlot >= D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT) {
+            LOG_ERROR("[DX11] Pipeline initialization rejected: invalid vertex layout");
+            return;
+        }
         elem.InputSlot = attr.bufferSlot;
         elem.AlignedByteOffset = attr.offset;
         elem.InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;

@@ -38,6 +38,10 @@ public:
     const GPUDeviceCapabilities& capabilities() const override { return caps_; }
     const RenderConfig& renderConfig() const override { return render_config_; }
     math::Mat4 clipSpaceCorrectionMatrix() const override;
+    bool isInitialized() const {
+        return factory_ && device_ && command_queue_ && !frames_.empty() && upload_context_ && shader_visible_heap_ &&
+               sampler_heap_ && shader_visible_heap_->isValid() && sampler_heap_->isValid();
+    }
 
     // --- 资源创建 ---
     core::Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc) override;

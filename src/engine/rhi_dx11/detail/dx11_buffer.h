@@ -23,6 +23,7 @@ public:
     bool readback(uint32_t offset, uint32_t size, void* outData) override;
 
     ID3D11Buffer* buffer() const { return m_buffer.Get(); }
+    bool isValid() const { return m_buffer != nullptr; }
     uint32_t allocationSize() const { return m_byteWidth; }
 
 private:
