@@ -116,6 +116,7 @@ void DX11CommandList::bindEntries(const BindGroupEntry* entries, uint8_t count, 
     for (uint8_t i = 0; i < count; ++i) {
         const auto& entry = entries[i];
         uint32_t stages = PipelineBinding::kStageVertex | PipelineBinding::kStageFragment;
+        const BindGroupLayoutEntry* layoutEntry = nullptr;
         if (layout) {
             const auto& layoutEntries = layout->entries();
             const auto it = std::find_if(layoutEntries.begin(), layoutEntries.end(), [&entry](const auto& candidate) {
@@ -125,10 +126,19 @@ void DX11CommandList::bindEntries(const BindGroupEntry* entries, uint8_t count, 
                 std::fprintf(stderr, "[DX11CommandList] BindGroup entry %u is absent from its layout\n", entry.binding);
                 continue;
             }
-            stages = it->stages;
+            layoutEntry = &*it;
+            stages = layoutEntry->stages;
         }
 
-        if (entry.buffer) {
+        if (layoutEntry) {
+            // 对象化 BindGroup 有明确的布局类型。即使条目暂时为空或更新错误，也要
+            // 显式清除对应 D3D11 槽，不能让上一 draw 的状态泄漏到当前 draw。
+            switch (layoutEntry->type) {
+            case DescriptorType::UniformBuffer: bindConstantBuffer(entry.binding, entry, stages); break;
+            case DescriptorType::TextureSRV: bindTexture(entry.binding, entry.texture, stages); break;
+            case DescriptorType::Sampler: bindSampler(entry.binding, entry.sampler, stages); break;
+            }
+        } else if (entry.buffer) {
             bindConstantBuffer(entry.binding, entry, stages);
         } else if (entry.texture) {
             bindTexture(entry.binding, entry.texture, stages);
@@ -165,7 +175,25 @@ void DX11CommandList::bindConstantBuffer(uint32_t slot, const BindGroupEntry& en
 
     auto* buffer = dynamic_cast<DX11Buffer*>(entry.buffer);
     if (!buffer || !buffer->buffer() || !(buffer->bindFlags() & BufferBindFlags::UniformBuffer)) {
-        std::fprintf(stderr, "[DX11CommandList] binding %u is not a valid DX11 uniform buffer\n", slot);
+        if (entry.buffer)
+            std::fprintf(stderr, "[DX11CommandList] binding %u is not a valid DX11 uniform buffer\n", slot);
+
+        ID3D11Buffer* nullBuffer = nullptr;
+        if (m_ctx1) {
+            if (usesVertexStage(stages))
+                m_ctx1->VSSetConstantBuffers1(slot, 1, &nullBuffer, nullptr, nullptr);
+            if (usesFragmentStage(stages))
+                m_ctx1->PSSetConstantBuffers1(slot, 1, &nullBuffer, nullptr, nullptr);
+            if (usesGeometryStage(stages))
+                m_ctx1->GSSetConstantBuffers1(slot, 1, &nullBuffer, nullptr, nullptr);
+        } else {
+            if (usesVertexStage(stages))
+                m_ctx->VSSetConstantBuffers(slot, 1, &nullBuffer);
+            if (usesFragmentStage(stages))
+                m_ctx->PSSetConstantBuffers(slot, 1, &nullBuffer);
+            if (usesGeometryStage(stages))
+                m_ctx->GSSetConstantBuffers(slot, 1, &nullBuffer);
+        }
         return;
     }
     if ((entry.offset % kConstantBufferRangeAlignment) != 0) {
@@ -235,12 +263,10 @@ void DX11CommandList::bindTexture(uint32_t slot, Texture* texture, uint32_t stag
     }
 
     auto* dx11Texture = dynamic_cast<DX11Texture*>(texture);
-    if (!dx11Texture || !dx11Texture->srv()) {
+    if (texture && (!dx11Texture || !dx11Texture->srv()))
         std::fprintf(stderr, "[DX11CommandList] texture binding %u has no valid DX11 SRV\n", slot);
-        return;
-    }
 
-    ID3D11ShaderResourceView* srv = dx11Texture->srv();
+    ID3D11ShaderResourceView* srv = dx11Texture ? dx11Texture->srv() : nullptr;
     if (usesVertexStage(stages))
         m_ctx->VSSetShaderResources(slot, 1, &srv);
     if (usesFragmentStage(stages))
@@ -256,12 +282,10 @@ void DX11CommandList::bindSampler(uint32_t slot, Sampler* sampler, uint32_t stag
     }
 
     auto* dx11Sampler = dynamic_cast<DX11Sampler*>(sampler);
-    if (!dx11Sampler || !dx11Sampler->handle()) {
+    if (sampler && (!dx11Sampler || !dx11Sampler->handle()))
         std::fprintf(stderr, "[DX11CommandList] sampler binding %u has no valid DX11 sampler\n", slot);
-        return;
-    }
 
-    ID3D11SamplerState* state = dx11Sampler->handle();
+    ID3D11SamplerState* state = dx11Sampler ? dx11Sampler->handle() : nullptr;
     if (usesVertexStage(stages))
         m_ctx->VSSetSamplers(slot, 1, &state);
     if (usesFragmentStage(stages))
@@ -591,7 +615,12 @@ void DX11CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
             return;
         }
 
-        auto* resolveTarget = dynamic_cast<DX11Texture*>(info.colorAttachments[i].resolveTarget);
+        Texture* requestedResolveTarget = info.colorAttachments[i].resolveTarget;
+        auto* resolveTarget = dynamic_cast<DX11Texture*>(requestedResolveTarget);
+        if (requestedResolveTarget && !resolveTarget) {
+            rejectRenderPass("a resolve target belongs to a different RHI backend");
+            return;
+        }
         if (resolveTarget) {
             if (!resolveTarget->resource() || texture->desc().sampleCount <= 1 ||
                 resolveTarget->desc().sampleCount != 1 || resolveTarget->format() != texture->format() ||
