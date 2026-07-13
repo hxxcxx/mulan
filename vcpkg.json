@@ -13,6 +13,11 @@
     "spdlog",
     "freetype",
     "tomlplusplus",
-    "gtest"
+    "gtest",
+    "shader-slang",
+    {
+      "name": "glslang",
+      "features": ["tools"]
+    }
   ]
 }

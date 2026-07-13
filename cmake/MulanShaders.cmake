@@ -25,7 +25,15 @@ function(mulan_add_slang_shaders shader_target)
     set(MULAN_SLANGC_EXECUTABLE "${MULAN_SLANGC_EXECUTABLE}" CACHE FILEPATH
         "Path to the Slang shader compiler executable")
 
+    # slangc 与 glslangValidator 由 vcpkg 提供（shader-slang、glslang[tools] 端口），
+    # 作为构建工具安装在 ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools 下。
+    # 本地若装有 Vulkan SDK（$VULKAN_SDK），仍作为回退来源使用。
     set(_mulan_shader_tool_hints)
+    if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+        list(APPEND _mulan_shader_tool_hints
+            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/shader-slang"
+            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/glslang")
+    endif()
     if(DEFINED ENV{VULKAN_SDK})
         list(APPEND _mulan_shader_tool_hints
             "$ENV{VULKAN_SDK}/Bin"
