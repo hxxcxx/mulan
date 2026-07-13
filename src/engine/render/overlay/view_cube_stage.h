@@ -119,10 +119,6 @@ private:
     static constexpr uint32_t kAxisSegments = 16;
     uint32_t axis_index_count_ = 0;
 
-    // --- UBO（ViewCube 的 Scene/Object UB 布局与主场景不同，独立持有）---
-    std::unique_ptr<Buffer> scene_ubo_;     // b0 — 正交投影 + 提取旋转
-    std::unique_ptr<Buffer> object_ubo_;    // b1 — 单位矩阵
-    std::unique_ptr<Buffer> material_ubo_;  // b2 — 26个可交互部件 + 坐标轴材质
     static constexpr uint32_t kPartCount = ViewCubeModel::kPartCount;
     static constexpr uint32_t kAxisMaterialOffset = kPartCount;
     static constexpr uint32_t kMaterialCount = kPartCount + kAxisCount;
@@ -133,7 +129,6 @@ private:
 
     // --- 面材质数据 ---
     MaterialGPU materials_[kMaterialCount];
-    uint32_t material_stride_ = sizeof(MaterialGPU);
 
     // --- 配置 ---
     ViewCubeModel model_;

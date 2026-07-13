@@ -116,9 +116,6 @@ ViewCubeStage::~ViewCubeStage() {
     axis_vb_.reset();
     face_ib_.reset();
     face_vb_.reset();
-    material_ubo_.reset();
-    object_ubo_.reset();
-    scene_ubo_.reset();
     initialized_ = false;
 }
 
@@ -128,34 +125,6 @@ ViewCubeStage::~ViewCubeStage() {
 
 core::Result<void> ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo&) {
     device_ = &device;
-
-    // --- UBO ---
-    uint32_t uboAlign = device_->capabilities().minUniformBufferOffsetAlignment;
-    if (uboAlign == 0)
-        uboAlign = 256;
-    auto alignUp32 = [](uint32_t value, uint32_t alignment) -> uint32_t {
-        return (value + alignment - 1) & ~(alignment - 1);
-    };
-    material_stride_ = alignUp32(static_cast<uint32_t>(sizeof(MaterialGPU)), uboAlign);
-
-    {
-        auto r = device_->createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "ViewCube_SceneUBO"));
-        if (!r)
-            return std::unexpected(r.error());
-        scene_ubo_ = std::move(*r);
-    }
-    {
-        auto r = device_->createBuffer(BufferDesc::uniform(sizeof(ObjectUniforms), "ViewCube_ObjectUBO"));
-        if (!r)
-            return std::unexpected(r.error());
-        object_ubo_ = std::move(*r);
-    }
-    {
-        auto r = device_->createBuffer(BufferDesc::uniform(material_stride_ * kMaterialCount, "ViewCube_MaterialUBO"));
-        if (!r)
-            return std::unexpected(r.error());
-        material_ubo_ = std::move(*r);
-    }
 
     // --- 初始化材质 ---
     for (uint32_t i = 0; i < kMaterialCount; ++i) {
@@ -177,9 +146,6 @@ core::Result<void> ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo
         materials_[kAxisMaterialOffset + axis].baseColor[2] = kAxisColors[axis][2];
     }
 
-    for (uint32_t i = 0; i < kMaterialCount; ++i)
-        material_ubo_->update(i * material_stride_, sizeof(MaterialGPU), &materials_[i]);
-
     // --- 几何体 ---
     if (!createGeometry()) {
         return std::unexpected(
@@ -196,9 +162,6 @@ void ViewCubeStage::shutdown(RHIDevice&) {
     axis_vb_.reset();
     face_ib_.reset();
     face_vb_.reset();
-    material_ubo_.reset();
-    object_ubo_.reset();
-    scene_ubo_.reset();
     initialized_ = false;
 }
 
@@ -488,10 +451,6 @@ bool ViewCubeStage::createAxisGeometry() {
 }
 
 void ViewCubeStage::updateInteractionMaterials() {
-    if (!material_ubo_) {
-        return;
-    }
-
     auto mixColor = [](float dst[3], const float a[3], const float b[3], float t) {
         dst[0] = a[0] * (1.0f - t) + b[0] * t;
         dst[1] = a[1] * (1.0f - t) + b[1] * t;
@@ -510,8 +469,6 @@ void ViewCubeStage::updateInteractionMaterials() {
         if (i == pressed) {
             mixColor(materials_[i].baseColor, materials_[i].baseColor, kPressedColor, 0.78f);
         }
-
-        material_ubo_->update(i * material_stride_, sizeof(MaterialGPU), &materials_[i]);
     }
 }
 
@@ -557,11 +514,15 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
     storeGpuVec3(sceneUbo.lightColor, math::Vec3(1.0));
     storeGpuVec3(sceneUbo.ambientColor, math::Vec3(0.85));
     storeGpuVec3(sceneUbo.edgeColor, math::Vec3(0.08, 0.08, 0.08));
-    scene_ubo_->update(0, sizeof(SceneUniforms), &sceneUbo);
+    const auto sceneUniform = cmd->writeUniform(sceneUbo);
+    if (!sceneUniform)
+        return;
 
     // --- 4. 上传 Object UBO（单位矩阵）---
     const ObjectUniforms objUbo = makeObjectUniforms(math::Mat4(1.0));
-    object_ubo_->update(0, sizeof(ObjectUniforms), &objUbo);
+    const auto objectUniform = cmd->writeUniform(objUbo);
+    if (!objectUniform)
+        return;
     updateInteractionMaterials();
 
     // --- 5. 渲染面（每面独立材质）---
@@ -572,9 +533,6 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
         const uint64_t hash = solid_pso_->bindGroupLayout().hash();
         if (!face_bg_ || face_bg_layout_hash_ != hash) {
             BindGroupDesc bg;
-            bg.addUniformBuffer(0, scene_ubo_.get(), 0, sizeof(SceneUniforms))
-                    .addUniformBuffer(1, object_ubo_.get(), 0, sizeof(ObjectUniforms))
-                    .addUniformBuffer(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
             const BindGroupLayout& layout = solid_pso_->bindGroupLayout();
             if (default_white_ && hasLayoutBinding(layout, 3)) {
                 bg.addTexture(3, default_white_)
@@ -607,10 +565,15 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
         if (indexCount == 0)
             continue;
 
-        if (face_bg_)
-            face_bg_->updateUBO(2, material_ubo_.get(), partIndex * material_stride_, sizeof(MaterialGPU));
-        if (face_bg_)
-            cmd->bindGroup(*face_bg_);
+        const auto materialUniform = cmd->writeUniform(materials_[partIndex]);
+        if (!materialUniform)
+            continue;
+        if (face_bg_) {
+            const std::array uniforms{ DynamicUniformBinding{ 0, *sceneUniform },
+                                       DynamicUniformBinding{ 1, *objectUniform },
+                                       DynamicUniformBinding{ 2, *materialUniform } };
+            cmd->bindGroup(*face_bg_, uniforms);
+        }
 
         cmd->setVertexBuffer(0, face_vb_.get());
         cmd->setIndexBuffer(face_ib_.get());
@@ -621,9 +584,13 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
         cmd->setVertexBuffer(0, axis_vb_.get());
         cmd->setIndexBuffer(axis_ib_.get());
         for (uint32_t axis = 0; axis < kAxisCount; ++axis) {
-            face_bg_->updateUBO(2, material_ubo_.get(), (kAxisMaterialOffset + axis) * material_stride_,
-                                sizeof(MaterialGPU));
-            cmd->bindGroup(*face_bg_);
+            const auto materialUniform = cmd->writeUniform(materials_[kAxisMaterialOffset + axis]);
+            if (!materialUniform)
+                continue;
+            const std::array uniforms{ DynamicUniformBinding{ 0, *sceneUniform },
+                                       DynamicUniformBinding{ 1, *objectUniform },
+                                       DynamicUniformBinding{ 2, *materialUniform } };
+            cmd->bindGroup(*face_bg_, uniforms);
             cmd->drawIndexed(DrawIndexedAttribs{ axis_index_count_, 1, axis * axis_index_count_ });
         }
     }

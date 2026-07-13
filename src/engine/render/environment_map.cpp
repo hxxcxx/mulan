@@ -11,13 +11,14 @@
 #include "fullscreen/fullscreen_blit.h"
 #include "../rhi/render_state.h"
 #include "../rhi/sampler.h"
-#include "../rhi/buffer.h"
 #include "../rhi/command_list.h"
 #include "../rhi/bind_group.h"
 #include "../rhi/pipeline_state.h"
 
 #include <mulan/core/image/image.h>
 #include <mulan/core/log/log.h>
+
+#include <array>
 
 namespace mulan::engine {
 
@@ -44,7 +45,7 @@ std::unique_ptr<PipelineState> createBakePSO(RHIDevice& device, Shader* vs, Shad
 
     using PB = PipelineBinding;
     uint8_t bc = 0;
-    desc.descriptorBindings[bc++] = { 0, 1, DescriptorType::UniformBuffer, PB::kStageFragment };
+    desc.descriptorBindings[bc++] = { 0, 1, DescriptorType::UniformBuffer, PB::kStageFragment, BindingMode::Dynamic };
     desc.descriptorBindings[bc++] = { 1, 1, DescriptorType::TextureSRV, PB::kStageFragment };
     desc.descriptorBindings[bc++] = { 2, 1, DescriptorType::Sampler, PB::kStageFragment };
     desc.descriptorBindingCount = bc;
@@ -117,16 +118,11 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
     if (!irradiance_ || !prefilter_ || !brdf_lut_)
         return false;
 
-    // 3. sampler + UBO
+    // 3. sampler
     auto sampR = device.createSampler(SamplerDesc::linearClamp());
     if (!sampR)
         return false;
     linear_sampler_ = std::move(*sampR);
-
-    auto uboR = device.createBuffer(BufferDesc::uniform(sizeof(IBLParamsGPU), "IBL_ParamsUBO"));
-    if (!uboR)
-        return false;
-    auto paramUBO = std::move(*uboR);
 
     // 4. 加载 VS + 3 个 frag
     auto vs = loadShader(device, ShaderType::Vertex, "ibl.vert");
@@ -155,7 +151,6 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
         if (!pso)
             return false;
         BindGroupDesc bgd;
-        bgd.addUniformBuffer(0, paramUBO.get(), 0, sizeof(IBLParamsGPU));
         bgd.addTexture(1, sourceEquirect.get());
         bgd.addSampler(2, linear_sampler_.get());
         auto bgR = device.createBindGroup(pso->bindGroupLayout(), bgd);
@@ -163,9 +158,12 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
             return false;
         IBLParamsGPU params;
         params.sampleCount = 64;
-        cmd->updateBuffer(paramUBO.get(), 0, sizeof(params), &params);
+        const auto uniform = cmd->writeUniform(params);
+        if (!uniform)
+            return false;
+        const std::array uniforms{ DynamicUniformBinding{ 0, *uniform } };
         blitToSlice(*cmd, *pso, **bgR, *irradiance_, TextureFormat::RGBA16_Float, 0, 0, kIrradianceW, kIrradianceH,
-                    true);
+                    true, uniforms);
     }
     // 5b. prefilter（单档 roughness=0.5）
     {
@@ -173,7 +171,6 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
         if (!pso)
             return false;
         BindGroupDesc bgd;
-        bgd.addUniformBuffer(0, paramUBO.get(), 0, sizeof(IBLParamsGPU));
         bgd.addTexture(1, sourceEquirect.get());
         bgd.addSampler(2, linear_sampler_.get());
         auto bgR = device.createBindGroup(pso->bindGroupLayout(), bgd);
@@ -182,8 +179,12 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
         IBLParamsGPU params;
         params.sampleCount = 64;
         params.roughness = 0.5f;
-        cmd->updateBuffer(paramUBO.get(), 0, sizeof(params), &params);
-        blitToSlice(*cmd, *pso, **bgR, *prefilter_, TextureFormat::RGBA16_Float, 0, 0, kPrefilterW, kPrefilterH, true);
+        const auto uniform = cmd->writeUniform(params);
+        if (!uniform)
+            return false;
+        const std::array uniforms{ DynamicUniformBinding{ 0, *uniform } };
+        blitToSlice(*cmd, *pso, **bgR, *prefilter_, TextureFormat::RGBA16_Float, 0, 0, kPrefilterW, kPrefilterH, true,
+                    uniforms);
     }
     // 5c. BRDF LUT（不采样外部纹理，但 binding 1/2 仍需占位）
     {
@@ -191,7 +192,6 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
         if (!pso)
             return false;
         BindGroupDesc bgd;
-        bgd.addUniformBuffer(0, paramUBO.get(), 0, sizeof(IBLParamsGPU));
         bgd.addTexture(1, sourceEquirect.get());   // 占位，shader 不采样
         bgd.addSampler(2, linear_sampler_.get());  // 占位
         auto bgR = device.createBindGroup(pso->bindGroupLayout(), bgd);
@@ -199,8 +199,12 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
             return false;
         IBLParamsGPU params;
         params.sampleCount = 512;
-        cmd->updateBuffer(paramUBO.get(), 0, sizeof(params), &params);
-        blitToSlice(*cmd, *pso, **bgR, *brdf_lut_, TextureFormat::RG16_Float, 0, 0, kBrdfLUTSize, kBrdfLUTSize, true);
+        const auto uniform = cmd->writeUniform(params);
+        if (!uniform)
+            return false;
+        const std::array uniforms{ DynamicUniformBinding{ 0, *uniform } };
+        blitToSlice(*cmd, *pso, **bgR, *brdf_lut_, TextureFormat::RG16_Float, 0, 0, kBrdfLUTSize, kBrdfLUTSize, true,
+                    uniforms);
     }
 
     cmd->end();

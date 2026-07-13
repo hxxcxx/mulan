@@ -12,6 +12,7 @@
 #include <mulan/graphics/vertex/vertex_layout.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <utility>
@@ -139,12 +140,6 @@ core::Result<void> TextStage::init(RHIDevice& device, const RenderTargetInfo& ta
         return std::unexpected(makeError(EngineErrorCode::PipelineCreateFailed, "TextStage PSO creation failed"));
     }
 
-    auto params = device_->createBuffer(BufferDesc::uniform(sizeof(TextParamsGPU), "Text_ParamsUBO"));
-    if (!params) {
-        return std::unexpected(params.error());
-    }
-    params_ubo_ = std::move(*params);
-
     if (!createBuffers(kInitialTextVertices, kInitialTextIndices)) {
         return std::unexpected(makeError(EngineErrorCode::BufferCreateFailed, "TextStage buffer creation failed"));
     }
@@ -162,7 +157,6 @@ void TextStage::shutdown(RHIDevice&) {
     font_bind_groups_.clear();
     index_buffer_.reset();
     vertex_buffer_.reset();
-    params_ubo_.reset();
     default_font_ = nullptr;
     font_manager_.reset();
     pso_.reset();
@@ -269,9 +263,11 @@ bool TextStage::createPipeline(const RenderTargetInfo& target) {
     desc.depthStencilFormat = target.depthFormat;
     desc.depthEnable = target.hasDepth;
     desc.sampleCount = target.sampleCount;
-    desc.descriptorBindings[0] = {
-        .binding = 0, .count = 1, .type = DescriptorType::UniformBuffer, .stages = PB::kStageVertex | PB::kStageFragment
-    };
+    desc.descriptorBindings[0] = { .binding = 0,
+                                   .count = 1,
+                                   .type = DescriptorType::UniformBuffer,
+                                   .stages = PB::kStageVertex | PB::kStageFragment,
+                                   .mode = BindingMode::Dynamic };
     desc.descriptorBindings[1] = {
         .binding = 1, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
     };
@@ -377,7 +373,7 @@ FontAtlas* TextStage::resolveFont(std::string_view fontKey) const {
 }
 
 BindGroup* TextStage::bindGroupForFont(std::string_view fontKey, FontAtlas& font) {
-    if (!pso_ || !params_ubo_ || !font.atlasTexture()) {
+    if (!pso_ || !font.atlasTexture()) {
         return nullptr;
     }
 
@@ -393,7 +389,6 @@ BindGroup* TextStage::bindGroupForFont(std::string_view fontKey, FontAtlas& font
     }
 
     BindGroupDesc bg;
-    bg.addUniformBuffer(0, params_ubo_.get(), 0, sizeof(TextParamsGPU));
     bg.addTexture(1, font.atlasTexture());
     if (font.atlasSampler()) {
         bg.addSampler(2, font.atlasSampler());
@@ -472,7 +467,7 @@ void TextStage::buildGeometry() {
     }
 }
 
-void TextStage::updateParams(const FontAtlas& font) {
+TextStage::TextParamsGPU TextStage::buildParams(const FontAtlas& font) const {
     TextParamsGPU params{};
     const math::Mat4 projection =
             device_->backend() == GraphicsBackend::Vulkan
@@ -486,7 +481,7 @@ void TextStage::updateParams(const FontAtlas& font) {
     params.pxRange = font.pxRange();
     params.atlasSize[0] = static_cast<float>(font.atlasWidth());
     params.atlasSize[1] = static_cast<float>(font.atlasHeight());
-    params_ubo_->update(0, sizeof(TextParamsGPU), &params);
+    return params;
 }
 
 void TextStage::execute(RenderFrame& frame) {
@@ -521,8 +516,11 @@ void TextStage::execute(RenderFrame& frame) {
         if (!bindGroup) {
             continue;
         }
-        updateParams(*batch.atlas);
-        cmd.bindGroup(*bindGroup);
+        const auto params = cmd.writeUniform(buildParams(*batch.atlas));
+        if (!params)
+            continue;
+        const std::array uniforms{ DynamicUniformBinding{ 0, *params } };
+        cmd.bindGroup(*bindGroup, uniforms);
         cmd.drawIndexed(DrawIndexedAttribs{ batch.indexCount, 1, batch.firstIndex });
     }
 }

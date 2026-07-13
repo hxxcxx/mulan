@@ -73,7 +73,7 @@ private:
     BindGroup* bindGroupForFont(std::string_view fontKey, FontAtlas& font);
     FontAtlas* resolveFont(std::string_view fontKey) const;
     void buildGeometry();
-    void updateParams(const FontAtlas& font);
+    TextParamsGPU buildParams(const FontAtlas& font) const;
 
     RHIDevice* device_ = nullptr;
 
@@ -82,7 +82,6 @@ private:
     std::unique_ptr<PipelineState> pso_;
     std::unordered_map<std::string, std::unique_ptr<BindGroup>> font_bind_groups_;
 
-    std::unique_ptr<Buffer> params_ubo_;
     std::unique_ptr<Buffer> vertex_buffer_;
     std::unique_ptr<Buffer> index_buffer_;
 

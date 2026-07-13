@@ -19,6 +19,7 @@
 #include "../../rhi/texture.h"
 
 #include <cstdint>
+#include <span>
 
 namespace mulan::engine {
 
@@ -26,7 +27,8 @@ namespace mulan::engine {
 /// 用于 IBL 烘焙等离屏 fullscreen blit（colorTarget 是普通 2D 纹理，mip/face 参数保留兼容但未使用）。
 inline void blitToSlice(CommandList& cmd, PipelineState& pso, BindGroup& bg, Texture& colorTarget,
                         TextureFormat /*targetFormat*/, uint32_t /*mipLevel*/, uint32_t /*arrayLayer*/, uint32_t width,
-                        uint32_t height, bool clear = true) {
+                        uint32_t height, bool clear = true,
+                        std::span<const DynamicUniformBinding> dynamicUniforms = {}) {
     RenderPassBeginInfo rp;
     rp.colorAttachments[0].target = &colorTarget;
     rp.colorAttachments[0].loadAction = clear ? LoadAction::Clear : LoadAction::Load;
@@ -58,7 +60,10 @@ inline void blitToSlice(CommandList& cmd, PipelineState& pso, BindGroup& bg, Tex
     cmd.setScissorRect(sr);
 
     cmd.setPipelineState(&pso);
-    cmd.bindGroup(bg);
+    if (dynamicUniforms.empty())
+        cmd.bindGroup(bg);
+    else
+        cmd.bindGroup(bg, dynamicUniforms);
 
     DrawAttribs attr;
     attr.vertexCount = 3;
