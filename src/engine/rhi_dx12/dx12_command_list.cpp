@@ -5,10 +5,12 @@
 #include "detail/dx12_convert.h"
 #include "detail/dx12_bind_group.h"
 #include "detail/dx12_sampler.h"
+#include "detail/dx12_transient_uniform_arena.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <string>
 
@@ -25,7 +27,10 @@ core::Result<std::unique_ptr<DX12CommandList>> DX12CommandList::create(ID3D12Dev
 }
 
 DX12CommandList::DX12CommandList(ID3D12Device* device, ID3D12CommandAllocator* allocator)
-    : allocator_(allocator), owns_cmd_list_(true) {
+    : allocator_(allocator),
+      owns_cmd_list_(true),
+      owned_transient_uniform_arena_(std::make_unique<DX12TransientUniformArena>(device)),
+      transient_uniform_arena_(owned_transient_uniform_arena_.get()) {
     HRESULT hr =
             device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, nullptr, IID_PPV_ARGS(&cmd_list_));
     if (!checkDX12(hr, "ID3D12Device::CreateCommandList"))
@@ -72,6 +77,8 @@ void DX12CommandList::begin() {
 
     // 帧循环模式的 allocator/list 已由 DX12FrameContext reset；这里仅标记录制状态。
     recording_ = true;
+    if (transient_uniform_arena_)
+        transient_uniform_arena_->beginRecording();
     bindDescriptorHeaps();
 }
 
@@ -185,8 +192,62 @@ void DX12CommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t siz
 
 void DX12CommandList::bindGroup(BindGroup& group) {
     recordBindGroupUse(group);
-    auto* dx12Group = static_cast<DX12BindGroup*>(&group);
-    if (dx12Group->entryCount() == 0 || (!desc_heap_ && !sampler_heap_))
+    auto* dx12Group = dynamic_cast<DX12BindGroup*>(&group);
+    if (!dx12Group) {
+        LOG_ERROR("[DX12] bindGroup rejected: bind group is not a DX12 bind group");
+        return;
+    }
+    if (std::any_of(dx12Group->layout().entries().begin(), dx12Group->layout().entries().end(),
+                    [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
+        LOG_ERROR("[DX12] bindGroup rejected: dynamic UniformBuffer bindings are required by the layout");
+        return;
+    }
+    bindStaticGroup(*dx12Group);
+}
+
+void DX12CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
+    recordBindGroupUse(group);
+    auto* dx12Group = dynamic_cast<DX12BindGroup*>(&group);
+    if (!dx12Group) {
+        LOG_ERROR("[DX12] bindGroup rejected: bind group is not a DX12 bind group");
+        return;
+    }
+    const uint64_t generation = transient_uniform_arena_ ? transient_uniform_arena_->recordingGeneration() : 0;
+    const std::string validationError =
+            validateDynamicUniformBindings(dx12Group->layout(), dynamicUniforms,
+                                           { D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, 64 * 1024 }, generation);
+    if (!validationError.empty()) {
+        LOG_ERROR("[DX12] Dynamic uniform binding rejected: {}", validationError);
+        return;
+    }
+
+    bindStaticGroup(*dx12Group);
+    for (const auto& binding : dynamicUniforms) {
+        auto* buffer = dynamic_cast<DX12Buffer*>(binding.slice.backingBuffer);
+        const uint32_t rootIndex = dx12Group->rootIndexForBinding(binding.binding);
+        if (!buffer || !buffer->resource() || rootIndex == DX12BindGroup::kInvalidRootIndex) {
+            LOG_ERROR("[DX12] Dynamic uniform binding {} does not reference a DX12 upload page", binding.binding);
+            continue;
+        }
+        recordResourceUse(buffer);
+        cmd_list_->SetGraphicsRootConstantBufferView(rootIndex, buffer->gpuAddress() + binding.slice.offset);
+    }
+}
+
+core::Result<UniformSlice> DX12CommandList::writeUniformBytes(std::span<const std::byte> data) {
+    if (!transient_uniform_arena_)
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceCreateFailed, "DX12 transient uniform arena is unavailable"));
+    const auto allocation = transient_uniform_arena_->upload(data);
+    if (!allocation)
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceCreateFailed, "DX12 transient uniform allocation failed"));
+    return UniformSlice{ allocation.backingBuffer, allocation.offset, allocation.size, allocation.recordingGeneration };
+}
+
+void DX12CommandList::bindStaticGroup(DX12BindGroup& group) {
+    auto* dx12Group = &group;
+    if (dx12Group->entryCount() == 0)
         return;
 
     // --- 跨帧失效：per-frame heap reset 已回收上一帧的 descriptor 区段，
@@ -267,8 +328,7 @@ void DX12CommandList::bindGroup(BindGroup& group) {
                 continue;
             }
 
-            // Sampler descriptors are allocated from a persistent shader-visible
-            // heap at sampler creation time, so no per-frame copy is required.
+            // Sampler descriptor 在创建时写入持久的 shader-visible heap，绑定时无需逐帧复制。
             cmd_list_->SetGraphicsRootDescriptorTable(rootIdx, samplerHandle);
             written |= (uint16_t(1) << i);
         }

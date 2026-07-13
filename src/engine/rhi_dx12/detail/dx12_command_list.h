@@ -17,6 +17,8 @@
 namespace mulan::engine {
 
 class DX12Texture;  // forward declaration
+class DX12BindGroup;
+class DX12TransientUniformArena;
 
 class DX12CommandList final : public CommandList {
 public:
@@ -36,7 +38,9 @@ public:
     void setScissorRect(const ScissorRect& rect) override;
 
     void bindGroup(BindGroup& group) override;
+    void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
     void bindResources(const BindGroupDesc& desc) override;
+    core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data) override;
 
     void setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset = 0) override;
     void setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) override;
@@ -89,11 +93,13 @@ public:
     // 注入当前帧的 frame token（由 DX12Device::frameCommandList 设置）。
     // bindGroup 据此判断 BindGroup 缓存的 GPU descriptor handle 是否跨帧失效。
     void setFrameToken(uint64_t token) { frame_token_ = token; }
+    void setTransientUniformArena(DX12TransientUniformArena* arena) { transient_uniform_arena_ = arena; }
 
 private:
     /// 独立模式私有构造（create() 使用）
     DX12CommandList(ID3D12Device* device, ID3D12CommandAllocator* allocator);
     void bindDescriptorHeaps();
+    void bindStaticGroup(DX12BindGroup& group);
 
     ComPtr<ID3D12CommandAllocator> allocator_;
     ComPtr<ID3D12GraphicsCommandList> cmd_list_;
@@ -117,6 +123,8 @@ private:
 
     ID3D12CommandSignature* draw_indirect_sig_ = nullptr;
     ID3D12CommandSignature* dispatch_indirect_sig_ = nullptr;
+    std::unique_ptr<DX12TransientUniformArena> owned_transient_uniform_arena_;
+    DX12TransientUniformArena* transient_uniform_arena_ = nullptr;
 };
 
 }  // namespace mulan::engine

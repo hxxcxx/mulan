@@ -551,6 +551,7 @@ void DX12Device::clearCaches() {
 CommandList* DX12Device::frameCommandList() {
     auto& frame = frames_[frame_index_];
     frame_cmd_wrapper_->setCommandList(frame->commandList());
+    frame_cmd_wrapper_->setTransientUniformArena(frame->transientUniformArena());
 
     // 注入当前帧 token，让 BindGroup 缓存的 descriptor 句柄跨帧自动失效
     frame_cmd_wrapper_->setFrameToken(frame_token_);

@@ -2,7 +2,7 @@
 
 namespace mulan::engine {
 
-DX12FrameContext::DX12FrameContext(ID3D12Device* device) {
+DX12FrameContext::DX12FrameContext(ID3D12Device* device) : transient_uniform_arena_(device) {
     HRESULT hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmd_allocator_));
     if (!checkDX12(hr, "ID3D12Device::CreateCommandAllocator"))
         return;

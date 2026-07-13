@@ -8,6 +8,7 @@
 
 #include "dx12_common.h"
 #include "dx12_fence.h"
+#include "dx12_transient_uniform_arena.h"
 
 #include <memory>
 
@@ -24,6 +25,7 @@ public:
     ID3D12CommandAllocator* commandAllocator() const { return cmd_allocator_.Get(); }
     ID3D12GraphicsCommandList* commandList() const { return cmd_list_.Get(); }
     DX12Fence* fence() const { return fence_.get(); }
+    DX12TransientUniformArena* transientUniformArena() { return &transient_uniform_arena_; }
     uint64_t fenceValue() const { return fence_value_; }
     void setFenceValue(uint64_t v) { fence_value_ = v; }
     bool isValid() const { return cmd_allocator_ && cmd_list_ && fence_ && fence_->isValid(); }
@@ -32,6 +34,7 @@ private:
     ComPtr<ID3D12CommandAllocator> cmd_allocator_;
     ComPtr<ID3D12GraphicsCommandList> cmd_list_;
     std::unique_ptr<DX12Fence> fence_;
+    DX12TransientUniformArena transient_uniform_arena_;
     uint64_t fence_value_ = 0;
 };
 

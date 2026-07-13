@@ -6,6 +6,7 @@ add_library(rhi_dx12 STATIC
     dx12_bind_group.cpp
     dx12_descriptor_allocator.cpp
     dx12_buffer.cpp
+    dx12_transient_uniform_arena.cpp
     dx12_upload_context.cpp
     dx12_texture.cpp
     dx12_shader.cpp
