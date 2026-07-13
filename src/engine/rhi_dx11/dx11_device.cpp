@@ -389,13 +389,17 @@ void DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload
                                       slicePitch);
 }
 
-void DX11Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence, uint64_t value) {
+core::Result<SubmissionToken> DX11Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
+                                                              uint64_t value) {
+    if (!cmdLists || count == 0)
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 command list batch is empty"));
+    auto submissionLock = lockSubmissionQueue();
     // CommandList 直接包装 immediate context，命令在录制时已经进入同一条队列。
     if (fence) {
         auto* dx11Fence = dynamic_cast<DX11Fence*>(fence);
         if (!dx11Fence) {
             LOG_ERROR("[DX11] executeCommandLists rejected: fence is not a DX11 fence");
-            return;
+            return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 external fence type is invalid"));
         }
         dx11Fence->signal(value);
     }
@@ -403,15 +407,16 @@ void DX11Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fen
     const SubmissionToken token = reserveSubmissionToken();
     auto* completionFence = static_cast<DX11Fence*>(submissionFence());
     if (!token || !completionFence)
-        return;
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 submission timeline is unavailable"));
     completionFence->signal(token.value);
     if (completionFence->signaledValue() < token.value) {
         LOG_ERROR("[DX11] Standalone submission timeline signal failed");
-        return;
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 submission timeline signal failed"));
     }
     for (uint32_t i = 0; i < count; ++i)
         cmdLists[i]->markSubmitted(token);
     commitSubmission(token);
+    return token;
 }
 
 void DX11Device::waitIdle() {
@@ -454,6 +459,7 @@ core::Result<SubmissionToken> DX11Device::submit() {
     if (!m_immediateCtx)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 immediate context is unavailable"));
 
+    auto submissionLock = lockSubmissionQueue();
     const SubmissionToken token = reserveSubmissionToken();
     if (!token)
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 submission timeline is unavailable"));

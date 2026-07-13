@@ -480,7 +480,11 @@ ID3D12CommandSignature* DX12Device::dispatchIndirectSignature() {
 // 命令提交
 // ============================================================
 
-void DX12Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence, uint64_t fenceValue) {
+core::Result<SubmissionToken> DX12Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
+                                                              uint64_t fenceValue) {
+    if (!cmdLists || count == 0)
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX12 command list batch is empty"));
+    auto submissionLock = lockSubmissionQueue();
     std::vector<ID3D12CommandList*> lists(count);
     for (uint32_t i = 0; i < count; ++i) {
         lists[i] = static_cast<DX12CommandList*>(cmdLists[i])->commandList();
@@ -491,7 +495,7 @@ void DX12Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fen
         auto* dx12Fence = static_cast<DX12Fence*>(fence);
         if (!checkDX12(command_queue_->Signal(dx12Fence->fence(), fenceValue),
                        "ID3D12CommandQueue::Signal(external fence)"))
-            return;
+            return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX12 external fence signal failed"));
     }
 
     const SubmissionToken token = reserveSubmissionToken();
@@ -499,10 +503,11 @@ void DX12Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fen
     if (!token || !completionFence ||
         !checkDX12(command_queue_->Signal(completionFence->fence(), token.value),
                    "ID3D12CommandQueue::Signal(submission timeline)"))
-        return;
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX12 submission timeline signal failed"));
     for (uint32_t i = 0; i < count; ++i)
         cmdLists[i]->markSubmitted(token);
     commitSubmission(token);
+    return token;
 }
 
 void DX12Device::waitIdle() {
@@ -569,6 +574,7 @@ core::Result<SubmissionToken> DX12Device::submitAndPresent(SwapChain* swapchain)
 }
 
 core::Result<SubmissionToken> DX12Device::submit() {
+    auto submissionLock = lockSubmissionQueue();
     auto& frame = frames_[frame_index_];
 
     // cmd list 已由 EngineView::cmd->end() 关闭，直接提交

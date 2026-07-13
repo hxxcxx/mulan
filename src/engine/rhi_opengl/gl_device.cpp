@@ -303,23 +303,30 @@ void GLDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) 
     }
 }
 
-void GLDevice::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence, uint64_t fenceValue) {
+core::Result<SubmissionToken> GLDevice::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
+                                                            uint64_t fenceValue) {
+    if (!cmdLists || count == 0)
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "OpenGL command list batch is empty"));
+    auto submissionLock = lockSubmissionQueue();
     if (fence)
         fence->signal(fenceValue);
 
     const SubmissionToken token = reserveSubmissionToken();
     auto* completionFence = static_cast<GLFence*>(submissionFence());
     if (!token || !completionFence)
-        return;
+        return std::unexpected(
+                makeError(EngineErrorCode::SubmissionFailed, "OpenGL submission timeline is unavailable"));
     completionFence->signal(token.value);
     glFlush();
     if (!completionFence->isValid()) {
         LOG_ERROR("[OpenGL] Standalone submission timeline signal failed");
-        return;
+        return std::unexpected(
+                makeError(EngineErrorCode::SubmissionFailed, "OpenGL submission timeline signal failed"));
     }
     for (uint32_t i = 0; i < count; ++i)
         cmdLists[i]->markSubmitted(token);
     commitSubmission(token);
+    return token;
 }
 
 void GLDevice::waitIdle() {
@@ -350,6 +357,7 @@ CommandList* GLDevice::frameCommandList() {
 }
 
 core::Result<SubmissionToken> GLDevice::submit() {
+    auto submissionLock = lockSubmissionQueue();
     const SubmissionToken token = reserveSubmissionToken();
     if (!token)
         return std::unexpected(

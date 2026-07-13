@@ -141,11 +141,12 @@ public:
 
     // --- 提交命令 ---
 
-    virtual void executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence = nullptr,
-                                     uint64_t fenceValue = 0) = 0;
+    virtual core::Result<SubmissionToken> executeCommandLists(CommandList** cmdLists, uint32_t count,
+                                                              Fence* fence = nullptr, uint64_t fenceValue = 0) = 0;
 
-    void executeCommandList(CommandList* cmdList, Fence* fence = nullptr, uint64_t fenceValue = 0) {
-        executeCommandLists(&cmdList, 1, fence, fenceValue);
+    core::Result<SubmissionToken> executeCommandList(CommandList* cmdList, Fence* fence = nullptr,
+                                                     uint64_t fenceValue = 0) {
+        return executeCommandLists(&cmdList, 1, fence, fenceValue);
     }
 
     // --- 等待 GPU 空闲 ---
@@ -217,6 +218,7 @@ protected:
     SubmissionToken reserveSubmissionToken(QueueType queue = QueueType::Graphics);
     void commitSubmission(SubmissionToken token);
     Fence* submissionFence() const { return submission_fence_.get(); }
+    std::unique_lock<std::mutex> lockSubmissionQueue() { return std::unique_lock(submission_mutex_); }
 
 private:
     struct LiveResourceInfo {
@@ -232,6 +234,7 @@ private:
     std::atomic<uint64_t> next_submission_value_ = 0;
     std::atomic<uint64_t> last_submission_value_ = 0;
     std::unique_ptr<Fence> submission_fence_;
+    std::mutex submission_mutex_;
 
     struct DeferredReleaseEntry {
         SubmissionToken token;

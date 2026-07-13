@@ -251,7 +251,11 @@ bool RenderSurface::readbackPixels(engine::RHIDevice& device, std::vector<uint8_
         return false;
     }
     auto fence = std::move(*fenceResult);
-    device.executeCommandList(cmd.get(), fence.get(), 1);
+    auto submitResult = device.executeCommandList(cmd.get(), fence.get(), 1);
+    if (!submitResult) {
+        LOG_ERROR("[RenderSurface] Pixel readback submission failed: {}", submitResult.error().message);
+        return false;
+    }
     // 不能改为 waitIdle()：命令列表与 fence 必须存活到本次 GPU 复制完成，
     // 但无需排空之后提交到其他队列的工作。
     fence->wait(1);

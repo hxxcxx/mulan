@@ -210,7 +210,11 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
         return false;
     }
     auto completionFence = std::move(*fenceResult);
-    device.executeCommandList(cmd, completionFence.get(), 1);
+    auto submitResult = device.executeCommandList(cmd, completionFence.get(), 1);
+    if (!submitResult) {
+        LOG_ERROR("[IBL] Bake submission failed: {}", submitResult.error().message);
+        return false;
+    }
     completionFence->wait(1);
     if (completionFence->completedValue() < 1) {
         LOG_ERROR("[IBL] Bake submission did not complete");

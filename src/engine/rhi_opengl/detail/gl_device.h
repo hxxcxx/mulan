@@ -84,8 +84,8 @@ public:
 
     // --- 提交命令 ---
 
-    void executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence = nullptr,
-                             uint64_t fenceValue = 0) override;
+    core::Result<SubmissionToken> executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence = nullptr,
+                                                      uint64_t fenceValue = 0) override;
 
     void waitIdle() override;
 
