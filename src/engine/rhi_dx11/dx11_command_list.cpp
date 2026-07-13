@@ -38,14 +38,27 @@ bool usesGeometryStage(uint32_t stages) {
 
 namespace mulan::engine {
 
+size_t DX11CommandList::ConstantBufferCacheKeyHash::operator()(const ConstantBufferCacheKey& key) const noexcept {
+    size_t hash = std::hash<const DX11Buffer*>{}(key.buffer);
+    const auto combine = [&hash](size_t value) {
+        hash ^= value + size_t{ 0x9E3779B9 } + (hash << 6u) + (hash >> 2u);
+    };
+    combine(std::hash<uint64_t>{}(key.version));
+    combine(std::hash<uint32_t>{}(key.offset));
+    combine(std::hash<uint32_t>{}(key.size));
+    return hash;
+}
+
 DX11CommandList::DX11CommandList(ID3D11Device* device, ID3D11DeviceContext* ctx, ID3D11DeviceContext1* ctx1)
-    : m_device(device), m_ctx(ctx), m_ctx1(ctx1) {
+    : m_device(device), m_ctx(ctx), m_ctx1(ctx1), m_constantBufferArena(device, ctx, ctx1) {
     if (!m_device || !m_ctx)
         LOG_ERROR("[DX11] Command list initialization rejected: invalid device or context");
 }
 
 void DX11CommandList::begin() {
     resetResourceUsage();
+    m_constantBufferArena.beginFrame();
+    m_constantBufferCache.clear();
     // D3D11 immediate context 无需显式 begin。
 }
 
@@ -141,33 +154,14 @@ void DX11CommandList::bindEntries(const BindGroupEntry* entries, uint8_t count, 
             case DescriptorType::TextureSRV: bindTexture(entry.binding, entry.texture, stages); break;
             case DescriptorType::Sampler: bindSampler(entry.binding, entry.sampler, stages); break;
             }
-        } else if (entry.buffer) {
-            bindConstantBuffer(entry.binding, entry, stages);
-        } else if (entry.texture) {
-            bindTexture(entry.binding, entry.texture, stages);
-        } else if (entry.sampler) {
-            bindSampler(entry.binding, entry.sampler, stages);
+        } else {
+            switch (entry.type) {
+            case DescriptorType::UniformBuffer: bindConstantBuffer(entry.binding, entry, stages); break;
+            case DescriptorType::TextureSRV: bindTexture(entry.binding, entry.texture, stages); break;
+            case DescriptorType::Sampler: bindSampler(entry.binding, entry.sampler, stages); break;
+            }
         }
     }
-}
-
-bool DX11CommandList::ensureFallbackConstantBuffer(uint32_t slot) {
-    if (slot >= m_fallbackConstantBuffers.size() || !m_device)
-        return false;
-    if (m_fallbackConstantBuffers[slot])
-        return true;
-
-    D3D11_BUFFER_DESC desc = {};
-    desc.ByteWidth = kMaximumConstantBufferBytes;
-    desc.Usage = D3D11_USAGE_DEFAULT;
-    desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-
-    HRESULT hr = m_device->CreateBuffer(&desc, nullptr, &m_fallbackConstantBuffers[slot]);
-    if (FAILED(hr)) {
-        logDX11Failure(hr, "ID3D11Device::CreateBuffer(fallback constant buffer)");
-        return false;
-    }
-    return true;
 }
 
 void DX11CommandList::bindConstantBuffer(uint32_t slot, const BindGroupEntry& entry, uint32_t stages) {
@@ -222,40 +216,38 @@ void DX11CommandList::bindConstantBuffer(uint32_t slot, const BindGroupEntry& en
         return;
     }
 
-    ID3D11Buffer* source = buffer->buffer();
-    if (m_ctx1) {
-        const UINT firstConstant = entry.offset / 16u;
-        const UINT constantCount = boundSize / 16u;
-        if (usesVertexStage(stages))
-            m_ctx1->VSSetConstantBuffers1(slot, 1, &source, &firstConstant, &constantCount);
-        if (usesFragmentStage(stages))
-            m_ctx1->PSSetConstantBuffers1(slot, 1, &source, &firstConstant, &constantCount);
-        if (usesGeometryStage(stages))
-            m_ctx1->GSSetConstantBuffers1(slot, 1, &source, &firstConstant, &constantCount);
+    const ConstantBufferCacheKey cacheKey{ buffer, buffer->uniformVersion(), entry.offset, requestedSize };
+    auto cached = m_constantBufferCache.find(cacheKey);
+    DX11ConstantBufferArena::Allocation allocation;
+    if (cached != m_constantBufferCache.end()) {
+        allocation = cached->second;
+    } else {
+        const void* sourceData = buffer->uniformData(entry.offset, requestedSize);
+        allocation = m_constantBufferArena.upload(sourceData, requestedSize);
+        if (allocation)
+            m_constantBufferCache.emplace(cacheKey, allocation);
+    }
+    if (!allocation) {
+        LOG_ERROR("[DX11] bindConstantBuffer failed: arena upload failed at binding {}", slot);
         return;
     }
 
-    // Windows 7 等没有 DeviceContext1 的系统走兼容路径：先把所需范围复制到
-    // 独立的 64KiB 常量缓冲，再从 offset 0 绑定。
-    if (!ensureFallbackConstantBuffer(slot))
+    ID3D11Buffer* nativeBuffer = allocation.buffer;
+    if (allocation.ranged && m_ctx1) {
+        if (usesVertexStage(stages))
+            m_ctx1->VSSetConstantBuffers1(slot, 1, &nativeBuffer, &allocation.firstConstant, &allocation.constantCount);
+        if (usesFragmentStage(stages))
+            m_ctx1->PSSetConstantBuffers1(slot, 1, &nativeBuffer, &allocation.firstConstant, &allocation.constantCount);
+        if (usesGeometryStage(stages))
+            m_ctx1->GSSetConstantBuffers1(slot, 1, &nativeBuffer, &allocation.firstConstant, &allocation.constantCount);
         return;
-
-    D3D11_BOX sourceBox = {};
-    sourceBox.left = entry.offset;
-    sourceBox.right = static_cast<UINT>(rangeEnd);
-    sourceBox.top = 0;
-    sourceBox.bottom = 1;
-    sourceBox.front = 0;
-    sourceBox.back = 1;
-
-    ID3D11Buffer* fallback = m_fallbackConstantBuffers[slot].Get();
-    m_ctx->CopySubresourceRegion(fallback, 0, 0, 0, 0, source, 0, &sourceBox);
+    }
     if (usesVertexStage(stages))
-        m_ctx->VSSetConstantBuffers(slot, 1, &fallback);
+        m_ctx->VSSetConstantBuffers(slot, 1, &nativeBuffer);
     if (usesFragmentStage(stages))
-        m_ctx->PSSetConstantBuffers(slot, 1, &fallback);
+        m_ctx->PSSetConstantBuffers(slot, 1, &nativeBuffer);
     if (usesGeometryStage(stages))
-        m_ctx->GSSetConstantBuffers(slot, 1, &fallback);
+        m_ctx->GSSetConstantBuffers(slot, 1, &nativeBuffer);
 }
 
 void DX11CommandList::bindTexture(uint32_t slot, Texture* texture, uint32_t stages) {

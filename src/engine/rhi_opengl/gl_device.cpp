@@ -167,6 +167,8 @@ void GLDevice::queryCapabilities() {
     caps_.maxSampleCount = static_cast<uint32_t>(std::max(1, val));
     glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &val);
     caps_.minUniformBufferOffsetAlignment = static_cast<uint32_t>(std::max(1, val));
+    glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &val);
+    caps_.maxUniformBufferBindingSize = static_cast<uint32_t>(std::max(1, val));
 
     // GL 4.6 makes anisotropic filtering core; for 4.5, check extension
     if (isExtensionSupported("GL_EXT_texture_filter_anisotropic")) {
@@ -276,6 +278,10 @@ core::Result<std::unique_ptr<Sampler>> GLDevice::createSampler(const SamplerDesc
 
 core::Result<std::unique_ptr<BindGroup>> GLDevice::createBindGroup(const BindGroupLayout& layout,
                                                                    const BindGroupDesc& desc) {
+    const std::string validationError = validateBindGroupDesc(
+            layout, desc, { caps_.minUniformBufferOffsetAlignment, caps_.maxUniformBufferBindingSize });
+    if (!validationError.empty())
+        return std::unexpected(makeError(EngineErrorCode::ResourceCreateFailed, validationError));
     try {
         auto bind_group = std::make_unique<GLBindGroup>(layout, desc);
         bind_group->trackResource(*this, RHIResourceKind::BindGroup, "OpenGLBindGroup");

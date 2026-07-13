@@ -369,13 +369,13 @@ void VKCommandList::bindGroup(BindGroup& group) {
     VKDescriptorSet wrapper(allocator_->device(), dset);
     for (uint8_t i = 0; i < vkGroup->entryCount(); ++i) {
         const auto& e = vkGroup->entries()[i];
-        if (e.buffer) {
+        if (e.type == DescriptorType::UniformBuffer && e.buffer) {
             auto* vkBuf = static_cast<VKBuffer*>(e.buffer);
             wrapper.writeUBO(e.binding, vkBuf->vkBuffer(), e.offset, e.size);
-        } else if (e.texture) {
+        } else if (e.type == DescriptorType::TextureSRV && e.texture) {
             auto* vkTex = static_cast<VKTexture*>(e.texture);
             wrapper.writeSampledImage(e.binding, vkTex->view());
-        } else if (e.sampler) {
+        } else if (e.type == DescriptorType::Sampler && e.sampler) {
             auto* vkSm = static_cast<VKSampler*>(e.sampler);
             wrapper.writeSampler(e.binding, vkSm->handle());
         }
@@ -397,13 +397,13 @@ void VKCommandList::bindResources(const BindGroupDesc& desc) {
 
     for (uint8_t i = 0; i < desc.count; ++i) {
         const auto& e = desc.entries[i];
-        if (e.buffer) {
+        if (e.type == DescriptorType::UniformBuffer && e.buffer) {
             auto* vkBuf = static_cast<VKBuffer*>(e.buffer);
             set.writeUBO(e.binding, vkBuf->vkBuffer(), e.offset, e.size);
-        } else if (e.texture) {
+        } else if (e.type == DescriptorType::TextureSRV && e.texture) {
             auto* vkTex = static_cast<VKTexture*>(e.texture);
             set.writeSampledImage(e.binding, vkTex->view());
-        } else if (e.sampler) {
+        } else if (e.type == DescriptorType::Sampler && e.sampler) {
             auto* vkSm = static_cast<VKSampler*>(e.sampler);
             set.writeSampler(e.binding, vkSm->handle());
         }

@@ -155,7 +155,7 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
         if (!pso)
             return false;
         BindGroupDesc bgd;
-        bgd.addUBO(0, paramUBO.get(), 0, sizeof(IBLParamsGPU));
+        bgd.addUniformBuffer(0, paramUBO.get(), 0, sizeof(IBLParamsGPU));
         bgd.addTexture(1, sourceEquirect.get());
         bgd.addSampler(2, linear_sampler_.get());
         auto bgR = device.createBindGroup(pso->bindGroupLayout(), bgd);
@@ -173,7 +173,7 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
         if (!pso)
             return false;
         BindGroupDesc bgd;
-        bgd.addUBO(0, paramUBO.get(), 0, sizeof(IBLParamsGPU));
+        bgd.addUniformBuffer(0, paramUBO.get(), 0, sizeof(IBLParamsGPU));
         bgd.addTexture(1, sourceEquirect.get());
         bgd.addSampler(2, linear_sampler_.get());
         auto bgR = device.createBindGroup(pso->bindGroupLayout(), bgd);
@@ -191,7 +191,7 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
         if (!pso)
             return false;
         BindGroupDesc bgd;
-        bgd.addUBO(0, paramUBO.get(), 0, sizeof(IBLParamsGPU));
+        bgd.addUniformBuffer(0, paramUBO.get(), 0, sizeof(IBLParamsGPU));
         bgd.addTexture(1, sourceEquirect.get());   // 占位，shader 不采样
         bgd.addSampler(2, linear_sampler_.get());  // 占位
         auto bgR = device.createBindGroup(pso->bindGroupLayout(), bgd);

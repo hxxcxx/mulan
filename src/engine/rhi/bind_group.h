@@ -18,6 +18,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 
 namespace mulan::engine {
 
@@ -31,11 +32,24 @@ class Sampler;
 
 struct BindGroupEntry {
     uint32_t binding = 0;
+    DescriptorType type = DescriptorType::UniformBuffer;
     Buffer* buffer = nullptr;
     Texture* texture = nullptr;
     Sampler* sampler = nullptr;
     uint32_t offset = 0;
     uint32_t size = 0;
+
+    static BindGroupEntry uniformBuffer(uint32_t binding, Buffer* buffer, uint32_t offset, uint32_t size) noexcept {
+        return { binding, DescriptorType::UniformBuffer, buffer, nullptr, nullptr, offset, size };
+    }
+
+    static BindGroupEntry textureSRV(uint32_t binding, Texture* texture) noexcept {
+        return { binding, DescriptorType::TextureSRV, nullptr, texture, nullptr, 0, 0 };
+    }
+
+    static BindGroupEntry samplerResource(uint32_t binding, Sampler* sampler) noexcept {
+        return { binding, DescriptorType::Sampler, nullptr, nullptr, sampler, 0, 0 };
+    }
 };
 
 // ============================================================
@@ -47,26 +61,40 @@ struct BindGroupDesc {
     BindGroupEntry entries[kMaxEntries]{};
     uint8_t count = 0;
 
-    BindGroupDesc& addUBO(uint32_t binding, Buffer* buf, uint32_t offset, uint32_t size) noexcept {
+    BindGroupDesc& addUniformBuffer(uint32_t binding, Buffer* buf, uint32_t offset, uint32_t size) noexcept {
         if (count < kMaxEntries)
-            entries[count++] = { binding, buf, nullptr, nullptr, offset, size };
+            entries[count++] = BindGroupEntry::uniformBuffer(binding, buf, offset, size);
         return *this;
+    }
+
+    BindGroupDesc& addUBO(uint32_t binding, Buffer* buf, uint32_t offset, uint32_t size) noexcept {
+        return addUniformBuffer(binding, buf, offset, size);
     }
 
     BindGroupDesc& addTexture(uint32_t binding, Texture* tex) noexcept {
         if (count < kMaxEntries)
-            entries[count++] = { binding, nullptr, tex, nullptr, 0, 0 };
+            entries[count++] = BindGroupEntry::textureSRV(binding, tex);
         return *this;
     }
 
     BindGroupDesc& addSampler(uint32_t binding, Sampler* s) noexcept {
         if (count < kMaxEntries)
-            entries[count++] = { binding, nullptr, nullptr, s, 0, 0 };
+            entries[count++] = BindGroupEntry::samplerResource(binding, s);
         return *this;
     }
 
     void clear() noexcept { count = 0; }
 };
+
+struct BindGroupValidationLimits {
+    uint32_t minUniformBufferOffsetAlignment = 1;
+    uint32_t maxUniformBufferBindingSize = UINT32_MAX;
+};
+
+/// Validates the complete RHI binding contract before a backend creates native descriptors.
+/// An empty string means the descriptor is valid.
+std::string validateBindGroupDesc(const BindGroupLayout& layout, const BindGroupDesc& desc,
+                                  const BindGroupValidationLimits& limits);
 
 // ============================================================
 // BindGroup — 抽象基类（后端实现 VKBindGroup / DX12BindGroup）

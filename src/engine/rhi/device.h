@@ -51,6 +51,7 @@ struct GPUDeviceCapabilities {
     uint32_t maxTextureAniso = 0;
     uint32_t maxSampleCount = 1;
     uint32_t minUniformBufferOffsetAlignment = 256;
+    uint32_t maxUniformBufferBindingSize = 64 * 1024;
     bool depthClamp = false;
     bool geometryShader = false;
     bool tessellationShader = false;

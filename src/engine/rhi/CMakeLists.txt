@@ -5,6 +5,7 @@ add_library(rhi STATIC
     command_list.cpp
     device.cpp
     device_factory.cpp
+    bind_group.cpp
     bind_group_layout.cpp
 )
 

@@ -31,6 +31,8 @@ uint32_t DX12BindGroup::rootIndexForBinding(uint32_t binding) const {
 bool DX12BindGroup::updateUBO(uint32_t binding, Buffer* buf, uint32_t offset, uint32_t size) {
     for (uint8_t i = 0; i < count_; ++i) {
         if (entries_[i].binding == binding) {
+            if (entries_[i].type != DescriptorType::UniformBuffer)
+                return false;
             entries_[i].buffer = buf;
             entries_[i].texture = nullptr;
             entries_[i].sampler = nullptr;
@@ -46,6 +48,8 @@ bool DX12BindGroup::updateUBO(uint32_t binding, Buffer* buf, uint32_t offset, ui
 bool DX12BindGroup::updateTexture(uint32_t binding, Texture* tex) {
     for (uint8_t i = 0; i < count_; ++i) {
         if (entries_[i].binding == binding) {
+            if (entries_[i].type != DescriptorType::TextureSRV)
+                return false;
             if (entries_[i].texture == tex && !entries_[i].buffer && !entries_[i].sampler)
                 return true;
             entries_[i].texture = tex;
@@ -61,6 +65,8 @@ bool DX12BindGroup::updateTexture(uint32_t binding, Texture* tex) {
 bool DX12BindGroup::updateSampler(uint32_t binding, Sampler* s) {
     for (uint8_t i = 0; i < count_; ++i) {
         if (entries_[i].binding == binding) {
+            if (entries_[i].type != DescriptorType::Sampler)
+                return false;
             if (entries_[i].sampler == s && !entries_[i].buffer && !entries_[i].texture)
                 return true;
             entries_[i].sampler = s;

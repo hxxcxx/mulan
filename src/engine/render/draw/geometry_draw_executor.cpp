@@ -131,9 +131,9 @@ bool GeometryDrawExecutor::createFrameBindGroup(TextureFormat, TextureFormat, bo
     // object=1 / material=2 offset 在每 draw 通过 updateUBO 刷新（首帧必脏）；
     // 纹理槽先用 defaultWhite 占位，每 draw 由 MeshDrawCommand::execute 更新。
     BindGroupDesc bg;
-    bg.addUBO(0, shared_resources_.sceneUBO(), 0, sizeof(SceneUniforms));
-    bg.addUBO(1, shared_resources_.objectUBO(), 0, MeshDrawCommand::kObjectUboStride);
-    bg.addUBO(2, shared_resources_.materialUBO(), 0, 128);
+    bg.addUniformBuffer(0, shared_resources_.sceneUBO(), 0, sizeof(SceneUniforms));
+    bg.addUniformBuffer(1, shared_resources_.objectUBO(), 0, MeshDrawCommand::kObjectUboStride);
+    bg.addUniformBuffer(2, shared_resources_.materialUBO(), 0, 128);
 
     if (technique_.sampleTextures && shared_resources_.defaultWhiteTexture() && shared_resources_.defaultSampler()) {
         bg.addTexture(3, shared_resources_.defaultWhiteTexture());

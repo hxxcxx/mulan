@@ -393,7 +393,7 @@ BindGroup* TextStage::bindGroupForFont(std::string_view fontKey, FontAtlas& font
     }
 
     BindGroupDesc bg;
-    bg.addUBO(0, params_ubo_.get(), 0, sizeof(TextParamsGPU));
+    bg.addUniformBuffer(0, params_ubo_.get(), 0, sizeof(TextParamsGPU));
     bg.addTexture(1, font.atlasTexture());
     if (font.atlasSampler()) {
         bg.addSampler(2, font.atlasSampler());

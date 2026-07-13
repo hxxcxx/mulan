@@ -572,9 +572,9 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
         const uint64_t hash = solid_pso_->bindGroupLayout().hash();
         if (!face_bg_ || face_bg_layout_hash_ != hash) {
             BindGroupDesc bg;
-            bg.addUBO(0, scene_ubo_.get(), 0, sizeof(SceneUniforms))
-                    .addUBO(1, object_ubo_.get(), 0, sizeof(ObjectUniforms))
-                    .addUBO(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
+            bg.addUniformBuffer(0, scene_ubo_.get(), 0, sizeof(SceneUniforms))
+                    .addUniformBuffer(1, object_ubo_.get(), 0, sizeof(ObjectUniforms))
+                    .addUniformBuffer(2, material_ubo_.get(), 0, sizeof(MaterialGPU));
             const BindGroupLayout& layout = solid_pso_->bindGroupLayout();
             if (default_white_ && hasLayoutBinding(layout, 3)) {
                 bg.addTexture(3, default_white_)

@@ -427,6 +427,10 @@ core::Result<std::unique_ptr<Fence>> DX12Device::createFence(uint64_t initialVal
 
 core::Result<std::unique_ptr<BindGroup>> DX12Device::createBindGroup(const BindGroupLayout& layout,
                                                                      const BindGroupDesc& desc) {
+    const std::string validationError = validateBindGroupDesc(
+            layout, desc, { caps_.minUniformBufferOffsetAlignment, caps_.maxUniformBufferBindingSize });
+    if (!validationError.empty())
+        return std::unexpected(makeError(EngineErrorCode::ResourceCreateFailed, validationError));
     auto bindGroup = std::unique_ptr<BindGroup>(std::make_unique<DX12BindGroup>(layout, desc.entries, desc.count));
     bindGroup->trackResource(*this, RHIResourceKind::BindGroup, "BindGroup");
     return bindGroup;

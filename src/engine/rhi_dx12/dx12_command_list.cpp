@@ -199,7 +199,7 @@ void DX12CommandList::bindGroup(BindGroup& group) {
 
     bool hasTexture = false;
     for (uint8_t i = 0; i < dx12Group->entryCount(); ++i) {
-        if (dx12Group->entries()[i].texture) {
+        if (dx12Group->entries()[i].type == DescriptorType::TextureSRV && dx12Group->entries()[i].texture) {
             hasTexture = true;
             break;
         }
@@ -230,11 +230,11 @@ void DX12CommandList::bindGroup(BindGroup& group) {
         if (rootIdx == DX12BindGroup::kInvalidRootIndex)
             continue;
 
-        if (e.buffer) {
+        if (e.type == DescriptorType::UniformBuffer && e.buffer) {
             // UBO：root CBV 每 draw 必须重设（offset 变化），不依赖脏位
             auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
             cmd_list_->SetGraphicsRootConstantBufferView(rootIdx, dx12Buf->gpuAddress() + e.offset);
-        } else if (e.texture) {
+        } else if (e.type == DescriptorType::TextureSRV && e.texture) {
             D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = dx12Group->cachedTextureHandle(i);
             const bool descriptorDirty = ((mask >> i) & 1u) != 0;
             if (!gpuHandle.ptr || descriptorDirty) {
@@ -259,7 +259,7 @@ void DX12CommandList::bindGroup(BindGroup& group) {
 
             if (gpuHandle.ptr)
                 cmd_list_->SetGraphicsRootDescriptorTable(rootIdx, gpuHandle);
-        } else if (e.sampler) {
+        } else if (e.type == DescriptorType::Sampler && e.sampler) {
             auto* dx12Sampler = static_cast<DX12Sampler*>(e.sampler);
             const D3D12_GPU_DESCRIPTOR_HANDLE samplerHandle = dx12Sampler->gpuHandle();
             if (!samplerHandle.ptr || !sampler_heap_) {
@@ -287,10 +287,10 @@ void DX12CommandList::bindResources(const BindGroupDesc& desc) {
     // 如需绑定 sampler，必须改为接收 layout 或 PSO 以正确计算 root index。
     for (uint8_t i = 0; i < desc.count; ++i) {
         const auto& e = desc.entries[i];
-        if (e.buffer) {
+        if (e.type == DescriptorType::UniformBuffer && e.buffer) {
             auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
             cmd_list_->SetGraphicsRootConstantBufferView(e.binding, dx12Buf->gpuAddress() + e.offset);
-        } else if (e.texture && desc_heap_) {
+        } else if (e.type == DescriptorType::TextureSRV && e.texture && desc_heap_) {
             auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
             if (!dx12Tex->srv().ptr)
                 continue;

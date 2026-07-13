@@ -24,6 +24,8 @@ bool DX11BindGroup::updateUBO(uint32_t binding, Buffer* buffer, uint32_t offset,
         return false;
 
     auto& entry = entries_[static_cast<uint8_t>(index)];
+    if (entry.type != DescriptorType::UniformBuffer)
+        return false;
     entry.buffer = buffer;
     entry.texture = nullptr;
     entry.sampler = nullptr;
@@ -39,6 +41,8 @@ bool DX11BindGroup::updateTexture(uint32_t binding, Texture* texture) {
         return false;
 
     auto& entry = entries_[static_cast<uint8_t>(index)];
+    if (entry.type != DescriptorType::TextureSRV)
+        return false;
     entry.buffer = nullptr;
     entry.texture = texture;
     entry.sampler = nullptr;
@@ -54,6 +58,8 @@ bool DX11BindGroup::updateSampler(uint32_t binding, Sampler* sampler) {
         return false;
 
     auto& entry = entries_[static_cast<uint8_t>(index)];
+    if (entry.type != DescriptorType::Sampler)
+        return false;
     entry.buffer = nullptr;
     entry.texture = nullptr;
     entry.sampler = sampler;

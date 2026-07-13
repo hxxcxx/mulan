@@ -110,6 +110,10 @@ core::Result<std::unique_ptr<Fence>> VKDevice::createFence(uint64_t initialValue
 
 core::Result<std::unique_ptr<BindGroup>> VKDevice::createBindGroup(const BindGroupLayout& layout,
                                                                    const BindGroupDesc& desc) {
+    const std::string validationError = validateBindGroupDesc(
+            layout, desc, { caps_.minUniformBufferOffsetAlignment, caps_.maxUniformBufferBindingSize });
+    if (!validationError.empty())
+        return std::unexpected(makeError(EngineErrorCode::ResourceCreateFailed, validationError));
     return resource_factory_->createBindGroup(layout, desc);
 }
 

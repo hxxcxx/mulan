@@ -83,15 +83,12 @@ DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11Devic
 
     m_nativeUsage = bd.Usage;
 
-    // D3D11.0 不支持超过 64KiB 的常量缓冲资源。没有 DeviceContext1 时，
-    // CommandList 会把所需范围复制到 64KiB 的兼容常量缓冲；源缓冲无需带
-    // D3D11_BIND_CONSTANT_BUFFER，因而仍可保存整个 Object UBO。
+    // 大型 Object/Material UBO 只作为普通源缓冲保存。绑定时 CommandList
+    // 把当前区间复制到原生 64 KiB 常量缓冲，避开驱动敏感的大型 CB 范围绑定，
+    // 同时让这里的局部 UpdateSubresource 成为规范允许的普通 buffer 更新。
     if (isUniform && m_byteWidth > D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT * 16) {
-        ComPtr<ID3D11DeviceContext1> context1;
-        if (FAILED(ctx->QueryInterface(IID_PPV_ARGS(&context1))))
-            bd.BindFlags &= ~D3D11_BIND_CONSTANT_BUFFER;
+        bd.BindFlags &= ~D3D11_BIND_CONSTANT_BUFFER;
     }
-
     D3D11_SUBRESOURCE_DATA initData = {};
     D3D11_SUBRESOURCE_DATA* pInit = nullptr;
     std::vector<uint8_t> paddedUniformData;
@@ -103,6 +100,7 @@ DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11Devic
             std::memcpy(paddedUniformData.data(), desc.initData, desc.size);
         initData.pSysMem = paddedUniformData.data();
         pInit = &initData;
+        m_uniformShadow = paddedUniformData;
     } else if (desc.initData) {
         initData.pSysMem = desc.initData;
         pInit = &initData;
@@ -119,6 +117,16 @@ void DX11Buffer::update(uint32_t offset, uint32_t size, const void* data) {
     }
     if (m_desc.usage == BufferUsage::Immutable) {
         LOG_ERROR("[DX11] Buffer update rejected: immutable buffers cannot be updated");
+        return;
+    }
+
+    // DX11 的 uniform 数据统一由 CPU shadow 持有，并在 bind 时上传到
+    // Dynamic Constant Buffer Arena。避免修改 GPU 正在读取的原生 CB。
+    if (!m_uniformShadow.empty()) {
+        std::memcpy(m_uniformShadow.data() + offset, data, size);
+        ++m_uniformVersion;
+        if (m_uniformVersion == 0)
+            m_uniformVersion = 1;
         return;
     }
 
@@ -153,6 +161,14 @@ void DX11Buffer::update(uint32_t offset, uint32_t size, const void* data) {
         std::memcpy(static_cast<uint8_t*>(mapped.pData) + offset, data, size);
         m_ctx->Unmap(m_buffer.Get(), 0);
     }
+}
+
+const void* DX11Buffer::uniformData(uint32_t offset, uint32_t size) const {
+    if (m_uniformShadow.empty() || size == 0 || offset > m_uniformShadow.size() ||
+        size > m_uniformShadow.size() - offset) {
+        return nullptr;
+    }
+    return m_uniformShadow.data() + offset;
 }
 
 bool DX11Buffer::readback(uint32_t offset, uint32_t size, void* outData) {

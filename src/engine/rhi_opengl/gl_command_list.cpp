@@ -89,7 +89,7 @@ void GLCommandList::bindEntries(const BindGroupEntry* entries, uint8_t count) {
 
     for (uint8_t i = 0; i < count; ++i) {
         const auto& entry = entries[i];
-        if (entry.sampler) {
+        if (entry.type == DescriptorType::Sampler) {
             sharedSampler = entry.sampler;
             ++samplerCount;
             continue;
@@ -107,7 +107,7 @@ void GLCommandList::bindEntries(const BindGroupEntry* entries, uint8_t count) {
         // intentionally have one sampler shared by their texture entries.
         for (uint8_t i = 0; i < count; ++i) {
             const auto& entry = entries[i];
-            if (entry.texture && entry.binding < 32)
+            if (entry.type == DescriptorType::TextureSRV && entry.texture && entry.binding < 32)
                 glBindSampler(entry.binding, glSampler->handle());
         }
         return;
@@ -117,7 +117,7 @@ void GLCommandList::bindEntries(const BindGroupEntry* entries, uint8_t count) {
     // samplers. Such groups need explicit texture/sampler pairing metadata
     // before they can use combined OpenGL sampler uniforms.
     for (uint8_t i = 0; i < count; ++i) {
-        if (entries[i].sampler)
+        if (entries[i].type == DescriptorType::Sampler)
             bindEntry(entries[i]);
     }
 }
@@ -126,24 +126,22 @@ void GLCommandList::bindEntry(const BindGroupEntry& e) {
     if (e.binding >= 32)
         return;
 
-    if (e.buffer) {
+    if (e.type == DescriptorType::UniformBuffer && e.buffer) {
         auto* glBuffer = dynamic_cast<GLBuffer*>(e.buffer);
         if (!glBuffer)
             return;
         const GLsizeiptr size =
                 e.size ? static_cast<GLsizeiptr>(e.size) : static_cast<GLsizeiptr>(glBuffer->desc().size - e.offset);
         glBindBufferRange(GL_UNIFORM_BUFFER, e.binding, glBuffer->handle(), static_cast<GLintptr>(e.offset), size);
-        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, e.binding, glBuffer->handle(), static_cast<GLintptr>(e.offset),
-                          size);
     }
 
-    if (e.texture) {
+    if (e.type == DescriptorType::TextureSRV && e.texture) {
         auto* glTexture = dynamic_cast<GLTexture*>(e.texture);
         if (glTexture)
             glBindTextureUnit(e.binding, glTexture->handle());
     }
 
-    if (e.sampler) {
+    if (e.type == DescriptorType::Sampler && e.sampler) {
         auto* glSampler = dynamic_cast<GLSampler*>(e.sampler);
         if (glSampler)
             glBindSampler(e.binding, glSampler->handle());

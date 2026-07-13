@@ -355,6 +355,7 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     caps_.maxSampleCount = sampleCountFromFlags(framebufferSampleCounts, 8);
     render_config_.msaa = toMsaaLevel(sampleCountFromFlags(framebufferSampleCounts, render_config_.sampleCount()));
     caps_.minUniformBufferOffsetAlignment = props.limits.minUniformBufferOffsetAlignment;
+    caps_.maxUniformBufferBindingSize = static_cast<uint32_t>(props.limits.maxUniformBufferRange);
     caps_.depthClamp = features.depthClamp;
     caps_.geometryShader = features.geometryShader;
     caps_.tessellationShader = features.tessellationShader;

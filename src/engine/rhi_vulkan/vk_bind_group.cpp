@@ -14,6 +14,8 @@ VKBindGroup::VKBindGroup(const BindGroupLayout& layout, const BindGroupEntry* en
 bool VKBindGroup::updateUBO(uint32_t binding, Buffer* buf, uint32_t offset, uint32_t size) {
     for (uint8_t i = 0; i < count_; ++i) {
         if (entries_[i].binding == binding) {
+            if (entries_[i].type != DescriptorType::UniformBuffer)
+                return false;
             entries_[i].buffer = buf;
             entries_[i].offset = offset;
             entries_[i].size = size;
@@ -27,6 +29,8 @@ bool VKBindGroup::updateUBO(uint32_t binding, Buffer* buf, uint32_t offset, uint
 bool VKBindGroup::updateTexture(uint32_t binding, Texture* tex) {
     for (uint8_t i = 0; i < count_; ++i) {
         if (entries_[i].binding == binding) {
+            if (entries_[i].type != DescriptorType::TextureSRV)
+                return false;
             entries_[i].texture = tex;
             dirty_mask_ |= (uint16_t(1) << i);
             return true;
@@ -38,6 +42,8 @@ bool VKBindGroup::updateTexture(uint32_t binding, Texture* tex) {
 bool VKBindGroup::updateSampler(uint32_t binding, Sampler* s) {
     for (uint8_t i = 0; i < count_; ++i) {
         if (entries_[i].binding == binding) {
+            if (entries_[i].type != DescriptorType::Sampler)
+                return false;
             entries_[i].sampler = s;
             dirty_mask_ |= (uint16_t(1) << i);
             return true;

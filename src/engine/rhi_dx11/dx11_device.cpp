@@ -346,7 +346,10 @@ core::Result<std::unique_ptr<Fence>> DX11Device::createFence(uint64_t value) {
 
 core::Result<std::unique_ptr<BindGroup>> DX11Device::createBindGroup(const BindGroupLayout& layout,
                                                                      const BindGroupDesc& desc) {
-    const std::string validationError = validateDX11BindGroup(layout, desc);
+    std::string validationError = validateBindGroupDesc(
+            layout, desc, { m_caps.minUniformBufferOffsetAlignment, m_caps.maxUniformBufferBindingSize });
+    if (validationError.empty())
+        validationError = validateDX11BindGroup(layout, desc);
     if (!validationError.empty())
         return std::unexpected(makeError(EngineErrorCode::ResourceCreateFailed, validationError));
     return createDX11Resource<BindGroup, DX11BindGroup>(*this, EngineErrorCode::ResourceCreateFailed,

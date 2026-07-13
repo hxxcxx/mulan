@@ -11,11 +11,14 @@
 
 #include "../../rhi/command_list.h"
 #include "dx11_common.h"
+#include "dx11_constant_buffer_arena.h"
 
 #include <array>
+#include <unordered_map>
 
 namespace mulan::engine {
 
+class DX11Buffer;
 class DX11Texture;
 
 class DX11CommandList final : public CommandList {
@@ -60,6 +63,19 @@ public:
     bool isValid() const { return m_device && m_ctx; }
 
 private:
+    struct ConstantBufferCacheKey {
+        const DX11Buffer* buffer = nullptr;
+        uint64_t version = 0;
+        uint32_t offset = 0;
+        uint32_t size = 0;
+
+        bool operator==(const ConstantBufferCacheKey&) const = default;
+    };
+
+    struct ConstantBufferCacheKeyHash {
+        size_t operator()(const ConstantBufferCacheKey& key) const noexcept;
+    };
+
     struct ActiveColorAttachment {
         DX11Texture* target = nullptr;
         DX11Texture* resolveTarget = nullptr;
@@ -70,7 +86,6 @@ private:
     void bindConstantBuffer(uint32_t slot, const BindGroupEntry& entry, uint32_t stages);
     void bindTexture(uint32_t slot, Texture* texture, uint32_t stages);
     void bindSampler(uint32_t slot, Sampler* sampler, uint32_t stages);
-    bool ensureFallbackConstantBuffer(uint32_t slot);
     bool ensureReadbackTexture(uint32_t width, uint32_t height, DXGI_FORMAT format);
     bool ensureReadbackResolveTexture(uint32_t width, uint32_t height, DXGI_FORMAT format);
     void unbindShaderResources();
@@ -79,7 +94,9 @@ private:
     ID3D11DeviceContext* m_ctx;              // 非拥有，Device 的 immediate context
     ID3D11DeviceContext1* m_ctx1 = nullptr;  // 可选的 D3D11.1 范围绑定接口
     uint32_t m_cachedStride = 0;
-    std::array<ComPtr<ID3D11Buffer>, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT> m_fallbackConstantBuffers;
+    DX11ConstantBufferArena m_constantBufferArena;
+    std::unordered_map<ConstantBufferCacheKey, DX11ConstantBufferArena::Allocation, ConstantBufferCacheKeyHash>
+            m_constantBufferCache;
     std::array<ActiveColorAttachment, RenderPassBeginInfo::kMaxColorTargets> m_activeColorAttachments{};
     DX11Texture* m_activeDepthTexture = nullptr;
     StoreAction m_activeDepthStoreAction = StoreAction::Store;

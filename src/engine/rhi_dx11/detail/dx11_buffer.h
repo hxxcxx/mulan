@@ -23,6 +23,8 @@ public:
     bool readback(uint32_t offset, uint32_t size, void* outData) override;
 
     ID3D11Buffer* buffer() const { return m_buffer.Get(); }
+    const void* uniformData(uint32_t offset, uint32_t size) const;
+    uint64_t uniformVersion() const { return m_uniformVersion; }
     bool isValid() const { return m_buffer != nullptr; }
     uint32_t allocationSize() const { return m_byteWidth; }
 
@@ -33,6 +35,8 @@ private:
     uint32_t m_byteWidth = 0;
     D3D11_USAGE m_nativeUsage = D3D11_USAGE_DEFAULT;
     std::vector<uint8_t> m_dynamicShadow;
+    std::vector<uint8_t> m_uniformShadow;
+    uint64_t m_uniformVersion = 1;
 };
 
 }  // namespace mulan::engine
