@@ -7,7 +7,8 @@
 #include "dcel.h"
 #include "../math.h"
 
-#include <iostream>
+#include <mulan/core/log/log.h>
+
 #include <map>
 #include <stdexcept>
 
@@ -201,11 +202,11 @@ Face* DCEL::createFace() {
 bool DCEL::validate() const {
     for (const auto& e : halfEdges_) {
         if (!e->hasTwin()) {
-            std::cerr << "DCEL validate: half-edge " << e->id() << " has no twin\n";
+            LOG_ERROR("[DCEL] Validation failed: half-edge {} has no twin", e->id());
             return false;
         }
         if (e->twin()->twin() != e.get()) {
-            std::cerr << "DCEL validate: half-edge " << e->id() << " twin broken\n";
+            LOG_ERROR("[DCEL] Validation failed: half-edge {} has a broken twin link", e->id());
             return false;
         }
     }
@@ -217,16 +218,16 @@ bool DCEL::validate() const {
         int count = 0;
         do {
             if (!cur) {
-                std::cerr << "DCEL validate: face " << f->id() << " broken cycle\n";
+                LOG_ERROR("[DCEL] Validation failed: face {} has a broken cycle", f->id());
                 return false;
             }
             if (cur->face() != f.get()) {
-                std::cerr << "DCEL validate: half-edge " << cur->id() << " wrong face\n";
+                LOG_ERROR("[DCEL] Validation failed: half-edge {} references the wrong face", cur->id());
                 return false;
             }
             cur = cur->next();
             if (++count > 100000) {
-                std::cerr << "DCEL validate: face " << f->id() << " cycle too long\n";
+                LOG_ERROR("[DCEL] Validation failed: face {} cycle exceeds the safety limit", f->id());
                 return false;
             }
         } while (cur != start);
