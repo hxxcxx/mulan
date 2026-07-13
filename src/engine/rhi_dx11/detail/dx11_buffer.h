@@ -9,6 +9,7 @@
 #include "../../rhi/buffer.h"
 #include "dx11_common.h"
 
+#include <memory>
 #include <vector>
 
 namespace mulan::engine {
@@ -27,8 +28,14 @@ public:
     uint64_t uniformVersion() const { return m_uniformVersion; }
     bool isValid() const { return m_buffer != nullptr; }
     uint32_t allocationSize() const { return m_byteWidth; }
+    bool isTransientUniformPage() const { return m_transientUniformPage; }
+
+    static std::unique_ptr<DX11Buffer> createTransientUniformPage(uint32_t size, ID3D11Device* device,
+                                                                  ID3D11DeviceContext* ctx);
 
 private:
+    DX11Buffer(uint32_t transientUniformPageSize, ID3D11Device* device, ID3D11DeviceContext* ctx);
+
     BufferDesc m_desc;
     ComPtr<ID3D11Buffer> m_buffer;
     ID3D11DeviceContext* m_ctx;  // immediate context, not owned
@@ -37,6 +44,7 @@ private:
     std::vector<uint8_t> m_dynamicShadow;
     std::vector<uint8_t> m_uniformShadow;
     uint64_t m_uniformVersion = 1;
+    bool m_transientUniformPage = false;
 };
 
 }  // namespace mulan::engine

@@ -93,12 +93,12 @@ struct BindGroupValidationLimits {
     uint32_t maxUniformBufferBindingSize = UINT32_MAX;
 };
 
-/// Validates the complete RHI binding contract before a backend creates native descriptors.
-/// An empty string means the descriptor is valid.
+/// 后端创建原生描述符前，验证完整的 RHI 绑定契约。
+/// 返回空字符串表示描述有效。
 std::string validateBindGroupDesc(const BindGroupLayout& layout, const BindGroupDesc& desc,
                                   const BindGroupValidationLimits& limits);
 
-/// Validates the dynamic UniformBuffer bindings supplied when a BindGroup is bound.
+/// 验证 BindGroup 绑定时提供的动态 UniformBuffer 切片。
 std::string validateDynamicUniformBindings(const BindGroupLayout& layout,
                                            std::span<const DynamicUniformBinding> bindings,
                                            const BindGroupValidationLimits& limits, uint64_t recordingGeneration = 0);

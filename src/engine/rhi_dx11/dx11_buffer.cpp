@@ -17,6 +17,34 @@ uint32_t alignUp(uint32_t value, uint32_t alignment) {
 
 namespace mulan::engine {
 
+DX11Buffer::DX11Buffer(uint32_t transientUniformPageSize, ID3D11Device* device, ID3D11DeviceContext* ctx)
+    : m_desc(BufferDesc::uniform(transientUniformPageSize, "DX11TransientUniformPage")),
+      m_ctx(ctx),
+      m_byteWidth(transientUniformPageSize),
+      m_nativeUsage(D3D11_USAGE_DYNAMIC),
+      m_transientUniformPage(true) {
+    if (!device || !ctx || transientUniformPageSize == 0 || (transientUniformPageSize % 16u) != 0)
+        return;
+
+    D3D11_BUFFER_DESC desc{};
+    desc.ByteWidth = transientUniformPageSize;
+    desc.Usage = D3D11_USAGE_DYNAMIC;
+    desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    const auto result = checkDX11(device->CreateBuffer(&desc, nullptr, &m_buffer),
+                                  "ID3D11Device::CreateBuffer(transient uniform page)");
+    if (!result)
+        m_buffer.Reset();
+}
+
+std::unique_ptr<DX11Buffer> DX11Buffer::createTransientUniformPage(uint32_t size, ID3D11Device* device,
+                                                                   ID3D11DeviceContext* ctx) {
+    auto page = std::unique_ptr<DX11Buffer>(new DX11Buffer(size, device, ctx));
+    if (!page->isValid())
+        return nullptr;
+    return page;
+}
+
 DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11DeviceContext* ctx)
     : m_desc(desc), m_ctx(ctx) {
     if (!device || !ctx || desc.size == 0 || (desc.usage == BufferUsage::Immutable && !desc.initData)) {

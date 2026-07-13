@@ -1,4 +1,5 @@
 #include "detail/dx11_constant_buffer_arena.h"
+#include "detail/dx11_buffer.h"
 
 #include <algorithm>
 #include <cstring>
@@ -27,63 +28,64 @@ DX11ConstantBufferArena::DX11ConstantBufferArena(ID3D11Device* device, ID3D11Dev
              linear_suballocation_);
 }
 
-void DX11ConstantBufferArena::beginFrame() {
-    active_page_ = 0;
+void DX11ConstantBufferArena::beginRecording() {
+    allocator_.beginRecording();
+    fallback_page_ = 0;
     for (auto& page : pages_) {
-        page.cursor = 0;
         page.discarded = false;
     }
 }
 
-bool DX11ConstantBufferArena::createPage(Page& page) {
-    D3D11_BUFFER_DESC desc{};
-    desc.ByteWidth = kPageBytes;
-    desc.Usage = D3D11_USAGE_DYNAMIC;
-    desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    const auto result = checkDX11(device_->CreateBuffer(&desc, nullptr, &page.buffer),
-                                  "ID3D11Device::CreateBuffer(constant buffer arena)");
-    return static_cast<bool>(result);
+bool DX11ConstantBufferArena::createPage(Page& page, uint32_t capacity) {
+    page.buffer = DX11Buffer::createTransientUniformPage(capacity, device_, context_);
+    page.capacity = page.buffer ? capacity : 0;
+    return page.buffer != nullptr;
 }
 
-DX11ConstantBufferArena::Page* DX11ConstantBufferArena::acquirePage(uint32_t bytes) {
-    if (!linear_suballocation_) {
-        if (pages_.empty()) {
-            pages_.emplace_back();
-            if (!createPage(pages_.back())) {
-                pages_.clear();
-                return nullptr;
-            }
-        }
-        return &pages_.front();
-    }
-
-    while (active_page_ < pages_.size() && pages_[active_page_].cursor + bytes > kPageBytes)
-        ++active_page_;
-    if (active_page_ == pages_.size()) {
+DX11ConstantBufferArena::Page* DX11ConstantBufferArena::acquireLinearPage(uint32_t pageIndex) {
+    while (pages_.size() <= pageIndex) {
         pages_.emplace_back();
-        if (!createPage(pages_.back())) {
+        if (!createPage(pages_.back(), kPageBytes)) {
             pages_.pop_back();
             return nullptr;
         }
     }
-    return &pages_[active_page_];
+    return &pages_[pageIndex];
+}
+
+DX11ConstantBufferArena::Page* DX11ConstantBufferArena::acquireFallbackPage(uint32_t pageIndex, uint32_t capacity) {
+    while (pages_.size() <= pageIndex)
+        pages_.emplace_back();
+    Page& page = pages_[pageIndex];
+    if (!page.buffer || page.capacity < capacity) {
+        if (page.buffer)
+            retired_pages_.push_back(std::move(page.buffer));
+        page = {};
+        if (!createPage(page, capacity))
+            return nullptr;
+    }
+    return &page;
 }
 
 DX11ConstantBufferArena::Allocation DX11ConstantBufferArena::upload(const void* data, uint32_t size) {
     if (!data || size == 0 || size > kPageBytes || !isValid())
         return {};
 
-    const uint32_t allocationBytes = alignUp(size, kAllocationAlignment);
-    Page* page = acquirePage(allocationBytes);
+    const auto plan = allocator_.allocate(size);
+    if (!plan)
+        return {};
+
+    const uint32_t allocationBytes = plan->reservedSize;
+    const uint32_t pageIndex = linear_suballocation_ ? plan->pageIndex : fallback_page_++;
+    Page* page = linear_suballocation_ ? acquireLinearPage(pageIndex) : acquireFallbackPage(pageIndex, allocationBytes);
     if (!page)
         return {};
 
-    const uint32_t offset = linear_suballocation_ ? page->cursor : 0;
+    const uint32_t offset = linear_suballocation_ ? plan->offset : 0;
     const D3D11_MAP mapMode =
             linear_suballocation_ && page->discarded ? D3D11_MAP_WRITE_NO_OVERWRITE : D3D11_MAP_WRITE_DISCARD;
     D3D11_MAPPED_SUBRESOURCE mapped{};
-    const HRESULT hr = context_->Map(page->buffer.Get(), 0, mapMode, 0, &mapped);
+    const HRESULT hr = context_->Map(page->buffer->buffer(), 0, mapMode, 0, &mapped);
     if (FAILED(hr)) {
         logDX11Failure(hr, "ID3D11DeviceContext::Map(constant buffer arena)");
         return {};
@@ -92,17 +94,16 @@ DX11ConstantBufferArena::Allocation DX11ConstantBufferArena::upload(const void* 
     auto* destination = static_cast<uint8_t*>(mapped.pData) + offset;
     std::memset(destination, 0, allocationBytes);
     std::memcpy(destination, data, size);
-    context_->Unmap(page->buffer.Get(), 0);
+    context_->Unmap(page->buffer->buffer(), 0);
 
     page->discarded = true;
-    if (linear_suballocation_)
-        page->cursor += allocationBytes;
 
     Allocation allocation;
-    allocation.buffer = page->buffer.Get();
+    allocation.buffer = page->buffer->buffer();
     allocation.firstConstant = offset / 16u;
     allocation.constantCount = allocationBytes / 16u;
     allocation.ranged = linear_suballocation_;
+    allocation.backingBuffer = page->buffer.get();
     return allocation;
 }
 

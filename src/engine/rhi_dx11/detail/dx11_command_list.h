@@ -34,7 +34,9 @@ public:
     void setScissorRect(const ScissorRect& rect) override;
 
     void bindGroup(BindGroup& group) override;
+    void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
     void bindResources(const BindGroupDesc& group) override;
+    core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data) override;
 
     void setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset = 0) override;
     void setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) override;
@@ -84,6 +86,7 @@ private:
 
     void bindEntries(const BindGroupEntry* entries, uint8_t count, const BindGroupLayout* layout);
     void bindConstantBuffer(uint32_t slot, const BindGroupEntry& entry, uint32_t stages);
+    void bindUniformSlice(uint32_t slot, const UniformSlice& slice, uint32_t stages);
     void bindTexture(uint32_t slot, Texture* texture, uint32_t stages);
     void bindSampler(uint32_t slot, Sampler* sampler, uint32_t stages);
     bool ensureReadbackTexture(uint32_t width, uint32_t height, DXGI_FORMAT format);

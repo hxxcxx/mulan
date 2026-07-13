@@ -60,6 +60,15 @@ std::string validateDX11BindGroup(const BindGroupLayout& layout, const BindGroup
     }
 
     for (const auto& layoutEntry : layout.entries()) {
+        if (layoutEntry.mode == BindingMode::Dynamic) {
+            if (layoutEntry.type != DescriptorType::UniformBuffer)
+                return "DX11 dynamic bindings are restricted to uniform buffers";
+            if (layoutEntry.count != 1)
+                return "DX11 dynamic uniform-buffer arrays are not supported";
+            if (layoutEntry.binding >= D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT)
+                return "DX11 dynamic uniform binding slot exceeds the D3D11 limit";
+            continue;
+        }
         if (layoutEntry.count != 1)
             return "DX11 BindGroup descriptor arrays are not represented by the current RHI entry type";
 

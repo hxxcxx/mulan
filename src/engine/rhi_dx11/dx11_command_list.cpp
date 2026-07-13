@@ -6,6 +6,7 @@
 #include "detail/dx11_sampler.h"
 #include "detail/dx11_shader.h"
 #include "detail/dx11_texture.h"
+#include "../rhi/engine_error_code.h"
 
 #include <algorithm>
 #include <array>
@@ -57,7 +58,7 @@ DX11CommandList::DX11CommandList(ID3D11Device* device, ID3D11DeviceContext* ctx,
 
 void DX11CommandList::begin() {
     resetResourceUsage();
-    m_constantBufferArena.beginFrame();
+    m_constantBufferArena.beginRecording();
     m_constantBufferCache.clear();
     // D3D11 immediate context 无需显式 begin。
 }
@@ -114,10 +115,61 @@ void DX11CommandList::bindGroup(BindGroup& group) {
         LOG_ERROR("[DX11] bindGroup rejected: bind group is not a DX11 bind group");
         return;
     }
+    if (std::any_of(dx11Group->layout().entries().begin(), dx11Group->layout().entries().end(),
+                    [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
+        LOG_ERROR("[DX11] bindGroup rejected: dynamic UniformBuffer bindings are required by the layout");
+        return;
+    }
 
     bindEntries(dx11Group->entries(), dx11Group->entryCount(), &dx11Group->layout());
     // D3D11 没有 descriptor heap；每次 bind 都会立即写入 context 状态。
     dx11Group->markClean();
+}
+
+void DX11CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
+    recordBindGroupUse(group);
+    auto* dx11Group = dynamic_cast<DX11BindGroup*>(&group);
+    if (!dx11Group) {
+        LOG_ERROR("[DX11] bindGroup rejected: bind group is not a DX11 bind group");
+        return;
+    }
+    const std::string validationError = validateDynamicUniformBindings(
+            dx11Group->layout(), dynamicUniforms, { kConstantBufferRangeAlignment, kMaximumConstantBufferBytes },
+            m_constantBufferArena.recordingGeneration());
+    if (!validationError.empty()) {
+        LOG_ERROR("[DX11] Dynamic uniform binding rejected: {}", validationError);
+        return;
+    }
+
+    bindEntries(dx11Group->entries(), dx11Group->entryCount(), &dx11Group->layout());
+    for (const auto& binding : dynamicUniforms) {
+        recordResourceUse(binding.slice.backingBuffer);
+        const auto& layoutEntries = dx11Group->layout().entries();
+        const auto it = std::find_if(layoutEntries.begin(), layoutEntries.end(),
+                                     [&binding](const auto& entry) { return entry.binding == binding.binding; });
+        if (it != layoutEntries.end())
+            bindUniformSlice(binding.binding, binding.slice, it->stages);
+    }
+    dx11Group->markClean();
+}
+
+core::Result<UniformSlice> DX11CommandList::writeUniformBytes(std::span<const std::byte> data) {
+    if (data.empty())
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceCreateFailed, "DX11 transient uniform data must not be empty"));
+    if (data.size_bytes() > kMaximumConstantBufferBytes) {
+        return std::unexpected(makeError(EngineErrorCode::ResourceCreateFailed,
+                                         "DX11 transient uniform data exceeds the binding limit"));
+    }
+
+    const auto allocation = m_constantBufferArena.upload(data.data(), static_cast<uint32_t>(data.size_bytes()));
+    if (!allocation) {
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceCreateFailed, "DX11 transient uniform allocation failed"));
+    }
+
+    return UniformSlice{ allocation.backingBuffer, allocation.firstConstant * 16u,
+                         static_cast<uint32_t>(data.size_bytes()), m_constantBufferArena.recordingGeneration() };
 }
 
 void DX11CommandList::bindResources(const BindGroupDesc& group) {
@@ -240,6 +292,38 @@ void DX11CommandList::bindConstantBuffer(uint32_t slot, const BindGroupEntry& en
             m_ctx1->PSSetConstantBuffers1(slot, 1, &nativeBuffer, &allocation.firstConstant, &allocation.constantCount);
         if (usesGeometryStage(stages))
             m_ctx1->GSSetConstantBuffers1(slot, 1, &nativeBuffer, &allocation.firstConstant, &allocation.constantCount);
+        return;
+    }
+    if (usesVertexStage(stages))
+        m_ctx->VSSetConstantBuffers(slot, 1, &nativeBuffer);
+    if (usesFragmentStage(stages))
+        m_ctx->PSSetConstantBuffers(slot, 1, &nativeBuffer);
+    if (usesGeometryStage(stages))
+        m_ctx->GSSetConstantBuffers(slot, 1, &nativeBuffer);
+}
+
+void DX11CommandList::bindUniformSlice(uint32_t slot, const UniformSlice& slice, uint32_t stages) {
+    auto* buffer = dynamic_cast<DX11Buffer*>(slice.backingBuffer);
+    if (!buffer || !buffer->isTransientUniformPage() || !buffer->buffer()) {
+        LOG_ERROR("[DX11] Dynamic uniform binding {} does not reference a transient uniform page", slot);
+        return;
+    }
+
+    ID3D11Buffer* nativeBuffer = buffer->buffer();
+    const UINT firstConstant = slice.offset / 16u;
+    const UINT constantCount = alignUp(slice.size, kConstantBufferRangeAlignment) / 16u;
+    if (m_ctx1 && m_constantBufferArena.usesLinearSuballocation()) {
+        if (usesVertexStage(stages))
+            m_ctx1->VSSetConstantBuffers1(slot, 1, &nativeBuffer, &firstConstant, &constantCount);
+        if (usesFragmentStage(stages))
+            m_ctx1->PSSetConstantBuffers1(slot, 1, &nativeBuffer, &firstConstant, &constantCount);
+        if (usesGeometryStage(stages))
+            m_ctx1->GSSetConstantBuffers1(slot, 1, &nativeBuffer, &firstConstant, &constantCount);
+        return;
+    }
+
+    if (slice.offset != 0) {
+        LOG_ERROR("[DX11] Dynamic uniform fallback requires an offset-zero allocation at binding {}", slot);
         return;
     }
     if (usesVertexStage(stages))
