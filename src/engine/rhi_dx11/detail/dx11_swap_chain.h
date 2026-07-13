@@ -18,12 +18,13 @@ namespace mulan::engine {
 class DX11SwapChain final : public SwapChain {
 public:
     DX11SwapChain(const SwapChainDesc& desc, ID3D11Device* device, IDXGIFactory2* factory, ID3D11DeviceContext* ctx,
-                  const NativeWindowHandle& window, const RenderConfig& renderConfig);
+                  const NativeWindowHandle& window);
     ~DX11SwapChain() = default;
 
     const SwapChainDesc& desc() const override { return m_desc; }
     Texture* currentBackBuffer() override;
     Texture* depthTexture() override { return m_depthTexture ? m_depthTexture.get() : nullptr; }
+    RenderPassBeginInfo renderPassBeginInfo() override;
     void present() override;
     void resize(uint32_t width, uint32_t height) override;
 
@@ -37,9 +38,8 @@ private:
     ComPtr<IDXGISwapChain1> m_swapChain;
 
     std::unique_ptr<DX11Texture> m_backBufferTexture;
+    std::unique_ptr<DX11Texture> m_msaaColorTexture;
     std::unique_ptr<DX11Texture> m_depthTexture;
-
-    RenderConfig m_renderConfig;
 };
 
 }  // namespace mulan::engine

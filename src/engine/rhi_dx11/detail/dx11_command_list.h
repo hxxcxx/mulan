@@ -12,11 +12,15 @@
 #include "../../rhi/command_list.h"
 #include "dx11_common.h"
 
+#include <array>
+
 namespace mulan::engine {
+
+class DX11Texture;
 
 class DX11CommandList final : public CommandList {
 public:
-    explicit DX11CommandList(ID3D11DeviceContext* ctx);
+    DX11CommandList(ID3D11Device* device, ID3D11DeviceContext* ctx, ID3D11DeviceContext1* ctx1 = nullptr);
     ~DX11CommandList() = default;
 
     void begin() override;
@@ -35,6 +39,7 @@ public:
 
     void draw(const DrawAttribs& attribs) override;
     void drawIndexed(const DrawIndexedAttribs& attribs) override;
+    void drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount = 1, uint32_t stride = 0) override;
 
     void updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
                       ResourceTransitionMode mode = ResourceTransitionMode::Transition) override;
@@ -54,8 +59,39 @@ public:
     ID3D11DeviceContext* context() const { return m_ctx; }
 
 private:
-    ID3D11DeviceContext* m_ctx;  // not owned — device's immediate context
+    struct ActiveColorAttachment {
+        DX11Texture* target = nullptr;
+        DX11Texture* resolveTarget = nullptr;
+        StoreAction storeAction = StoreAction::Store;
+    };
+
+    void bindEntries(const BindGroupEntry* entries, uint8_t count, const BindGroupLayout* layout);
+    void bindConstantBuffer(uint32_t slot, const BindGroupEntry& entry, uint32_t stages);
+    void bindTexture(uint32_t slot, Texture* texture, uint32_t stages);
+    void bindSampler(uint32_t slot, Sampler* sampler, uint32_t stages);
+    bool ensureFallbackConstantBuffer(uint32_t slot);
+    bool ensureReadbackTexture(uint32_t width, uint32_t height, DXGI_FORMAT format);
+    bool ensureReadbackResolveTexture(uint32_t width, uint32_t height, DXGI_FORMAT format);
+    void unbindShaderResources();
+
+    ID3D11Device* m_device = nullptr;        // 非拥有，Device 保证其生命周期
+    ID3D11DeviceContext* m_ctx;              // 非拥有，Device 的 immediate context
+    ID3D11DeviceContext1* m_ctx1 = nullptr;  // 可选的 D3D11.1 范围绑定接口
     uint32_t m_cachedStride = 0;
+    std::array<ComPtr<ID3D11Buffer>, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT> m_fallbackConstantBuffers;
+    std::array<ActiveColorAttachment, RenderPassBeginInfo::kMaxColorTargets> m_activeColorAttachments{};
+    DX11Texture* m_activeDepthTexture = nullptr;
+    StoreAction m_activeDepthStoreAction = StoreAction::Store;
+    bool m_renderPassActive = false;
+
+    ComPtr<ID3D11Texture2D> m_readbackTexture;
+    ComPtr<ID3D11Texture2D> m_readbackResolveTexture;
+    uint32_t m_readbackWidth = 0;
+    uint32_t m_readbackHeight = 0;
+    DXGI_FORMAT m_readbackFormat = DXGI_FORMAT_UNKNOWN;
+    uint32_t m_readbackResolveWidth = 0;
+    uint32_t m_readbackResolveHeight = 0;
+    DXGI_FORMAT m_readbackResolveFormat = DXGI_FORMAT_UNKNOWN;
 };
 
 }  // namespace mulan::engine

@@ -11,6 +11,7 @@
 #include "dx11_common.h"
 #include "dx11_convert.h"
 #include "dx11_fence.h"
+#include "dx11_bind_group.h"
 #include "dx11_buffer.h"
 #include "dx11_texture.h"
 #include "dx11_shader.h"
@@ -61,7 +62,7 @@ public:
 
     // --- 帧循环 ---
     void beginFrame(SwapChain* swapchain = nullptr) override;
-    void clearCaches() override {}
+    void clearCaches() override;
     CommandList* frameCommandList() override;
     void submitAndPresent(SwapChain* swapchain) override;
     void submit() override;
@@ -70,10 +71,13 @@ public:
 
 private:
     void init(const DeviceCreateInfo& ci);
+    uint32_t resolveSampleCount(TextureFormat colorFormat, TextureFormat depthFormat, bool hasDepth,
+                                uint32_t requestedSampleCount) const;
 
     ComPtr<IDXGIFactory2> m_factory;
     ComPtr<ID3D11Device> m_device;
     ComPtr<ID3D11DeviceContext> m_immediateCtx;
+    ComPtr<ID3D11DeviceContext1> m_immediateCtx1;
     ComPtr<ID3D11Debug> m_debugDevice;
 
     GPUDeviceCapabilities m_caps;

@@ -24,6 +24,7 @@ public:
     Texture* depthTexture() override { return m_depthTexture.get(); }
 
     void resize(uint32_t width, uint32_t height) override;
+    RenderPassBeginInfo renderPassBeginInfo() override;
 
 private:
     void createResources();
@@ -31,6 +32,7 @@ private:
     RenderTargetDesc m_desc;
     ID3D11Device* m_device;
     std::unique_ptr<DX11Texture> m_colorTexture;
+    std::unique_ptr<DX11Texture> m_msaaColorTexture;
     std::unique_ptr<DX11Texture> m_depthTexture;
 };
 

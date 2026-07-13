@@ -1,9 +1,29 @@
 #include "detail/dx11_texture.h"
 #include "detail/dx11_convert.h"
 
+#include <stdexcept>
+
 namespace mulan::engine {
 
 DX11Texture::DX11Texture(const TextureDesc& desc, ID3D11Device* device) : m_desc(desc) {
+    if (!device)
+        throw std::invalid_argument("DX11Texture requires a valid device");
+    if (desc.dimension != TextureDimension::Texture2D)
+        throw std::invalid_argument("DX11Texture currently supports Texture2D only");
+    if (desc.width == 0 || desc.height == 0 || desc.mipLevels == 0 || desc.arraySize == 0 || desc.sampleCount == 0)
+        throw std::invalid_argument("DX11Texture dimensions, mipLevels, arraySize and sampleCount must be non-zero");
+    if (desc.arraySize != 1)
+        throw std::invalid_argument("DX11Texture currently supports one Texture2D array slice only");
+    if (desc.sampleCount > 1 && desc.mipLevels != 1)
+        throw std::invalid_argument("multisampled DX11Texture requires one mip level");
+
+    const bool isDepth = desc.usage & TextureUsageFlags::DepthStencil;
+    const bool isDepthFormat = isDepthFormat11(desc.format);
+    if (isDepth && !isDepthFormat)
+        throw std::invalid_argument("DX11 depth-stencil texture requires a depth format");
+    if (!isDepth && isDepthFormat)
+        throw std::invalid_argument("DX11 color texture cannot use a depth format");
+
     D3D11_TEXTURE2D_DESC td = {};
     td.Width = desc.width;
     td.Height = desc.height;
@@ -26,9 +46,8 @@ DX11Texture::DX11Texture(const TextureDesc& desc, ID3D11Device* device) : m_desc
     if (desc.usage & TextureUsageFlags::UnorderedAccess)
         td.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
 
-    // Depth textures need typeless format if also used as SRV
-    bool isDepth = (desc.usage & TextureUsageFlags::DepthStencil);
-    bool needsSRV = (desc.usage & TextureUsageFlags::ShaderResource);
+    // 深度纹理同时作为 SRV 使用时必须以 typeless 资源格式创建。
+    const bool needsSRV = desc.usage & TextureUsageFlags::ShaderResource;
     if (isDepth && needsSRV) {
         td.Format = toTypelessFormat11(desc.format);
     } else if (isDepth) {
@@ -36,9 +55,10 @@ DX11Texture::DX11Texture(const TextureDesc& desc, ID3D11Device* device) : m_desc
     } else {
         td.Format = toDXGIFormat11(desc.format);
     }
+    if (td.Format == DXGI_FORMAT_UNKNOWN)
+        throw std::invalid_argument("DX11Texture format is not supported by the D3D11 backend");
 
-    HRESULT hr = device->CreateTexture2D(&td, nullptr, &m_texture);
-    DX11_CHECK(hr);
+    DX11_CHECK(device->CreateTexture2D(&td, nullptr, &m_texture));
 
     // Auto-create views
     if (desc.usage & TextureUsageFlags::RenderTarget)
@@ -50,53 +70,67 @@ DX11Texture::DX11Texture(const TextureDesc& desc, ID3D11Device* device) : m_desc
 }
 
 DX11Texture::DX11Texture(const TextureDesc& desc, ID3D11Texture2D* existing) : m_desc(desc), m_texture(existing) {
+    if (!existing)
+        throw std::invalid_argument("DX11Texture cannot wrap a null D3D11 texture");
 }
 
 void DX11Texture::createRTV(ID3D11Device* device, DXGI_FORMAT fmt) {
+    if (!device || !m_texture)
+        throw std::invalid_argument("DX11Texture::createRTV requires a valid texture and device");
+
     D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
     rtvDesc.Format = (fmt != DXGI_FORMAT_UNKNOWN) ? fmt : toDXGIFormat11(m_desc.format);
-    rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-    rtvDesc.Texture2D.MipSlice = 0;
+    if (m_desc.sampleCount > 1) {
+        rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
+    } else {
+        rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+        rtvDesc.Texture2D.MipSlice = 0;
+    }
+    if (rtvDesc.Format == DXGI_FORMAT_UNKNOWN)
+        throw std::invalid_argument("DX11Texture cannot create RTV for an unknown format");
 
-    HRESULT hr = device->CreateRenderTargetView(m_texture.Get(), &rtvDesc, &m_rtv);
-    DX11_CHECK(hr);
+    DX11_CHECK(device->CreateRenderTargetView(m_texture.Get(), &rtvDesc, &m_rtv));
 }
 
 void DX11Texture::createDSV(ID3D11Device* device, DXGI_FORMAT fmt) {
+    if (!device || !m_texture)
+        throw std::invalid_argument("DX11Texture::createDSV requires a valid texture and device");
+
     D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = (fmt != DXGI_FORMAT_UNKNOWN) ? fmt : toDSVFormat11(m_desc.format);
-    dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-    dsvDesc.Texture2D.MipSlice = 0;
+    if (m_desc.sampleCount > 1) {
+        dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DMS;
+    } else {
+        dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+        dsvDesc.Texture2D.MipSlice = 0;
+    }
+    if (dsvDesc.Format == DXGI_FORMAT_UNKNOWN)
+        throw std::invalid_argument("DX11Texture cannot create DSV for an unknown format");
 
-    HRESULT hr = device->CreateDepthStencilView(m_texture.Get(), &dsvDesc, &m_dsv);
-    DX11_CHECK(hr);
+    DX11_CHECK(device->CreateDepthStencilView(m_texture.Get(), &dsvDesc, &m_dsv));
 }
 
 void DX11Texture::createSRV(ID3D11Device* device, DXGI_FORMAT fmt) {
+    if (!device || !m_texture)
+        throw std::invalid_argument("DX11Texture::createSRV requires a valid texture and device");
+
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     if (fmt != DXGI_FORMAT_UNKNOWN) {
         srvDesc.Format = fmt;
     } else {
-        // For depth textures used as SRV, pick a readable format
-        bool isDepth = (m_desc.usage & TextureUsageFlags::DepthStencil);
-        if (isDepth) {
-            switch (m_desc.format) {
-            case TextureFormat::D16_UNorm: srvDesc.Format = DXGI_FORMAT_R16_UNORM; break;
-            case TextureFormat::D24_UNorm_S8_UInt: srvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS; break;
-            case TextureFormat::D32_Float: srvDesc.Format = DXGI_FORMAT_R32_FLOAT; break;
-            case TextureFormat::D32_Float_S8X24_UInt: srvDesc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS; break;
-            default: srvDesc.Format = toDXGIFormat11(m_desc.format); break;
-            }
-        } else {
-            srvDesc.Format = toDXGIFormat11(m_desc.format);
-        }
+        srvDesc.Format = isDepthFormat11(m_desc.format) ? toSRVFormat11(m_desc.format) : toDXGIFormat11(m_desc.format);
     }
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MostDetailedMip = 0;
-    srvDesc.Texture2D.MipLevels = m_desc.mipLevels;
+    if (m_desc.sampleCount > 1) {
+        srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DMS;
+    } else {
+        srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Texture2D.MostDetailedMip = 0;
+        srvDesc.Texture2D.MipLevels = m_desc.mipLevels;
+    }
+    if (srvDesc.Format == DXGI_FORMAT_UNKNOWN)
+        throw std::invalid_argument("DX11Texture cannot create SRV for an unknown format");
 
-    HRESULT hr = device->CreateShaderResourceView(m_texture.Get(), &srvDesc, &m_srv);
-    DX11_CHECK(hr);
+    DX11_CHECK(device->CreateShaderResourceView(m_texture.Get(), &srvDesc, &m_srv));
 }
 
 }  // namespace mulan::engine

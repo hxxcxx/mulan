@@ -1,6 +1,8 @@
 #include "detail/dx11_pipeline_state.h"
 #include "detail/dx11_shader.h"
 
+#include <stdexcept>
+
 namespace mulan::engine {
 
 using graphics::VertexSemantic;
@@ -14,11 +16,17 @@ DX11PipelineState::DX11PipelineState(const GraphicsPipelineDesc& desc, ID3D11Dev
 }
 
 void DX11PipelineState::createInputLayout() {
-    auto* vsShader = static_cast<DX11Shader*>(m_desc.vs);
-    if (!vsShader || vsShader->byteCodeSize() == 0)
-        return;
+    if (!m_device || !m_desc.vs)
+        throw std::invalid_argument("DX11PipelineState requires a device and a vertex shader");
+
+    auto* vsShader = dynamic_cast<DX11Shader*>(m_desc.vs);
+    if (!vsShader || !vsShader->vsShader() || vsShader->byteCodeSize() == 0)
+        throw std::invalid_argument("DX11PipelineState vertex shader is not a valid DX11Shader");
 
     const auto& layout = m_desc.vertexLayout;
+    if (layout.empty())
+        return;
+
     std::vector<D3D11_INPUT_ELEMENT_DESC> elements;
     elements.reserve(layout.attrCount());
 
@@ -70,7 +78,11 @@ void DX11PipelineState::createInputLayout() {
         elem.SemanticName = semanticName;
         elem.SemanticIndex = semIdx;
         elem.Format = toDXGIFormat11(attr.format);
-        elem.InputSlot = 0;
+        if (elem.Format == DXGI_FORMAT_UNKNOWN)
+            throw std::invalid_argument("DX11PipelineState vertex layout contains an unsupported vertex format");
+        if (attr.bufferSlot >= D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT)
+            throw std::invalid_argument("DX11PipelineState vertex layout uses an invalid input slot");
+        elem.InputSlot = attr.bufferSlot;
         elem.AlignedByteOffset = attr.offset;
         elem.InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
         elem.InstanceDataStepRate = 0;
@@ -78,9 +90,8 @@ void DX11PipelineState::createInputLayout() {
         elements.push_back(elem);
     }
 
-    HRESULT hr = m_device->CreateInputLayout(elements.data(), static_cast<UINT>(elements.size()),
-                                             vsShader->byteCodeData(), vsShader->byteCodeSize(), &m_inputLayout);
-    DX11_CHECK(hr);
+    DX11_CHECK(m_device->CreateInputLayout(elements.data(), static_cast<UINT>(elements.size()),
+                                           vsShader->byteCodeData(), vsShader->byteCodeSize(), &m_inputLayout));
 }
 
 void DX11PipelineState::createRasterizerState() {
@@ -88,12 +99,12 @@ void DX11PipelineState::createRasterizerState() {
     rd.FillMode = toDX11FillMode(m_desc.fillMode);
     rd.CullMode = toDX11CullMode(m_desc.cullMode);
     rd.FrontCounterClockwise = (m_desc.frontFace == FrontFace::CounterClockwise) ? TRUE : FALSE;
-    rd.DepthBias = 0;
-    rd.DepthBiasClamp = 0.0f;
-    rd.SlopeScaledDepthBias = 0.0f;
+    rd.DepthBias = static_cast<INT>(m_desc.depthStencil.depthBias);
+    rd.DepthBiasClamp = m_desc.depthStencil.depthBiasClamp;
+    rd.SlopeScaledDepthBias = m_desc.depthStencil.slopeScaledDepthBias;
     rd.DepthClipEnable = TRUE;
     rd.ScissorEnable = TRUE;
-    rd.MultisampleEnable = FALSE;
+    rd.MultisampleEnable = m_desc.sampleCount > 1 ? TRUE : FALSE;
     rd.AntialiasedLineEnable = FALSE;
 
     HRESULT hr = m_device->CreateRasterizerState(&rd, &m_rasterizer);

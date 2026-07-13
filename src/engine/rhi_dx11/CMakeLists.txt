@@ -1,6 +1,7 @@
 # rhi_dx11 - Windows D3D11 RHI backend.
 add_library(rhi_dx11 STATIC
     backend_register.cpp
+    dx11_bind_group.cpp
     dx11_buffer.cpp
     dx11_command_list.cpp
     dx11_device.cpp

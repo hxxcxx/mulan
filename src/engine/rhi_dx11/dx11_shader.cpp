@@ -1,40 +1,30 @@
 #include "detail/dx11_shader.h"
-#include <cstdio>
+
+#include <stdexcept>
 
 namespace mulan::engine {
 
 DX11Shader::DX11Shader(const ShaderDesc& desc, ID3D11Device* device) : m_desc(desc) {
+    if (!device)
+        throw std::invalid_argument("DX11Shader requires a valid device");
+    if (desc.language != ShaderSourceLanguage::DXBC)
+        throw std::invalid_argument("D3D11 requires precompiled DXBC shader bytecode");
+
     if (desc.byteCode && desc.byteCodeSize > 0) {
         m_byteCode.assign(desc.byteCode, desc.byteCode + desc.byteCodeSize);
     }
 
     if (m_byteCode.empty())
-        return;
+        throw std::invalid_argument("DX11Shader bytecode is empty");
 
     const void* code = m_byteCode.data();
     size_t size = m_byteCode.size();
 
-    HRESULT hr = S_OK;
     switch (desc.type) {
-    case ShaderType::Vertex:
-        hr = device->CreateVertexShader(code, size, nullptr, &m_vs);
-        DX11_CHECK(hr);
-        fprintf(stderr, "[DEBUG] DX11Shader: CreateVertexShader hr=0x%08X vs=%p bytecodeSize=%zu\n", (unsigned) hr,
-                (void*) m_vs.Get(), size);
-        fflush(stderr);
-        break;
-    case ShaderType::Pixel:
-        hr = device->CreatePixelShader(code, size, nullptr, &m_ps);
-        DX11_CHECK(hr);
-        fprintf(stderr, "[DEBUG] DX11Shader: CreatePixelShader hr=0x%08X ps=%p bytecodeSize=%zu\n", (unsigned) hr,
-                (void*) m_ps.Get(), size);
-        fflush(stderr);
-        break;
-    case ShaderType::Geometry:
-        hr = device->CreateGeometryShader(code, size, nullptr, &m_gs);
-        DX11_CHECK(hr);
-        break;
-    default: break;
+    case ShaderType::Vertex: DX11_CHECK(device->CreateVertexShader(code, size, nullptr, &m_vs)); break;
+    case ShaderType::Pixel: DX11_CHECK(device->CreatePixelShader(code, size, nullptr, &m_ps)); break;
+    case ShaderType::Geometry: DX11_CHECK(device->CreateGeometryShader(code, size, nullptr, &m_gs)); break;
+    default: throw std::invalid_argument("DX11Shader stage is not supported by the graphics pipeline");
     }
 }
 

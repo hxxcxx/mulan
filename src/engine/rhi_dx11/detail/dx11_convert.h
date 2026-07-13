@@ -10,6 +10,8 @@
 #include "../../rhi/device.h"
 #include "dx11_common.h"
 
+#include <mulan/graphics/vertex/vertex_format.h>
+
 namespace mulan::engine {
 
 using graphics::VertexFormat;
@@ -27,6 +29,7 @@ inline DXGI_FORMAT toDXGIFormat11(TextureFormat fmt) {
     case TextureFormat::BGRA8_sRGB: return DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
     case TextureFormat::RGBA16_Float: return DXGI_FORMAT_R16G16B16A16_FLOAT;
     case TextureFormat::R16_Float: return DXGI_FORMAT_R16_FLOAT;
+    case TextureFormat::RG16_Float: return DXGI_FORMAT_R16G16_FLOAT;
     case TextureFormat::RGBA32_Float: return DXGI_FORMAT_R32G32B32A32_FLOAT;
     case TextureFormat::R32_Float: return DXGI_FORMAT_R32_FLOAT;
     case TextureFormat::RG32_Float: return DXGI_FORMAT_R32G32_FLOAT;
@@ -41,6 +44,30 @@ inline DXGI_FORMAT toDXGIFormat11(TextureFormat fmt) {
     case TextureFormat::BC7_RGBA_sRGB: return DXGI_FORMAT_BC7_UNORM_SRGB;
     default: return DXGI_FORMAT_UNKNOWN;
     }
+}
+
+inline DXGI_FORMAT toSRVFormat11(TextureFormat fmt) {
+    switch (fmt) {
+    case TextureFormat::D16_UNorm: return DXGI_FORMAT_R16_UNORM;
+    case TextureFormat::D24_UNorm_S8_UInt: return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+    case TextureFormat::D32_Float: return DXGI_FORMAT_R32_FLOAT;
+    case TextureFormat::D32_Float_S8X24_UInt: return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+    default: return toDXGIFormat11(fmt);
+    }
+}
+
+inline bool isDepthFormat11(TextureFormat fmt) {
+    switch (fmt) {
+    case TextureFormat::D16_UNorm:
+    case TextureFormat::D24_UNorm_S8_UInt:
+    case TextureFormat::D32_Float:
+    case TextureFormat::D32_Float_S8X24_UInt: return true;
+    default: return false;
+    }
+}
+
+inline bool hasStencilFormat11(TextureFormat fmt) {
+    return fmt == TextureFormat::D24_UNorm_S8_UInt || fmt == TextureFormat::D32_Float_S8X24_UInt;
 }
 
 inline DXGI_FORMAT toDSVFormat11(TextureFormat fmt) {
@@ -164,14 +191,36 @@ inline D3D11_STENCIL_OP toDX11StencilOp(StencilOp op) {
 
 inline DXGI_FORMAT toDXGIFormat11(VertexFormat fmt) {
     switch (fmt) {
+    // Float
     case VertexFormat::Float: return DXGI_FORMAT_R32_FLOAT;
     case VertexFormat::Float2: return DXGI_FORMAT_R32G32_FLOAT;
     case VertexFormat::Float3: return DXGI_FORMAT_R32G32B32_FLOAT;
     case VertexFormat::Float4: return DXGI_FORMAT_R32G32B32A32_FLOAT;
+    // Half
+    case VertexFormat::Half2: return DXGI_FORMAT_R16G16_FLOAT;
+    case VertexFormat::Half4: return DXGI_FORMAT_R16G16B16A16_FLOAT;
+    // SNorm
+    case VertexFormat::SNorm2: return DXGI_FORMAT_R16G16_SNORM;
+    case VertexFormat::SNorm4: return DXGI_FORMAT_R16G16B16A16_SNORM;
+    case VertexFormat::Byte4N: return DXGI_FORMAT_R8G8B8A8_SNORM;
+    // UNorm
+    case VertexFormat::UNorm2: return DXGI_FORMAT_R16G16_UNORM;
+    case VertexFormat::UNorm4: return DXGI_FORMAT_R16G16B16A16_UNORM;
+    case VertexFormat::UByte4N: return DXGI_FORMAT_R8G8B8A8_UNORM;
+    // Signed integer
+    case VertexFormat::Int: return DXGI_FORMAT_R32_SINT;
+    case VertexFormat::Int2: return DXGI_FORMAT_R32G32_SINT;
+    case VertexFormat::Int3: return DXGI_FORMAT_R32G32B32_SINT;
+    case VertexFormat::Int4: return DXGI_FORMAT_R32G32B32A32_SINT;
+    // Unsigned integer
     case VertexFormat::UInt: return DXGI_FORMAT_R32_UINT;
     case VertexFormat::UInt2: return DXGI_FORMAT_R32G32_UINT;
     case VertexFormat::UInt3: return DXGI_FORMAT_R32G32B32_UINT;
     case VertexFormat::UInt4: return DXGI_FORMAT_R32G32B32A32_UINT;
+    case VertexFormat::UByte4: return DXGI_FORMAT_R8G8B8A8_UINT;
+    // Packed
+    case VertexFormat::RGB10A2: return DXGI_FORMAT_R10G10B10A2_UNORM;
+    case VertexFormat::RG11B10F: return DXGI_FORMAT_R11G11B10_FLOAT;
     default: return DXGI_FORMAT_UNKNOWN;
     }
 }
