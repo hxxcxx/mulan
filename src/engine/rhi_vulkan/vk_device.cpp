@@ -7,6 +7,7 @@
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 #include <algorithm>
+#include <array>
 #include <string>
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"
@@ -155,23 +156,36 @@ void VKDevice::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence
     submitInfo.commandBufferCount = count;
     submitInfo.pCommandBuffers = cmdBuffers.data();
 
+    const SubmissionToken token = reserveSubmissionToken();
+    auto* completionFence = static_cast<VKFence*>(submissionFence());
+    if (!token || !completionFence) {
+        LOG_ERROR("[Vulkan] Standalone submission timeline is unavailable");
+        return;
+    }
+
+    std::array<vk::Semaphore, 2> signalSemaphores{};
+    std::array<uint64_t, 2> signalValues{};
+    uint32_t signalCount = 0;
+    if (fence) {
+        auto* vkFence = static_cast<VKFence*>(fence);
+        signalSemaphores[signalCount] = vkFence->semaphore();
+        signalValues[signalCount++] = fenceValue;
+    }
+    signalSemaphores[signalCount] = completionFence->semaphore();
+    signalValues[signalCount++] = token.value;
+
+    vk::TimelineSemaphoreSubmitInfo timelineInfo;
+    timelineInfo.signalSemaphoreValueCount = signalCount;
+    timelineInfo.pSignalSemaphoreValues = signalValues.data();
+    submitInfo.signalSemaphoreCount = signalCount;
+    submitInfo.pSignalSemaphores = signalSemaphores.data();
+    submitInfo.pNext = &timelineInfo;
+
     try {
-        if (fence) {
-            auto* vkFence = static_cast<VKFence*>(fence);
-            vk::TimelineSemaphoreSubmitInfo timelineInfo;
-            timelineInfo.signalSemaphoreValueCount = 1;
-            uint64_t signalValue = fenceValue;
-            timelineInfo.pSignalSemaphoreValues = &signalValue;
-
-            vk::Semaphore semaphore = vkFence->semaphore();
-            submitInfo.signalSemaphoreCount = 1;
-            submitInfo.pSignalSemaphores = &semaphore;
-            submitInfo.pNext = &timelineInfo;
-
-            graphics_queue_.submit(submitInfo);
-        } else {
-            graphics_queue_.submit(submitInfo);
-        }
+        graphics_queue_.submit(submitInfo);
+        for (uint32_t i = 0; i < count; ++i)
+            cmdLists[i]->markSubmitted(token);
+        commitSubmission(token);
     } catch (const vk::Error& e) {
         LOG_ERROR("[Vulkan] Queue submission failed: {}", e.what());
     } catch (const std::exception& e) {
@@ -216,6 +230,7 @@ core::Result<SubmissionToken> VKDevice::submit() {
     auto* completionFence = static_cast<VKFence*>(submissionFence());
     if (!frame_scheduler_->submit(completionFence->semaphore(), token.value))
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "Vulkan frame submission failed"));
+    frame_scheduler_->markSubmitted(token);
     commitSubmission(token);
     return token;
 }
@@ -232,6 +247,7 @@ core::Result<SubmissionToken> VKDevice::submitOffscreen() {
     auto* completionFence = static_cast<VKFence*>(submissionFence());
     if (!frame_scheduler_->submitOffscreen(completionFence->semaphore(), token.value))
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "Vulkan offscreen submission failed"));
+    frame_scheduler_->markSubmitted(token);
     commitSubmission(token);
     return token;
 }

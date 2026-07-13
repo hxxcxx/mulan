@@ -6,6 +6,11 @@
  */
 #pragma once
 
+#include "submission.h"
+
+#include <array>
+#include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -37,6 +42,10 @@ public:
     void trackResource(RHIDevice& device, RHIResourceKind kind, std::string_view name = {});
     void untrackResource();
 
+    /// 由 CommandList 在成功提交后写入；每条 queue 只保留最大的已提交序号。
+    void markUsed(SubmissionToken token) noexcept;
+    SubmissionToken lastUseToken(QueueType queue = QueueType::Graphics) const noexcept;
+
     RHITrackedResource(const RHITrackedResource&) = delete;
     RHITrackedResource& operator=(const RHITrackedResource&) = delete;
 
@@ -51,6 +60,10 @@ private:
     RHIDevice* tracking_device_ = nullptr;
     RHIResourceKind tracking_kind_ = RHIResourceKind::Buffer;
     std::string tracking_name_;
+
+    static constexpr std::size_t kQueueCount = 3;
+    std::array<std::atomic<uint64_t>, kQueueCount> last_use_generations_{};
+    std::array<std::atomic<uint64_t>, kQueueCount> last_use_values_{};
 };
 
 }  // namespace mulan::engine

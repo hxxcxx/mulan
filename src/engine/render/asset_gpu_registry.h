@@ -19,6 +19,7 @@
 
 #include "asset_gpu_key.h"
 #include "render_geometry.h"
+#include "../rhi/submission.h"
 #include "../rhi/texture.h"
 #include <mulan/core/image/image.h>
 #include <mulan/core/result/error.h>
@@ -29,6 +30,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace mulan::engine {
 
@@ -67,6 +69,9 @@ public:
 
     /// 清空全部资产派生 GPU 资源（文档切换时调用）。
     void clear();
+
+    /// 返回注册表内资源在图形队列上的最后一次实际使用；未提交过则为空。
+    SubmissionToken lastUseToken() const noexcept;
 
     size_t geometryCount() const { return geometries_.size(); }
     size_t textureCount() const { return textures_.size(); }

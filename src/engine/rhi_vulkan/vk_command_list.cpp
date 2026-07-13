@@ -143,6 +143,7 @@ VKCommandList::~VKCommandList() {
 }
 
 void VKCommandList::begin() {
+    resetResourceUsage();
     if (owns_pool_) {
         device_.resetCommandPool(pool_);
     }
@@ -160,6 +161,7 @@ void VKCommandList::end() {
 }
 
 void VKCommandList::setPipelineState(PipelineState* pso) {
+    recordResourceUse(pso);
     auto* vkPso = static_cast<VKPipelineState*>(pso);
     cmd_buffer_.bindPipeline(vk::PipelineBindPoint::eGraphics, vkPso->pipeline());
     current_layout_ = vkPso->layout();
@@ -185,6 +187,7 @@ void VKCommandList::setScissorRect(const ScissorRect& rect) {
 }
 
 void VKCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
+    recordResourceUse(buffer);
     auto* vkBuf = static_cast<VKBuffer*>(buffer);
     vk::Buffer buf = vkBuf->vkBuffer();
     vk::DeviceSize offs = offset;
@@ -192,6 +195,10 @@ void VKCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offs
 }
 
 void VKCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
+    if (buffers) {
+        for (uint32_t i = 0; i < count; ++i)
+            recordResourceUse(buffers[i]);
+    }
     std::vector<vk::Buffer> bufs;
     std::vector<vk::DeviceSize> offs;
     for (uint32_t i = 0; i < count; ++i) {
@@ -202,6 +209,7 @@ void VKCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer*
 }
 
 void VKCommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
+    recordResourceUse(buffer);
     auto* vkBuf = static_cast<VKBuffer*>(buffer);
     cmd_buffer_.bindIndexBuffer(vkBuf->vkBuffer(), offset, toVkIndexType(type));
 }
@@ -216,6 +224,7 @@ void VKCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
 }
 
 void VKCommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
+    recordResourceUse(argsBuffer);
     auto* vkBuf = static_cast<VKBuffer*>(argsBuffer);
     vk::Buffer buf = vkBuf->vkBuffer();
     cmd_buffer_.drawIndexedIndirect(buf, offset, drawCount,
@@ -227,6 +236,7 @@ void VKCommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint3
 }
 
 void VKCommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
+    recordResourceUse(argsBuffer);
     auto* vkBuf = static_cast<VKBuffer*>(argsBuffer);
     cmd_buffer_.dispatchIndirect(vkBuf->vkBuffer(), offset);
 }
@@ -247,15 +257,18 @@ void VKCommandList::setPushConstants(uint32_t offset, uint32_t size, const void*
 
 void VKCommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
                                  ResourceTransitionMode) {
+    recordResourceUse(buffer);
     auto* vkBuf = static_cast<VKBuffer*>(buffer);
     vkBuf->update(offset, size, data);
 }
 
-void VKCommandList::transitionResource(Buffer*, ResourceState) {
+void VKCommandList::transitionResource(Buffer* buffer, ResourceState) {
+    recordResourceUse(buffer);
     // Vulkan 通过 pipeline barrier 处理，此处简化
 }
 
 void VKCommandList::transitionResource(Texture* texture, ResourceState newState) {
+    recordResourceUse(texture);
     auto* vkTex = static_cast<VKTexture*>(texture);
     const vk::ImageLayout oldLayout = vkTex->currentLayout();
     const vk::ImageLayout newLayout = imageLayoutForState(newState);
@@ -288,6 +301,8 @@ void VKCommandList::transitionResource(Texture* texture, ResourceState newState)
 }
 
 bool VKCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+    recordResourceUse(src);
+    recordResourceUse(dst);
     auto* vkTex = static_cast<VKTexture*>(src);
     auto* vkBuf = static_cast<VKBuffer*>(dst);
     if (!vkTex || !vkBuf)
@@ -321,6 +336,7 @@ void VKCommandList::clearStencil(uint8_t) {
 }
 
 void VKCommandList::bindGroup(BindGroup& group) {
+    recordBindGroupUse(group);
     auto* vkGroup = static_cast<VKBindGroup*>(&group);
     if (vkGroup->entryCount() == 0 || !allocator_)
         return;
@@ -371,6 +387,7 @@ void VKCommandList::bindGroup(BindGroup& group) {
 }
 
 void VKCommandList::bindResources(const BindGroupDesc& desc) {
+    recordBindGroupUse(desc);
     if (desc.count == 0 || !allocator_)
         return;
     if (!current_desc_set_layout_)
@@ -401,6 +418,7 @@ void VKCommandList::bindResources(const BindGroupDesc& desc) {
 // ============================================================
 
 void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
+    recordRenderPassUse(info);
     rp_present_source_ = info.presentSource;
 
     // Track swapchain color image for present transition in endRenderPass

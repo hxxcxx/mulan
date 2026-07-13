@@ -4,6 +4,12 @@
 
 namespace mulan::engine {
 
+namespace {
+constexpr std::size_t queueIndex(QueueType queue) {
+    return static_cast<std::size_t>(queue);
+}
+}  // namespace
+
 std::string_view toString(RHIResourceKind kind) {
     switch (kind) {
     case RHIResourceKind::Buffer: return "Buffer";
@@ -40,6 +46,31 @@ void RHITrackedResource::untrackResource() {
     tracking_device_->unregisterLiveResource(this);
     tracking_device_ = nullptr;
     tracking_name_.clear();
+}
+
+void RHITrackedResource::markUsed(SubmissionToken token) noexcept {
+    if (!token)
+        return;
+    const std::size_t index = queueIndex(token.queue);
+    if (index >= kQueueCount)
+        return;
+
+    last_use_generations_[index].store(token.deviceGeneration, std::memory_order_relaxed);
+    uint64_t current = last_use_values_[index].load(std::memory_order_relaxed);
+    while (current < token.value &&
+           !last_use_values_[index].compare_exchange_weak(current, token.value, std::memory_order_release,
+                                                          std::memory_order_relaxed)) {}
+}
+
+SubmissionToken RHITrackedResource::lastUseToken(QueueType queue) const noexcept {
+    const std::size_t index = queueIndex(queue);
+    if (index >= kQueueCount)
+        return {};
+    const uint64_t value = last_use_values_[index].load(std::memory_order_acquire);
+    if (value == 0)
+        return {};
+    const uint64_t generation = last_use_generations_[index].load(std::memory_order_relaxed);
+    return SubmissionToken{ generation, queue, value };
 }
 
 void RHITrackedResource::detachFromDevice(const RHIDevice& device) {

@@ -389,7 +389,7 @@ void DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload
                                       slicePitch);
 }
 
-void DX11Device::executeCommandLists(CommandList**, uint32_t, Fence* fence, uint64_t value) {
+void DX11Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence, uint64_t value) {
     // CommandList 直接包装 immediate context，命令在录制时已经进入同一条队列。
     if (fence) {
         auto* dx11Fence = dynamic_cast<DX11Fence*>(fence);
@@ -399,6 +399,19 @@ void DX11Device::executeCommandLists(CommandList**, uint32_t, Fence* fence, uint
         }
         dx11Fence->signal(value);
     }
+
+    const SubmissionToken token = reserveSubmissionToken();
+    auto* completionFence = static_cast<DX11Fence*>(submissionFence());
+    if (!token || !completionFence)
+        return;
+    completionFence->signal(token.value);
+    if (completionFence->signaledValue() < token.value) {
+        LOG_ERROR("[DX11] Standalone submission timeline signal failed");
+        return;
+    }
+    for (uint32_t i = 0; i < count; ++i)
+        cmdLists[i]->markSubmitted(token);
+    commitSubmission(token);
 }
 
 void DX11Device::waitIdle() {
@@ -448,6 +461,7 @@ core::Result<SubmissionToken> DX11Device::submit() {
     completionFence->signal(token.value);
     if (completionFence->signaledValue() < token.value)
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 event query creation failed"));
+    m_frameCmdList->markSubmitted(token);
     commitSubmission(token);
     return token;
 }

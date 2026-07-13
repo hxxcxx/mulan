@@ -489,8 +489,20 @@ void DX12Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fen
 
     if (fence) {
         auto* dx12Fence = static_cast<DX12Fence*>(fence);
-        command_queue_->Signal(dx12Fence->fence(), fenceValue);
+        if (!checkDX12(command_queue_->Signal(dx12Fence->fence(), fenceValue),
+                       "ID3D12CommandQueue::Signal(external fence)"))
+            return;
     }
+
+    const SubmissionToken token = reserveSubmissionToken();
+    auto* completionFence = static_cast<DX12Fence*>(submissionFence());
+    if (!token || !completionFence ||
+        !checkDX12(command_queue_->Signal(completionFence->fence(), token.value),
+                   "ID3D12CommandQueue::Signal(submission timeline)"))
+        return;
+    for (uint32_t i = 0; i < count; ++i)
+        cmdLists[i]->markSubmitted(token);
+    commitSubmission(token);
 }
 
 void DX12Device::waitIdle() {
@@ -577,6 +589,7 @@ core::Result<SubmissionToken> DX12Device::submit() {
     hr = command_queue_->Signal(completionFence->fence(), token.value);
     if (!checkDX12(hr, "ID3D12CommandQueue::Signal(submission timeline)"))
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX12 submission timeline signal failed"));
+    frame_cmd_wrapper_->markSubmitted(token);
     commitSubmission(token);
     return token;
 }

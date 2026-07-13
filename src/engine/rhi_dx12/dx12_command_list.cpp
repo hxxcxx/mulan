@@ -56,6 +56,7 @@ void DX12CommandList::setCommandList(ID3D12GraphicsCommandList* cmdList) {
 }
 
 void DX12CommandList::begin() {
+    resetResourceUsage();
     if (!cmd_list_)
         return;
 
@@ -84,6 +85,7 @@ void DX12CommandList::end() {
 }
 
 void DX12CommandList::setPipelineState(PipelineState* pso) {
+    recordResourceUse(pso);
     auto* dx12Pso = static_cast<DX12PipelineState*>(pso);
     cmd_list_->SetPipelineState(dx12Pso->pipeline());
     cmd_list_->SetGraphicsRootSignature(dx12Pso->rootSignature());
@@ -102,6 +104,7 @@ void DX12CommandList::setScissorRect(const ScissorRect& rect) {
 }
 
 void DX12CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
+    recordResourceUse(buffer);
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
     D3D12_VERTEX_BUFFER_VIEW vbv = {};
     vbv.BufferLocation = dx12Buf->gpuAddress() + offset;
@@ -111,6 +114,10 @@ void DX12CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t of
 }
 
 void DX12CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
+    if (buffers) {
+        for (uint32_t i = 0; i < count; ++i)
+            recordResourceUse(buffers[i]);
+    }
     D3D12_VERTEX_BUFFER_VIEW vbvs[16] = {};
     for (uint32_t i = 0; i < count && i < 16; ++i) {
         auto* dx12Buf = static_cast<DX12Buffer*>(buffers[i]);
@@ -122,6 +129,7 @@ void DX12CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffe
 }
 
 void DX12CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
+    recordResourceUse(buffer);
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
     D3D12_INDEX_BUFFER_VIEW ibv = {};
     ibv.BufferLocation = dx12Buf->gpuAddress() + offset;
@@ -140,6 +148,7 @@ void DX12CommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
 }
 
 void DX12CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t /*stride*/) {
+    recordResourceUse(argsBuffer);
     if (!draw_indirect_sig_)
         return;
     auto* dx12Buf = static_cast<DX12Buffer*>(argsBuffer);
@@ -151,6 +160,7 @@ void DX12CommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uin
 }
 
 void DX12CommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
+    recordResourceUse(argsBuffer);
     if (!dispatch_indirect_sig_)
         return;
     auto* dx12Buf = static_cast<DX12Buffer*>(argsBuffer);
@@ -168,11 +178,13 @@ void DX12CommandList::setPushConstants(uint32_t offset, uint32_t size, const voi
 
 void DX12CommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
                                    ResourceTransitionMode mode) {
+    recordResourceUse(buffer);
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
     dx12Buf->update(offset, size, data);
 }
 
 void DX12CommandList::bindGroup(BindGroup& group) {
+    recordBindGroupUse(group);
     auto* dx12Group = static_cast<DX12BindGroup*>(&group);
     if (dx12Group->entryCount() == 0 || (!desc_heap_ && !sampler_heap_))
         return;
@@ -268,6 +280,7 @@ void DX12CommandList::bindGroup(BindGroup& group) {
 }
 
 void DX12CommandList::bindResources(const BindGroupDesc& desc) {
+    recordBindGroupUse(desc);
     // 注意：此便捷路径仅接收 BindGroupDesc（无 BindGroupLayout），无法得知各 binding
     // 的 DescriptorType，因此无法做 binding→root-parameter-index 映射。当前引擎渲染
     // 路径一律走 bindGroup(BindGroup&)（后者有完整映射）。该便捷路径也不处理 sampler；
@@ -336,6 +349,7 @@ void DX12CommandList::bindDescriptorHeaps() {
 }
 
 void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState) {
+    recordResourceUse(buffer);
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
     if (!dx12Buf || !dx12Buf->resource())
         return;
@@ -363,6 +377,7 @@ void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState)
 }
 
 void DX12CommandList::transitionResource(Texture* texture, ResourceState newState) {
+    recordResourceUse(texture);
     auto* dx12Tex = static_cast<DX12Texture*>(texture);
     if (!dx12Tex || !dx12Tex->resource())
         return;
@@ -383,6 +398,8 @@ void DX12CommandList::transitionResource(Texture* texture, ResourceState newStat
 }
 
 bool DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+    recordResourceUse(src);
+    recordResourceUse(dst);
     auto* dx12Tex = static_cast<DX12Texture*>(src);
     auto* dx12Buf = static_cast<DX12Buffer*>(dst);
     if (!dx12Tex || !dx12Buf || !dx12Tex->resource() || !dx12Buf->resource())
@@ -502,6 +519,7 @@ void DX12CommandList::clearStencil(uint8_t stencil) {
 // ============================================================
 
 void DX12CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
+    recordRenderPassUse(info);
     auto* cl = cmd_list_.Get();
     rp_present_source_ = info.presentSource;
 

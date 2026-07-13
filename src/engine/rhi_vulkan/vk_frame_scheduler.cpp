@@ -93,6 +93,11 @@ CommandList* VKFrameScheduler::frameCommandList() {
     return frame_cmd_list_.get();
 }
 
+void VKFrameScheduler::markSubmitted(SubmissionToken token) {
+    if (frame_cmd_list_)
+        frame_cmd_list_->markSubmitted(token);
+}
+
 bool VKFrameScheduler::submit(vk::Semaphore completionSemaphore, uint64_t completionValue) {
     if (!frame_ready_) {
         LOG_WARN("[Vulkan] Frame submission skipped because no frame is ready");

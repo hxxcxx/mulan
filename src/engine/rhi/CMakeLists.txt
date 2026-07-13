@@ -2,6 +2,7 @@
 # 零后端依赖 —— 各后端编译期自注册到 DeviceFactory，rhi 抽象层不含任何后端头文件。
 add_library(rhi STATIC
     resource.cpp
+    command_list.cpp
     device.cpp
     device_factory.cpp
     bind_group_layout.cpp

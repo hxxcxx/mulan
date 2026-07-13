@@ -32,6 +32,7 @@ public:
 
     void beginFrame(SwapChain* swapchain);
     CommandList* frameCommandList();
+    void markSubmitted(SubmissionToken token);
     bool submit(vk::Semaphore completionSemaphore, uint64_t completionValue);
     void present(SwapChain* swapchain);
     bool submitOffscreen(vk::Semaphore completionSemaphore, uint64_t completionValue);

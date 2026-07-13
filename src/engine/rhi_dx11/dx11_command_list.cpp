@@ -45,6 +45,7 @@ DX11CommandList::DX11CommandList(ID3D11Device* device, ID3D11DeviceContext* ctx,
 }
 
 void DX11CommandList::begin() {
+    resetResourceUsage();
     // D3D11 immediate context 无需显式 begin。
 }
 
@@ -53,6 +54,7 @@ void DX11CommandList::end() {
 }
 
 void DX11CommandList::setPipelineState(PipelineState* pso) {
+    recordResourceUse(pso);
     auto* dx11Pso = dynamic_cast<DX11PipelineState*>(pso);
     if (!dx11Pso) {
         LOG_ERROR("[DX11] setPipelineState rejected: pipeline is not a DX11 pipeline");
@@ -93,6 +95,7 @@ void DX11CommandList::setScissorRect(const ScissorRect& rect) {
 }
 
 void DX11CommandList::bindGroup(BindGroup& group) {
+    recordBindGroupUse(group);
     auto* dx11Group = dynamic_cast<DX11BindGroup*>(&group);
     if (!dx11Group) {
         LOG_ERROR("[DX11] bindGroup rejected: bind group is not a DX11 bind group");
@@ -105,6 +108,7 @@ void DX11CommandList::bindGroup(BindGroup& group) {
 }
 
 void DX11CommandList::bindResources(const BindGroupDesc& group) {
+    recordBindGroupUse(group);
     bindEntries(group.entries, group.count, nullptr);
 }
 
@@ -293,6 +297,7 @@ void DX11CommandList::bindSampler(uint32_t slot, Sampler* sampler, uint32_t stag
 }
 
 void DX11CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
+    recordResourceUse(buffer);
     if (slot >= D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT) {
         LOG_ERROR("[DX11] setVertexBuffer rejected: slot {} exceeds the D3D11 limit", slot);
         return;
@@ -315,6 +320,10 @@ void DX11CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t of
 }
 
 void DX11CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
+    if (buffers) {
+        for (uint32_t i = 0; i < count; ++i)
+            recordResourceUse(buffers[i]);
+    }
     if (!buffers || startSlot >= D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT)
         return;
     count = (std::min) (count, D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT - startSlot);
@@ -343,6 +352,7 @@ void DX11CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffe
 }
 
 void DX11CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
+    recordResourceUse(buffer);
     auto* dx11Buffer = dynamic_cast<DX11Buffer*>(buffer);
     if (!dx11Buffer || !dx11Buffer->buffer() || offset >= dx11Buffer->size()) {
         LOG_ERROR("[DX11] setIndexBuffer rejected: invalid buffer or range");
@@ -370,6 +380,7 @@ void DX11CommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
 }
 
 void DX11CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
+    recordResourceUse(argsBuffer);
     auto* buffer = dynamic_cast<DX11Buffer*>(argsBuffer);
     if (!buffer || !buffer->buffer() || !(buffer->bindFlags() & BufferBindFlags::IndirectBuffer)) {
         LOG_ERROR("[DX11] drawIndirect rejected: a DX11 indirect-argument buffer is required");
@@ -395,6 +406,7 @@ void DX11CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t
 
 void DX11CommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
                                    ResourceTransitionMode) {
+    recordResourceUse(buffer);
     auto* dx11Buffer = dynamic_cast<DX11Buffer*>(buffer);
     if (!dx11Buffer) {
         LOG_ERROR("[DX11] updateBuffer rejected: buffer is not a DX11 buffer");
@@ -403,11 +415,13 @@ void DX11CommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t siz
     dx11Buffer->update(offset, size, data);
 }
 
-void DX11CommandList::transitionResource(Buffer*, ResourceState) {
+void DX11CommandList::transitionResource(Buffer* buffer, ResourceState) {
+    recordResourceUse(buffer);
     // D3D11 自动管理资源状态。
 }
 
-void DX11CommandList::transitionResource(Texture*, ResourceState) {
+void DX11CommandList::transitionResource(Texture* texture, ResourceState) {
+    recordResourceUse(texture);
     // D3D11 自动管理资源状态。
 }
 
@@ -467,6 +481,8 @@ bool DX11CommandList::ensureReadbackResolveTexture(uint32_t width, uint32_t heig
 }
 
 bool DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+    recordResourceUse(src);
+    recordResourceUse(dst);
     if (m_renderPassActive) {
         LOG_ERROR("[DX11] copyTextureToBuffer rejected: call it after endRenderPass");
         return false;
@@ -571,6 +587,7 @@ void DX11CommandList::unbindShaderResources() {
 // ============================================================
 
 void DX11CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
+    recordRenderPassUse(info);
     if (m_renderPassActive)
         endRenderPass();
 

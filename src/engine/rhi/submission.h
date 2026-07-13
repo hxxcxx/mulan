@@ -21,6 +21,7 @@ struct SubmissionToken {
     uint64_t value = 0;
 
     explicit operator bool() const { return deviceGeneration != 0 && value != 0; }
+    bool operator==(const SubmissionToken&) const = default;
 };
 
 }  // namespace mulan::engine

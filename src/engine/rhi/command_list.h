@@ -13,6 +13,7 @@
 #include "render_types.h"
 
 #include <cstdint>
+#include <vector>
 
 namespace mulan::engine {
 
@@ -139,10 +140,22 @@ public:
     virtual void clearDepth(float depth) = 0;
     virtual void clearStencil(uint8_t stencil) = 0;
 
+    /// 设备在 queue submit 成功后调用，将本次使用传播到全部资源。
+    void markSubmitted(SubmissionToken token);
+
 protected:
     CommandList() = default;
     CommandList(const CommandList&) = delete;
     CommandList& operator=(const CommandList&) = delete;
+
+    void resetResourceUsage();
+    void recordResourceUse(RHITrackedResource* resource);
+    void recordBindGroupUse(BindGroup& group);
+    void recordBindGroupUse(const BindGroupDesc& desc);
+    void recordRenderPassUse(const RenderPassBeginInfo& info);
+
+private:
+    std::vector<RHITrackedResource*> used_resources_;
 };
 
 // ============================================================

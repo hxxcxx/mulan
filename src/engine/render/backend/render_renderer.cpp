@@ -194,7 +194,7 @@ void RenderRenderer::clearAssetResources(RHIDevice& device) {
     auto retiredRegistry = std::move(asset_gpu_registry_);
     asset_gpu_registry_ = std::make_unique<AssetGpuRegistry>(device);
 
-    const SubmissionToken token = device.lastSubmissionToken();
+    const SubmissionToken token = retiredRegistry->lastUseToken();
     if (!token)
         return;
     auto retireResult = device.retire(token, [registry = std::move(retiredRegistry)]() mutable { registry.reset(); });

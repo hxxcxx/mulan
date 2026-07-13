@@ -19,4 +19,8 @@ add_library(math STATIC
 
 mulan_copy_public_headers(math math)
 
+# DCEL validation uses the shared logging implementation from core. Keep the
+# dependency private because no public math header exposes core types.
+target_link_libraries(math PRIVATE core)
+
 # math is static today, so MATH_API remains empty. Define BUILDING_MATH if this target becomes shared.

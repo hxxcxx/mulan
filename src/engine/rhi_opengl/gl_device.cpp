@@ -303,10 +303,23 @@ void GLDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) 
     }
 }
 
-void GLDevice::executeCommandLists(CommandList**, uint32_t, Fence* fence, uint64_t fenceValue) {
+void GLDevice::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence, uint64_t fenceValue) {
     if (fence)
         fence->signal(fenceValue);
+
+    const SubmissionToken token = reserveSubmissionToken();
+    auto* completionFence = static_cast<GLFence*>(submissionFence());
+    if (!token || !completionFence)
+        return;
+    completionFence->signal(token.value);
     glFlush();
+    if (!completionFence->isValid()) {
+        LOG_ERROR("[OpenGL] Standalone submission timeline signal failed");
+        return;
+    }
+    for (uint32_t i = 0; i < count; ++i)
+        cmdLists[i]->markSubmitted(token);
+    commitSubmission(token);
 }
 
 void GLDevice::waitIdle() {
@@ -346,6 +359,7 @@ core::Result<SubmissionToken> GLDevice::submit() {
     glFlush();
     if (!completionFence->isValid())
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "glFenceSync failed"));
+    frame_command_list_->markSubmitted(token);
     commitSubmission(token);
     return token;
 }

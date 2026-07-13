@@ -27,6 +27,7 @@ GLCommandList::~GLCommandList() {
 }
 
 void GLCommandList::begin() {
+    resetResourceUsage();
     // OpenGL 立即模式，begin/end 不做实质工作
     pipeline_state_applied_ = false;
     vertex_layout_dirty_ = true;
@@ -40,6 +41,7 @@ void GLCommandList::end() {
 }
 
 void GLCommandList::setPipelineState(PipelineState* pso) {
+    recordResourceUse(pso);
     if (current_pipeline_ == pso)
         return;
 
@@ -67,11 +69,13 @@ void GLCommandList::setScissorRect(const ScissorRect& rect) {
 }
 
 void GLCommandList::bindGroup(BindGroup& group) {
+    recordBindGroupUse(group);
     bindResources(group);
     group.markClean();
 }
 
 void GLCommandList::bindResources(const BindGroupDesc& group) {
+    recordBindGroupUse(group);
     bindEntries(group.entries, group.count);
 }
 
@@ -147,6 +151,7 @@ void GLCommandList::bindEntry(const BindGroupEntry& e) {
 }
 
 void GLCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
+    recordResourceUse(buffer);
     if (slot >= MAX_VERTEX_BUFFERS) {
         LOG_ERROR("[OpenGL] setVertexBuffer rejected: slot {} is out of range", slot);
         return;
@@ -173,6 +178,7 @@ void GLCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer*
 }
 
 void GLCommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
+    recordResourceUse(buffer);
     if (index_buffer_ == buffer && index_buffer_Offset == offset && index_type_ == type) {
         return;  // 无变化
     }
@@ -338,6 +344,7 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
 
 void GLCommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
                                  ResourceTransitionMode /*mode*/) {
+    recordResourceUse(buffer);
     if (!buffer || !data)
         return;
 
@@ -345,6 +352,7 @@ void GLCommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size,
 }
 
 void GLCommandList::transitionResource(Buffer* buffer, ResourceState newState) {
+    recordResourceUse(buffer);
     (void) buffer;
     GLbitfield barriers = 0;
     switch (newState) {
@@ -360,6 +368,7 @@ void GLCommandList::transitionResource(Buffer* buffer, ResourceState newState) {
 }
 
 void GLCommandList::transitionResource(Texture* texture, ResourceState newState) {
+    recordResourceUse(texture);
     (void) texture;
     GLbitfield barriers = 0;
     switch (newState) {
@@ -375,6 +384,8 @@ void GLCommandList::transitionResource(Texture* texture, ResourceState newState)
 }
 
 bool GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+    recordResourceUse(src);
+    recordResourceUse(dst);
     auto* texture = dynamic_cast<GLTexture*>(src);
     auto* buffer = dynamic_cast<GLBuffer*>(dst);
     if (!texture || !buffer || texture->desc().dimension != TextureDimension::Texture2D)
@@ -589,6 +600,7 @@ GLenum GLCommandList::indexTypeToGLFormat(IndexType type) {
 }
 
 void GLCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
+    recordRenderPassUse(info);
     // GL FBO selection:
     // - Swapchain (presentSource=true): bind default framebuffer (0)
     // - RenderTarget: use nativeHandle (set by GLRenderTarget convenience method)

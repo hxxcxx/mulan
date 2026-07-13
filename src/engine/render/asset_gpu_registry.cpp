@@ -115,6 +115,31 @@ void AssetGpuRegistry::clear() {
     textures_.clear();
 }
 
+SubmissionToken AssetGpuRegistry::lastUseToken() const noexcept {
+    SubmissionToken latest{};
+    const auto merge = [&latest](const RHITrackedResource* resource) {
+        if (!resource)
+            return;
+        const SubmissionToken candidate = resource->lastUseToken();
+        if (!candidate)
+            return;
+        if (!latest || (candidate.deviceGeneration == latest.deviceGeneration && candidate.value > latest.value))
+            latest = candidate;
+    };
+
+    const auto mergeGeometry = [&merge](const GpuGeometry& geometry) {
+        merge(geometry.vertexBuffer.get());
+        merge(geometry.indexBuffer.get());
+    };
+    for (const auto& [_, geometry] : geometries_)
+        mergeGeometry(geometry);
+    for (const GpuGeometry& geometry : retired_geometries_)
+        mergeGeometry(geometry);
+    for (const auto& [_, texture] : textures_)
+        merge(texture.get());
+    return latest;
+}
+
 core::Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(RHIDevice& device, const graphics::Mesh& mesh) {
     GpuGeometry geo;
     if (mesh.empty()) {

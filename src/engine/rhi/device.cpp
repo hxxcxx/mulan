@@ -49,8 +49,13 @@ SubmissionToken RHIDevice::reserveSubmissionToken(QueueType queue) {
 }
 
 void RHIDevice::commitSubmission(SubmissionToken token) {
-    if (token && token.deviceGeneration == device_generation_ && token.queue == QueueType::Graphics)
-        last_submission_value_.store(token.value, std::memory_order_release);
+    if (!token || token.deviceGeneration != device_generation_ || token.queue != QueueType::Graphics)
+        return;
+
+    uint64_t current = last_submission_value_.load(std::memory_order_relaxed);
+    while (current < token.value &&
+           !last_submission_value_.compare_exchange_weak(current, token.value, std::memory_order_release,
+                                                         std::memory_order_relaxed)) {}
 }
 
 SubmissionToken RHIDevice::lastSubmissionToken(QueueType queue) const {
