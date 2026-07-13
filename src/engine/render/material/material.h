@@ -7,8 +7,8 @@
  * 设计思路：
  *  - Material 是值类型，可直接存入容器或节点
  *  - MaterialType 枚举标识着色器变体选择
- *  - MaterialGPU 是 std140 布局的 GPU 常量缓冲区数据
- *  - 上层通过 Material::toGPU() 转换后上传 UBO
+ *  - MaterialGPU 是跨后端一致的 GPU Uniform 数据布局
+ *  - 上层通过 Material::toGPU() 转换后写入瞬态 Uniform
  *  - 纹理槽位使用枚举 TextureSlot 统一索引
  */
 

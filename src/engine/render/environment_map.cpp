@@ -118,7 +118,7 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
     if (!irradiance_ || !prefilter_ || !brdf_lut_)
         return false;
 
-    // 3. sampler
+    // 3. 采样器
     auto sampR = device.createSampler(SamplerDesc::linearClamp());
     if (!sampR)
         return false;

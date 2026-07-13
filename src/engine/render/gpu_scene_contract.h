@@ -1,6 +1,6 @@
 /**
  * @file gpu_scene_contract.h
- * @brief 定义 CPU 与 shader 共享的 Scene/Object UBO 数据契约。
+ * @brief 定义 CPU 与着色器共享的场景和对象 Uniform 数据契约
  * @author hxxcxx
  * @date 2026-07-05
  */
@@ -13,7 +13,7 @@
 
 namespace mulan::engine {
 
-// C++ mirror of shaders/common.slang cbuffer Scene (b0).
+// 对应 shaders/common.slang 中的 Scene 常量缓冲（b0）。
 struct alignas(16) SceneUniforms {
     float view[16];
     float projection[16];
@@ -27,7 +27,7 @@ struct alignas(16) SceneUniforms {
 };
 static_assert(sizeof(SceneUniforms) == 288);
 
-// C++ mirror of shaders/common.slang cbuffer Object (b1).
+// 对应 shaders/common.slang 中的 Object 常量缓冲（b1）。
 struct alignas(16) ObjectUniforms {
     float world[16];
     float normalMat[12];

@@ -1,13 +1,13 @@
 /**
  * @file material_cache.h
- * @brief 材质缓存 — 管理 engine::Material 实例 + GPU UBO 偏移映射
+ * @brief 管理 engine::Material 实例与材质句柄
  * @author hxxcxx
  * @date 2026-04-23
  *
- * 重构后设计：
- *  - 直接存储 vector<Material>，无额外包装类（删掉了旧的 MaterialAsset 包装）
- *  - 用 vector index 作为材质句柄
- *  - 去单例化，由 Renderer 持有并通过引用注入
+ * 设计：
+ *  - 直接存储 vector<Material>，无额外包装类型
+ *  - 使用 vector 索引作为材质句柄
+ *  - 由 Renderer 持有并通过引用注入
  */
 
 #pragma once

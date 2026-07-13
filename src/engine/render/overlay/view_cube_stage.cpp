@@ -503,7 +503,7 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
     math::Mat4 corrProj = device_->clipSpaceCorrectionMatrix() * cubeProj;
     math::Mat4 cubeVP_mat = corrProj * cubeView;
 
-    // --- 3. 上传 Scene UBO ---
+    // --- 3. 写入场景 Uniform ---
     SceneUniforms sceneUbo{};
     storeGpuMat4(sceneUbo.view, cubeView);
     storeGpuMat4(sceneUbo.projection, corrProj);
@@ -518,7 +518,7 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
     if (!sceneUniform)
         return;
 
-    // --- 4. 上传 Object UBO（单位矩阵）---
+    // --- 4. 写入对象 Uniform（单位矩阵）---
     const ObjectUniforms objUbo = makeObjectUniforms(math::Mat4(1.0));
     const auto objectUniform = cmd->writeUniform(objUbo);
     if (!objectUniform)

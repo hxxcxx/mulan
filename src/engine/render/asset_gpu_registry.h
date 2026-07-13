@@ -5,8 +5,8 @@
  * @date 2026-07-06
  *
  * 设计：
- *  - 只管"资产派生 + 创建后不可变 + 独立 GPU 资源对象"（几何 buffer、贴图）。
- *    材质 UBO 不在此（它是帧动态/偏移寻址/有上限，由 MaterialCache 管）。
+ *  - 只管"资产派生 + 创建后不可变 + 独立 GPU 资源对象"（几何缓冲、贴图）。
+ *    材质参数由渲染命令按需写入瞬态 Uniform，不属于资产资源。
  *  - key 使用 AssetGpuKey 强类型封装：由 view 层（RenderWorldSync）按资产身份生成，
  *    engine 只校验有效性并透传，不依赖 asset 层。
  *  - 懒加载：acquire 命中即返，miss 才上传。

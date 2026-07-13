@@ -61,7 +61,7 @@ DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11Devic
     m_byteWidth = isUniform ? alignUp(desc.size, kConstantBufferAlignment) : desc.size;
     bd.ByteWidth = m_byteWidth;
 
-    // Bind flags
+    // 资源绑定用途
     if (desc.bindFlags & BufferBindFlags::VertexBuffer)
         bd.BindFlags |= D3D11_BIND_VERTEX_BUFFER;
     if (desc.bindFlags & BufferBindFlags::IndexBuffer)
@@ -75,7 +75,7 @@ DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11Devic
     if (desc.bindFlags & BufferBindFlags::IndirectBuffer)
         bd.MiscFlags |= D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS;
 
-    // Usage mapping
+    // CPU/GPU 访问方式
     switch (desc.usage) {
     case BufferUsage::Immutable:
         bd.Usage = D3D11_USAGE_IMMUTABLE;
@@ -111,9 +111,8 @@ DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11Devic
 
     m_nativeUsage = bd.Usage;
 
-    // 大型 Object/Material UBO 只作为普通源缓冲保存。绑定时 CommandList
-    // 把当前区间复制到原生 64 KiB 常量缓冲，避开驱动敏感的大型 CB 范围绑定，
-    // 同时让这里的局部 UpdateSubresource 成为规范允许的普通 buffer 更新。
+    // D3D11 常量缓冲上限为 64 KiB。更大的静态 Uniform 缓冲作为普通源缓冲保存，
+    // 绑定时由兼容路径复制当前范围。
     if (isUniform && m_byteWidth > D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT * 16) {
         bd.BindFlags &= ~D3D11_BIND_CONSTANT_BUFFER;
     }
@@ -148,13 +147,16 @@ void DX11Buffer::update(uint32_t offset, uint32_t size, const void* data) {
         return;
     }
 
-    // DX11 的 uniform 数据统一由 CPU shadow 持有，并在 bind 时上传到
-    // Dynamic Constant Buffer Arena。避免修改 GPU 正在读取的原生 CB。
+    // CPU 镜像仅供不支持原生范围绑定的兼容路径读取；原生缓冲仍同步更新，
+    // D3D11.1 可以直接绑定其中的 Uniform 范围。
     if (!m_uniformShadow.empty()) {
         std::memcpy(m_uniformShadow.data() + offset, data, size);
         ++m_uniformVersion;
         if (m_uniformVersion == 0)
             m_uniformVersion = 1;
+
+        // D3D11 不允许对原生常量缓冲执行局部 UpdateSubresource，使用镜像补全未修改区域。
+        m_ctx->UpdateSubresource(m_buffer.Get(), 0, nullptr, m_uniformShadow.data(), 0, 0);
         return;
     }
 

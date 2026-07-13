@@ -50,7 +50,7 @@ struct MeshDrawCommand {
     Texture* aoTex = nullptr;        // binding 7
     Sampler* sampler = nullptr;      // binding 8
 
-    // Per-object data（提交 draw 时写入瞬态 Uniform 切片）
+    // 对象数据（提交绘制时写入瞬态 Uniform 切片）
     math::Mat4 worldTransform{ 1.0f };
 
     // Sort / Meta

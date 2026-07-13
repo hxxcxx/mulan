@@ -96,5 +96,40 @@ TEST(DX11TransientUniformTest, PreservesIndependentWritesAndBindsTheRequestedSli
     EXPECT_EQ(bound.Get(), secondBuffer->buffer());
 }
 
+TEST(DX11TransientUniformTest, BindsNativeStaticUniformRangeWithoutCopying) {
+    DX11TestContext native;
+    ASSERT_TRUE(native.initialize());
+    if (!native.context1)
+        GTEST_SKIP() << "ID3D11DeviceContext1 is unavailable";
+
+    std::array<std::byte, 512> initialData{};
+    const BufferDesc bufferDesc = BufferDesc::uniform(static_cast<uint32_t>(initialData.size()), "StaticUniform");
+    DX11Buffer buffer(bufferDesc, native.device.Get(), native.context.Get());
+    ASSERT_TRUE(buffer.isValid());
+    const std::array<uint32_t, 4> updatedValue{ 9, 10, 11, 12 };
+    buffer.update(256, sizeof(updatedValue), updatedValue.data());
+    EXPECT_EQ(readUniformSlice(native.device.Get(), native.context.Get(), { &buffer, 256, sizeof(updatedValue), 0 }),
+              updatedValue);
+
+    const std::array layoutEntries{ BindGroupLayoutEntry{ 0, 1, DescriptorType::UniformBuffer,
+                                                          PipelineBinding::kStageVertex, BindingMode::Static } };
+    const BindGroupLayout layout = BindGroupLayout::fromBindings(layoutEntries);
+    BindGroupDesc groupDesc;
+    groupDesc.addUniformBuffer(0, &buffer, 256, 64);
+    DX11BindGroup group(layout, groupDesc);
+
+    DX11CommandList commandList(native.device.Get(), native.context.Get(), native.context1.Get());
+    commandList.begin();
+    commandList.bindGroup(group);
+
+    ComPtr<ID3D11Buffer> bound;
+    UINT firstConstant = 0;
+    UINT constantCount = 0;
+    native.context1->VSGetConstantBuffers1(0, 1, bound.GetAddressOf(), &firstConstant, &constantCount);
+    EXPECT_EQ(bound.Get(), buffer.buffer());
+    EXPECT_EQ(firstConstant, 16u);
+    EXPECT_EQ(constantCount, 16u);
+}
+
 }  // namespace
 }  // namespace mulan::engine

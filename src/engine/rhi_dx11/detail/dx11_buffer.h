@@ -38,7 +38,7 @@ private:
 
     BufferDesc m_desc;
     ComPtr<ID3D11Buffer> m_buffer;
-    ID3D11DeviceContext* m_ctx;  // immediate context, not owned
+    ID3D11DeviceContext* m_ctx;  // 非拥有，设备保证其生命周期
     uint32_t m_byteWidth = 0;
     D3D11_USAGE m_nativeUsage = D3D11_USAGE_DEFAULT;
     std::vector<uint8_t> m_dynamicShadow;

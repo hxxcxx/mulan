@@ -268,6 +268,31 @@ void DX11CommandList::bindConstantBuffer(uint32_t slot, const BindGroupEntry& en
         return;
     }
 
+    // D3D11.1 直接绑定原生缓冲范围；旧接口也可以直接绑定从零开始的完整常量缓冲。
+    // 只有大型源缓冲或旧接口的非零偏移需要复制到兼容页。
+    const bool nativeConstantBuffer = buffer->allocationSize() <= kMaximumConstantBufferBytes;
+    ID3D11Buffer* nativeBuffer = buffer->buffer();
+    if (nativeConstantBuffer && m_ctx1) {
+        const UINT firstConstant = entry.offset / 16u;
+        const UINT constantCount = boundSize / 16u;
+        if (usesVertexStage(stages))
+            m_ctx1->VSSetConstantBuffers1(slot, 1, &nativeBuffer, &firstConstant, &constantCount);
+        if (usesFragmentStage(stages))
+            m_ctx1->PSSetConstantBuffers1(slot, 1, &nativeBuffer, &firstConstant, &constantCount);
+        if (usesGeometryStage(stages))
+            m_ctx1->GSSetConstantBuffers1(slot, 1, &nativeBuffer, &firstConstant, &constantCount);
+        return;
+    }
+    if (nativeConstantBuffer && entry.offset == 0) {
+        if (usesVertexStage(stages))
+            m_ctx->VSSetConstantBuffers(slot, 1, &nativeBuffer);
+        if (usesFragmentStage(stages))
+            m_ctx->PSSetConstantBuffers(slot, 1, &nativeBuffer);
+        if (usesGeometryStage(stages))
+            m_ctx->GSSetConstantBuffers(slot, 1, &nativeBuffer);
+        return;
+    }
+
     const ConstantBufferCacheKey cacheKey{ buffer, buffer->uniformVersion(), entry.offset, requestedSize };
     auto cached = m_constantBufferCache.find(cacheKey);
     DX11ConstantBufferArena::Allocation allocation;
@@ -284,7 +309,7 @@ void DX11CommandList::bindConstantBuffer(uint32_t slot, const BindGroupEntry& en
         return;
     }
 
-    ID3D11Buffer* nativeBuffer = allocation.buffer;
+    nativeBuffer = allocation.buffer;
     if (allocation.ranged && m_ctx1) {
         if (usesVertexStage(stages))
             m_ctx1->VSSetConstantBuffers1(slot, 1, &nativeBuffer, &allocation.firstConstant, &allocation.constantCount);
