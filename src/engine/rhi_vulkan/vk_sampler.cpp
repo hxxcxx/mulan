@@ -4,7 +4,6 @@
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"
 
-#include <cstdio>
 #include <string>
 
 namespace mulan::engine {

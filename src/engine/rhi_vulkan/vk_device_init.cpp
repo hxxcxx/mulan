@@ -4,7 +4,6 @@
 // 由 VKDevice.cpp 提供，此文件不再重复定义。
 
 #include <set>
-#include <cstdio>
 #include <cstdlib>
 
 namespace mulan::engine {
@@ -17,16 +16,17 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vkDebugCallback(VkDebugUtilsMessageSeverit
                                                       VkDebugUtilsMessageTypeFlagsEXT type,
                                                       const VkDebugUtilsMessengerCallbackDataEXT* data,
                                                       void* /*userData*/) {
-    const char* prefix = "[VK]";
+    const char* message = data && data->pMessage ? data->pMessage : "<null validation message>";
+    const int32_t messageId = data ? data->messageIdNumber : 0;
+    const char* messageName = data && data->pMessageIdName ? data->pMessageIdName : "unknown";
     if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
-        prefix = "[VK ERROR]";
+        LOG_ERROR("[Vulkan Validation] type=0x{:X}, id={} ({}): {}", type, messageId, messageName, message);
     else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-        prefix = "[VK WARN]";
+        LOG_WARN("[Vulkan Validation] type=0x{:X}, id={} ({}): {}", type, messageId, messageName, message);
     else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
-        prefix = "[VK INFO]";
-
-    fprintf(stderr, "%s %s\n", prefix, data->pMessage);
-    fflush(stderr);
+        LOG_INFO("[Vulkan Validation] type=0x{:X}, id={} ({}): {}", type, messageId, messageName, message);
+    else
+        LOG_DEBUG("[Vulkan Validation] type=0x{:X}, id={} ({}): {}", type, messageId, messageName, message);
     return VK_FALSE;
 }
 
@@ -242,7 +242,7 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
 #endif
 
     if (!vkGetInstanceProcAddr) {
-        std::fprintf(stderr, "[VKDevice] Failed to load Vulkan loader (vulkan-1.dll)\n");
+        LOG_ERROR("[Vulkan] Failed to load the Vulkan loader (vulkan-1.dll)");
         std::abort();
     }
 
@@ -299,8 +299,13 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
                 vkGetInstanceProcAddr(VkInstance(instance_), "vkCreateDebugUtilsMessengerEXT"));
         VkDebugUtilsMessengerEXT messenger = VK_NULL_HANDLE;
         if (createFn) {
-            createFn(VkInstance(instance_), &dbgCI, nullptr, &messenger);
-            debug_messenger_ = vk::DebugUtilsMessengerEXT(messenger);
+            const VkResult result = createFn(VkInstance(instance_), &dbgCI, nullptr, &messenger);
+            if (result == VK_SUCCESS)
+                debug_messenger_ = vk::DebugUtilsMessengerEXT(messenger);
+            else
+                LOG_WARN("[Vulkan] Validation messenger creation failed: VkResult={}", static_cast<int>(result));
+        } else {
+            LOG_WARN("[Vulkan] Validation requested but vkCreateDebugUtilsMessengerEXT is unavailable");
         }
     }
 
@@ -325,7 +330,11 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     allocCI.vulkanApiVersion = VK_API_VERSION_1_3;
     allocCI.pVulkanFunctions = &vkFuncs;
 
-    vmaCreateAllocator(&allocCI, &allocator_);
+    const VkResult allocatorResult = vmaCreateAllocator(&allocCI, &allocator_);
+    if (allocatorResult != VK_SUCCESS) {
+        LOG_ERROR("[Vulkan] VMA allocator creation failed: VkResult={}", static_cast<int>(allocatorResult));
+        return;
+    }
 
     // --- Capabilities ---
     caps_.backend = GraphicsBackend::Vulkan;
@@ -348,6 +357,9 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     frame_scheduler_ = std::make_unique<VKFrameScheduler>(device_, graphics_queue_, graphics_queue_family_);
     frame_scheduler_->initFrameContexts(ci.renderConfig.bufferCount > 0 ? ci.renderConfig.bufferCount : 2);
     resource_factory_ = std::make_unique<VKResourceFactory>(*this, device_, allocator_, *upload_context_);
+    LOG_INFO("[Vulkan] Device initialized: gpu={}, api={}.{}.{}, maxMSAA={}, validation={}", props.deviceName.data(),
+             VK_API_VERSION_MAJOR(props.apiVersion), VK_API_VERSION_MINOR(props.apiVersion),
+             VK_API_VERSION_PATCH(props.apiVersion), caps_.maxSampleCount, ci.enableValidation);
 }
 
 // ============================================================

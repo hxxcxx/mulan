@@ -19,6 +19,7 @@
 #define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 1
 
 #include <vulkan/vulkan.hpp>
+#include <mulan/core/log/log.h>
 
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 #include <vma/vk_mem_alloc.h>
@@ -29,4 +30,3 @@
 #include <unordered_map>
 #include <algorithm>
 #include <cassert>
-#include <cstdio>

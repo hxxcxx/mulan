@@ -7,7 +7,6 @@
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 #include <algorithm>
-#include <cstdio>
 #include <string>
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"
@@ -174,9 +173,9 @@ void VKDevice::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence
             graphics_queue_.submit(submitInfo);
         }
     } catch (const vk::Error& e) {
-        std::fprintf(stderr, "[VK ERROR] submit failed: %s\n", e.what());
+        LOG_ERROR("[Vulkan] Queue submission failed: {}", e.what());
     } catch (const std::exception& e) {
-        std::fprintf(stderr, "[VK ERROR] submit failed (non-Vulkan): %s\n", e.what());
+        LOG_ERROR("[Vulkan] Queue submission failed with a non-Vulkan error: {}", e.what());
     }
 }
 
