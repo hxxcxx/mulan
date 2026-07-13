@@ -34,6 +34,7 @@ option(MULAN_ENABLE_RUNTIME_DEPLOY_TARGET "Create an explicit runtime deploy tar
 option(MULAN_DEPLOY_QT_WITH_WINDEPLOYQT "Run windeployqt from the explicit deploy target." ON)
 option(MULAN_ENABLE_OCCT_BACKEND "Build the OpenCASCADE modeling backend." ON)
 option(MULAN_ENABLE_TRUCK_BACKEND "Build the experimental truck-bridge modeling backend." OFF)
+option(MULAN_SHADER_DEBUG_INFO "Emit debug info in compiled Slang shaders (symbol names, source line mapping for RenderDoc/PIX)." OFF)
 set(MULAN_DEFAULT_SHAPE_OPS_BACKEND "occt" CACHE STRING
     "Default IShapeOps backend used when no runtime environment override is set")
 set_property(CACHE MULAN_DEFAULT_SHAPE_OPS_BACKEND PROPERTY STRINGS occt truck)
