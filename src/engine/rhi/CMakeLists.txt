@@ -7,6 +7,7 @@ add_library(rhi STATIC
     device_factory.cpp
     bind_group.cpp
     bind_group_layout.cpp
+    transient_uniform_allocator.cpp
 )
 
 mulan_copy_public_headers(rhi rhi)
