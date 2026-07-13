@@ -63,6 +63,7 @@ public:
     /// 构建 RenderPassBeginInfo（供 CommandList::beginRenderPass 使用）
     virtual RenderPassBeginInfo renderPassBeginInfo() {
         RenderPassBeginInfo info;
+        info.owner = this;
         auto* color = currentBackBuffer();
         if (color) {
             info.colorAttachments[0].target = color;

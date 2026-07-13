@@ -14,8 +14,31 @@
 namespace mulan::view {
 
 namespace {
-bool waitForLastSurfaceUse(engine::RHIDevice& device, const char* operation) {
-    const engine::SubmissionToken token = device.lastSubmissionToken();
+void mergeLastUse(engine::SubmissionToken& latest, const engine::RHITrackedResource* resource) {
+    if (!resource)
+        return;
+    const engine::SubmissionToken candidate = resource->lastUseToken();
+    if (candidate &&
+        (!latest || (candidate.deviceGeneration == latest.deviceGeneration && candidate.value > latest.value)))
+        latest = candidate;
+}
+
+engine::SubmissionToken surfaceLastUse(engine::SwapChain* swapchain, engine::RenderTarget* renderTarget,
+                                       engine::Buffer* stagingBuffer) {
+    engine::SubmissionToken latest{};
+    mergeLastUse(latest, swapchain);
+    mergeLastUse(latest, renderTarget);
+    mergeLastUse(latest, stagingBuffer);
+    if (renderTarget) {
+        mergeLastUse(latest, renderTarget->colorTexture());
+        mergeLastUse(latest, renderTarget->depthTexture());
+    }
+    return latest;
+}
+
+bool waitForLastSurfaceUse(engine::RHIDevice& device, engine::SwapChain* swapchain, engine::RenderTarget* renderTarget,
+                           engine::Buffer* stagingBuffer, const char* operation) {
+    const engine::SubmissionToken token = surfaceLastUse(swapchain, renderTarget, stagingBuffer);
     if (!token)
         return true;
     auto result = device.waitForSubmission(token);
@@ -24,6 +47,25 @@ bool waitForLastSurfaceUse(engine::RHIDevice& device, const char* operation) {
         return false;
     }
     return true;
+}
+
+void retireSurfaceResources(engine::RHIDevice& device, engine::SubmissionToken token,
+                            std::unique_ptr<engine::SwapChain> swapchain,
+                            std::unique_ptr<engine::RenderTarget> renderTarget,
+                            std::unique_ptr<engine::Buffer> stagingBuffer) {
+    if (!swapchain && !renderTarget && !stagingBuffer)
+        return;
+    if (!token)
+        return;
+
+    auto result = device.retire(token, [swapchain = std::move(swapchain), renderTarget = std::move(renderTarget),
+                                        stagingBuffer = std::move(stagingBuffer)]() mutable {
+        stagingBuffer.reset();
+        renderTarget.reset();
+        swapchain.reset();
+    });
+    if (!result)
+        LOG_ERROR("[RenderSurface] Deferred surface release failed: {}", result.error().message);
 }
 
 uint32_t readbackRowBytes(const engine::RHIDevice& device, int width, uint32_t bytesPerPixel) {
@@ -133,76 +175,55 @@ bool RenderSurface::configureOffscreenSurface(engine::RHIDevice& device, const R
     if (desc.readback && nextBytesPerPixel == 0)
         return false;
 
-    const bool formatChanged =
-            offscreen_desc_.colorFormat != desc.colorFormat || offscreen_desc_.depthFormat != desc.depthFormat ||
-            offscreen_desc_.hasDepth != desc.hasDepth || offscreen_desc_.sampleCount != desc.sampleCount;
-    const bool readbackChanged = offscreen_desc_.readback != desc.readback;
+    const engine::SubmissionToken token = surfaceLastUse(nullptr, render_target_.get(), staging_buffer_.get());
+    auto oldRenderTarget = std::move(render_target_);
+    auto oldStagingBuffer = std::move(staging_buffer_);
 
-    if (!waitForLastSurfaceUse(device, "offscreen reconfiguration"))
-        return false;
-    offscreen_desc_ = desc;
-    width_ = desc.width;
-    height_ = desc.height;
-    bytes_per_pixel_ = nextBytesPerPixel;
-    row_bytes_ = readbackRowBytes(device, width_, bytes_per_pixel_);
-
-    if (formatChanged) {
-        // 旧 target 已失效，即使新 target 创建失败也必须让旧帧提交失配。
+    // 离屏资源可以版本化替换，无需阻塞等待 GPU。旧 target 即使在新建失败时
+    // 也保持失效，generation 会让已排队的旧帧提交被上层丢弃。
+    const bool initialized = initOffscreenSurface(device, desc);
+    if (!initialized)
         advanceGeneration();
-        render_target_.reset();
-        staging_buffer_.reset();
-        return initOffscreenSurface(device, desc);
-    }
-
-    render_target_->resize(static_cast<uint32_t>(desc.width), static_cast<uint32_t>(desc.height));
-    if (readbackChanged || desc.readback) {
-        const bool ready = createReadbackBuffer(device);
-        advanceGeneration();
-        return ready;
-    }
-    staging_buffer_.reset();
-    advanceGeneration();
-    return true;
+    retireSurfaceResources(device, token, nullptr, std::move(oldRenderTarget), std::move(oldStagingBuffer));
+    return initialized;
 }
 
 void RenderSurface::shutdown(engine::RHIDevice& device) {
     if (!swapchain_ && !render_target_)
         return;
-    (void) waitForLastSurfaceUse(device, "surface shutdown");
-    staging_buffer_.reset();
-    render_target_.reset();
-    swapchain_.reset();
+    const engine::SubmissionToken token = surfaceLastUse(swapchain_.get(), render_target_.get(), staging_buffer_.get());
+    auto oldStagingBuffer = std::move(staging_buffer_);
+    auto oldRenderTarget = std::move(render_target_);
+    auto oldSwapchain = std::move(swapchain_);
     offscreen_desc_ = {};
     bytes_per_pixel_ = 0;
     row_bytes_ = 0;
     width_ = 0;
     height_ = 0;
     advanceGeneration();
+    retireSurfaceResources(device, token, std::move(oldSwapchain), std::move(oldRenderTarget),
+                           std::move(oldStagingBuffer));
 }
 
 void RenderSurface::resize(engine::RHIDevice& device, int width, int height) {
     if (!isInitialized() || width <= 0 || height <= 0) {
         return;
     }
-    width_ = width;
-    height_ = height;
-
-    if (!waitForLastSurfaceUse(device, "surface resize"))
-        return;
-
     if (render_target_) {
-        offscreen_desc_.width = width;
-        offscreen_desc_.height = height;
-        render_target_->resize(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
-        row_bytes_ = readbackRowBytes(device, width_, bytes_per_pixel_);
-        if (!createReadbackBuffer(device)) {
-            LOG_ERROR("[RenderSurface] Failed to resize the readback buffer to {}x{}", width_, height_);
-        }
+        RenderSurfaceDesc desc = offscreen_desc_;
+        desc.width = width;
+        desc.height = height;
+        if (!configureOffscreenSurface(device, desc))
+            LOG_ERROR("[RenderSurface] Failed to resize the offscreen surface to {}x{}", width, height);
     } else if (swapchain_) {
+        if (!waitForLastSurfaceUse(device, swapchain_.get(), nullptr, nullptr, "swapchain resize"))
+            return;
+        width_ = width;
+        height_ = height;
         device.clearCaches();
         swapchain_->resize(width, height);
+        advanceGeneration();
     }
-    advanceGeneration();
 }
 
 bool RenderSurface::readbackPixels(engine::RHIDevice& device, std::vector<uint8_t>& pixels) {

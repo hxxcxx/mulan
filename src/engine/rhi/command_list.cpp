@@ -34,6 +34,7 @@ void CommandList::recordBindGroupUse(const BindGroupDesc& desc) {
 }
 
 void CommandList::recordRenderPassUse(const RenderPassBeginInfo& info) {
+    recordResourceUse(info.owner);
     for (uint8_t i = 0; i < info.colorCount; ++i) {
         recordResourceUse(info.colorAttachments[i].target);
         recordResourceUse(info.colorAttachments[i].resolveTarget);

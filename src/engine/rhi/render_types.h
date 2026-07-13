@@ -20,6 +20,7 @@ using graphics::IndexType;
 // ============================================================
 
 class Texture;
+class RHITrackedResource;
 
 // ============================================================
 // RenderPass 加载/存储操作
@@ -57,6 +58,10 @@ struct RenderPassBeginInfo {
     RenderPassAttachmentInfo colorAttachments[kMaxColorTargets] = {};
     uint8_t colorCount = 0;
     RenderPassAttachmentInfo depthAttachment = {};  // target==nullptr 表示无深度
+
+    // 拥有这些 attachment 的 SwapChain / RenderTarget。命令提交时一并记录，
+    // 用于覆盖交换链多 back-buffer 等无法从当前 attachment 反查的生命周期。
+    RHITrackedResource* owner = nullptr;
 
     float clearColor[4] = { 0.15f, 0.15f, 0.15f, 1.0f };
     float clearDepth = 1.0f;

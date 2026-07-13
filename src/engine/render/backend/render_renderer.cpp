@@ -95,21 +95,33 @@ void RenderRenderer::shutdown(RHIDevice& device) {
     // 即使 init() 未能完成（initialized_ 仍为 false），也可能已分配部分 RHI 资源
     //（如 GeometryDrawSharedResources 的 UBO）。因此 shutdown 必须无条件执行清理，
     // 否则这些资源会在 device 析构时触发 assertNoLiveResources 断言。
-    if (const SubmissionToken token = device.lastSubmissionToken()) {
-        if (auto waitResult = device.waitForSubmission(token); !waitResult)
-            LOG_ERROR("[RenderRenderer] Failed to wait for the last renderer submission: {}",
-                      waitResult.error().message);
-    }
     clearCompiledCommands();
-    text_stage_.reset();
-    view_cube_stage_.reset();
-    highlight_stage_.reset();
-    edge_stage_.reset();
-    face_stage_.reset();
-    ibl_.reset();
-    geometry_resources_.reset();
-    asset_gpu_registry_.reset();
-    material_cache_.reset();
+
+    auto releaseResources = [textStage = std::move(text_stage_), viewCubeStage = std::move(view_cube_stage_),
+                             highlightStage = std::move(highlight_stage_), edgeStage = std::move(edge_stage_),
+                             faceStage = std::move(face_stage_), ibl = std::move(ibl_),
+                             geometryResources = std::move(geometry_resources_),
+                             assetRegistry = std::move(asset_gpu_registry_),
+                             materialCache = std::move(material_cache_)]() mutable {
+        textStage.reset();
+        viewCubeStage.reset();
+        highlightStage.reset();
+        edgeStage.reset();
+        faceStage.reset();
+        ibl.reset();
+        geometryResources.reset();
+        assetRegistry.reset();
+        materialCache.reset();
+    };
+
+    const SubmissionToken token = device.lastSubmissionToken();
+    if (token) {
+        auto retireResult = device.retire(token, std::move(releaseResources));
+        if (!retireResult)
+            LOG_ERROR("[RenderRenderer] Renderer resource retirement failed: {}", retireResult.error().message);
+    } else {
+        releaseResources();
+    }
     initialized_ = false;
 }
 
