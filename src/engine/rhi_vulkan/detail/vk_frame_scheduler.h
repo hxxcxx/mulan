@@ -20,6 +20,7 @@ namespace mulan::engine {
 class VKFrameScheduler {
 public:
     VKFrameScheduler(vk::Device device, vk::Queue graphicsQueue, uint32_t graphicsQueueFamily);
+    ~VKFrameScheduler();
 
     VKFrameScheduler(const VKFrameScheduler&) = delete;
     VKFrameScheduler& operator=(const VKFrameScheduler&) = delete;
@@ -57,6 +58,7 @@ private:
     std::vector<vk::Semaphore> render_finished_semaphores_;
     uint32_t acquired_image_index_ = 0;
     vk::Semaphore pending_render_finished_ = nullptr;
+    bool frame_ready_ = false;
     bool submitted_ = false;
 };
 

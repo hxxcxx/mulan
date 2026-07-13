@@ -28,10 +28,15 @@ VKSwapChain::~VKSwapChain() {
 }
 
 bool VKSwapChain::acquireNextImage(vk::Semaphore imageAvailable) {
-    auto result = params_.device.acquireNextImageKHR(swapchain_, UINT64_MAX, imageAvailable, nullptr);
-    if (result.result == vk::Result::eSuccess || result.result == vk::Result::eSuboptimalKHR) {
-        current_image_index_ = result.value;
-        return true;
+    try {
+        auto result = params_.device.acquireNextImageKHR(swapchain_, UINT64_MAX, imageAvailable, nullptr);
+        if (result.result == vk::Result::eSuccess || result.result == vk::Result::eSuboptimalKHR) {
+            current_image_index_ = result.value;
+            return true;
+        }
+        LOG_WARN("[Vulkan] Swapchain image acquisition failed: result={}", vk::to_string(result.result));
+    } catch (const vk::Error& error) {
+        LOG_ERROR("[Vulkan] Swapchain image acquisition failed: {}", error.what());
     }
     return false;
 }
@@ -43,7 +48,13 @@ void VKSwapChain::presentWithSemaphores(vk::Semaphore renderFinished) {
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &swapchain_;
     presentInfo.pImageIndices = &current_image_index_;
-    (void) params_.presentQueue.presentKHR(&presentInfo);
+    try {
+        const vk::Result result = params_.presentQueue.presentKHR(&presentInfo);
+        if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
+            LOG_WARN("[Vulkan] Swapchain presentation failed: result={}", vk::to_string(result));
+    } catch (const vk::Error& error) {
+        LOG_ERROR("[Vulkan] Swapchain presentation failed: {}", error.what());
+    }
 }
 
 void VKSwapChain::present() {
@@ -51,7 +62,13 @@ void VKSwapChain::present() {
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &swapchain_;
     presentInfo.pImageIndices = &current_image_index_;
-    (void) params_.presentQueue.presentKHR(&presentInfo);
+    try {
+        const vk::Result result = params_.presentQueue.presentKHR(&presentInfo);
+        if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
+            LOG_WARN("[Vulkan] Swapchain presentation failed: result={}", vk::to_string(result));
+    } catch (const vk::Error& error) {
+        LOG_ERROR("[Vulkan] Swapchain presentation failed: {}", error.what());
+    }
 }
 
 void VKSwapChain::resize(uint32_t width, uint32_t height) {

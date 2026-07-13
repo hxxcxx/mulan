@@ -2,11 +2,19 @@
 
 #include "detail/vk_swap_chain.h"
 #include <mulan/core/result/error.h>
+#include <mulan/core/log/log.h>
 
 namespace mulan::engine {
 
 VKFrameScheduler::VKFrameScheduler(vk::Device device, vk::Queue graphicsQueue, uint32_t graphicsQueueFamily)
     : device_(device), graphics_queue_(graphicsQueue), graphics_queue_family_(graphicsQueueFamily) {
+}
+
+VKFrameScheduler::~VKFrameScheduler() {
+    for (vk::Semaphore semaphore : render_finished_semaphores_) {
+        if (semaphore)
+            device_.destroySemaphore(semaphore);
+    }
 }
 
 void VKFrameScheduler::initFrameContexts(uint32_t count) {
@@ -47,9 +55,12 @@ core::Result<std::unique_ptr<CommandList>> VKFrameScheduler::createStandaloneCom
 }
 
 void VKFrameScheduler::beginFrame(SwapChain* swapchain) {
+    frame_ready_ = false;
+    submitted_ = false;
+    pending_render_finished_ = nullptr;
+
     auto& frame = currentFrameContext();
     frame.waitForFence();
-    frame.resetFence();
     frame.resetCommandBuffer();
 
     descriptor_allocators_[current_frame_]->resetPools();
@@ -64,12 +75,18 @@ void VKFrameScheduler::beginFrame(SwapChain* swapchain) {
 
     if (swapchain) {
         auto* sc = static_cast<VKSwapChain*>(swapchain);
-        sc->acquireNextImage(frame.imageAvailable());
+        if (!sc->acquireNextImage(frame.imageAvailable())) {
+            LOG_WARN("[Vulkan] Frame skipped because swapchain image acquisition failed");
+            return;
+        }
         acquired_image_index_ = sc->currentImageIndex();
     }
+    frame_ready_ = true;
 }
 
 CommandList* VKFrameScheduler::frameCommandList() {
+    if (!frame_ready_)
+        return nullptr;
     if (frame_cmd_list_) {
         frame_cmd_list_->setFrameToken(frame_token_);
     }
@@ -77,6 +94,10 @@ CommandList* VKFrameScheduler::frameCommandList() {
 }
 
 void VKFrameScheduler::submit() {
+    if (!frame_ready_) {
+        LOG_WARN("[Vulkan] Frame submission skipped because no frame is ready");
+        return;
+    }
     auto& frame = currentFrameContext();
     pending_render_finished_ = render_finished_semaphores_[acquired_image_index_];
 
@@ -94,8 +115,16 @@ void VKFrameScheduler::submit() {
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = &pending_render_finished_;
 
-    graphics_queue_.submit(submitInfo, frame.inFlightFence());
-    submitted_ = true;
+    frame.resetFence();
+    try {
+        graphics_queue_.submit(submitInfo, frame.inFlightFence());
+        submitted_ = true;
+    } catch (const vk::Error& error) {
+        // reset 后 submit 失败会留下永久未 signal 的 fence；恢复为 signaled，
+        // 保证下一次复用该 FrameContext 时不会死锁。
+        frame.restoreSignaledFence();
+        LOG_ERROR("[Vulkan] Frame submission failed: {}", error.what());
+    }
 }
 
 void VKFrameScheduler::present(SwapChain* swapchain) {
@@ -103,14 +132,19 @@ void VKFrameScheduler::present(SwapChain* swapchain) {
     if (submitted_ && pending_render_finished_) {
         vkSC->presentWithSemaphores(pending_render_finished_);
     } else {
-        vkSC->present();
+        LOG_WARN("[Vulkan] Presentation skipped because frame submission did not complete");
     }
+    frame_ready_ = false;
     submitted_ = false;
     pending_render_finished_ = nullptr;
     current_frame_ = (current_frame_ + 1) % frame_count_;
 }
 
 void VKFrameScheduler::submitOffscreen() {
+    if (!frame_ready_) {
+        LOG_WARN("[Vulkan] Offscreen submission skipped because no frame is ready");
+        return;
+    }
     auto& frame = currentFrameContext();
 
     vk::SubmitInfo submitInfo;
@@ -118,7 +152,14 @@ void VKFrameScheduler::submitOffscreen() {
     vk::CommandBuffer cmdBuf = frame_cmd_list_->cmdBuffer();
     submitInfo.pCommandBuffers = &cmdBuf;
 
-    graphics_queue_.submit(submitInfo, frame.inFlightFence());
+    frame.resetFence();
+    try {
+        graphics_queue_.submit(submitInfo, frame.inFlightFence());
+    } catch (const vk::Error& error) {
+        frame.restoreSignaledFence();
+        LOG_ERROR("[Vulkan] Offscreen submission failed: {}", error.what());
+    }
+    frame_ready_ = false;
     current_frame_ = (current_frame_ + 1) % frame_count_;
 }
 

@@ -16,7 +16,6 @@ VKFrameContext::VKFrameContext(vk::Device device, uint32_t queueFamily) : device
     cmd_buffer_ = bufs[0];
 
     image_available_ = device_.createSemaphore({});
-    render_finished_ = device_.createSemaphore({});
 
     vk::FenceCreateInfo fenceCI;
     fenceCI.flags = vk::FenceCreateFlagBits::eSignaled;
@@ -26,8 +25,6 @@ VKFrameContext::VKFrameContext(vk::Device device, uint32_t queueFamily) : device
 VKFrameContext::~VKFrameContext() {
     if (in_flight_fence_)
         device_.destroyFence(in_flight_fence_);
-    if (render_finished_)
-        device_.destroySemaphore(render_finished_);
     if (image_available_)
         device_.destroySemaphore(image_available_);
     if (cmd_pool_) {
@@ -36,15 +33,23 @@ VKFrameContext::~VKFrameContext() {
 }
 
 void VKFrameContext::waitForFence() {
-    device_.waitForFences(in_flight_fence_, true, UINT64_MAX);
+    (void) device_.waitForFences(in_flight_fence_, true, UINT64_MAX);
 }
 
 void VKFrameContext::resetFence() {
-    device_.resetFences(in_flight_fence_);
+    (void) device_.resetFences(in_flight_fence_);
+}
+
+void VKFrameContext::restoreSignaledFence() {
+    if (in_flight_fence_)
+        device_.destroyFence(in_flight_fence_);
+    vk::FenceCreateInfo fenceCI;
+    fenceCI.flags = vk::FenceCreateFlagBits::eSignaled;
+    in_flight_fence_ = device_.createFence(fenceCI);
 }
 
 void VKFrameContext::resetCommandBuffer() {
-    device_.resetCommandPool(cmd_pool_);
+    (void) device_.resetCommandPool(cmd_pool_);
 }
 
 }  // namespace mulan::engine
