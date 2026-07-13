@@ -11,8 +11,14 @@
 #include "bind_group.h"
 #include "resource.h"
 #include "render_types.h"
+#include "uniform_slice.h"
 
+#include <mulan/core/result/error.h>
+
+#include <cstddef>
 #include <cstdint>
+#include <span>
+#include <type_traits>
 #include <vector>
 
 namespace mulan::engine {
@@ -47,9 +53,22 @@ public:
     /// 绑定对象化 BindGroup（后端缓存 descriptor 句柄，零分配）。
     virtual void bindGroup(BindGroup& group) = 0;
 
+    /// 绑定对象化 BindGroup，并提供 layout 中声明为 Dynamic 的 UniformBuffer 切片。
+    /// 默认实现仅接受空动态绑定，后端实现瞬态 Uniform 分配后覆盖该入口。
+    virtual void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms);
+
     /// 便捷路径：从 BindGroupDesc 临时构建并绑定（无缓存，每帧重新分配）。
     /// 用于兼容旧代码或动态变化的绑定场景。
     virtual void bindResources(const BindGroupDesc& desc) = 0;
+
+    /// 将一份小型常量数据写入当前录制周期的后端瞬态 Uniform 分配器。
+    virtual core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data);
+
+    template <typename T>
+    core::Result<UniformSlice> writeUniform(const T& value) {
+        static_assert(std::is_trivially_copyable_v<T>, "Uniform data must be trivially copyable");
+        return writeUniformBytes(std::as_bytes(std::span{ &value, size_t{ 1 } }));
+    }
 
     // --- 视口 / 裁剪 ---
 

@@ -44,6 +44,12 @@ enum class DescriptorType : uint8_t {
     Sampler,
 };
 
+/// 描述符绑定频率。Dynamic 目前仅用于每 draw 改变范围的 UniformBuffer。
+enum class BindingMode : uint8_t {
+    Static,
+    Dynamic,
+};
+
 struct PipelineBinding {
     uint32_t binding = 0;
     uint32_t count = 1;
@@ -55,6 +61,7 @@ struct PipelineBinding {
     static constexpr uint32_t kStageAll = 0x7FFFFFFF;
 
     uint32_t stages = kStageAll;
+    BindingMode mode = BindingMode::Static;
 };
 
 struct GraphicsPipelineDesc {

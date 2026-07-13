@@ -28,6 +28,7 @@ struct BindGroupLayoutEntry {
     uint32_t count = 1;
     DescriptorType type = DescriptorType::UniformBuffer;
     uint32_t stages = PipelineBinding::kStageAll;
+    BindingMode mode = BindingMode::Static;
 };
 
 class BindGroupLayout {

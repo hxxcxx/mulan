@@ -15,10 +15,12 @@
 
 #include "bind_group_layout.h"
 #include "resource.h"
+#include "uniform_slice.h"
 
 #include <array>
 #include <cstdint>
 #include <string>
+#include <span>
 
 namespace mulan::engine {
 
@@ -95,6 +97,11 @@ struct BindGroupValidationLimits {
 /// An empty string means the descriptor is valid.
 std::string validateBindGroupDesc(const BindGroupLayout& layout, const BindGroupDesc& desc,
                                   const BindGroupValidationLimits& limits);
+
+/// Validates the dynamic UniformBuffer bindings supplied when a BindGroup is bound.
+std::string validateDynamicUniformBindings(const BindGroupLayout& layout,
+                                           std::span<const DynamicUniformBinding> bindings,
+                                           const BindGroupValidationLimits& limits, uint64_t recordingGeneration = 0);
 
 // ============================================================
 // BindGroup — 抽象基类（后端实现 VKBindGroup / DX12BindGroup）

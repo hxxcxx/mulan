@@ -12,7 +12,7 @@ BindGroupLayout BindGroupLayout::fromPipelineDesc(const GraphicsPipelineDesc& de
         const auto& b = desc.descriptorBindings[i];
         if (b.count == 0)
             continue;
-        entries.push_back({ b.binding, b.count, b.type, b.stages });
+        entries.push_back({ b.binding, b.count, b.type, b.stages, b.mode });
     }
 
     // 按 binding 排序，确保布局等价判定稳定
@@ -51,6 +51,7 @@ uint64_t BindGroupLayout::computeHash(const std::vector<BindGroupLayoutEntry>& e
         hash32(e.binding);
         hash32(e.count);
         hashByte(static_cast<uint8_t>(e.type));
+        hashByte(static_cast<uint8_t>(e.mode));
         hash32(e.stages);
     }
 

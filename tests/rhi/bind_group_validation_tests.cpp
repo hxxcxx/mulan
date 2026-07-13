@@ -20,8 +20,14 @@ private:
 };
 
 BindGroupLayout uniformLayout() {
-    const std::array entries{ BindGroupLayoutEntry{ 2, 1, DescriptorType::UniformBuffer,
-                                                    PipelineBinding::kStageVertex } };
+    const std::array entries{ BindGroupLayoutEntry{ 2, 1, DescriptorType::UniformBuffer, PipelineBinding::kStageVertex,
+                                                    BindingMode::Static } };
+    return BindGroupLayout::fromBindings(entries);
+}
+
+BindGroupLayout dynamicUniformLayout() {
+    const std::array entries{ BindGroupLayoutEntry{ 2, 1, DescriptorType::UniformBuffer, PipelineBinding::kStageVertex,
+                                                    BindingMode::Dynamic } };
     return BindGroupLayout::fromBindings(entries);
 }
 
@@ -66,6 +72,30 @@ TEST(BindGroupValidationTest, RejectsUniformRangeLargerThanDeviceLimit) {
     desc.addUniformBuffer(2, &buffer, 0, 768);
 
     EXPECT_FALSE(validateBindGroupDesc(uniformLayout(), desc, { 256, 512 }).empty());
+}
+
+TEST(BindGroupValidationTest, AllowsDynamicUniformToBeOmittedFromBindGroupDesc) {
+    const BindGroupDesc desc;
+
+    EXPECT_TRUE(validateBindGroupDesc(dynamicUniformLayout(), desc, { 256, 64 * 1024 }).empty());
+}
+
+TEST(BindGroupValidationTest, IncludesBindingModeInLayoutIdentity) {
+    EXPECT_NE(uniformLayout().hash(), dynamicUniformLayout().hash());
+}
+
+TEST(BindGroupValidationTest, AcceptsDynamicUniformFromCurrentRecording) {
+    TestBuffer buffer(BufferDesc::uniform(1024, "TransientUniformPage"));
+    const std::array bindings{ DynamicUniformBinding{ 2, { &buffer, 256, 128, 7 } } };
+
+    EXPECT_TRUE(validateDynamicUniformBindings(dynamicUniformLayout(), bindings, { 256, 64 * 1024 }, 7).empty());
+}
+
+TEST(BindGroupValidationTest, RejectsDynamicUniformFromAnotherRecording) {
+    TestBuffer buffer(BufferDesc::uniform(1024, "TransientUniformPage"));
+    const std::array bindings{ DynamicUniformBinding{ 2, { &buffer, 256, 128, 6 } } };
+
+    EXPECT_FALSE(validateDynamicUniformBindings(dynamicUniformLayout(), bindings, { 256, 64 * 1024 }, 7).empty());
 }
 
 }  // namespace

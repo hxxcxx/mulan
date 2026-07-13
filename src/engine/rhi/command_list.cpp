@@ -1,10 +1,26 @@
 #include "command_list.h"
+#include "engine_error_code.h"
 #include "sampler.h"
+
+#include <mulan/core/log/log.h>
 
 #include <algorithm>
 #include <functional>
 
 namespace mulan::engine {
+
+void CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
+    if (!dynamicUniforms.empty()) {
+        LOG_ERROR("[RHI] Dynamic uniform binding is not implemented by the active backend");
+        return;
+    }
+    bindGroup(group);
+}
+
+core::Result<UniformSlice> CommandList::writeUniformBytes(std::span<const std::byte>) {
+    return std::unexpected(
+            makeError(EngineErrorCode::BackendNotSupported, "Transient uniform allocation is not implemented"));
+}
 
 void CommandList::resetResourceUsage() {
     used_resources_.clear();

@@ -25,22 +25,46 @@ bool containsOnlyExpectedResource(const BindGroupEntry& entry) {
     return false;
 }
 
+std::string validateUniformRange(const Buffer& buffer, uint32_t offset, uint32_t size,
+                                 const BindGroupValidationLimits& limits) {
+    if (!(buffer.bindFlags() & BufferBindFlags::UniformBuffer))
+        return "uniform-buffer binding requires BufferBindFlags::UniformBuffer";
+    if (offset > buffer.size())
+        return "uniform-buffer offset exceeds the buffer size";
+    const uint32_t range = size ? size : buffer.size() - offset;
+    if (range == 0)
+        return "uniform-buffer binding range must not be empty";
+    if (range > buffer.size() - offset)
+        return "uniform-buffer binding range exceeds the buffer size";
+    if ((offset % limits.minUniformBufferOffsetAlignment) != 0)
+        return "uniform-buffer offset does not satisfy the device alignment";
+    if (range > limits.maxUniformBufferBindingSize)
+        return "uniform-buffer binding range exceeds the device limit";
+    return {};
+}
+
 }  // namespace
 
 std::string validateBindGroupDesc(const BindGroupLayout& layout, const BindGroupDesc& desc,
                                   const BindGroupValidationLimits& limits) {
     if (desc.count > BindGroupDesc::kMaxEntries)
         return "BindGroup entry count exceeds the RHI limit";
-    if (layout.entries().size() != desc.count)
-        return "BindGroup must provide exactly one entry for every layout binding";
     if (limits.minUniformBufferOffsetAlignment == 0)
         return "uniform-buffer offset alignment capability must not be zero";
+
+    const auto staticBindingCount = static_cast<size_t>(
+            std::count_if(layout.entries().begin(), layout.entries().end(),
+                          [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Static; }));
+    if (staticBindingCount != desc.count)
+        return "BindGroup must provide exactly one entry for every static layout binding";
 
     for (uint8_t i = 0; i < desc.count; ++i) {
         const auto& entry = desc.entries[i];
         const auto* layoutEntry = findLayoutEntry(layout, entry.binding);
         if (!layoutEntry)
             return "BindGroup contains a binding absent from its layout";
+        if (layoutEntry->mode != BindingMode::Static)
+            return "dynamic uniform bindings must be supplied when the BindGroup is bound";
         if (layoutEntry->count != 1)
             return "descriptor arrays are not represented by the current RHI BindGroupEntry";
         if (entry.type != layoutEntry->type)
@@ -54,19 +78,48 @@ std::string validateBindGroupDesc(const BindGroupLayout& layout, const BindGroup
 
         if (entry.type != DescriptorType::UniformBuffer)
             continue;
-        if (!(entry.buffer->bindFlags() & BufferBindFlags::UniformBuffer))
-            return "uniform-buffer binding requires BufferBindFlags::UniformBuffer";
-        if (entry.offset > entry.buffer->size())
-            return "uniform-buffer offset exceeds the buffer size";
-        const uint32_t range = entry.size ? entry.size : entry.buffer->size() - entry.offset;
-        if (range == 0)
-            return "uniform-buffer binding range must not be empty";
-        if (range > entry.buffer->size() - entry.offset)
-            return "uniform-buffer binding range exceeds the buffer size";
-        if ((entry.offset % limits.minUniformBufferOffsetAlignment) != 0)
-            return "uniform-buffer offset does not satisfy the device alignment";
-        if (range > limits.maxUniformBufferBindingSize)
-            return "uniform-buffer binding range exceeds the device limit";
+        if (auto error = validateUniformRange(*entry.buffer, entry.offset, entry.size, limits); !error.empty())
+            return error;
+    }
+
+    return {};
+}
+
+std::string validateDynamicUniformBindings(const BindGroupLayout& layout,
+                                           std::span<const DynamicUniformBinding> bindings,
+                                           const BindGroupValidationLimits& limits, uint64_t recordingGeneration) {
+    if (limits.minUniformBufferOffsetAlignment == 0)
+        return "uniform-buffer offset alignment capability must not be zero";
+
+    const auto dynamicBindingCount = static_cast<size_t>(
+            std::count_if(layout.entries().begin(), layout.entries().end(),
+                          [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; }));
+    if (dynamicBindingCount != bindings.size())
+        return "every dynamic layout binding must receive exactly one UniformSlice";
+
+    for (size_t i = 0; i < bindings.size(); ++i) {
+        const auto& binding = bindings[i];
+        const auto* layoutEntry = findLayoutEntry(layout, binding.binding);
+        if (!layoutEntry || layoutEntry->mode != BindingMode::Dynamic ||
+            layoutEntry->type != DescriptorType::UniformBuffer) {
+            return "dynamic binding does not match a dynamic UniformBuffer layout entry";
+        }
+        if (layoutEntry->count != 1)
+            return "dynamic UniformBuffer arrays are not supported";
+        if (!binding.slice)
+            return "dynamic UniformBuffer binding contains an invalid UniformSlice";
+        if (recordingGeneration != 0 && binding.slice.recordingGeneration != recordingGeneration)
+            return "UniformSlice belongs to a different command recording";
+        for (size_t j = 0; j < i; ++j) {
+            if (bindings[j].binding == binding.binding)
+                return "dynamic UniformBuffer bindings contain a duplicate binding";
+        }
+
+        if (auto error = validateUniformRange(*binding.slice.backingBuffer, binding.slice.offset, binding.slice.size,
+                                              limits);
+            !error.empty()) {
+            return error;
+        }
     }
 
     return {};
