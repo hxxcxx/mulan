@@ -83,6 +83,21 @@ function(mulan_add_slang_shaders shader_target)
         message(STATUS "Found glslangValidator: ${MULAN_GLSLANG_VALIDATOR_EXECUTABLE}")
     endif()
 
+    # 调试信息：保留符号名与源码行号映射，供 RenderDoc / PIX 等 GPU 调试器使用。
+    # 由 CMake option MULAN_SHADER_DEBUG_INFO（配置期决定，默认 OFF）控制，避免
+    # 多配置生成器（如 Visual Studio）在 add_custom_command 中按 CONFIG 切换参数
+    # 时展开为空串导致 slangc 报错。
+    # - slangc：-g 补符号名；其 SPIR-V 后端不输出 OpLine（上游限制），DXIL 后端
+    #   真正嵌入调试信息。
+    # - glslangValidator：-g 把 GLSL 中的 #line 转成 SPIR-V OpLine，是 OpenGL 路径
+    #   行号映射的关键。
+    set(_mulan_slangc_debug_flags)
+    set(_mulan_glslang_debug_flags)
+    if(MULAN_SHADER_DEBUG_INFO)
+        set(_mulan_slangc_debug_flags "-g")
+        set(_mulan_glslang_debug_flags "-g")
+    endif()
+
     file(MAKE_DIRECTORY "${ARG_OUTPUT_DIR}")
     file(GLOB shader_dependencies CONFIGURE_DEPENDS "${ARG_SOURCE_DIR}/*.slang")
     set(shader_outputs)
@@ -115,6 +130,7 @@ function(mulan_add_slang_shaders shader_target)
                     -entry main
                     -stage ${shader_stage}
                     -I "${ARG_SOURCE_DIR}"
+                    ${_mulan_slangc_debug_flags}
                     -o "${spirv_output}"
                     "${shader_input}"
                 DEPENDS ${shader_dependencies}
@@ -134,6 +150,7 @@ function(mulan_add_slang_shaders shader_target)
                     -profile ${dxbc_profile}
                     -entry main
                     -I "${ARG_SOURCE_DIR}"
+                    ${_mulan_slangc_debug_flags}
                     -o "${dxbc_output}"
                     "${shader_input}"
                 DEPENDS ${shader_dependencies}
@@ -153,6 +170,7 @@ function(mulan_add_slang_shaders shader_target)
                     -profile ${dxil_profile}
                     -entry main
                     -I "${ARG_SOURCE_DIR}"
+                    ${_mulan_slangc_debug_flags}
                     -o "${dxil_output}"
                     "${shader_input}"
                 DEPENDS ${shader_dependencies}
@@ -177,10 +195,12 @@ function(mulan_add_slang_shaders shader_target)
                     -stage ${shader_stage}
                     -DMULAN_OPENGL=1
                     -I "${ARG_SOURCE_DIR}"
+                    ${_mulan_slangc_debug_flags}
                     -o "${glsl_output}"
                     "${shader_input}"
                 COMMAND "${MULAN_GLSLANG_VALIDATOR_EXECUTABLE}"
                     -G
+                    ${_mulan_glslang_debug_flags}
                     -S ${glslang_stage}
                     -e main
                     -o "${gl_spirv_output}"
