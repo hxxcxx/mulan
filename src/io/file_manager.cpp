@@ -4,10 +4,12 @@
 #include "parsed_scene_loader.h"
 
 #include <mulan/core/result/error.h>
+#include <mulan/core/log/log.h>
 #include <mulan/io/document.h>
 #include <mulan/modeling/core/shape_file_reader.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <expected>
 #include <utility>
@@ -58,7 +60,9 @@ core::Result<ParsedScene> parseShapeFile(const std::string& path, const std::str
 }  // namespace
 
 core::Result<OpenDocumentResult> FileManager::openFile(const std::string& path, const ImportOptions& options) {
+    const auto startedAt = std::chrono::steady_clock::now();
     const std::string ext = lowerExtension(path);
+    LOG_INFO("[IO] Import started: path={}, extension={}", path, ext.empty() ? "<none>" : ext);
 
     std::string displayName = std::filesystem::path(path).filename().string();
     auto doc = std::make_unique<mulan::io::Document>(std::move(displayName));
@@ -68,18 +72,40 @@ core::Result<OpenDocumentResult> FileManager::openFile(const std::string& path, 
     core::Result<ParsedScene> sceneResult =
             std::unexpected(core::Error::make(core::ErrorCode::NotSupported, "No importer for extension: ." + ext));
 
+    const char* importerKind = "none";
     if (auto importer = ImporterFactory::instance().create(ext)) {
+        importerKind = "scene";
         sceneResult = importer->parse(path, options);
     } else if (modeling::ShapeFileReaderRegistry::instance().create(ext)) {
+        importerKind = "shape";
         sceneResult = parseShapeFile(path, ext);
     }
 
-    if (!sceneResult)
+    if (!sceneResult) {
+        const auto elapsed =
+                std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - startedAt)
+                        .count();
+        LOG_ERROR("[IO] Import failed: path={}, extension={}, importer={}, elapsedMs={}, error={}", path,
+                  ext.empty() ? "<none>" : ext, importerKind, elapsed, sceneResult.error().message);
         return std::unexpected(sceneResult.error());
+    }
+
+    LOG_DEBUG("[IO] Parsed scene: importer={}, nodes={}, meshes={}, breps={}, materials={}, textures={}, lights={}",
+              importerKind, sceneResult->nodes.size(), sceneResult->meshes.size(), sceneResult->breps.size(),
+              sceneResult->materials.size(), sceneResult->textures.size(), sceneResult->lights.size());
 
     // 装载 → Document
     ParsedSceneLoader loader(*doc);
     auto importResult = loader.load(*sceneResult, options);
+
+    const auto elapsed =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - startedAt).count();
+    LOG_INFO(
+            "[IO] Import completed: path={}, importer={}, elapsedMs={}, entities={}, meshes={}, breps={}, "
+            "primitives={}, materials={}, textures={}, lights={}, warnings={}",
+            path, importerKind, elapsed, importResult.report.entityCount, importResult.report.meshAssetCount,
+            importResult.report.brepAssetCount, importResult.report.primitiveCount, importResult.report.materialCount,
+            importResult.report.textureCount, importResult.report.lightCount, importResult.report.warnings.size());
 
     return OpenDocumentResult{ std::move(doc), std::move(importResult) };
 }

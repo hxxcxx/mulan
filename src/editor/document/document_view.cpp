@@ -10,6 +10,8 @@
 
 #include "document_session.h"
 
+#include <mulan/core/log/log.h>
+
 DocumentView::DocumentView() = default;
 
 DocumentView::~DocumentView() {
@@ -24,6 +26,8 @@ bool DocumentView::init(const mulan::view::ViewConfig& config, int width, int he
     }
 
     if (!view_context_.init(config, width, height)) {
+        LOG_ERROR("[Editor] Document view initialization failed: name={}, size={}x{}",
+                  session_ ? std::string_view(session_->displayName()) : std::string_view("<unbound>"), width, height);
         return false;
     }
 
@@ -31,6 +35,8 @@ bool DocumentView::init(const mulan::view::ViewConfig& config, int width, int he
         binding_.bind(*session_, view_context_);
         editor_session_.bind(session_, &view_context_, &binding_);
     }
+    LOG_INFO("[Editor] Document view initialized: name={}, size={}x{}",
+             session_ ? std::string_view(session_->displayName()) : std::string_view("<unbound>"), width, height);
     return true;
 }
 
@@ -61,6 +67,8 @@ void DocumentView::setDocumentSession(DocumentSession* session) {
     view_context_.clearPreview();
     binding_.unbind();
     session_ = session;
+    LOG_DEBUG("[Editor] Document view session changed: name={}",
+              session_ ? std::string_view(session_->displayName()) : std::string_view("<none>"));
 
     if (view_context_.isInitialized() && session_) {
         binding_.bind(*session_, view_context_);

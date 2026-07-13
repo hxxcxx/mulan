@@ -16,6 +16,7 @@
 #include "document/document_view_binding.h"
 
 #include <mulan/math/math.h>
+#include <mulan/core/log/log.h>
 #include <mulan/view/core/view_context.h>
 
 #include <algorithm>
@@ -60,9 +61,11 @@ void EditorSession::bind(DocumentSession* session, view::ViewContext* view, Docu
     selection_service_.bind(view_);
     refreshGrips();
     selection_service_.syncVisualState();
+    LOG_DEBUG("[Editor] Editor session bound: document={}", session_ ? session_->displayName() : "<none>");
 }
 
 void EditorSession::unbind() {
+    const std::string documentName = session_ ? session_->displayName() : std::string{};
     cancelActiveTool();
     clearGrips();
     selection_service_.unbind();
@@ -73,6 +76,9 @@ void EditorSession::unbind() {
     session_ = nullptr;
     view_ = nullptr;
     binding_ = nullptr;
+    if (!documentName.empty()) {
+        LOG_DEBUG("[Editor] Editor session unbound: document={}", documentName);
+    }
 }
 
 bool EditorSession::isReady() const {
@@ -136,11 +142,13 @@ bool EditorSession::deleteSelectedEntities() {
     }
 
     cancelActiveTool();
+    const size_t deletedCount = entities.size();
     const bool changed = operation_executor_.execute(DocumentOperation::removeEntities(std::move(entities), true));
     if (changed) {
         selection_service_.clear();
         binding_->clearSelection();
         refreshGrips();
+        LOG_DEBUG("[Editor] Deleted selected entities: count={}", deletedCount);
     }
     return changed;
 }
@@ -155,6 +163,7 @@ bool EditorSession::undo() {
     if (changed) {
         refreshGrips();
         selection_service_.syncVisualState();
+        LOG_DEBUG("[Editor] Undo completed");
     }
     return changed;
 }
@@ -169,6 +178,7 @@ bool EditorSession::redo() {
     if (changed) {
         refreshGrips();
         selection_service_.syncVisualState();
+        LOG_DEBUG("[Editor] Redo completed");
     }
     return changed;
 }

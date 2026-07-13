@@ -1,12 +1,16 @@
 #include <mulan/view/runtime/render_thread.h>
 
+#include <mulan/core/log/log.h>
+
+#include <exception>
+
 namespace mulan::view {
 
 RenderThread::~RenderThread() {
     stop();
 }
 
-core::Result<void> RenderThread::start(std::string /*name*/) {
+core::Result<void> RenderThread::start(std::string name) {
     if (running_.load()) {
         return {};
     }
@@ -21,8 +25,10 @@ core::Result<void> RenderThread::start(std::string /*name*/) {
     } catch (...) {
         running_.store(false);
         queue_.close();
+        LOG_ERROR("[RenderThread] Failed to start: name={}", name);
         return std::unexpected(core::Error::make(core::ErrorCode::Internal, "Failed to start render thread."));
     }
+    LOG_INFO("[RenderThread] Started: name={}", name);
     return {};
 }
 
@@ -35,6 +41,7 @@ core::Result<void> RenderThread::requestShutdown() {
 }
 
 void RenderThread::stop() {
+    const bool wasRunning = running_.load() || worker_.joinable();
     queue_.close();
     if (worker_.joinable()) {
         worker_.request_stop();
@@ -43,6 +50,9 @@ void RenderThread::stop() {
         }
     }
     running_.store(false);
+    if (wasRunning) {
+        LOG_INFO("[RenderThread] Stopped");
+    }
 }
 
 void RenderThread::run(std::stop_token stopToken) {
@@ -53,7 +63,11 @@ void RenderThread::run(std::stop_token stopToken) {
         }
         try {
             task->execute();
-        } catch (...) {}
+        } catch (const std::exception& error) {
+            LOG_ERROR("[RenderThread] Task failed: label={}, error={}", task->label(), error.what());
+        } catch (...) {
+            LOG_ERROR("[RenderThread] Task failed with an unknown exception: label={}", task->label());
+        }
         if (task->kind() == RenderTaskKind::Shutdown) {
             break;
         }

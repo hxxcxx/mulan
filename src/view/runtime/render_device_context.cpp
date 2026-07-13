@@ -1,5 +1,7 @@
 #include <mulan/view/runtime/render_device_context.h>
 
+#include <mulan/core/log/log.h>
+
 #include <algorithm>
 #include <vector>
 
@@ -36,6 +38,8 @@ core::Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::acquire(
         for (auto it = registry.begin(); it != registry.end();) {
             if (auto existing = it->lock()) {
                 if (matches(*existing, config)) {
+                    LOG_DEBUG("[ViewRuntime] Reusing render device context: backend={}",
+                              static_cast<int>(config.backend));
                     return existing;
                 }
                 ++it;
@@ -54,6 +58,8 @@ core::Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::acquire(
 
     auto device = engine::RHIDevice::create(createInfo);
     if (!device) {
+        LOG_ERROR("[ViewRuntime] Render device creation failed: backend={}, validation={}, error={}",
+                  static_cast<int>(config.backend), config.enableValidation, device.error().message);
         return std::unexpected(device.error());
     }
 
@@ -63,6 +69,8 @@ core::Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::acquire(
     if (canShare(config.backend)) {
         registry.emplace_back(context);
     }
+    LOG_INFO("[ViewRuntime] Render device context created: backend={}, validation={}, shared={}",
+             static_cast<int>(config.backend), config.enableValidation, canShare(config.backend));
     return context;
 }
 

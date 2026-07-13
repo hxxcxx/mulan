@@ -167,14 +167,32 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
     deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     deviceExtensions.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
 
-    // Features
-    vk::PhysicalDeviceFeatures features;
-    features.fillModeNonSolid = true;  // wireframe
-    features.depthClamp = true;
+    // Query optional/core-promoted features before building the enable chain.
+    vk::PhysicalDeviceTimelineSemaphoreFeatures timelineSemaphoreSupport;
+    vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingSupport;
+    dynamicRenderingSupport.pNext = &timelineSemaphoreSupport;
+    vk::PhysicalDeviceFeatures2 featureSupport;
+    featureSupport.pNext = &dynamicRenderingSupport;
+    physical_device_.getFeatures2(&featureSupport);
 
-    // Dynamic rendering feature (VK_KHR_dynamic_rendering)
+    if (!dynamicRenderingSupport.dynamicRendering) {
+        LOG_ERROR("[Vulkan] Required device feature is unavailable: dynamicRendering");
+    }
+    if (!timelineSemaphoreSupport.timelineSemaphore) {
+        LOG_ERROR("[Vulkan] Required device feature is unavailable: timelineSemaphore");
+    }
+
+    vk::PhysicalDeviceFeatures features;
+    features.fillModeNonSolid = featureSupport.features.fillModeNonSolid;
+    features.depthClamp = featureSupport.features.depthClamp;
+
+    // Both features are required by this backend: render passes use dynamic rendering,
+    // while RHI fences are implemented with timeline semaphores.
+    vk::PhysicalDeviceTimelineSemaphoreFeatures timelineSemaphoreFeature;
+    timelineSemaphoreFeature.timelineSemaphore = true;
     vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature;
     dynamicRenderingFeature.dynamicRendering = true;
+    dynamicRenderingFeature.pNext = &timelineSemaphoreFeature;
 
     vk::DeviceCreateInfo deviceCI;
     deviceCI.queueCreateInfoCount = static_cast<uint32_t>(queueCIs.size());

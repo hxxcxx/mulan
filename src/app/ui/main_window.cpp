@@ -6,6 +6,7 @@
 #include <mulan/editor/document/document_session.h>
 #include <mulan/editor/command/builtin_commands.h>
 
+#include <mulan/core/log/log.h>
 #include <mulan/io/file_manager.h>
 #include <mulan/io/import_result.h>
 #include <mulan/view/capture/capture_image_encoder.h>
@@ -33,18 +34,18 @@
 #include <algorithm>
 #include <cstdlib>
 #include <memory>
-#include <sstream>
 
 namespace {
 
 void logImportReport(const mulan::io::ImportReport& report) {
-    std::ostringstream os;
-    os << "Import ok"
-       << ": entities=" << report.entityCount << ", mesh=" << report.meshAssetCount
-       << ", brep=" << report.brepAssetCount << ", primitives=" << report.primitiveCount
-       << ", materials=" << report.materialCount << ", textures=" << report.textureCount;
-
-    for (const auto& warning : report.warnings) {}
+    LOG_INFO(
+            "[App] Document import report: entities={}, meshes={}, breps={}, primitives={}, materials={}, textures={}, "
+            "lights={}, warnings={}",
+            report.entityCount, report.meshAssetCount, report.brepAssetCount, report.primitiveCount,
+            report.materialCount, report.textureCount, report.lightCount, report.warnings.size());
+    for (const auto& warning : report.warnings) {
+        LOG_WARN("[App] Import warning: {}", warning);
+    }
 }
 
 QImage frameThumbnailToContent(const QImage& image) {
@@ -492,6 +493,7 @@ void MainWindow::onNewDocument() {
     auto doc = std::make_unique<mulan::io::Document>(title.toStdString());
     auto* session = new DocumentSession(std::move(doc));
     doc_area_->addDocument(session, title);
+    LOG_INFO("[App] New document created: {}", title.toStdString());
 
     updateDisplayActions();
     statusBar()->showMessage(QString("Created: %1").arg(title));
@@ -514,10 +516,12 @@ void MainWindow::onOpenFile() {
 }
 
 bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
+    LOG_INFO("[App] Opening document: {}", filePath.toStdString());
     statusBar()->showMessage("Loading: " + filePath);
 
     auto opened = doc_manager_.openFile(filePath.toStdString());
     if (!opened) {
+        LOG_ERROR("[App] Document open failed: path={}, error={}", filePath.toStdString(), opened.error().message);
         QMessageBox::warning(this, "Import Error", QString::fromStdString(opened.error().message));
         statusBar()->showMessage("Ready");
         return false;
@@ -532,6 +536,8 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
         doc_area_->recordOpenedFile(filePath);
         scheduleRecentThumbnailCapture(docWidget, filePath);
     }
+    LOG_INFO("[App] Document opened: title={}", title.toStdString());
+    LOG_DEBUG("[App] Document source: {}", filePath.toStdString());
 
     updateDisplayActions();
     statusBar()->showMessage(QString("Loaded: %1").arg(title));

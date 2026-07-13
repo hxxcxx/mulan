@@ -96,7 +96,7 @@ public:
 private:
     std::mutex mutex_;
     std::unique_ptr<spdlog::formatter> formatter_ =
-            std::make_unique<spdlog::pattern_formatter>("[%Y-%m-%d %H:%M:%S.%e] [%l] [%t] [%s:%# %!] %v");
+            std::make_unique<spdlog::pattern_formatter>("[%Y-%m-%d %H:%M:%S.%e] [%l] [%t] [%s:%#] %v");
 };
 
 }  // namespace
@@ -129,7 +129,7 @@ void init(const Config& cfg) {
 
             if (cfg.enableConsole) {
                 auto console = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-                console->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%t] [%s:%# %!] %v");
+                console->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%t] [%s:%#] %v");
                 sinks.push_back(console);
             }
 
@@ -137,13 +137,13 @@ void init(const Config& cfg) {
                 auto file = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
                         std::string(cfg.logDir) + "/mulan.log", static_cast<size_t>(cfg.maxFileSize),
                         static_cast<size_t>(cfg.maxFiles));
-                file->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%t] [%s:%# %!] %v");
+                file->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%t] [%s:%#] %v");
                 sinks.push_back(file);
             }
 
             if (cfg.enableMSVC) {
                 auto msvc = std::make_shared<MsvcSink>();
-                msvc->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%t] [%s:%# %!] %v");
+                msvc->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%t] [%s:%#] %v");
                 sinks.push_back(msvc);
             }
 

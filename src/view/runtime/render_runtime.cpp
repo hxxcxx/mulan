@@ -1,5 +1,7 @@
 #include <mulan/view/runtime/render_runtime.h>
 
+#include <mulan/core/log/log.h>
+
 #include <string_view>
 #include <utility>
 #include <variant>
@@ -31,12 +33,14 @@ core::Result<void> RenderRuntime::initWindow(const ViewConfig& config, int width
         return {};
     }
     if (!config.toNativeWindowHandle().valid()) {
+        LOG_ERROR("[ViewRuntime] Window initialization rejected: invalid native window handle");
         return std::unexpected(
                 runtimeError(core::ErrorCode::InvalidArg, "Window render runtime requires a valid native window."));
     }
 
     auto context = RenderDeviceContext::acquire(config);
     if (!context) {
+        LOG_ERROR("[ViewRuntime] Window initialization failed while acquiring device: {}", context.error().message);
         return std::unexpected(context.error());
     }
     device_context_ = std::move(*context);
@@ -46,6 +50,7 @@ core::Result<void> RenderRuntime::initWindow(const ViewConfig& config, int width
     if (!surface_.initWindowSurface(device, config, width, height)) {
         deviceLock.unlock();
         shutdownNow();
+        LOG_ERROR("[ViewRuntime] Window surface initialization failed: size={}x{}", width, height);
         return std::unexpected(runtimeError(core::ErrorCode::Internal, "Failed to initialize window render surface."));
     }
 
@@ -53,10 +58,13 @@ core::Result<void> RenderRuntime::initWindow(const ViewConfig& config, int width
     if (!initialized) {
         deviceLock.unlock();
         shutdownNow();
+        LOG_ERROR("[ViewRuntime] Window renderer initialization failed: {}", initialized.error().message);
         return initialized;
     }
 
     initialized_ = true;
+    LOG_INFO("[ViewRuntime] Window runtime initialized: backend={}, size={}x{}, executionMode={}",
+             static_cast<int>(config.backend), width, height, static_cast<int>(config.executionMode));
     return {};
 }
 
@@ -68,6 +76,7 @@ core::Result<void> RenderRuntime::initOffscreen(const ViewConfig& config, int wi
 
     auto context = RenderDeviceContext::acquire(config);
     if (!context) {
+        LOG_ERROR("[ViewRuntime] Offscreen initialization failed while acquiring device: {}", context.error().message);
         return std::unexpected(context.error());
     }
     device_context_ = std::move(*context);
@@ -77,6 +86,7 @@ core::Result<void> RenderRuntime::initOffscreen(const ViewConfig& config, int wi
     if (!surface_.initOffscreenSurface(device, width, height)) {
         deviceLock.unlock();
         shutdownNow();
+        LOG_ERROR("[ViewRuntime] Offscreen surface initialization failed: size={}x{}", width, height);
         return std::unexpected(
                 runtimeError(core::ErrorCode::Internal, "Failed to initialize offscreen render surface."));
     }
@@ -85,10 +95,13 @@ core::Result<void> RenderRuntime::initOffscreen(const ViewConfig& config, int wi
     if (!initialized) {
         deviceLock.unlock();
         shutdownNow();
+        LOG_ERROR("[ViewRuntime] Offscreen renderer initialization failed: {}", initialized.error().message);
         return initialized;
     }
 
     initialized_ = true;
+    LOG_INFO("[ViewRuntime] Offscreen runtime initialized: backend={}, size={}x{}, executionMode={}",
+             static_cast<int>(config.backend), width, height, static_cast<int>(config.executionMode));
     return {};
 }
 
@@ -177,6 +190,7 @@ RenderRuntimeCommandResult RenderRuntime::execute(RenderRuntimeCommand command) 
 }
 
 void RenderRuntime::shutdownNow() {
+    const bool wasInitialized = initialized_ || device_context_ != nullptr;
     if (device_context_) {
         auto deviceLock = device_context_->lock();
         auto& device = device_context_->device();
@@ -186,6 +200,9 @@ void RenderRuntime::shutdownNow() {
     }
     device_context_.reset();
     initialized_ = false;
+    if (wasInitialized) {
+        LOG_INFO("[ViewRuntime] Runtime shut down");
+    }
 }
 
 void RenderRuntime::render(const RenderSubmission& submission) {

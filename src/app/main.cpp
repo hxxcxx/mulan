@@ -1,4 +1,5 @@
 #include "ui/main_window.h"
+#include <mulan/core/log/log.h>
 #include <mulan/modeling/runtime/runtime.h>
 #include <QApplication>
 #include <QFile>
@@ -9,9 +10,6 @@
 #endif
 
 int main(int argc, char* argv[]) {
-    // 初始化组装层：注册建模后端（STEP/IGES 读取等接入 modeling_core）。
-    mulan::runtime::init();
-
     // HiDPI 支持
     QApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 
@@ -22,16 +20,32 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
+    mulan::core::log::init();
+    LOG_INFO("[App] Starting mulan");
+
+    // 初始化组装层：注册建模后端（STEP/IGES 读取等接入 modeling_core）。
+    mulan::runtime::init();
+
     QApplication app(argc, argv);
     app.setAttribute(Qt::AA_UseHighDpiPixmaps);
     app.setWindowIcon(QIcon(":/app/branding/app-icon.png"));
     QFile appStyleFile(":/app/style/app.qss");
     if (appStyleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         app.setStyleSheet(QString::fromUtf8(appStyleFile.readAll()));
+        LOG_DEBUG("[App] Application stylesheet loaded");
+    } else {
+        LOG_WARN("[App] Application stylesheet could not be loaded");
     }
 
-    MainWindow window;
-    window.show();
+    int exitCode = 0;
+    {
+        MainWindow window;
+        window.show();
+        LOG_INFO("[App] Main window shown");
+        exitCode = app.exec();
+    }
 
-    return app.exec();
+    LOG_INFO("[App] Shutting down: exitCode={}", exitCode);
+    mulan::core::log::shutdown();
+    return exitCode;
 }

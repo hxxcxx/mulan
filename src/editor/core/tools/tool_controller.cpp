@@ -7,7 +7,23 @@
 
 #include "tool_controller.h"
 
+#include <mulan/core/log/log.h>
+
+#include <string>
+
 namespace mulan::editor {
+namespace {
+
+const char* finishReasonName(ToolFinishReason reason) {
+    switch (reason) {
+    case ToolFinishReason::Finished: return "finished";
+    case ToolFinishReason::Cancelled: return "cancelled";
+    case ToolFinishReason::Replaced: return "replaced";
+    }
+    return "unknown";
+}
+
+}  // namespace
 
 ToolController::~ToolController() = default;
 
@@ -15,6 +31,7 @@ EditorAction ToolController::start(std::unique_ptr<EditorTool> tool) {
     clear(ToolFinishReason::Replaced);
     active_tool_ = std::move(tool);
     if (active_tool_) {
+        LOG_DEBUG("[Editor] Tool started: id={}", active_tool_->id());
         return active_tool_->begin();
     }
     return EditorAction::ignored();
@@ -51,6 +68,8 @@ EditorAction ToolController::clear(ToolFinishReason reason) {
     }
 
     auto tool = std::move(active_tool_);
+    const std::string toolId(tool->id());
+    LOG_DEBUG("[Editor] Tool ended: id={}, reason={}", toolId, finishReasonName(reason));
     return tool->end(reason);
 }
 

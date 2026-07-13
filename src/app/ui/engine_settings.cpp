@@ -1,6 +1,21 @@
 #include "engine_settings.h"
+#include <mulan/core/log/log.h>
 #include <QColor>
 using namespace mulan::engine;
+
+namespace {
+
+const char* backendName(GraphicsBackend backend) {
+    switch (backend) {
+    case GraphicsBackend::OpenGL: return "OpenGL";
+    case GraphicsBackend::Vulkan: return "Vulkan";
+    case GraphicsBackend::D3D11: return "D3D11";
+    case GraphicsBackend::D3D12: return "D3D12";
+    }
+    return "Unknown";
+}
+
+}  // namespace
 
 EngineSettings& EngineSettings::instance() {
     static EngineSettings s;
@@ -19,6 +34,7 @@ GraphicsBackend EngineSettings::backend() const {
 
 void EngineSettings::setBackend(GraphicsBackend b) {
     if (backend_ != b) {
+        LOG_INFO("[AppConfig] Rendering backend changed: {} -> {}", backendName(backend_), backendName(b));
         backend_ = b;
         save();
     }
@@ -143,6 +159,8 @@ void EngineSettings::save() {
     qsettings_.setValue("backgroundColor", bgcolor_);
     qsettings_.setValue("iblEnabled", ibl_enabled_);
     qsettings_.setValue("hdrPath", hdr_path_);
+    LOG_DEBUG("[AppConfig] Settings saved: backend={}, msaa={}, vsync={}, ibl={}", backendName(backend_),
+              msaaToInt(msaa_), vsync_, ibl_enabled_);
 }
 
 void EngineSettings::load() {
@@ -153,4 +171,6 @@ void EngineSettings::load() {
     bgcolor_ = qsettings_.value("backgroundColor", defaultBackground).value<QColor>();
     ibl_enabled_ = qsettings_.value("iblEnabled", false).toBool();
     hdr_path_ = qsettings_.value("hdrPath", QStringLiteral("assets/envmap.hdr")).toString();
+    LOG_INFO("[AppConfig] Settings loaded: backend={}, msaa={}, vsync={}, ibl={}, hdr={}", backendName(backend_),
+             msaaToInt(msaa_), vsync_, ibl_enabled_, hdr_path_.toStdString());
 }

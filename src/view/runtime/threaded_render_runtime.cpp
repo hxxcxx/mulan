@@ -1,5 +1,8 @@
 #include <mulan/view/runtime/threaded_render_runtime.h>
 
+#include <mulan/core/log/log.h>
+
+#include <exception>
 #include <future>
 
 namespace mulan::view {
@@ -31,45 +34,67 @@ core::Result<void> ThreadedRenderRuntime::start(std::function<core::Result<void>
                 run(token, std::move(initialize), std::move(ready));
             });
     auto result = future.get();
-    if (!result)
+    if (!result) {
+        LOG_ERROR("[ThreadedRenderRuntime] Initialization failed: {}", result.error().message);
         shutdown();
+    } else {
+        LOG_INFO("[ThreadedRenderRuntime] Worker initialized");
+    }
     return result;
 }
 
 void ThreadedRenderRuntime::run(std::stop_token stopToken, std::function<core::Result<void>(RenderRuntime&)> initialize,
                                 std::promise<core::Result<void>> ready) {
     RenderRuntime runtime;
-    auto initialized = initialize(runtime);
-    ready.set_value(initialized);
-    if (!initialized)
-        return;
-    publishSurfaceState(runtime);
-    initialized_.store(true);
-    while (!stopToken.stop_requested()) {
-        ControlTask control;
-        bool hasControl = false;
-        {
-            std::unique_lock lock(mutex_);
-            wake_.wait(lock, stopToken, [this] { return closing_ || !controls_.empty() || latest_frame_.has_value(); });
-            if (closing_)
-                break;
-            if (!controls_.empty()) {
-                control = std::move(controls_.front());
-                controls_.pop_front();
-                hasControl = true;
+    bool readinessPublished = false;
+    try {
+        auto initialized = initialize(runtime);
+        ready.set_value(initialized);
+        readinessPublished = true;
+        if (!initialized)
+            return;
+        publishSurfaceState(runtime);
+        initialized_.store(true);
+        while (!stopToken.stop_requested()) {
+            ControlTask control;
+            bool hasControl = false;
+            {
+                std::unique_lock lock(mutex_);
+                wake_.wait(lock, stopToken,
+                           [this] { return closing_ || !controls_.empty() || latest_frame_.has_value(); });
+                if (closing_)
+                    break;
+                if (!controls_.empty()) {
+                    control = std::move(controls_.front());
+                    controls_.pop_front();
+                    hasControl = true;
+                }
+            }
+            if (hasControl) {
+                if (control.flushFrame)
+                    renderLatest(runtime);
+                control.execute(runtime);
+                publishSurfaceState(runtime);
+            } else {
+                renderLatest(runtime);
             }
         }
-        if (hasControl) {
-            if (control.flushFrame)
-                renderLatest(runtime);
-            control.execute(runtime);
-            publishSurfaceState(runtime);
-        } else {
-            renderLatest(runtime);
+    } catch (const std::exception& error) {
+        LOG_CRITICAL("[ThreadedRenderRuntime] Worker terminated by exception: {}", error.what());
+        if (!readinessPublished) {
+            ready.set_value(std::unexpected(
+                    core::Error::make(core::ErrorCode::Internal, "Render worker initialization threw an exception.")));
+        }
+    } catch (...) {
+        LOG_CRITICAL("[ThreadedRenderRuntime] Worker terminated by an unknown exception");
+        if (!readinessPublished) {
+            ready.set_value(std::unexpected(core::Error::make(
+                    core::ErrorCode::Internal, "Render worker initialization threw an unknown exception.")));
         }
     }
     runtime.shutdown();
     initialized_.store(false);
+    LOG_INFO("[ThreadedRenderRuntime] Worker exited");
 }
 
 void ThreadedRenderRuntime::renderLatest(RenderRuntime& runtime) {
@@ -181,6 +206,7 @@ bool ThreadedRenderRuntime::configureOffscreenSurface(const RenderSurfaceDesc& d
     return future.get();
 }
 void ThreadedRenderRuntime::shutdown() {
+    const bool hadWorker = worker_.joinable() || initialized_.load();
     std::deque<ControlTask> cancelled;
     {
         std::scoped_lock lock(mutex_);
@@ -198,6 +224,9 @@ void ThreadedRenderRuntime::shutdown() {
     if (worker_.joinable() && worker_.get_id() != std::this_thread::get_id())
         worker_.join();
     initialized_.store(false);
+    if (hadWorker) {
+        LOG_INFO("[ThreadedRenderRuntime] Shut down");
+    }
 }
 bool ThreadedRenderRuntime::isOffscreenSurface() const {
     std::scoped_lock lock(mutex_);
