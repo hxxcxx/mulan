@@ -32,7 +32,9 @@ DX11SwapChain::DX11SwapChain(const SwapChainDesc& desc, ID3D11Device* device, ID
     scDesc.Flags = 0;
 
     HWND hwnd = reinterpret_cast<HWND>(window.win32.hWnd);
-    DX11_CHECK(factory->CreateSwapChainForHwnd(device, hwnd, &scDesc, nullptr, nullptr, &m_swapChain));
+    if (!checkDX11(factory->CreateSwapChainForHwnd(device, hwnd, &scDesc, nullptr, nullptr, &m_swapChain),
+                   "IDXGIFactory2::CreateSwapChainForHwnd"))
+        return;
 
     createBackBuffer();
 }
@@ -42,7 +44,8 @@ void DX11SwapChain::createBackBuffer() {
         throw std::runtime_error("DX11 swap chain is not initialized");
 
     ComPtr<ID3D11Texture2D> backBuf;
-    DX11_CHECK(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuf)));
+    if (!checkDX11(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuf)), "IDXGISwapChain1::GetBuffer"))
+        return;
 
     TextureDesc texDesc = TextureDesc::renderTarget(m_desc.width, m_desc.height, m_desc.format, "DX11BackBuffer");
     texDesc.usage = TextureUsageFlags::RenderTarget;
@@ -132,7 +135,7 @@ void DX11SwapChain::resize(uint32_t width, uint32_t height) {
         try {
             createBackBuffer();
         } catch (const std::exception& e) {
-            std::fprintf(stderr, "[DX11SwapChain] restore backbuffer failed: %s\n", e.what());
+            LOG_ERROR("[DX11] Swap chain backbuffer restore failed: {}", e.what());
         }
         return;
     }
@@ -143,7 +146,7 @@ void DX11SwapChain::resize(uint32_t width, uint32_t height) {
     try {
         createBackBuffer();
     } catch (const std::exception& e) {
-        std::fprintf(stderr, "[DX11SwapChain] recreate backbuffer failed: %s\n", e.what());
+        LOG_ERROR("[DX11] Swap chain backbuffer recreation failed: {}", e.what());
     }
 }
 

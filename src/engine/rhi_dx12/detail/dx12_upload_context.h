@@ -66,7 +66,7 @@ private:
     };
 
     std::vector<StagingSlab> slabs_;
-    StagingSlab& getOrCreateSlab(uint64_t minSize, uint32_t alignment, uint32_t& alignedOffset);
+    StagingSlab* getOrCreateSlab(uint64_t minSize, uint32_t alignment, uint32_t& alignedOffset);
 };
 
 }  // namespace mulan::engine

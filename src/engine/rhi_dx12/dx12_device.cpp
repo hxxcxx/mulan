@@ -111,6 +111,8 @@ void DX12Device::init(const DeviceCreateInfo& ci) {
     caps_.maxSampleCount = dx12SupportedSamples(device_.Get(), DXGI_FORMAT_B8G8R8A8_UNORM, 8);
     render_config_.msaa = toMsaaLevel((std::min) (colorSamples, depthSamples));
     // minUniformBufferOffsetAlignment 保持默认 256（D3D12 常量缓冲对齐）
+    LOG_INFO("[DX12] Device initialized: validation={}, maxMSAA={}, activeMSAA={}, frames={}", ci.enableValidation,
+             caps_.maxSampleCount, (std::min) (colorSamples, depthSamples), frame_count_);
 }
 
 void DX12Device::enableDebugLayer() {
@@ -125,6 +127,9 @@ void DX12Device::enableDebugLayer() {
         if (SUCCEEDED(debug.As(&debug1))) {
             debug1->SetEnableSynchronizedCommandQueueValidation(TRUE);
         }
+        LOG_INFO("[DX12] D3D12 debug layer enabled");
+    } else {
+        LOG_WARN("[DX12] D3D12 debug layer requested but unavailable");
     }
 }
 
@@ -157,7 +162,12 @@ void DX12Device::dumpInfoQueueMessages() const {
         if (SUCCEEDED(info_queue_->GetMessage(i, msg, &size))) {
             // pDescription 末尾含 '\0'，DescriptionByteLength 含该字节
             const char* desc = msg->pDescription ? msg->pDescription : "";
-            std::fprintf(stderr, "[D3D12] %s%s", desc, (desc[0] && desc[std::strlen(desc) - 1] != '\n') ? "\n" : "");
+            switch (msg->Severity) {
+            case D3D12_MESSAGE_SEVERITY_CORRUPTION:
+            case D3D12_MESSAGE_SEVERITY_ERROR: LOG_ERROR("[DX12 DebugLayer] {}", desc); break;
+            case D3D12_MESSAGE_SEVERITY_WARNING: LOG_WARN("[DX12 DebugLayer] {}", desc); break;
+            default: LOG_INFO("[DX12 DebugLayer] {}", desc); break;
+            }
         }
     }
     // 清空已读消息，避免重复打印
@@ -170,7 +180,8 @@ void DX12Device::createFactory() {
     // DXGIGetDebugInterface1 for DXGI debug — optional
 #endif
     HRESULT hr = CreateDXGIFactory2(flags, IID_PPV_ARGS(&factory_));
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "CreateDXGIFactory2"))
+        return;
 }
 
 void DX12Device::findAdapter() {
@@ -200,12 +211,17 @@ void DX12Device::findAdapter() {
 
     if (bestAdapter) {
         adapter_ = bestAdapter;
+        LOG_INFO("[DX12] Hardware adapter selected: dedicatedVideoMemory={} MiB",
+                 static_cast<uint64_t>(maxDedicatedVideoMemory / (1024ull * 1024ull)));
+    } else {
+        LOG_WARN("[DX12] No hardware adapter was enumerated; D3D12 will select its default adapter");
     }
 }
 
 void DX12Device::createDevice() {
     HRESULT hr = D3D12CreateDevice(adapter_.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device_));
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "D3D12CreateDevice"))
+        return;
 }
 
 void DX12Device::createCommandQueue() {
@@ -216,7 +232,8 @@ void DX12Device::createCommandQueue() {
     queueDesc.NodeMask = 0;
 
     HRESULT hr = device_->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&command_queue_));
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "ID3D12Device::CreateCommandQueue"))
+        return;
 }
 
 void DX12Device::createFrameContexts() {
@@ -248,8 +265,7 @@ math::Mat4 DX12Device::clipSpaceCorrectionMatrix() const {
 core::Result<std::unique_ptr<Buffer>> DX12Device::createBuffer(const BufferDesc& desc) {
     HRESULT reason = device_->GetDeviceRemovedReason();
     if (FAILED(reason)) {
-        std::fprintf(stderr, "[DX12 ERROR] createBuffer: device already removed! Reason=0x%08lX\n",
-                     static_cast<unsigned long>(reason));
+        LOG_ERROR("[DX12] createBuffer called after device removal: reason=0x{:08X}", static_cast<unsigned>(reason));
         dumpInfoQueueMessages();
     }
 
@@ -290,8 +306,8 @@ core::Result<std::unique_ptr<Shader>> DX12Device::createShader(const ShaderDesc&
 core::Result<std::unique_ptr<PipelineState>> DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
     HRESULT reason = device_->GetDeviceRemovedReason();
     if (FAILED(reason)) {
-        std::fprintf(stderr, "[DX12 ERROR] createPipelineState('%.*s'): device already removed! Reason=0x%08lX\n",
-                     static_cast<int>(desc.name.size()), desc.name.data(), static_cast<unsigned long>(reason));
+        LOG_ERROR("[DX12] createPipelineState({}) called after device removal: reason=0x{:08X}", desc.name,
+                  static_cast<unsigned>(reason));
         dumpInfoQueueMessages();
     }
     auto result = DX12PipelineState::create(desc, device_.Get());
@@ -524,7 +540,8 @@ void DX12Device::submit() {
     auto fenceVal = frame->fenceValue() + 1;
     frame->setFenceValue(fenceVal);
     HRESULT hr = command_queue_->Signal(frame->fence()->fence(), fenceVal);
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "ID3D12CommandQueue::Signal"))
+        return;
 }
 
 void DX12Device::present(SwapChain* swapchain) {

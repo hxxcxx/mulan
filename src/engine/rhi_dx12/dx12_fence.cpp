@@ -18,7 +18,8 @@ core::Result<std::unique_ptr<DX12Fence>> DX12Fence::create(ID3D12Device* device,
 
 DX12Fence::DX12Fence(ID3D12Device* device, uint64_t initialValue) {
     HRESULT hr = device->CreateFence(initialValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence_));
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "ID3D12Device::CreateFence"))
+        return;
     event_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
 }
 

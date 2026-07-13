@@ -58,7 +58,8 @@ DX11Texture::DX11Texture(const TextureDesc& desc, ID3D11Device* device) : m_desc
     if (td.Format == DXGI_FORMAT_UNKNOWN)
         throw std::invalid_argument("DX11Texture format is not supported by the D3D11 backend");
 
-    DX11_CHECK(device->CreateTexture2D(&td, nullptr, &m_texture));
+    if (!checkDX11(device->CreateTexture2D(&td, nullptr, &m_texture), "ID3D11Device::CreateTexture2D"))
+        return;
 
     // Auto-create views
     if (desc.usage & TextureUsageFlags::RenderTarget)
@@ -89,7 +90,9 @@ void DX11Texture::createRTV(ID3D11Device* device, DXGI_FORMAT fmt) {
     if (rtvDesc.Format == DXGI_FORMAT_UNKNOWN)
         throw std::invalid_argument("DX11Texture cannot create RTV for an unknown format");
 
-    DX11_CHECK(device->CreateRenderTargetView(m_texture.Get(), &rtvDesc, &m_rtv));
+    if (!checkDX11(device->CreateRenderTargetView(m_texture.Get(), &rtvDesc, &m_rtv),
+                   "ID3D11Device::CreateRenderTargetView"))
+        return;
 }
 
 void DX11Texture::createDSV(ID3D11Device* device, DXGI_FORMAT fmt) {
@@ -107,7 +110,9 @@ void DX11Texture::createDSV(ID3D11Device* device, DXGI_FORMAT fmt) {
     if (dsvDesc.Format == DXGI_FORMAT_UNKNOWN)
         throw std::invalid_argument("DX11Texture cannot create DSV for an unknown format");
 
-    DX11_CHECK(device->CreateDepthStencilView(m_texture.Get(), &dsvDesc, &m_dsv));
+    if (!checkDX11(device->CreateDepthStencilView(m_texture.Get(), &dsvDesc, &m_dsv),
+                   "ID3D11Device::CreateDepthStencilView"))
+        return;
 }
 
 void DX11Texture::createSRV(ID3D11Device* device, DXGI_FORMAT fmt) {
@@ -130,7 +135,9 @@ void DX11Texture::createSRV(ID3D11Device* device, DXGI_FORMAT fmt) {
     if (srvDesc.Format == DXGI_FORMAT_UNKNOWN)
         throw std::invalid_argument("DX11Texture cannot create SRV for an unknown format");
 
-    DX11_CHECK(device->CreateShaderResourceView(m_texture.Get(), &srvDesc, &m_srv));
+    if (!checkDX11(device->CreateShaderResourceView(m_texture.Get(), &srvDesc, &m_srv),
+                   "ID3D11Device::CreateShaderResourceView"))
+        return;
 }
 
 }  // namespace mulan::engine

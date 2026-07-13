@@ -47,9 +47,11 @@ DX12SwapChain::DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device, ID
     HWND hwnd = reinterpret_cast<HWND>(window.win32.hWnd);
     ComPtr<IDXGISwapChain1> swapChain1;
     HRESULT hr = factory->CreateSwapChainForHwnd(queue, hwnd, &scDesc, nullptr, nullptr, &swapChain1);
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "IDXGIFactory4::CreateSwapChainForHwnd"))
+        return;
     hr = swapChain1.As(&swap_chain_);
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "IDXGISwapChain1::QueryInterface(IDXGISwapChain3)"))
+        return;
     createRTVHeap();
     createBackBuffers();
 }
@@ -73,7 +75,8 @@ void DX12SwapChain::createBackBuffers() {
 
     for (uint32_t i = 0; i < desc_.bufferCount; ++i) {
         HRESULT hr = swap_chain_->GetBuffer(i, IID_PPV_ARGS(&back_buffers_[i]));
-        DX12_CHECK(hr);
+        if (!checkDX12(hr, "IDXGISwapChain3::GetBuffer"))
+            return;
         auto rtvDesc = rtv_heap_->allocate();
         device_->CreateRenderTargetView(back_buffers_[i].Get(), nullptr, rtvDesc.cpu);
 
@@ -171,17 +174,16 @@ void DX12SwapChain::present() {
     UINT syncInterval = desc_.vsync ? 1 : 0;
     UINT flags = desc_.vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING;
     HRESULT hr = swap_chain_->Present(syncInterval, flags);
-    if (FAILED(hr)) {
+    if (!checkDX12(hr, "IDXGISwapChain3::Present")) {
         logDeviceRemovedReason(hr);
+        return;
     }
-    DX12_CHECK(hr);
 }
 
 void DX12SwapChain::logDeviceRemovedReason(HRESULT presentResult) const {
     HRESULT reason = device_ ? device_->GetDeviceRemovedReason() : presentResult;
-    DX12_LOG("[DX12] Present failed hr=0x%08X deviceRemovedReason=0x%08X\n", static_cast<unsigned>(presentResult),
-             static_cast<unsigned>(reason));
-    DX12_CHECK(reason);
+    LOG_ERROR("[DX12] Present failed: HRESULT=0x{:08X}, deviceRemovedReason=0x{:08X}",
+              static_cast<unsigned>(presentResult), static_cast<unsigned>(reason));
 }
 
 void DX12SwapChain::resize(uint32_t width, uint32_t height) {
@@ -193,11 +195,14 @@ void DX12SwapChain::resize(uint32_t width, uint32_t height) {
     // resize 是基类 void 热路径契约，内部消化错误。
     try {
         HRESULT hr = swap_chain_->ResizeBuffers(desc_.bufferCount, width, height, toDXGIFormat(desc_.format), 0);
-        DX12_CHECK(hr);
+        if (!checkDX12(hr, "IDXGISwapChain3::ResizeBuffers"))
+            return;
 
         createRTVHeap();
         createBackBuffers();
-    } catch (const std::exception& e) {}
+    } catch (const std::exception& e) {
+        LOG_ERROR("[DX12] Swap chain resize recovery failed: {}", e.what());
+    }
 }
 
 }  // namespace mulan::engine

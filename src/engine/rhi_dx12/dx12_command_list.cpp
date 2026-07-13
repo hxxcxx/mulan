@@ -28,7 +28,8 @@ DX12CommandList::DX12CommandList(ID3D12Device* device, ID3D12CommandAllocator* a
     : allocator_(allocator), owns_cmd_list_(true) {
     HRESULT hr =
             device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, nullptr, IID_PPV_ARGS(&cmd_list_));
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "ID3D12Device::CreateCommandList"))
+        return;
     cmd_list_->Close();
 }
 
@@ -62,8 +63,10 @@ void DX12CommandList::begin() {
         // 独立命令列表由 create() 先关闭；begin() 负责复用 allocator 并重新打开。
         if (recording_ || !allocator_)
             return;
-        DX12_CHECK(allocator_->Reset());
-        DX12_CHECK(cmd_list_->Reset(allocator_.Get(), nullptr));
+        if (!checkDX12(allocator_->Reset(), "ID3D12CommandAllocator::Reset"))
+            return;
+        if (!checkDX12(cmd_list_->Reset(allocator_.Get(), nullptr), "ID3D12GraphicsCommandList::Reset"))
+            return;
     }
 
     // 帧循环模式的 allocator/list 已由 DX12FrameContext reset；这里仅标记录制状态。
@@ -75,7 +78,8 @@ void DX12CommandList::end() {
     if (!cmd_list_ || !recording_)
         return;
     HRESULT hr = cmd_list_->Close();
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "ID3D12GraphicsCommandList::Close"))
+        return;
     recording_ = false;
 }
 
@@ -190,7 +194,7 @@ void DX12CommandList::bindGroup(BindGroup& group) {
     }
 
     if (hasTexture && !desc_heap_) {
-        std::fprintf(stderr, "[DX12 bindGroup] CBV/SRV/UAV heap is not bound\n");
+        LOG_ERROR("[DX12] bindGroup rejected: CBV/SRV/UAV heap is not bound");
         return;
     }
 
@@ -224,11 +228,11 @@ void DX12CommandList::bindGroup(BindGroup& group) {
             if (!gpuHandle.ptr || descriptorDirty) {
                 auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
                 if (!dx12Tex || !dx12Tex->srv().ptr || !device) {
-                    std::fprintf(stderr, "[DX12 bindGroup] texture has no valid SRV\n");
+                    LOG_ERROR("[DX12] bindGroup rejected: texture has no valid SRV");
                     continue;
                 }
                 if (desc_alloc_count_ >= desc_capacity_) {
-                    std::fprintf(stderr, "[DX12 bindGroup] shader-visible descriptor heap exhausted\n");
+                    LOG_ERROR("[DX12] bindGroup rejected: shader-visible descriptor heap exhausted");
                     continue;
                 }
 
@@ -247,7 +251,7 @@ void DX12CommandList::bindGroup(BindGroup& group) {
             auto* dx12Sampler = static_cast<DX12Sampler*>(e.sampler);
             const D3D12_GPU_DESCRIPTOR_HANDLE samplerHandle = dx12Sampler->gpuHandle();
             if (!samplerHandle.ptr || !sampler_heap_) {
-                std::fprintf(stderr, "[DX12 bindGroup] sampler descriptor is not shader-visible\n");
+                LOG_ERROR("[DX12] bindGroup rejected: sampler descriptor is not shader-visible");
                 continue;
             }
 
@@ -278,7 +282,7 @@ void DX12CommandList::bindResources(const BindGroupDesc& desc) {
             if (!dx12Tex->srv().ptr)
                 continue;
             if (desc_alloc_count_ >= desc_capacity_) {
-                std::fprintf(stderr, "[DX12 bindResources] shader-visible descriptor heap exhausted\n");
+                LOG_ERROR("[DX12] bindResources rejected: shader-visible descriptor heap exhausted");
                 continue;
             }
 
@@ -344,7 +348,7 @@ void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState)
     // Upload/readback heaps have restricted legal states. In particular, a
     // readback buffer must remain COPY_DEST while the GPU writes into it.
     if (dx12Buf->usage() == BufferUsage::Staging || dx12Buf->usage() == BufferUsage::Dynamic) {
-        std::fprintf(stderr, "[DX12 transitionResource] buffer heap does not support requested state transition\n");
+        LOG_ERROR("[DX12] transitionResource rejected: buffer heap does not support requested state transition");
         return;
     }
 
@@ -412,7 +416,7 @@ bool DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     device->Release();
 
     if (dx12Buf->size() < totalSize) {
-        std::fprintf(stderr, "[DX12 copyTextureToBuffer] destination buffer is too small for texture footprint\n");
+        LOG_ERROR("[DX12] copyTextureToBuffer rejected: destination buffer is too small for texture footprint");
         return false;
     }
 
@@ -421,7 +425,7 @@ bool DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
 
     if (originalBufState != D3D12_RESOURCE_STATE_COPY_DEST &&
         (dx12Buf->usage() == BufferUsage::Staging || dx12Buf->usage() == BufferUsage::Dynamic)) {
-        std::fprintf(stderr, "[DX12 copyTextureToBuffer] destination buffer is not in COPY_DEST state\n");
+        LOG_ERROR("[DX12] copyTextureToBuffer rejected: destination buffer is not in COPY_DEST state");
         return false;
     }
 

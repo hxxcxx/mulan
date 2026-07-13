@@ -6,33 +6,30 @@
 #include "../rhi/engine_error_code.h"
 #include <mulan/core/log/log.h>
 
-#include <stdexcept>
 #include <string>
 
 namespace mulan::engine {
 
 core::Result<std::unique_ptr<DX12RenderTarget>> DX12RenderTarget::create(const RenderTargetDesc& desc,
                                                                          ID3D12Device* device) {
+    if (!device || desc.width == 0 || desc.height == 0)
+        return std::unexpected(makeError(EngineErrorCode::RenderTargetCreateFailed, "Invalid render target arguments"));
     auto obj = std::unique_ptr<DX12RenderTarget>(new DX12RenderTarget(desc, device));
-    try {
-        obj->createResources();
-    } catch (const std::exception& e) {
-        return std::unexpected(makeError(EngineErrorCode::RenderTargetCreateFailed,
-                                         std::string("DX12RenderTarget create failed: ") + e.what()));
-    }
+    if (auto result = obj->createResources(); !result)
+        return std::unexpected(makeError(EngineErrorCode::RenderTargetCreateFailed, result.error().message));
     return obj;
 }
 
 DX12RenderTarget::~DX12RenderTarget() = default;
 
-void DX12RenderTarget::createResources() {
+core::Result<void> DX12RenderTarget::createResources() {
     const uint32_t samples = desc_.sampleCount > 1 ? desc_.sampleCount : 1;
 
     // Color texture
     auto colorDesc = TextureDesc::renderTarget(desc_.width, desc_.height, desc_.colorFormat);
     auto colorResult = DX12Texture::create(colorDesc, device_, D3D12_RESOURCE_STATE_RENDER_TARGET);
     if (!colorResult)
-        throw std::runtime_error(colorResult.error().message);
+        return std::unexpected(colorResult.error());
     color_texture_ = std::move(*colorResult);
 
     // RTV heap
@@ -49,7 +46,7 @@ void DX12RenderTarget::createResources() {
         msaaColorDesc.usage = TextureUsageFlags::RenderTarget;
         auto msaaColorResult = DX12Texture::create(msaaColorDesc, device_, D3D12_RESOURCE_STATE_RENDER_TARGET);
         if (!msaaColorResult)
-            throw std::runtime_error(msaaColorResult.error().message);
+            return std::unexpected(msaaColorResult.error());
         msaa_color_texture_ = std::move(*msaaColorResult);
 
         auto msaaRtvDesc = rtv_heap_->allocate();
@@ -64,7 +61,7 @@ void DX12RenderTarget::createResources() {
         depthDesc.usage = TextureUsageFlags::DepthStencil;  // 剥离 ShaderResource
         auto depthResult = DX12Texture::create(depthDesc, device_, D3D12_RESOURCE_STATE_DEPTH_WRITE);
         if (!depthResult)
-            throw std::runtime_error(depthResult.error().message);
+            return std::unexpected(depthResult.error());
         depth_texture_ = std::move(*depthResult);
 
         // DSV heap
@@ -79,6 +76,7 @@ void DX12RenderTarget::createResources() {
         dsv_handle_ = dsvDesc.cpu;
         depth_texture_->setDSV(dsvDesc.cpu);
     }
+    return {};
 }
 
 void DX12RenderTarget::resize(uint32_t width, uint32_t height) {
@@ -89,10 +87,8 @@ void DX12RenderTarget::resize(uint32_t width, uint32_t height) {
     msaa_color_texture_.reset();
     rtv_heap_.reset();
     dsv_heap_.reset();
-    // resize 是基类 void 热路径契约，内部消化错误。
-    try {
-        createResources();
-    } catch (const std::exception& e) {}
+    if (auto result = createResources(); !result)
+        LOG_ERROR("[DX12] Render target resize failed: {}", result.error().message);
 }
 
 RenderPassBeginInfo DX12RenderTarget::renderPassBeginInfo() {

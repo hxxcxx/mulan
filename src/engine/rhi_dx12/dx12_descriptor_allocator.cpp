@@ -11,7 +11,8 @@ DX12DescriptorAllocator::DX12DescriptorAllocator(ID3D12Device* device, D3D12_DES
     desc.Flags = flags;
 
     HRESULT hr = device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&heap_));
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "ID3D12Device::CreateDescriptorHeap"))
+        return;
 
     cpu_start_ = heap_->GetCPUDescriptorHandleForHeapStart();
     if (flags & D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE) {

@@ -140,15 +140,17 @@ void DX12PipelineState::createRootSignature() {
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> error;
     HRESULT hr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "D3D12SerializeRootSignature"))
+        return;
 
     if (error) {
-        fprintf(stderr, "[DX12] Root signature error: %s\n", static_cast<const char*>(error->GetBufferPointer()));
+        LOG_ERROR("[DX12] Root signature diagnostic: {}", static_cast<const char*>(error->GetBufferPointer()));
     }
 
     hr = device_->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(),
                                       IID_PPV_ARGS(&root_signature_));
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "ID3D12Device::CreateRootSignature"))
+        return;
 }
 
 D3D12_INPUT_LAYOUT_DESC DX12PipelineState::buildInputLayout() {
@@ -289,14 +291,15 @@ void DX12PipelineState::build(DXGI_FORMAT rtFormat, DXGI_FORMAT dsFormat) {
 
     HRESULT hr = device_->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipeline_));
     if (FAILED(hr)) {
-        DX12_LOG(
-                "[DX12] CreateGraphicsPipelineState failed name=%s topology=%d topoType=%u rt=%u ds=%u vsBytes=%zu "
-                "psBytes=%zu\n",
-                std::string(desc_.name).c_str(), static_cast<int>(desc_.topology),
-                static_cast<unsigned>(psoDesc.PrimitiveTopologyType), static_cast<unsigned>(rtFormat),
-                static_cast<unsigned>(dsFormat), vsBytecode.BytecodeLength, psBytecode.BytecodeLength);
+        LOG_ERROR(
+                "[DX12] CreateGraphicsPipelineState rejected: name={}, topology={}, topologyType={}, rtFormat={}, "
+                "dsFormat={}, vsBytes={}, psBytes={}",
+                desc_.name, static_cast<int>(desc_.topology), static_cast<unsigned>(psoDesc.PrimitiveTopologyType),
+                static_cast<unsigned>(rtFormat), static_cast<unsigned>(dsFormat), vsBytecode.BytecodeLength,
+                psBytecode.BytecodeLength);
     }
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "ID3D12Device::CreateGraphicsPipelineState"))
+        return;
 }
 
 }  // namespace mulan::engine

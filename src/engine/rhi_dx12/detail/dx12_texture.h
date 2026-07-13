@@ -50,9 +50,10 @@ public:
     bool hasSRV() const { return has_srv_; }
 
 private:
-    DX12Texture(const TextureDesc& desc, ID3D12Device* device, D3D12_RESOURCE_STATES initialState);
+    DX12Texture(const TextureDesc& desc, D3D12_RESOURCE_STATES initialState) : desc_(desc), state_(initialState) {}
 
-    void createSRVIfNeeded(ID3D12Device* device);
+    [[nodiscard]] core::Result<void> initialize(ID3D12Device* device);
+    [[nodiscard]] core::Result<void> createSRVIfNeeded(ID3D12Device* device);
 
     TextureDesc desc_;
     ComPtr<ID3D12Resource> resource_;

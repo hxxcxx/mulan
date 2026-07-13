@@ -125,7 +125,8 @@ void DX11Device::init(const DeviceCreateInfo& ci) {
     if (m_renderConfig.bufferCount == 0)
         m_renderConfig.bufferCount = 2;
 
-    DX11_CHECK(CreateDXGIFactory1(IID_PPV_ARGS(&m_factory)));
+    if (!checkDX11(CreateDXGIFactory1(IID_PPV_ARGS(&m_factory)), "CreateDXGIFactory1"))
+        return;
 
     UINT createFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
     const bool requestedDebugLayer = ci.enableValidation;
@@ -168,7 +169,8 @@ void DX11Device::init(const DeviceCreateInfo& ci) {
         createFlags &= ~D3D11_CREATE_DEVICE_DEBUG;
         hr = createHardwareDevice(createFlags);
     }
-    DX11_CHECK(hr);
+    if (!checkDX11(hr, "D3D11CreateDevice"))
+        return;
     if (!m_device || !m_immediateCtx)
         throw std::runtime_error("D3D11CreateDevice returned an incomplete device");
 
@@ -180,6 +182,8 @@ void DX11Device::init(const DeviceCreateInfo& ci) {
 
     if (ci.enableValidation && (createFlags & D3D11_CREATE_DEVICE_DEBUG))
         m_device.As(&m_debugDevice);
+    if (requestedDebugLayer && !(createFlags & D3D11_CREATE_DEVICE_DEBUG))
+        LOG_WARN("[DX11] D3D11 debug layer is unavailable; validation was disabled for this device");
 
     m_frameCmdList = std::make_unique<DX11CommandList>(m_device.Get(), m_immediateCtx.Get(), m_immediateCtx1.Get());
     m_frameCmdList->trackResource(*this, RHIResourceKind::CommandList, "DX11FrameCommandList");
@@ -199,6 +203,9 @@ void DX11Device::init(const DeviceCreateInfo& ci) {
     const uint32_t selectedSamples = resolveSampleCount(TextureFormat::RGBA8_UNorm, TextureFormat::D24_UNorm_S8_UInt,
                                                         true, m_renderConfig.sampleCount());
     m_renderConfig.msaa = toMSAALevel(selectedSamples);
+    LOG_INFO("[DX11] Device initialized: featureLevel=0x{:X}, debugLayer={}, context1={}, maxMSAA={}",
+             static_cast<unsigned>(achievedLevel), m_debugDevice != nullptr, m_immediateCtx1 != nullptr,
+             m_caps.maxSampleCount);
 }
 
 uint32_t DX11Device::resolveSampleCount(TextureFormat colorFormat, TextureFormat depthFormat, bool hasDepth,
@@ -341,7 +348,7 @@ core::Result<std::unique_ptr<BindGroup>> DX11Device::createBindGroup(const BindG
 void DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     auto* texture = dynamic_cast<DX11Texture*>(dst);
     if (!texture || !texture->resource() || !m_immediateCtx || upload.data.empty()) {
-        std::fprintf(stderr, "[DX11Device] uploadTextureData received an invalid texture or empty data\n");
+        LOG_ERROR("[DX11] uploadTextureData rejected: invalid texture, missing context, or empty source data");
         return;
     }
 
@@ -349,14 +356,14 @@ void DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload
     const uint32_t bytesPerPixel = textureFormatBytesPerPixel(upload.format);
     if (desc.dimension != TextureDimension::Texture2D || desc.sampleCount != 1 || bytesPerPixel == 0 ||
         upload.format != desc.format || upload.mipLevel >= desc.mipLevels || upload.arrayLayer >= desc.arraySize) {
-        std::fprintf(stderr, "[DX11Device] texture upload format or subresource is not supported\n");
+        LOG_ERROR("[DX11] uploadTextureData rejected: unsupported format or subresource");
         return;
     }
 
     const uint32_t expectedWidth = (std::max) (1u, desc.width >> upload.mipLevel);
     const uint32_t expectedHeight = (std::max) (1u, desc.height >> upload.mipLevel);
     if (upload.width != expectedWidth || upload.height != expectedHeight || upload.depth != 1) {
-        std::fprintf(stderr, "[DX11Device] texture upload dimensions do not match the destination subresource\n");
+        LOG_ERROR("[DX11] uploadTextureData rejected: dimensions do not match the destination subresource");
         return;
     }
 
@@ -365,7 +372,7 @@ void DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload
     const uint32_t slicePitch = upload.sourceSlicePitch ? upload.sourceSlicePitch : rowPitch * upload.height;
     if (rowPitch < minimumRowPitch || slicePitch < rowPitch * upload.height ||
         upload.data.size_bytes() < static_cast<size_t>(slicePitch)) {
-        std::fprintf(stderr, "[DX11Device] texture upload source pitch or size is invalid\n");
+        LOG_ERROR("[DX11] uploadTextureData rejected: source pitch or data size is invalid");
         return;
     }
 
@@ -379,7 +386,7 @@ void DX11Device::executeCommandLists(CommandList**, uint32_t, Fence* fence, uint
     if (fence) {
         auto* dx11Fence = dynamic_cast<DX11Fence*>(fence);
         if (!dx11Fence) {
-            std::fprintf(stderr, "[DX11Device] executeCommandLists received a non-DX11 fence\n");
+            LOG_ERROR("[DX11] executeCommandLists rejected: fence is not a DX11 fence");
             return;
         }
         dx11Fence->signal(value);

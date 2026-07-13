@@ -58,7 +58,7 @@ void DX11RenderTarget::resize(uint32_t width, uint32_t height) {
         createResources();
     } catch (const std::exception& e) {
         m_desc = previousDesc;
-        std::fprintf(stderr, "[DX11RenderTarget] resize failed: %s\n", e.what());
+        LOG_ERROR("[DX11] Render target resize failed: {}", e.what());
     }
 }
 

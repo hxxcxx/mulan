@@ -16,8 +16,7 @@ DX11Fence::DX11Fence(ID3D11Device* device, ID3D11DeviceContext* context, uint64_
 void DX11Fence::signal(uint64_t value) {
     if (value <= m_signaled) {
         if (value < m_signaled)
-            std::fprintf(stderr, "[DX11Fence] signal value must be monotonic (current=%llu, requested=%llu)\n",
-                         static_cast<unsigned long long>(m_signaled), static_cast<unsigned long long>(value));
+            LOG_ERROR("[DX11] Fence signal rejected: currentValue={}, requestedValue={}", m_signaled, value);
         return;
     }
 
@@ -42,8 +41,7 @@ void DX11Fence::wait(uint64_t value) {
     if (m_completed >= value)
         return;
     if (value > m_signaled) {
-        std::fprintf(stderr, "[DX11Fence] wait value %llu has not been signaled\n",
-                     static_cast<unsigned long long>(value));
+        LOG_ERROR("[DX11] Fence wait rejected: value {} has not been signaled", value);
         return;
     }
     poll(true, value);

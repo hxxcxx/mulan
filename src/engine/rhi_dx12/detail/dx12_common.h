@@ -20,43 +20,37 @@
 #include <dxgi1_6.h>
 #include <wrl/client.h>
 
-#include <cstdio>
+#include <mulan/core/log/log.h>
+#include <mulan/core/result/error.h>
+
 #include <cstdint>
 #include <cassert>
-#include <stdexcept>
+#include <string>
 
-// D3D12 检查：失败时抛异常，Debug 版附带系统错误消息
-#ifdef _DEBUG
-#define DX12_CHECK(hr)                                                                                               \
-    do {                                                                                                             \
-        HRESULT _dx12_hr = (hr);                                                                                     \
-        if (FAILED(_dx12_hr)) {                                                                                      \
-            char _msg[512] = {};                                                                                     \
-            FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr,                      \
-                           static_cast<DWORD>(_dx12_hr), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), _msg,            \
-                           static_cast<DWORD>(sizeof(_msg)), nullptr);                                               \
-            char _buf[640];                                                                                          \
-            snprintf(_buf, sizeof(_buf), "[DX12 ERROR] HRESULT=0x%08X at %s:%d %s", static_cast<unsigned>(_dx12_hr), \
-                     __FILE__, __LINE__, _msg);                                                                      \
-            throw std::runtime_error(_buf);                                                                          \
-        }                                                                                                            \
-    } while (0)
-#else
-#define DX12_CHECK(hr)                                                                                    \
-    do {                                                                                                  \
-        HRESULT _dx12_hr = (hr);                                                                          \
-        if (FAILED(_dx12_hr)) {                                                                           \
-            char _buf[128];                                                                               \
-            snprintf(_buf, sizeof(_buf), "[DX12 ERROR] HRESULT=0x%08X", static_cast<unsigned>(_dx12_hr)); \
-            throw std::runtime_error(_buf);                                                               \
-        }                                                                                                 \
-    } while (0)
-#endif
+namespace mulan::engine {
 
-#define DX12_LOG(...)                 \
-    do {                              \
-        fprintf(stderr, __VA_ARGS__); \
-    } while (0)
+inline std::string dx12SystemErrorMessage(HRESULT hr) {
+    char message[512] = {};
+    const DWORD length = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr,
+                                        static_cast<DWORD>(hr), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), message,
+                                        static_cast<DWORD>(sizeof(message)), nullptr);
+    return length > 0 ? std::string(message, length) : std::string();
+}
+
+[[nodiscard]] inline core::Result<void> checkDX12(HRESULT hr, std::string_view operation,
+                                                  std::source_location where = std::source_location::current()) {
+    if (SUCCEEDED(hr))
+        return {};
+
+    const std::string systemMessage = dx12SystemErrorMessage(hr);
+    const std::string message = std::string("[DX12] ") + std::string(operation) + " failed (HRESULT=0x" +
+                                std::format("{:08X}", static_cast<unsigned>(hr)) + ")" +
+                                (systemMessage.empty() ? "" : ": " + systemMessage);
+    LOG_ERROR("{}", message);
+    return std::unexpected(core::Error::make(core::ErrorCode::Internal, message, where));
+}
+
+}  // namespace mulan::engine
 
 namespace mulan::engine {
 

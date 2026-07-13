@@ -10,16 +10,17 @@ namespace mulan::engine {
 
 core::Result<std::unique_ptr<DX12Texture>> DX12Texture::create(const TextureDesc& desc, ID3D12Device* device,
                                                                D3D12_RESOURCE_STATES initialState) {
-    try {
-        return std::unique_ptr<DX12Texture>(new DX12Texture(desc, device, initialState));
-    } catch (const std::exception& e) {
-        return std::unexpected(
-                makeError(EngineErrorCode::TextureCreateFailed, std::string("DX12Texture create failed: ") + e.what()));
-    }
+    if (!device)
+        return std::unexpected(makeError(EngineErrorCode::TextureCreateFailed, "DX12Texture requires a valid device"));
+
+    auto texture = std::unique_ptr<DX12Texture>(new DX12Texture(desc, initialState));
+    if (auto result = texture->initialize(device); !result)
+        return std::unexpected(makeError(EngineErrorCode::TextureCreateFailed, result.error().message));
+    return texture;
 }
 
-DX12Texture::DX12Texture(const TextureDesc& desc, ID3D12Device* device, D3D12_RESOURCE_STATES initialState)
-    : desc_(desc), state_(initialState) {
+core::Result<void> DX12Texture::initialize(ID3D12Device* device) {
+    const auto& desc = desc_;
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
     if (desc.usage & TextureUsageFlags::RenderTarget) {
         flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
@@ -71,20 +72,21 @@ DX12Texture::DX12Texture(const TextureDesc& desc, ID3D12Device* device, D3D12_RE
         pClearVal = &clearVal;
     }
 
-    HRESULT hr = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, initialState, pClearVal,
+    HRESULT hr = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, state_, pClearVal,
                                                  IID_PPV_ARGS(&resource_));
-    DX12_CHECK(hr);
+    if (auto result = checkDX12(hr, "ID3D12Device::CreateCommittedResource"); !result)
+        return result;
 
-    createSRVIfNeeded(device);
+    return createSRVIfNeeded(device);
 }
 
 DX12Texture::DX12Texture(const TextureDesc& desc, ID3D12Resource* existingResource, D3D12_RESOURCE_STATES initialState)
     : desc_(desc), resource_(existingResource), state_(initialState) {
 }
 
-void DX12Texture::createSRVIfNeeded(ID3D12Device* device) {
+core::Result<void> DX12Texture::createSRVIfNeeded(ID3D12Device* device) {
     if (!(desc_.usage & TextureUsageFlags::ShaderResource) || !resource_)
-        return;
+        return {};
 
     // 创建私有 CPU-only 描述符堆存放 SRV
     D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
@@ -92,8 +94,8 @@ void DX12Texture::createSRVIfNeeded(ID3D12Device* device) {
     heapDesc.NumDescriptors = 1;
     heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
     HRESULT hr = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&srv_heap_));
-    if (FAILED(hr))
-        return;
+    if (auto result = checkDX12(hr, "ID3D12Device::CreateDescriptorHeap(SRV)"); !result)
+        return result;
 
     srv_ = srv_heap_->GetCPUDescriptorHandleForHeapStart();
 
@@ -110,6 +112,7 @@ void DX12Texture::createSRVIfNeeded(ID3D12Device* device) {
 
     device->CreateShaderResourceView(resource_.Get(), &srvDesc, srv_);
     has_srv_ = true;
+    return {};
 }
 
 DX12Texture::~DX12Texture() = default;

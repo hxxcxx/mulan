@@ -43,7 +43,8 @@ public:
     }
 
 private:
-    DX12Buffer(const BufferDesc& desc, ID3D12Device* device);
+    explicit DX12Buffer(const BufferDesc& desc) : desc_(desc) {}
+    [[nodiscard]] core::Result<void> initialize(ID3D12Device* device);
 
     BufferDesc desc_;
     ComPtr<ID3D12Resource> resource_;

@@ -34,7 +34,7 @@ public:
 private:
     DX12RenderTarget(const RenderTargetDesc& desc, ID3D12Device* device) : desc_(desc), device_(device) {}
 
-    void createResources();
+    [[nodiscard]] core::Result<void> createResources();
 
     RenderTargetDesc desc_;
     ID3D12Device* device_;

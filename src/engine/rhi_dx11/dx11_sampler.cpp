@@ -94,7 +94,8 @@ DX11Sampler::DX11Sampler(const SamplerDesc& desc, ID3D11Device* device) : m_desc
 
     if (!device)
         throw std::invalid_argument("DX11Sampler requires a valid device");
-    DX11_CHECK(device->CreateSamplerState(&d3dDesc, &m_handle));
+    if (!checkDX11(device->CreateSamplerState(&d3dDesc, &m_handle), "ID3D11Device::CreateSamplerState"))
+        return;
 }
 
 DX11Sampler::~DX11Sampler() = default;

@@ -56,7 +56,7 @@ void DX11CommandList::end() {
 void DX11CommandList::setPipelineState(PipelineState* pso) {
     auto* dx11Pso = dynamic_cast<DX11PipelineState*>(pso);
     if (!dx11Pso) {
-        std::fprintf(stderr, "[DX11CommandList] setPipelineState received a non-DX11 pipeline\n");
+        LOG_ERROR("[DX11] setPipelineState rejected: pipeline is not a DX11 pipeline");
         return;
     }
 
@@ -65,7 +65,7 @@ void DX11CommandList::setPipelineState(PipelineState* pso) {
     auto* ps = desc.ps ? dynamic_cast<DX11Shader*>(desc.ps) : nullptr;
     auto* gs = desc.gs ? dynamic_cast<DX11Shader*>(desc.gs) : nullptr;
     if (!vs || (desc.ps && !ps) || (desc.gs && !gs)) {
-        std::fprintf(stderr, "[DX11CommandList] pipeline contains a non-DX11 shader\n");
+        LOG_ERROR("[DX11] setPipelineState rejected: pipeline contains a non-DX11 shader");
         return;
     }
 
@@ -96,7 +96,7 @@ void DX11CommandList::setScissorRect(const ScissorRect& rect) {
 void DX11CommandList::bindGroup(BindGroup& group) {
     auto* dx11Group = dynamic_cast<DX11BindGroup*>(&group);
     if (!dx11Group) {
-        std::fprintf(stderr, "[DX11CommandList] bindGroup received a non-DX11 BindGroup\n");
+        LOG_ERROR("[DX11] bindGroup rejected: bind group is not a DX11 bind group");
         return;
     }
 
@@ -123,7 +123,7 @@ void DX11CommandList::bindEntries(const BindGroupEntry* entries, uint8_t count, 
                 return candidate.binding == entry.binding;
             });
             if (it == layoutEntries.end()) {
-                std::fprintf(stderr, "[DX11CommandList] BindGroup entry %u is absent from its layout\n", entry.binding);
+                LOG_ERROR("[DX11] bindGroup rejected: binding {} is absent from its layout", entry.binding);
                 continue;
             }
             layoutEntry = &*it;
@@ -169,14 +169,14 @@ bool DX11CommandList::ensureFallbackConstantBuffer(uint32_t slot) {
 
 void DX11CommandList::bindConstantBuffer(uint32_t slot, const BindGroupEntry& entry, uint32_t stages) {
     if (slot >= D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT) {
-        std::fprintf(stderr, "[DX11CommandList] constant buffer slot %u exceeds the D3D11 limit\n", slot);
+        LOG_ERROR("[DX11] bindConstantBuffer rejected: slot {} exceeds the D3D11 limit", slot);
         return;
     }
 
     auto* buffer = dynamic_cast<DX11Buffer*>(entry.buffer);
     if (!buffer || !buffer->buffer() || !(buffer->bindFlags() & BufferBindFlags::UniformBuffer)) {
         if (entry.buffer)
-            std::fprintf(stderr, "[DX11CommandList] binding %u is not a valid DX11 uniform buffer\n", slot);
+            LOG_ERROR("[DX11] bindConstantBuffer rejected: binding {} is not a valid DX11 uniform buffer", slot);
 
         ID3D11Buffer* nullBuffer = nullptr;
         if (m_ctx1) {
@@ -197,26 +197,25 @@ void DX11CommandList::bindConstantBuffer(uint32_t slot, const BindGroupEntry& en
         return;
     }
     if ((entry.offset % kConstantBufferRangeAlignment) != 0) {
-        std::fprintf(stderr, "[DX11CommandList] uniform offset %u at binding %u is not 256B aligned\n", entry.offset,
-                     slot);
+        LOG_ERROR("[DX11] bindConstantBuffer rejected: offset {} at binding {} is not 256-byte aligned", entry.offset,
+                  slot);
         return;
     }
     if (entry.offset >= buffer->size()) {
-        std::fprintf(stderr, "[DX11CommandList] uniform offset %u exceeds binding %u buffer size %u\n", entry.offset,
-                     slot, buffer->size());
+        LOG_ERROR("[DX11] bindConstantBuffer rejected: offset {} exceeds binding {} buffer size {}", entry.offset, slot,
+                  buffer->size());
         return;
     }
 
     const uint32_t requestedSize = entry.size ? entry.size : buffer->size() - entry.offset;
     if (requestedSize == 0 || requestedSize > buffer->size() - entry.offset) {
-        std::fprintf(stderr, "[DX11CommandList] uniform range at binding %u exceeds the source buffer\n", slot);
+        LOG_ERROR("[DX11] bindConstantBuffer rejected: range at binding {} exceeds the source buffer", slot);
         return;
     }
     const uint32_t boundSize = alignUp(requestedSize, kConstantBufferRangeAlignment);
     const uint64_t rangeEnd = static_cast<uint64_t>(entry.offset) + boundSize;
     if (boundSize > kMaximumConstantBufferBytes || rangeEnd > buffer->allocationSize()) {
-        std::fprintf(stderr, "[DX11CommandList] uniform range at binding %u is outside D3D11 constant-buffer limits\n",
-                     slot);
+        LOG_ERROR("[DX11] bindConstantBuffer rejected: range at binding {} exceeds D3D11 limits", slot);
         return;
     }
 
@@ -258,13 +257,13 @@ void DX11CommandList::bindConstantBuffer(uint32_t slot, const BindGroupEntry& en
 
 void DX11CommandList::bindTexture(uint32_t slot, Texture* texture, uint32_t stages) {
     if (slot >= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT) {
-        std::fprintf(stderr, "[DX11CommandList] texture slot %u exceeds the D3D11 limit\n", slot);
+        LOG_ERROR("[DX11] bindTexture rejected: slot {} exceeds the D3D11 limit", slot);
         return;
     }
 
     auto* dx11Texture = dynamic_cast<DX11Texture*>(texture);
     if (texture && (!dx11Texture || !dx11Texture->srv()))
-        std::fprintf(stderr, "[DX11CommandList] texture binding %u has no valid DX11 SRV\n", slot);
+        LOG_ERROR("[DX11] bindTexture rejected: binding {} has no valid DX11 SRV", slot);
 
     ID3D11ShaderResourceView* srv = dx11Texture ? dx11Texture->srv() : nullptr;
     if (usesVertexStage(stages))
@@ -277,13 +276,13 @@ void DX11CommandList::bindTexture(uint32_t slot, Texture* texture, uint32_t stag
 
 void DX11CommandList::bindSampler(uint32_t slot, Sampler* sampler, uint32_t stages) {
     if (slot >= D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT) {
-        std::fprintf(stderr, "[DX11CommandList] sampler slot %u exceeds the D3D11 limit\n", slot);
+        LOG_ERROR("[DX11] bindSampler rejected: slot {} exceeds the D3D11 limit", slot);
         return;
     }
 
     auto* dx11Sampler = dynamic_cast<DX11Sampler*>(sampler);
     if (sampler && (!dx11Sampler || !dx11Sampler->handle()))
-        std::fprintf(stderr, "[DX11CommandList] sampler binding %u has no valid DX11 sampler\n", slot);
+        LOG_ERROR("[DX11] bindSampler rejected: binding {} has no valid DX11 sampler", slot);
 
     ID3D11SamplerState* state = dx11Sampler ? dx11Sampler->handle() : nullptr;
     if (usesVertexStage(stages))
@@ -296,17 +295,17 @@ void DX11CommandList::bindSampler(uint32_t slot, Sampler* sampler, uint32_t stag
 
 void DX11CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
     if (slot >= D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT) {
-        std::fprintf(stderr, "[DX11CommandList] vertex buffer slot %u exceeds the D3D11 limit\n", slot);
+        LOG_ERROR("[DX11] setVertexBuffer rejected: slot {} exceeds the D3D11 limit", slot);
         return;
     }
 
     auto* dx11Buffer = dynamic_cast<DX11Buffer*>(buffer);
     if (!dx11Buffer || !dx11Buffer->buffer()) {
-        std::fprintf(stderr, "[DX11CommandList] setVertexBuffer received an invalid DX11 buffer\n");
+        LOG_ERROR("[DX11] setVertexBuffer rejected: invalid DX11 buffer");
         return;
     }
     if (offset >= dx11Buffer->size()) {
-        std::fprintf(stderr, "[DX11CommandList] vertex buffer offset exceeds the buffer size\n");
+        LOG_ERROR("[DX11] setVertexBuffer rejected: offset exceeds the buffer size");
         return;
     }
 
@@ -329,12 +328,12 @@ void DX11CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffe
     for (uint32_t i = 0; i < count; ++i) {
         auto* dx11Buffer = dynamic_cast<DX11Buffer*>(buffers[i]);
         if (!dx11Buffer || !dx11Buffer->buffer()) {
-            std::fprintf(stderr, "[DX11CommandList] setVertexBuffers received an invalid DX11 buffer\n");
+            LOG_ERROR("[DX11] setVertexBuffers rejected: invalid DX11 buffer");
             return;
         }
         const uint32_t offset = offsets ? offsets[i] : 0;
         if (offset >= dx11Buffer->size()) {
-            std::fprintf(stderr, "[DX11CommandList] vertex buffer offset exceeds the buffer size\n");
+            LOG_ERROR("[DX11] setVertexBuffers rejected: offset exceeds the buffer size");
             return;
         }
         nativeBuffers[i] = dx11Buffer->buffer();
@@ -347,7 +346,7 @@ void DX11CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffe
 void DX11CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
     auto* dx11Buffer = dynamic_cast<DX11Buffer*>(buffer);
     if (!dx11Buffer || !dx11Buffer->buffer() || offset >= dx11Buffer->size()) {
-        std::fprintf(stderr, "[DX11CommandList] setIndexBuffer received an invalid range\n");
+        LOG_ERROR("[DX11] setIndexBuffer rejected: invalid buffer or range");
         return;
     }
     const DXGI_FORMAT format = type == IndexType::UInt16 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT;
@@ -374,21 +373,21 @@ void DX11CommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
 void DX11CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
     auto* buffer = dynamic_cast<DX11Buffer*>(argsBuffer);
     if (!buffer || !buffer->buffer() || !(buffer->bindFlags() & BufferBindFlags::IndirectBuffer)) {
-        std::fprintf(stderr, "[DX11CommandList] drawIndirect requires a DX11 indirect-argument buffer\n");
+        LOG_ERROR("[DX11] drawIndirect rejected: a DX11 indirect-argument buffer is required");
         return;
     }
 
     const uint32_t argumentSize = sizeof(D3D11_DRAW_INDEXED_INSTANCED_INDIRECT_ARGS);
     const uint32_t argumentStride = stride ? stride : argumentSize;
     if (argumentStride < argumentSize || drawCount == 0 || offset > buffer->size()) {
-        std::fprintf(stderr, "[DX11CommandList] drawIndirect arguments are invalid\n");
+        LOG_ERROR("[DX11] drawIndirect rejected: arguments are invalid");
         return;
     }
 
     for (uint32_t i = 0; i < drawCount; ++i) {
         const uint64_t argumentOffset = static_cast<uint64_t>(offset) + static_cast<uint64_t>(i) * argumentStride;
         if (argumentOffset + argumentSize > buffer->size()) {
-            std::fprintf(stderr, "[DX11CommandList] drawIndirect arguments exceed the buffer size\n");
+            LOG_ERROR("[DX11] drawIndirect rejected: arguments exceed the buffer size");
             return;
         }
         m_ctx->DrawIndexedInstancedIndirect(buffer->buffer(), static_cast<UINT>(argumentOffset));
@@ -399,7 +398,7 @@ void DX11CommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t siz
                                    ResourceTransitionMode) {
     auto* dx11Buffer = dynamic_cast<DX11Buffer*>(buffer);
     if (!dx11Buffer) {
-        std::fprintf(stderr, "[DX11CommandList] updateBuffer received a non-DX11 buffer\n");
+        LOG_ERROR("[DX11] updateBuffer rejected: buffer is not a DX11 buffer");
         return;
     }
     dx11Buffer->update(offset, size, data);
@@ -470,7 +469,7 @@ bool DX11CommandList::ensureReadbackResolveTexture(uint32_t width, uint32_t heig
 
 bool DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     if (m_renderPassActive) {
-        std::fprintf(stderr, "[DX11CommandList] copyTextureToBuffer must be called after endRenderPass\n");
+        LOG_ERROR("[DX11] copyTextureToBuffer rejected: call it after endRenderPass");
         return false;
     }
 
@@ -478,7 +477,7 @@ bool DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     auto* destinationBuffer = dynamic_cast<DX11Buffer*>(dst);
     if (!sourceTexture || !sourceTexture->resource() || !destinationBuffer || !destinationBuffer->buffer() ||
         destinationBuffer->usage() != BufferUsage::Staging) {
-        std::fprintf(stderr, "[DX11CommandList] copyTextureToBuffer requires a DX11 Texture2D and staging buffer\n");
+        LOG_ERROR("[DX11] copyTextureToBuffer rejected: a DX11 Texture2D and staging buffer are required");
         return false;
     }
 
@@ -486,14 +485,13 @@ bool DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     const uint32_t bytesPerPixel = textureFormatBytesPerPixel(textureDesc.format);
     const DXGI_FORMAT format = toDXGIFormat11(textureDesc.format);
     if (textureDesc.dimension != TextureDimension::Texture2D || bytesPerPixel == 0 || format == DXGI_FORMAT_UNKNOWN) {
-        std::fprintf(stderr,
-                     "[DX11CommandList] copyTextureToBuffer only supports uncompressed color Texture2D resources\n");
+        LOG_ERROR("[DX11] copyTextureToBuffer rejected: only uncompressed color Texture2D resources are supported");
         return false;
     }
 
     const uint64_t imageSize = static_cast<uint64_t>(textureDesc.width) * textureDesc.height * bytesPerPixel;
     if (imageSize > destinationBuffer->size()) {
-        std::fprintf(stderr, "[DX11CommandList] readback buffer is too small for the texture\n");
+        LOG_ERROR("[DX11] copyTextureToBuffer rejected: readback buffer is too small");
         return false;
     }
 
@@ -583,7 +581,7 @@ void DX11CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
     m_activeDepthStoreAction = StoreAction::Store;
 
     const auto rejectRenderPass = [this](const char* reason) {
-        std::fprintf(stderr, "[DX11CommandList] beginRenderPass rejected: %s\n", reason);
+        LOG_ERROR("[DX11] beginRenderPass rejected: {}", reason);
         // 失败后显式解绑，避免后续 draw 意外写入上一轮 render pass 的附件。
         m_ctx->OMSetRenderTargets(0, nullptr, nullptr);
         m_activeColorAttachments.fill(ActiveColorAttachment{});
@@ -699,7 +697,7 @@ void DX11CommandList::endRenderPass() {
             if (!attachment.target->resource() || !attachment.resolveTarget->resource() ||
                 attachment.target->desc().sampleCount <= 1 || attachment.resolveTarget->desc().sampleCount != 1 ||
                 attachment.target->format() != attachment.resolveTarget->format()) {
-                std::fprintf(stderr, "[DX11CommandList] invalid multisample resolve attachment\n");
+                LOG_ERROR("[DX11] endRenderPass: invalid multisample resolve attachment");
             } else {
                 m_ctx->ResolveSubresource(attachment.resolveTarget->resource(), 0, attachment.target->resource(), 0,
                                           toDXGIFormat11(attachment.target->format()));

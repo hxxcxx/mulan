@@ -8,16 +8,19 @@ namespace mulan::engine {
 DX12UploadContext::DX12UploadContext(ID3D12Device* device, ID3D12CommandQueue* queue, uint32_t frameCount)
     : device_(device), queue_(queue) {
     HRESULT hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmd_allocator_));
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "ID3D12Device::CreateCommandAllocator"))
+        return;
 
     hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmd_allocator_.Get(), nullptr,
                                    IID_PPV_ARGS(&cmd_list_));
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "ID3D12Device::CreateCommandList"))
+        return;
     // 创建时处于 open 状态，先关闭
     cmd_list_->Close();
 
     hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence_));
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "ID3D12Device::CreateFence"))
+        return;
     fence_event_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
 }
 
@@ -33,16 +36,18 @@ DX12UploadContext::~DX12UploadContext() {
         CloseHandle(fence_event_);
 }
 
-DX12UploadContext::StagingSlab& DX12UploadContext::getOrCreateSlab(uint64_t minSize, uint32_t alignment,
+DX12UploadContext::StagingSlab* DX12UploadContext::getOrCreateSlab(uint64_t minSize, uint32_t alignment,
                                                                    uint32_t& alignedOffset) {
-    if (minSize > UINT32_MAX)
-        throw std::overflow_error("DX12 staging allocation exceeds 4 GiB");
+    if (minSize > UINT32_MAX) {
+        LOG_ERROR("[DX12] Staging allocation rejected: size exceeds 4 GiB");
+        return nullptr;
+    }
     // 在已有 slab 中找空间
     for (auto& slab : slabs_) {
         const uint64_t offset = (static_cast<uint64_t>(slab.used) + alignment - 1) & ~(alignment - 1ull);
         if (offset + minSize <= slab.capacity) {
             alignedOffset = static_cast<uint32_t>(offset);
-            return slab;
+            return &slab;
         }
     }
 
@@ -71,23 +76,27 @@ DX12UploadContext::StagingSlab& DX12UploadContext::getOrCreateSlab(uint64_t minS
     HRESULT hr =
             device_->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ,
                                              nullptr, IID_PPV_ARGS(&slab.resource));
-    DX12_CHECK(hr);
+    if (!checkDX12(hr, "ID3D12Device::CreateCommittedResource(upload slab)"))
+        return nullptr;
 
     D3D12_RANGE range = { 0, 0 };
-    slab.resource->Map(0, &range, &slab.mapped);
+    if (!checkDX12(slab.resource->Map(0, &range, &slab.mapped), "ID3D12Resource::Map(upload slab)"))
+        return nullptr;
 
     slabs_.push_back(std::move(slab));
     alignedOffset = 0;
-    return slabs_.back();
+    return &slabs_.back();
 }
 
 void DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* data, uint32_t size, uint32_t dstOffset) {
     uint32_t offset = 0;
-    auto& slab = getOrCreateSlab(size, 256, offset);
+    auto* slab = getOrCreateSlab(size, 256, offset);
+    if (!slab)
+        return;
 
     // 拷贝到 staging
-    memcpy(static_cast<uint8_t*>(slab.mapped) + offset, data, size);
-    slab.used = offset + size;
+    memcpy(static_cast<uint8_t*>(slab->mapped) + offset, data, size);
+    slab->used = offset + size;
 
     // 非批量模式：每次提交都需 Reset 重新开录；批量模式：cmd_list 已 open，直接 Record
     if (!batch_active_) {
@@ -103,7 +112,7 @@ void DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* data, uint32_t
     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
     cmd_list_->ResourceBarrier(1, &barrier);
 
-    cmd_list_->CopyBufferRegion(dst->resource(), dstOffset, slab.resource.Get(), offset, size);
+    cmd_list_->CopyBufferRegion(dst->resource(), dstOffset, slab->resource.Get(), offset, size);
 
     // 转回 COMMON
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
@@ -137,16 +146,18 @@ void DX12UploadContext::uploadTexture(DX12Texture* dst, const TextureUploadDesc&
 
     // 分配 staging（按 256 对齐 slab.used）
     uint32_t slabOffset = 0;
-    auto& slab = getOrCreateSlab(totalSize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, slabOffset);
+    auto* slab = getOrCreateSlab(totalSize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, slabOffset);
+    if (!slab)
+        return;
 
     // 逐行拷贝：源行距 = width*bpp，目标行距 = footprint.Footprint.RowPitch
     const auto* src = reinterpret_cast<const uint8_t*>(upload.data.data());
-    auto* dstPtr = static_cast<uint8_t*>(slab.mapped) + slabOffset;
+    auto* dstPtr = static_cast<uint8_t*>(slab->mapped) + slabOffset;
     const uint32_t srcRowSize = upload.width * bpp;
     for (UINT r = 0; r < numRows; ++r) {
         memcpy(dstPtr + r * footprint.Footprint.RowPitch, src + r * sourceRowPitch, srcRowSize);
     }
-    slab.used = slabOffset + static_cast<uint32_t>(totalSize);
+    slab->used = slabOffset + static_cast<uint32_t>(totalSize);
 
     // 录制
     if (!batch_active_) {
@@ -163,7 +174,7 @@ void DX12UploadContext::uploadTexture(DX12Texture* dst, const TextureUploadDesc&
     cmd_list_->ResourceBarrier(1, &barrier);
 
     D3D12_TEXTURE_COPY_LOCATION srcLoc{};
-    srcLoc.pResource = slab.resource.Get();
+    srcLoc.pResource = slab->resource.Get();
     srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
     srcLoc.PlacedFootprint = footprint;
     srcLoc.PlacedFootprint.Offset = slabOffset;

@@ -19,10 +19,11 @@
 #include <dxgi1_3.h>
 #include <wrl/client.h>
 
-#include <cstdio>
+#include <mulan/core/log/log.h>
+#include <mulan/core/result/error.h>
+
 #include <cstdint>
 #include <cassert>
-#include <stdexcept>
 #include <string>
 
 namespace mulan::engine {
@@ -37,27 +38,23 @@ inline std::string dx11SystemErrorMessage(HRESULT hr) {
     return length > 0 ? std::string(message, length) : std::string();
 }
 
-[[noreturn]] inline void throwDX11Failure(HRESULT hr, const char* file, int line) {
-    char prefix[256] = {};
-    std::snprintf(prefix, sizeof(prefix), "[DX11 ERROR] HRESULT=0x%08X at %s:%d", static_cast<unsigned>(hr), file,
-                  line);
+[[nodiscard]] inline core::Result<void> checkDX11(HRESULT hr, std::string_view operation,
+                                                  std::source_location where = std::source_location::current()) {
+    if (SUCCEEDED(hr))
+        return {};
+
     const std::string systemMessage = dx11SystemErrorMessage(hr);
-    throw std::runtime_error(systemMessage.empty() ? std::string(prefix) : std::string(prefix) + " " + systemMessage);
+    const std::string message = std::string("[DX11] ") + std::string(operation) + " failed (HRESULT=0x" +
+                                std::format("{:08X}", static_cast<unsigned>(hr)) + ")" +
+                                (systemMessage.empty() ? "" : ": " + systemMessage);
+    LOG_ERROR("{}", message);
+    return std::unexpected(core::Error::make(core::ErrorCode::Internal, message, where));
 }
 
 inline void logDX11Failure(HRESULT hr, const char* operation) {
     const std::string systemMessage = dx11SystemErrorMessage(hr);
-    std::fprintf(stderr, "[DX11] %s failed (HRESULT=0x%08X)%s%s\n", operation, static_cast<unsigned>(hr),
-                 systemMessage.empty() ? "" : ": ", systemMessage.c_str());
+    LOG_ERROR("[DX11] {} failed (HRESULT=0x{:08X}){}{}", operation, static_cast<unsigned>(hr),
+              systemMessage.empty() ? "" : ": ", systemMessage);
 }
 
 }  // namespace mulan::engine
-
-// 创建资源失败必须传递到 Device 工厂，不能只在 Debug 输出后继续使用空句柄。
-#define DX11_CHECK(expression)                                               \
-    do {                                                                     \
-        const HRESULT _dx11_hr = (expression);                               \
-        if (FAILED(_dx11_hr)) {                                              \
-            ::mulan::engine::throwDX11Failure(_dx11_hr, __FILE__, __LINE__); \
-        }                                                                    \
-    } while (0)

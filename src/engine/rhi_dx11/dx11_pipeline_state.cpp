@@ -90,8 +90,10 @@ void DX11PipelineState::createInputLayout() {
         elements.push_back(elem);
     }
 
-    DX11_CHECK(m_device->CreateInputLayout(elements.data(), static_cast<UINT>(elements.size()),
-                                           vsShader->byteCodeData(), vsShader->byteCodeSize(), &m_inputLayout));
+    if (!checkDX11(m_device->CreateInputLayout(elements.data(), static_cast<UINT>(elements.size()),
+                                               vsShader->byteCodeData(), vsShader->byteCodeSize(), &m_inputLayout),
+                   "ID3D11Device::CreateInputLayout"))
+        return;
 }
 
 void DX11PipelineState::createRasterizerState() {
@@ -108,7 +110,8 @@ void DX11PipelineState::createRasterizerState() {
     rd.AntialiasedLineEnable = FALSE;
 
     HRESULT hr = m_device->CreateRasterizerState(&rd, &m_rasterizer);
-    DX11_CHECK(hr);
+    if (!checkDX11(hr, "ID3D11Device::CreateRasterizerState"))
+        return;
 }
 
 void DX11PipelineState::createBlendState() {
@@ -130,7 +133,8 @@ void DX11PipelineState::createBlendState() {
     }
 
     HRESULT hr = m_device->CreateBlendState(&bd, &m_blend);
-    DX11_CHECK(hr);
+    if (!checkDX11(hr, "ID3D11Device::CreateBlendState"))
+        return;
 }
 
 void DX11PipelineState::createDepthStencilState() {
@@ -155,7 +159,8 @@ void DX11PipelineState::createDepthStencilState() {
     dd.BackFace.StencilFunc = toDX11CompareFunc(m_desc.depthStencil.backFace.func);
 
     HRESULT hr = m_device->CreateDepthStencilState(&dd, &m_depthStencil);
-    DX11_CHECK(hr);
+    if (!checkDX11(hr, "ID3D11Device::CreateDepthStencilState"))
+        return;
 }
 
 }  // namespace mulan::engine

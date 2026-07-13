@@ -107,17 +107,17 @@ DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11Devic
         pInit = &initData;
     }
 
-    DX11_CHECK(device->CreateBuffer(&bd, pInit, &m_buffer));
+    if (!checkDX11(device->CreateBuffer(&bd, pInit, &m_buffer), "ID3D11Device::CreateBuffer"))
+        return;
 }
 
 void DX11Buffer::update(uint32_t offset, uint32_t size, const void* data) {
     if (!m_buffer || !data || size == 0 || offset > m_desc.size || size > m_desc.size - offset) {
-        std::fprintf(stderr, "[DX11Buffer] invalid update range (offset=%u, size=%u, buffer=%u)\n", offset, size,
-                     m_desc.size);
+        LOG_ERROR("[DX11] Buffer update rejected: offset={}, size={}, bufferSize={}", offset, size, m_desc.size);
         return;
     }
     if (m_desc.usage == BufferUsage::Immutable) {
-        std::fprintf(stderr, "[DX11Buffer] immutable buffer cannot be updated\n");
+        LOG_ERROR("[DX11] Buffer update rejected: immutable buffers cannot be updated");
         return;
     }
 

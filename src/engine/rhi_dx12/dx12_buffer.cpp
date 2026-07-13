@@ -6,15 +6,17 @@
 namespace mulan::engine {
 
 core::Result<std::unique_ptr<DX12Buffer>> DX12Buffer::create(const BufferDesc& desc, ID3D12Device* device) {
-    try {
-        return std::unique_ptr<DX12Buffer>(new DX12Buffer(desc, device));
-    } catch (const std::exception& e) {
-        return std::unexpected(
-                makeError(EngineErrorCode::BufferCreateFailed, std::string("DX12Buffer create failed: ") + e.what()));
-    }
+    if (!device)
+        return std::unexpected(makeError(EngineErrorCode::BufferCreateFailed, "DX12Buffer requires a valid device"));
+
+    auto buffer = std::unique_ptr<DX12Buffer>(new DX12Buffer(desc));
+    if (auto result = buffer->initialize(device); !result)
+        return std::unexpected(makeError(EngineErrorCode::BufferCreateFailed, result.error().message));
+    return buffer;
 }
 
-DX12Buffer::DX12Buffer(const BufferDesc& desc, ID3D12Device* device) : desc_(desc) {
+core::Result<void> DX12Buffer::initialize(ID3D12Device* device) {
+    const auto& desc = desc_;
     D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON;
 
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
@@ -72,13 +74,17 @@ DX12Buffer::DX12Buffer(const BufferDesc& desc, ID3D12Device* device) : desc_(des
 
     HRESULT hr = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, initialState, nullptr,
                                                  IID_PPV_ARGS(&resource_));
-    DX12_CHECK(hr);
+    if (auto result = checkDX12(hr, "ID3D12Device::CreateCommittedResource"); !result)
+        return result;
 
     // Upload 堆保持持久映射。Readback 堆在 readback() 中按 CPU 读取范围映射，
     // 避免对同一个资源重复 Map/Unmap。
     if (desc.usage == BufferUsage::Dynamic) {
         D3D12_RANGE range = { 0, 0 };  // 不读
-        resource_->Map(0, &range, &mapped_data_);
+        if (auto result = checkDX12(resource_->Map(0, &range, &mapped_data_), "ID3D12Resource::Map(upload buffer)");
+            !result) {
+            return result;
+        }
     }
 
     // 保存初始数据用于后续上传
@@ -86,6 +92,7 @@ DX12Buffer::DX12Buffer(const BufferDesc& desc, ID3D12Device* device) : desc_(des
         pending_data_.assign(static_cast<const uint8_t*>(desc.initData),
                              static_cast<const uint8_t*>(desc.initData) + desc.size);
     }
+    return {};
 }
 
 DX12Buffer::~DX12Buffer() {
