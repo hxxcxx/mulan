@@ -188,6 +188,7 @@ void VKDevice::waitIdle() {
 // ============================================================
 
 void VKDevice::beginFrame(SwapChain* swapchain) {
+    collectGarbage();
     frame_scheduler_->beginFrame(swapchain);
 }
 
@@ -199,20 +200,39 @@ CommandList* VKDevice::frameCommandList() {
     return frame_scheduler_->frameCommandList();
 }
 
-void VKDevice::submitAndPresent(SwapChain* swapchain) {
-    submit();
+core::Result<SubmissionToken> VKDevice::submitAndPresent(SwapChain* swapchain) {
+    auto result = submit();
+    if (!result)
+        return std::unexpected(result.error());
     present(swapchain);
+    return result;
 }
 
-void VKDevice::submit() {
-    frame_scheduler_->submit();
+core::Result<SubmissionToken> VKDevice::submit() {
+    const SubmissionToken token = reserveSubmissionToken();
+    if (!token)
+        return std::unexpected(
+                makeError(EngineErrorCode::SubmissionFailed, "Vulkan submission timeline is unavailable"));
+    auto* completionFence = static_cast<VKFence*>(submissionFence());
+    if (!frame_scheduler_->submit(completionFence->semaphore(), token.value))
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "Vulkan frame submission failed"));
+    commitSubmission(token);
+    return token;
 }
 
 void VKDevice::present(SwapChain* swapchain) {
     frame_scheduler_->present(swapchain);
 }
 
-void VKDevice::submitOffscreen() {
-    frame_scheduler_->submitOffscreen();
+core::Result<SubmissionToken> VKDevice::submitOffscreen() {
+    const SubmissionToken token = reserveSubmissionToken();
+    if (!token)
+        return std::unexpected(
+                makeError(EngineErrorCode::SubmissionFailed, "Vulkan submission timeline is unavailable"));
+    auto* completionFence = static_cast<VKFence*>(submissionFence());
+    if (!frame_scheduler_->submitOffscreen(completionFence->semaphore(), token.value))
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "Vulkan offscreen submission failed"));
+    commitSubmission(token);
+    return token;
 }
 }  // namespace mulan::engine

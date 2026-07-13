@@ -40,7 +40,7 @@ public:
     math::Mat4 clipSpaceCorrectionMatrix() const override;
     bool isInitialized() const {
         return factory_ && device_ && command_queue_ && !frames_.empty() && upload_context_ && shader_visible_heap_ &&
-               sampler_heap_ && shader_visible_heap_->isValid() && sampler_heap_->isValid();
+               sampler_heap_ && submissionFence() && shader_visible_heap_->isValid() && sampler_heap_->isValid();
     }
 
     // --- 资源创建 ---
@@ -72,10 +72,10 @@ public:
     void beginFrame(SwapChain* swapchain = nullptr) override;
     void clearCaches() override;
     CommandList* frameCommandList() override;
-    void submitAndPresent(SwapChain* swapchain) override;
-    void submit() override;
+    core::Result<SubmissionToken> submitAndPresent(SwapChain* swapchain) override;
+    core::Result<SubmissionToken> submit() override;
     void present(SwapChain* swapchain) override;
-    void submitOffscreen() override;
+    core::Result<SubmissionToken> submitOffscreen() override;
 
     /// 惰性创建间接绘制 CommandSignature
     ID3D12CommandSignature* drawIndirectSignature();

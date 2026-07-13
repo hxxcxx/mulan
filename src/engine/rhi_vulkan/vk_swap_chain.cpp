@@ -20,6 +20,11 @@ core::Result<std::unique_ptr<VKSwapChain>> VKSwapChain::create(const SwapChainDe
 }
 
 VKSwapChain::~VKSwapChain() {
+    try {
+        params_.presentQueue.waitIdle();
+    } catch (const vk::Error& error) {
+        LOG_ERROR("[Vulkan] Present queue wait failed during swapchain destruction: {}", error.what());
+    }
     cleanup();
     if (surface_) {
         params_.instance.destroySurfaceKHR(surface_);
@@ -72,7 +77,14 @@ void VKSwapChain::present() {
 }
 
 void VKSwapChain::resize(uint32_t width, uint32_t height) {
-    params_.device.waitIdle();
+    // Graphics submission 已由调用方精确等待；这里只等待 presentation queue
+    // 释放旧 swapchain images，避免阻塞设备上的其他队列。
+    try {
+        params_.presentQueue.waitIdle();
+    } catch (const vk::Error& error) {
+        LOG_ERROR("[Vulkan] Present queue wait failed during swapchain resize: {}", error.what());
+        return;
+    }
     cleanup();
     desc_.width = width;
     desc_.height = height;

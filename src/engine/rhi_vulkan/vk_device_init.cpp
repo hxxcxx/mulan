@@ -365,6 +365,12 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     frame_scheduler_ = std::make_unique<VKFrameScheduler>(device_, graphics_queue_, graphics_queue_family_);
     frame_scheduler_->initFrameContexts(ci.renderConfig.bufferCount > 0 ? ci.renderConfig.bufferCount : 2);
     resource_factory_ = std::make_unique<VKResourceFactory>(*this, device_, allocator_, *upload_context_);
+    auto submissionFenceResult = createFence(0);
+    if (!submissionFenceResult) {
+        LOG_ERROR("[Vulkan] Submission timeline creation failed: {}", submissionFenceResult.error().message);
+        return;
+    }
+    initializeSubmissionTracking(std::move(*submissionFenceResult));
     LOG_INFO("[Vulkan] Device initialized: gpu={}, api={}.{}.{}, maxMSAA={}, validation={}", props.deviceName.data(),
              VK_API_VERSION_MAJOR(props.apiVersion), VK_API_VERSION_MINOR(props.apiVersion),
              VK_API_VERSION_PATCH(props.apiVersion), caps_.maxSampleCount, ci.enableValidation);
@@ -384,6 +390,8 @@ void VKDevice::shutdown() {
     }
 
     // Destroy all objects that reference the device or allocator before their owners.
+    drainDeferredReleases();
+    shutdownSubmissionTracking();
     resource_factory_.reset();
     frame_scheduler_.reset();
     upload_context_.reset();

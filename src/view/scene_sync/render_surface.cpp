@@ -12,7 +12,19 @@
 #include <utility>
 
 namespace mulan::view {
+
 namespace {
+bool waitForLastSurfaceUse(engine::RHIDevice& device, const char* operation) {
+    const engine::SubmissionToken token = device.lastSubmissionToken();
+    if (!token)
+        return true;
+    auto result = device.waitForSubmission(token);
+    if (!result) {
+        LOG_ERROR("[RenderSurface] GPU wait failed before {}: {}", operation, result.error().message);
+        return false;
+    }
+    return true;
+}
 
 uint32_t readbackRowBytes(const engine::RHIDevice& device, int width, uint32_t bytesPerPixel) {
     const uint32_t tightRowBytes = static_cast<uint32_t>(width) * bytesPerPixel;
@@ -126,7 +138,8 @@ bool RenderSurface::configureOffscreenSurface(engine::RHIDevice& device, const R
             offscreen_desc_.hasDepth != desc.hasDepth || offscreen_desc_.sampleCount != desc.sampleCount;
     const bool readbackChanged = offscreen_desc_.readback != desc.readback;
 
-    device.waitIdle();
+    if (!waitForLastSurfaceUse(device, "offscreen reconfiguration"))
+        return false;
     offscreen_desc_ = desc;
     width_ = desc.width;
     height_ = desc.height;
@@ -155,7 +168,7 @@ bool RenderSurface::configureOffscreenSurface(engine::RHIDevice& device, const R
 void RenderSurface::shutdown(engine::RHIDevice& device) {
     if (!swapchain_ && !render_target_)
         return;
-    device.waitIdle();
+    (void) waitForLastSurfaceUse(device, "surface shutdown");
     staging_buffer_.reset();
     render_target_.reset();
     swapchain_.reset();
@@ -174,7 +187,8 @@ void RenderSurface::resize(engine::RHIDevice& device, int width, int height) {
     width_ = width;
     height_ = height;
 
-    device.waitIdle();
+    if (!waitForLastSurfaceUse(device, "surface resize"))
+        return;
 
     if (render_target_) {
         offscreen_desc_.width = width;

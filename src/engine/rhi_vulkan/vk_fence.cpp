@@ -47,7 +47,7 @@ void VKFence::wait(uint64_t value) {
     uint64_t values[] = { value };
     info.pSemaphores = semaphores;
     info.pValues = values;
-    device_.waitSemaphores(info, UINT64_MAX);
+    (void) device_.waitSemaphores(info, UINT64_MAX);
 }
 
 uint64_t VKFence::completedValue() const {

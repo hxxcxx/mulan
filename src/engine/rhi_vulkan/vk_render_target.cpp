@@ -18,7 +18,6 @@ VKRenderTarget::~VKRenderTarget() {
 }
 
 void VKRenderTarget::resize(uint32_t width, uint32_t height) {
-    device_.waitIdle();
     cleanup();
     desc_.width = width;
     desc_.height = height;

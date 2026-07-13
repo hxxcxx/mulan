@@ -108,6 +108,8 @@ DX11Device::DX11Device(const DeviceCreateInfo& ci) {
 
 DX11Device::~DX11Device() {
     waitIdle();
+    drainDeferredReleases();
+    shutdownSubmissionTracking();
     m_frameCmdList.reset();
     m_immediateCtx1.Reset();
     m_immediateCtx.Reset();
@@ -186,6 +188,13 @@ void DX11Device::init(const DeviceCreateInfo& ci) {
 
     m_frameCmdList = std::make_unique<DX11CommandList>(m_device.Get(), m_immediateCtx.Get(), m_immediateCtx1.Get());
     m_frameCmdList->trackResource(*this, RHIResourceKind::CommandList, "DX11FrameCommandList");
+
+    auto submissionFenceResult = createFence(0);
+    if (!submissionFenceResult) {
+        LOG_ERROR("[DX11] Submission timeline creation failed: {}", submissionFenceResult.error().message);
+        return;
+    }
+    initializeSubmissionTracking(std::move(*submissionFenceResult));
 
     m_caps.backend = GraphicsBackend::D3D11;
     m_caps.maxTextureSize = D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION;
@@ -415,6 +424,7 @@ void DX11Device::waitIdle() {
 }
 
 void DX11Device::beginFrame(SwapChain*) {
+    collectGarbage();
     // immediate context 不需要 acquire/reset；SwapChain 在 Present 后自动轮换。
 }
 
@@ -427,9 +437,19 @@ CommandList* DX11Device::frameCommandList() {
     return m_frameCmdList.get();
 }
 
-void DX11Device::submit() {
-    if (m_immediateCtx)
-        m_immediateCtx->Flush();
+core::Result<SubmissionToken> DX11Device::submit() {
+    if (!m_immediateCtx)
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 immediate context is unavailable"));
+
+    const SubmissionToken token = reserveSubmissionToken();
+    if (!token)
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 submission timeline is unavailable"));
+    auto* completionFence = static_cast<DX11Fence*>(submissionFence());
+    completionFence->signal(token.value);
+    if (completionFence->signaledValue() < token.value)
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 event query creation failed"));
+    commitSubmission(token);
+    return token;
 }
 
 void DX11Device::present(SwapChain* swapchain) {
@@ -437,13 +457,16 @@ void DX11Device::present(SwapChain* swapchain) {
         swapchain->present();
 }
 
-void DX11Device::submitAndPresent(SwapChain* swapchain) {
-    submit();
+core::Result<SubmissionToken> DX11Device::submitAndPresent(SwapChain* swapchain) {
+    auto result = submit();
+    if (!result)
+        return std::unexpected(result.error());
     present(swapchain);
+    return result;
 }
 
-void DX11Device::submitOffscreen() {
-    submit();
+core::Result<SubmissionToken> DX11Device::submitOffscreen() {
+    return submit();
 }
 
 }  // namespace mulan::engine

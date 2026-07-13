@@ -165,8 +165,8 @@ void VKUploadContext::resetSlabs() {
 
 void VKUploadContext::flush() {
     if (pending_) {
-        device_.waitForFences(upload_fence_, true, UINT64_MAX);
-        device_.resetFences(upload_fence_);
+        (void) device_.waitForFences(upload_fence_, true, UINT64_MAX);
+        (void) device_.resetFences(upload_fence_);
         pending_ = false;
         resetSlabs();
     }
@@ -200,11 +200,11 @@ void VKUploadContext::flushUploadBatch() {
     submitInfo.pCommandBuffers = &batch_cmd_;
     queue_.submit(submitInfo, upload_fence_);
 
-    device_.waitForFences(upload_fence_, true, UINT64_MAX);
-    device_.resetFences(upload_fence_);
+    (void) device_.waitForFences(upload_fence_, true, UINT64_MAX);
+    (void) device_.resetFences(upload_fence_);
 
     device_.freeCommandBuffers(cmd_pool_, batch_cmd_);
-    device_.resetCommandPool(cmd_pool_);
+    (void) device_.resetCommandPool(cmd_pool_);
     resetSlabs();
 
     batch_active_ = false;

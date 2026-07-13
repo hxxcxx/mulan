@@ -78,11 +78,11 @@ private:
         submitInfo.pCommandBuffers = &cmds[0];
         queue_.submit(submitInfo, upload_fence_);
 
-        device_.waitForFences(upload_fence_, true, UINT64_MAX);
-        device_.resetFences(upload_fence_);
+        (void) device_.waitForFences(upload_fence_, true, UINT64_MAX);
+        (void) device_.resetFences(upload_fence_);
 
         device_.freeCommandBuffers(cmd_pool_, cmds);
-        device_.resetCommandPool(cmd_pool_);
+        (void) device_.resetCommandPool(cmd_pool_);
         resetSlabs();
     }
 

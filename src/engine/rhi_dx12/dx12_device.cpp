@@ -56,6 +56,8 @@ DX12Device::DX12Device(const DeviceCreateInfo& ci) {
 
 DX12Device::~DX12Device() {
     waitIdle();
+    drainDeferredReleases();
+    shutdownSubmissionTracking();
     upload_context_.reset();
     frames_.clear();
     shader_visible_heap_.reset();
@@ -109,6 +111,13 @@ void DX12Device::init(const DeviceCreateInfo& ci) {
                                                               D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 64);
     if (!shader_visible_heap_->isValid() || !sampler_heap_->isValid())
         return;
+
+    auto submissionFenceResult = createFence(0);
+    if (!submissionFenceResult) {
+        LOG_ERROR("[DX12] Submission timeline creation failed: {}", submissionFenceResult.error().message);
+        return;
+    }
+    initializeSubmissionTracking(std::move(*submissionFenceResult));
 
     caps_.backend = GraphicsBackend::D3D12;
 
@@ -501,7 +510,7 @@ void DX12Device::waitIdle() {
 // ============================================================
 
 void DX12Device::beginFrame(SwapChain* /*swapchain*/) {
-    frame_index_ = (frame_index_ + 1) % frame_count_;
+    collectGarbage();
     auto& frame = frames_[frame_index_];
     frame->waitForFence();
     frame->resetCommandAllocator();
@@ -539,12 +548,15 @@ CommandList* DX12Device::frameCommandList() {
     return frame_cmd_wrapper_.get();
 }
 
-void DX12Device::submitAndPresent(SwapChain* swapchain) {
-    submit();
+core::Result<SubmissionToken> DX12Device::submitAndPresent(SwapChain* swapchain) {
+    auto result = submit();
+    if (!result)
+        return std::unexpected(result.error());
     present(swapchain);
+    return result;
 }
 
-void DX12Device::submit() {
+core::Result<SubmissionToken> DX12Device::submit() {
     auto& frame = frames_[frame_index_];
 
     // cmd list 已由 EngineView::cmd->end() 关闭，直接提交
@@ -556,7 +568,17 @@ void DX12Device::submit() {
     frame->setFenceValue(fenceVal);
     HRESULT hr = command_queue_->Signal(frame->fence()->fence(), fenceVal);
     if (!checkDX12(hr, "ID3D12CommandQueue::Signal"))
-        return;
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX12 frame fence signal failed"));
+
+    const SubmissionToken token = reserveSubmissionToken();
+    if (!token)
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX12 submission timeline is unavailable"));
+    auto* completionFence = static_cast<DX12Fence*>(submissionFence());
+    hr = command_queue_->Signal(completionFence->fence(), token.value);
+    if (!checkDX12(hr, "ID3D12CommandQueue::Signal(submission timeline)"))
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX12 submission timeline signal failed"));
+    commitSubmission(token);
+    return token;
 }
 
 void DX12Device::present(SwapChain* swapchain) {
@@ -565,15 +587,8 @@ void DX12Device::present(SwapChain* swapchain) {
     frame_index_ = (frame_index_ + 1) % frame_count_;
 }
 
-void DX12Device::submitOffscreen() {
-    auto& frame = frames_[frame_index_];
-
-    ID3D12CommandList* lists[] = { frame->commandList() };
-    command_queue_->ExecuteCommandLists(1, lists);
-
-    auto fenceVal = frame->fenceValue() + 1;
-    frame->setFenceValue(fenceVal);
-    command_queue_->Signal(frame->fence()->fence(), fenceVal);
+core::Result<SubmissionToken> DX12Device::submitOffscreen() {
+    return submit();
 }
 
 }  // namespace mulan::engine

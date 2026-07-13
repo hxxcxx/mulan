@@ -127,12 +127,22 @@ void GLDevice::init(const CreateInfo& ci) {
 
     frame_command_list_ = std::make_unique<GLCommandList>();
     frame_command_list_->trackResource(*this, RHIResourceKind::CommandList, "OpenGLFrameCommandList");
+    auto submissionFenceResult = createFence(0);
+    if (!submissionFenceResult) {
+        LOG_ERROR("[OpenGL] Submission timeline creation failed: {}", submissionFenceResult.error().message);
+        frame_command_list_.reset();
+        shutdown();
+        return;
+    }
+    initializeSubmissionTracking(std::move(*submissionFenceResult));
     initialized_ = true;
     LOG_INFO("[OpenGL] Device initialization complete");
 }
 
 GLDevice::~GLDevice() {
     waitIdle();
+    drainDeferredReleases();
+    shutdownSubmissionTracking();
     frame_command_list_.reset();
     shutdown();
 }
@@ -294,9 +304,9 @@ void GLDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) 
 }
 
 void GLDevice::executeCommandLists(CommandList**, uint32_t, Fence* fence, uint64_t fenceValue) {
-    glFlush();
     if (fence)
         fence->signal(fenceValue);
+    glFlush();
 }
 
 void GLDevice::waitIdle() {
@@ -305,8 +315,11 @@ void GLDevice::waitIdle() {
 }
 
 void GLDevice::beginFrame(SwapChain*) {
-    if (context_ && !context_->makeCurrent())
+    if (context_ && !context_->makeCurrent()) {
         LOG_ERROR("[OpenGL] Failed to make the context current for the frame");
+        return;
+    }
+    collectGarbage();
 }
 
 void GLDevice::clearCaches() {
@@ -323,8 +336,18 @@ CommandList* GLDevice::frameCommandList() {
     return initialized_ ? frame_command_list_.get() : nullptr;
 }
 
-void GLDevice::submit() {
+core::Result<SubmissionToken> GLDevice::submit() {
+    const SubmissionToken token = reserveSubmissionToken();
+    if (!token)
+        return std::unexpected(
+                makeError(EngineErrorCode::SubmissionFailed, "OpenGL submission timeline is unavailable"));
+    auto* completionFence = static_cast<GLFence*>(submissionFence());
+    completionFence->signal(token.value);
     glFlush();
+    if (!completionFence->isValid())
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "glFenceSync failed"));
+    commitSubmission(token);
+    return token;
 }
 
 void GLDevice::present(SwapChain* swapchain) {
@@ -332,13 +355,16 @@ void GLDevice::present(SwapChain* swapchain) {
         swapchain->present();
 }
 
-void GLDevice::submitAndPresent(SwapChain* swapchain) {
-    submit();
+core::Result<SubmissionToken> GLDevice::submitAndPresent(SwapChain* swapchain) {
+    auto result = submit();
+    if (!result)
+        return std::unexpected(result.error());
     present(swapchain);
+    return result;
 }
 
-void GLDevice::submitOffscreen() {
-    submit();
+core::Result<SubmissionToken> GLDevice::submitOffscreen() {
+    return submit();
 }
 
 }  // namespace mulan::engine

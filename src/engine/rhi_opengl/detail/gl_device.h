@@ -94,10 +94,10 @@ public:
     void beginFrame(SwapChain* swapchain = nullptr) override;
     void clearCaches() override;
     CommandList* frameCommandList() override;
-    void submitAndPresent(SwapChain* swapchain) override;
-    void submit() override;
+    core::Result<SubmissionToken> submitAndPresent(SwapChain* swapchain) override;
+    core::Result<SubmissionToken> submit() override;
     void present(SwapChain* swapchain) override;
-    void submitOffscreen() override;
+    core::Result<SubmissionToken> submitOffscreen() override;
 
     // --- OpenGL 特有访问器 ---
 

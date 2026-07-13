@@ -35,7 +35,9 @@ public:
     const GPUDeviceCapabilities& capabilities() const override { return m_caps; }
     const RenderConfig& renderConfig() const override { return m_renderConfig; }
     math::Mat4 clipSpaceCorrectionMatrix() const override;
-    bool isInitialized() const { return m_factory && m_device && m_immediateCtx && m_frameCmdList; }
+    bool isInitialized() const {
+        return m_factory && m_device && m_immediateCtx && m_frameCmdList && submissionFence();
+    }
 
     // --- 资源创建 ---
     core::Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc) override;
@@ -65,10 +67,10 @@ public:
     void beginFrame(SwapChain* swapchain = nullptr) override;
     void clearCaches() override;
     CommandList* frameCommandList() override;
-    void submitAndPresent(SwapChain* swapchain) override;
-    void submit() override;
+    core::Result<SubmissionToken> submitAndPresent(SwapChain* swapchain) override;
+    core::Result<SubmissionToken> submit() override;
     void present(SwapChain* swapchain) override;
-    void submitOffscreen() override;
+    core::Result<SubmissionToken> submitOffscreen() override;
 
 private:
     void init(const DeviceCreateInfo& ci);

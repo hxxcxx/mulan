@@ -15,6 +15,7 @@
 #include "sampler.h"
 #include "shader.h"
 #include "swap_chain.h"
+#include "submission.h"
 #include "texture.h"
 #include "bind_group.h"
 #include <mulan/math/math.h>
@@ -23,7 +24,9 @@
 #include <mulan/core/result/error.h>
 
 #include <cstdint>
+#include <atomic>
 #include <expected>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -94,6 +97,8 @@ public:
     virtual GraphicsBackend backend() const = 0;
     virtual const GPUDeviceCapabilities& capabilities() const = 0;
     virtual const RenderConfig& renderConfig() const = 0;
+    uint64_t deviceGeneration() const { return device_generation_; }
+    SubmissionToken lastSubmissionToken(QueueType queue = QueueType::Graphics) const;
 
     // --- 裁剪空间修正 ---
     // 各后端 NDC 约定不同（Vulkan: Y↓ z∈[0,1]，OpenGL: Y↑ z∈[-1,1]）。
@@ -147,6 +152,16 @@ public:
 
     virtual void waitIdle() = 0;
 
+    /// 查询/等待由本设备返回的提交标识。旧设备或其他设备的 token 会被拒绝。
+    bool isSubmissionComplete(SubmissionToken token) const;
+    core::Result<void> waitForSubmission(SubmissionToken token);
+
+    using DeferredRelease = std::move_only_function<void()>;
+
+    /// 在 token 完成后于渲染线程执行释放回调。
+    core::Result<void> retire(SubmissionToken token, DeferredRelease release);
+    void collectGarbage();
+
     // ============================================================
     // 帧循环接口（UI 层的标准渲染流程）
     //
@@ -172,29 +187,36 @@ public:
 
     /// 提交当前帧命令 + present
     /// 内部调用 submit() → present()
-    virtual void submitAndPresent(SwapChain* swapchain) = 0;
+    virtual core::Result<SubmissionToken> submitAndPresent(SwapChain* swapchain) = 0;
 
     /// 提交当前帧命令（不 present，用于多线程录制场景）
     /// 调用后可继续用其他 cmd list + present()
-    virtual void submit() = 0;
+    virtual core::Result<SubmissionToken> submit() = 0;
 
     /// 呈现 swapchain 到屏幕（与 submit 分离，支持多线程录制后统一 present）
     virtual void present(SwapChain* swapchain) = 0;
 
     /// 提交当前帧命令（无 present — 用于离屏渲染）
-    virtual void submitOffscreen() = 0;
+    virtual core::Result<SubmissionToken> submitOffscreen() = 0;
 
     // ============================================================
     // Descriptor 绑定（UBO / Texture 统一绑定接口）
     // ============================================================
 
 protected:
-    RHIDevice() = default;
+    RHIDevice();
     RHIDevice(const RHIDevice&) = delete;
     RHIDevice& operator=(const RHIDevice&) = delete;
 
     void assertNoLiveResources() const;
     void detachLiveResources();
+
+    void initializeSubmissionTracking(std::unique_ptr<Fence> fence);
+    void shutdownSubmissionTracking();
+    void drainDeferredReleases();
+    SubmissionToken reserveSubmissionToken(QueueType queue = QueueType::Graphics);
+    void commitSubmission(SubmissionToken token);
+    Fence* submissionFence() const { return submission_fence_.get(); }
 
 private:
     struct LiveResourceInfo {
@@ -205,6 +227,18 @@ private:
 
     mutable std::mutex live_resources_mutex_;
     std::vector<LiveResourceInfo> live_resources_;
+
+    uint64_t device_generation_ = 0;
+    std::atomic<uint64_t> next_submission_value_ = 0;
+    std::atomic<uint64_t> last_submission_value_ = 0;
+    std::unique_ptr<Fence> submission_fence_;
+
+    struct DeferredReleaseEntry {
+        SubmissionToken token;
+        DeferredRelease release;
+    };
+    mutable std::mutex deferred_release_mutex_;
+    std::vector<DeferredReleaseEntry> deferred_releases_;
 };
 
 // ============================================================

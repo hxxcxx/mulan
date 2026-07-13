@@ -95,7 +95,11 @@ void RenderRenderer::shutdown(RHIDevice& device) {
     // 即使 init() 未能完成（initialized_ 仍为 false），也可能已分配部分 RHI 资源
     //（如 GeometryDrawSharedResources 的 UBO）。因此 shutdown 必须无条件执行清理，
     // 否则这些资源会在 device 析构时触发 assertNoLiveResources 断言。
-    device.waitIdle();
+    if (const SubmissionToken token = device.lastSubmissionToken()) {
+        if (auto waitResult = device.waitForSubmission(token); !waitResult)
+            LOG_ERROR("[RenderRenderer] Failed to wait for the last renderer submission: {}",
+                      waitResult.error().message);
+    }
     clearCompiledCommands();
     text_stage_.reset();
     view_cube_stage_.reset();
@@ -183,11 +187,19 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
 }
 
 void RenderRenderer::clearAssetResources(RHIDevice& device) {
-    device.waitIdle();
     clearCompiledCommands();
-    if (asset_gpu_registry_) {
-        asset_gpu_registry_->clear();
-    }
+    if (!asset_gpu_registry_)
+        return;
+
+    auto retiredRegistry = std::move(asset_gpu_registry_);
+    asset_gpu_registry_ = std::make_unique<AssetGpuRegistry>(device);
+
+    const SubmissionToken token = device.lastSubmissionToken();
+    if (!token)
+        return;
+    auto retireResult = device.retire(token, [registry = std::move(retiredRegistry)]() mutable { registry.reset(); });
+    if (!retireResult)
+        LOG_ERROR("[RenderRenderer] Asset resource retirement failed: {}", retireResult.error().message);
 }
 
 bool RenderRenderer::validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const {
@@ -369,11 +381,14 @@ DrawExecutionContext RenderRenderer::buildDrawContext(CommandList& cmd, const Re
 }
 
 void RenderRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request) {
+    core::Result<SubmissionToken> result;
     if (request.output.mode == RenderTargetMode::Present) {
-        device.submitAndPresent(surface.swapChain);
+        result = device.submitAndPresent(surface.swapChain);
     } else {
-        device.submitOffscreen();
+        result = device.submitOffscreen();
     }
+    if (!result)
+        LOG_ERROR("[RenderRenderer] Frame submission failed: {}", result.error().message);
 }
 
 }  // namespace mulan::engine

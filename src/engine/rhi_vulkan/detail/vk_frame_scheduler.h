@@ -32,9 +32,9 @@ public:
 
     void beginFrame(SwapChain* swapchain);
     CommandList* frameCommandList();
-    void submit();
+    bool submit(vk::Semaphore completionSemaphore, uint64_t completionValue);
     void present(SwapChain* swapchain);
-    void submitOffscreen();
+    bool submitOffscreen(vk::Semaphore completionSemaphore, uint64_t completionValue);
 
     VKDescriptorAllocator& descriptorAllocator();
     VKFrameContext& currentFrameContext();

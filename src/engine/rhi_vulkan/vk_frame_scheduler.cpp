@@ -93,10 +93,10 @@ CommandList* VKFrameScheduler::frameCommandList() {
     return frame_cmd_list_.get();
 }
 
-void VKFrameScheduler::submit() {
+bool VKFrameScheduler::submit(vk::Semaphore completionSemaphore, uint64_t completionValue) {
     if (!frame_ready_) {
         LOG_WARN("[Vulkan] Frame submission skipped because no frame is ready");
-        return;
+        return false;
     }
     auto& frame = currentFrameContext();
     pending_render_finished_ = render_finished_semaphores_[acquired_image_index_];
@@ -112,18 +112,26 @@ void VKFrameScheduler::submit() {
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
 
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &pending_render_finished_;
+    const vk::Semaphore signalSemaphores[] = { pending_render_finished_, completionSemaphore };
+    const uint64_t signalValues[] = { 0, completionValue };
+    vk::TimelineSemaphoreSubmitInfo timelineInfo;
+    timelineInfo.signalSemaphoreValueCount = 2;
+    timelineInfo.pSignalSemaphoreValues = signalValues;
+    submitInfo.signalSemaphoreCount = 2;
+    submitInfo.pSignalSemaphores = signalSemaphores;
+    submitInfo.pNext = &timelineInfo;
 
     frame.resetFence();
     try {
         graphics_queue_.submit(submitInfo, frame.inFlightFence());
         submitted_ = true;
+        return true;
     } catch (const vk::Error& error) {
         // reset 后 submit 失败会留下永久未 signal 的 fence；恢复为 signaled，
         // 保证下一次复用该 FrameContext 时不会死锁。
         frame.restoreSignaledFence();
         LOG_ERROR("[Vulkan] Frame submission failed: {}", error.what());
+        return false;
     }
 }
 
@@ -140,10 +148,10 @@ void VKFrameScheduler::present(SwapChain* swapchain) {
     current_frame_ = (current_frame_ + 1) % frame_count_;
 }
 
-void VKFrameScheduler::submitOffscreen() {
+bool VKFrameScheduler::submitOffscreen(vk::Semaphore completionSemaphore, uint64_t completionValue) {
     if (!frame_ready_) {
         LOG_WARN("[Vulkan] Offscreen submission skipped because no frame is ready");
-        return;
+        return false;
     }
     auto& frame = currentFrameContext();
 
@@ -152,15 +160,25 @@ void VKFrameScheduler::submitOffscreen() {
     vk::CommandBuffer cmdBuf = frame_cmd_list_->cmdBuffer();
     submitInfo.pCommandBuffers = &cmdBuf;
 
+    vk::TimelineSemaphoreSubmitInfo timelineInfo;
+    timelineInfo.signalSemaphoreValueCount = 1;
+    timelineInfo.pSignalSemaphoreValues = &completionValue;
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &completionSemaphore;
+    submitInfo.pNext = &timelineInfo;
+
     frame.resetFence();
+    bool success = false;
     try {
         graphics_queue_.submit(submitInfo, frame.inFlightFence());
+        success = true;
     } catch (const vk::Error& error) {
         frame.restoreSignaledFence();
         LOG_ERROR("[Vulkan] Offscreen submission failed: {}", error.what());
     }
     frame_ready_ = false;
     current_frame_ = (current_frame_ + 1) % frame_count_;
+    return success;
 }
 
 VKDescriptorAllocator& VKFrameScheduler::descriptorAllocator() {

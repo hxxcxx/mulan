@@ -204,8 +204,18 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
     }
 
     cmd->end();
-    device.executeCommandList(cmd);
-    device.waitIdle();
+    auto fenceResult = device.createFence(0);
+    if (!fenceResult) {
+        LOG_ERROR("[IBL] Bake completion fence creation failed: {}", fenceResult.error().message);
+        return false;
+    }
+    auto completionFence = std::move(*fenceResult);
+    device.executeCommandList(cmd, completionFence.get(), 1);
+    completionFence->wait(1);
+    if (completionFence->completedValue() < 1) {
+        LOG_ERROR("[IBL] Bake submission did not complete");
+        return false;
+    }
 
     sourceEquirect.reset();  // 释放源 equirect
 

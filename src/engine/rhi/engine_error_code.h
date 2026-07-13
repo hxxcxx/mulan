@@ -42,6 +42,11 @@ enum class EngineErrorCode : int32_t {
     ShaderFileNotFound = 1014,   // 着色器文件读取失败（区别于编译/链接失败）
     SurfaceNotSupported = 1015,  // 平台 surface / 呈现格式后端不支持
     FormatNotSupported = 1016,   // 纹理/渲染目标格式后端不支持
+
+    // --- GPU 提交与同步（1017~1019）---
+    SubmissionFailed = 1017,
+    SubmissionWaitFailed = 1018,
+    InvalidSubmissionToken = 1019,
 };
 
 inline core::Error makeError(EngineErrorCode code, std::string_view msg,
