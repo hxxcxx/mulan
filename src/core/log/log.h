@@ -67,27 +67,39 @@ namespace detail {
 /// 类型擦除的提交入口。
 /// spdlog 类型对外完全不可见：格式化在本函数内完成后，只把 std::string 交给后端。
 /// @note args 是调用方栈上参数的只读视图，本函数同步消费，不跨线程、不存储，
-///       因此不会出现悬垂引用（见 logf 模板，format_args 临时量生命周期覆盖整个调用）。
+///       因此不会出现悬垂引用。
 CORE_API void submit(Level lvl, std::source_location loc, std::string_view fmt, std::format_args args);
 
-}  // namespace detail
-
-/// 格式化日志（std::format 语法，编译期检查格式串，自动捕获调用位置）
+/// 带位置的格式化入口（source_location 在 format_string 之前，避免参数包末尾
+/// 默认参数的推导歧义 —— fmt/spdlog/std::format 均采用此排列）。
 template <typename... Args>
-void logf(Level lvl, std::format_string<Args...> fmt, Args&&... args,
-          std::source_location loc = std::source_location::current()) {
-    detail::submit(lvl, loc, fmt.get(), std::make_format_args(args...));
+void log_with_loc(Level lvl, std::source_location loc, std::format_string<Args...> fmt, Args&&... args) {
+    submit(lvl, loc, fmt.get(), std::make_format_args(args...));
 }
+
+}  // namespace detail
 
 }  // namespace mulan::core::log
 
 // ============================================================
-// 便捷宏
+// 便捷宏 —— source_location 由宏在调用点捕获后显式传入。
 // ============================================================
 
-#define LOG_TRACE(...)    ::mulan::core::log::logf(::mulan::core::log::Level::Trace, __VA_ARGS__)
-#define LOG_DEBUG(...)    ::mulan::core::log::logf(::mulan::core::log::Level::Debug, __VA_ARGS__)
-#define LOG_INFO(...)     ::mulan::core::log::logf(::mulan::core::log::Level::Info, __VA_ARGS__)
-#define LOG_WARN(...)     ::mulan::core::log::logf(::mulan::core::log::Level::Warn, __VA_ARGS__)
-#define LOG_ERROR(...)    ::mulan::core::log::logf(::mulan::core::log::Level::Error, __VA_ARGS__)
-#define LOG_CRITICAL(...) ::mulan::core::log::logf(::mulan::core::log::Level::Critical, __VA_ARGS__)
+#define LOG_TRACE(...)                                                                                          \
+    ::mulan::core::log::detail::log_with_loc(::mulan::core::log::Level::Trace, std::source_location::current(), \
+                                             __VA_ARGS__)
+#define LOG_DEBUG(...)                                                                                          \
+    ::mulan::core::log::detail::log_with_loc(::mulan::core::log::Level::Debug, std::source_location::current(), \
+                                             __VA_ARGS__)
+#define LOG_INFO(...)                                                                                          \
+    ::mulan::core::log::detail::log_with_loc(::mulan::core::log::Level::Info, std::source_location::current(), \
+                                             __VA_ARGS__)
+#define LOG_WARN(...)                                                                                          \
+    ::mulan::core::log::detail::log_with_loc(::mulan::core::log::Level::Warn, std::source_location::current(), \
+                                             __VA_ARGS__)
+#define LOG_ERROR(...)                                                                                          \
+    ::mulan::core::log::detail::log_with_loc(::mulan::core::log::Level::Error, std::source_location::current(), \
+                                             __VA_ARGS__)
+#define LOG_CRITICAL(...)                                                                                          \
+    ::mulan::core::log::detail::log_with_loc(::mulan::core::log::Level::Critical, std::source_location::current(), \
+                                             __VA_ARGS__)
