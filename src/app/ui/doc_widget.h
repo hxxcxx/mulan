@@ -28,7 +28,8 @@ public:
     void setViewConfig(const mulan::view::ViewConfig& cfg) { view_config_ = cfg; }
     mulan::view::ViewConfig& viewConfig() { return view_config_; }
 
-    void init();
+    bool init();
+    void shutdown();
     void requestFrame();
 
     DocumentView& documentView() { return document_view_; }

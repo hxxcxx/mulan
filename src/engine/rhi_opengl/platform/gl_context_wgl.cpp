@@ -118,16 +118,28 @@ void WGLContext::setSwapInterval(int interval) {
 }
 
 void WGLContext::shutdown() {
+    const bool hadContext = hglrc_ != nullptr || hdc_ != nullptr;
     clearCurrent();
     if (hglrc_) {
-        wglDeleteContext(hglrc_);
+        if (!wglDeleteContext(hglrc_)) {
+            LOG_ERROR("[OpenGL] WGL context deletion failed: win32Error={}",
+                      static_cast<unsigned long>(GetLastError()));
+        }
         hglrc_ = nullptr;
     }
     if (owns_hdc_ && hdc_ && hwnd_) {
-        ReleaseDC(hwnd_, hdc_);
+        if (!ReleaseDC(hwnd_, hdc_)) {
+            LOG_WARN("[OpenGL] Window device-context release failed: win32Error={}",
+                     static_cast<unsigned long>(GetLastError()));
+        }
         hdc_ = nullptr;
     }
     hwnd_ = nullptr;
+    owns_hdc_ = false;
+    swap_interval_proc_ = nullptr;
+    if (hadContext) {
+        LOG_DEBUG("[OpenGL] WGL context shut down");
+    }
 }
 
 core::Result<std::unique_ptr<GLContext>> createGLContext(const GLContextCreateInfo& ci) {

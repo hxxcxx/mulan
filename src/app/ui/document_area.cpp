@@ -57,7 +57,7 @@ DocumentArea::DocumentArea(QWidget* parent) : QWidget(parent) {
 DocumentArea::~DocumentArea() {
     for (auto& [w, doc] : docs_) {
         if (w) {
-            w->setDocumentSession(nullptr);
+            w->shutdown();
         }
         delete doc;
     }
@@ -93,7 +93,19 @@ DocWidget* DocumentArea::addDocument(DocumentSession* session, const QString& ti
     stack_->setCurrentIndex(1);  // 切到标签区
 
     // Widget 已加入布局并设为当前页，此时 winId() 已就绪，安全初始化 Vulkan
-    docWidget->init();
+    if (!docWidget->init()) {
+        docWidget->shutdown();
+        docs_.erase(docWidget);
+        document_stack_->removeWidget(docWidget);
+        document_tab_bar_->removeTab(idx);
+        delete session;
+        delete docWidget;
+        if (document_stack_->count() == 0) {
+            document_tab_bar_->hide();
+            stack_->setCurrentIndex(0);
+        }
+        return nullptr;
+    }
 
     emit documentOpened(title);
     emit currentDocumentChanged(title);
@@ -120,7 +132,7 @@ void DocumentArea::closeDocument(int index) {
         if (!filePath.isEmpty()) {
             emit documentClosing(docWidget, filePath);
         }
-        docWidget->setDocumentSession(nullptr);
+        docWidget->shutdown();
         delete it->second;
         docs_.erase(it);
     }

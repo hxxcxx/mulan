@@ -65,17 +65,7 @@ VKDevice::VKDevice(const DeviceCreateInfo& ci) {
 }
 
 VKDevice::~VKDevice() {
-    device_.waitIdle();
-
-    // 诊断：打印 ~VKDevice 入口处仍存活的 VMA allocation
-    if (allocator_) {
-        VmaTotalStatistics stats{};
-        vmaCalculateStatistics(allocator_, &stats);
-    }
-
-    frame_scheduler_.reset();
-    resource_factory_.reset();
-    upload_context_.reset();
+    shutdown();
 }
 
 // ============================================================
@@ -385,22 +375,42 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
 // ============================================================
 
 void VKDevice::shutdown() {
+    if (device_) {
+        try {
+            device_.waitIdle();
+        } catch (const vk::Error& error) {
+            LOG_ERROR("[Vulkan] Device wait-idle failed during shutdown: {}", error.what());
+        }
+    }
+
+    // Destroy all objects that reference the device or allocator before their owners.
+    resource_factory_.reset();
+    frame_scheduler_.reset();
+    upload_context_.reset();
+
     if (allocator_) {
         vmaDestroyAllocator(allocator_);
+        allocator_ = nullptr;
     }
 
     if (device_) {
         device_.destroy();
+        device_ = nullptr;
+        graphics_queue_ = nullptr;
     }
 
     if (debug_messenger_) {
         auto destroyFn = VULKAN_HPP_DEFAULT_DISPATCHER.vkDestroyDebugUtilsMessengerEXT;
         if (destroyFn)
             destroyFn(VkInstance(instance_), VkDebugUtilsMessengerEXT(debug_messenger_), nullptr);
+        debug_messenger_ = nullptr;
     }
 
     if (instance_) {
         instance_.destroy();
+        instance_ = nullptr;
+        physical_device_ = nullptr;
+        LOG_DEBUG("[Vulkan] Device runtime shut down");
     }
 }
 

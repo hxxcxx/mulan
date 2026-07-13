@@ -23,12 +23,12 @@ DocWidget::DocWidget(QWidget* parent) : QWidget(parent) {
 }
 
 DocWidget::~DocWidget() {
-    clearPreview(false);
+    shutdown();
 }
 
-void DocWidget::init() {
+bool DocWidget::init() {
     if (document_view_.isInitialized())
-        return;
+        return true;
 
     // 从全局设置读取后端 / MSAA / VSync 等配置。
     EngineSettings::instance().applyTo(view_config_);
@@ -42,7 +42,13 @@ void DocWidget::init() {
     const qreal dpr = devicePixelRatioF();
     const int pw = static_cast<int>(width() * dpr);
     const int ph = static_cast<int>(height() * dpr);
-    document_view_.init(view_config_, pw, ph);
+    return document_view_.init(view_config_, pw, ph);
+}
+
+void DocWidget::shutdown() {
+    clearPreview(false);
+    document_view_.setDocumentSession(nullptr);
+    document_view_.viewContext().shutdown();
 }
 
 void DocWidget::resizeEvent(QResizeEvent* e) {
