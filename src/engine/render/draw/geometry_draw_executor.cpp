@@ -66,15 +66,21 @@ bool GeometryDrawExecutor::createPSO(TextureFormat colorFmt, TextureFormat depth
     desc.blend = technique_.blend;
 
     using PB = PipelineBinding;
-    desc.descriptorBindings[0] = {
-        .binding = 0, .count = 1, .type = DescriptorType::UniformBuffer, .stages = PB::kStageVertex | PB::kStageFragment
-    };
-    desc.descriptorBindings[1] = {
-        .binding = 1, .count = 1, .type = DescriptorType::UniformBuffer, .stages = PB::kStageVertex | PB::kStageFragment
-    };
-    desc.descriptorBindings[2] = {
-        .binding = 2, .count = 1, .type = DescriptorType::UniformBuffer, .stages = PB::kStageFragment
-    };
+    desc.descriptorBindings[0] = { .binding = 0,
+                                   .count = 1,
+                                   .type = DescriptorType::UniformBuffer,
+                                   .stages = PB::kStageVertex | PB::kStageFragment,
+                                   .mode = BindingMode::Dynamic };
+    desc.descriptorBindings[1] = { .binding = 1,
+                                   .count = 1,
+                                   .type = DescriptorType::UniformBuffer,
+                                   .stages = PB::kStageVertex | PB::kStageFragment,
+                                   .mode = BindingMode::Dynamic };
+    desc.descriptorBindings[2] = { .binding = 2,
+                                   .count = 1,
+                                   .type = DescriptorType::UniformBuffer,
+                                   .stages = PB::kStageFragment,
+                                   .mode = BindingMode::Dynamic };
     uint8_t bindingCount = 3;
 
     // 纹理 + sampler（仅 sampleTextures=true 的 pass 声明）
@@ -127,13 +133,8 @@ bool GeometryDrawExecutor::createPSO(TextureFormat colorFmt, TextureFormat depth
 // ─── Execute ───────────────────────────────────────────────────
 
 bool GeometryDrawExecutor::createFrameBindGroup(TextureFormat, TextureFormat, bool) {
-    // 构建初始 BindGroupDesc：静态 binding（scene=0）在此绑定；
-    // object=1 / material=2 offset 在每 draw 通过 updateUBO 刷新（首帧必脏）；
-    // 纹理槽先用 defaultWhite 占位，每 draw 由 MeshDrawCommand::execute 更新。
+    // Uniform binding 由每次 draw 提供切片；这里只保存纹理和采样器。
     BindGroupDesc bg;
-    bg.addUniformBuffer(0, shared_resources_.sceneUBO(), 0, sizeof(SceneUniforms));
-    bg.addUniformBuffer(1, shared_resources_.objectUBO(), 0, MeshDrawCommand::kObjectUboStride);
-    bg.addUniformBuffer(2, shared_resources_.materialUBO(), 0, 128);
 
     if (technique_.sampleTextures && shared_resources_.defaultWhiteTexture() && shared_resources_.defaultSampler()) {
         bg.addTexture(3, shared_resources_.defaultWhiteTexture());
@@ -171,8 +172,9 @@ void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
     if (!initialized_ || !pso_ || !ctx.cmd || !frame_bg_)
         return;
 
-    // binding=0 (scene UBO) 内容每帧由 uploadSceneUBO 更新，但 binding 本身指向的
-    // buffer/offset/range 不变 → 无需 update，复用缓存 descriptor。
+    if (!shared_resources_.sceneUniform())
+        return;
+
     // binding=9/10/11 (IBL 三件套) 在 setIBLTextures 后生效，每帧刷新一次。
     if (technique_.sampleTextures) {
         frame_bg_->updateTexture(9, ibl_irradiance_ ? ibl_irradiance_ : shared_resources_.defaultIBLTexture());
@@ -183,10 +185,13 @@ void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
     for (auto& cmd : commands_) {
         if (!cmd.visible || cmd.instanceCount == 0)
             continue;
-        cmd.execute(*ctx.cmd, *frame_bg_, shared_resources_.sceneUBO(), shared_resources_.objectUBO(),
-                    shared_resources_.materialUBO(), shared_resources_.defaultWhiteTexture(),
-                    shared_resources_.defaultNormalTexture(), shared_resources_.defaultMetallicRoughnessTexture(),
-                    shared_resources_.defaultBlackTexture(), shared_resources_.defaultSampler());
+        const auto materialUniform = shared_resources_.materialUniform(*ctx.cmd, cmd.materialIndex);
+        if (!materialUniform)
+            continue;
+        cmd.execute(*ctx.cmd, *frame_bg_, shared_resources_.sceneUniform(), *materialUniform,
+                    shared_resources_.defaultWhiteTexture(), shared_resources_.defaultNormalTexture(),
+                    shared_resources_.defaultMetallicRoughnessTexture(), shared_resources_.defaultBlackTexture(),
+                    shared_resources_.defaultSampler());
     }
 }
 

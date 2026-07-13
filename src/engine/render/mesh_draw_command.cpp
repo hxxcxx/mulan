@@ -5,29 +5,22 @@
 #include "gpu_scene_contract.h"
 #include <mulan/math/math.h>
 
+#include <array>
+
 namespace mulan::engine {
 
-void MeshDrawCommand::execute(CommandList& cmd, BindGroup& frameBg, Buffer* sceneUBO, Buffer* objectUBO,
-                              Buffer* materialUBO, Texture* defaultWhite, Texture* defaultNormal,
+void MeshDrawCommand::execute(CommandList& cmd, BindGroup& frameBg, const UniformSlice& sceneUniform,
+                              const UniformSlice& materialUniform, Texture* defaultWhite, Texture* defaultNormal,
                               Texture* defaultMetallicRoughness, Texture* defaultBlack, Sampler* defaultSampler) const {
     if (instanceCount == 0 || !pipelineState || !vertexBuffer)
         return;
 
-    // 上传 per-object UBO
-    if (objectUBO) {
-        const ObjectUniforms obj = makeObjectUniforms(worldTransform, pickId, selected, hovered);
-        objectUBO->update(objectUboOffset, sizeof(ObjectUniforms), &obj);
-    }
+    const ObjectUniforms obj = makeObjectUniforms(worldTransform, pickId, selected, hovered);
+    const auto objectUniform = cmd.writeUniform(obj);
+    if (!objectUniform)
+        return;
 
     cmd.setPipelineState(pipelineState);
-
-    // 刷新每 draw 变化的 binding：
-    //   binding=1 (object UBO offset) / binding=2 (material UBO offset) 每 draw 必变；
-    //   binding=3..8 纹理/sampler 可能变（按 draw 材质决定）。
-    // 其余 binding（scene=0, IBL=10/11/12）帧内不变，复用 frameBg 缓存 descriptor。
-    // 后端据 dirtyMask 走局部重写，未变化的 binding 零分配零写入。
-    frameBg.updateUBO(1, objectUBO, objectUboOffset, kObjectUboStride);
-    frameBg.updateUBO(2, materialUBO, materialUboOffset, 128);
 
     // 纹理 + sampler：仅当 defaultWhite 非 null（即该 pass 的 PSO 声明了纹理 binding）时才绑定。
     // 空纹理由 default* 退化：albedo→白, normal→(0,0,1)平面, mr→(1,1,0), emissive→黑, ao→白。
@@ -40,7 +33,9 @@ void MeshDrawCommand::execute(CommandList& cmd, BindGroup& frameBg, Buffer* scen
         frameBg.updateSampler(8, sampler ? sampler : defaultSampler);
     }
 
-    cmd.bindGroup(frameBg);
+    const std::array uniforms{ DynamicUniformBinding{ 0, sceneUniform }, DynamicUniformBinding{ 1, *objectUniform },
+                               DynamicUniformBinding{ 2, materialUniform } };
+    cmd.bindGroup(frameBg, uniforms);
 
     cmd.setVertexBuffer(0, vertexBuffer);
 

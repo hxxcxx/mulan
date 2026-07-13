@@ -10,18 +10,16 @@
 namespace mulan::engine {
 namespace {
 
-uint32_t materialOffset(const RenderWorldSnapshot& snapshot, RenderMaterialHandle handle, MaterialCache& cache) {
+uint32_t materialIndex(const RenderWorldSnapshot& snapshot, RenderMaterialHandle handle, MaterialCache& cache) {
     const auto* record = snapshot.material(handle);
-    if (!record) {
-        return cache.materialGpuOffset(0);
-    }
+    if (!record)
+        return 0;
 
     const std::string name = record->desc.resourceKey
                                      ? "render-material:" + std::to_string(record->desc.resourceKey.value)
                                      : "render-material-handle:" + std::to_string(handle.generation) + ":" +
                                                std::to_string(handle.index);
-    const auto materialHandle = cache.registerMaterial(name, record->desc.material);
-    return cache.materialGpuOffset(materialHandle);
+    return static_cast<uint32_t>(cache.registerMaterial(name, record->desc.material));
 }
 
 Texture* loadTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
@@ -52,8 +50,8 @@ void populateSurfaceTextures(const RenderWorldSnapshot& snapshot, const RenderWo
 }
 
 MeshDrawCommand makeCommand(const RenderWorkItem& item, const RenderGeometryRecord& geometryRecord,
-                            const GpuGeometry& geometry, PipelineState* pipeline, uint32_t objectOffset,
-                            uint32_t materialOffset, bool isEdge, bool selected, bool hovered) {
+                            const GpuGeometry& geometry, PipelineState* pipeline, uint32_t materialIndex, bool isEdge,
+                            bool selected, bool hovered) {
     MeshDrawCommand command;
     command.pipelineState = pipeline;
     command.vertexBuffer = geometry.vertexBuffer.get();
@@ -63,8 +61,7 @@ MeshDrawCommand makeCommand(const RenderWorkItem& item, const RenderGeometryReco
     command.vertexCount = geometry.vertexCount;
     command.instanceCount = 1;
     command.topology = geometryRecord.desc.topology;
-    command.objectUboOffset = objectOffset;
-    command.materialUboOffset = materialOffset;
+    command.materialIndex = materialIndex;
     command.worldTransform = item.worldTransform;
     command.pickId = item.pickId.valueOr(0);
     command.selected = selected;
@@ -79,25 +76,14 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
                              RenderCompileContext& context) {
     clear();
 
-    uint32_t nextObjectOffset = 0;
-    const auto hasObjectUboSlot = [&]() {
-        return nextObjectOffset < MeshDrawCommand::kObjectUboBytes;
-    };
-
     enum class CompileItemStatus {
         Accepted,
         Skipped,
-        OutOfObjectSlots,
     };
 
     const auto compileItem = [&](const RenderWorkItem& item, std::vector<MeshDrawCommand>& out, bool isEdge,
                                  bool populateTextures, bool selected, bool hovered,
                                  auto choosePipeline) -> CompileItemStatus {
-        if (!hasObjectUboSlot()) {
-            ++stats_.objectUboLimitCount;
-            return CompileItemStatus::OutOfObjectSlots;
-        }
-
         const auto* geometryRecord = snapshot.geometry(item.geometry);
         if (!geometryRecord) {
             ++stats_.missingGeometryRecordCount;
@@ -125,13 +111,12 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
         }
 
         auto command =
-                makeCommand(item, *geometryRecord, *gpuGeometry, pipeline, nextObjectOffset,
-                            materialOffset(snapshot, item.material, context.materials), isEdge, selected, hovered);
+                makeCommand(item, *geometryRecord, *gpuGeometry, pipeline,
+                            materialIndex(snapshot, item.material, context.materials), isEdge, selected, hovered);
         if (populateTextures) {
             populateSurfaceTextures(snapshot, item, context.assets, command);
         }
         out.push_back(std::move(command));
-        nextObjectOffset += MeshDrawCommand::kObjectUboStride;
         return CompileItemStatus::Accepted;
     };
 
@@ -143,8 +128,6 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
                                    ? context.surfaceTangentPipeline
                                    : context.surfacePipeline;
                 });
-        if (status == CompileItemStatus::OutOfObjectSlots)
-            break;
         if (status == CompileItemStatus::Accepted)
             ++stats_.acceptedSurfaceCommandCount;
     }
@@ -153,8 +136,6 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
         ++stats_.edgeWorkItemCount;
         const auto status = compileItem(item, edge_commands_, true, false, false, false,
                                         [&](const GpuGeometry&) { return context.edgePipeline; });
-        if (status == CompileItemStatus::OutOfObjectSlots)
-            break;
         if (status == CompileItemStatus::Accepted)
             ++stats_.acceptedEdgeCommandCount;
     }
@@ -168,8 +149,6 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
                                                ? context.highlightSurfaceTangentPipeline
                                                : context.highlightSurfacePipeline;
                             });
-        if (status == CompileItemStatus::OutOfObjectSlots)
-            break;
         if (status == CompileItemStatus::Accepted)
             ++stats_.acceptedHighlightSurfaceCommandCount;
     }
@@ -178,8 +157,6 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
         ++stats_.highlightEdgeWorkItemCount;
         const auto status = compileItem(item, highlight_edge_commands_, true, false, item.selected, item.hovered,
                                         [&](const GpuGeometry&) { return context.highlightEdgePipeline; });
-        if (status == CompileItemStatus::OutOfObjectSlots)
-            break;
         if (status == CompileItemStatus::Accepted)
             ++stats_.acceptedHighlightEdgeCommandCount;
     }

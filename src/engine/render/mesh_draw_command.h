@@ -39,9 +39,7 @@ struct MeshDrawCommand {
     uint32_t instanceCount = 1;  // 0 = 不绘制
     PrimitiveTopology topology = PrimitiveTopology::TriangleList;
 
-    // Per-instance UBO offset（instancing 时多个 Entity 共享 command）
-    uint32_t objectUboOffset = 0;
-    uint32_t materialUboOffset = 0;
+    uint32_t materialIndex = 0;
 
     // 纹理（binding 3~7, binding 8=sampler）。
     // 由 RenderCompiler 解析材质填充。空纹理由 execute 用 default* 退化。
@@ -52,7 +50,7 @@ struct MeshDrawCommand {
     Texture* aoTex = nullptr;        // binding 7
     Sampler* sampler = nullptr;      // binding 8
 
-    // Per-object data（Pass::execute 时写入 objectUBO）
+    // Per-object data（提交 draw 时写入瞬态 Uniform 切片）
     math::Mat4 worldTransform{ 1.0f };
 
     // Sort / Meta
@@ -68,23 +66,11 @@ struct MeshDrawCommand {
     /// defaultWhite / defaultSampler：仅对声明了纹理 binding 的 PSO 有效；
     /// 若 albedoTex/sampler 为空，则用这俩默认值退化（保证无材质模型视觉不变）。
     ///
-    /// frameBg：本 draw 复用的 per-frame BindGroup。该方法通过 updateUBO/updateTexture
-    /// 刷新 object UBO offset 与纹理槽，随后调用 cmd.bindGroup(frameBg)。
-    /// 后端据此走局部重写路径，非变化的 binding 复用缓存 descriptor。
-    void execute(CommandList& cmd, BindGroup& frameBg, Buffer* sceneUBO, Buffer* objectUBO, Buffer* materialUBO,
-                 Texture* defaultWhite = nullptr, Texture* defaultNormal = nullptr,
+    /// frameBg：保存纹理与采样器等静态资源；Uniform 数据由显式切片绑定。
+    void execute(CommandList& cmd, BindGroup& frameBg, const UniformSlice& sceneUniform,
+                 const UniformSlice& materialUniform, Texture* defaultWhite = nullptr, Texture* defaultNormal = nullptr,
                  Texture* defaultMetallicRoughness = nullptr, Texture* defaultBlack = nullptr,
                  Sampler* defaultSampler = nullptr) const;
-
-    /// Object UBO slot 步进（字节）。
-    /// 单条 ObjectUniforms 记录为 128 字节，但 D3D12 要求 root CBV 偏移
-    /// 256 字节对齐（D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT），
-    /// Vulkan 的 minUniformBufferOffsetAlignment 在 NVIDIA 上亦为 256。
-    /// 故 slot 步进取 256，尾随 128 字节 padding（shader 不读取），
-    /// 保证两个后端的多 object offset 都合法，避免 device removed。
-    static constexpr uint32_t kObjectUboStride = 256;
-    static constexpr uint32_t kMaxObjectCount = 4096;
-    static constexpr uint32_t kObjectUboBytes = kObjectUboStride * kMaxObjectCount;
 };
 
 }  // namespace mulan::engine

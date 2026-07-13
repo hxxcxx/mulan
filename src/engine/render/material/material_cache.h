@@ -6,21 +6,18 @@
  *
  * 重构后设计：
  *  - 直接存储 vector<Material>，无额外包装类（删掉了旧的 MaterialAsset 包装）
- *  - 用 vector index 作为材质句柄，offset = index × kMaterialSlotStride
+ *  - 用 vector index 作为材质句柄
  *  - 去单例化，由 Renderer 持有并通过引用注入
  */
 
 #pragma once
 
 #include "material.h"
-#include "../../rhi/device.h"
-
 #include <cstddef>
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include <functional>
-#include <set>
 
 namespace mulan::engine {
 
@@ -89,30 +86,13 @@ public:
     /// 是否为空
     bool empty() const { return materials_.empty(); }
 
-    // --- GPU UBO 管理 ---
-
-    /// 材质句柄 → UBO 偏移（字节），供 MeshDrawCommand 使用。
-    /// 无效句柄回退到 index 0(DefaultPBR)。
-    uint32_t materialGpuOffset(MaterialHandle handle) const;
-
-    /// 上传所有脏材质到 GPU。由 per-frame draw shared resources 统一调用。
-    /// 本函数只写入指定 UBO，不清空脏集合；调用方在共享 UBO 上传完成后调用 clearDirtyMaterials()。
-    /// @param materialUbo 由 per-frame draw shared resources 持有和管理的 UBO
-    void uploadDirtyMaterials(Buffer* materialUbo);
-
-    /// 清空脏材质集合（一帧内共享 material UBO 上传完毕后调用）。
-    void clearDirtyMaterials();
-
-    /// 材质 UBO 尺寸常量
     static constexpr uint32_t kMaxMaterials = 256;
-    static constexpr uint32_t kMaterialSlotStride = 256;
 
 private:
     void rebuildNameIndex();
 
     std::vector<Material> materials_;
     std::unordered_map<std::string, size_t> name_to_index_;
-    std::set<size_t> dirty_materials_;
 };
 
 }  // namespace mulan::engine

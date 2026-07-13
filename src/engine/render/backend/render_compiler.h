@@ -31,7 +31,6 @@ struct RenderCompilerStats {
     size_t missingGpuGeometryCount = 0;
     size_t rejectedContractCount = 0;
     size_t missingPipelineCount = 0;
-    size_t objectUboLimitCount = 0;
 
     void reset() { *this = {}; }
 };

@@ -71,9 +71,7 @@ private:
     std::unique_ptr<Shader> fs_;
     std::unique_ptr<PipelineState> pso_;
 
-    /// per-frame BindGroup（按 PSO layout 创建，binding=0/1/2 + 纹理槽）。
-    /// 帧内 scene/material/texture binding 不变，仅每 draw 通过 updateUBO(1,...)
-    /// 刷新 object UBO offset —— 后端走局部重写路径，descriptor set 复用。
+    /// 保存纹理与采样器等静态资源；Uniform 在提交 draw 时通过切片绑定。
     std::unique_ptr<BindGroup> frame_bg_;
 
     // 借用自 Renderer::IBLPipeline 的烘焙产物。

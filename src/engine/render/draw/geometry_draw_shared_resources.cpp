@@ -106,28 +106,7 @@ GeometryDrawSharedResources::GeometryDrawSharedResources(RHIDevice& device, Mate
 }
 
 bool GeometryDrawSharedResources::init() {
-    return createBuffers() && createDefaultResources();
-}
-
-bool GeometryDrawSharedResources::createBuffers() {
-    auto sceneResult = device_.createBuffer(BufferDesc::uniform(sizeof(SceneUniforms), "SceneUBO"));
-    if (!sceneResult) {
-        return false;
-    }
-    scene_ubo_ = std::move(*sceneResult);
-
-    auto objResult = device_.createBuffer(BufferDesc::uniform(MeshDrawCommand::kObjectUboBytes, "ObjUBO"));
-    if (!objResult) {
-        return false;
-    }
-    object_ubo_ = std::move(*objResult);
-
-    auto matResult = device_.createBuffer(BufferDesc::uniform(MaterialCache::kMaxMaterials * 256, "MatUBO"));
-    if (!matResult) {
-        return false;
-    }
-    material_ubo_ = std::move(*matResult);
-    return true;
+    return createDefaultResources();
 }
 
 bool GeometryDrawSharedResources::createDefaultResources() {
@@ -193,12 +172,36 @@ bool GeometryDrawSharedResources::createDefaultResources() {
 }
 
 void GeometryDrawSharedResources::uploadFrameData(const DrawExecutionContext& ctx) {
-    uploadSceneUBO(ctx);
-    material_cache_.uploadDirtyMaterials(material_ubo_.get());
-    material_cache_.clearDirtyMaterials();
+    material_uniforms_.clear();
+    scene_uniform_ = {};
+    const auto result = ctx.cmd->writeUniform(buildSceneUniforms(ctx));
+    if (!result) {
+        LOG_ERROR("[GeometryDrawSharedResources] Scene uniform allocation failed: {}", result.error().message);
+        return;
+    }
+    scene_uniform_ = *result;
 }
 
-void GeometryDrawSharedResources::uploadSceneUBO(const DrawExecutionContext& ctx) {
+std::optional<UniformSlice> GeometryDrawSharedResources::materialUniform(CommandList& commandList,
+                                                                         uint32_t materialIndex) {
+    if (const auto cached = material_uniforms_.find(materialIndex); cached != material_uniforms_.end())
+        return cached->second;
+
+    const Material* material = material_cache_.find(materialIndex);
+    if (!material)
+        material = material_cache_.find(0);
+    if (!material)
+        return std::nullopt;
+
+    const MaterialGPU gpu = MaterialGPU::fromMaterial(*material);
+    const auto result = commandList.writeUniform(gpu);
+    if (!result)
+        return std::nullopt;
+    material_uniforms_.emplace(materialIndex, *result);
+    return *result;
+}
+
+SceneUniforms GeometryDrawSharedResources::buildSceneUniforms(const DrawExecutionContext& ctx) const {
     math::Mat4 clip = device_.clipSpaceCorrectionMatrix();
     math::Mat4 view = ctx.camera.viewMatrix;
     math::Mat4 proj = ctx.camera.projectionMatrix;
@@ -236,7 +239,7 @@ void GeometryDrawSharedResources::uploadSceneUBO(const DrawExecutionContext& ctx
     storeGpuVec3(ubo.edgeColor, math::Vec3(0.08, 0.08, 0.08));
     storeGpuVec3(ubo.highlightColor, math::Vec3(1.0, 0.5, 0.0));
 
-    ctx.cmd->updateBuffer(scene_ubo_.get(), 0, sizeof(ubo), &ubo);
+    return ubo;
 }
 
 }  // namespace mulan::engine

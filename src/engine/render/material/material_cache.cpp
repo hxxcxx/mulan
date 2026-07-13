@@ -23,7 +23,6 @@ MaterialHandle MaterialCache::registerMaterial(Material material) {
     const auto handle = materials_.size();
     name_to_index_[material.name] = handle;
     materials_.push_back(std::move(material));
-    dirty_materials_.insert(handle);
     return handle;
 }
 
@@ -37,7 +36,6 @@ MaterialHandle MaterialCache::registerMaterial(const std::string& name, Material
             return handle;
         }
         materials_[handle] = std::move(material);
-        dirty_materials_.insert(handle);
         return handle;
     }
     // 新增
@@ -48,7 +46,6 @@ MaterialHandle MaterialCache::registerMaterial(const std::string& name, Material
     const auto handle = materials_.size();
     name_to_index_[name] = handle;
     materials_.push_back(std::move(material));
-    dirty_materials_.insert(handle);
     return handle;
 }
 
@@ -92,7 +89,6 @@ bool MaterialCache::updateMaterial(MaterialHandle handle, const Material& materi
     if (materials_[handle] == material)
         return true;
     materials_[handle] = material;
-    dirty_materials_.insert(handle);
     return true;
 }
 
@@ -104,7 +100,6 @@ bool MaterialCache::updateMaterial(const std::string& name, const Material& mate
     if (materials_[handle] == material)
         return true;
     materials_[handle] = material;
-    dirty_materials_.insert(handle);
     return true;
 }
 
@@ -115,7 +110,6 @@ bool MaterialCache::remove(MaterialHandle handle) {
     if (handle < 3)
         return false;
     materials_.erase(materials_.begin() + static_cast<std::ptrdiff_t>(handle));
-    dirty_materials_.erase(handle);
     rebuildNameIndex();
     return true;
 }
@@ -124,13 +118,6 @@ void MaterialCache::clear() {
     // 保留默认材质（前3个）
     size_t keepCount = std::min(materials_.size(), size_t(3));
     materials_.erase(materials_.begin() + static_cast<std::ptrdiff_t>(keepCount), materials_.end());
-    // 清理脏集合中 >= keepCount 的
-    for (auto it = dirty_materials_.begin(); it != dirty_materials_.end();) {
-        if (*it >= keepCount)
-            it = dirty_materials_.erase(it);
-        else
-            ++it;
-    }
     rebuildNameIndex();
 }
 
@@ -141,34 +128,6 @@ void MaterialCache::rebuildNameIndex() {
             name_to_index_[materials_[i].name] = i;
         }
     }
-}
-
-// ============================================================
-// GPU UBO 管理
-// ============================================================
-
-uint32_t MaterialCache::materialGpuOffset(MaterialHandle handle) const {
-    // 无效句柄回退到 index 0(DefaultPBR)
-    if (handle >= materials_.size())
-        handle = 0;
-    return static_cast<uint32_t>(handle * kMaterialSlotStride);
-}
-
-void MaterialCache::uploadDirtyMaterials(Buffer* materialUbo) {
-    if (!materialUbo || dirty_materials_.empty())
-        return;
-
-    for (size_t handle : dirty_materials_) {
-        if (handle >= materials_.size())
-            continue;
-        const uint32_t offset = static_cast<uint32_t>(handle * kMaterialSlotStride);
-        MaterialGPU gpu = MaterialGPU::fromMaterial(materials_[handle]);
-        materialUbo->update(offset, static_cast<uint32_t>(MaterialGPU::kSize), &gpu);
-    }
-}
-
-void MaterialCache::clearDirtyMaterials() {
-    dirty_materials_.clear();
 }
 
 }  // namespace mulan::engine

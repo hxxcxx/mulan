@@ -12,8 +12,11 @@
 #include "../../rhi/buffer.h"
 #include "../../rhi/sampler.h"
 #include "../../rhi/texture.h"
+#include "../../rhi/uniform_slice.h"
 
 #include <memory>
+#include <optional>
+#include <unordered_map>
 
 namespace mulan::engine {
 
@@ -31,9 +34,8 @@ public:
     bool init();
     void uploadFrameData(const DrawExecutionContext& ctx);
 
-    Buffer* sceneUBO() const { return scene_ubo_.get(); }
-    Buffer* objectUBO() const { return object_ubo_.get(); }
-    Buffer* materialUBO() const { return material_ubo_.get(); }
+    const UniformSlice& sceneUniform() const { return scene_uniform_; }
+    std::optional<UniformSlice> materialUniform(CommandList& commandList, uint32_t materialIndex);
 
     Texture* defaultWhiteTexture() const { return default_white_tex_.get(); }
     Texture* defaultBlackTexture() const { return default_black_tex_.get(); }
@@ -44,17 +46,15 @@ public:
     Texture* defaultBrdfLUT() const { return default_brdf_lut_.get(); }
 
 private:
-    bool createBuffers();
     bool createDefaultResources();
-    void uploadSceneUBO(const DrawExecutionContext& ctx);
+    SceneUniforms buildSceneUniforms(const DrawExecutionContext& ctx) const;
 
     RHIDevice& device_;
     MaterialCache& material_cache_;
     const LightEnvironment& light_env_;
 
-    std::unique_ptr<Buffer> scene_ubo_;
-    std::unique_ptr<Buffer> object_ubo_;
-    std::unique_ptr<Buffer> material_ubo_;
+    UniformSlice scene_uniform_;
+    std::unordered_map<uint32_t, UniformSlice> material_uniforms_;
     std::unique_ptr<Sampler> default_sampler_;
     std::unique_ptr<Texture> default_white_tex_;
     std::unique_ptr<Texture> default_black_tex_;
