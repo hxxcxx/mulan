@@ -23,11 +23,11 @@ GLShader::GLShader(const ShaderDesc& desc) : desc_(desc) {
         if (desc.language == ShaderSourceLanguage::SPIRV)
             createFromSPIRV(desc.byteCode, desc.byteCodeSize);
         else
-            std::fprintf(stderr, "[GLShader] Bytecode requires SPIR-V language\n");
+            LOG_ERROR("[OpenGL] Shader creation rejected: bytecode requires SPIR-V language");
     }
 
     if (shader_) {
-        std::fprintf(stdout, "[GLShader] Created %s (handle: %u)\n", std::string(desc.name).c_str(), shader_);
+        LOG_DEBUG("[OpenGL] Shader created: name={}, handle={}", desc.name, shader_);
     }
 }
 
@@ -44,7 +44,7 @@ GLShader::~GLShader() {
 
 void GLShader::createFromSPIRV(const uint8_t* spirvCode, uint32_t byteSize) {
     if (!spirvCode || byteSize == 0) {
-        std::fprintf(stderr, "[GLShader] Invalid SPIR-V code\n");
+        LOG_ERROR("[OpenGL] Shader creation rejected: invalid SPIR-V code");
         return;
     }
 
@@ -52,7 +52,7 @@ void GLShader::createFromSPIRV(const uint8_t* spirvCode, uint32_t byteSize) {
     GLenum glShaderType = toGLShaderType(desc_.type);
     shader_ = glCreateShader(glShaderType);
     if (shader_ == 0) {
-        std::fprintf(stderr, "[GLShader] glCreateShader failed\n");
+        LOG_ERROR("[OpenGL] Shader creation failed: glCreateShader returned 0");
         return;
     }
 
@@ -62,7 +62,7 @@ void GLShader::createFromSPIRV(const uint8_t* spirvCode, uint32_t byteSize) {
     // 特化着色器（绑定 entry point）
     const char* entryPoint = desc_.entryPoint.empty() ? "main" : desc_.entryPoint.data();
     if (!glSpecializeShader) {
-        std::fprintf(stderr, "[GLShader] glSpecializeShader is unavailable\n");
+        LOG_ERROR("[OpenGL] SPIR-V specialization failed: glSpecializeShader is unavailable");
         glDeleteShader(shader_);
         shader_ = 0;
         return;
@@ -85,7 +85,7 @@ void GLShader::loadSPIRVFromFile(std::string_view filePath) {
     file = fopen(std::string(filePath).c_str(), "rb");
     if (!file) {
 #endif
-        std::fprintf(stderr, "[GLShader] Failed to open file: %s\n", std::string(filePath).c_str());
+        LOG_ERROR("[OpenGL] Failed to open SPIR-V file: {}", filePath);
         return;
     }
 
@@ -95,7 +95,7 @@ void GLShader::loadSPIRVFromFile(std::string_view filePath) {
     fseek(file, 0, SEEK_SET);
 
     if (fileSize <= 0 || (fileSize % 4) != 0) {
-        std::fprintf(stderr, "[GLShader] Invalid SPIR-V file size: %ld (must be multiple of 4)\n", fileSize);
+        LOG_ERROR("[OpenGL] Invalid SPIR-V file size: {} (must be a multiple of 4)", fileSize);
         fclose(file);
         return;
     }
@@ -103,7 +103,7 @@ void GLShader::loadSPIRVFromFile(std::string_view filePath) {
     // 读取 SPIR-V 数据
     std::vector<uint8_t> spirvData(fileSize);
     if (fread(spirvData.data(), 1, fileSize, file) != static_cast<size_t>(fileSize)) {
-        std::fprintf(stderr, "[GLShader] Failed to read SPIR-V file\n");
+        LOG_ERROR("[OpenGL] Failed to read SPIR-V file: {}", filePath);
         fclose(file);
         return;
     }
@@ -120,7 +120,7 @@ void GLShader::createFromGLSL(const char* source, int length) {
     GLenum glShaderType = toGLShaderType(desc_.type);
     shader_ = glCreateShader(glShaderType);
     if (shader_ == 0) {
-        std::fprintf(stderr, "[GLShader] glCreateShader failed\n");
+        LOG_ERROR("[OpenGL] GLSL shader creation failed: glCreateShader returned 0");
         return;
     }
 
@@ -139,7 +139,7 @@ void GLShader::loadGLSLFromFile(std::string_view filePath) {
     file = fopen(std::string(filePath).c_str(), "r");
     if (!file) {
 #endif
-        std::fprintf(stderr, "[GLShader] Failed to open GLSL file: %s\n", std::string(filePath).c_str());
+        LOG_ERROR("[OpenGL] Failed to open GLSL file: {}", filePath);
         return;
     }
 
@@ -148,7 +148,7 @@ void GLShader::loadGLSLFromFile(std::string_view filePath) {
     fseek(file, 0, SEEK_SET);
 
     if (fileSize <= 0) {
-        std::fprintf(stderr, "[GLShader] Empty GLSL file: %s\n", std::string(filePath).c_str());
+        LOG_ERROR("[OpenGL] GLSL file is empty: {}", filePath);
         fclose(file);
         return;
     }
@@ -172,7 +172,7 @@ bool GLShader::isSPIRVSupported() {
 
     bool supported = (major > 4) || (major == 4 && minor >= 6);
     if (!supported) {
-        std::fprintf(stderr, "[GLShader] SPIR-V requires OpenGL 4.6+, you have %d.%d\n", major, minor);
+        LOG_ERROR("[OpenGL] SPIR-V requires OpenGL 4.6 or newer; detected {}.{}", major, minor);
     }
     return supported;
 }
@@ -193,7 +193,7 @@ GLenum GLShader::toGLShaderType(ShaderType type) {
         return GL_TESS_CONTROL_SHADER;
     case ShaderType::TessEvaluation:  // Domain
         return GL_TESS_EVALUATION_SHADER;
-    default: std::fprintf(stderr, "[GLShader] Unknown shader type: %d\n", (int) type); return GL_VERTEX_SHADER;
+    default: LOG_ERROR("[OpenGL] Unknown shader type: {}", static_cast<int>(type)); return GL_VERTEX_SHADER;
     }
 }
 
@@ -212,16 +212,16 @@ bool GLShader::checkCompileError(GLuint shader, const char* shaderName) {
         if (logLength > 0) {
             std::vector<GLchar> log(logLength);
             glGetShaderInfoLog(shader, logLength, nullptr, log.data());
-            std::fprintf(stderr, "[GLShader] Compilation failed for '%s':\n%s\n", shaderName, log.data());
+            LOG_ERROR("[OpenGL] Shader compilation failed: name={}, diagnostic={}", shaderName, log.data());
         } else {
-            std::fprintf(stderr, "[GLShader] Compilation failed for '%s' (no log)\n", shaderName);
+            LOG_ERROR("[OpenGL] Shader compilation failed: name={}, no diagnostic", shaderName);
         }
 
         glDeleteShader(shader);
         return false;
     }
 
-    std::fprintf(stdout, "[GLShader] Successfully specialized '%s'\n", shaderName);
+    LOG_DEBUG("[OpenGL] Shader compilation/specialization succeeded: name={}", shaderName);
     return true;
 }
 

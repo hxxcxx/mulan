@@ -16,7 +16,6 @@
 
 #include <vector>
 #include <memory>
-#include <cstdio>
 
 namespace mulan::engine {
 

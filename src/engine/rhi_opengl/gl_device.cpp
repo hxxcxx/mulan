@@ -10,7 +10,6 @@
 #include "detail/gl_texture.h"
 #include "../rhi/engine_error_code.h"
 
-#include <cstdio>
 #include <cstring>
 #include <algorithm>
 #include <expected>
@@ -44,15 +43,15 @@ void APIENTRY glDebugMessageCallbackProc(GLenum source, GLenum type, GLuint id, 
     case GL_DEBUG_SEVERITY_NOTIFICATION: severity_name = "NOTIFICATION"; break;
     }
 
-    if (!message) {
-        std::fprintf(stderr, "[GL %s] source=0x%X type=0x%X id=%u <null debug message>\n", severity_name, source, type,
-                     id);
-    } else if (length >= 0) {
-        std::fprintf(stderr, "[GL %s] source=0x%X type=0x%X id=%u %.*s\n", severity_name, source, type, id,
-                     static_cast<int>(length), message);
-    } else {
-        std::fprintf(stderr, "[GL %s] source=0x%X type=0x%X id=%u %s\n", severity_name, source, type, id, message);
-    }
+    const std::string text =
+            !message ? "<null debug message>"
+                     : (length >= 0 ? std::string(message, static_cast<size_t>(length)) : std::string(message));
+    if (severity == GL_DEBUG_SEVERITY_HIGH)
+        LOG_ERROR("[OpenGL Debug] severity={} source=0x{:X} type=0x{:X} id={} {}", severity_name, source, type, id,
+                  text);
+    else
+        LOG_WARN("[OpenGL Debug] severity={} source=0x{:X} type=0x{:X} id={} {}", severity_name, source, type, id,
+                 text);
 }
 }  // anonymous namespace
 
@@ -70,8 +69,7 @@ void GLDevice::init(const CreateInfo& ci) {
     context_info.enableValidation = ci.enableValidation;
     auto context_result = createGLContext(context_info);
     if (!context_result) {
-        std::fprintf(stderr, "[GLDevice] Failed to create OpenGL context: %s\n",
-                     context_result.error().message.c_str());
+        LOG_ERROR("[OpenGL] Context creation failed: {}", context_result.error().message);
         return;
     }
     context_ = std::move(*context_result);
@@ -79,7 +77,7 @@ void GLDevice::init(const CreateInfo& ci) {
     // 加载 OpenGL 函数指针 (GLAD)
     // Load native OpenGL entry points.
     if (!gladLoadGL()) {
-        std::fprintf(stderr, "[GLDevice] Failed to load OpenGL via GLAD\n");
+        LOG_ERROR("[OpenGL] GLAD initialization failed");
         shutdown();
         return;
     }
@@ -89,8 +87,7 @@ void GLDevice::init(const CreateInfo& ci) {
     glGetIntegerv(GL_MAJOR_VERSION, &major_version);
     glGetIntegerv(GL_MINOR_VERSION, &minor_version);
     if (major_version < 4 || (major_version == 4 && minor_version < 6)) {
-        std::fprintf(stderr, "[GLDevice] OpenGL 4.6 Core Profile is required, got %d.%d\n", major_version,
-                     minor_version);
+        LOG_ERROR("[OpenGL] OpenGL 4.6 Core Profile is required; detected {}.{}", major_version, minor_version);
         shutdown();
         return;
     }
@@ -98,14 +95,15 @@ void GLDevice::init(const CreateInfo& ci) {
     GLint profile_mask = 0;
     glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &profile_mask);
     if ((profile_mask & GL_CONTEXT_CORE_PROFILE_BIT) == 0) {
-        std::fprintf(stderr, "[GLDevice] OpenGL Core Profile is required (profile mask: 0x%X)\n", profile_mask);
+        LOG_ERROR("[OpenGL] Core Profile is required; profileMask=0x{:X}", profile_mask);
         shutdown();
         return;
     }
 
-    std::fprintf(stdout, "[GLDevice] OpenGL %s | %s | %s\n", reinterpret_cast<const char*>(glGetString(GL_VERSION)),
-                 reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
-                 reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
+    LOG_INFO("[OpenGL] Runtime initialized: version={}, renderer={}, vendor={}",
+             reinterpret_cast<const char*>(glGetString(GL_VERSION)),
+             reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
+             reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
 
     // Debug output（OpenGL 4.3+）
 #ifdef _DEBUG
@@ -130,7 +128,7 @@ void GLDevice::init(const CreateInfo& ci) {
     frame_command_list_ = std::make_unique<GLCommandList>();
     frame_command_list_->trackResource(*this, RHIResourceKind::CommandList, "OpenGLFrameCommandList");
     initialized_ = true;
-    std::fprintf(stdout, "[GLDevice] Initialization complete\n");
+    LOG_INFO("[OpenGL] Device initialization complete");
 }
 
 GLDevice::~GLDevice() {
@@ -308,7 +306,7 @@ void GLDevice::waitIdle() {
 
 void GLDevice::beginFrame(SwapChain*) {
     if (context_ && !context_->makeCurrent())
-        std::fprintf(stderr, "[GLDevice] Failed to make the OpenGL context current for the frame\n");
+        LOG_ERROR("[OpenGL] Failed to make the context current for the frame");
 }
 
 void GLDevice::clearCaches() {

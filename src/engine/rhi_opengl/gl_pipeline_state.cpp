@@ -3,7 +3,6 @@
 #include "../rhi/render_state.h"
 #include "../rhi/render_types.h"
 
-#include <cstdio>
 #include <algorithm>
 #include <string>
 
@@ -138,8 +137,7 @@ GLPipelineState::~GLPipelineState() {
 
 void GLPipelineState::linkProgram() {
     if (!desc_.vs || !desc_.ps) {
-        std::fprintf(stderr, "[GLPipelineState] Missing vertex or pixel shader (name: %s)\n",
-                     std::string(desc_.name).c_str());
+        LOG_ERROR("[OpenGL] Pipeline creation failed: missing vertex or pixel shader, name={}", desc_.name);
         return;
     }
 
@@ -148,14 +146,14 @@ void GLPipelineState::linkProgram() {
     GLShader* ps = static_cast<GLShader*>(desc_.ps);
 
     if (!vs->isValid() || !ps->isValid()) {
-        std::fprintf(stderr, "[GLPipelineState] Invalid shader (name: %s)\n", std::string(desc_.name).c_str());
+        LOG_ERROR("[OpenGL] Pipeline creation failed: invalid shader, name={}", desc_.name);
         return;
     }
 
     // 创建程序对象
     program_ = glCreateProgram();
     if (program_ == 0) {
-        std::fprintf(stderr, "[GLPipelineState] glCreateProgram failed\n");
+        LOG_ERROR("[OpenGL] Pipeline creation failed: glCreateProgram returned 0");
         return;
     }
 
@@ -184,11 +182,10 @@ void GLPipelineState::linkProgram() {
         if (logLen > 0) {
             char* logBuf = new char[logLen];
             glGetProgramInfoLog(program_, logLen, nullptr, logBuf);
-            std::fprintf(stderr, "[GLPipelineState] Program link failed (name: %s):\n%s\n",
-                         std::string(desc_.name).c_str(), logBuf);
+            LOG_ERROR("[OpenGL] Program link failed: name={}, diagnostic={}", desc_.name, logBuf);
             delete[] logBuf;
         } else {
-            std::fprintf(stderr, "[GLPipelineState] Program link failed (name: %s)\n", std::string(desc_.name).c_str());
+            LOG_ERROR("[OpenGL] Program link failed: name={}, no diagnostic", desc_.name);
         }
 
         glDeleteProgram(program_);
@@ -206,8 +203,7 @@ void GLPipelineState::linkProgram() {
         }
     }
 
-    std::fprintf(stdout, "[GLPipelineState] Linked program (name: %s, handle: %u)\n", std::string(desc_.name).c_str(),
-                 program_);
+    LOG_DEBUG("[OpenGL] Program linked: name={}, handle={}", desc_.name, program_);
 }
 
 void GLPipelineState::applyRenderState() const {

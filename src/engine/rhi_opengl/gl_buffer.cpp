@@ -1,6 +1,5 @@
 #include "detail/gl_buffer.h"
 #include <cstring>
-#include <cstdio>
 #include <string>
 
 namespace mulan::engine {
@@ -80,7 +79,7 @@ void GLBuffer::createBuffer() {
     // 创建缓冲区对象
     glCreateBuffers(1, &buffer_);
     if (buffer_ == 0) {
-        std::fprintf(stderr, "[GLBuffer] glCreateBuffers failed\n");
+        LOG_ERROR("[OpenGL] Buffer creation failed: glCreateBuffers returned 0");
         return;
     }
 
@@ -90,15 +89,13 @@ void GLBuffer::createBuffer() {
     // 检查错误
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        std::fprintf(stderr, "[GLBuffer] glNamedBufferData failed (error: 0x%X, name: %s)\n", err,
-                     std::string(desc_.name).c_str());
+        LOG_ERROR("[OpenGL] Buffer allocation failed: error=0x{:X}, name={}", err, desc_.name);
         glDeleteBuffers(1, &buffer_);
         buffer_ = 0;
         return;
     }
 
-    std::fprintf(stdout, "[GLBuffer] Created buffer (handle: %u, size: %u, name: %s)\n", buffer_, desc_.size,
-                 std::string(desc_.name).c_str());
+    LOG_DEBUG("[OpenGL] Buffer created: handle={}, size={}, name={}", buffer_, desc_.size, desc_.name);
 }
 
 void GLBuffer::update(uint32_t offset, uint32_t size, const void* data) {
@@ -106,15 +103,14 @@ void GLBuffer::update(uint32_t offset, uint32_t size, const void* data) {
         return;
 
     if (offset + size > desc_.size) {
-        std::fprintf(stderr, "[GLBuffer] Update out of bounds (offset: %u, size: %u, buffer size: %u)\n", offset, size,
-                     desc_.size);
+        LOG_ERROR("[OpenGL] Buffer update rejected: offset={}, size={}, bufferSize={}", offset, size, desc_.size);
         return;
     }
 
     switch (desc_.usage) {
     case BufferUsage::Immutable:
         // 不可修改
-        std::fprintf(stderr, "[GLBuffer] Cannot update Immutable buffer\n");
+        LOG_ERROR("[OpenGL] Buffer update rejected: immutable buffer");
         break;
 
     case BufferUsage::Default: updateDefault(offset, size, data); break;
@@ -134,8 +130,7 @@ void GLBuffer::updateDefault(uint32_t offset, uint32_t size, const void* data) {
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        std::fprintf(stderr, "[GLBuffer] glNamedBufferSubData failed (error: 0x%X, offset: %u, size: %u)\n", err,
-                     offset, size);
+        LOG_ERROR("[OpenGL] Buffer update failed: error=0x{:X}, offset={}, size={}", err, offset, size);
     }
 }
 
@@ -145,7 +140,7 @@ void GLBuffer::updateDynamic(uint32_t offset, uint32_t size, const void* data) {
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        std::fprintf(stderr, "[GLBuffer] Dynamic buffer update failed (error: 0x%X)\n", err);
+        LOG_ERROR("[OpenGL] Dynamic buffer update failed: error=0x{:X}", err);
     }
 }
 
@@ -154,13 +149,12 @@ bool GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
         return false;
 
     if (desc_.usage != BufferUsage::Staging) {
-        std::fprintf(stderr, "[GLBuffer] readback only supported for Staging buffers\n");
+        LOG_ERROR("[OpenGL] Buffer readback rejected: staging buffer required");
         return false;
     }
 
     if (offset + size > desc_.size) {
-        std::fprintf(stderr, "[GLBuffer] Readback out of bounds (offset: %u, size: %u, buffer size: %u)\n", offset,
-                     size, desc_.size);
+        LOG_ERROR("[OpenGL] Buffer readback rejected: offset={}, size={}, bufferSize={}", offset, size, desc_.size);
         return false;
     }
 
@@ -169,7 +163,7 @@ bool GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        std::fprintf(stderr, "[GLBuffer] readback failed (error: 0x%X)\n", err);
+        LOG_ERROR("[OpenGL] Buffer readback failed: error=0x{:X}", err);
         return false;
     }
 

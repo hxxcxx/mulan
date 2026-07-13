@@ -1,7 +1,6 @@
 #include "detail/gl_swap_chain.h"
 
 #include <algorithm>
-#include <cstdio>
 #include <iterator>
 
 namespace mulan::engine {

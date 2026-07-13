@@ -8,7 +8,6 @@
 #include "../rhi/buffer.h"
 #include "../rhi/render_types.h"
 #include "../rhi/render_types.h"
-#include <cstdio>
 #include <cstring>
 #include <algorithm>
 #include <array>
@@ -149,7 +148,7 @@ void GLCommandList::bindEntry(const BindGroupEntry& e) {
 
 void GLCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
     if (slot >= MAX_VERTEX_BUFFERS) {
-        std::fprintf(stderr, "[GLCommandList] setVertexBuffer: slot %u out of range\n", slot);
+        LOG_ERROR("[OpenGL] setVertexBuffer rejected: slot {} is out of range", slot);
         return;
     }
 
@@ -238,19 +237,19 @@ void GLCommandList::draw(const DrawAttribs& attribs) {
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        std::fprintf(stderr, "[GLCommandList] draw failed (error: 0x%X)\n", err);
+        LOG_ERROR("[OpenGL] draw failed: error=0x{:X}", err);
     }
 }
 
 void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
 #if defined(_WIN32)
     if (!wglGetCurrentContext()) {
-        std::fprintf(stderr, "[GLCommandList] drawIndexed skipped: no current WGL context\n");
+        LOG_ERROR("[OpenGL] drawIndexed rejected: no current WGL context");
         return;
     }
 #endif
     if (!glDrawElements) {
-        std::fprintf(stderr, "[GLCommandList] drawIndexed skipped: glDrawElements is not loaded\n");
+        LOG_ERROR("[OpenGL] drawIndexed rejected: glDrawElements is unavailable");
         return;
     }
 
@@ -262,7 +261,7 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
 
     auto* glIndexBuffer = dynamic_cast<GLBuffer*>(index_buffer_);
     if (!glIndexBuffer || !glIndexBuffer->isValid()) {
-        std::fprintf(stderr, "[GLCommandList] drawIndexed skipped: no valid index buffer is bound\n");
+        LOG_ERROR("[OpenGL] drawIndexed rejected: no valid index buffer is bound");
         glBindVertexArray(0);
         return;
     }
@@ -300,11 +299,8 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
             static_cast<uint64_t>(index_buffer_Offset) + static_cast<uint64_t>(attribs.startIndex) * indexStride;
     const uint64_t indexEnd = indexOffset + static_cast<uint64_t>(attribs.indexCount) * indexStride;
     if (indexEnd > glIndexBuffer->size()) {
-        std::fprintf(stderr,
-                     "[GLCommandList] drawIndexed skipped: index range exceeds buffer (offset: %llu, count: %u, "
-                     "stride: %u, buffer: %u)\n",
-                     static_cast<unsigned long long>(indexOffset), attribs.indexCount, indexStride,
-                     glIndexBuffer->size());
+        LOG_ERROR("[OpenGL] drawIndexed rejected: offset={}, count={}, stride={}, bufferSize={}", indexOffset,
+                  attribs.indexCount, indexStride, glIndexBuffer->size());
         glBindVertexArray(0);
         return;
     }
@@ -313,8 +309,8 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
     GLint boundIndexBuffer = 0;
     glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &boundIndexBuffer);
     if (boundIndexBuffer != static_cast<GLint>(glIndexBuffer->handle())) {
-        std::fprintf(stderr, "[GLCommandList] drawIndexed skipped: VAO EBO mismatch (expected: %u, actual: %d)\n",
-                     glIndexBuffer->handle(), boundIndexBuffer);
+        LOG_ERROR("[OpenGL] drawIndexed rejected: VAO EBO mismatch, expected={}, actual={}", glIndexBuffer->handle(),
+                  boundIndexBuffer);
         glBindVertexArray(0);
         return;
     }
@@ -336,7 +332,7 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        std::fprintf(stderr, "[GLCommandList] drawIndexed failed (error: 0x%X)\n", err);
+        LOG_ERROR("[OpenGL] drawIndexed failed: error=0x{:X}", err);
     }
 }
 

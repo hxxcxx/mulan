@@ -15,6 +15,7 @@
 
 // GLAD must be included before any OpenGL headers.
 #include <glad/glad.h>
+#include <mulan/core/log/log.h>
 
 // WGL_ARB_create_context constants (not provided by vcpkg glad)
 #if defined(_WIN32)
@@ -29,7 +30,6 @@
 typedef HGLRC(WINAPI* PFNWGLCREATECONTEXTATTRIBSARBPROC)(HDC hDC, HGLRC hShareContext, const int* attribList);
 #endif
 
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -45,25 +45,5 @@ inline bool glExtensionSupported(const char* name) {
     }
     return false;
 }
-
-/// 检查 OpenGL 错误（Debug 模式下使用）
-inline void glCheckError(const char* file, int line) {
-#ifdef _DEBUG
-    GLenum err;
-    while ((err = glGetError()) != GL_NO_ERROR) {
-        const char* errStr = "UNKNOWN";
-        switch (err) {
-        case GL_INVALID_ENUM: errStr = "GL_INVALID_ENUM"; break;
-        case GL_INVALID_VALUE: errStr = "GL_INVALID_VALUE"; break;
-        case GL_INVALID_OPERATION: errStr = "GL_INVALID_OPERATION"; break;
-        case GL_OUT_OF_MEMORY: errStr = "GL_OUT_OF_MEMORY"; break;
-        case GL_INVALID_FRAMEBUFFER_OPERATION: errStr = "GL_INVALID_FRAMEBUFFER_OPERATION"; break;
-        }
-        std::fprintf(stderr, "[GL ERROR] %s at %s:%d\n", errStr, file, line);
-    }
-#endif
-}
-
-#define GL_CHECK() ::mulan::engine::glCheckError(__FILE__, __LINE__)
 
 }  // namespace mulan::engine

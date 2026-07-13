@@ -1,6 +1,5 @@
 #include "detail/gl_texture.h"
 
-#include <cstdio>
 #include <cstring>
 #include <string>
 
@@ -33,7 +32,7 @@ GLenum GLTexture::toGLInternalFormat(TextureFormat fmt) {
     case TextureFormat::BC7_RGBA_UNorm: return GL_COMPRESSED_RGBA_BPTC_UNORM;
     case TextureFormat::BC7_RGBA_sRGB: return GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM;
     default:
-        std::fprintf(stderr, "[GLTexture] Unknown TextureFormat %d, defaulting to GL_RGBA8\n", static_cast<int>(fmt));
+        LOG_WARN("[OpenGL] Unknown texture format {}; defaulting to GL_RGBA8", static_cast<int>(fmt));
         return GL_RGBA8;
     }
 }
@@ -128,7 +127,7 @@ void GLTexture::create() {
 
     glCreateTextures(target_, 1, &handle_);
     if (!handle_) {
-        std::fprintf(stderr, "[GLTexture] glCreateTextures failed: %s\n", std::string(desc_.name).c_str());
+        LOG_ERROR("[OpenGL] Texture creation failed: glCreateTextures returned 0, name={}", desc_.name);
         return;
     }
 
@@ -169,7 +168,7 @@ void GLTexture::create() {
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        std::fprintf(stderr, "[GLTexture] create error 0x%X: %s\n", err, std::string(desc_.name).c_str());
+        LOG_ERROR("[OpenGL] Texture creation failed: error=0x{:X}, name={}", err, desc_.name);
         glDeleteTextures(1, &handle_);
         handle_ = 0;
     }
@@ -183,7 +182,7 @@ void GLTexture::upload(uint32_t mipLevel, const void* data) {
     if (!handle_ || !data)
         return;
     if (target_ != GL_TEXTURE_2D && target_ != GL_TEXTURE_1D && target_ != GL_TEXTURE_3D) {
-        std::fprintf(stderr, "[GLTexture] upload: use uploadCubeFace for cube textures\n");
+        LOG_ERROR("[OpenGL] Texture upload rejected: use uploadCubeFace for cube textures");
         return;
     }
 
@@ -208,7 +207,7 @@ void GLTexture::upload(uint32_t mipLevel, const void* data) {
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        std::fprintf(stderr, "[GLTexture] upload mip %u error 0x%X\n", mipLevel, err);
+        LOG_ERROR("[OpenGL] Texture upload failed: mip={}, error=0x{:X}", mipLevel, err);
     }
 }
 
@@ -216,11 +215,11 @@ void GLTexture::uploadCubeFace(uint32_t face, uint32_t mipLevel, const void* dat
     if (!handle_ || !data)
         return;
     if (target_ != GL_TEXTURE_CUBE_MAP) {
-        std::fprintf(stderr, "[GLTexture] uploadCubeFace: texture is not a cube map\n");
+        LOG_ERROR("[OpenGL] Cube texture upload rejected: texture is not a cube map");
         return;
     }
     if (face > 5) {
-        std::fprintf(stderr, "[GLTexture] uploadCubeFace: face index %u out of range\n", face);
+        LOG_ERROR("[OpenGL] Cube texture upload rejected: face {} is out of range", face);
         return;
     }
 
@@ -234,7 +233,7 @@ void GLTexture::uploadCubeFace(uint32_t face, uint32_t mipLevel, const void* dat
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        std::fprintf(stderr, "[GLTexture] uploadCubeFace face %u mip %u error 0x%X\n", face, mipLevel, err);
+        LOG_ERROR("[OpenGL] Cube texture upload failed: face={}, mip={}, error=0x{:X}", face, mipLevel, err);
     }
 }
 

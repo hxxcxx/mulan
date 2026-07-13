@@ -1,7 +1,5 @@
 #include "detail/gl_render_target.h"
 
-#include <cstdio>
-
 namespace mulan::engine {
 
 // ============================================================
@@ -57,7 +55,7 @@ void GLRenderTarget::createResources() {
     const GLenum colorTarget = desc_.sampleCount > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
     glCreateTextures(colorTarget, 1, &colorTex);
     if (!colorTex) {
-        std::fprintf(stderr, "[GLRenderTarget] Failed to create color texture\n");
+        LOG_ERROR("[OpenGL] Render target creation failed: color texture creation failed");
         return;
     }
     if (desc_.sampleCount > 1) {
@@ -90,7 +88,7 @@ void GLRenderTarget::createResources() {
     if (desc_.hasDepth) {
         glCreateTextures(depthTarget, 1, &depthTex);
         if (!depthTex) {
-            std::fprintf(stderr, "[GLRenderTarget] Failed to create depth texture\n");
+            LOG_ERROR("[OpenGL] Render target creation failed: depth texture creation failed");
             destroyResources();
             return;
         }
@@ -126,7 +124,7 @@ void GLRenderTarget::createResources() {
     // --- FBO ---
     glCreateFramebuffers(1, &fbo_);
     if (!fbo_) {
-        std::fprintf(stderr, "[GLRenderTarget] Failed to create framebuffer\n");
+        LOG_ERROR("[OpenGL] Render target creation failed: glCreateFramebuffers returned 0");
         return;
     }
 
@@ -146,14 +144,14 @@ void GLRenderTarget::createResources() {
     // 完整性检查
     GLenum status = glCheckNamedFramebufferStatus(fbo_, GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
-        std::fprintf(stderr, "[GLRenderTarget] Framebuffer incomplete (status: 0x%X)\n", status);
+        LOG_ERROR("[OpenGL] Render target creation failed: framebuffer status=0x{:X}", status);
         glDeleteFramebuffers(1, &fbo_);
         fbo_ = 0;
         return;
     }
 
-    std::fprintf(stdout, "[GLRenderTarget] Created FBO %u (%ux%u color=%u depth=%u)\n", fbo_, desc_.width, desc_.height,
-                 colorTex, depthTex);
+    LOG_DEBUG("[OpenGL] Framebuffer created: handle={}, size={}x{}, color={}, depth={}", fbo_, desc_.width,
+              desc_.height, colorTex, depthTex);
 }
 
 void GLRenderTarget::destroyResources() {

@@ -1,5 +1,4 @@
 #include "detail/gl_sampler.h"
-#include <cstdio>
 
 namespace mulan::engine {
 
@@ -84,8 +83,6 @@ GLSampler::GLSampler(const SamplerDesc& desc) : desc_(desc) {
         desc.addressW == SamplerAddressMode::ClampToBorder) {
         glSamplerParameterfv(handle_, GL_TEXTURE_BORDER_COLOR, desc.borderColor);
     }
-
-    GL_CHECK();
 }
 
 GLSampler::~GLSampler() {
