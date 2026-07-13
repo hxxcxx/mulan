@@ -8,7 +8,6 @@
 
 #include <mulan/io/file_manager.h>
 #include <mulan/io/import_result.h>
-#include <mulan/core/log/log.h>
 #include <mulan/view/capture/capture_image_encoder.h>
 #include <mulan/view/core/view_context.h>
 
@@ -44,11 +43,8 @@ void logImportReport(const mulan::io::ImportReport& report) {
        << ": entities=" << report.entityCount << ", mesh=" << report.meshAssetCount
        << ", brep=" << report.brepAssetCount << ", primitives=" << report.primitiveCount
        << ", materials=" << report.materialCount << ", textures=" << report.textureCount;
-    mulan::core::log::log(mulan::core::log::Level::Info, os.str());
 
-    for (const auto& warning : report.warnings) {
-        mulan::core::log::log(mulan::core::log::Level::Warn, warning);
-    }
+    for (const auto& warning : report.warnings) {}
 }
 
 QImage frameThumbnailToContent(const QImage& image) {

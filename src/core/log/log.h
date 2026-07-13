@@ -2,14 +2,26 @@
 
 #include "../core_export.h"
 
-#include <spdlog/spdlog.h>
-
-#include <cassert>
 #include <cstdint>
+#include <format>
 #include <source_location>
 #include <string_view>
 
 namespace mulan::core::log {
+
+// ============================================================
+// 级别
+// ============================================================
+
+enum class Level : uint8_t {
+    Trace = 0,
+    Debug,
+    Info,
+    Warn,
+    Error,
+    Critical,
+    Off,
+};
 
 // ============================================================
 // 配置
@@ -22,9 +34,10 @@ struct CORE_API Config {
     int32_t maxFiles = 5;
     bool enableConsole = true;
     bool enableFile = true;
-    bool enableMSVC = true;  // VS OutputDebugString
+    bool enableMSVC = true;          // VS OutputDebugString
     bool asyncMode = true;
-    bool flushOnCritical = true;
+    Level logLevel = Level::Info;    // 默认输出级别
+    Level flushLevel = Level::Warn;  // 达到该级别立即落盘
 };
 
 // ============================================================
@@ -39,16 +52,6 @@ CORE_API bool isInitialized();
 // 运行时控制
 // ============================================================
 
-enum class Level : uint8_t {
-    Trace = 0,
-    Debug,
-    Info,
-    Warn,
-    Error,
-    Critical,
-    Off,
-};
-
 CORE_API void setLevel(Level lvl);
 CORE_API void setFlushLevel(Level lvl);
 
@@ -56,28 +59,24 @@ CORE_API void setFlushLevel(Level lvl);
 // 日志输出
 // ============================================================
 
-/// 纯文本日志
+/// 纯文本日志（不做格式化）
 CORE_API void log(Level lvl, std::string_view msg);
 
-constexpr spdlog::level::level_enum kLevelMap[] = { spdlog::level::trace, spdlog::level::debug, spdlog::level::info,
-                                                    spdlog::level::warn,  spdlog::level::err,   spdlog::level::critical,
-                                                    spdlog::level::off };
+namespace detail {
 
-inline spdlog::level::level_enum toSpdlogLevel(Level lvl) {
-    auto idx = static_cast<size_t>(lvl);
-    assert(idx < std::size(kLevelMap));
-    return kLevelMap[idx];
-}
-/// 格式化日志（模板转发至 spdlog，编译期检查格式串，自动捕获调用位置）
+/// 类型擦除的提交入口。
+/// spdlog 类型对外完全不可见：格式化在本函数内完成后，只把 std::string 交给后端。
+/// @note args 是调用方栈上参数的只读视图，本函数同步消费，不跨线程、不存储，
+///       因此不会出现悬垂引用（见 logf 模板，format_args 临时量生命周期覆盖整个调用）。
+CORE_API void submit(Level lvl, std::source_location loc, std::string_view fmt, std::format_args args);
+
+}  // namespace detail
+
+/// 格式化日志（std::format 语法，编译期检查格式串，自动捕获调用位置）
 template <typename... Args>
-void logf(Level lvl, spdlog::format_string_t<Args...> fmt, Args&&... args,
+void logf(Level lvl, std::format_string<Args...> fmt, Args&&... args,
           std::source_location loc = std::source_location::current()) {
-    if (auto lgr = spdlog::default_logger_raw()) {
-        spdlog::source_loc src{ loc.file_name(), static_cast<int>(loc.line()), loc.function_name() };
-        lgr->log(src, toSpdlogLevel(lvl), fmt, std::forward<Args>(args)...);
-    } else {
-        assert(false && "log not initialized — call log::init() first");
-    }
+    detail::submit(lvl, loc, fmt.get(), std::make_format_args(args...));
 }
 
 }  // namespace mulan::core::log
