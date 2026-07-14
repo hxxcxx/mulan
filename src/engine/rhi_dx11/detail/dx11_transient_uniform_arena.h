@@ -1,17 +1,26 @@
+/**
+ * @file dx11_transient_uniform_arena.h
+ * @brief D3D11 瞬态 Uniform 页分配器
+ * @author hxxcxx
+ * @date 2026-07-14
+ */
+
 #pragma once
 
 #include "dx11_common.h"
 #include "../../rhi/transient_uniform_allocator.h"
 
 #include <cstdint>
+#include <cstddef>
 #include <memory>
+#include <span>
 #include <vector>
 
 namespace mulan::engine {
 
 class DX11Buffer;
 
-class DX11ConstantBufferArena final {
+class DX11TransientUniformArena final {
 public:
     struct Allocation {
         ID3D11Buffer* buffer = nullptr;
@@ -23,10 +32,10 @@ public:
         explicit operator bool() const { return buffer != nullptr; }
     };
 
-    DX11ConstantBufferArena(ID3D11Device* device, ID3D11DeviceContext* context, ID3D11DeviceContext1* context1);
+    DX11TransientUniformArena(ID3D11Device* device, ID3D11DeviceContext* context, ID3D11DeviceContext1* context1);
 
     void beginRecording();
-    Allocation upload(const void* data, uint32_t size);
+    Allocation upload(std::span<const std::byte> data);
 
     bool isValid() const { return device_ && context_; }
     bool usesLinearSuballocation() const { return linear_suballocation_; }

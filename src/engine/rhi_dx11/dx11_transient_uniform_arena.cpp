@@ -1,4 +1,4 @@
-#include "detail/dx11_constant_buffer_arena.h"
+#include "detail/dx11_transient_uniform_arena.h"
 #include "detail/dx11_buffer.h"
 
 #include <algorithm>
@@ -13,8 +13,8 @@ uint32_t alignUp(uint32_t value, uint32_t alignment) {
 
 }  // namespace
 
-DX11ConstantBufferArena::DX11ConstantBufferArena(ID3D11Device* device, ID3D11DeviceContext* context,
-                                                 ID3D11DeviceContext1* context1)
+DX11TransientUniformArena::DX11TransientUniformArena(ID3D11Device* device, ID3D11DeviceContext* context,
+                                                     ID3D11DeviceContext1* context1)
     : device_(device), context_(context), context1_(context1) {
     if (!device_ || !context_)
         return;
@@ -24,11 +24,11 @@ DX11ConstantBufferArena::DX11ConstantBufferArena(ID3D11Device* device, ID3D11Dev
             context1_ &&
             SUCCEEDED(device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &options, sizeof(options))) &&
             options.MapNoOverwriteOnDynamicConstantBuffer;
-    LOG_INFO("[DX11] Constant buffer arena initialized: pageBytes={}, linearSuballocation={}", kPageBytes,
+    LOG_INFO("[DX11] Transient uniform arena initialized: pageBytes={}, linearSuballocation={}", kPageBytes,
              linear_suballocation_);
 }
 
-void DX11ConstantBufferArena::beginRecording() {
+void DX11TransientUniformArena::beginRecording() {
     allocator_.beginRecording();
     fallback_page_ = 0;
     for (auto& page : pages_) {
@@ -36,13 +36,13 @@ void DX11ConstantBufferArena::beginRecording() {
     }
 }
 
-bool DX11ConstantBufferArena::createPage(Page& page, uint32_t capacity) {
+bool DX11TransientUniformArena::createPage(Page& page, uint32_t capacity) {
     page.buffer = DX11Buffer::createTransientUniformPage(capacity, device_, context_);
     page.capacity = page.buffer ? capacity : 0;
     return page.buffer != nullptr;
 }
 
-DX11ConstantBufferArena::Page* DX11ConstantBufferArena::acquireLinearPage(uint32_t pageIndex) {
+DX11TransientUniformArena::Page* DX11TransientUniformArena::acquireLinearPage(uint32_t pageIndex) {
     while (pages_.size() <= pageIndex) {
         pages_.emplace_back();
         if (!createPage(pages_.back(), kPageBytes)) {
@@ -53,7 +53,7 @@ DX11ConstantBufferArena::Page* DX11ConstantBufferArena::acquireLinearPage(uint32
     return &pages_[pageIndex];
 }
 
-DX11ConstantBufferArena::Page* DX11ConstantBufferArena::acquireFallbackPage(uint32_t pageIndex, uint32_t capacity) {
+DX11TransientUniformArena::Page* DX11TransientUniformArena::acquireFallbackPage(uint32_t pageIndex, uint32_t capacity) {
     while (pages_.size() <= pageIndex)
         pages_.emplace_back();
     Page& page = pages_[pageIndex];
@@ -67,9 +67,11 @@ DX11ConstantBufferArena::Page* DX11ConstantBufferArena::acquireFallbackPage(uint
     return &page;
 }
 
-DX11ConstantBufferArena::Allocation DX11ConstantBufferArena::upload(const void* data, uint32_t size) {
-    if (!data || size == 0 || size > kPageBytes || !isValid())
+DX11TransientUniformArena::Allocation DX11TransientUniformArena::upload(std::span<const std::byte> data) {
+    if (data.empty() || data.size_bytes() > kPageBytes || !isValid())
         return {};
+
+    const uint32_t size = static_cast<uint32_t>(data.size_bytes());
 
     const auto plan = allocator_.allocate(size);
     if (!plan)
@@ -93,7 +95,7 @@ DX11ConstantBufferArena::Allocation DX11ConstantBufferArena::upload(const void* 
 
     auto* destination = static_cast<uint8_t*>(mapped.pData) + offset;
     std::memset(destination, 0, allocationBytes);
-    std::memcpy(destination, data, size);
+    std::memcpy(destination, data.data(), size);
     context_->Unmap(page->buffer->buffer(), 0);
 
     page->discarded = true;

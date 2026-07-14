@@ -11,7 +11,7 @@
 
 #include "../../rhi/command_list.h"
 #include "dx11_common.h"
-#include "dx11_constant_buffer_arena.h"
+#include "dx11_transient_uniform_arena.h"
 
 #include <array>
 #include <unordered_map>
@@ -97,8 +97,8 @@ private:
     ID3D11DeviceContext* m_ctx;              // 非拥有，Device 的 immediate context
     ID3D11DeviceContext1* m_ctx1 = nullptr;  // 可选的 D3D11.1 范围绑定接口
     uint32_t m_cachedStride = 0;
-    DX11ConstantBufferArena m_constantBufferArena;
-    std::unordered_map<ConstantBufferCacheKey, DX11ConstantBufferArena::Allocation, ConstantBufferCacheKeyHash>
+    DX11TransientUniformArena m_transientUniformArena;
+    std::unordered_map<ConstantBufferCacheKey, DX11TransientUniformArena::Allocation, ConstantBufferCacheKeyHash>
             m_constantBufferCache;
     std::array<ActiveColorAttachment, RenderPassBeginInfo::kMaxColorTargets> m_activeColorAttachments{};
     DX11Texture* m_activeDepthTexture = nullptr;

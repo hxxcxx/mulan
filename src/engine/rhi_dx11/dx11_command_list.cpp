@@ -51,14 +51,14 @@ size_t DX11CommandList::ConstantBufferCacheKeyHash::operator()(const ConstantBuf
 }
 
 DX11CommandList::DX11CommandList(ID3D11Device* device, ID3D11DeviceContext* ctx, ID3D11DeviceContext1* ctx1)
-    : m_device(device), m_ctx(ctx), m_ctx1(ctx1), m_constantBufferArena(device, ctx, ctx1) {
+    : m_device(device), m_ctx(ctx), m_ctx1(ctx1), m_transientUniformArena(device, ctx, ctx1) {
     if (!m_device || !m_ctx)
         LOG_ERROR("[DX11] Command list initialization rejected: invalid device or context");
 }
 
 void DX11CommandList::begin() {
     resetResourceUsage();
-    m_constantBufferArena.beginRecording();
+    m_transientUniformArena.beginRecording();
     m_constantBufferCache.clear();
     // D3D11 immediate context 无需显式 begin。
 }
@@ -135,7 +135,7 @@ void DX11CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniform
     }
     const std::string validationError = validateDynamicUniformBindings(
             dx11Group->layout(), dynamicUniforms, { kConstantBufferRangeAlignment, kMaximumConstantBufferBytes },
-            m_constantBufferArena.recordingGeneration());
+            m_transientUniformArena.recordingGeneration());
     if (!validationError.empty()) {
         LOG_ERROR("[DX11] Dynamic uniform binding rejected: {}", validationError);
         return;
@@ -162,14 +162,14 @@ core::Result<UniformSlice> DX11CommandList::writeUniformBytes(std::span<const st
                                          "DX11 transient uniform data exceeds the binding limit"));
     }
 
-    const auto allocation = m_constantBufferArena.upload(data.data(), static_cast<uint32_t>(data.size_bytes()));
+    const auto allocation = m_transientUniformArena.upload(data);
     if (!allocation) {
         return std::unexpected(
                 makeError(EngineErrorCode::ResourceCreateFailed, "DX11 transient uniform allocation failed"));
     }
 
     return UniformSlice{ allocation.backingBuffer, allocation.firstConstant * 16u,
-                         static_cast<uint32_t>(data.size_bytes()), m_constantBufferArena.recordingGeneration() };
+                         static_cast<uint32_t>(data.size_bytes()), m_transientUniformArena.recordingGeneration() };
 }
 
 void DX11CommandList::bindResources(const BindGroupDesc& group) {
@@ -295,12 +295,13 @@ void DX11CommandList::bindConstantBuffer(uint32_t slot, const BindGroupEntry& en
 
     const ConstantBufferCacheKey cacheKey{ buffer, buffer->uniformVersion(), entry.offset, requestedSize };
     auto cached = m_constantBufferCache.find(cacheKey);
-    DX11ConstantBufferArena::Allocation allocation;
+    DX11TransientUniformArena::Allocation allocation;
     if (cached != m_constantBufferCache.end()) {
         allocation = cached->second;
     } else {
         const void* sourceData = buffer->uniformData(entry.offset, requestedSize);
-        allocation = m_constantBufferArena.upload(sourceData, requestedSize);
+        allocation = m_transientUniformArena.upload(
+                std::as_bytes(std::span{ static_cast<const uint8_t*>(sourceData), size_t{ requestedSize } }));
         if (allocation)
             m_constantBufferCache.emplace(cacheKey, allocation);
     }
@@ -337,7 +338,7 @@ void DX11CommandList::bindUniformSlice(uint32_t slot, const UniformSlice& slice,
     ID3D11Buffer* nativeBuffer = buffer->buffer();
     const UINT firstConstant = slice.offset / 16u;
     const UINT constantCount = alignUp(slice.size, kConstantBufferRangeAlignment) / 16u;
-    if (m_ctx1 && m_constantBufferArena.usesLinearSuballocation()) {
+    if (m_ctx1 && m_transientUniformArena.usesLinearSuballocation()) {
         if (usesVertexStage(stages))
             m_ctx1->VSSetConstantBuffers1(slot, 1, &nativeBuffer, &firstConstant, &constantCount);
         if (usesFragmentStage(stages))

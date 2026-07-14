@@ -4,7 +4,7 @@ add_library(rhi_dx11 STATIC
     dx11_bind_group.cpp
     dx11_buffer.cpp
     dx11_command_list.cpp
-    dx11_constant_buffer_arena.cpp
+    dx11_transient_uniform_arena.cpp
     dx11_device.cpp
     dx11_fence.cpp
     dx11_pipeline_state.cpp
