@@ -1,4 +1,5 @@
 #include "command_list.h"
+#include "device.h"
 #include "engine_error_code.h"
 #include "sampler.h"
 
@@ -68,6 +69,21 @@ void CommandList::markSubmitted(SubmissionToken token) {
     for (auto it = used_resources_.begin(); it != uniqueEnd; ++it)
         (*it)->markUsed(token);
     markUsed(token);
+}
+
+core::Result<void> CommandList::waitForPreviousSubmission() {
+    const SubmissionToken token = lastUseToken();
+    if (!token)
+        return {};
+
+    RHIDevice* device = trackingDevice();
+    if (!device) {
+        return std::unexpected(
+                makeError(EngineErrorCode::InvalidSubmissionToken, "command list is detached from its device"));
+    }
+    if (device->isSubmissionComplete(token))
+        return {};
+    return device->waitForSubmission(token);
 }
 
 }  // namespace mulan::engine

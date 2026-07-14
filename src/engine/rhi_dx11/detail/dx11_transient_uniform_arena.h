@@ -35,6 +35,7 @@ public:
     DX11TransientUniformArena(ID3D11Device* device, ID3D11DeviceContext* context, ID3D11DeviceContext1* context1);
 
     void beginRecording();
+    void endRecording();
     Allocation upload(std::span<const std::byte> data);
 
     bool isValid() const { return device_ && context_; }

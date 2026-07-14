@@ -43,7 +43,7 @@ void GLCommandList::begin() {
 }
 
 void GLCommandList::end() {
-    transient_uniform_arena_->sealRecording();
+    transient_uniform_arena_->endRecording();
 }
 
 void GLCommandList::setPipelineState(PipelineState* pso) {

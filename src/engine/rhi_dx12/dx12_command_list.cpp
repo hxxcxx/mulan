@@ -69,6 +69,11 @@ void DX12CommandList::begin() {
         // 独立命令列表由 create() 先关闭；begin() 负责复用 allocator 并重新打开。
         if (recording_ || !allocator_)
             return;
+        const auto previousSubmission = waitForPreviousSubmission();
+        if (!previousSubmission) {
+            LOG_ERROR("[DX12] Command list reuse rejected: {}", previousSubmission.error().message);
+            return;
+        }
         if (!checkDX12(allocator_->Reset(), "ID3D12CommandAllocator::Reset"))
             return;
         if (!checkDX12(cmd_list_->Reset(allocator_.Get(), nullptr), "ID3D12GraphicsCommandList::Reset"))
@@ -86,8 +91,12 @@ void DX12CommandList::end() {
     if (!cmd_list_ || !recording_)
         return;
     HRESULT hr = cmd_list_->Close();
-    if (!checkDX12(hr, "ID3D12GraphicsCommandList::Close"))
+    if (transient_uniform_arena_)
+        transient_uniform_arena_->endRecording();
+    if (!checkDX12(hr, "ID3D12GraphicsCommandList::Close")) {
+        recording_ = false;
         return;
+    }
     recording_ = false;
 }
 

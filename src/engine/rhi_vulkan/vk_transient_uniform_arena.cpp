@@ -27,6 +27,10 @@ void VKTransientUniformArena::beginRecording() {
     allocator_plan_.beginRecording();
 }
 
+void VKTransientUniformArena::endRecording() {
+    allocator_plan_.endRecording();
+}
+
 VKTransientUniformArena::Allocation VKTransientUniformArena::upload(std::span<const std::byte> data) {
     if (!allocator_ || data.empty())
         return {};

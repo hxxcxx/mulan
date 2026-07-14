@@ -25,6 +25,10 @@ uint64_t TransientUniformAllocator::beginRecording() noexcept {
     return recording_generation_;
 }
 
+void TransientUniformAllocator::endRecording() noexcept {
+    recording_ = false;
+}
+
 std::expected<UniformAllocationPlan, UniformAllocationError> TransientUniformAllocator::allocate(
         uint32_t size) noexcept {
     if (!valid_)

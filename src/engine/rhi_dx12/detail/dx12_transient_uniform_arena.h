@@ -36,6 +36,7 @@ public:
     ~DX12TransientUniformArena();
 
     void beginRecording();
+    void endRecording();
     Allocation upload(std::span<const std::byte> data);
 
     uint64_t recordingGeneration() const { return allocator_.recordingGeneration(); }

@@ -35,7 +35,7 @@ public:
     ~GLTransientUniformArena();
 
     bool beginRecording();
-    void sealRecording();
+    void endRecording();
     Allocation upload(std::span<const std::byte> data);
 
     uint32_t alignment() const { return allocator_.config().alignment; }

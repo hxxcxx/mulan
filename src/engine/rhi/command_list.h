@@ -172,6 +172,7 @@ protected:
     void recordBindGroupUse(BindGroup& group);
     void recordBindGroupUse(const BindGroupDesc& desc);
     void recordRenderPassUse(const RenderPassBeginInfo& info);
+    core::Result<void> waitForPreviousSubmission();
 
 private:
     std::vector<RHITrackedResource*> used_resources_;

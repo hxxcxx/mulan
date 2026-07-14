@@ -64,6 +64,7 @@ void DX11CommandList::begin() {
 }
 
 void DX11CommandList::end() {
+    m_transientUniformArena.endRecording();
     // D3D11 immediate context 无需显式 end。
 }
 

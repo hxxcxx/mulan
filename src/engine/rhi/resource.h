@@ -51,6 +51,7 @@ public:
 
 protected:
     RHITrackedResource() = default;
+    RHIDevice* trackingDevice() const noexcept { return tracking_device_; }
 
 private:
     friend class RHIDevice;

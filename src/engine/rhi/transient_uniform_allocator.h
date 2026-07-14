@@ -53,10 +53,14 @@ public:
     const UniformAllocatorConfig& config() const noexcept { return config_; }
 
     uint64_t beginRecording() noexcept;
+    void endRecording() noexcept;
     std::expected<UniformAllocationPlan, UniformAllocationError> allocate(uint32_t size) noexcept;
 
     uint64_t recordingGeneration() const noexcept { return recording_generation_; }
-    bool owns(uint64_t generation) const noexcept { return generation != 0 && generation == recording_generation_; }
+    bool isRecording() const noexcept { return recording_; }
+    bool owns(uint64_t generation) const noexcept {
+        return recording_ && generation != 0 && generation == recording_generation_;
+    }
 
     const UniformAllocatorStats& stats() const noexcept { return stats_; }
 

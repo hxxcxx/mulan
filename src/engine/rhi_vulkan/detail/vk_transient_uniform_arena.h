@@ -35,6 +35,7 @@ public:
     ~VKTransientUniformArena();
 
     void beginRecording();
+    void endRecording();
     Allocation upload(std::span<const std::byte> data);
 
     uint32_t alignment() const { return allocator_plan_.config().alignment; }

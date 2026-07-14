@@ -14,6 +14,20 @@ TEST(TransientUniformAllocatorTest, RequiresARecording) {
     EXPECT_EQ(result.error(), UniformAllocationError::RecordingNotStarted);
 }
 
+TEST(TransientUniformAllocatorTest, RejectsAllocationsAfterRecordingEnds) {
+    TransientUniformAllocator allocator({ 1024, 256, 512 });
+    const uint64_t generation = allocator.beginRecording();
+    ASSERT_TRUE(allocator.allocate(128));
+
+    allocator.endRecording();
+
+    EXPECT_FALSE(allocator.isRecording());
+    EXPECT_FALSE(allocator.owns(generation));
+    const auto result = allocator.allocate(128);
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error(), UniformAllocationError::RecordingNotStarted);
+}
+
 TEST(TransientUniformAllocatorTest, AlignsAllocationsWithinAPage) {
     TransientUniformAllocator allocator({ 1024, 256, 512 });
     const uint64_t generation = allocator.beginRecording();

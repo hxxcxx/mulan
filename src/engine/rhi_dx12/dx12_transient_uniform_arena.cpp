@@ -15,6 +15,10 @@ void DX12TransientUniformArena::beginRecording() {
     allocator_.beginRecording();
 }
 
+void DX12TransientUniformArena::endRecording() {
+    allocator_.endRecording();
+}
+
 DX12TransientUniformArena::Allocation DX12TransientUniformArena::upload(std::span<const std::byte> data) {
     if (!device_ || data.empty())
         return {};

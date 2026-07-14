@@ -31,7 +31,7 @@ GLTransientUniformArena::~GLTransientUniformArena() {
 
 bool GLTransientUniformArena::beginRecording() {
     if (active_batch_ != kInvalidBatch)
-        sealRecording();
+        endRecording();
 
     for (uint32_t i = 0; i < batches_.size(); ++i) {
         const uint32_t index = (reuse_cursor_ + i) % static_cast<uint32_t>(batches_.size());
@@ -60,9 +60,10 @@ bool GLTransientUniformArena::beginRecording() {
     return true;
 }
 
-void GLTransientUniformArena::sealRecording() {
+void GLTransientUniformArena::endRecording() {
     if (active_batch_ == kInvalidBatch)
         return;
+    allocator_.endRecording();
     Batch& batch = batches_[active_batch_];
     if (batch.fence)
         glDeleteSync(batch.fence);

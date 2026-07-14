@@ -163,6 +163,11 @@ void VKCommandList::begin() {
     resetResourceUsage();
     dynamic_set_cache_.clear();
     if (owns_pool_) {
+        const auto previousSubmission = waitForPreviousSubmission();
+        if (!previousSubmission) {
+            LOG_ERROR("[Vulkan] Command list reuse rejected: {}", previousSubmission.error().message);
+            return;
+        }
         device_.resetCommandPool(pool_);
     }
 
@@ -178,6 +183,8 @@ void VKCommandList::begin() {
 
 void VKCommandList::end() {
     cmd_buffer_.end();
+    if (transient_uniform_arena_)
+        transient_uniform_arena_->endRecording();
 }
 
 void VKCommandList::setPipelineState(PipelineState* pso) {

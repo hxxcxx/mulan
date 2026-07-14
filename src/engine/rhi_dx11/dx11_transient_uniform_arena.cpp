@@ -36,6 +36,10 @@ void DX11TransientUniformArena::beginRecording() {
     }
 }
 
+void DX11TransientUniformArena::endRecording() {
+    allocator_.endRecording();
+}
+
 bool DX11TransientUniformArena::createPage(Page& page, uint32_t capacity) {
     page.buffer = DX11Buffer::createTransientUniformPage(capacity, device_, context_);
     page.capacity = page.buffer ? capacity : 0;
