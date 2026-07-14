@@ -47,12 +47,16 @@ std::string validateUniformRange(const Buffer& buffer, uint32_t offset, uint32_t
 
 std::string validateBindGroupDesc(const BindGroupLayout& layout, const BindGroupDesc& desc,
                                   const BindGroupValidationLimits& limits) {
+    if (desc.overflowed())
+        return "BindGroup entry count exceeds the RHI limit";
     if (desc.count > BindGroupDesc::kMaxEntries)
         return "BindGroup entry count exceeds the RHI limit";
     if (limits.minUniformBufferOffsetAlignment == 0)
         return "uniform-buffer offset alignment capability must not be zero";
 
     for (const auto& entry : layout.entries()) {
+        if (entry.count != 1)
+            return "descriptor arrays are not represented by the current RHI BindGroupEntry";
         if (entry.mode != BindingMode::Dynamic)
             continue;
         if (entry.type != DescriptorType::UniformBuffer)

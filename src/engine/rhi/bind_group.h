@@ -66,6 +66,8 @@ struct BindGroupDesc {
     BindGroupDesc& addUniformBuffer(uint32_t binding, Buffer* buf, uint32_t offset, uint32_t size) noexcept {
         if (count < kMaxEntries)
             entries[count++] = BindGroupEntry::uniformBuffer(binding, buf, offset, size);
+        else
+            overflowed_ = true;
         return *this;
     }
 
@@ -76,16 +78,28 @@ struct BindGroupDesc {
     BindGroupDesc& addTexture(uint32_t binding, Texture* tex) noexcept {
         if (count < kMaxEntries)
             entries[count++] = BindGroupEntry::textureSRV(binding, tex);
+        else
+            overflowed_ = true;
         return *this;
     }
 
     BindGroupDesc& addSampler(uint32_t binding, Sampler* s) noexcept {
         if (count < kMaxEntries)
             entries[count++] = BindGroupEntry::samplerResource(binding, s);
+        else
+            overflowed_ = true;
         return *this;
     }
 
-    void clear() noexcept { count = 0; }
+    bool overflowed() const noexcept { return overflowed_; }
+
+    void clear() noexcept {
+        count = 0;
+        overflowed_ = false;
+    }
+
+private:
+    bool overflowed_ = false;
 };
 
 struct BindGroupValidationLimits {

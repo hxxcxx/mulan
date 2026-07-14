@@ -29,6 +29,8 @@ struct BindGroupLayoutEntry {
     DescriptorType type = DescriptorType::UniformBuffer;
     uint32_t stages = PipelineBinding::kStageAll;
     BindingMode mode = BindingMode::Static;
+
+    bool operator==(const BindGroupLayoutEntry&) const = default;
 };
 
 class BindGroupLayout {
@@ -45,8 +47,8 @@ public:
     const std::vector<BindGroupLayoutEntry>& entries() const { return entries_; }
     uint64_t hash() const { return hash_; }
 
-    bool operator==(const BindGroupLayout& other) const { return hash_ == other.hash_; }
-    bool operator!=(const BindGroupLayout& other) const { return hash_ != other.hash_; }
+    bool operator==(const BindGroupLayout& other) const { return hash_ == other.hash_ && entries_ == other.entries_; }
+    bool operator!=(const BindGroupLayout& other) const { return !(*this == other); }
 
     /// 空 layout（用于默认构造的 BindGroup，无缓存能力）
     static const BindGroupLayout& empty();

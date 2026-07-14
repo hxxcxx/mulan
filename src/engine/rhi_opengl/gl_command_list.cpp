@@ -50,6 +50,10 @@ core::Result<void> GLCommandList::doEnd() {
 
 void GLCommandList::setPipelineState(PipelineState* pso) {
     assertResourceCompatible(pso);
+    if (!pso) {
+        rejectRecording("OpenGL graphics pipeline is null");
+        return;
+    }
     activateBindGroupLayout(pso->bindGroupLayout());
     if (current_pipeline_ == pso)
         return;
@@ -83,6 +87,7 @@ void GLCommandList::bindGroup(BindGroup& group) {
     if (std::any_of(group.layout().entries().begin(), group.layout().entries().end(),
                     [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
         LOG_ERROR("[OpenGL] bindGroup rejected: dynamic UniformBuffer bindings are required by the layout");
+        rejectRecording("OpenGL bindGroup requires dynamic UniformBuffer bindings");
         return;
     }
     bindGroupEntries(group);
@@ -98,6 +103,7 @@ void GLCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBi
             transient_uniform_arena_->recordingGeneration());
     if (!validationError.empty()) {
         LOG_ERROR("[OpenGL] Dynamic uniform binding rejected: {}", validationError);
+        rejectRecording(validationError);
         return;
     }
 
@@ -107,13 +113,15 @@ void GLCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBi
         assertResourceCompatible(binding.slice.backingBuffer);
         if (binding.binding >= 32) {
             LOG_ERROR("[OpenGL] Dynamic uniform binding {} exceeds the backend slot limit", binding.binding);
-            continue;
+            rejectRecording("OpenGL dynamic uniform binding exceeds the backend slot limit");
+            return;
         }
         auto* buffer = static_cast<GLBuffer*>(binding.slice.backingBuffer);
         if (!buffer || !buffer->isTransientUniformPage()) {
             LOG_ERROR("[OpenGL] Dynamic uniform binding {} does not reference a persistent mapped page",
                       binding.binding);
-            continue;
+            rejectRecording("OpenGL dynamic uniform binding does not reference a persistent mapped page");
+            return;
         }
         glBindBufferRange(GL_UNIFORM_BUFFER, binding.binding, buffer->handle(),
                           static_cast<GLintptr>(binding.slice.offset), static_cast<GLsizeiptr>(binding.slice.size));
@@ -149,8 +157,10 @@ void GLCommandList::bindEntries(const BindGroupEntry* entries, uint8_t count) {
 
     if (samplerCount == 1) {
         auto* glSampler = static_cast<GLSampler*>(sharedSampler);
-        if (!glSampler)
+        if (!glSampler) {
+            rejectRecording("OpenGL shared sampler binding is invalid");
             return;
+        }
 
         // The OpenGL Slang target exposes sampled textures as combined
         // sampler uniforms at the texture binding. Current render bind groups
@@ -173,13 +183,17 @@ void GLCommandList::bindEntries(const BindGroupEntry* entries, uint8_t count) {
 }
 
 void GLCommandList::bindEntry(const BindGroupEntry& e) {
-    if (e.binding >= 32)
+    if (e.binding >= 32) {
+        rejectRecording("OpenGL resource binding exceeds the backend slot limit");
         return;
+    }
 
     if (e.type == DescriptorType::UniformBuffer && e.buffer) {
         auto* glBuffer = static_cast<GLBuffer*>(e.buffer);
-        if (!glBuffer)
+        if (!glBuffer || !glBuffer->isValid()) {
+            rejectRecording("OpenGL uniform-buffer binding is invalid");
             return;
+        }
         const GLsizeiptr size =
                 e.size ? static_cast<GLsizeiptr>(e.size) : static_cast<GLsizeiptr>(glBuffer->desc().size - e.offset);
         glBindBufferRange(GL_UNIFORM_BUFFER, e.binding, glBuffer->handle(), static_cast<GLintptr>(e.offset), size);
@@ -187,14 +201,18 @@ void GLCommandList::bindEntry(const BindGroupEntry& e) {
 
     if (e.type == DescriptorType::TextureSRV && e.texture) {
         auto* glTexture = static_cast<GLTexture*>(e.texture);
-        if (glTexture)
+        if (glTexture && glTexture->isValid())
             glBindTextureUnit(e.binding, glTexture->handle());
+        else
+            rejectRecording("OpenGL texture binding is invalid");
     }
 
     if (e.type == DescriptorType::Sampler && e.sampler) {
         auto* glSampler = static_cast<GLSampler*>(e.sampler);
-        if (glSampler)
+        if (glSampler && glSampler->isValid())
             glBindSampler(e.binding, glSampler->handle());
+        else
+            rejectRecording("OpenGL sampler binding is invalid");
     }
 }
 
@@ -202,6 +220,11 @@ void GLCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offs
     assertResourceCompatible(buffer);
     if (slot >= MAX_VERTEX_BUFFERS) {
         LOG_ERROR("[OpenGL] setVertexBuffer rejected: slot {} is out of range", slot);
+        rejectRecording("OpenGL vertex-buffer slot exceeds the backend limit");
+        return;
+    }
+    if (!buffer || offset >= buffer->size()) {
+        rejectRecording("OpenGL vertex-buffer binding is invalid");
         return;
     }
 
@@ -220,8 +243,19 @@ void GLCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offs
 }
 
 void GLCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
+    if (!buffers || startSlot >= MAX_VERTEX_BUFFERS || count > MAX_VERTEX_BUFFERS - startSlot) {
+        rejectRecording("OpenGL vertex-buffer array exceeds the backend limits");
+        return;
+    }
     for (uint32_t i = 0; i < count; ++i)
         assertResourceCompatible(buffers[i]);
+    for (uint32_t i = 0; i < count; ++i) {
+        const uint32_t offset = offsets ? offsets[i] : 0;
+        if (!buffers[i] || offset >= buffers[i]->size()) {
+            rejectRecording("OpenGL vertex-buffer array contains an invalid buffer or offset");
+            return;
+        }
+    }
     for (uint32_t i = 0; i < count; ++i) {
         setVertexBuffer(startSlot + i, buffers[i], offsets ? offsets[i] : 0);
     }
@@ -229,6 +263,10 @@ void GLCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer*
 
 void GLCommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
     assertResourceCompatible(buffer);
+    if (!buffer || offset >= buffer->size()) {
+        rejectRecording("OpenGL index-buffer binding is invalid");
+        return;
+    }
     if (index_buffer_ == buffer && index_buffer_Offset == offset && index_type_ == type) {
         return;  // 无变化
     }
@@ -294,6 +332,7 @@ void GLCommandList::draw(const DrawAttribs& attribs) {
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
         LOG_ERROR("[OpenGL] draw failed: error=0x{:X}", err);
+        rejectRecording("OpenGL draw failed");
     }
 }
 
@@ -301,11 +340,13 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
 #if defined(_WIN32)
     if (!wglGetCurrentContext()) {
         LOG_ERROR("[OpenGL] drawIndexed rejected: no current WGL context");
+        rejectRecording("OpenGL indexed draw requires a current WGL context");
         return;
     }
 #endif
     if (!glDrawElements) {
         LOG_ERROR("[OpenGL] drawIndexed rejected: glDrawElements is unavailable");
+        rejectRecording("OpenGL indexed draw entry point is unavailable");
         return;
     }
 
@@ -318,6 +359,7 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
     auto* glIndexBuffer = static_cast<GLBuffer*>(index_buffer_);
     if (!glIndexBuffer || !glIndexBuffer->isValid()) {
         LOG_ERROR("[OpenGL] drawIndexed rejected: no valid index buffer is bound");
+        rejectRecording("OpenGL indexed draw requires a valid index buffer");
         glBindVertexArray(0);
         return;
     }
@@ -357,6 +399,7 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
     if (indexEnd > glIndexBuffer->size()) {
         LOG_ERROR("[OpenGL] drawIndexed rejected: offset={}, count={}, stride={}, bufferSize={}", indexOffset,
                   attribs.indexCount, indexStride, glIndexBuffer->size());
+        rejectRecording("OpenGL indexed draw range exceeds the index buffer");
         glBindVertexArray(0);
         return;
     }
@@ -367,6 +410,7 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
     if (boundIndexBuffer != static_cast<GLint>(glIndexBuffer->handle())) {
         LOG_ERROR("[OpenGL] drawIndexed rejected: VAO EBO mismatch, expected={}, actual={}", glIndexBuffer->handle(),
                   boundIndexBuffer);
+        rejectRecording("OpenGL indexed draw detected a VAO index-buffer mismatch");
         glBindVertexArray(0);
         return;
     }
@@ -389,6 +433,7 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
         LOG_ERROR("[OpenGL] drawIndexed failed: error=0x{:X}", err);
+        rejectRecording("OpenGL indexed draw failed");
     }
 }
 
@@ -428,15 +473,22 @@ void GLCommandList::setPushConstants(uint32_t offset, uint32_t size, const void*
 void GLCommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
                                  ResourceTransitionMode /*mode*/) {
     assertResourceCompatible(buffer);
-    if (!buffer || !data)
+    auto* glBuffer = static_cast<GLBuffer*>(buffer);
+    if (!glBuffer || !glBuffer->isValid() || glBuffer->usage() == BufferUsage::Immutable || !data || size == 0 ||
+        offset > glBuffer->size() || size > glBuffer->size() - offset) {
+        rejectRecording("OpenGL buffer update arguments are invalid");
         return;
+    }
 
-    buffer->update(offset, size, data);
+    glBuffer->update(offset, size, data);
 }
 
 void GLCommandList::transitionResource(Buffer* buffer, ResourceState newState) {
     assertResourceCompatible(buffer);
-    (void) buffer;
+    if (!buffer) {
+        rejectRecording("OpenGL buffer transition requires a valid buffer");
+        return;
+    }
     GLbitfield barriers = 0;
     switch (newState) {
     case ResourceState::VertexBuffer: barriers |= GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT; break;
@@ -452,7 +504,10 @@ void GLCommandList::transitionResource(Buffer* buffer, ResourceState newState) {
 
 void GLCommandList::transitionResource(Texture* texture, ResourceState newState) {
     assertResourceCompatible(texture);
-    (void) texture;
+    if (!texture) {
+        rejectRecording("OpenGL texture transition requires a valid texture");
+        return;
+    }
     GLbitfield barriers = 0;
     switch (newState) {
     case ResourceState::ShaderResource: barriers = GL_TEXTURE_FETCH_BARRIER_BIT; break;
@@ -469,11 +524,15 @@ void GLCommandList::transitionResource(Texture* texture, ResourceState newState)
 core::Result<void> GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
+    const auto rejectCopy = [this](std::string_view reason) -> core::Result<void> {
+        rejectRecording(reason);
+        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed, reason));
+    };
     auto* texture = static_cast<GLTexture*>(src);
     auto* buffer = static_cast<GLBuffer*>(dst);
-    if (!texture || !buffer || texture->desc().dimension != TextureDimension::Texture2D)
-        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
-                                         "OpenGL texture copy requires a Texture2D and staging buffer"));
+    if (!texture || !texture->isValid() || !buffer || !buffer->isValid() || buffer->usage() != BufferUsage::Staging ||
+        texture->desc().dimension != TextureDimension::Texture2D)
+        return rejectCopy("OpenGL texture copy requires a Texture2D and staging buffer");
 
     GLint previous_fbo = 0;
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previous_fbo);
@@ -563,8 +622,7 @@ core::Result<void> GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst)
     if (read_fbo)
         glDeleteFramebuffers(1, &read_fbo);
     if (!copied)
-        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
-                                         "OpenGL texture readback failed or the destination buffer is too small"));
+        return rejectCopy("OpenGL texture readback failed or the destination buffer is too small");
     return {};
 }
 
@@ -685,6 +743,18 @@ core::Result<void> GLCommandList::doBeginRenderPass(const RenderPassBeginInfo& i
             if (!info.colorAttachments[i].target)
                 return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
                                                  "OpenGL offscreen render pass requires color textures"));
+        }
+    }
+    for (uint8_t i = 0; i < info.colorCount; ++i) {
+        const Texture* color = info.colorAttachments[i].target;
+        const Texture* resolve = info.colorAttachments[i].resolveTarget;
+        if (!resolve)
+            continue;
+        if (i != 0 || !color || color->desc().sampleCount <= 1 || resolve->desc().sampleCount != 1 ||
+            resolve->desc().format != color->desc().format || resolve->width() != color->width() ||
+            resolve->height() != color->height()) {
+            return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
+                                             "OpenGL resolve attachment is unsupported or incompatible"));
         }
     }
     GLint previous_fbo = 0;

@@ -53,7 +53,7 @@ enum class BindingMode : uint8_t {
 
 struct PipelineBinding {
     uint32_t binding = 0;
-    uint32_t count = 1;
+    uint32_t count = 1;  // 当前 BindGroup 契约仅支持 1
     DescriptorType type = DescriptorType::UniformBuffer;
 
     static constexpr uint32_t kStageVertex = 0x00000001;

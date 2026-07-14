@@ -110,6 +110,10 @@ core::Result<void> DX12CommandList::doEnd() {
 
 void DX12CommandList::setPipelineState(PipelineState* pso) {
     assertResourceCompatible(pso);
+    if (!pso) {
+        rejectRecording("DX12 graphics pipeline is null");
+        return;
+    }
     auto* dx12Pso = static_cast<DX12PipelineState*>(pso);
     activateBindGroupLayout(pso->bindGroupLayout());
     cmd_list_->SetPipelineState(dx12Pso->pipeline());
@@ -130,6 +134,10 @@ void DX12CommandList::setScissorRect(const ScissorRect& rect) {
 
 void DX12CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
     assertResourceCompatible(buffer);
+    if (!buffer || offset >= buffer->size()) {
+        rejectRecording("DX12 vertex-buffer binding is invalid");
+        return;
+    }
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
     D3D12_VERTEX_BUFFER_VIEW vbv = {};
     vbv.BufferLocation = dx12Buf->gpuAddress() + offset;
@@ -139,13 +147,23 @@ void DX12CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t of
 }
 
 void DX12CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
+    if (!buffers || count > 16 || startSlot >= D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT ||
+        count > D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT - startSlot) {
+        rejectRecording("DX12 vertex-buffer array exceeds the RHI limit");
+        return;
+    }
     for (uint32_t i = 0; i < count; ++i)
         assertResourceCompatible(buffers[i]);
     D3D12_VERTEX_BUFFER_VIEW vbvs[16] = {};
-    for (uint32_t i = 0; i < count && i < 16; ++i) {
+    for (uint32_t i = 0; i < count; ++i) {
+        const uint32_t offset = offsets ? offsets[i] : 0;
+        if (!buffers[i] || offset >= buffers[i]->size()) {
+            rejectRecording("DX12 vertex-buffer array contains an invalid buffer or offset");
+            return;
+        }
         auto* dx12Buf = static_cast<DX12Buffer*>(buffers[i]);
-        vbvs[i].BufferLocation = dx12Buf->gpuAddress() + (offsets ? offsets[i] : 0);
-        vbvs[i].SizeInBytes = buffers[i]->size() - (offsets ? offsets[i] : 0);
+        vbvs[i].BufferLocation = dx12Buf->gpuAddress() + offset;
+        vbvs[i].SizeInBytes = buffers[i]->size() - offset;
         vbvs[i].StrideInBytes = cached_stride_;
     }
     cmd_list_->IASetVertexBuffers(startSlot, count, vbvs);
@@ -153,6 +171,10 @@ void DX12CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffe
 
 void DX12CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
     assertResourceCompatible(buffer);
+    if (!buffer || offset >= buffer->size()) {
+        rejectRecording("DX12 index-buffer binding is invalid");
+        return;
+    }
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
     D3D12_INDEX_BUFFER_VIEW ibv = {};
     ibv.BufferLocation = dx12Buf->gpuAddress() + offset;
@@ -174,13 +196,21 @@ void DX12CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t
     assertResourceCompatible(argsBuffer);
     if (!draw_indirect_sig_) {
         LOG_ERROR("[DX12] drawIndirect rejected: command signature is unavailable");
+        rejectRecording("DX12 indirect-draw command signature is unavailable");
         return;
     }
     if (stride != 0 && stride != sizeof(D3D12_DRAW_INDEXED_ARGUMENTS)) {
         LOG_ERROR("[DX12] drawIndirect rejected: custom argument stride is not supported");
+        rejectRecording("DX12 indirect-draw stride is unsupported");
         return;
     }
     auto* dx12Buf = static_cast<DX12Buffer*>(argsBuffer);
+    const uint64_t requiredSize =
+            static_cast<uint64_t>(offset) + static_cast<uint64_t>(drawCount) * sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
+    if (!dx12Buf || !dx12Buf->resource() || drawCount == 0 || requiredSize > dx12Buf->size()) {
+        rejectRecording("DX12 indirect-draw arguments are invalid");
+        return;
+    }
     cmd_list_->ExecuteIndirect(draw_indirect_sig_, drawCount, dx12Buf->resource(), offset, nullptr, 0);
 }
 
@@ -212,6 +242,11 @@ void DX12CommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t siz
                                    ResourceTransitionMode mode) {
     assertResourceCompatible(buffer);
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
+    if (!dx12Buf || !dx12Buf->resource() || !dx12Buf->mappedData() || !data || size == 0 || offset > dx12Buf->size() ||
+        size > dx12Buf->size() - offset) {
+        rejectRecording("DX12 buffer update requires a valid host-visible range");
+        return;
+    }
     dx12Buf->update(offset, size, data);
 }
 
@@ -222,6 +257,7 @@ void DX12CommandList::bindGroup(BindGroup& group) {
     if (std::any_of(dx12Group->layout().entries().begin(), dx12Group->layout().entries().end(),
                     [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
         LOG_ERROR("[DX12] bindGroup rejected: dynamic UniformBuffer bindings are required by the layout");
+        rejectRecording("DX12 bindGroup requires dynamic UniformBuffer bindings");
         return;
     }
     bindStaticGroup(*dx12Group);
@@ -237,6 +273,7 @@ void DX12CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniform
                                            { D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, 64 * 1024 }, generation);
     if (!validationError.empty()) {
         LOG_ERROR("[DX12] Dynamic uniform binding rejected: {}", validationError);
+        rejectRecording(validationError);
         return;
     }
 
@@ -247,7 +284,8 @@ void DX12CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniform
         const uint32_t rootIndex = dx12Group->rootIndexForBinding(binding.binding);
         if (!buffer || !buffer->resource() || rootIndex == DX12BindGroup::kInvalidRootIndex) {
             LOG_ERROR("[DX12] Dynamic uniform binding {} does not reference a DX12 upload page", binding.binding);
-            continue;
+            rejectRecording("DX12 dynamic uniform binding does not reference an upload page");
+            return;
         }
         cmd_list_->SetGraphicsRootConstantBufferView(rootIndex, buffer->gpuAddress() + binding.slice.offset);
     }
@@ -287,6 +325,7 @@ void DX12CommandList::bindStaticGroup(DX12BindGroup& group) {
 
     if (hasTexture && !desc_heap_) {
         LOG_ERROR("[DX12] bindGroup rejected: CBV/SRV/UAV heap is not bound");
+        rejectRecording("DX12 shader-visible descriptor heap is not bound");
         return;
     }
 
@@ -307,12 +346,18 @@ void DX12CommandList::bindStaticGroup(DX12BindGroup& group) {
     for (uint8_t i = 0; i < dx12Group->entryCount(); ++i) {
         const auto& e = dx12Group->entries()[i];
         uint32_t rootIdx = dx12Group->rootIndexForBinding(e.binding);
-        if (rootIdx == DX12BindGroup::kInvalidRootIndex)
-            continue;
+        if (rootIdx == DX12BindGroup::kInvalidRootIndex) {
+            rejectRecording("DX12 BindGroup binding has no root parameter");
+            return;
+        }
 
         if (e.type == DescriptorType::UniformBuffer && e.buffer) {
             // UBO：root CBV 每 draw 必须重设（offset 变化），不依赖脏位
             auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
+            if (!dx12Buf || !dx12Buf->resource()) {
+                rejectRecording("DX12 uniform-buffer binding is invalid");
+                return;
+            }
             cmd_list_->SetGraphicsRootConstantBufferView(rootIdx, dx12Buf->gpuAddress() + e.offset);
         } else if (e.type == DescriptorType::TextureSRV && e.texture) {
             D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = dx12Group->cachedTextureHandle(i);
@@ -321,11 +366,13 @@ void DX12CommandList::bindStaticGroup(DX12BindGroup& group) {
                 auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
                 if (!dx12Tex || !dx12Tex->srv().ptr || !device) {
                     LOG_ERROR("[DX12] bindGroup rejected: texture has no valid SRV");
-                    continue;
+                    rejectRecording("DX12 texture binding has no valid SRV");
+                    return;
                 }
                 if (desc_alloc_count_ >= desc_capacity_) {
                     LOG_ERROR("[DX12] bindGroup rejected: shader-visible descriptor heap exhausted");
-                    continue;
+                    rejectRecording("DX12 shader-visible descriptor heap is exhausted");
+                    return;
                 }
 
                 gpuHandle.ptr = desc_gpu_base_.ptr + desc_alloc_count_ * desc_size_;
@@ -344,7 +391,8 @@ void DX12CommandList::bindStaticGroup(DX12BindGroup& group) {
             const D3D12_GPU_DESCRIPTOR_HANDLE samplerHandle = dx12Sampler->gpuHandle();
             if (!samplerHandle.ptr || !sampler_heap_) {
                 LOG_ERROR("[DX12] bindGroup rejected: sampler descriptor is not shader-visible");
-                continue;
+                rejectRecording("DX12 sampler descriptor is not shader-visible");
+                return;
             }
 
             // Sampler descriptor 在创建时写入持久的 shader-visible heap，绑定时无需逐帧复制。
@@ -393,8 +441,10 @@ void DX12CommandList::bindDescriptorHeaps() {
 void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState) {
     assertResourceCompatible(buffer);
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
-    if (!dx12Buf || !dx12Buf->resource())
+    if (!dx12Buf || !dx12Buf->resource()) {
+        rejectRecording("DX12 buffer transition requires a valid buffer");
         return;
+    }
 
     const D3D12_RESOURCE_STATES before = dx12Buf->state();
     const D3D12_RESOURCE_STATES after = toDX12ResourceStates(newState);
@@ -405,6 +455,7 @@ void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState)
     // readback buffer must remain COPY_DEST while the GPU writes into it.
     if (dx12Buf->usage() == BufferUsage::Staging || dx12Buf->usage() == BufferUsage::Dynamic) {
         LOG_ERROR("[DX12] transitionResource rejected: buffer heap does not support requested state transition");
+        rejectRecording("DX12 buffer heap does not support the requested transition");
         return;
     }
 
@@ -421,8 +472,10 @@ void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState)
 void DX12CommandList::transitionResource(Texture* texture, ResourceState newState) {
     assertResourceCompatible(texture);
     auto* dx12Tex = static_cast<DX12Texture*>(texture);
-    if (!dx12Tex || !dx12Tex->resource())
+    if (!dx12Tex || !dx12Tex->resource()) {
+        rejectRecording("DX12 texture transition requires a valid texture");
         return;
+    }
 
     const D3D12_RESOURCE_STATES before = dx12Tex->state();
     const D3D12_RESOURCE_STATES after = toDX12ResourceStates(newState);
@@ -442,18 +495,20 @@ void DX12CommandList::transitionResource(Texture* texture, ResourceState newStat
 core::Result<void> DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
+    const auto rejectCopy = [this](std::string_view reason) -> core::Result<void> {
+        rejectRecording(reason);
+        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed, reason));
+    };
     auto* dx12Tex = static_cast<DX12Texture*>(src);
     auto* dx12Buf = static_cast<DX12Buffer*>(dst);
     if (!dx12Tex || !dx12Buf || !dx12Tex->resource() || !dx12Buf->resource())
-        return std::unexpected(
-                makeError(EngineErrorCode::ResourceReadbackFailed, "DX12 texture copy requires valid resources"));
+        return rejectCopy("DX12 texture copy requires valid resources");
 
     // 取 device 用于 GetCopyableFootprints。
     ID3D12Device* device = nullptr;
     cmd_list_->GetDevice(IID_PPV_ARGS(&device));
     if (!device)
-        return std::unexpected(
-                makeError(EngineErrorCode::ResourceReadbackFailed, "DX12 texture copy could not query the device"));
+        return rejectCopy("DX12 texture copy could not query the device");
 
     // 构建与纹理一致的 resource desc，用于计算可拷贝的 footprint
     const auto& td = dx12Tex->desc();
@@ -478,7 +533,7 @@ core::Result<void> DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* ds
 
     if (dx12Buf->size() < totalSize) {
         LOG_ERROR("[DX12] copyTextureToBuffer rejected: destination buffer is too small for texture footprint");
-        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed, "DX12 readback buffer is too small"));
+        return rejectCopy("DX12 readback buffer is too small");
     }
 
     const D3D12_RESOURCE_STATES originalTexState = dx12Tex->state();
@@ -487,8 +542,7 @@ core::Result<void> DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* ds
     if (originalBufState != D3D12_RESOURCE_STATE_COPY_DEST &&
         (dx12Buf->usage() == BufferUsage::Staging || dx12Buf->usage() == BufferUsage::Dynamic)) {
         LOG_ERROR("[DX12] copyTextureToBuffer rejected: destination buffer is not in COPY_DEST state");
-        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
-                                         "DX12 destination buffer is not in copy-destination state"));
+        return rejectCopy("DX12 destination buffer is not in copy-destination state");
     }
 
     // Transition the source only when necessary. The caller may already have

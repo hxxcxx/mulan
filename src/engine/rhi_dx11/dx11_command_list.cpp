@@ -105,6 +105,7 @@ void DX11CommandList::bindGroup(BindGroup& group) {
     if (std::any_of(dx11Group->layout().entries().begin(), dx11Group->layout().entries().end(),
                     [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
         LOG_ERROR("[DX11] bindGroup rejected: dynamic UniformBuffer bindings are required by the layout");
+        rejectRecording("DX11 bindGroup requires dynamic UniformBuffer bindings");
         return;
     }
 
@@ -122,6 +123,7 @@ void DX11CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniform
             m_transientUniformArena.recordingGeneration());
     if (!validationError.empty()) {
         LOG_ERROR("[DX11] Dynamic uniform binding rejected: {}", validationError);
+        rejectRecording(validationError);
         return;
     }
 
@@ -171,7 +173,8 @@ void DX11CommandList::bindEntries(const BindGroupEntry* entries, uint8_t count, 
             });
             if (it == layoutEntries.end()) {
                 LOG_ERROR("[DX11] bindGroup rejected: binding {} is absent from its layout", entry.binding);
-                continue;
+                rejectRecording("DX11 BindGroup contains a binding absent from its layout");
+                return;
             }
             layoutEntry = &*it;
             stages = layoutEntry->stages;
@@ -198,13 +201,18 @@ void DX11CommandList::bindEntries(const BindGroupEntry* entries, uint8_t count, 
 void DX11CommandList::bindConstantBuffer(uint32_t slot, const BindGroupEntry& entry, uint32_t stages) {
     if (slot >= D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT) {
         LOG_ERROR("[DX11] bindConstantBuffer rejected: slot {} exceeds the D3D11 limit", slot);
+        rejectRecording("DX11 constant-buffer slot exceeds the backend limit");
         return;
     }
 
     auto* buffer = static_cast<DX11Buffer*>(entry.buffer);
     if (!buffer || !buffer->buffer() || !(buffer->bindFlags() & BufferBindFlags::UniformBuffer)) {
-        if (entry.buffer)
+        if (entry.buffer) {
             LOG_ERROR("[DX11] bindConstantBuffer rejected: binding {} is not a valid DX11 uniform buffer", slot);
+            rejectRecording("DX11 constant-buffer binding is invalid");
+        } else {
+            rejectRecording("DX11 constant-buffer binding is null");
+        }
 
         ID3D11Buffer* nullBuffer = nullptr;
         if (m_ctx1) {
@@ -227,23 +235,27 @@ void DX11CommandList::bindConstantBuffer(uint32_t slot, const BindGroupEntry& en
     if ((entry.offset % kConstantBufferRangeAlignment) != 0) {
         LOG_ERROR("[DX11] bindConstantBuffer rejected: offset {} at binding {} is not 256-byte aligned", entry.offset,
                   slot);
+        rejectRecording("DX11 constant-buffer offset is not aligned");
         return;
     }
     if (entry.offset >= buffer->size()) {
         LOG_ERROR("[DX11] bindConstantBuffer rejected: offset {} exceeds binding {} buffer size {}", entry.offset, slot,
                   buffer->size());
+        rejectRecording("DX11 constant-buffer offset exceeds the buffer size");
         return;
     }
 
     const uint32_t requestedSize = entry.size ? entry.size : buffer->size() - entry.offset;
     if (requestedSize == 0 || requestedSize > buffer->size() - entry.offset) {
         LOG_ERROR("[DX11] bindConstantBuffer rejected: range at binding {} exceeds the source buffer", slot);
+        rejectRecording("DX11 constant-buffer range exceeds the source buffer");
         return;
     }
     const uint32_t boundSize = alignUp(requestedSize, kConstantBufferRangeAlignment);
     const uint64_t rangeEnd = static_cast<uint64_t>(entry.offset) + boundSize;
     if (boundSize > kMaximumConstantBufferBytes || rangeEnd > buffer->allocationSize()) {
         LOG_ERROR("[DX11] bindConstantBuffer rejected: range at binding {} exceeds D3D11 limits", slot);
+        rejectRecording("DX11 constant-buffer range exceeds the backend limit");
         return;
     }
 
@@ -286,6 +298,7 @@ void DX11CommandList::bindConstantBuffer(uint32_t slot, const BindGroupEntry& en
     }
     if (!allocation) {
         LOG_ERROR("[DX11] bindConstantBuffer failed: arena upload failed at binding {}", slot);
+        rejectRecording("DX11 constant-buffer arena upload failed");
         return;
     }
 
@@ -311,6 +324,7 @@ void DX11CommandList::bindUniformSlice(uint32_t slot, const UniformSlice& slice,
     auto* buffer = static_cast<DX11Buffer*>(slice.backingBuffer);
     if (!buffer || !buffer->isTransientUniformPage() || !buffer->buffer()) {
         LOG_ERROR("[DX11] Dynamic uniform binding {} does not reference a transient uniform page", slot);
+        rejectRecording("DX11 dynamic uniform binding does not reference a transient page");
         return;
     }
 
@@ -329,6 +343,7 @@ void DX11CommandList::bindUniformSlice(uint32_t slot, const UniformSlice& slice,
 
     if (slice.offset != 0) {
         LOG_ERROR("[DX11] Dynamic uniform fallback requires an offset-zero allocation at binding {}", slot);
+        rejectRecording("DX11 dynamic uniform fallback requires an offset-zero allocation");
         return;
     }
     if (usesVertexStage(stages))
@@ -342,12 +357,16 @@ void DX11CommandList::bindUniformSlice(uint32_t slot, const UniformSlice& slice,
 void DX11CommandList::bindTexture(uint32_t slot, Texture* texture, uint32_t stages) {
     if (slot >= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT) {
         LOG_ERROR("[DX11] bindTexture rejected: slot {} exceeds the D3D11 limit", slot);
+        rejectRecording("DX11 texture slot exceeds the backend limit");
         return;
     }
 
     auto* dx11Texture = static_cast<DX11Texture*>(texture);
-    if (texture && (!dx11Texture || !dx11Texture->srv()))
+    if (texture && (!dx11Texture || !dx11Texture->srv())) {
         LOG_ERROR("[DX11] bindTexture rejected: binding {} has no valid DX11 SRV", slot);
+        rejectRecording("DX11 texture binding has no valid SRV");
+        return;
+    }
 
     ID3D11ShaderResourceView* srv = dx11Texture ? dx11Texture->srv() : nullptr;
     if (usesVertexStage(stages))
@@ -361,12 +380,16 @@ void DX11CommandList::bindTexture(uint32_t slot, Texture* texture, uint32_t stag
 void DX11CommandList::bindSampler(uint32_t slot, Sampler* sampler, uint32_t stages) {
     if (slot >= D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT) {
         LOG_ERROR("[DX11] bindSampler rejected: slot {} exceeds the D3D11 limit", slot);
+        rejectRecording("DX11 sampler slot exceeds the backend limit");
         return;
     }
 
     auto* dx11Sampler = static_cast<DX11Sampler*>(sampler);
-    if (sampler && (!dx11Sampler || !dx11Sampler->handle()))
+    if (sampler && (!dx11Sampler || !dx11Sampler->handle())) {
         LOG_ERROR("[DX11] bindSampler rejected: binding {} has no valid DX11 sampler", slot);
+        rejectRecording("DX11 sampler binding is invalid");
+        return;
+    }
 
     ID3D11SamplerState* state = dx11Sampler ? dx11Sampler->handle() : nullptr;
     if (usesVertexStage(stages))
@@ -381,16 +404,19 @@ void DX11CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t of
     assertResourceCompatible(buffer);
     if (slot >= D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT) {
         LOG_ERROR("[DX11] setVertexBuffer rejected: slot {} exceeds the D3D11 limit", slot);
+        rejectRecording("DX11 vertex-buffer slot exceeds the backend limit");
         return;
     }
 
     auto* dx11Buffer = static_cast<DX11Buffer*>(buffer);
     if (!dx11Buffer || !dx11Buffer->buffer()) {
         LOG_ERROR("[DX11] setVertexBuffer rejected: invalid DX11 buffer");
+        rejectRecording("DX11 vertex-buffer binding is invalid");
         return;
     }
     if (offset >= dx11Buffer->size()) {
         LOG_ERROR("[DX11] setVertexBuffer rejected: offset exceeds the buffer size");
+        rejectRecording("DX11 vertex-buffer offset exceeds the buffer size");
         return;
     }
 
@@ -401,11 +427,13 @@ void DX11CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t of
 }
 
 void DX11CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
+    if (!buffers || startSlot >= D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT ||
+        count > D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT - startSlot) {
+        rejectRecording("DX11 vertex-buffer array arguments exceed the backend limits");
+        return;
+    }
     for (uint32_t i = 0; i < count; ++i)
         assertResourceCompatible(buffers[i]);
-    if (!buffers || startSlot >= D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT)
-        return;
-    count = (std::min) (count, D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT - startSlot);
     if (count == 0)
         return;
 
@@ -416,11 +444,13 @@ void DX11CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffe
         auto* dx11Buffer = static_cast<DX11Buffer*>(buffers[i]);
         if (!dx11Buffer || !dx11Buffer->buffer()) {
             LOG_ERROR("[DX11] setVertexBuffers rejected: invalid DX11 buffer");
+            rejectRecording("DX11 vertex-buffer array contains an invalid buffer");
             return;
         }
         const uint32_t offset = offsets ? offsets[i] : 0;
         if (offset >= dx11Buffer->size()) {
             LOG_ERROR("[DX11] setVertexBuffers rejected: offset exceeds the buffer size");
+            rejectRecording("DX11 vertex-buffer array contains an invalid offset");
             return;
         }
         nativeBuffers[i] = dx11Buffer->buffer();
@@ -435,6 +465,7 @@ void DX11CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType 
     auto* dx11Buffer = static_cast<DX11Buffer*>(buffer);
     if (!dx11Buffer || !dx11Buffer->buffer() || offset >= dx11Buffer->size()) {
         LOG_ERROR("[DX11] setIndexBuffer rejected: invalid buffer or range");
+        rejectRecording("DX11 index-buffer binding is invalid");
         return;
     }
     const DXGI_FORMAT format = type == IndexType::UInt16 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT;
@@ -463,6 +494,7 @@ void DX11CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t
     auto* buffer = static_cast<DX11Buffer*>(argsBuffer);
     if (!buffer || !buffer->buffer() || !(buffer->bindFlags() & BufferBindFlags::IndirectBuffer)) {
         LOG_ERROR("[DX11] drawIndirect rejected: a DX11 indirect-argument buffer is required");
+        rejectRecording("DX11 indirect draw requires an indirect-argument buffer");
         return;
     }
 
@@ -470,6 +502,7 @@ void DX11CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t
     const uint32_t argumentStride = stride ? stride : argumentSize;
     if (argumentStride < argumentSize || drawCount == 0 || offset > buffer->size()) {
         LOG_ERROR("[DX11] drawIndirect rejected: arguments are invalid");
+        rejectRecording("DX11 indirect draw arguments are invalid");
         return;
     }
 
@@ -477,6 +510,7 @@ void DX11CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t
         const uint64_t argumentOffset = static_cast<uint64_t>(offset) + static_cast<uint64_t>(i) * argumentStride;
         if (argumentOffset + argumentSize > buffer->size()) {
             LOG_ERROR("[DX11] drawIndirect rejected: arguments exceed the buffer size");
+            rejectRecording("DX11 indirect draw arguments exceed the buffer size");
             return;
         }
         m_ctx->DrawIndexedInstancedIndirect(buffer->buffer(), static_cast<UINT>(argumentOffset));
@@ -511,8 +545,10 @@ void DX11CommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t siz
                                    ResourceTransitionMode) {
     assertResourceCompatible(buffer);
     auto* dx11Buffer = static_cast<DX11Buffer*>(buffer);
-    if (!dx11Buffer) {
-        LOG_ERROR("[DX11] updateBuffer rejected: buffer is not a DX11 buffer");
+    if (!dx11Buffer || !dx11Buffer->buffer() || !data || size == 0 || offset > dx11Buffer->size() ||
+        size > dx11Buffer->size() - offset || dx11Buffer->usage() == BufferUsage::Immutable) {
+        LOG_ERROR("[DX11] updateBuffer rejected: buffer or update range is invalid");
+        rejectRecording("DX11 buffer update arguments are invalid");
         return;
     }
     dx11Buffer->update(offset, size, data);
@@ -520,11 +556,15 @@ void DX11CommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t siz
 
 void DX11CommandList::transitionResource(Buffer* buffer, ResourceState) {
     assertResourceCompatible(buffer);
+    if (!buffer)
+        rejectRecording("DX11 buffer transition requires a valid buffer");
     // D3D11 自动管理资源状态。
 }
 
 void DX11CommandList::transitionResource(Texture* texture, ResourceState) {
     assertResourceCompatible(texture);
+    if (!texture)
+        rejectRecording("DX11 texture transition requires a valid texture");
     // D3D11 自动管理资源状态。
 }
 
@@ -588,6 +628,7 @@ core::Result<void> DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* ds
     assertResourceCompatible(dst);
     if (m_renderPassActive) {
         LOG_ERROR("[DX11] copyTextureToBuffer rejected: call it after endRenderPass");
+        rejectRecording("DX11 texture copy cannot run inside a render pass");
         return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
                                          "DX11 texture copy cannot run inside a render pass"));
     }
@@ -597,6 +638,7 @@ core::Result<void> DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* ds
     if (!sourceTexture || !sourceTexture->resource() || !destinationBuffer || !destinationBuffer->buffer() ||
         destinationBuffer->usage() != BufferUsage::Staging) {
         LOG_ERROR("[DX11] copyTextureToBuffer rejected: a DX11 Texture2D and staging buffer are required");
+        rejectRecording("DX11 texture copy requires valid readback resources");
         return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
                                          "DX11 texture copy requires a Texture2D and staging buffer"));
     }
@@ -606,6 +648,7 @@ core::Result<void> DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* ds
     const DXGI_FORMAT format = toDXGIFormat11(textureDesc.format);
     if (textureDesc.dimension != TextureDimension::Texture2D || bytesPerPixel == 0 || format == DXGI_FORMAT_UNKNOWN) {
         LOG_ERROR("[DX11] copyTextureToBuffer rejected: only uncompressed color Texture2D resources are supported");
+        rejectRecording("DX11 texture format is unsupported for readback");
         return std::unexpected(
                 makeError(EngineErrorCode::ResourceReadbackFailed, "DX11 texture format is unsupported for readback"));
     }
@@ -613,6 +656,7 @@ core::Result<void> DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* ds
     const uint64_t imageSize = static_cast<uint64_t>(textureDesc.width) * textureDesc.height * bytesPerPixel;
     if (imageSize > destinationBuffer->size()) {
         LOG_ERROR("[DX11] copyTextureToBuffer rejected: readback buffer is too small");
+        rejectRecording("DX11 readback buffer is too small");
         return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed, "DX11 readback buffer is too small"));
     }
 
@@ -623,16 +667,20 @@ core::Result<void> DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* ds
     ID3D11Texture2D* copySource = sourceTexture->resource();
     UINT sourceSubresource = D3D11CalcSubresource(0, 0, textureDesc.mipLevels);
     if (textureDesc.sampleCount > 1) {
-        if (!ensureReadbackResolveTexture(textureDesc.width, textureDesc.height, format))
+        if (!ensureReadbackResolveTexture(textureDesc.width, textureDesc.height, format)) {
+            rejectRecording("DX11 readback resolve texture creation failed");
             return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
                                              "DX11 readback resolve texture creation failed"));
+        }
         m_ctx->ResolveSubresource(m_readbackResolveTexture.Get(), 0, copySource, sourceSubresource, format);
         copySource = m_readbackResolveTexture.Get();
         sourceSubresource = 0;
     }
-    if (!ensureReadbackTexture(textureDesc.width, textureDesc.height, format))
+    if (!ensureReadbackTexture(textureDesc.width, textureDesc.height, format)) {
+        rejectRecording("DX11 readback texture creation failed");
         return std::unexpected(
                 makeError(EngineErrorCode::ResourceReadbackFailed, "DX11 readback texture creation failed"));
+    }
 
     m_ctx->CopySubresourceRegion(m_readbackTexture.Get(), 0, 0, 0, 0, copySource, sourceSubresource, nullptr);
     m_ctx->Flush();
@@ -641,6 +689,7 @@ core::Result<void> DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* ds
     HRESULT hr = m_ctx->Map(m_readbackTexture.Get(), 0, D3D11_MAP_READ, 0, &sourceMapped);
     if (FAILED(hr)) {
         logDX11Failure(hr, "ID3D11DeviceContext::Map(readback texture)");
+        rejectRecording("DX11 readback texture mapping failed");
         return std::unexpected(
                 makeError(EngineErrorCode::ResourceReadbackFailed, "DX11 readback texture mapping failed"));
     }
@@ -650,6 +699,7 @@ core::Result<void> DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* ds
     if (FAILED(hr)) {
         m_ctx->Unmap(m_readbackTexture.Get(), 0);
         logDX11Failure(hr, "ID3D11DeviceContext::Map(readback buffer)");
+        rejectRecording("DX11 readback buffer mapping failed");
         return std::unexpected(
                 makeError(EngineErrorCode::ResourceReadbackFailed, "DX11 readback buffer mapping failed"));
     }
@@ -798,6 +848,7 @@ void DX11CommandList::doEndRenderPass() {
                 attachment.target->desc().sampleCount <= 1 || attachment.resolveTarget->desc().sampleCount != 1 ||
                 attachment.target->format() != attachment.resolveTarget->format()) {
                 LOG_ERROR("[DX11] endRenderPass: invalid multisample resolve attachment");
+                rejectRecording("DX11 render-pass resolve attachment became invalid");
             } else {
                 m_ctx->ResolveSubresource(attachment.resolveTarget->resource(), 0, attachment.target->resource(), 0,
                                           toDXGIFormat11(attachment.target->format()));

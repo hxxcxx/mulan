@@ -161,7 +161,8 @@ protected:
     bool validateBindGroupCompatible(const BindGroup& group);
     void assertResourceCompatible(const RHITrackedResource* resource) const noexcept {
 #ifndef NDEBUG
-        assert(resource != nullptr);
+        if (!resource)
+            return;
         if (trackingDevice())
             assert(!resource->isTracked() || resource->belongsTo(*trackingDevice()));
 #else
@@ -209,10 +210,8 @@ private:
     State state_ = State::Initial;
     bool backend_recording_ = false;
     bool render_pass_active_ = false;
-    bool bind_group_layout_active_ = false;
-    uint64_t bind_group_layout_hash_ = 0;
-    bool pending_bind_group_layout_ = false;
-    uint64_t pending_bind_group_layout_hash_ = 0;
+    const BindGroupLayout* active_bind_group_layout_ = nullptr;
+    const BindGroupLayout* pending_bind_group_layout_ = nullptr;
     std::optional<core::Error> recording_error_;
 };
 

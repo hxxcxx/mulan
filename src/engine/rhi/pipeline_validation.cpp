@@ -19,9 +19,9 @@ core::Result<void> validateBindings(const PipelineBinding* bindings, uint8_t cou
     uint8_t usedCount = 0;
     for (uint8_t i = 0; i < count; ++i) {
         const PipelineBinding& binding = bindings[i];
-        if (binding.count == 0)
+        if (binding.count != 1)
             return std::unexpected(makeError(EngineErrorCode::PipelineCreateFailed,
-                                             "Pipeline descriptor binding count must be greater than zero"));
+                                             "Descriptor arrays are not supported by the current BindGroup contract"));
         if (binding.stages == 0 || (binding.stages & ~allowedStages) != 0)
             return std::unexpected(makeError(EngineErrorCode::PipelineCreateFailed,
                                              "Pipeline descriptor binding contains unsupported shader stages"));

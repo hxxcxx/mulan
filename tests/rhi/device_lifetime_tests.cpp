@@ -6,6 +6,7 @@
  */
 
 #include <mulan/rhi/device.h>
+#include <mulan/rhi/engine_error_code.h>
 #include <mulan/rhi/pipeline_validation.h>
 
 #include <gtest/gtest.h>
@@ -177,6 +178,22 @@ TEST(PipelineValidationTest, RejectsUnsupportedDynamicAndPushConstantBindings) {
     desc.descriptorBindingCount = 0;
     desc.pushConstantSize = 16;
     EXPECT_FALSE(validateGraphicsPipelineDesc(desc, device, device.capabilities()));
+}
+
+TEST(PipelineValidationTest, RejectsDescriptorArraysUntilBindGroupCanRepresentThem) {
+    TestDevice device;
+    TestShader vertexShader(ShaderType::Vertex);
+    vertexShader.attach(device);
+
+    GraphicsPipelineDesc desc;
+    desc.vs = &vertexShader;
+    desc.depthStencil.depthEnable = false;
+    desc.descriptorBindingCount = 1;
+    desc.descriptorBindings[0] = { 0, 2, DescriptorType::TextureSRV, PipelineBinding::kStageFragment };
+
+    const auto result = validateGraphicsPipelineDesc(desc, device, device.capabilities());
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, static_cast<int32_t>(EngineErrorCode::PipelineCreateFailed));
 }
 
 TEST(ResourceDescriptionTest, DiscardsCreationOnlyPointersButKeepsOwnedNames) {

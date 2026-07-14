@@ -205,6 +205,10 @@ core::Result<void> VKCommandList::doEnd() {
 
 void VKCommandList::setPipelineState(PipelineState* pso) {
     assertResourceCompatible(pso);
+    if (!pso) {
+        rejectRecording("Vulkan graphics pipeline is null");
+        return;
+    }
     auto* vkPso = static_cast<VKPipelineState*>(pso);
     activateBindGroupLayout(pso->bindGroupLayout());
     cmd_buffer_.bindPipeline(vk::PipelineBindPoint::eGraphics, vkPso->pipeline());
@@ -216,6 +220,10 @@ void VKCommandList::setPipelineState(PipelineState* pso) {
 
 void VKCommandList::setComputePipelineState(ComputePipelineState* pso) {
     assertResourceCompatible(pso);
+    if (!pso) {
+        rejectRecording("Vulkan compute pipeline is null");
+        return;
+    }
     auto* pipeline = static_cast<VKComputePipelineState*>(pso);
     activateBindGroupLayout(pso->bindGroupLayout());
     cmd_buffer_.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->pipeline());
@@ -245,6 +253,10 @@ void VKCommandList::setScissorRect(const ScissorRect& rect) {
 
 void VKCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
     assertResourceCompatible(buffer);
+    if (!buffer || offset >= buffer->size()) {
+        rejectRecording("Vulkan vertex-buffer binding is invalid");
+        return;
+    }
     auto* vkBuf = static_cast<VKBuffer*>(buffer);
     vk::Buffer buf = vkBuf->vkBuffer();
     vk::DeviceSize offs = offset;
@@ -252,19 +264,32 @@ void VKCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offs
 }
 
 void VKCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
+    if (!buffers) {
+        rejectRecording("Vulkan vertex-buffer array is null");
+        return;
+    }
     for (uint32_t i = 0; i < count; ++i)
         assertResourceCompatible(buffers[i]);
     std::vector<vk::Buffer> bufs;
     std::vector<vk::DeviceSize> offs;
     for (uint32_t i = 0; i < count; ++i) {
+        const uint32_t offset = offsets ? offsets[i] : 0;
+        if (!buffers[i] || offset >= buffers[i]->size()) {
+            rejectRecording("Vulkan vertex-buffer array contains an invalid buffer or offset");
+            return;
+        }
         bufs.push_back(static_cast<VKBuffer*>(buffers[i])->vkBuffer());
-        offs.push_back(offsets ? offsets[i] : 0);
+        offs.push_back(offset);
     }
     cmd_buffer_.bindVertexBuffers(startSlot, bufs, offs);
 }
 
 void VKCommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
     assertResourceCompatible(buffer);
+    if (!buffer || offset >= buffer->size()) {
+        rejectRecording("Vulkan index-buffer binding is invalid");
+        return;
+    }
     auto* vkBuf = static_cast<VKBuffer*>(buffer);
     cmd_buffer_.bindIndexBuffer(vkBuf->vkBuffer(), offset, toVkIndexType(type));
 }
@@ -300,8 +325,14 @@ void VKCommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t d
     }
     assertResourceCompatible(argsBuffer);
     auto* vkBuf = static_cast<VKBuffer*>(argsBuffer);
-    vk::Buffer buf = vkBuf->vkBuffer();
     const uint32_t argumentStride = stride > 0 ? stride : uint32_t(sizeof(VkDrawIndexedIndirectCommand));
+    const uint64_t requiredSize = static_cast<uint64_t>(offset) + static_cast<uint64_t>(drawCount) * argumentStride;
+    if (!vkBuf || !vkBuf->vkBuffer() || drawCount == 0 || argumentStride < sizeof(VkDrawIndexedIndirectCommand) ||
+        requiredSize > vkBuf->size()) {
+        rejectRecording("Vulkan indirect-draw arguments are invalid");
+        return;
+    }
+    const vk::Buffer buf = vkBuf->vkBuffer();
     for (uint32_t i = 0; i < drawCount; ++i)
         cmd_buffer_.drawIndexedIndirect(buf, offset + i * argumentStride, 1, argumentStride);
 }
@@ -323,6 +354,11 @@ void VKCommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
     }
     assertResourceCompatible(argsBuffer);
     auto* vkBuf = static_cast<VKBuffer*>(argsBuffer);
+    if (!vkBuf || !vkBuf->vkBuffer() || offset > vkBuf->size() ||
+        sizeof(VkDispatchIndirectCommand) > vkBuf->size() - offset) {
+        rejectRecording("Vulkan indirect-dispatch arguments are invalid");
+        return;
+    }
     cmd_buffer_.dispatchIndirect(vkBuf->vkBuffer(), offset);
 }
 
@@ -355,16 +391,29 @@ void VKCommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size,
                                  ResourceTransitionMode) {
     assertResourceCompatible(buffer);
     auto* vkBuf = static_cast<VKBuffer*>(buffer);
+    if (!vkBuf || !vkBuf->vkBuffer() || !vkBuf->mappedData() || !data || size == 0 || offset > vkBuf->size() ||
+        size > vkBuf->size() - offset) {
+        rejectRecording("Vulkan buffer update requires a valid host-visible range");
+        return;
+    }
     vkBuf->update(offset, size, data);
 }
 
 void VKCommandList::transitionResource(Buffer* buffer, ResourceState) {
     assertResourceCompatible(buffer);
+    if (!buffer) {
+        rejectRecording("Vulkan buffer transition requires a valid buffer");
+        return;
+    }
     // Vulkan 通过 pipeline barrier 处理，此处简化
 }
 
 void VKCommandList::transitionResource(Texture* texture, ResourceState newState) {
     assertResourceCompatible(texture);
+    if (!texture) {
+        rejectRecording("Vulkan texture transition requires a valid texture");
+        return;
+    }
     auto* vkTex = static_cast<VKTexture*>(texture);
     const vk::ImageLayout oldLayout = vkTex->currentLayout();
     const vk::ImageLayout newLayout = imageLayoutForState(newState);
@@ -399,16 +448,18 @@ void VKCommandList::transitionResource(Texture* texture, ResourceState newState)
 core::Result<void> VKCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
+    const auto rejectCopy = [this](std::string_view reason) -> core::Result<void> {
+        rejectRecording(reason);
+        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed, reason));
+    };
     auto* vkTex = static_cast<VKTexture*>(src);
     auto* vkBuf = static_cast<VKBuffer*>(dst);
-    if (!vkTex || !vkBuf)
-        return std::unexpected(
-                makeError(EngineErrorCode::ResourceReadbackFailed, "Vulkan texture copy requires valid resources"));
+    if (!vkTex || !vkTex->image() || !vkBuf || !vkBuf->vkBuffer() || vkBuf->usage() != BufferUsage::Staging)
+        return rejectCopy("Vulkan texture copy requires valid resources");
     const uint64_t requiredSize = static_cast<uint64_t>(vkTex->desc().width) * vkTex->desc().height *
                                   textureFormatBytesPerPixel(vkTex->desc().format);
     if (requiredSize == 0 || requiredSize > vkBuf->size())
-        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
-                                         "Vulkan readback buffer is too small or the texture format is unsupported"));
+        return rejectCopy("Vulkan readback buffer is too small or the texture format is unsupported");
 
     vk::BufferImageCopy region;
     region.bufferOffset = 0;
@@ -432,12 +483,15 @@ void VKCommandList::bindGroup(BindGroup& group) {
     if (std::any_of(vkGroup->layout().entries().begin(), vkGroup->layout().entries().end(),
                     [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
         LOG_ERROR("[Vulkan] bindGroup rejected: dynamic UniformBuffer bindings are required by the layout");
+        rejectRecording("Vulkan bindGroup requires dynamic UniformBuffer bindings");
         return;
     }
-    if (vkGroup->entryCount() == 0 || !allocator_)
+    if (vkGroup->entryCount() == 0)
         return;
-    if (!current_desc_set_layout_)
+    if (!allocator_ || !current_desc_set_layout_) {
+        rejectRecording("Vulkan descriptor allocator or active pipeline layout is unavailable");
         return;
+    }
 
     // --- 跨帧失效：per-frame pool reset 已销毁上一帧的 descriptor set，
     // 若 BindGroup 缓存句柄不属于当前帧则丢弃并强制本帧完整重写。
@@ -467,12 +521,24 @@ void VKCommandList::bindGroup(BindGroup& group) {
         const auto& e = vkGroup->entries()[i];
         if (e.type == DescriptorType::UniformBuffer && e.buffer) {
             auto* vkBuf = static_cast<VKBuffer*>(e.buffer);
+            if (!vkBuf || !vkBuf->vkBuffer()) {
+                rejectRecording("Vulkan uniform-buffer binding is invalid");
+                return;
+            }
             wrapper.writeUBO(e.binding, vkBuf->vkBuffer(), e.offset, e.size);
         } else if (e.type == DescriptorType::TextureSRV && e.texture) {
             auto* vkTex = static_cast<VKTexture*>(e.texture);
+            if (!vkTex || !vkTex->view()) {
+                rejectRecording("Vulkan texture binding is invalid");
+                return;
+            }
             wrapper.writeSampledImage(e.binding, vkTex->view());
         } else if (e.type == DescriptorType::Sampler && e.sampler) {
             auto* vkSm = static_cast<VKSampler*>(e.sampler);
+            if (!vkSm || !vkSm->handle()) {
+                rejectRecording("Vulkan sampler binding is invalid");
+                return;
+            }
             wrapper.writeSampler(e.binding, vkSm->handle());
         }
     }
@@ -488,6 +554,7 @@ void VKCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBi
     auto* vkGroup = static_cast<VKBindGroup*>(&group);
     if (!allocator_ || !transient_uniform_arena_ || !current_desc_set_layout_) {
         LOG_ERROR("[Vulkan] Dynamic bindGroup rejected: command list state is incomplete");
+        rejectRecording("Vulkan dynamic BindGroup state is incomplete");
         return;
     }
 
@@ -497,6 +564,7 @@ void VKCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBi
             transient_uniform_arena_->recordingGeneration());
     if (!validationError.empty()) {
         LOG_ERROR("[Vulkan] Dynamic uniform binding rejected: {}", validationError);
+        rejectRecording(validationError);
         return;
     }
 
@@ -517,6 +585,7 @@ void VKCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBi
         auto* buffer = static_cast<VKBuffer*>(binding->slice.backingBuffer);
         if (!buffer) {
             LOG_ERROR("[Vulkan] Dynamic uniform binding {} does not reference a Vulkan buffer", binding->binding);
+            rejectRecording("Vulkan dynamic uniform binding does not reference a Vulkan buffer");
             return;
         }
         cacheKey.buffers[cacheKey.count] = buffer;
@@ -554,16 +623,25 @@ void VKCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBi
         const auto& entry = vkGroup->entries()[i];
         if (entry.type == DescriptorType::UniformBuffer && entry.buffer) {
             auto* buffer = static_cast<VKBuffer*>(entry.buffer);
-            if (buffer)
-                set.writeUBO(entry.binding, buffer->vkBuffer(), entry.offset, entry.size);
+            if (!buffer || !buffer->vkBuffer()) {
+                rejectRecording("Vulkan uniform-buffer binding is invalid");
+                return;
+            }
+            set.writeUBO(entry.binding, buffer->vkBuffer(), entry.offset, entry.size);
         } else if (entry.type == DescriptorType::TextureSRV && entry.texture) {
             auto* texture = static_cast<VKTexture*>(entry.texture);
-            if (texture)
-                set.writeSampledImage(entry.binding, texture->view());
+            if (!texture || !texture->view()) {
+                rejectRecording("Vulkan texture binding is invalid");
+                return;
+            }
+            set.writeSampledImage(entry.binding, texture->view());
         } else if (entry.type == DescriptorType::Sampler && entry.sampler) {
             auto* sampler = static_cast<VKSampler*>(entry.sampler);
-            if (sampler)
-                set.writeSampler(entry.binding, sampler->handle());
+            if (!sampler || !sampler->handle()) {
+                rejectRecording("Vulkan sampler binding is invalid");
+                return;
+            }
+            set.writeSampler(entry.binding, sampler->handle());
         }
     }
     for (uint8_t i = 0; i < cacheKey.count; ++i)

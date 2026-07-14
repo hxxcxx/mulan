@@ -22,8 +22,8 @@ core::Result<void> CommandList::begin() {
 
     recording_error_.reset();
     render_pass_active_ = false;
-    bind_group_layout_active_ = false;
-    pending_bind_group_layout_ = false;
+    active_bind_group_layout_ = nullptr;
+    pending_bind_group_layout_ = nullptr;
     if (auto result = doBegin(); !result) {
         invalidate(result.error());
         return std::unexpected(result.error());
@@ -80,6 +80,10 @@ void CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
                              "beginRenderPass requires a recording CommandList without an active render pass"));
         return;
     }
+    if (info.colorCount > RenderPassBeginInfo::kMaxColorTargets) {
+        rejectRecording("Render pass color attachment count exceeds the supported limit");
+        return;
+    }
     assertRenderPassCompatible(info);
     if (auto result = doBeginRenderPass(info); !result) {
         invalidate(result.error());
@@ -108,28 +112,26 @@ void CommandList::rejectRecording(std::string_view reason) {
 }
 
 void CommandList::activateBindGroupLayout(const BindGroupLayout& layout) {
-    bind_group_layout_hash_ = layout.hash();
-    if (!bind_group_layout_active_ && pending_bind_group_layout_ &&
-        pending_bind_group_layout_hash_ != bind_group_layout_hash_) {
+    if (!active_bind_group_layout_ && pending_bind_group_layout_ && *pending_bind_group_layout_ != layout) {
         rejectRecording("BindGroup layout does not match the active pipeline");
     }
-    bind_group_layout_active_ = true;
-    pending_bind_group_layout_ = false;
+    active_bind_group_layout_ = &layout;
+    pending_bind_group_layout_ = nullptr;
 }
 
 bool CommandList::validateBindGroupCompatible(const BindGroup& group) {
-    if (state_ != State::Recording)
+    if (state_ != State::Recording) {
+        rejectRecording("BindGroup binding requires a recording CommandList");
         return false;
+    }
     assertBindGroupCompatible(group);
-    if (bind_group_layout_active_ && group.layout().hash() != bind_group_layout_hash_) {
+    if (active_bind_group_layout_ && group.layout() != *active_bind_group_layout_) {
         invalidate(makeError(EngineErrorCode::CommandRecordingFailed,
                              "BindGroup layout does not match the active pipeline"));
         return false;
     }
-    if (!bind_group_layout_active_) {
-        pending_bind_group_layout_hash_ = group.layout().hash();
-        pending_bind_group_layout_ = true;
-    }
+    if (!active_bind_group_layout_)
+        pending_bind_group_layout_ = &group.layout();
     return true;
 }
 
