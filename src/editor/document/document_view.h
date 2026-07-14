@@ -44,6 +44,10 @@ public:
 
     bool handleInput(const mulan::engine::InputEvent& event);
 
+    /// 取消当前所有临时交互（工具 / grip / camera drag / ViewCube press）。
+    /// 供 DocWidget 在 FocusOut / UngrabMouse / WindowDeactivate / leaveEvent 调用。
+    void cancelInteraction();
+
     // ── 编辑器交互（转发，app 层不直接接触 EditorSession）──
 
     bool isEditorReady() const { return editor_session_.isReady(); }
@@ -61,8 +65,19 @@ public:
     void selectAtFramebuffer(double x, double y);
 
 private:
+    /// 在 handleInput 内部跟踪左键 press，release 时据此判定 click-vs-drag 选择。
+    void trackPressEvent(const mulan::engine::InputEvent& event);
+    void maybeSelectOnRelease(const mulan::engine::InputEvent& event, bool editorConsumed);
+    bool isLeftDragExceedingThreshold(const mulan::engine::InputEvent& event) const;
+
     DocumentSession* session_ = nullptr;
     DocumentViewBinding binding_;
     mulan::view::ViewContext view_context_;
     mulan::editor::EditorSession editor_session_;
+
+    // 左键 click/drag/select 跟踪（从 DocWidget 下移；用 QApplication::startDragDistance 风格阈值）。
+    int left_press_x_ = 0;
+    int left_press_y_ = 0;
+    bool left_press_pending_ = false;
+    bool left_press_dragged_ = false;
 };

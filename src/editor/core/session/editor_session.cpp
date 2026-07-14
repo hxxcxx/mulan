@@ -9,6 +9,7 @@
 
 #include "../tools/selection_extrude_tool.h"
 
+#include "../tools/editor_tool_operator.h"
 #include "../tools/grip_drag_tool.h"
 #include "../snap/snap_marker_builder.h"
 #include "../tools/transform_tool.h"
@@ -89,6 +90,10 @@ void EditorSession::startTool(std::unique_ptr<EditorTool> tool) {
     overlay_service_.clear(EditorOverlayRole::Snap);
     clearGrips();
     applyAction(tool_controller_.start(std::move(tool)));
+    // 工具激活 → push EditorToolOperator 到 view 栈顶，接管工具事件 + 相机穿透。
+    if (tool_controller_.hasActiveTool() && view_) {
+        view_->pushOperator(std::make_unique<EditorToolOperator>(*this));
+    }
 }
 
 bool EditorSession::startTransformTool(TransformEditCommitMode commitMode) {
@@ -188,8 +193,19 @@ bool EditorSession::handleInput(const engine::InputEvent& event) {
         return false;
     }
 
-    if (!tool_controller_.hasActiveTool()) {
-        return tryStartGripDrag(event);
+    // 有活动工具时，工具事件经栈上的 EditorToolOperator 处理（由 DocumentView 下行到 view 段）。
+    // 此处不短路，返回 false 让事件继续到 view 段，使相机穿透（中键/右键/滚轮）生效。
+    if (tool_controller_.hasActiveTool()) {
+        return false;
+    }
+
+    // 无活动工具：尝试 grip 拖拽启动。
+    return tryStartGripDrag(event);
+}
+
+bool EditorSession::driveActiveTool(const engine::InputEvent& event) {
+    if (!view_ || !tool_controller_.hasActiveTool()) {
+        return false;
     }
 
     EditorInput input = makeEditorInput(event);
@@ -209,6 +225,18 @@ void EditorSession::cancelActiveTool() {
     applyAction(tool_controller_.cancel());
     overlay_service_.clearAll();
     refreshGrips();
+    // 工具取消后，清理 view 栈上的 EditorToolOperator（若存在）。
+    popToolOperators();
+}
+
+void EditorSession::popToolOperators() {
+    if (!view_) {
+        return;
+    }
+    // 弹出栈顶所有 EditorToolOperator（正常只有一个，防御性循环）。
+    while (view_->activeOperator() != view_->defaultOperator()) {
+        view_->popOperator();
+    }
 }
 
 void EditorSession::refreshGrips() {
@@ -329,6 +357,9 @@ bool EditorSession::tryStartGripDrag(const engine::InputEvent& event) {
     overlay_service_.clear(EditorOverlayRole::Snap);
 
     applyAction(tool_controller_.start(std::make_unique<GripDragTool>(*grip, dragStart)));
+    if (tool_controller_.hasActiveTool() && view_) {
+        view_->pushOperator(std::make_unique<EditorToolOperator>(*this));
+    }
     return true;
 }
 
