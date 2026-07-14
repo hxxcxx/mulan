@@ -6,7 +6,7 @@ add_library(runtime STATIC
 mulan_copy_public_headers(runtime modeling/runtime)
 
 target_link_libraries(runtime
-    PUBLIC
+    PRIVATE
         modeling_core
 )
 

@@ -56,7 +56,7 @@ add_library(editor STATIC
     document/document_view_binding.cpp
 )
 
-target_include_directories(editor PUBLIC
+target_include_directories(editor PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
@@ -66,12 +66,10 @@ target_link_libraries(editor PUBLIC
     view
     render
     interaction
-    rhi
     asset
     scene
     io
     modeling_core
-    runtime
 )
 
 target_precompile_headers(editor PRIVATE

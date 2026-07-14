@@ -34,6 +34,7 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE
     editor
     platform
+    runtime
     $<LINK_LIBRARY:WHOLE_ARCHIVE,io>
     $<$<TARGET_EXISTS:rhi_vulkan>:rhi_vulkan>
     $<$<TARGET_EXISTS:rhi_dx12>:rhi_dx12>

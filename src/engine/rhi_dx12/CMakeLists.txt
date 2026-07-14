@@ -22,9 +22,8 @@ add_library(rhi_dx12 STATIC
 mulan_copy_public_headers(rhi_dx12 rhi_dx12)
 
 target_link_libraries(rhi_dx12
-    PUBLIC
-        rhi
     PRIVATE
+        rhi
         d3d12
         dxgi
 )

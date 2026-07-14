@@ -22,8 +22,7 @@ add_library(rhi_opengl STATIC
 mulan_copy_public_headers(rhi_opengl rhi_opengl)
 
 target_link_libraries(rhi_opengl
-    PUBLIC rhi
-    PRIVATE glad::glad OpenGL::GL
+    PRIVATE rhi glad::glad OpenGL::GL
 )
 
 target_precompile_headers(rhi_opengl PRIVATE

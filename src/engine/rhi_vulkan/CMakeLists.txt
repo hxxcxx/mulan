@@ -26,9 +26,8 @@ add_library(rhi_vulkan STATIC
 mulan_copy_public_headers(rhi_vulkan rhi_vulkan)
 
 target_link_libraries(rhi_vulkan
-    PUBLIC
-        rhi
     PRIVATE
+        rhi
         Vulkan::Vulkan
         GPUOpen::VulkanMemoryAllocator
 )

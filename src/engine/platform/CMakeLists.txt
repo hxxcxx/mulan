@@ -9,7 +9,6 @@ mulan_copy_public_headers(platform platform)
 target_link_libraries(platform
     PUBLIC
         rhi
-        core
 )
 
 target_precompile_headers(platform PRIVATE
