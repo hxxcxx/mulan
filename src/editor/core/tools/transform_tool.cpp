@@ -33,38 +33,42 @@ EditorAction TransformTool::begin() {
     return EditorAction::clearPreview();
 }
 
-EditorAction TransformTool::handleInput(const EditorInput& input) {
-    if (input.event.isRightPress()) {
-        return EditorAction::cancel();
+EditorAction TransformTool::onAnchorPress(const EditorInput& /*input*/, const math::Point3& worldPoint) {
+    // 首次 press 设定锚点；再次 press 直接提交（确认变换）。
+    if (!drag_start_world_) {
+        return setDragStart(worldPoint);
     }
+    return commit(worldPoint);
+}
 
-    // 生命周期事件优先于空间数据（修 P7）：release 必须能结束工具，即使 worldPoint 缺失。
-    if (input.event.isLeftRelease()) {
-        if (drag_start_world_ && drag_preview_started_) {
-            // worldPoint 缺失时用已记录的增量回退，确保 release 总能完成。
-            const auto point = input.worldPoint();
-            return point ? commit(*point) : commitWithLastDelta();
-        }
-        return EditorAction::cancel();  // 无可提交内容：取消而非吞事件
-    }
-
-    const auto point = input.worldPoint();
-    if (!point) {
+EditorAction TransformTool::updateDragPreview(const EditorInput& /*input*/, const math::Point3& worldPoint) {
+    if (!drag_start_world_) {
         return EditorAction::consumeEvent();
     }
 
-    if (input.event.isLeftPress()) {
-        if (!drag_start_world_) {
-            return setDragStart(*point);
-        }
-        return commit(*point);
+    current_delta_ = worldDelta(worldPoint);
+    if (!current_delta_) {
+        return EditorAction::clearPreview();
     }
 
-    if (input.event.isMouseMove()) {
-        return update(*point);
-    }
+    drag_preview_started_ = true;
+    return updatePreview(*current_delta_);
+}
 
-    return EditorAction::ignored();
+EditorAction TransformTool::commitAtPoint(const EditorInput& /*input*/, const math::Point3& worldPoint) {
+    // 有预览才提交，否则取消（守卫移入提交方法，保持基类分发简洁）。
+    if (drag_start_world_ && drag_preview_started_) {
+        return commit(worldPoint);
+    }
+    return EditorAction::cancel();
+}
+
+std::optional<EditorAction> TransformTool::commitFallback(const EditorInput& /*input*/) {
+    // worldPoint 缺失时用已记录的增量回退提交，确保 release 总能完成。
+    if (drag_start_world_ && drag_preview_started_) {
+        return commitWithLastDelta();
+    }
+    return std::nullopt;  // 无可提交：基类将转为 cancel
 }
 
 EditorAction TransformTool::end(ToolFinishReason reason) {
@@ -82,20 +86,6 @@ EditorAction TransformTool::setDragStart(math::Point3 worldPoint) {
     current_delta_.reset();
     context_.setAnchorWorld(worldPoint);
     return EditorAction::clearPreview();
-}
-
-EditorAction TransformTool::update(const math::Point3& worldPoint) {
-    if (!drag_start_world_) {
-        return EditorAction::consumeEvent();
-    }
-
-    current_delta_ = worldDelta(worldPoint);
-    if (!current_delta_) {
-        return EditorAction::clearPreview();
-    }
-
-    drag_preview_started_ = true;
-    return updatePreview(*current_delta_);
 }
 
 EditorAction TransformTool::commit(const math::Point3& worldPoint) {

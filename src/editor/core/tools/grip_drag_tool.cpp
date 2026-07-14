@@ -377,50 +377,12 @@ EditorAction GripDragTool::begin() {
     return EditorAction::clearPreview();
 }
 
-EditorAction GripDragTool::handleInput(const EditorInput& input) {
-    if (input.event.isRightPress()) {
-        return EditorAction::cancel();
-    }
-
-    if (input.event.isLeftPress()) {
-        return EditorAction::consumeEvent();
-    }
-
-    // 生命周期事件优先于空间数据（修 P7）：release 必须能结束工具，即使 worldPoint 缺失。
-    if (input.event.isLeftRelease()) {
-        const auto point = input.worldPoint();
-        if (point) {
-            return commitAt(*point);
-        }
-        // worldPoint 缺失时用最后一次预览的图元回退提交，确保 release 总能完成。
-        if (current_primitive_) {
-            return commitPrimitive(*current_primitive_);
-        }
-        return EditorAction::cancel();  // 无可提交：取消而非吞事件
-    }
-
-    const auto point = input.worldPoint();
-    if (!point) {
-        return EditorAction::consumeEvent();
-    }
-
-    if (input.event.isMouseMove()) {
-        return updatePreview(input, *point);
-    }
-
-    return EditorAction::ignored();
+EditorAction GripDragTool::onAnchorPress(const EditorInput& /*input*/, const math::Point3& /*worldPoint*/) {
+    // 锚点在构造时已由 grip 位置确定，press 恒吞事件。
+    return EditorAction::consumeEvent();
 }
 
-EditorAction GripDragTool::end(ToolFinishReason reason) {
-    drag_.clearPreview();
-    current_primitive_.reset();
-    if (reason != ToolFinishReason::Finished) {
-        return EditorAction::clearPreview();
-    }
-    return EditorAction::ignored();
-}
-
-EditorAction GripDragTool::updatePreview(const EditorInput& input, const math::Point3& worldPoint) {
+EditorAction GripDragTool::updateDragPreview(const EditorInput& input, const math::Point3& worldPoint) {
     const DragEditSample sample = drag_.update(worldPoint);
     current_primitive_ = makeEditedPrimitive(sample);
     if (!current_primitive_) {
@@ -429,7 +391,7 @@ EditorAction GripDragTool::updatePreview(const EditorInput& input, const math::P
     return EditorAction::setPreview(previewGeometry(input, *current_primitive_));
 }
 
-EditorAction GripDragTool::commitAt(const math::Point3& worldPoint) {
+EditorAction GripDragTool::commitAtPoint(const EditorInput& /*input*/, const math::Point3& worldPoint) {
     const DragEditSample sample = drag_.update(worldPoint);
     std::optional<asset::CurvePrimitive> primitive = makeEditedPrimitive(sample);
     if (!primitive) {
@@ -439,6 +401,23 @@ EditorAction GripDragTool::commitAt(const math::Point3& worldPoint) {
         return EditorAction::cancel();
     }
     return commitPrimitive(*primitive);
+}
+
+std::optional<EditorAction> GripDragTool::commitFallback(const EditorInput& /*input*/) {
+    // worldPoint 缺失时用最后一次预览的图元回退提交。
+    if (!current_primitive_) {
+        return std::nullopt;
+    }
+    return commitPrimitive(*current_primitive_);
+}
+
+EditorAction GripDragTool::end(ToolFinishReason reason) {
+    drag_.clearPreview();
+    current_primitive_.reset();
+    if (reason != ToolFinishReason::Finished) {
+        return EditorAction::clearPreview();
+    }
+    return EditorAction::ignored();
 }
 
 EditorAction GripDragTool::commitPrimitive(const asset::CurvePrimitive& primitive) {
