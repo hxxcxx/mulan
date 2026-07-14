@@ -1,7 +1,8 @@
-#include "rhi_backends.h"
+#include "bootstrap/rhi_backends.h"
 #include "ui/main_window.h"
 #include <mulan/core/log/log.h>
 #include <mulan/modeling/runtime/runtime.h>
+#include <mulan/rhi/device_factory.h>
 #include <QApplication>
 #include <QFile>
 #include <QIcon>
@@ -24,7 +25,8 @@ int main(int argc, char* argv[]) {
     mulan::core::log::init();
     LOG_INFO("[App] Starting mulan");
 
-    if (auto result = registerApplicationRHIBackends(); !result) {
+    auto& deviceFactory = mulan::engine::DeviceFactory::instance();
+    if (auto result = mulan::app::registerLinkedRHIBackends(deviceFactory); !result) {
         LOG_ERROR("[App] RHI backend registration failed: {}", result.error().message);
         mulan::core::log::shutdown();
         return 1;

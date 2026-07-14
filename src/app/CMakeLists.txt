@@ -4,7 +4,7 @@ set(CMAKE_AUTORCC ON)
 
 set(MULAN_APP_SOURCES
     main.cpp
-    rhi_backends.cpp
+    bootstrap/rhi_backends.cpp
     ui/document_area.cpp
     ui/startup_page.cpp
     ui/main_window.cpp

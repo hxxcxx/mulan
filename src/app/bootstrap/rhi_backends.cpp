@@ -2,7 +2,7 @@
  * @file rhi_backends.cpp
  * @brief 显式注册应用实际编译的 RHI 后端模块
  * @author hxxcxx
- * @date 2026-07-14
+ * @date 2026-07-15
  */
 
 #include "rhi_backends.h"
@@ -22,23 +22,26 @@
 #include <mulan/rhi_opengl/backend.h>
 #endif
 
-mulan::core::Result<void> registerApplicationRHIBackends() {
-    auto& factory = mulan::engine::DeviceFactory::instance();
+namespace mulan::app {
+
+core::Result<void> registerLinkedRHIBackends(engine::DeviceFactory& factory) {
 #if MULAN_HAS_RHI_VULKAN
-    if (auto result = factory.registerModule(mulan::engine::vulkanBackendModule()); !result)
+    if (auto result = factory.registerModule(engine::vulkanBackendModule()); !result)
         return result;
 #endif
 #if MULAN_HAS_RHI_D3D12
-    if (auto result = factory.registerModule(mulan::engine::d3d12BackendModule()); !result)
+    if (auto result = factory.registerModule(engine::d3d12BackendModule()); !result)
         return result;
 #endif
 #if MULAN_HAS_RHI_D3D11
-    if (auto result = factory.registerModule(mulan::engine::d3d11BackendModule()); !result)
+    if (auto result = factory.registerModule(engine::d3d11BackendModule()); !result)
         return result;
 #endif
 #if MULAN_HAS_RHI_OPENGL
-    if (auto result = factory.registerModule(mulan::engine::openGLBackendModule()); !result)
+    if (auto result = factory.registerModule(engine::openGLBackendModule()); !result)
         return result;
 #endif
     return {};
 }
+
+}  // namespace mulan::app
