@@ -268,6 +268,8 @@ core::Result<std::unique_ptr<Fence>> GLDevice::createFence(uint64_t initialValue
 }
 
 core::Result<std::unique_ptr<RenderTarget>> GLDevice::createRenderTarget(const RenderTargetDesc& desc) {
+    if (auto validation = validateRenderTargetDesc(desc, caps_); !validation)
+        return std::unexpected(validation.error());
     return createGLResource<RenderTarget, GLRenderTarget>(*this, desc, EngineErrorCode::RenderTargetCreateFailed,
                                                           RHIResourceKind::RenderTarget,
                                                           "OpenGL render target creation failed");
@@ -374,6 +376,7 @@ core::Result<void> GLDevice::waitIdle() {
     glFinish();
     if (const GLenum error = glGetError(); error != GL_NO_ERROR)
         return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "OpenGL glFinish failed"));
+    collectGarbage();
     return {};
 }
 

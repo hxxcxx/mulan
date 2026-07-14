@@ -2,16 +2,23 @@ function(mulan_copy_public_headers target module)
     set(generated_include_dir "${CMAKE_BINARY_DIR}/include/mulan/${module}")
     file(MAKE_DIRECTORY "${generated_include_dir}")
 
-    file(GLOB_RECURSE public_headers CONFIGURE_DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-        "${CMAKE_CURRENT_SOURCE_DIR}/*.hh"
-        "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/*.hxx"
-    )
+    if(ARGN)
+        set(public_headers)
+        foreach(relative_header IN LISTS ARGN)
+            list(APPEND public_headers "${CMAKE_CURRENT_SOURCE_DIR}/${relative_header}")
+        endforeach()
+    else()
+        file(GLOB_RECURSE public_headers CONFIGURE_DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
+            "${CMAKE_CURRENT_SOURCE_DIR}/*.hh"
+            "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/*.hxx"
+        )
 
-    # 排除 detail/ 子目录和预编译头：内部实现不对外暴露。
-    list(FILTER public_headers EXCLUDE REGEX "/detail/")
-    list(FILTER public_headers EXCLUDE REGEX "(^|/)pch\\.(h|hh|hpp|hxx)$")
+        # 排除 detail/ 子目录和预编译头：内部实现不对外暴露。
+        list(FILTER public_headers EXCLUDE REGEX "/detail/")
+        list(FILTER public_headers EXCLUDE REGEX "(^|/)pch\\.(h|hh|hpp|hxx)$")
+    endif()
 
     set(generated_headers)
     foreach(header IN LISTS public_headers)

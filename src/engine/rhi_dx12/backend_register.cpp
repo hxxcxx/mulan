@@ -9,15 +9,23 @@
 #include "backend.h"
 #include "detail/dx12_device.h"
 
+#include <exception>
+
 namespace mulan::engine {
 
 namespace {
 
 core::Result<std::unique_ptr<RHIDevice>> createD3D12Device(const DeviceCreateInfo& ci) {
-    auto device = std::make_unique<DX12Device>(ci);
-    if (!device->isInitialized())
+    try {
+        auto device = std::make_unique<DX12Device>(ci);
+        if (!device->isInitialized())
+            return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX12 device initialization failed"));
+        return std::unique_ptr<RHIDevice>(std::move(device));
+    } catch (const std::exception& error) {
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, error.what()));
+    } catch (...) {
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX12 device initialization failed"));
-    return std::unique_ptr<RHIDevice>(std::move(device));
+    }
 }
 
 }  // namespace

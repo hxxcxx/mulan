@@ -500,8 +500,15 @@ void TextStage::execute(RenderFrame& frame) {
         return;
     }
 
-    vertex_buffer_->update(0, static_cast<uint32_t>(sizeof(TextVertex) * vertices_.size()), vertices_.data());
-    index_buffer_->update(0, static_cast<uint32_t>(sizeof(uint32_t) * indices_.size()), indices_.data());
+    const auto vertexWrite =
+            vertex_buffer_->write(0, static_cast<uint32_t>(sizeof(TextVertex) * vertices_.size()), vertices_.data());
+    const auto indexWrite =
+            index_buffer_->write(0, static_cast<uint32_t>(sizeof(uint32_t) * indices_.size()), indices_.data());
+    if (!vertexWrite || !indexWrite) {
+        LOG_ERROR("[TextStage] Dynamic geometry upload failed: {}",
+                  !vertexWrite ? vertexWrite.error().message : indexWrite.error().message);
+        return;
+    }
 
     auto& cmd = frame.cmd;
     cmd.setViewport({ 0.0f, 0.0f, static_cast<float>(width_), static_cast<float>(height_), 0.0f, 1.0f });

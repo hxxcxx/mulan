@@ -27,6 +27,26 @@ void runDeferredRelease(RHIDevice::DeferredRelease& release) noexcept {
 RHIDevice::RHIDevice() : device_generation_(g_next_device_generation.fetch_add(1, std::memory_order_relaxed)) {
 }
 
+core::Result<void> validateRenderTargetDesc(const RenderTargetDesc& desc, const GPUDeviceCapabilities& capabilities) {
+    if (desc.width == 0 || desc.height == 0)
+        return std::unexpected(
+                makeError(EngineErrorCode::RenderTargetCreateFailed, "Render target dimensions must be non-zero"));
+    if (desc.width > capabilities.maxTextureSize || desc.height > capabilities.maxTextureSize) {
+        return std::unexpected(makeError(EngineErrorCode::RenderTargetCreateFailed,
+                                         "Render target dimensions exceed the active device limit"));
+    }
+    if (desc.sampleCount == 0 || (desc.sampleCount & (desc.sampleCount - 1)) != 0 ||
+        desc.sampleCount > capabilities.maxSampleCount) {
+        return std::unexpected(makeError(EngineErrorCode::RenderTargetCreateFailed,
+                                         "Render target sample count is not supported by the active device"));
+    }
+    if (desc.colorFormat == TextureFormat::Unknown || (desc.hasDepth && desc.depthFormat == TextureFormat::Unknown)) {
+        return std::unexpected(makeError(EngineErrorCode::RenderTargetCreateFailed,
+                                         "Render target attachment formats must be specified"));
+    }
+    return {};
+}
+
 RHIDevice::~RHIDevice() {
     assertNoLiveResources();
     detachLiveResources();

@@ -21,6 +21,7 @@
 
 #include <mulan/core/log/log.h>
 #include <mulan/core/result/error.h>
+#include "../../rhi/engine_error_code.h"
 
 #include <cstdint>
 #include <cassert>
@@ -39,6 +40,7 @@ inline std::string dx11SystemErrorMessage(HRESULT hr) {
 }
 
 [[nodiscard]] inline core::Result<void> checkDX11(HRESULT hr, std::string_view operation,
+                                                  EngineErrorCode errorCode = EngineErrorCode::ResourceCreateFailed,
                                                   std::source_location where = std::source_location::current()) {
     if (SUCCEEDED(hr))
         return {};
@@ -48,7 +50,7 @@ inline std::string dx11SystemErrorMessage(HRESULT hr) {
                                 std::format("{:08X}", static_cast<unsigned>(hr)) + ")" +
                                 (systemMessage.empty() ? "" : ": " + systemMessage);
     LOG_ERROR("{}", message);
-    return std::unexpected(core::Error::make(core::ErrorCode::Internal, message, where));
+    return std::unexpected(makeError(errorCode, message, where));
 }
 
 inline void logDX11Failure(HRESULT hr, const char* operation) {

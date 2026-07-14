@@ -126,9 +126,4 @@ enum class ResourceState : uint32_t {
     CopySrc = 11,
 };
 
-enum class ResourceTransitionMode : uint8_t {
-    None,        // 不转换（GL 后端常用）
-    Transition,  // 自动转换
-};
-
 }  // namespace mulan::engine

@@ -5,15 +5,24 @@
  * @date 2026-07-11
  */
 #include "../rhi/device_factory.h"
+#include "../rhi/engine_error_code.h"
 #include "backend.h"
 #include "detail/vk_device.h"
+
+#include <exception>
 
 namespace mulan::engine {
 
 namespace {
 
 core::Result<std::unique_ptr<RHIDevice>> createVulkanDevice(const DeviceCreateInfo& ci) {
-    return std::unique_ptr<RHIDevice>(std::make_unique<VKDevice>(ci));
+    try {
+        return std::unique_ptr<RHIDevice>(std::make_unique<VKDevice>(ci));
+    } catch (const std::exception& error) {
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, error.what()));
+    } catch (...) {
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, "Vulkan device initialization failed"));
+    }
 }
 
 }  // namespace

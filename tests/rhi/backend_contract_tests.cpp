@@ -6,6 +6,7 @@
  */
 
 #include <mulan/rhi/device_factory.h>
+#include <mulan/rhi/engine_error_code.h>
 
 #if MULAN_TEST_HAS_RHI_D3D12
 #include <mulan/rhi_dx12/backend.h>
@@ -160,6 +161,137 @@ TEST_P(BackendContractTest, CreatesTrackedResourcesAndSubmitsExecutableCommandLi
     ASSERT_TRUE(device->waitIdle());
 }
 
+TEST_P(BackendContractTest, ReportsUsableCapabilities) {
+    ContractWindow window;
+    ASSERT_TRUE(window.valid());
+    auto deviceResult = createDevice(window);
+    ASSERT_TRUE(deviceResult) << deviceResult.error().message;
+    auto device = std::move(*deviceResult);
+
+    const GPUDeviceCapabilities& caps = device->capabilities();
+    EXPECT_EQ(caps.backend, GetParam().module().backend);
+    EXPECT_GT(caps.maxTextureSize, 0u);
+    EXPECT_GT(caps.maxSampleCount, 0u);
+    EXPECT_GT(caps.minUniformBufferOffsetAlignment, 0u);
+    EXPECT_GT(caps.maxUniformBufferBindingSize, 0u);
+    EXPECT_FALSE(caps.indirectDispatch && !caps.computeShader);
+
+    if (!caps.computeShader) {
+        const auto compute = device->createComputePipelineState({});
+        ASSERT_FALSE(compute);
+        EXPECT_EQ(compute.error().code, static_cast<int32_t>(EngineErrorCode::BackendNotSupported));
+    }
+
+    ASSERT_TRUE(device->waitIdle());
+}
+
+TEST_P(BackendContractTest, RejectsUnsupportedExplicitRenderTargetSamples) {
+    ContractWindow window;
+    ASSERT_TRUE(window.valid());
+    auto deviceResult = createDevice(window);
+    ASSERT_TRUE(deviceResult) << deviceResult.error().message;
+    auto device = std::move(*deviceResult);
+
+    RenderTargetDesc desc;
+    desc.width = 16;
+    desc.height = 16;
+    desc.sampleCount = device->capabilities().maxSampleCount * 2;
+    const auto result = device->createRenderTarget(desc);
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, static_cast<int32_t>(EngineErrorCode::RenderTargetCreateFailed));
+
+    ASSERT_TRUE(device->waitIdle());
+}
+
+TEST_P(BackendContractTest, WritesDynamicBuffersAndRejectsWrongDeviceResources) {
+    ContractWindow firstWindow;
+    ContractWindow secondWindow;
+    ASSERT_TRUE(firstWindow.valid());
+    ASSERT_TRUE(secondWindow.valid());
+    auto firstResult = createDevice(firstWindow);
+    auto secondResult = createDevice(secondWindow);
+    ASSERT_TRUE(firstResult) << firstResult.error().message;
+    ASSERT_TRUE(secondResult) << secondResult.error().message;
+    auto first = std::move(*firstResult);
+    auto second = std::move(*secondResult);
+
+    std::array<std::byte, 64> data{};
+    auto bufferResult = second->createBuffer(
+            BufferDesc::dynamicVertex(static_cast<uint32_t>(data.size()), "ContractDynamicBuffer"));
+    ASSERT_TRUE(bufferResult) << bufferResult.error().message;
+    auto buffer = std::move(*bufferResult);
+    ASSERT_TRUE(buffer->write(0, static_cast<uint32_t>(data.size()), data.data()));
+
+    auto commandResult = first->createCommandList();
+    ASSERT_TRUE(commandResult) << commandResult.error().message;
+    auto command = std::move(*commandResult);
+    ASSERT_TRUE(command->begin());
+    command->setVertexBuffer(0, buffer.get());
+    EXPECT_EQ(command->state(), CommandList::State::Invalid);
+    EXPECT_FALSE(command->end());
+
+    command.reset();
+    buffer.reset();
+    ASSERT_TRUE(first->waitIdle());
+    ASSERT_TRUE(second->waitIdle());
+}
+
+TEST_P(BackendContractTest, WaitIdleCollectsRetiredSubmissions) {
+    ContractWindow window;
+    ASSERT_TRUE(window.valid());
+    auto deviceResult = createDevice(window);
+    ASSERT_TRUE(deviceResult) << deviceResult.error().message;
+    auto device = std::move(*deviceResult);
+
+    auto commandResult = device->createCommandList();
+    ASSERT_TRUE(commandResult) << commandResult.error().message;
+    auto command = std::move(*commandResult);
+    ASSERT_TRUE(command->begin());
+    ASSERT_TRUE(command->end());
+    auto submission = device->executeCommandList(command.get());
+    ASSERT_TRUE(submission) << submission.error().message;
+
+    bool released = false;
+    ASSERT_TRUE(device->retire(*submission, [&released] { released = true; }));
+    ASSERT_TRUE(device->waitIdle());
+    EXPECT_TRUE(released);
+
+    command.reset();
+}
+
+TEST_P(BackendContractTest, RecordsAndSubmitsAnOffscreenRenderPass) {
+    ContractWindow window;
+    ASSERT_TRUE(window.valid());
+    auto deviceResult = createDevice(window);
+    ASSERT_TRUE(deviceResult) << deviceResult.error().message;
+    auto device = std::move(*deviceResult);
+
+    RenderTargetDesc desc;
+    desc.width = 16;
+    desc.height = 16;
+    desc.sampleCount = 1;
+    auto targetResult = device->createRenderTarget(desc);
+    ASSERT_TRUE(targetResult) << targetResult.error().message;
+    auto target = std::move(*targetResult);
+
+    auto commandResult = device->createCommandList();
+    ASSERT_TRUE(commandResult) << commandResult.error().message;
+    auto command = std::move(*commandResult);
+    ASSERT_TRUE(command->begin());
+    command->beginRenderPass(target->renderPassBeginInfo());
+    ASSERT_EQ(command->state(), CommandList::State::Recording)
+            << (command->recordingError() ? command->recordingError()->message : "unknown recording error");
+    command->endRenderPass();
+    ASSERT_TRUE(command->end()) << command->recordingError()->message;
+    auto submission = device->executeCommandList(command.get());
+    ASSERT_TRUE(submission) << submission.error().message;
+    ASSERT_TRUE(device->waitForSubmission(*submission));
+
+    command.reset();
+    target.reset();
+    ASSERT_TRUE(device->waitIdle());
+}
+
 TEST_P(BackendContractTest, InvalidRenderPassCannotBecomeExecutableAndRecordingCanRecover) {
     ContractWindow window;
     ASSERT_TRUE(window.valid());
@@ -209,7 +341,7 @@ TEST_P(BackendContractTest, InvalidBufferBindingLatchesTheRecordingError) {
     ASSERT_TRUE(device->waitIdle());
 }
 
-TEST_P(BackendContractTest, ImmutableBufferUpdateLatchesTheRecordingError) {
+TEST_P(BackendContractTest, ImmutableBufferWriteReturnsAnError) {
     ContractWindow window;
     ASSERT_TRUE(window.valid());
     auto deviceResult = createDevice(window);
@@ -221,19 +353,9 @@ TEST_P(BackendContractTest, ImmutableBufferUpdateLatchesTheRecordingError) {
             BufferDesc::vertex(static_cast<uint32_t>(initialData.size()), initialData.data(), "ImmutableBuffer"));
     ASSERT_TRUE(bufferResult) << bufferResult.error().message;
     auto buffer = std::move(*bufferResult);
-    auto commandResult = device->createCommandList();
-    ASSERT_TRUE(commandResult) << commandResult.error().message;
-    auto command = std::move(*commandResult);
-
-    ASSERT_TRUE(command->begin());
-    command->updateBuffer(buffer.get(), 0, static_cast<uint32_t>(initialData.size()), initialData.data());
-    EXPECT_EQ(command->state(), CommandList::State::Invalid);
-    EXPECT_NE(command->recordingError(), nullptr);
-    EXPECT_FALSE(command->end());
-
-    EXPECT_TRUE(command->begin());
-    EXPECT_TRUE(command->end());
-    command.reset();
+    const auto write = buffer->write(0, static_cast<uint32_t>(initialData.size()), initialData.data());
+    EXPECT_FALSE(write);
+    EXPECT_EQ(write.error().code, static_cast<int32_t>(EngineErrorCode::ResourceUploadFailed));
     buffer.reset();
     ASSERT_TRUE(device->waitIdle());
 }

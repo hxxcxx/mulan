@@ -337,12 +337,16 @@ core::Result<std::unique_ptr<RenderTarget>> DX11Device::createRenderTarget(const
     if (!m_device)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is not initialized"));
 
-    RenderTargetDesc resolvedDesc = desc;
-    resolvedDesc.sampleCount = resolveSampleCount(resolvedDesc.colorFormat, resolvedDesc.depthFormat,
-                                                  resolvedDesc.hasDepth, resolvedDesc.sampleCount);
+    if (auto validation = validateRenderTargetDesc(desc, m_caps); !validation)
+        return std::unexpected(validation.error());
+    const uint32_t supportedSampleCount =
+            resolveSampleCount(desc.colorFormat, desc.depthFormat, desc.hasDepth, desc.sampleCount);
+    if (supportedSampleCount != desc.sampleCount)
+        return std::unexpected(makeError(EngineErrorCode::RenderTargetCreateFailed,
+                                         "DX11 render target formats do not support the requested sample count"));
     return createDX11Resource<RenderTarget, DX11RenderTarget>(*this, EngineErrorCode::RenderTargetCreateFailed,
-                                                              RHIResourceKind::RenderTarget, "DX11RenderTarget",
-                                                              resolvedDesc, m_device.Get());
+                                                              RHIResourceKind::RenderTarget, "DX11RenderTarget", desc,
+                                                              m_device.Get());
 }
 
 core::Result<std::unique_ptr<Sampler>> DX11Device::createSampler(const SamplerDesc& desc) {
@@ -467,6 +471,7 @@ core::Result<void> DX11Device::waitIdle() {
         logDX11Failure(hr, "ID3D11DeviceContext::GetData(waitIdle)");
         return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "DX11 waitIdle failed"));
     }
+    collectGarbage();
     return {};
 }
 

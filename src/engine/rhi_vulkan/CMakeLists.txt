@@ -23,7 +23,7 @@ add_library(rhi_vulkan STATIC
     vk_sampler.cpp
 )
 
-mulan_copy_public_headers(rhi_vulkan rhi_vulkan)
+mulan_copy_public_headers(rhi_vulkan rhi_vulkan backend.h)
 
 target_link_libraries(rhi_vulkan
     PRIVATE

@@ -108,7 +108,7 @@ core::Result<void> DX12CommandList::doEnd() {
     return {};
 }
 
-void DX12CommandList::setPipelineState(PipelineState* pso) {
+void DX12CommandList::doSetPipelineState(PipelineState* pso) {
     assertResourceCompatible(pso);
     if (!pso) {
         rejectRecording("DX12 graphics pipeline is null");
@@ -122,17 +122,17 @@ void DX12CommandList::setPipelineState(PipelineState* pso) {
     cached_stride_ = pso->desc().vertexLayout.stride();
 }
 
-void DX12CommandList::setViewport(const Viewport& vp) {
+void DX12CommandList::doSetViewport(const Viewport& vp) {
     D3D12_VIEWPORT d3dVp = { vp.x, vp.y, vp.width, vp.height, vp.minDepth, vp.maxDepth };
     cmd_list_->RSSetViewports(1, &d3dVp);
 }
 
-void DX12CommandList::setScissorRect(const ScissorRect& rect) {
+void DX12CommandList::doSetScissorRect(const ScissorRect& rect) {
     D3D12_RECT d3dRect = { rect.x, rect.y, rect.x + rect.width, rect.y + rect.height };
     cmd_list_->RSSetScissorRects(1, &d3dRect);
 }
 
-void DX12CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
+void DX12CommandList::doSetVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
     assertResourceCompatible(buffer);
     if (!buffer || offset >= buffer->size()) {
         rejectRecording("DX12 vertex-buffer binding is invalid");
@@ -146,7 +146,7 @@ void DX12CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t of
     cmd_list_->IASetVertexBuffers(slot, 1, &vbv);
 }
 
-void DX12CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
+void DX12CommandList::doSetVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
     if (!buffers || count > 16 || startSlot >= D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT ||
         count > D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT - startSlot) {
         rejectRecording("DX12 vertex-buffer array exceeds the RHI limit");
@@ -169,7 +169,7 @@ void DX12CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffe
     cmd_list_->IASetVertexBuffers(startSlot, count, vbvs);
 }
 
-void DX12CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
+void DX12CommandList::doSetIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
     assertResourceCompatible(buffer);
     if (!buffer || offset >= buffer->size()) {
         rejectRecording("DX12 index-buffer binding is invalid");
@@ -183,16 +183,16 @@ void DX12CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType 
     cmd_list_->IASetIndexBuffer(&ibv);
 }
 
-void DX12CommandList::draw(const DrawAttribs& attribs) {
+void DX12CommandList::doDraw(const DrawAttribs& attribs) {
     cmd_list_->DrawInstanced(attribs.vertexCount, attribs.instanceCount, attribs.startVertex, attribs.startInstance);
 }
 
-void DX12CommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
+void DX12CommandList::doDrawIndexed(const DrawIndexedAttribs& attribs) {
     cmd_list_->DrawIndexedInstanced(attribs.indexCount, attribs.instanceCount, attribs.startIndex, attribs.baseVertex,
                                     attribs.startInstance);
 }
 
-void DX12CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
+void DX12CommandList::doDrawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
     assertResourceCompatible(argsBuffer);
     if (!draw_indirect_sig_) {
         LOG_ERROR("[DX12] drawIndirect rejected: command signature is unavailable");
@@ -214,7 +214,7 @@ void DX12CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t
     cmd_list_->ExecuteIndirect(draw_indirect_sig_, drawCount, dx12Buf->resource(), offset, nullptr, 0);
 }
 
-void DX12CommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
+void DX12CommandList::doDispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
     (void) threadGroupX;
     (void) threadGroupY;
     (void) threadGroupZ;
@@ -222,14 +222,14 @@ void DX12CommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uin
     rejectRecording("DX12 compute dispatch is not implemented");
 }
 
-void DX12CommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
+void DX12CommandList::doDispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
     assertResourceCompatible(argsBuffer);
     (void) offset;
     LOG_ERROR("[DX12] dispatchIndirect rejected: compute pipeline is not implemented");
     rejectRecording("DX12 indirect compute dispatch is not implemented");
 }
 
-void DX12CommandList::setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) {
+void DX12CommandList::doSetPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) {
     (void) offset;
     (void) size;
     (void) data;
@@ -238,21 +238,7 @@ void DX12CommandList::setPushConstants(uint32_t offset, uint32_t size, const voi
     rejectRecording("DX12 root constants are not implemented");
 }
 
-void DX12CommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
-                                   ResourceTransitionMode mode) {
-    assertResourceCompatible(buffer);
-    auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
-    if (!dx12Buf || !dx12Buf->resource() || !dx12Buf->mappedData() || !data || size == 0 || offset > dx12Buf->size() ||
-        size > dx12Buf->size() - offset) {
-        rejectRecording("DX12 buffer update requires a valid host-visible range");
-        return;
-    }
-    dx12Buf->update(offset, size, data);
-}
-
-void DX12CommandList::bindGroup(BindGroup& group) {
-    if (!validateBindGroupCompatible(group))
-        return;
+void DX12CommandList::doBindGroup(BindGroup& group) {
     auto* dx12Group = static_cast<DX12BindGroup*>(&group);
     if (std::any_of(dx12Group->layout().entries().begin(), dx12Group->layout().entries().end(),
                     [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
@@ -263,9 +249,7 @@ void DX12CommandList::bindGroup(BindGroup& group) {
     bindStaticGroup(*dx12Group);
 }
 
-void DX12CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
-    if (!validateBindGroupCompatible(group))
-        return;
+void DX12CommandList::doBindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
     auto* dx12Group = static_cast<DX12BindGroup*>(&group);
     const uint64_t generation = transient_uniform_arena_ ? transient_uniform_arena_->recordingGeneration() : 0;
     const std::string validationError =
@@ -291,14 +275,14 @@ void DX12CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniform
     }
 }
 
-core::Result<UniformSlice> DX12CommandList::writeUniformBytes(std::span<const std::byte> data) {
+core::Result<UniformSlice> DX12CommandList::doWriteUniformBytes(std::span<const std::byte> data) {
     if (!transient_uniform_arena_)
         return std::unexpected(
-                makeError(EngineErrorCode::ResourceCreateFailed, "DX12 transient uniform arena is unavailable"));
+                makeError(EngineErrorCode::ResourceUploadFailed, "DX12 transient uniform arena is unavailable"));
     const auto allocation = transient_uniform_arena_->upload(data);
     if (!allocation)
         return std::unexpected(
-                makeError(EngineErrorCode::ResourceCreateFailed, "DX12 transient uniform allocation failed"));
+                makeError(EngineErrorCode::ResourceUploadFailed, "DX12 transient uniform allocation failed"));
     return UniformSlice{ allocation.backingBuffer, allocation.offset, allocation.size, allocation.recordingGeneration };
 }
 
@@ -438,38 +422,7 @@ void DX12CommandList::bindDescriptorHeaps() {
         cmd_list_->SetDescriptorHeaps(heapCount, heaps);
 }
 
-void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState) {
-    assertResourceCompatible(buffer);
-    auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
-    if (!dx12Buf || !dx12Buf->resource()) {
-        rejectRecording("DX12 buffer transition requires a valid buffer");
-        return;
-    }
-
-    const D3D12_RESOURCE_STATES before = dx12Buf->state();
-    const D3D12_RESOURCE_STATES after = toDX12ResourceStates(newState);
-    if (before == after)
-        return;
-
-    // Upload/readback heaps have restricted legal states. In particular, a
-    // readback buffer must remain COPY_DEST while the GPU writes into it.
-    if (dx12Buf->usage() == BufferUsage::Staging || dx12Buf->usage() == BufferUsage::Dynamic) {
-        LOG_ERROR("[DX12] transitionResource rejected: buffer heap does not support requested state transition");
-        rejectRecording("DX12 buffer heap does not support the requested transition");
-        return;
-    }
-
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource = dx12Buf->resource();
-    barrier.Transition.StateBefore = before;
-    barrier.Transition.StateAfter = after;
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmd_list_->ResourceBarrier(1, &barrier);
-    dx12Buf->setState(after);
-}
-
-void DX12CommandList::transitionResource(Texture* texture, ResourceState newState) {
+void DX12CommandList::doTransitionResource(Texture* texture, ResourceState newState) {
     assertResourceCompatible(texture);
     auto* dx12Tex = static_cast<DX12Texture*>(texture);
     if (!dx12Tex || !dx12Tex->resource()) {
@@ -492,7 +445,7 @@ void DX12CommandList::transitionResource(Texture* texture, ResourceState newStat
     dx12Tex->setState(after);
 }
 
-core::Result<void> DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+core::Result<void> DX12CommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
     const auto rejectCopy = [this](std::string_view reason) -> core::Result<void> {
@@ -601,7 +554,7 @@ core::Result<void> DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* ds
     return {};
 }
 
-void DX12CommandList::setComputePipelineState(ComputePipelineState*) {
+void DX12CommandList::doSetComputePipelineState(ComputePipelineState*) {
     LOG_ERROR("[DX12] Compute pipeline binding rejected: compute is not implemented");
     rejectRecording("DX12 compute pipelines are not implemented");
 }

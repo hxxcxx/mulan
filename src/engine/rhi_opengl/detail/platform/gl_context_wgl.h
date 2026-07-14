@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "../detail/gl_common.h"
-#include "../detail/gl_context.h"
+#include "../gl_common.h"
+#include "../gl_context.h"
 
 namespace mulan::engine {
 

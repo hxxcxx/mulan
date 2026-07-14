@@ -133,55 +133,43 @@ void GLBuffer::createBuffer() {
     LOG_DEBUG("[OpenGL] Buffer created: handle={}, size={}, name={}", buffer_, desc_.size, desc_.name);
 }
 
-void GLBuffer::update(uint32_t offset, uint32_t size, const void* data) {
-    if (!isValid() || !data)
-        return;
-
-    if (offset + size > desc_.size) {
-        LOG_ERROR("[OpenGL] Buffer update rejected: offset={}, size={}, bufferSize={}", offset, size, desc_.size);
-        return;
-    }
+core::Result<void> GLBuffer::write(uint32_t offset, uint32_t size, const void* data) {
+    if (!isValid() || !data || size == 0 || offset > desc_.size || size > desc_.size - offset)
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceUploadFailed, "OpenGL buffer write range is invalid"));
+    if (desc_.usage != BufferUsage::Dynamic)
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceUploadFailed, "OpenGL buffer write requires a Dynamic buffer"));
 
     if (mapped_data_) {
         std::memcpy(static_cast<std::byte*>(mapped_data_) + offset, data, size);
-        return;
+        return {};
     }
-
-    switch (desc_.usage) {
-    case BufferUsage::Immutable:
-        // 不可修改
-        LOG_ERROR("[OpenGL] Buffer update rejected: immutable buffer");
-        break;
-
-    case BufferUsage::Default: updateDefault(offset, size, data); break;
-
-    case BufferUsage::Dynamic: updateDynamic(offset, size, data); break;
-
-    case BufferUsage::Staging:
-        // Staging 缓冲区应使用 readback()，如果必要可以 update
-        updateDefault(offset, size, data);
-        break;
-    }
+    return updateDynamic(offset, size, data);
 }
 
-void GLBuffer::updateDefault(uint32_t offset, uint32_t size, const void* data) {
+core::Result<void> GLBuffer::updateDefault(uint32_t offset, uint32_t size, const void* data) {
     // 使用 DSA 更新部分数据
     glNamedBufferSubData(buffer_, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        LOG_ERROR("[OpenGL] Buffer update failed: error=0x{:X}, offset={}, size={}", err, offset, size);
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed,
+                                         "OpenGL buffer update failed: error=" + std::to_string(err)));
     }
+    return {};
 }
 
-void GLBuffer::updateDynamic(uint32_t offset, uint32_t size, const void* data) {
+core::Result<void> GLBuffer::updateDynamic(uint32_t offset, uint32_t size, const void* data) {
     // 这里使用简单的 DSA 更新，对于动态缓冲区大小的内容可以接受
     glNamedBufferSubData(buffer_, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        LOG_ERROR("[OpenGL] Dynamic buffer update failed: error=0x{:X}", err);
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed,
+                                         "OpenGL dynamic buffer update failed: error=" + std::to_string(err)));
     }
+    return {};
 }
 
 core::Result<void> GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {

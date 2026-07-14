@@ -203,7 +203,7 @@ core::Result<void> VKCommandList::doEnd() {
     return {};
 }
 
-void VKCommandList::setPipelineState(PipelineState* pso) {
+void VKCommandList::doSetPipelineState(PipelineState* pso) {
     assertResourceCompatible(pso);
     if (!pso) {
         rejectRecording("Vulkan graphics pipeline is null");
@@ -218,7 +218,7 @@ void VKCommandList::setPipelineState(PipelineState* pso) {
     current_push_constant_size_ = pso->desc().pushConstantSize;
 }
 
-void VKCommandList::setComputePipelineState(ComputePipelineState* pso) {
+void VKCommandList::doSetComputePipelineState(ComputePipelineState* pso) {
     assertResourceCompatible(pso);
     if (!pso) {
         rejectRecording("Vulkan compute pipeline is null");
@@ -233,7 +233,7 @@ void VKCommandList::setComputePipelineState(ComputePipelineState* pso) {
     current_push_constant_size_ = pso->desc().pushConstantSize;
 }
 
-void VKCommandList::setViewport(const Viewport& vp) {
+void VKCommandList::doSetViewport(const Viewport& vp) {
     vk::Viewport viewport;
     viewport.x = vp.x;
     viewport.y = vp.y;
@@ -244,14 +244,14 @@ void VKCommandList::setViewport(const Viewport& vp) {
     cmd_buffer_.setViewport(0, 1, &viewport);
 }
 
-void VKCommandList::setScissorRect(const ScissorRect& rect) {
+void VKCommandList::doSetScissorRect(const ScissorRect& rect) {
     vk::Rect2D scissor;
     scissor.offset = vk::Offset2D(rect.x, rect.y);
     scissor.extent = vk::Extent2D(static_cast<uint32_t>(rect.width), static_cast<uint32_t>(rect.height));
     cmd_buffer_.setScissor(0, 1, &scissor);
 }
 
-void VKCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
+void VKCommandList::doSetVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
     assertResourceCompatible(buffer);
     if (!buffer || offset >= buffer->size()) {
         rejectRecording("Vulkan vertex-buffer binding is invalid");
@@ -263,7 +263,7 @@ void VKCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offs
     cmd_buffer_.bindVertexBuffers(slot, 1, &buf, &offs);
 }
 
-void VKCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
+void VKCommandList::doSetVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
     if (!buffers) {
         rejectRecording("Vulkan vertex-buffer array is null");
         return;
@@ -284,7 +284,7 @@ void VKCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer*
     cmd_buffer_.bindVertexBuffers(startSlot, bufs, offs);
 }
 
-void VKCommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
+void VKCommandList::doSetIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
     assertResourceCompatible(buffer);
     if (!buffer || offset >= buffer->size()) {
         rejectRecording("Vulkan index-buffer binding is invalid");
@@ -294,7 +294,7 @@ void VKCommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType ty
     cmd_buffer_.bindIndexBuffer(vkBuf->vkBuffer(), offset, toVkIndexType(type));
 }
 
-void VKCommandList::draw(const DrawAttribs& attribs) {
+void VKCommandList::doDraw(const DrawAttribs& attribs) {
     if (!current_layout_ || current_bind_point_ != vk::PipelineBindPoint::eGraphics) {
         invalidate(
                 makeError(EngineErrorCode::CommandRecordingFailed, "Vulkan draw requires an active graphics pipeline"));
@@ -307,7 +307,7 @@ bool hasStencilAspect(TextureFormat format) {
     return format == TextureFormat::D24_UNorm_S8_UInt || format == TextureFormat::D32_Float_S8X24_UInt;
 }
 
-void VKCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
+void VKCommandList::doDrawIndexed(const DrawIndexedAttribs& attribs) {
     if (!current_layout_ || current_bind_point_ != vk::PipelineBindPoint::eGraphics) {
         invalidate(makeError(EngineErrorCode::CommandRecordingFailed,
                              "Vulkan indexed draw requires an active graphics pipeline"));
@@ -317,7 +317,7 @@ void VKCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
                             attribs.startInstance);
 }
 
-void VKCommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
+void VKCommandList::doDrawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
     if (!current_layout_ || current_bind_point_ != vk::PipelineBindPoint::eGraphics) {
         invalidate(makeError(EngineErrorCode::CommandRecordingFailed,
                              "Vulkan indirect draw requires an active graphics pipeline"));
@@ -337,7 +337,7 @@ void VKCommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t d
         cmd_buffer_.drawIndexedIndirect(buf, offset + i * argumentStride, 1, argumentStride);
 }
 
-void VKCommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
+void VKCommandList::doDispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
     if (!current_layout_ || current_bind_point_ != vk::PipelineBindPoint::eCompute) {
         invalidate(makeError(EngineErrorCode::CommandRecordingFailed,
                              "Vulkan dispatch requires an active compute pipeline"));
@@ -346,7 +346,7 @@ void VKCommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint3
     cmd_buffer_.dispatch(threadGroupX, threadGroupY, threadGroupZ);
 }
 
-void VKCommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
+void VKCommandList::doDispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
     if (!current_layout_ || current_bind_point_ != vk::PipelineBindPoint::eCompute) {
         invalidate(makeError(EngineErrorCode::CommandRecordingFailed,
                              "Vulkan indirect dispatch requires an active compute pipeline"));
@@ -362,7 +362,7 @@ void VKCommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
     cmd_buffer_.dispatchIndirect(vkBuf->vkBuffer(), offset);
 }
 
-void VKCommandList::setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) {
+void VKCommandList::doSetPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) {
     if (!current_layout_ || !data || size == 0 || (offset & 3U) != 0 || (size & 3U) != 0 ||
         offset > current_push_constant_size_ || size > current_push_constant_size_ - offset) {
         invalidate(makeError(EngineErrorCode::CommandRecordingFailed,
@@ -387,28 +387,7 @@ void VKCommandList::setPushConstants(uint32_t offset, uint32_t size, const void*
     cmd_buffer_.pushConstants(current_layout_, vkStages, offset, size, data);
 }
 
-void VKCommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
-                                 ResourceTransitionMode) {
-    assertResourceCompatible(buffer);
-    auto* vkBuf = static_cast<VKBuffer*>(buffer);
-    if (!vkBuf || !vkBuf->vkBuffer() || !vkBuf->mappedData() || !data || size == 0 || offset > vkBuf->size() ||
-        size > vkBuf->size() - offset) {
-        rejectRecording("Vulkan buffer update requires a valid host-visible range");
-        return;
-    }
-    vkBuf->update(offset, size, data);
-}
-
-void VKCommandList::transitionResource(Buffer* buffer, ResourceState) {
-    assertResourceCompatible(buffer);
-    if (!buffer) {
-        rejectRecording("Vulkan buffer transition requires a valid buffer");
-        return;
-    }
-    // Vulkan 通过 pipeline barrier 处理，此处简化
-}
-
-void VKCommandList::transitionResource(Texture* texture, ResourceState newState) {
+void VKCommandList::doTransitionResource(Texture* texture, ResourceState newState) {
     assertResourceCompatible(texture);
     if (!texture) {
         rejectRecording("Vulkan texture transition requires a valid texture");
@@ -445,7 +424,7 @@ void VKCommandList::transitionResource(Texture* texture, ResourceState newState)
     vkTex->setCurrentLayout(barrier.newLayout);
 }
 
-core::Result<void> VKCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+core::Result<void> VKCommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
     const auto rejectCopy = [this](std::string_view reason) -> core::Result<void> {
@@ -476,9 +455,7 @@ core::Result<void> VKCommandList::copyTextureToBuffer(Texture* src, Buffer* dst)
     return {};
 }
 
-void VKCommandList::bindGroup(BindGroup& group) {
-    if (!validateBindGroupCompatible(group))
-        return;
+void VKCommandList::doBindGroup(BindGroup& group) {
     auto* vkGroup = static_cast<VKBindGroup*>(&group);
     if (std::any_of(vkGroup->layout().entries().begin(), vkGroup->layout().entries().end(),
                     [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
@@ -548,9 +525,7 @@ void VKCommandList::bindGroup(BindGroup& group) {
     vkGroup->markClean();
 }
 
-void VKCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
-    if (!validateBindGroupCompatible(group))
-        return;
+void VKCommandList::doBindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
     auto* vkGroup = static_cast<VKBindGroup*>(&group);
     if (!allocator_ || !transient_uniform_arena_ || !current_desc_set_layout_) {
         LOG_ERROR("[Vulkan] Dynamic bindGroup rejected: command list state is incomplete");
@@ -656,14 +631,14 @@ void VKCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBi
     vkGroup->markClean();
 }
 
-core::Result<UniformSlice> VKCommandList::writeUniformBytes(std::span<const std::byte> data) {
+core::Result<UniformSlice> VKCommandList::doWriteUniformBytes(std::span<const std::byte> data) {
     if (!transient_uniform_arena_)
         return std::unexpected(
-                makeError(EngineErrorCode::ResourceCreateFailed, "Vulkan transient uniform arena is unavailable"));
+                makeError(EngineErrorCode::ResourceUploadFailed, "Vulkan transient uniform arena is unavailable"));
     const auto allocation = transient_uniform_arena_->upload(data);
     if (!allocation)
         return std::unexpected(
-                makeError(EngineErrorCode::ResourceCreateFailed, "Vulkan transient uniform allocation failed"));
+                makeError(EngineErrorCode::ResourceUploadFailed, "Vulkan transient uniform allocation failed"));
     return UniformSlice{ allocation.backingBuffer, allocation.offset, allocation.size, allocation.recordingGeneration };
 }
 

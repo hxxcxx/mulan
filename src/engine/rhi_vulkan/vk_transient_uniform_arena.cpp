@@ -41,7 +41,8 @@ VKTransientUniformArena::Allocation VKTransientUniformArena::upload(std::span<co
     if (!page || !page->mappedData())
         return {};
 
-    page->update(plan->offset, plan->size, data.data());
+    if (!page->write(plan->offset, plan->size, data.data()))
+        return {};
     return { page, plan->offset, plan->size, plan->recordingGeneration };
 }
 

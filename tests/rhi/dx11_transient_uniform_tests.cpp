@@ -79,7 +79,7 @@ TEST(DX11TransientUniformTest, PreservesIndependentWritesAndBindsTheRequestedSli
     const BindGroupDesc desc;
     DX11BindGroup group(layout, desc);
     const std::array bindings{ DynamicUniformBinding{ 0, *second } };
-    commandList.bindGroup(group, bindings);
+    commandList.doBindGroup(group, bindings);
 
     ComPtr<ID3D11Buffer> bound;
     if (native.context1 && second->offset != 0) {
@@ -140,7 +140,7 @@ TEST(DX11TransientUniformTest, BindsNativeStaticUniformRangeWithoutCopying) {
     DX11Buffer buffer(bufferDesc, native.device.Get(), native.context.Get());
     ASSERT_TRUE(buffer.isValid());
     const std::array<uint32_t, 4> updatedValue{ 9, 10, 11, 12 };
-    buffer.update(256, sizeof(updatedValue), updatedValue.data());
+    ASSERT_TRUE(buffer.write(256, sizeof(updatedValue), updatedValue.data()));
     EXPECT_EQ(readUniformSlice(native.device.Get(), native.context.Get(), { &buffer, 256, sizeof(updatedValue), 0 }),
               updatedValue);
 
@@ -153,7 +153,7 @@ TEST(DX11TransientUniformTest, BindsNativeStaticUniformRangeWithoutCopying) {
 
     DX11CommandList commandList(native.device.Get(), native.context.Get(), native.context1.Get());
     ASSERT_TRUE(commandList.begin());
-    commandList.bindGroup(group);
+    commandList.doBindGroup(group);
 
     ComPtr<ID3D11Buffer> bound;
     UINT firstConstant = 0;

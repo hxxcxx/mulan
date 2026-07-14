@@ -19,7 +19,7 @@ add_library(rhi_dx12 STATIC
     dx12_sampler.cpp
 )
 
-mulan_copy_public_headers(rhi_dx12 rhi_dx12)
+mulan_copy_public_headers(rhi_dx12 rhi_dx12 backend.h)
 
 target_link_libraries(rhi_dx12
     PRIVATE

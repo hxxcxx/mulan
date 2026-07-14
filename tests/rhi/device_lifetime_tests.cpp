@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -120,6 +121,79 @@ private:
     ShaderDesc desc_;
 };
 
+class TestBuffer final : public Buffer {
+public:
+    TestBuffer() { desc_ = BufferDesc::dynamicVertex(64, "TestBuffer"); }
+    const BufferDesc& desc() const override { return desc_; }
+    core::Result<void> write(uint32_t, uint32_t, const void*) override { return {}; }
+    core::Result<void> readback(uint32_t, uint32_t, void*) override { return {}; }
+    void attach(RHIDevice& device) { trackResource(device, RHIResourceKind::Buffer, desc_.name); }
+
+private:
+    BufferDesc desc_;
+};
+
+class TestTexture final : public Texture {
+public:
+    const TextureDesc& desc() const override { return desc_; }
+    void attach(RHIDevice& device) { trackResource(device, RHIResourceKind::Texture, "TestTexture"); }
+
+private:
+    TextureDesc desc_ = TextureDesc::renderTarget(1, 1, TextureFormat::RGBA8_UNorm, "TestTexture");
+};
+
+class TestPipeline final : public PipelineState {
+public:
+    const GraphicsPipelineDesc& desc() const override { return desc_; }
+    void attach(RHIDevice& device) { trackResource(device, RHIResourceKind::PipelineState, "TestPipeline"); }
+
+private:
+    GraphicsPipelineDesc desc_;
+};
+
+class TestBindGroup final : public BindGroup {
+public:
+    TestBindGroup() : layout_(BindGroupLayout::fromBindings(std::span<const BindGroupLayoutEntry>{})) {}
+    const BindGroupLayout& layout() const override { return layout_; }
+    const BindGroupEntry* entries() const override { return nullptr; }
+    uint8_t entryCount() const override { return 0; }
+    bool updateUBO(uint32_t, Buffer*, uint32_t, uint32_t) override { return false; }
+    void attach(RHIDevice& device) { trackResource(device, RHIResourceKind::BindGroup, "TestBindGroup"); }
+
+private:
+    BindGroupLayout layout_;
+};
+
+class TestCommandList final : public CommandList {
+public:
+    void attach(RHIDevice& device) { trackResource(device, RHIResourceKind::CommandList, "TestCommandList"); }
+    uint32_t drawCount() const { return draw_count_; }
+
+    core::Result<void> doBegin() override { return {}; }
+    core::Result<void> doEnd() override { return {}; }
+    void doSetPipelineState(PipelineState*) override {}
+    void doSetComputePipelineState(ComputePipelineState*) override {}
+    void doBindGroup(BindGroup&) override {}
+    void doSetViewport(const Viewport&) override {}
+    void doSetScissorRect(const ScissorRect&) override {}
+    void doSetVertexBuffer(uint32_t, Buffer*, uint32_t) override {}
+    void doSetVertexBuffers(uint32_t, uint32_t, Buffer**, uint32_t*) override {}
+    void doSetIndexBuffer(Buffer*, uint32_t, IndexType) override {}
+    void doDraw(const DrawAttribs&) override { ++draw_count_; }
+    void doDrawIndexed(const DrawIndexedAttribs&) override { ++draw_count_; }
+    void doDrawIndirect(Buffer*, uint32_t, uint32_t, uint32_t) override { ++draw_count_; }
+    void doDispatch(uint32_t, uint32_t, uint32_t) override {}
+    void doDispatchIndirect(Buffer*, uint32_t) override {}
+    void doSetPushConstants(uint32_t, uint32_t, const void*, uint32_t) override {}
+    void doTransitionResource(Texture*, ResourceState) override {}
+    core::Result<void> doCopyTextureToBuffer(Texture*, Buffer*) override { return {}; }
+    core::Result<void> doBeginRenderPass(const RenderPassBeginInfo&) override { return {}; }
+    void doEndRenderPass() override {}
+
+private:
+    uint32_t draw_count_ = 0;
+};
+
 TEST(DeviceLifetimeTest, IdentifiesTheOwningDevice) {
     TestDevice first;
     TestDevice second;
@@ -129,6 +203,91 @@ TEST(DeviceLifetimeTest, IdentifiesTheOwningDevice) {
 
     EXPECT_TRUE(resource.belongsTo(first));
     EXPECT_FALSE(resource.belongsTo(second));
+}
+
+TEST(CommandListContractTest, RejectsCommandsOutsideRecordingAndRecoversOnBegin) {
+    TestDevice device;
+    TestCommandList command;
+    command.attach(device);
+
+    command.setViewport({});
+    ASSERT_EQ(command.state(), CommandList::State::Invalid);
+    ASSERT_NE(command.recordingError(), nullptr);
+
+    EXPECT_TRUE(command.begin());
+    EXPECT_TRUE(command.end());
+    EXPECT_EQ(command.state(), CommandList::State::Executable);
+}
+
+TEST(CommandListContractTest, DrawRequiresRenderPassAndGraphicsPipeline) {
+    TestDevice device;
+    TestCommandList command;
+    command.attach(device);
+    ASSERT_TRUE(command.begin());
+
+    command.draw({ 3 });
+    ASSERT_EQ(command.state(), CommandList::State::Invalid);
+    ASSERT_NE(command.recordingError(), nullptr);
+    const std::string firstError = command.recordingError()->message;
+    command.setVertexBuffer(0, nullptr);
+    EXPECT_EQ(command.recordingError()->message, firstError);
+    EXPECT_FALSE(command.end());
+}
+
+TEST(CommandListContractTest, RecordsAValidGraphicsSequence) {
+    TestDevice device;
+    TestPipeline pipeline;
+    TestBindGroup bindGroup;
+    TestCommandList command;
+    pipeline.attach(device);
+    bindGroup.attach(device);
+    command.attach(device);
+
+    ASSERT_TRUE(command.begin());
+    command.setPipelineState(&pipeline);
+    command.bindGroup(bindGroup);
+    RenderPassBeginInfo pass;
+    pass.width = 1;
+    pass.height = 1;
+    command.beginRenderPass(pass);
+    command.draw({ 3 });
+    command.endRenderPass();
+    ASSERT_TRUE(command.end());
+    EXPECT_EQ(command.drawCount(), 1u);
+}
+
+TEST(CommandListContractTest, RejectsTransferInsideRenderPass) {
+    TestDevice device;
+    TestPipeline pipeline;
+    TestTexture texture;
+    TestCommandList command;
+    pipeline.attach(device);
+    texture.attach(device);
+    command.attach(device);
+
+    ASSERT_TRUE(command.begin());
+    command.setPipelineState(&pipeline);
+    RenderPassBeginInfo pass;
+    pass.width = 1;
+    pass.height = 1;
+    command.beginRenderPass(pass);
+    command.transitionResource(&texture, ResourceState::CopySrc);
+    EXPECT_EQ(command.state(), CommandList::State::Invalid);
+    EXPECT_FALSE(command.end());
+}
+
+TEST(CommandListContractTest, RejectsResourcesFromAnotherDevice) {
+    TestDevice first;
+    TestDevice second;
+    TestBuffer buffer;
+    TestCommandList command;
+    buffer.attach(second);
+    command.attach(first);
+
+    ASSERT_TRUE(command.begin());
+    command.setVertexBuffer(0, &buffer);
+    EXPECT_EQ(command.state(), CommandList::State::Invalid);
+    EXPECT_FALSE(command.end());
 }
 
 TEST(PipelineValidationTest, AcceptsAConsistentGraphicsContract) {

@@ -355,8 +355,7 @@ core::Result<std::unique_ptr<PipelineState>> DX12Device::createPipelineState(con
 
 core::Result<std::unique_ptr<ComputePipelineState>> DX12Device::createComputePipelineState(
         const ComputePipelineDesc& /*desc*/) {
-    return std::unexpected(
-            core::Error::make(core::ErrorCode::NotSupported, "DX12 compute pipeline not yet implemented"));
+    return std::unexpected(makeError(EngineErrorCode::BackendNotSupported, "DX12 compute pipeline is not implemented"));
 }
 
 core::Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
@@ -396,14 +395,9 @@ core::Result<std::unique_ptr<SwapChain>> DX12Device::createSwapChain(const SwapC
 }
 
 core::Result<std::unique_ptr<RenderTarget>> DX12Device::createRenderTarget(const RenderTargetDesc& desc) {
-    RenderTargetDesc resolvedDesc = desc;
-    if (resolvedDesc.sampleCount > caps_.maxSampleCount)
-        resolvedDesc.sampleCount = caps_.maxSampleCount;
-    if (resolvedDesc.sampleCount != 1 && resolvedDesc.sampleCount != 2 && resolvedDesc.sampleCount != 4 &&
-        resolvedDesc.sampleCount != 8) {
-        resolvedDesc.sampleCount = 1;
-    }
-    auto result = DX12RenderTarget::create(resolvedDesc, device_.Get());
+    if (auto validation = validateRenderTargetDesc(desc, caps_); !validation)
+        return std::unexpected(validation.error());
+    auto result = DX12RenderTarget::create(desc, device_.Get());
     if (!result)
         return std::unexpected(result.error());
     (*result)->trackResource(*this, RHIResourceKind::RenderTarget, "RenderTarget");
@@ -533,6 +527,7 @@ core::Result<void> DX12Device::waitIdle() {
     CloseHandle(event);
     if (waitResult != WAIT_OBJECT_0)
         return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "DX12 waitIdle failed"));
+    collectGarbage();
     return {};
 }
 

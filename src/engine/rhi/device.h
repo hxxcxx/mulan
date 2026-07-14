@@ -74,6 +74,9 @@ struct DeviceCreateInfo {
     const char* appName = "mulan";
 };
 
+/// 验证显式离屏渲染目标描述。创建接口不得静默修改调用方请求。
+core::Result<void> validateRenderTargetDesc(const RenderTargetDesc& desc, const GPUDeviceCapabilities& capabilities);
+
 // ============================================================
 // RHI 设备基类
 //

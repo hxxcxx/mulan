@@ -131,15 +131,10 @@ core::Result<void> VKDevice::flushUploadBatch() {
 }
 
 core::Result<std::unique_ptr<RenderTarget>> VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
+    if (auto validation = validateRenderTargetDesc(desc, caps_); !validation)
+        return std::unexpected(validation.error());
     frame_scheduler_->ensureSwapchainImageSync(1);
-    RenderTargetDesc resolvedDesc = desc;
-    if (resolvedDesc.sampleCount > caps_.maxSampleCount)
-        resolvedDesc.sampleCount = caps_.maxSampleCount;
-    if (resolvedDesc.sampleCount != 1 && resolvedDesc.sampleCount != 2 && resolvedDesc.sampleCount != 4 &&
-        resolvedDesc.sampleCount != 8) {
-        resolvedDesc.sampleCount = 1;
-    }
-    return resource_factory_->createRenderTarget(resolvedDesc);
+    return resource_factory_->createRenderTarget(desc);
 }
 
 core::Result<std::unique_ptr<Sampler>> VKDevice::createSampler(const SamplerDesc& desc) {
@@ -218,6 +213,7 @@ core::Result<void> VKDevice::waitIdle() {
     } catch (const vk::Error& error) {
         return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, error.what()));
     }
+    collectGarbage();
     return {};
 }
 

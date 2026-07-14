@@ -45,6 +45,8 @@ core::Result<std::unique_ptr<RHIDevice>> RHIDevice::create(const DeviceCreateInf
         return module->createDevice(ci);
     } catch (const std::exception& e) {
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, e.what()));
+    } catch (...) {
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, "Graphics device creation failed"));
     }
 }
 

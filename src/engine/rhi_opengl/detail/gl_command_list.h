@@ -55,64 +55,55 @@ public:
     // --- 管线状态 ---
 
     /// 设置当前管线状态
-    void setPipelineState(PipelineState* pso) override;
-    void setComputePipelineState(ComputePipelineState* pso) override;
+    void doSetPipelineState(PipelineState* pso) override;
+    void doSetComputePipelineState(ComputePipelineState* pso) override;
 
     // --- 资源绑定 ---
 
     /// 绑定资源组（UBO / Texture）
-    void bindGroup(BindGroup& group) override;
-    void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
-    core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data) override;
+    void doBindGroup(BindGroup& group) override;
+    void doBindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
+    core::Result<UniformSlice> doWriteUniformBytes(std::span<const std::byte> data) override;
 
     // --- 视口 / 裁剪 ---
 
     /// 设置视口
-    void setViewport(const Viewport& vp) override;
+    void doSetViewport(const Viewport& vp) override;
 
     /// 设置裁剪矩形
-    void setScissorRect(const ScissorRect& rect) override;
+    void doSetScissorRect(const ScissorRect& rect) override;
 
     // --- 缓冲区绑定 ---
 
     /// 绑定单个顶点缓冲区
-    void setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset = 0) override;
+    void doSetVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) override;
 
     /// 绑定多个顶点缓冲区
-    void setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) override;
+    void doSetVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) override;
 
     /// 绑定索引缓冲区
-    void setIndexBuffer(Buffer* buffer, uint32_t offset = 0, IndexType type = IndexType::UInt32) override;
+    void doSetIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) override;
 
     // --- 绘制 ---
 
     /// 非索引绘制
-    void draw(const DrawAttribs& attribs) override;
+    void doDraw(const DrawAttribs& attribs) override;
 
     /// 索引绘制
-    void drawIndexed(const DrawIndexedAttribs& attribs) override;
+    void doDrawIndexed(const DrawIndexedAttribs& attribs) override;
 
-    void drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount = 1, uint32_t stride = 0) override;
-    void dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) override;
-    void dispatchIndirect(Buffer* argsBuffer, uint32_t offset) override;
-    void setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) override;
-
-    // --- 资源更新 ---
-
-    /// 更新缓冲区数据
-    void updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
-                      ResourceTransitionMode mode = ResourceTransitionMode::Transition) override;
+    void doDrawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) override;
+    void doDispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) override;
+    void doDispatchIndirect(Buffer* argsBuffer, uint32_t offset) override;
+    void doSetPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) override;
 
     // --- 资源状态转换（GL 无需显式） ---
 
-    /// GL 中无需显式 Buffer 状态转换，但会发出对应的 memory barrier。
-    void transitionResource(Buffer* buffer, ResourceState newState) override;
-
     /// GL 中无需显式 Texture 状态转换，但会发出对应的 memory barrier。
-    void transitionResource(Texture* texture, ResourceState newState) override;
+    void doTransitionResource(Texture* texture, ResourceState newState) override;
 
     /// 复制纹理到缓冲区（用于 GPU→CPU 数据回读）
-    core::Result<void> copyTextureToBuffer(Texture* src, Buffer* dst) override;
+    core::Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- 清除 ---
 

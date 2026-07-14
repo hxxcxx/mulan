@@ -23,7 +23,7 @@ namespace mulan::engine {
 
 enum class BufferUsage : uint8_t {
     Immutable,  // 一次性上传，GPU 只读（相当于 D3D USAGE_IMMUTABLE）
-    Default,    // GPU 读写，偶尔 CPU 更新（通过 UpdateBuffer）
+    Default,    // GPU 读写，更新通过显式上传/复制路径完成
     Dynamic,    // 频繁 CPU→GPU 更新（每帧/每几帧）
     Staging,    // CPU 可读写，用于数据搬移
 };
@@ -89,8 +89,7 @@ struct BufferDesc {
 // ============================================================
 // GPU 缓冲区基类
 //
-// 纯数据容器：只存储描述信息和平台相关句柄。
-// 不提供 bind()、update() 等操作 — 由 CommandList 负责。
+// Buffer 不负责绑定；Dynamic Buffer 可以通过 write() 进行 CPU 写入。
 // ============================================================
 
 class Buffer : public RHITrackedResource {
@@ -99,16 +98,11 @@ public:
 
     virtual const BufferDesc& desc() const = 0;
 
-    /// CPU 端更新缓冲区数据（对于 UBO/Dynamic buffer 直接映射写入）
-    virtual void update(uint32_t offset, uint32_t size, const void* data) = 0;
+    /// CPU 写入 Dynamic Buffer。GPU-only Buffer 的更新应走显式上传/复制路径。
+    virtual core::Result<void> write(uint32_t offset, uint32_t size, const void* data) = 0;
 
     /// CPU 端回读缓冲区数据（仅 Staging buffer 支持）
-    virtual core::Result<void> readback(uint32_t offset, uint32_t size, void* outData) {
-        (void) offset;
-        (void) size;
-        (void) outData;
-        return std::unexpected(core::Error::make(core::ErrorCode::NotSupported, "Buffer readback is not supported"));
-    }
+    virtual core::Result<void> readback(uint32_t offset, uint32_t size, void* outData) = 0;
 
     // 便捷查询
     uint32_t size() const { return desc().size; }

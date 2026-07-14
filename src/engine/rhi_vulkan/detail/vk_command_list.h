@@ -54,45 +54,40 @@ public:
     core::Result<void> doEnd() override;
 
     // --- 管线状态 ---
-    void setPipelineState(PipelineState* pso) override;
-    void setComputePipelineState(ComputePipelineState* pso) override;
+    void doSetPipelineState(PipelineState* pso) override;
+    void doSetComputePipelineState(ComputePipelineState* pso) override;
 
     // --- 资源绑定 ---
-    void bindGroup(BindGroup& group) override;
-    void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
-    core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data) override;
+    void doBindGroup(BindGroup& group) override;
+    void doBindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
+    core::Result<UniformSlice> doWriteUniformBytes(std::span<const std::byte> data) override;
 
     // --- 视口 / 裁剪 ---
-    void setViewport(const Viewport& vp) override;
-    void setScissorRect(const ScissorRect& rect) override;
+    void doSetViewport(const Viewport& vp) override;
+    void doSetScissorRect(const ScissorRect& rect) override;
 
     // --- 缓冲区绑定 ---
-    void setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset = 0) override;
-    void setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) override;
-    void setIndexBuffer(Buffer* buffer, uint32_t offset = 0, IndexType type = IndexType::UInt32) override;
+    void doSetVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) override;
+    void doSetVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) override;
+    void doSetIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) override;
 
     // --- 绘制 ---
-    void draw(const DrawAttribs& attribs) override;
-    void drawIndexed(const DrawIndexedAttribs& attribs) override;
-    void drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount = 1, uint32_t stride = 0) override;
+    void doDraw(const DrawAttribs& attribs) override;
+    void doDrawIndexed(const DrawIndexedAttribs& attribs) override;
+    void doDrawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) override;
 
     // --- Compute ---
-    void dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) override;
-    void dispatchIndirect(Buffer* argsBuffer, uint32_t offset) override;
+    void doDispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) override;
+    void doDispatchIndirect(Buffer* argsBuffer, uint32_t offset) override;
 
     // --- Push Constants ---
-    void setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) override;
-
-    // --- 资源更新 ---
-    void updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
-                      ResourceTransitionMode mode = ResourceTransitionMode::Transition) override;
+    void doSetPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) override;
 
     // --- 资源状态转换 ---
-    void transitionResource(Buffer* buffer, ResourceState newState) override;
-    void transitionResource(Texture* texture, ResourceState newState) override;
+    void doTransitionResource(Texture* texture, ResourceState newState) override;
 
     // --- 纹理 → 缓冲区复制（用于离屏回读）---
-    core::Result<void> copyTextureToBuffer(Texture* src, Buffer* dst) override;
+    core::Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- 清除 ---
 

@@ -48,7 +48,7 @@ core::Result<void> GLCommandList::doEnd() {
     return {};
 }
 
-void GLCommandList::setPipelineState(PipelineState* pso) {
+void GLCommandList::doSetPipelineState(PipelineState* pso) {
     assertResourceCompatible(pso);
     if (!pso) {
         rejectRecording("OpenGL graphics pipeline is null");
@@ -63,7 +63,7 @@ void GLCommandList::setPipelineState(PipelineState* pso) {
     vertex_layout_dirty_ = true;  // 新 PSO 可能有不同的 VertexLayout
 }
 
-void GLCommandList::setViewport(const Viewport& vp) {
+void GLCommandList::doSetViewport(const Viewport& vp) {
     if (std::memcmp(&viewport_, &vp, sizeof(Viewport)) == 0) {
         return;  // 无变化
     }
@@ -72,7 +72,7 @@ void GLCommandList::setViewport(const Viewport& vp) {
     viewport_Dirty = true;
 }
 
-void GLCommandList::setScissorRect(const ScissorRect& rect) {
+void GLCommandList::doSetScissorRect(const ScissorRect& rect) {
     if (std::memcmp(&scissor_rect_, &rect, sizeof(ScissorRect)) == 0) {
         return;  // 无变化
     }
@@ -81,9 +81,7 @@ void GLCommandList::setScissorRect(const ScissorRect& rect) {
     scissor_dirty_ = true;
 }
 
-void GLCommandList::bindGroup(BindGroup& group) {
-    if (!validateBindGroupCompatible(group))
-        return;
+void GLCommandList::doBindGroup(BindGroup& group) {
     if (std::any_of(group.layout().entries().begin(), group.layout().entries().end(),
                     [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
         LOG_ERROR("[OpenGL] bindGroup rejected: dynamic UniformBuffer bindings are required by the layout");
@@ -94,9 +92,7 @@ void GLCommandList::bindGroup(BindGroup& group) {
     group.markClean();
 }
 
-void GLCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
-    if (!validateBindGroupCompatible(group))
-        return;
+void GLCommandList::doBindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
     const std::string validationError = validateDynamicUniformBindings(
             group.layout(), dynamicUniforms,
             { transient_uniform_arena_->alignment(), transient_uniform_arena_->maxAllocationSize() },
@@ -129,11 +125,11 @@ void GLCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBi
     group.markClean();
 }
 
-core::Result<UniformSlice> GLCommandList::writeUniformBytes(std::span<const std::byte> data) {
+core::Result<UniformSlice> GLCommandList::doWriteUniformBytes(std::span<const std::byte> data) {
     const auto allocation = transient_uniform_arena_->upload(data);
     if (!allocation)
         return std::unexpected(
-                makeError(EngineErrorCode::ResourceCreateFailed, "OpenGL transient uniform allocation failed"));
+                makeError(EngineErrorCode::ResourceUploadFailed, "OpenGL transient uniform allocation failed"));
     return UniformSlice{ allocation.backingBuffer, allocation.offset, allocation.size, allocation.recordingGeneration };
 }
 
@@ -216,7 +212,7 @@ void GLCommandList::bindEntry(const BindGroupEntry& e) {
     }
 }
 
-void GLCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
+void GLCommandList::doSetVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
     assertResourceCompatible(buffer);
     if (slot >= MAX_VERTEX_BUFFERS) {
         LOG_ERROR("[OpenGL] setVertexBuffer rejected: slot {} is out of range", slot);
@@ -242,7 +238,7 @@ void GLCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offs
     vertex_layout_dirty_ = true;  // VBO 更换，需重新绑定属性指针
 }
 
-void GLCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
+void GLCommandList::doSetVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
     if (!buffers || startSlot >= MAX_VERTEX_BUFFERS || count > MAX_VERTEX_BUFFERS - startSlot) {
         rejectRecording("OpenGL vertex-buffer array exceeds the backend limits");
         return;
@@ -257,11 +253,11 @@ void GLCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer*
         }
     }
     for (uint32_t i = 0; i < count; ++i) {
-        setVertexBuffer(startSlot + i, buffers[i], offsets ? offsets[i] : 0);
+        doSetVertexBuffer(startSlot + i, buffers[i], offsets ? offsets[i] : 0);
     }
 }
 
-void GLCommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
+void GLCommandList::doSetIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
     assertResourceCompatible(buffer);
     if (!buffer || offset >= buffer->size()) {
         rejectRecording("OpenGL index-buffer binding is invalid");
@@ -283,7 +279,7 @@ void GLCommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType ty
     }
 }
 
-void GLCommandList::draw(const DrawAttribs& attribs) {
+void GLCommandList::doDraw(const DrawAttribs& attribs) {
     applyPipelineState();
 
     // 绑定 VAO 并更新顶点属性指针
@@ -336,7 +332,7 @@ void GLCommandList::draw(const DrawAttribs& attribs) {
     }
 }
 
-void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
+void GLCommandList::doDrawIndexed(const DrawIndexedAttribs& attribs) {
 #if defined(_WIN32)
     if (!wglGetCurrentContext()) {
         LOG_ERROR("[OpenGL] drawIndexed rejected: no current WGL context");
@@ -437,7 +433,7 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
     }
 }
 
-void GLCommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
+void GLCommandList::doDrawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
     assertResourceCompatible(argsBuffer);
     (void) offset;
     (void) drawCount;
@@ -446,7 +442,7 @@ void GLCommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t d
     rejectRecording("OpenGL indirect drawing is not implemented");
 }
 
-void GLCommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
+void GLCommandList::doDispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
     (void) threadGroupX;
     (void) threadGroupY;
     (void) threadGroupZ;
@@ -454,14 +450,14 @@ void GLCommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint3
     rejectRecording("OpenGL compute dispatch is not implemented");
 }
 
-void GLCommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
+void GLCommandList::doDispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
     assertResourceCompatible(argsBuffer);
     (void) offset;
     LOG_ERROR("[OpenGL] dispatchIndirect rejected: compute pipeline is not implemented");
     rejectRecording("OpenGL indirect compute dispatch is not implemented");
 }
 
-void GLCommandList::setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) {
+void GLCommandList::doSetPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) {
     (void) offset;
     (void) size;
     (void) data;
@@ -470,39 +466,7 @@ void GLCommandList::setPushConstants(uint32_t offset, uint32_t size, const void*
     rejectRecording("OpenGL push constants are not implemented");
 }
 
-void GLCommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
-                                 ResourceTransitionMode /*mode*/) {
-    assertResourceCompatible(buffer);
-    auto* glBuffer = static_cast<GLBuffer*>(buffer);
-    if (!glBuffer || !glBuffer->isValid() || glBuffer->usage() == BufferUsage::Immutable || !data || size == 0 ||
-        offset > glBuffer->size() || size > glBuffer->size() - offset) {
-        rejectRecording("OpenGL buffer update arguments are invalid");
-        return;
-    }
-
-    glBuffer->update(offset, size, data);
-}
-
-void GLCommandList::transitionResource(Buffer* buffer, ResourceState newState) {
-    assertResourceCompatible(buffer);
-    if (!buffer) {
-        rejectRecording("OpenGL buffer transition requires a valid buffer");
-        return;
-    }
-    GLbitfield barriers = 0;
-    switch (newState) {
-    case ResourceState::VertexBuffer: barriers |= GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT; break;
-    case ResourceState::IndexBuffer: barriers |= GL_ELEMENT_ARRAY_BARRIER_BIT; break;
-    case ResourceState::UniformBuffer: barriers |= GL_UNIFORM_BARRIER_BIT; break;
-    case ResourceState::ShaderResource: barriers |= GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT; break;
-    case ResourceState::UnorderedAccess: barriers |= GL_SHADER_STORAGE_BARRIER_BIT; break;
-    default: break;
-    }
-    if (barriers)
-        glMemoryBarrier(barriers);
-}
-
-void GLCommandList::transitionResource(Texture* texture, ResourceState newState) {
+void GLCommandList::doTransitionResource(Texture* texture, ResourceState newState) {
     assertResourceCompatible(texture);
     if (!texture) {
         rejectRecording("OpenGL texture transition requires a valid texture");
@@ -521,7 +485,7 @@ void GLCommandList::transitionResource(Texture* texture, ResourceState newState)
         glMemoryBarrier(barriers);
 }
 
-core::Result<void> GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+core::Result<void> GLCommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
     const auto rejectCopy = [this](std::string_view reason) -> core::Result<void> {
@@ -626,7 +590,7 @@ core::Result<void> GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst)
     return {};
 }
 
-void GLCommandList::setComputePipelineState(ComputePipelineState*) {
+void GLCommandList::doSetComputePipelineState(ComputePipelineState*) {
     LOG_ERROR("[OpenGL] Compute pipeline binding rejected: compute is not implemented");
     rejectRecording("OpenGL compute pipelines are not implemented");
 }

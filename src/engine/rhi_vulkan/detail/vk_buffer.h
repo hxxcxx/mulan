@@ -37,7 +37,7 @@ public:
         pending_data_.shrink_to_fit();
     }
 
-    void update(uint32_t offset, uint32_t size, const void* data) override;
+    core::Result<void> write(uint32_t offset, uint32_t size, const void* data) override;
     core::Result<void> readback(uint32_t offset, uint32_t size, void* outData) override;
 
 private:

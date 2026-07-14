@@ -139,15 +139,13 @@ DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11Devic
     m_desc.discardInitialData();
 }
 
-void DX11Buffer::update(uint32_t offset, uint32_t size, const void* data) {
+core::Result<void> DX11Buffer::write(uint32_t offset, uint32_t size, const void* data) {
     if (!m_buffer || !data || size == 0 || offset > m_desc.size || size > m_desc.size - offset) {
-        LOG_ERROR("[DX11] Buffer update rejected: offset={}, size={}, bufferSize={}", offset, size, m_desc.size);
-        return;
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed, "DX11 buffer write range is invalid"));
     }
-    if (m_desc.usage == BufferUsage::Immutable) {
-        LOG_ERROR("[DX11] Buffer update rejected: immutable buffers cannot be updated");
-        return;
-    }
+    if (m_desc.usage != BufferUsage::Dynamic)
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceUploadFailed, "DX11 buffer write requires a Dynamic buffer"));
 
     // CPU 镜像仅供不支持原生范围绑定的兼容路径读取；原生缓冲仍同步更新，
     // D3D11.1 可以直接绑定其中的 Uniform 范围。
@@ -159,7 +157,7 @@ void DX11Buffer::update(uint32_t offset, uint32_t size, const void* data) {
 
         // D3D11 不允许对原生常量缓冲执行局部 UpdateSubresource，使用镜像补全未修改区域。
         m_ctx->UpdateSubresource(m_buffer.Get(), 0, nullptr, m_uniformShadow.data(), 0, 0);
-        return;
+        return {};
     }
 
     if (m_nativeUsage == D3D11_USAGE_DYNAMIC) {
@@ -170,7 +168,8 @@ void DX11Buffer::update(uint32_t offset, uint32_t size, const void* data) {
         HRESULT hr = m_ctx->Map(m_buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
         if (FAILED(hr)) {
             logDX11Failure(hr, "ID3D11DeviceContext::Map(dynamic buffer)");
-            return;
+            return std::unexpected(
+                    makeError(EngineErrorCode::ResourceUploadFailed, "DX11 dynamic buffer mapping failed"));
         }
         std::memcpy(mapped.pData, m_dynamicShadow.data(), m_byteWidth);
         m_ctx->Unmap(m_buffer.Get(), 0);
@@ -183,16 +182,8 @@ void DX11Buffer::update(uint32_t offset, uint32_t size, const void* data) {
         box.front = 0;
         box.back = 1;
         m_ctx->UpdateSubresource(m_buffer.Get(), 0, &box, data, 0, 0);
-    } else if (m_nativeUsage == D3D11_USAGE_STAGING) {
-        D3D11_MAPPED_SUBRESOURCE mapped = {};
-        HRESULT hr = m_ctx->Map(m_buffer.Get(), 0, D3D11_MAP_WRITE, 0, &mapped);
-        if (FAILED(hr)) {
-            logDX11Failure(hr, "ID3D11DeviceContext::Map(staging buffer)");
-            return;
-        }
-        std::memcpy(static_cast<uint8_t*>(mapped.pData) + offset, data, size);
-        m_ctx->Unmap(m_buffer.Get(), 0);
     }
+    return {};
 }
 
 const void* DX11Buffer::uniformData(uint32_t offset, uint32_t size) const {

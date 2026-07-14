@@ -68,7 +68,7 @@ core::Result<void> DX11CommandList::doEnd() {
     return {};
 }
 
-void DX11CommandList::setPipelineState(PipelineState* pso) {
+void DX11CommandList::doSetPipelineState(PipelineState* pso) {
     assertResourceCompatible(pso);
     auto* dx11Pso = static_cast<DX11PipelineState*>(pso);
     activateBindGroupLayout(pso->bindGroupLayout());
@@ -88,19 +88,17 @@ void DX11CommandList::setPipelineState(PipelineState* pso) {
     m_cachedStride = dx11Pso->stride();
 }
 
-void DX11CommandList::setViewport(const Viewport& vp) {
+void DX11CommandList::doSetViewport(const Viewport& vp) {
     const D3D11_VIEWPORT d3dVp = { vp.x, vp.y, vp.width, vp.height, vp.minDepth, vp.maxDepth };
     m_ctx->RSSetViewports(1, &d3dVp);
 }
 
-void DX11CommandList::setScissorRect(const ScissorRect& rect) {
+void DX11CommandList::doSetScissorRect(const ScissorRect& rect) {
     const D3D11_RECT d3dRect = { rect.x, rect.y, rect.x + rect.width, rect.y + rect.height };
     m_ctx->RSSetScissorRects(1, &d3dRect);
 }
 
-void DX11CommandList::bindGroup(BindGroup& group) {
-    if (!validateBindGroupCompatible(group))
-        return;
+void DX11CommandList::doBindGroup(BindGroup& group) {
     auto* dx11Group = static_cast<DX11BindGroup*>(&group);
     if (std::any_of(dx11Group->layout().entries().begin(), dx11Group->layout().entries().end(),
                     [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
@@ -114,9 +112,7 @@ void DX11CommandList::bindGroup(BindGroup& group) {
     dx11Group->markClean();
 }
 
-void DX11CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
-    if (!validateBindGroupCompatible(group))
-        return;
+void DX11CommandList::doBindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
     auto* dx11Group = static_cast<DX11BindGroup*>(&group);
     const std::string validationError = validateDynamicUniformBindings(
             dx11Group->layout(), dynamicUniforms, { kConstantBufferRangeAlignment, kMaximumConstantBufferBytes },
@@ -139,19 +135,19 @@ void DX11CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniform
     dx11Group->markClean();
 }
 
-core::Result<UniformSlice> DX11CommandList::writeUniformBytes(std::span<const std::byte> data) {
+core::Result<UniformSlice> DX11CommandList::doWriteUniformBytes(std::span<const std::byte> data) {
     if (data.empty())
         return std::unexpected(
-                makeError(EngineErrorCode::ResourceCreateFailed, "DX11 transient uniform data must not be empty"));
+                makeError(EngineErrorCode::ResourceUploadFailed, "DX11 transient uniform data must not be empty"));
     if (data.size_bytes() > kMaximumConstantBufferBytes) {
-        return std::unexpected(makeError(EngineErrorCode::ResourceCreateFailed,
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed,
                                          "DX11 transient uniform data exceeds the binding limit"));
     }
 
     const auto allocation = m_transientUniformArena.upload(data);
     if (!allocation) {
         return std::unexpected(
-                makeError(EngineErrorCode::ResourceCreateFailed, "DX11 transient uniform allocation failed"));
+                makeError(EngineErrorCode::ResourceUploadFailed, "DX11 transient uniform allocation failed"));
     }
 
     return UniformSlice{ allocation.backingBuffer, allocation.firstConstant * 16u,
@@ -400,7 +396,7 @@ void DX11CommandList::bindSampler(uint32_t slot, Sampler* sampler, uint32_t stag
         m_ctx->GSSetSamplers(slot, 1, &state);
 }
 
-void DX11CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
+void DX11CommandList::doSetVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
     assertResourceCompatible(buffer);
     if (slot >= D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT) {
         LOG_ERROR("[DX11] setVertexBuffer rejected: slot {} exceeds the D3D11 limit", slot);
@@ -426,7 +422,7 @@ void DX11CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t of
     m_ctx->IASetVertexBuffers(slot, 1, &nativeBuffer, &stride, &nativeOffset);
 }
 
-void DX11CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
+void DX11CommandList::doSetVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
     if (!buffers || startSlot >= D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT ||
         count > D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT - startSlot) {
         rejectRecording("DX11 vertex-buffer array arguments exceed the backend limits");
@@ -460,7 +456,7 @@ void DX11CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffe
     m_ctx->IASetVertexBuffers(startSlot, count, nativeBuffers.data(), strides.data(), nativeOffsets.data());
 }
 
-void DX11CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
+void DX11CommandList::doSetIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
     assertResourceCompatible(buffer);
     auto* dx11Buffer = static_cast<DX11Buffer*>(buffer);
     if (!dx11Buffer || !dx11Buffer->buffer() || offset >= dx11Buffer->size()) {
@@ -472,7 +468,7 @@ void DX11CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType 
     m_ctx->IASetIndexBuffer(dx11Buffer->buffer(), format, offset);
 }
 
-void DX11CommandList::draw(const DrawAttribs& attribs) {
+void DX11CommandList::doDraw(const DrawAttribs& attribs) {
     if (attribs.instanceCount > 1) {
         m_ctx->DrawInstanced(attribs.vertexCount, attribs.instanceCount, attribs.startVertex, attribs.startInstance);
     } else {
@@ -480,7 +476,7 @@ void DX11CommandList::draw(const DrawAttribs& attribs) {
     }
 }
 
-void DX11CommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
+void DX11CommandList::doDrawIndexed(const DrawIndexedAttribs& attribs) {
     if (attribs.instanceCount > 1) {
         m_ctx->DrawIndexedInstanced(attribs.indexCount, attribs.instanceCount, attribs.startIndex, attribs.baseVertex,
                                     attribs.startInstance);
@@ -489,7 +485,7 @@ void DX11CommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
     }
 }
 
-void DX11CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
+void DX11CommandList::doDrawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
     assertResourceCompatible(argsBuffer);
     auto* buffer = static_cast<DX11Buffer*>(argsBuffer);
     if (!buffer || !buffer->buffer() || !(buffer->bindFlags() & BufferBindFlags::IndirectBuffer)) {
@@ -517,7 +513,7 @@ void DX11CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t
     }
 }
 
-void DX11CommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
+void DX11CommandList::doDispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
     (void) threadGroupX;
     (void) threadGroupY;
     (void) threadGroupZ;
@@ -525,14 +521,14 @@ void DX11CommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uin
     rejectRecording("DX11 does not support compute dispatch");
 }
 
-void DX11CommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
+void DX11CommandList::doDispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
     assertResourceCompatible(argsBuffer);
     (void) offset;
     LOG_ERROR("[DX11] dispatchIndirect rejected: compute pipeline is not supported");
     rejectRecording("DX11 does not support indirect compute dispatch");
 }
 
-void DX11CommandList::setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) {
+void DX11CommandList::doSetPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) {
     (void) offset;
     (void) size;
     (void) data;
@@ -541,27 +537,7 @@ void DX11CommandList::setPushConstants(uint32_t offset, uint32_t size, const voi
     rejectRecording("DX11 does not support push constants");
 }
 
-void DX11CommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
-                                   ResourceTransitionMode) {
-    assertResourceCompatible(buffer);
-    auto* dx11Buffer = static_cast<DX11Buffer*>(buffer);
-    if (!dx11Buffer || !dx11Buffer->buffer() || !data || size == 0 || offset > dx11Buffer->size() ||
-        size > dx11Buffer->size() - offset || dx11Buffer->usage() == BufferUsage::Immutable) {
-        LOG_ERROR("[DX11] updateBuffer rejected: buffer or update range is invalid");
-        rejectRecording("DX11 buffer update arguments are invalid");
-        return;
-    }
-    dx11Buffer->update(offset, size, data);
-}
-
-void DX11CommandList::transitionResource(Buffer* buffer, ResourceState) {
-    assertResourceCompatible(buffer);
-    if (!buffer)
-        rejectRecording("DX11 buffer transition requires a valid buffer");
-    // D3D11 自动管理资源状态。
-}
-
-void DX11CommandList::transitionResource(Texture* texture, ResourceState) {
+void DX11CommandList::doTransitionResource(Texture* texture, ResourceState) {
     assertResourceCompatible(texture);
     if (!texture)
         rejectRecording("DX11 texture transition requires a valid texture");
@@ -623,7 +599,7 @@ bool DX11CommandList::ensureReadbackResolveTexture(uint32_t width, uint32_t heig
     return true;
 }
 
-core::Result<void> DX11CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+core::Result<void> DX11CommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
     if (m_renderPassActive) {
@@ -826,7 +802,7 @@ core::Result<void> DX11CommandList::doBeginRenderPass(const RenderPassBeginInfo&
     return {};
 }
 
-void DX11CommandList::setComputePipelineState(ComputePipelineState*) {
+void DX11CommandList::doSetComputePipelineState(ComputePipelineState*) {
     LOG_ERROR("[DX11] Compute pipeline binding rejected: compute is not implemented");
     rejectRecording("DX11 does not support compute pipelines");
 }

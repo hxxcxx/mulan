@@ -29,32 +29,28 @@ public:
     core::Result<void> doBegin() override;
     core::Result<void> doEnd() override;
 
-    void setPipelineState(PipelineState* pso) override;
-    void setComputePipelineState(ComputePipelineState* pso) override;
-    void setViewport(const Viewport& vp) override;
-    void setScissorRect(const ScissorRect& rect) override;
+    void doSetPipelineState(PipelineState* pso) override;
+    void doSetComputePipelineState(ComputePipelineState* pso) override;
+    void doSetViewport(const Viewport& vp) override;
+    void doSetScissorRect(const ScissorRect& rect) override;
 
-    void bindGroup(BindGroup& group) override;
-    void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
-    core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data) override;
+    void doBindGroup(BindGroup& group) override;
+    void doBindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
+    core::Result<UniformSlice> doWriteUniformBytes(std::span<const std::byte> data) override;
 
-    void setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset = 0) override;
-    void setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) override;
-    void setIndexBuffer(Buffer* buffer, uint32_t offset = 0, IndexType type = IndexType::UInt32) override;
+    void doSetVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) override;
+    void doSetVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) override;
+    void doSetIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) override;
 
-    void draw(const DrawAttribs& attribs) override;
-    void drawIndexed(const DrawIndexedAttribs& attribs) override;
-    void drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount = 1, uint32_t stride = 0) override;
-    void dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) override;
-    void dispatchIndirect(Buffer* argsBuffer, uint32_t offset) override;
-    void setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) override;
+    void doDraw(const DrawAttribs& attribs) override;
+    void doDrawIndexed(const DrawIndexedAttribs& attribs) override;
+    void doDrawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) override;
+    void doDispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) override;
+    void doDispatchIndirect(Buffer* argsBuffer, uint32_t offset) override;
+    void doSetPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) override;
 
-    void updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
-                      ResourceTransitionMode mode = ResourceTransitionMode::Transition) override;
-
-    void transitionResource(Buffer* buffer, ResourceState newState) override;
-    void transitionResource(Texture* texture, ResourceState newState) override;
-    core::Result<void> copyTextureToBuffer(Texture* src, Buffer* dst) override;
+    void doTransitionResource(Texture* texture, ResourceState newState) override;
+    core::Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- RenderPass ---
     core::Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;

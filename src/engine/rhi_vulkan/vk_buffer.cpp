@@ -72,15 +72,17 @@ VKBuffer::~VKBuffer() {
     }
 }
 
-void VKBuffer::update(uint32_t offset, uint32_t size, const void* data) {
-    if (mapped_data_) {
-        memcpy(static_cast<uint8_t*>(mapped_data_) + offset, data, size);
-        vmaFlushAllocation(allocator_, allocation_, offset, size);
-    } else {
-        // Immutable / device-local buffer: update() 不适用
-        // 初始数据通过 pending_data_ + uploadBufferInit() 同步上传
-        // 运行时更新应使用 cmd->updateBuffer() (GPU-side copy)
+core::Result<void> VKBuffer::write(uint32_t offset, uint32_t size, const void* data) {
+    if (desc_.usage != BufferUsage::Dynamic || !mapped_data_ || !data || size == 0 || offset > desc_.size ||
+        size > desc_.size - offset) {
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed,
+                                         "Vulkan buffer write requires a valid Dynamic buffer range"));
     }
+    memcpy(static_cast<uint8_t*>(mapped_data_) + offset, data, size);
+    if (vmaFlushAllocation(allocator_, allocation_, offset, size) != VK_SUCCESS) {
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed, "Vulkan buffer memory flush failed"));
+    }
+    return {};
 }
 
 core::Result<void> VKBuffer::readback(uint32_t offset, uint32_t size, void* outData) {

@@ -5,7 +5,7 @@
  * @date 2026-07-12
  */
 
-#include "gl_context_wgl.h"
+#include "../detail/platform/gl_context_wgl.h"
 
 #include "../../rhi/engine_error_code.h"
 

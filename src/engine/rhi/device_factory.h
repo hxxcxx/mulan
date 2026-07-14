@@ -27,6 +27,7 @@ struct BackendModule {
 };
 
 /// 应用显式组装的后端注册表。
+/// 注册只允许在应用启动阶段、渲染线程创建前执行；完成注册后并发只读。
 class DeviceFactory {
 public:
     static DeviceFactory& instance();

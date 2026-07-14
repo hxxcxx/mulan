@@ -104,21 +104,14 @@ DX12Buffer::~DX12Buffer() {
     }
 }
 
-void DX12Buffer::update(uint32_t offset, uint32_t size, const void* data) {
-    if (mapped_data_) {
-        // Upload heap: 直接 memcpy
-        memcpy(static_cast<uint8_t*>(mapped_data_) + offset, data, size);
-    } else {
-        // Default heap: 缓存数据，等 UploadContext 上传
-        if (offset == 0 && size == desc_.size) {
-            pending_data_.assign(static_cast<const uint8_t*>(data), static_cast<const uint8_t*>(data) + size);
-        } else {
-            if (pending_data_.size() < desc_.size) {
-                pending_data_.resize(desc_.size, 0);
-            }
-            memcpy(pending_data_.data() + offset, data, size);
-        }
+core::Result<void> DX12Buffer::write(uint32_t offset, uint32_t size, const void* data) {
+    if (desc_.usage != BufferUsage::Dynamic || !mapped_data_ || !data || size == 0 || offset > desc_.size ||
+        size > desc_.size - offset) {
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed,
+                                         "DX12 buffer write requires a valid Dynamic buffer range"));
     }
+    memcpy(static_cast<uint8_t*>(mapped_data_) + offset, data, size);
+    return {};
 }
 
 core::Result<void> DX12Buffer::readback(uint32_t offset, uint32_t size, void* outData) {
