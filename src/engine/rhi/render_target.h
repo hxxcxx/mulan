@@ -14,6 +14,7 @@
 #pragma once
 
 #include "resource.h"
+#include <mulan/core/result/error.h>
 #include "texture.h"
 #include "render_types.h"
 
@@ -57,12 +58,11 @@ public:
     virtual Texture* depthTexture() = 0;
 
     /// 大小变化时重建资源
-    virtual void resize(uint32_t width, uint32_t height) = 0;
+    virtual core::Result<void> resize(uint32_t width, uint32_t height) = 0;
 
     /// 构建 RenderPassBeginInfo（供 CommandList::beginRenderPass 使用）
     virtual RenderPassBeginInfo renderPassBeginInfo() {
         RenderPassBeginInfo info;
-        info.owner = this;
         auto* color = colorTexture();
         if (color) {
             info.colorAttachments[0].target = color;
@@ -85,12 +85,8 @@ public:
         info.presentSource = false;
         info.width = desc().width;
         info.height = desc().height;
-        info.nativeHandle = nativeRenderPassHandle();
         return info;
     }
-
-    /// 后端特定句柄（如 GL 的 FBO），默认返回 0
-    virtual uint64_t nativeRenderPassHandle() const { return 0; }
 
     // 便捷查询
     uint32_t width() const { return desc().width; }

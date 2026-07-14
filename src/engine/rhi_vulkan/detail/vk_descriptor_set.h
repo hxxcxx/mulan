@@ -63,9 +63,9 @@ public:
         }
     }
 
-    /// 绑定到图形管线
-    void bind(vk::CommandBuffer cmd, vk::PipelineLayout layout, uint32_t setIndex = 0) const {
-        cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, layout, setIndex, 1, &set_, 0, nullptr);
+    void bind(vk::CommandBuffer cmd, vk::PipelineLayout layout, vk::PipelineBindPoint bindPoint,
+              uint32_t setIndex = 0) const {
+        cmd.bindDescriptorSets(bindPoint, layout, setIndex, 1, &set_, 0, nullptr);
     }
 
 private:

@@ -3,8 +3,8 @@
  * @brief Error 类型 + Result<T> 别名，配合 std::expected<T, Error> 使用
  *
  * 使用边界:
- *   适合: 初始化/加载路径（Device 创建、Shader 编译、资源加载等需要向 UI 报告失败原因的场景）
- *   不适合: 热路径渲染循环、每帧 Submit/Command 录制（用 assert）、内部断言
+ *   适合: 初始化/加载、提交/等待、上传/回读等具备明确失败边界的操作
+ *   不适合: draw/bind 等高频命令录制、内部不变量检查
  *
  * 判断标准: 调用方能否根据错误做不同决策？
  *   能  → 用 Result<T>（即 std::expected<T, Error>）

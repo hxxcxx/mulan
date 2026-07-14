@@ -1,4 +1,5 @@
 #include "detail/dx11_render_target.h"
+#include "../rhi/engine_error_code.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -51,17 +52,18 @@ bool DX11RenderTarget::createResources() {
     return true;
 }
 
-void DX11RenderTarget::resize(uint32_t width, uint32_t height) {
+core::Result<void> DX11RenderTarget::resize(uint32_t width, uint32_t height) {
     if (width == 0 || height == 0)
-        return;
+        return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX11 render target size must be non-zero"));
 
     const RenderTargetDesc previousDesc = m_desc;
     m_desc.width = width;
     m_desc.height = height;
     if (!createResources()) {
         m_desc = previousDesc;
-        LOG_ERROR("[DX11] Render target resize failed");
+        return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX11 render target resize failed"));
     }
+    return {};
 }
 
 RenderPassBeginInfo DX11RenderTarget::renderPassBeginInfo() {

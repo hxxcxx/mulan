@@ -46,10 +46,11 @@ DX12PipelineState::DX12PipelineState(const GraphicsPipelineDesc& desc, ID3D12Dev
     : desc_(desc), device_(device) {
     createRootSignature();
 
-    // 从 desc 读取 RT 格式，一步完成 PSO 创建
-    DXGI_FORMAT rtFormat = (desc_.colorTargetCount > 0) ? toDXGIFormat(desc_.colorFormats[0]) : DXGI_FORMAT_UNKNOWN;
-    DXGI_FORMAT dsFormat = desc_.depthEnable ? toDSVFormat(desc_.depthStencilFormat) : DXGI_FORMAT_UNKNOWN;
-    build(rtFormat, dsFormat);
+    const DXGI_FORMAT dsFormat = desc_.depthStencilFormat != TextureFormat::Unknown
+                                         ? toDSVFormat(desc_.depthStencilFormat)
+                                         : DXGI_FORMAT_UNKNOWN;
+    build(dsFormat);
+    desc_.discardShaderReferences();
 }
 
 DX12PipelineState::~DX12PipelineState() = default;
@@ -81,6 +82,8 @@ void DX12PipelineState::createRootSignature() {
         D3D12_SHADER_VISIBILITY visibility = D3D12_SHADER_VISIBILITY_ALL;
         if (db.stages == PipelineBinding::kStageVertex) {
             visibility = D3D12_SHADER_VISIBILITY_VERTEX;
+        } else if (db.stages == PipelineBinding::kStageGeometry) {
+            visibility = D3D12_SHADER_VISIBILITY_GEOMETRY;
         } else if (db.stages == PipelineBinding::kStageFragment) {
             visibility = D3D12_SHADER_VISIBILITY_PIXEL;
         }
@@ -221,7 +224,7 @@ D3D12_INPUT_LAYOUT_DESC DX12PipelineState::buildInputLayout() {
     return layoutDesc;
 }
 
-void DX12PipelineState::build(DXGI_FORMAT rtFormat, DXGI_FORMAT dsFormat) {
+void DX12PipelineState::build(DXGI_FORMAT dsFormat) {
     auto inputLayout = buildInputLayout();
 
     // Shader bytecode
@@ -280,8 +283,9 @@ void DX12PipelineState::build(DXGI_FORMAT rtFormat, DXGI_FORMAT dsFormat) {
     psoDesc.InputLayout = inputLayout;
     psoDesc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
     psoDesc.PrimitiveTopologyType = toDX12TopologyType(desc_.topology);
-    psoDesc.NumRenderTargets = 1;
-    psoDesc.RTVFormats[0] = rtFormat;
+    psoDesc.NumRenderTargets = desc_.colorTargetCount;
+    for (uint8_t i = 0; i < desc_.colorTargetCount; ++i)
+        psoDesc.RTVFormats[i] = toDXGIFormat(desc_.colorFormats[i]);
     psoDesc.DSVFormat = dsFormat;
     psoDesc.SampleDesc = { desc_.sampleCount, 0 };
     psoDesc.SampleMask = UINT_MAX;
@@ -295,8 +299,8 @@ void DX12PipelineState::build(DXGI_FORMAT rtFormat, DXGI_FORMAT dsFormat) {
                 "[DX12] CreateGraphicsPipelineState rejected: name={}, topology={}, topologyType={}, rtFormat={}, "
                 "dsFormat={}, vsBytes={}, psBytes={}",
                 desc_.name, static_cast<int>(desc_.topology), static_cast<unsigned>(psoDesc.PrimitiveTopologyType),
-                static_cast<unsigned>(rtFormat), static_cast<unsigned>(dsFormat), vsBytecode.BytecodeLength,
-                psBytecode.BytecodeLength);
+                desc_.colorTargetCount > 0 ? static_cast<unsigned>(psoDesc.RTVFormats[0]) : 0U,
+                static_cast<unsigned>(dsFormat), vsBytecode.BytecodeLength, psBytecode.BytecodeLength);
     }
     if (!checkDX12(hr, "ID3D12Device::CreateGraphicsPipelineState"))
         return;

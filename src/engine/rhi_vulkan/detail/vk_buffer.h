@@ -38,7 +38,7 @@ public:
     }
 
     void update(uint32_t offset, uint32_t size, const void* data) override;
-    bool readback(uint32_t offset, uint32_t size, void* outData) override;
+    core::Result<void> readback(uint32_t offset, uint32_t size, void* outData) override;
 
 private:
     explicit VKBuffer(const BufferDesc& desc) : desc_(desc) {}

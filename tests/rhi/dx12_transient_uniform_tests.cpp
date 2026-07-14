@@ -32,7 +32,7 @@ TEST(DX12TransientUniformTest, PreservesIndependentAlignedWrites) {
     auto commandListResult = DX12CommandList::create(native.device.Get(), native.allocator.Get());
     ASSERT_TRUE(commandListResult);
     auto& commandList = **commandListResult;
-    commandList.begin();
+    ASSERT_TRUE(commandList.begin());
 
     const std::array<uint32_t, 4> firstValue{ 1, 2, 3, 4 };
     const std::array<uint32_t, 4> secondValue{ 5, 6, 7, 8 };
@@ -66,9 +66,11 @@ TEST(DX12TransientUniformTest, RejectsWritesOutsideCommandRecording) {
     const std::array<uint32_t, 4> value{ 1, 2, 3, 4 };
 
     EXPECT_FALSE(commandList.writeUniform(value));
-    commandList.begin();
+    ASSERT_TRUE(commandList.begin());
+    EXPECT_EQ(commandList.state(), CommandList::State::Recording);
     EXPECT_TRUE(commandList.writeUniform(value));
-    commandList.end();
+    ASSERT_TRUE(commandList.end());
+    EXPECT_EQ(commandList.state(), CommandList::State::Executable);
     EXPECT_FALSE(commandList.writeUniform(value));
 }
 

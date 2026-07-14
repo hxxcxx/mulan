@@ -35,6 +35,7 @@ DX11Shader::DX11Shader(const ShaderDesc& desc, ID3D11Device* device) : m_desc(de
         break;
     default: LOG_ERROR("[DX11] Shader initialization rejected: unsupported stage"); return;
     }
+    m_desc.discardCreationData();
 }
 
 }  // namespace mulan::engine

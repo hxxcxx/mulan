@@ -2,6 +2,8 @@
 #include "../rhi/buffer.h"
 #include "../rhi/device.h"
 
+#include <mulan/core/log/log.h>
+
 #include <cstddef>
 #include <cstdint>
 
@@ -115,31 +117,6 @@ void AssetGpuRegistry::clear() {
     textures_.clear();
 }
 
-SubmissionToken AssetGpuRegistry::lastUseToken() const noexcept {
-    SubmissionToken latest{};
-    const auto merge = [&latest](const RHITrackedResource* resource) {
-        if (!resource)
-            return;
-        const SubmissionToken candidate = resource->lastUseToken();
-        if (!candidate)
-            return;
-        if (!latest || (candidate.deviceGeneration == latest.deviceGeneration && candidate.value > latest.value))
-            latest = candidate;
-    };
-
-    const auto mergeGeometry = [&merge](const GpuGeometry& geometry) {
-        merge(geometry.vertexBuffer.get());
-        merge(geometry.indexBuffer.get());
-    };
-    for (const auto& [_, geometry] : geometries_)
-        mergeGeometry(geometry);
-    for (const GpuGeometry& geometry : retired_geometries_)
-        mergeGeometry(geometry);
-    for (const auto& [_, texture] : textures_)
-        merge(texture.get());
-    return latest;
-}
-
 core::Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(RHIDevice& device, const graphics::Mesh& mesh) {
     GpuGeometry geo;
     if (mesh.empty()) {
@@ -222,9 +199,14 @@ std::unique_ptr<Texture> AssetGpuRegistry::createRHITexture(const core::Image& i
     }
 
     if (uploadImage->data() && uploadImage->totalBytes() > 0) {
-        device_.uploadTextureData(result->get(), TextureUploadDesc::tightlyPacked(
-                                                         std::span(uploadImage->data(), uploadImage->totalBytes()),
-                                                         uploadImage->width(), uploadImage->height(), desc.format));
+        auto uploadResult = device_.uploadTextureData(
+                result->get(),
+                TextureUploadDesc::tightlyPacked(std::span(uploadImage->data(), uploadImage->totalBytes()),
+                                                 uploadImage->width(), uploadImage->height(), desc.format));
+        if (!uploadResult) {
+            LOG_ERROR("[AssetGpuRegistry] Texture upload failed: {}", uploadResult.error().message);
+            return nullptr;
+        }
     }
 
     // TODO: Generate the mip chain on GPU when RHIDevice exposes a portable path.

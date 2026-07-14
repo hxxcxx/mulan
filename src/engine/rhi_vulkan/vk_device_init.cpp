@@ -119,7 +119,6 @@ void VKDevice::pickPhysicalDevice(const std::vector<vk::PhysicalDevice>& devices
 void VKDevice::createLogicalDevice(bool enableValidation) {
     // 队列族
     auto queueFamilies = physical_device_.getQueueFamilyProperties();
-    bool hasComputeQueue = false;
     bool hasGraphicsQueue = false;
     for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
         if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) {
@@ -130,11 +129,14 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
                 hasGraphicsQueue = true;
             }
         }
-        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) {
-            hasComputeQueue = true;
-        }
     }
-    caps_.computeShader = hasComputeQueue;
+    const bool graphicsQueueSupportsCompute =
+            hasGraphicsQueue && (queueFamilies[graphics_queue_family_].queueFlags & vk::QueueFlagBits::eCompute) ==
+                                        vk::QueueFlagBits::eCompute;
+    caps_.computeShader = graphicsQueueSupportsCompute;
+    caps_.indirectDraw = true;
+    caps_.indirectDispatch = graphicsQueueSupportsCompute;
+    caps_.pushConstants = true;
 
     float queuePriority = 1.0f;
     std::vector<vk::DeviceQueueCreateInfo> queueCIs;
@@ -174,7 +176,6 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
 
     vk::PhysicalDeviceFeatures features;
     features.fillModeNonSolid = featureSupport.features.fillModeNonSolid;
-    features.depthClamp = featureSupport.features.depthClamp;
 
     // Both features are required by this backend: render passes use dynamic rendering,
     // while RHI fences are implemented with timeline semaphores.
@@ -356,10 +357,8 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     render_config_.msaa = toMsaaLevel(sampleCountFromFlags(framebufferSampleCounts, render_config_.sampleCount()));
     caps_.minUniformBufferOffsetAlignment = props.limits.minUniformBufferOffsetAlignment;
     caps_.maxUniformBufferBindingSize = static_cast<uint32_t>(props.limits.maxUniformBufferRange);
-    caps_.depthClamp = features.depthClamp;
-    caps_.geometryShader = features.geometryShader;
-    caps_.tessellationShader = features.tessellationShader;
-    // caps_.computeShader 由上方 queue families 检查 (hasComputeQueue) 设置，这里不覆盖
+    caps_.geometryShader = false;
+    // computeShader 由图形队列是否同时支持 Compute 决定，这里不覆盖。
 
     // --- 私有组件 ---
     upload_context_ = std::make_unique<VKUploadContext>(device_, allocator_, graphics_queue_family_, graphics_queue_);

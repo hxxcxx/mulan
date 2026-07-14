@@ -1,18 +1,17 @@
 #include "detail/gl_command_list.h"
+#include "detail/gl_bind_group.h"
 #include "detail/gl_buffer.h"
 #include "detail/gl_pipeline_state.h"
-#include "detail/gl_texture.h"
-#include "detail/gl_sampler.h"
 #include "detail/gl_render_target.h"
-#include "detail/gl_bind_group.h"
+#include "detail/gl_sampler.h"
+#include "detail/gl_texture.h"
 #include "detail/gl_transient_uniform_arena.h"
 #include "../rhi/buffer.h"
 #include "../rhi/engine_error_code.h"
 #include "../rhi/render_types.h"
-#include "../rhi/render_types.h"
-#include <cstring>
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -30,24 +29,28 @@ GLCommandList::~GLCommandList() {
     }
 }
 
-void GLCommandList::begin() {
-    resetResourceUsage();
-    if (!transient_uniform_arena_->beginRecording())
-        LOG_ERROR("[OpenGL] Transient uniform recording could not acquire a reusable batch");
+core::Result<void> GLCommandList::doBegin() {
+    if (!transient_uniform_arena_->beginRecording()) {
+        return std::unexpected(
+                makeError(EngineErrorCode::CommandRecordingFailed, "OpenGL transient uniform batch is unavailable"));
+    }
     // OpenGL 立即模式，begin/end 不做实质工作
     pipeline_state_applied_ = false;
     vertex_layout_dirty_ = true;
     viewport_Dirty = true;
     scissor_dirty_ = true;
     glDisable(GL_SCISSOR_TEST);
+    return {};
 }
 
-void GLCommandList::end() {
+core::Result<void> GLCommandList::doEnd() {
     transient_uniform_arena_->endRecording();
+    return {};
 }
 
 void GLCommandList::setPipelineState(PipelineState* pso) {
-    recordResourceUse(pso);
+    assertResourceCompatible(pso);
+    activateBindGroupLayout(pso->bindGroupLayout());
     if (current_pipeline_ == pso)
         return;
 
@@ -75,18 +78,20 @@ void GLCommandList::setScissorRect(const ScissorRect& rect) {
 }
 
 void GLCommandList::bindGroup(BindGroup& group) {
-    recordBindGroupUse(group);
+    if (!validateBindGroupCompatible(group))
+        return;
     if (std::any_of(group.layout().entries().begin(), group.layout().entries().end(),
                     [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
         LOG_ERROR("[OpenGL] bindGroup rejected: dynamic UniformBuffer bindings are required by the layout");
         return;
     }
-    bindResources(group);
+    bindGroupEntries(group);
     group.markClean();
 }
 
 void GLCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
-    recordBindGroupUse(group);
+    if (!validateBindGroupCompatible(group))
+        return;
     const std::string validationError = validateDynamicUniformBindings(
             group.layout(), dynamicUniforms,
             { transient_uniform_arena_->alignment(), transient_uniform_arena_->maxAllocationSize() },
@@ -96,20 +101,20 @@ void GLCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBi
         return;
     }
 
-    bindResources(group);
+    bindGroupEntries(group);
     glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
     for (const auto& binding : dynamicUniforms) {
+        assertResourceCompatible(binding.slice.backingBuffer);
         if (binding.binding >= 32) {
             LOG_ERROR("[OpenGL] Dynamic uniform binding {} exceeds the backend slot limit", binding.binding);
             continue;
         }
-        auto* buffer = dynamic_cast<GLBuffer*>(binding.slice.backingBuffer);
+        auto* buffer = static_cast<GLBuffer*>(binding.slice.backingBuffer);
         if (!buffer || !buffer->isTransientUniformPage()) {
             LOG_ERROR("[OpenGL] Dynamic uniform binding {} does not reference a persistent mapped page",
                       binding.binding);
             continue;
         }
-        recordResourceUse(buffer);
         glBindBufferRange(GL_UNIFORM_BUFFER, binding.binding, buffer->handle(),
                           static_cast<GLintptr>(binding.slice.offset), static_cast<GLsizeiptr>(binding.slice.size));
     }
@@ -124,12 +129,7 @@ core::Result<UniformSlice> GLCommandList::writeUniformBytes(std::span<const std:
     return UniformSlice{ allocation.backingBuffer, allocation.offset, allocation.size, allocation.recordingGeneration };
 }
 
-void GLCommandList::bindResources(const BindGroupDesc& group) {
-    recordBindGroupUse(group);
-    bindEntries(group.entries, group.count);
-}
-
-void GLCommandList::bindResources(const BindGroup& group) {
+void GLCommandList::bindGroupEntries(const BindGroup& group) {
     bindEntries(group.entries(), group.entryCount());
 }
 
@@ -148,7 +148,7 @@ void GLCommandList::bindEntries(const BindGroupEntry* entries, uint8_t count) {
     }
 
     if (samplerCount == 1) {
-        auto* glSampler = dynamic_cast<GLSampler*>(sharedSampler);
+        auto* glSampler = static_cast<GLSampler*>(sharedSampler);
         if (!glSampler)
             return;
 
@@ -177,7 +177,7 @@ void GLCommandList::bindEntry(const BindGroupEntry& e) {
         return;
 
     if (e.type == DescriptorType::UniformBuffer && e.buffer) {
-        auto* glBuffer = dynamic_cast<GLBuffer*>(e.buffer);
+        auto* glBuffer = static_cast<GLBuffer*>(e.buffer);
         if (!glBuffer)
             return;
         const GLsizeiptr size =
@@ -186,20 +186,20 @@ void GLCommandList::bindEntry(const BindGroupEntry& e) {
     }
 
     if (e.type == DescriptorType::TextureSRV && e.texture) {
-        auto* glTexture = dynamic_cast<GLTexture*>(e.texture);
+        auto* glTexture = static_cast<GLTexture*>(e.texture);
         if (glTexture)
             glBindTextureUnit(e.binding, glTexture->handle());
     }
 
     if (e.type == DescriptorType::Sampler && e.sampler) {
-        auto* glSampler = dynamic_cast<GLSampler*>(e.sampler);
+        auto* glSampler = static_cast<GLSampler*>(e.sampler);
         if (glSampler)
             glBindSampler(e.binding, glSampler->handle());
     }
 }
 
 void GLCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
-    recordResourceUse(buffer);
+    assertResourceCompatible(buffer);
     if (slot >= MAX_VERTEX_BUFFERS) {
         LOG_ERROR("[OpenGL] setVertexBuffer rejected: slot {} is out of range", slot);
         return;
@@ -220,13 +220,15 @@ void GLCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offs
 }
 
 void GLCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
+    for (uint32_t i = 0; i < count; ++i)
+        assertResourceCompatible(buffers[i]);
     for (uint32_t i = 0; i < count; ++i) {
         setVertexBuffer(startSlot + i, buffers[i], offsets ? offsets[i] : 0);
     }
 }
 
 void GLCommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
-    recordResourceUse(buffer);
+    assertResourceCompatible(buffer);
     if (index_buffer_ == buffer && index_buffer_Offset == offset && index_type_ == type) {
         return;  // 无变化
     }
@@ -313,7 +315,7 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
     glBindVertexArray(vao_);
     setupVertexAttributes();
 
-    auto* glIndexBuffer = dynamic_cast<GLBuffer*>(index_buffer_);
+    auto* glIndexBuffer = static_cast<GLBuffer*>(index_buffer_);
     if (!glIndexBuffer || !glIndexBuffer->isValid()) {
         LOG_ERROR("[OpenGL] drawIndexed rejected: no valid index buffer is bound");
         glBindVertexArray(0);
@@ -390,9 +392,42 @@ void GLCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
     }
 }
 
+void GLCommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
+    assertResourceCompatible(argsBuffer);
+    (void) offset;
+    (void) drawCount;
+    (void) stride;
+    LOG_ERROR("[OpenGL] drawIndirect rejected: indirect drawing is not implemented");
+    rejectRecording("OpenGL indirect drawing is not implemented");
+}
+
+void GLCommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
+    (void) threadGroupX;
+    (void) threadGroupY;
+    (void) threadGroupZ;
+    LOG_ERROR("[OpenGL] dispatch rejected: compute pipeline is not implemented");
+    rejectRecording("OpenGL compute dispatch is not implemented");
+}
+
+void GLCommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
+    assertResourceCompatible(argsBuffer);
+    (void) offset;
+    LOG_ERROR("[OpenGL] dispatchIndirect rejected: compute pipeline is not implemented");
+    rejectRecording("OpenGL indirect compute dispatch is not implemented");
+}
+
+void GLCommandList::setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) {
+    (void) offset;
+    (void) size;
+    (void) data;
+    (void) stageFlags;
+    LOG_ERROR("[OpenGL] setPushConstants rejected: push constants are not implemented");
+    rejectRecording("OpenGL push constants are not implemented");
+}
+
 void GLCommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
                                  ResourceTransitionMode /*mode*/) {
-    recordResourceUse(buffer);
+    assertResourceCompatible(buffer);
     if (!buffer || !data)
         return;
 
@@ -400,7 +435,7 @@ void GLCommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size,
 }
 
 void GLCommandList::transitionResource(Buffer* buffer, ResourceState newState) {
-    recordResourceUse(buffer);
+    assertResourceCompatible(buffer);
     (void) buffer;
     GLbitfield barriers = 0;
     switch (newState) {
@@ -416,7 +451,7 @@ void GLCommandList::transitionResource(Buffer* buffer, ResourceState newState) {
 }
 
 void GLCommandList::transitionResource(Texture* texture, ResourceState newState) {
-    recordResourceUse(texture);
+    assertResourceCompatible(texture);
     (void) texture;
     GLbitfield barriers = 0;
     switch (newState) {
@@ -431,13 +466,14 @@ void GLCommandList::transitionResource(Texture* texture, ResourceState newState)
         glMemoryBarrier(barriers);
 }
 
-bool GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
-    recordResourceUse(src);
-    recordResourceUse(dst);
-    auto* texture = dynamic_cast<GLTexture*>(src);
-    auto* buffer = dynamic_cast<GLBuffer*>(dst);
+core::Result<void> GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+    assertResourceCompatible(src);
+    assertResourceCompatible(dst);
+    auto* texture = static_cast<GLTexture*>(src);
+    auto* buffer = static_cast<GLBuffer*>(dst);
     if (!texture || !buffer || texture->desc().dimension != TextureDimension::Texture2D)
-        return false;
+        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
+                                         "OpenGL texture copy requires a Texture2D and staging buffer"));
 
     GLint previous_fbo = 0;
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previous_fbo);
@@ -526,22 +562,15 @@ bool GLCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
         glDeleteFramebuffers(1, &resolve_fbo);
     if (read_fbo)
         glDeleteFramebuffers(1, &read_fbo);
-    return copied;
+    if (!copied)
+        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
+                                         "OpenGL texture readback failed or the destination buffer is too small"));
+    return {};
 }
 
-void GLCommandList::clearColor(float r, float g, float b, float a) {
-    glClearColor(r, g, b, a);
-    glClear(GL_COLOR_BUFFER_BIT);
-}
-
-void GLCommandList::clearDepth(float depth) {
-    glClearDepth(static_cast<GLdouble>(depth));
-    glClear(GL_DEPTH_BUFFER_BIT);
-}
-
-void GLCommandList::clearStencil(uint8_t stencil) {
-    glClearStencil(stencil);
-    glClear(GL_STENCIL_BUFFER_BIT);
+void GLCommandList::setComputePipelineState(ComputePipelineState*) {
+    LOG_ERROR("[OpenGL] Compute pipeline binding rejected: compute is not implemented");
+    rejectRecording("OpenGL compute pipelines are not implemented");
 }
 
 Buffer* GLCommandList::currentVertexBuffer(uint32_t slot) const {
@@ -647,30 +676,73 @@ GLenum GLCommandList::indexTypeToGLFormat(IndexType type) {
     }
 }
 
-void GLCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
-    recordRenderPassUse(info);
-    // GL FBO selection:
-    // - Swapchain (presentSource=true): bind default framebuffer (0)
-    // - RenderTarget: use nativeHandle (set by GLRenderTarget convenience method)
+core::Result<void> GLCommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
+    if (info.colorCount > RenderPassBeginInfo::kMaxColorTargets || info.width == 0 || info.height == 0)
+        return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
+                                         "OpenGL render pass dimensions or attachment count are invalid"));
+    if (!info.presentSource) {
+        for (uint8_t i = 0; i < info.colorCount; ++i) {
+            if (!info.colorAttachments[i].target)
+                return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
+                                                 "OpenGL offscreen render pass requires color textures"));
+        }
+    }
     GLint previous_fbo = 0;
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previous_fbo);
     previous_framebuffer_ = static_cast<GLuint>(previous_fbo);
-    GLuint fbo = static_cast<GLuint>(info.nativeHandle);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    active_framebuffer_ = fbo;
+    resolve_source_ = info.colorCount > 0 ? static_cast<GLTexture*>(info.colorAttachments[0].target) : nullptr;
+    resolve_target_ = info.colorCount > 0 ? static_cast<GLTexture*>(info.colorAttachments[0].resolveTarget) : nullptr;
+
+    GLuint framebuffer = 0;
+    if (resolve_source_)
+        framebuffer = resolve_source_->renderTargetFramebuffer();
+    const bool requiresOffscreenFramebuffer = !info.presentSource || resolve_source_ != nullptr;
+    if (requiresOffscreenFramebuffer && framebuffer == 0) {
+        glCreateFramebuffers(1, &temporary_framebuffer_);
+        if (temporary_framebuffer_ == 0) {
+            LOG_ERROR("[OpenGL] Failed to create a temporary framebuffer");
+            resolve_source_ = nullptr;
+            resolve_target_ = nullptr;
+            return std::unexpected(
+                    makeError(EngineErrorCode::CommandRecordingFailed, "OpenGL temporary framebuffer creation failed"));
+        }
+        framebuffer = temporary_framebuffer_;
+        for (uint8_t i = 0; i < info.colorCount; ++i) {
+            auto* color = static_cast<GLTexture*>(info.colorAttachments[i].target);
+            if (color)
+                glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0 + i, color->handle(), 0);
+        }
+        if (auto* depth = static_cast<GLTexture*>(info.depthAttachment.target)) {
+            const GLenum attachment = depth->desc().format == TextureFormat::D24_UNorm_S8_UInt ||
+                                                      depth->desc().format == TextureFormat::D32_Float_S8X24_UInt
+                                              ? GL_DEPTH_STENCIL_ATTACHMENT
+                                              : GL_DEPTH_ATTACHMENT;
+            glNamedFramebufferTexture(framebuffer, attachment, depth->handle(), 0);
+        }
+        if (glCheckNamedFramebufferStatus(framebuffer, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+            LOG_ERROR("[OpenGL] Temporary framebuffer is incomplete");
+            glDeleteFramebuffers(1, &temporary_framebuffer_);
+            temporary_framebuffer_ = 0;
+            resolve_source_ = nullptr;
+            resolve_target_ = nullptr;
+            return std::unexpected(
+                    makeError(EngineErrorCode::CommandRecordingFailed, "OpenGL temporary framebuffer is incomplete"));
+        }
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    active_framebuffer_ = framebuffer;
     render_pass_active_ = true;
-    resolve_source_ = info.colorCount > 0 ? dynamic_cast<GLTexture*>(info.colorAttachments[0].target) : nullptr;
-    resolve_target_ = info.colorCount > 0 ? dynamic_cast<GLTexture*>(info.colorAttachments[0].resolveTarget) : nullptr;
     framebuffer_height_ = static_cast<int32_t>(info.height);
 
     if (info.colorCount > 0) {
         std::array<GLenum, RenderPassBeginInfo::kMaxColorTargets> draw_buffers{};
         for (uint8_t i = 0; i < info.colorCount; ++i)
             draw_buffers[i] = GL_COLOR_ATTACHMENT0 + i;
-        if (fbo != 0)
+        if (framebuffer != 0)
             glDrawBuffers(info.colorCount, draw_buffers.data());
 
-        const auto* color = dynamic_cast<GLTexture*>(info.colorAttachments[0].target);
+        const auto* color = static_cast<GLTexture*>(info.colorAttachments[0].target);
         const bool srgb = color && (color->desc().format == TextureFormat::RGBA8_sRGB ||
                                     color->desc().format == TextureFormat::BGRA8_sRGB);
         if (srgb)
@@ -693,7 +765,7 @@ void GLCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
     if (info.depthAttachment.loadAction == LoadAction::Clear && (info.depthAttachment.target || info.presentSource)) {
         glClearDepth(static_cast<GLdouble>(info.clearDepth));
         clearBits |= GL_DEPTH_BUFFER_BIT;
-        if (auto* depth = dynamic_cast<GLTexture*>(info.depthAttachment.target);
+        if (auto* depth = static_cast<GLTexture*>(info.depthAttachment.target);
             depth && (depth->desc().format == TextureFormat::D24_UNorm_S8_UInt ||
                       depth->desc().format == TextureFormat::D32_Float_S8X24_UInt)) {
             glClearStencil(info.clearStencil);
@@ -724,9 +796,10 @@ void GLCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
     // Mark viewport dirty since we overrode it
     viewport_Dirty = true;
     scissor_dirty_ = true;
+    return {};
 }
 
-void GLCommandList::endRenderPass() {
+void GLCommandList::doEndRenderPass() {
     if (render_pass_active_ && resolve_source_ && resolve_target_ && resolve_target_->desc().sampleCount == 1) {
         GLuint resolve_fbo = 0;
         glCreateFramebuffers(1, &resolve_fbo);
@@ -741,6 +814,10 @@ void GLCommandList::endRenderPass() {
     }
     if (render_pass_active_)
         glBindFramebuffer(GL_FRAMEBUFFER, previous_framebuffer_);
+    if (temporary_framebuffer_) {
+        glDeleteFramebuffers(1, &temporary_framebuffer_);
+        temporary_framebuffer_ = 0;
+    }
     active_framebuffer_ = 0;
     render_pass_active_ = false;
     resolve_source_ = nullptr;

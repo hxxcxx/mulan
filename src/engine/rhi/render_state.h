@@ -10,6 +10,7 @@
 #include <mulan/graphics/primitive_types.h>
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace mulan::engine {
@@ -164,7 +165,7 @@ struct SamplerDesc {
     float borderColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
     bool anisotropyEnable = false;
     bool compareEnable = false;
-    std::string_view debugName;
+    std::string debugName;
 
     // 便捷构造
 

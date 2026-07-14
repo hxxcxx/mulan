@@ -1,6 +1,8 @@
 #include "engine_settings_dialog.h"
 #include "engine_settings.h"
 
+#include <mulan/rhi/device_factory.h>
+
 #include <QFormLayout>
 #include <QComboBox>
 #include <QCheckBox>
@@ -21,10 +23,10 @@ EngineSettingsDialog::EngineSettingsDialog(QWidget* parent) : QDialog(parent) {
 
     // --- 渲染后端 ---
     combo_backend_ = new QComboBox(this);
-    combo_backend_->addItem("OpenGL", static_cast<int>(GraphicsBackend::OpenGL));
-    combo_backend_->addItem("Vulkan", static_cast<int>(GraphicsBackend::Vulkan));
-    combo_backend_->addItem("D3D11", static_cast<int>(GraphicsBackend::D3D11));
-    combo_backend_->addItem("D3D12", static_cast<int>(GraphicsBackend::D3D12));
+    for (const BackendModule& module : DeviceFactory::instance().modules()) {
+        combo_backend_->addItem(QString::fromUtf8(module.name.data(), static_cast<qsizetype>(module.name.size())),
+                                static_cast<int>(module.backend));
+    }
     layout->addRow(tr("Render Backend:"), combo_backend_);
 
     // --- 抗锯齿 ---

@@ -119,7 +119,8 @@ bool GeometryDrawExecutor::createPSO(TextureFormat colorFmt, TextureFormat depth
     desc.colorFormats[0] = colorFmt;
     desc.colorTargetCount = 1;
     desc.depthStencilFormat = depthFmt;
-    desc.depthEnable = hasDepth;
+    if (!hasDepth)
+        desc.depthStencilFormat = TextureFormat::Unknown;
     desc.sampleCount = sampleCount;
 
     auto psoResult = device_.createPipelineState(desc);

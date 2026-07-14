@@ -43,9 +43,9 @@ public:
 
     RenderPassBeginInfo renderPassBeginInfo() override;
 
-    void present() override;
+    core::Result<void> present() override;
 
-    void resize(uint32_t width, uint32_t height) override;
+    core::Result<void> resize(uint32_t width, uint32_t height) override;
 
 private:
     SwapChainDesc desc_;

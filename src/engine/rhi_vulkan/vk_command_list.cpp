@@ -1,4 +1,5 @@
 #include "detail/vk_command_list.h"
+#include "detail/vk_compute_pipeline.h"
 #include "detail/vk_texture.h"
 #include "detail/vk_sampler.h"
 #include "detail/vk_descriptor_allocator.h"
@@ -159,16 +160,21 @@ VKCommandList::~VKCommandList() {
     }
 }
 
-void VKCommandList::begin() {
-    resetResourceUsage();
+core::Result<void> VKCommandList::doBegin() {
     dynamic_set_cache_.clear();
+    current_layout_ = nullptr;
+    current_desc_set_layout_ = nullptr;
+    current_bind_point_ = vk::PipelineBindPoint::eGraphics;
+    current_push_constant_size_ = 0;
     if (owns_pool_) {
         const auto previousSubmission = waitForPreviousSubmission();
-        if (!previousSubmission) {
-            LOG_ERROR("[Vulkan] Command list reuse rejected: {}", previousSubmission.error().message);
-            return;
+        if (!previousSubmission)
+            return std::unexpected(previousSubmission.error());
+        try {
+            device_.resetCommandPool(pool_);
+        } catch (const vk::Error& error) {
+            return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed, error.what()));
         }
-        device_.resetCommandPool(pool_);
     }
 
     swapchain_color_texture_ = nullptr;
@@ -178,21 +184,45 @@ void VKCommandList::begin() {
 
     vk::CommandBufferBeginInfo beginInfo;
     beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
-    cmd_buffer_.begin(beginInfo);
+    try {
+        cmd_buffer_.begin(beginInfo);
+    } catch (const vk::Error& error) {
+        return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed, error.what()));
+    }
+    return {};
 }
 
-void VKCommandList::end() {
-    cmd_buffer_.end();
+core::Result<void> VKCommandList::doEnd() {
+    try {
+        cmd_buffer_.end();
+    } catch (const vk::Error& error) {
+        return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed, error.what()));
+    }
     if (transient_uniform_arena_)
         transient_uniform_arena_->endRecording();
+    return {};
 }
 
 void VKCommandList::setPipelineState(PipelineState* pso) {
-    recordResourceUse(pso);
+    assertResourceCompatible(pso);
     auto* vkPso = static_cast<VKPipelineState*>(pso);
+    activateBindGroupLayout(pso->bindGroupLayout());
     cmd_buffer_.bindPipeline(vk::PipelineBindPoint::eGraphics, vkPso->pipeline());
     current_layout_ = vkPso->layout();
     current_desc_set_layout_ = vkPso->descriptorSetLayout();
+    current_bind_point_ = vk::PipelineBindPoint::eGraphics;
+    current_push_constant_size_ = pso->desc().pushConstantSize;
+}
+
+void VKCommandList::setComputePipelineState(ComputePipelineState* pso) {
+    assertResourceCompatible(pso);
+    auto* pipeline = static_cast<VKComputePipelineState*>(pso);
+    activateBindGroupLayout(pso->bindGroupLayout());
+    cmd_buffer_.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->pipeline());
+    current_layout_ = pipeline->layout();
+    current_desc_set_layout_ = pipeline->descriptorSetLayout();
+    current_bind_point_ = vk::PipelineBindPoint::eCompute;
+    current_push_constant_size_ = pso->desc().pushConstantSize;
 }
 
 void VKCommandList::setViewport(const Viewport& vp) {
@@ -214,7 +244,7 @@ void VKCommandList::setScissorRect(const ScissorRect& rect) {
 }
 
 void VKCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
-    recordResourceUse(buffer);
+    assertResourceCompatible(buffer);
     auto* vkBuf = static_cast<VKBuffer*>(buffer);
     vk::Buffer buf = vkBuf->vkBuffer();
     vk::DeviceSize offs = offset;
@@ -222,10 +252,8 @@ void VKCommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offs
 }
 
 void VKCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
-    if (buffers) {
-        for (uint32_t i = 0; i < count; ++i)
-            recordResourceUse(buffers[i]);
-    }
+    for (uint32_t i = 0; i < count; ++i)
+        assertResourceCompatible(buffers[i]);
     std::vector<vk::Buffer> bufs;
     std::vector<vk::DeviceSize> offs;
     for (uint32_t i = 0; i < count; ++i) {
@@ -236,66 +264,107 @@ void VKCommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer*
 }
 
 void VKCommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
-    recordResourceUse(buffer);
+    assertResourceCompatible(buffer);
     auto* vkBuf = static_cast<VKBuffer*>(buffer);
     cmd_buffer_.bindIndexBuffer(vkBuf->vkBuffer(), offset, toVkIndexType(type));
 }
 
 void VKCommandList::draw(const DrawAttribs& attribs) {
+    if (!current_layout_ || current_bind_point_ != vk::PipelineBindPoint::eGraphics) {
+        invalidate(
+                makeError(EngineErrorCode::CommandRecordingFailed, "Vulkan draw requires an active graphics pipeline"));
+        return;
+    }
     cmd_buffer_.draw(attribs.vertexCount, attribs.instanceCount, attribs.startVertex, attribs.startInstance);
 }
 
+bool hasStencilAspect(TextureFormat format) {
+    return format == TextureFormat::D24_UNorm_S8_UInt || format == TextureFormat::D32_Float_S8X24_UInt;
+}
+
 void VKCommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
+    if (!current_layout_ || current_bind_point_ != vk::PipelineBindPoint::eGraphics) {
+        invalidate(makeError(EngineErrorCode::CommandRecordingFailed,
+                             "Vulkan indexed draw requires an active graphics pipeline"));
+        return;
+    }
     cmd_buffer_.drawIndexed(attribs.indexCount, attribs.instanceCount, attribs.startIndex, attribs.baseVertex,
                             attribs.startInstance);
 }
 
 void VKCommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
-    recordResourceUse(argsBuffer);
+    if (!current_layout_ || current_bind_point_ != vk::PipelineBindPoint::eGraphics) {
+        invalidate(makeError(EngineErrorCode::CommandRecordingFailed,
+                             "Vulkan indirect draw requires an active graphics pipeline"));
+        return;
+    }
+    assertResourceCompatible(argsBuffer);
     auto* vkBuf = static_cast<VKBuffer*>(argsBuffer);
     vk::Buffer buf = vkBuf->vkBuffer();
-    cmd_buffer_.drawIndexedIndirect(buf, offset, drawCount,
-                                    stride > 0 ? stride : uint32_t(sizeof(VkDrawIndexedIndirectCommand)));
+    const uint32_t argumentStride = stride > 0 ? stride : uint32_t(sizeof(VkDrawIndexedIndirectCommand));
+    for (uint32_t i = 0; i < drawCount; ++i)
+        cmd_buffer_.drawIndexedIndirect(buf, offset + i * argumentStride, 1, argumentStride);
 }
 
 void VKCommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
+    if (!current_layout_ || current_bind_point_ != vk::PipelineBindPoint::eCompute) {
+        invalidate(makeError(EngineErrorCode::CommandRecordingFailed,
+                             "Vulkan dispatch requires an active compute pipeline"));
+        return;
+    }
     cmd_buffer_.dispatch(threadGroupX, threadGroupY, threadGroupZ);
 }
 
 void VKCommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
-    recordResourceUse(argsBuffer);
+    if (!current_layout_ || current_bind_point_ != vk::PipelineBindPoint::eCompute) {
+        invalidate(makeError(EngineErrorCode::CommandRecordingFailed,
+                             "Vulkan indirect dispatch requires an active compute pipeline"));
+        return;
+    }
+    assertResourceCompatible(argsBuffer);
     auto* vkBuf = static_cast<VKBuffer*>(argsBuffer);
     cmd_buffer_.dispatchIndirect(vkBuf->vkBuffer(), offset);
 }
 
 void VKCommandList::setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) {
+    if (!current_layout_ || !data || size == 0 || (offset & 3U) != 0 || (size & 3U) != 0 ||
+        offset > current_push_constant_size_ || size > current_push_constant_size_ - offset) {
+        invalidate(makeError(EngineErrorCode::CommandRecordingFailed,
+                             "Vulkan push constant range does not match the active pipeline"));
+        return;
+    }
     vk::ShaderStageFlags vkStages;
     if (stageFlags & PipelineBinding::kStageVertex)
         vkStages |= vk::ShaderStageFlagBits::eVertex;
     if (stageFlags & PipelineBinding::kStageFragment)
         vkStages |= vk::ShaderStageFlagBits::eFragment;
+    if (stageFlags & PipelineBinding::kStageGeometry)
+        vkStages |= vk::ShaderStageFlagBits::eGeometry;
     if (stageFlags & PipelineBinding::kStageCompute)
         vkStages |= vk::ShaderStageFlagBits::eCompute;
 
-    if (vkStages) {
-        cmd_buffer_.pushConstants(current_layout_, vkStages, offset, size, data);
+    if (!vkStages) {
+        invalidate(makeError(EngineErrorCode::CommandRecordingFailed,
+                             "Vulkan push constants require at least one shader stage"));
+        return;
     }
+    cmd_buffer_.pushConstants(current_layout_, vkStages, offset, size, data);
 }
 
 void VKCommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
                                  ResourceTransitionMode) {
-    recordResourceUse(buffer);
+    assertResourceCompatible(buffer);
     auto* vkBuf = static_cast<VKBuffer*>(buffer);
     vkBuf->update(offset, size, data);
 }
 
 void VKCommandList::transitionResource(Buffer* buffer, ResourceState) {
-    recordResourceUse(buffer);
+    assertResourceCompatible(buffer);
     // Vulkan 通过 pipeline barrier 处理，此处简化
 }
 
 void VKCommandList::transitionResource(Texture* texture, ResourceState newState) {
-    recordResourceUse(texture);
+    assertResourceCompatible(texture);
     auto* vkTex = static_cast<VKTexture*>(texture);
     const vk::ImageLayout oldLayout = vkTex->currentLayout();
     const vk::ImageLayout newLayout = imageLayoutForState(newState);
@@ -327,13 +396,19 @@ void VKCommandList::transitionResource(Texture* texture, ResourceState newState)
     vkTex->setCurrentLayout(barrier.newLayout);
 }
 
-bool VKCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
-    recordResourceUse(src);
-    recordResourceUse(dst);
+core::Result<void> VKCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+    assertResourceCompatible(src);
+    assertResourceCompatible(dst);
     auto* vkTex = static_cast<VKTexture*>(src);
     auto* vkBuf = static_cast<VKBuffer*>(dst);
     if (!vkTex || !vkBuf)
-        return false;
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceReadbackFailed, "Vulkan texture copy requires valid resources"));
+    const uint64_t requiredSize = static_cast<uint64_t>(vkTex->desc().width) * vkTex->desc().height *
+                                  textureFormatBytesPerPixel(vkTex->desc().format);
+    if (requiredSize == 0 || requiredSize > vkBuf->size())
+        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
+                                         "Vulkan readback buffer is too small or the texture format is unsupported"));
 
     vk::BufferImageCopy region;
     region.bufferOffset = 0;
@@ -347,28 +422,13 @@ bool VKCommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     region.imageExtent = vk::Extent3D(vkTex->desc().width, vkTex->desc().height, 1);
 
     cmd_buffer_.copyImageToBuffer(vkTex->image(), vk::ImageLayout::eTransferSrcOptimal, vkBuf->vkBuffer(), 1, &region);
-    return true;
-}
-
-void VKCommandList::clearColor(float r, float g, float b, float a) {
-    // 通过 renderPass 的 clearValue 实现
-}
-
-void VKCommandList::clearDepth(float) {
-    // 通过 renderPass 的 clearValue 实现
-}
-
-void VKCommandList::clearStencil(uint8_t) {
-    // 由 VkRenderingAttachmentInfo 的 clearValue 实现
+    return {};
 }
 
 void VKCommandList::bindGroup(BindGroup& group) {
-    recordBindGroupUse(group);
-    auto* vkGroup = dynamic_cast<VKBindGroup*>(&group);
-    if (!vkGroup) {
-        LOG_ERROR("[Vulkan] bindGroup rejected: bind group is not a Vulkan bind group");
+    if (!validateBindGroupCompatible(group))
         return;
-    }
+    auto* vkGroup = static_cast<VKBindGroup*>(&group);
     if (std::any_of(vkGroup->layout().entries().begin(), vkGroup->layout().entries().end(),
                     [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
         LOG_ERROR("[Vulkan] bindGroup rejected: dynamic UniformBuffer bindings are required by the layout");
@@ -391,7 +451,7 @@ void VKCommandList::bindGroup(BindGroup& group) {
     // 这覆盖"同帧内多次 bind 同一个未改动的 BindGroup"场景。
     if (!vkGroup->dirty() && vkGroup->cachedSet()) {
         auto dset = vkGroup->cachedSet();
-        cmd_buffer_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, current_layout_, 0, 1, &dset, 0, nullptr);
+        cmd_buffer_.bindDescriptorSets(current_bind_point_, current_layout_, 0, 1, &dset, 0, nullptr);
         return;
     }
 
@@ -418,14 +478,15 @@ void VKCommandList::bindGroup(BindGroup& group) {
     }
 
     wrapper.flush();
-    wrapper.bind(cmd_buffer_, current_layout_);
+    wrapper.bind(cmd_buffer_, current_layout_, current_bind_point_);
     vkGroup->markClean();
 }
 
 void VKCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
-    recordBindGroupUse(group);
-    auto* vkGroup = dynamic_cast<VKBindGroup*>(&group);
-    if (!vkGroup || !allocator_ || !transient_uniform_arena_ || !current_desc_set_layout_) {
+    if (!validateBindGroupCompatible(group))
+        return;
+    auto* vkGroup = static_cast<VKBindGroup*>(&group);
+    if (!allocator_ || !transient_uniform_arena_ || !current_desc_set_layout_) {
         LOG_ERROR("[Vulkan] Dynamic bindGroup rejected: command list state is incomplete");
         return;
     }
@@ -452,12 +513,12 @@ void VKCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBi
                                           });
         if (binding == dynamicUniforms.end())
             continue;
-        auto* buffer = dynamic_cast<VKBuffer*>(binding->slice.backingBuffer);
+        assertResourceCompatible(binding->slice.backingBuffer);
+        auto* buffer = static_cast<VKBuffer*>(binding->slice.backingBuffer);
         if (!buffer) {
             LOG_ERROR("[Vulkan] Dynamic uniform binding {} does not reference a Vulkan buffer", binding->binding);
             return;
         }
-        recordResourceUse(buffer);
         cacheKey.buffers[cacheKey.count] = buffer;
         cacheKey.bindings[cacheKey.count] = binding->binding;
         cacheKey.ranges[cacheKey.count] = binding->slice.size;
@@ -482,7 +543,7 @@ void VKCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBi
                     return true;
                 });
         if (cached != dynamic_set_cache_.end()) {
-            cmd_buffer_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, current_layout_, 0, 1, &cached->set,
+            cmd_buffer_.bindDescriptorSets(current_bind_point_, current_layout_, 0, 1, &cached->set,
                                            static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
             return;
         }
@@ -492,15 +553,15 @@ void VKCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBi
     for (uint8_t i = 0; i < vkGroup->entryCount(); ++i) {
         const auto& entry = vkGroup->entries()[i];
         if (entry.type == DescriptorType::UniformBuffer && entry.buffer) {
-            auto* buffer = dynamic_cast<VKBuffer*>(entry.buffer);
+            auto* buffer = static_cast<VKBuffer*>(entry.buffer);
             if (buffer)
                 set.writeUBO(entry.binding, buffer->vkBuffer(), entry.offset, entry.size);
         } else if (entry.type == DescriptorType::TextureSRV && entry.texture) {
-            auto* texture = dynamic_cast<VKTexture*>(entry.texture);
+            auto* texture = static_cast<VKTexture*>(entry.texture);
             if (texture)
                 set.writeSampledImage(entry.binding, texture->view());
         } else if (entry.type == DescriptorType::Sampler && entry.sampler) {
-            auto* sampler = dynamic_cast<VKSampler*>(entry.sampler);
+            auto* sampler = static_cast<VKSampler*>(entry.sampler);
             if (sampler)
                 set.writeSampler(entry.binding, sampler->handle());
         }
@@ -510,7 +571,7 @@ void VKCommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBi
 
     set.flush();
     const vk::DescriptorSet descriptorSet = set.vkSet();
-    cmd_buffer_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, current_layout_, 0, 1, &descriptorSet,
+    cmd_buffer_.bindDescriptorSets(current_bind_point_, current_layout_, 0, 1, &descriptorSet,
                                    static_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
     cacheKey.set = descriptorSet;
     dynamic_set_cache_.push_back(cacheKey);
@@ -528,39 +589,40 @@ core::Result<UniformSlice> VKCommandList::writeUniformBytes(std::span<const std:
     return UniformSlice{ allocation.backingBuffer, allocation.offset, allocation.size, allocation.recordingGeneration };
 }
 
-void VKCommandList::bindResources(const BindGroupDesc& desc) {
-    recordBindGroupUse(desc);
-    if (desc.count == 0 || !allocator_)
-        return;
-    if (!current_desc_set_layout_)
-        return;
-
-    VKDescriptorSet set = allocator_->allocate(current_desc_set_layout_);
-
-    for (uint8_t i = 0; i < desc.count; ++i) {
-        const auto& e = desc.entries[i];
-        if (e.type == DescriptorType::UniformBuffer && e.buffer) {
-            auto* vkBuf = static_cast<VKBuffer*>(e.buffer);
-            set.writeUBO(e.binding, vkBuf->vkBuffer(), e.offset, e.size);
-        } else if (e.type == DescriptorType::TextureSRV && e.texture) {
-            auto* vkTex = static_cast<VKTexture*>(e.texture);
-            set.writeSampledImage(e.binding, vkTex->view());
-        } else if (e.type == DescriptorType::Sampler && e.sampler) {
-            auto* vkSm = static_cast<VKSampler*>(e.sampler);
-            set.writeSampler(e.binding, vkSm->handle());
-        }
-    }
-
-    set.flush();
-    set.bind(cmd_buffer_, current_layout_);
-}
-
 // ============================================================
 // RHI beginRenderPass / endRenderPass
 // ============================================================
 
-void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
-    recordRenderPassUse(info);
+core::Result<void> VKCommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
+    if (info.colorCount > RenderPassBeginInfo::kMaxColorTargets || info.width == 0 || info.height == 0)
+        return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
+                                         "Vulkan render pass dimensions or attachment count are invalid"));
+    uint32_t attachmentSampleCount = 0;
+    for (uint8_t i = 0; i < info.colorCount; ++i) {
+        const Texture* texture = info.colorAttachments[i].target;
+        if (!texture)
+            return std::unexpected(
+                    makeError(EngineErrorCode::CommandRecordingFailed, "Vulkan render pass requires color textures"));
+        if (attachmentSampleCount == 0)
+            attachmentSampleCount = texture->desc().sampleCount;
+        else if (attachmentSampleCount != texture->desc().sampleCount)
+            return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
+                                             "Vulkan render pass attachments must use the same sample count"));
+
+        if (const Texture* resolveTexture = info.colorAttachments[i].resolveTarget;
+            resolveTexture &&
+            (texture->desc().sampleCount <= 1 || resolveTexture->desc().sampleCount != 1 ||
+             resolveTexture->desc().format != texture->desc().format || resolveTexture->width() != texture->width() ||
+             resolveTexture->height() != texture->height())) {
+            return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
+                                             "Vulkan resolve target is incompatible with its color texture"));
+        }
+    }
+    if (const Texture* depthTexture = info.depthAttachment.target;
+        depthTexture && attachmentSampleCount != 0 && attachmentSampleCount != depthTexture->desc().sampleCount) {
+        return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
+                                         "Vulkan depth attachment uses a different sample count"));
+    }
     rp_present_source_ = info.presentSource;
 
     // Track swapchain color image for present transition in endRenderPass
@@ -676,12 +738,15 @@ void VKCommandList::beginRenderPass(const RenderPassBeginInfo& info) {
     renderingInfo.colorAttachmentCount = info.colorCount;
     renderingInfo.pColorAttachments = colorAtt.data();
     renderingInfo.pDepthAttachment = info.depthAttachment.target ? &depthAtt : nullptr;
-    renderingInfo.pStencilAttachment = nullptr;
+    renderingInfo.pStencilAttachment =
+            info.depthAttachment.target && hasStencilAspect(info.depthAttachment.target->desc().format) ? &depthAtt
+                                                                                                        : nullptr;
 
     cmd_buffer_.beginRendering(renderingInfo);
+    return {};
 }
 
-void VKCommandList::endRenderPass() {
+void VKCommandList::doEndRenderPass() {
     cmd_buffer_.endRendering();
 
     // Swapchain present: transition color attachment to PRESENT_SRC_KHR

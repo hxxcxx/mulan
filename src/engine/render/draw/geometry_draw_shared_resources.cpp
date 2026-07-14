@@ -30,8 +30,13 @@ std::unique_ptr<Texture> createDefaultRGBA8Texture(RHIDevice& device, const char
     }
 
     auto texture = std::move(*result);
-    device.uploadTextureData(texture.get(), TextureUploadDesc::tightlyPacked(std::span(rgba, size_t{ 4 }), 1, 1,
-                                                                             TextureFormat::RGBA8_UNorm));
+    if (auto uploadResult = device.uploadTextureData(
+                texture.get(),
+                TextureUploadDesc::tightlyPacked(std::span(rgba, size_t{ 4 }), 1, 1, TextureFormat::RGBA8_UNorm));
+        !uploadResult) {
+        LOG_ERROR("[GeometryDrawSharedResources] Default texture upload failed: {}", uploadResult.error().message);
+        return nullptr;
+    }
     return texture;
 }
 
@@ -93,8 +98,13 @@ std::unique_ptr<Texture> createDefaultEnvironmentIBLTexture(RHIDevice& device) {
     }
 
     auto texture = std::move(*result);
-    device.uploadTextureData(texture.get(), TextureUploadDesc::tightlyPacked(std::span(pixels), width, height,
-                                                                             TextureFormat::RGBA32_Float));
+    if (auto uploadResult = device.uploadTextureData(
+                texture.get(),
+                TextureUploadDesc::tightlyPacked(std::span(pixels), width, height, TextureFormat::RGBA32_Float));
+        !uploadResult) {
+        LOG_ERROR("[GeometryDrawSharedResources] Default environment upload failed: {}", uploadResult.error().message);
+        return nullptr;
+    }
     return texture;
 }
 
@@ -166,8 +176,14 @@ bool GeometryDrawSharedResources::createDefaultResources() {
     }
     default_brdf_lut_ = std::move(*lutResult);
     const uint16_t lutData[2] = { 0x3C00, 0x0000 };
-    device_.uploadTextureData(default_brdf_lut_.get(),
-                              TextureUploadDesc::tightlyPacked(std::span(lutData), 1, 1, TextureFormat::RG16_Float));
+    if (auto uploadResult = device_.uploadTextureData(
+                default_brdf_lut_.get(),
+                TextureUploadDesc::tightlyPacked(std::span(lutData), 1, 1, TextureFormat::RG16_Float));
+        !uploadResult) {
+        LOG_ERROR("[GeometryDrawSharedResources] Default BRDF LUT upload failed: {}", uploadResult.error().message);
+        default_brdf_lut_.reset();
+        return false;
+    }
     return true;
 }
 

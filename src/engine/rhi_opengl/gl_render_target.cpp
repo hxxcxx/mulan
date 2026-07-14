@@ -1,4 +1,5 @@
 #include "detail/gl_render_target.h"
+#include "../rhi/engine_error_code.h"
 
 namespace mulan::engine {
 
@@ -38,7 +39,7 @@ GLenum GLRenderTarget::toGLDepthAttachment(TextureFormat fmt) {
 // ============================================================
 
 GLRenderTarget::GLRenderTarget(const RenderTargetDesc& desc) : desc_(desc) {
-    createResources();
+    (void) createResources();
 }
 
 GLRenderTarget::~GLRenderTarget() {
@@ -49,14 +50,15 @@ GLRenderTarget::~GLRenderTarget() {
 // 资源创建与销毁
 // ============================================================
 
-void GLRenderTarget::createResources() {
+core::Result<void> GLRenderTarget::createResources() {
     // --- Color 纹理 ---
     GLuint colorTex = 0;
     const GLenum colorTarget = desc_.sampleCount > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
     glCreateTextures(colorTarget, 1, &colorTex);
     if (!colorTex) {
         LOG_ERROR("[OpenGL] Render target creation failed: color texture creation failed");
-        return;
+        return std::unexpected(
+                makeError(EngineErrorCode::RenderTargetCreateFailed, "OpenGL color texture creation failed"));
     }
     if (desc_.sampleCount > 1) {
         glTextureStorage2DMultisample(colorTex, static_cast<GLsizei>(desc_.sampleCount),
@@ -90,7 +92,8 @@ void GLRenderTarget::createResources() {
         if (!depthTex) {
             LOG_ERROR("[OpenGL] Render target creation failed: depth texture creation failed");
             destroyResources();
-            return;
+            return std::unexpected(
+                    makeError(EngineErrorCode::RenderTargetCreateFailed, "OpenGL depth texture creation failed"));
         }
 
         // 根据深度格式选择 GL 内部格式
@@ -125,7 +128,8 @@ void GLRenderTarget::createResources() {
     glCreateFramebuffers(1, &fbo_);
     if (!fbo_) {
         LOG_ERROR("[OpenGL] Render target creation failed: glCreateFramebuffers returned 0");
-        return;
+        return std::unexpected(
+                makeError(EngineErrorCode::RenderTargetCreateFailed, "OpenGL framebuffer creation failed"));
     }
 
     // Attach color
@@ -147,11 +151,19 @@ void GLRenderTarget::createResources() {
         LOG_ERROR("[OpenGL] Render target creation failed: framebuffer status=0x{:X}", status);
         glDeleteFramebuffers(1, &fbo_);
         fbo_ = 0;
-        return;
+        return std::unexpected(
+                makeError(EngineErrorCode::RenderTargetCreateFailed, "OpenGL framebuffer is incomplete"));
     }
+
+    GLTexture* renderColor = msaa_color_texture_ ? msaa_color_texture_.get() : color_texture_.get();
+    if (renderColor)
+        renderColor->setRenderTargetFramebuffer(fbo_);
+    if (depth_texture_)
+        depth_texture_->setRenderTargetFramebuffer(fbo_);
 
     LOG_DEBUG("[OpenGL] Framebuffer created: handle={}, size={}x{}, color={}, depth={}", fbo_, desc_.width,
               desc_.height, colorTex, depthTex);
+    return {};
 }
 
 void GLRenderTarget::destroyResources() {
@@ -177,13 +189,17 @@ RenderPassBeginInfo GLRenderTarget::renderPassBeginInfo() {
 // resize
 // ============================================================
 
-void GLRenderTarget::resize(uint32_t width, uint32_t height) {
+core::Result<void> GLRenderTarget::resize(uint32_t width, uint32_t height) {
     if (desc_.width == width && desc_.height == height)
-        return;
+        return {};
+    if (width == 0 || height == 0)
+        return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "OpenGL render target size must be non-zero"));
     desc_.width = width;
     desc_.height = height;
     destroyResources();
-    createResources();
+    if (auto result = createResources(); !result)
+        return std::unexpected(result.error());
+    return {};
 }
 
 // ============================================================

@@ -177,14 +177,18 @@ Texture* DX12SwapChain::currentBackBuffer() {
     return nullptr;
 }
 
-void DX12SwapChain::present() {
+core::Result<void> DX12SwapChain::present() {
     UINT syncInterval = desc_.vsync ? 1 : 0;
     UINT flags = desc_.vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING;
     HRESULT hr = swap_chain_->Present(syncInterval, flags);
     if (!checkDX12(hr, "IDXGISwapChain3::Present")) {
         logDeviceRemovedReason(hr);
-        return;
+        return std::unexpected(makeError(hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET
+                                                 ? EngineErrorCode::DeviceLost
+                                                 : EngineErrorCode::PresentationFailed,
+                                         "DX12 swapchain presentation failed"));
     }
+    return {};
 }
 
 void DX12SwapChain::logDeviceRemovedReason(HRESULT presentResult) const {
@@ -193,22 +197,28 @@ void DX12SwapChain::logDeviceRemovedReason(HRESULT presentResult) const {
               static_cast<unsigned>(presentResult), static_cast<unsigned>(reason));
 }
 
-void DX12SwapChain::resize(uint32_t width, uint32_t height) {
+core::Result<void> DX12SwapChain::resize(uint32_t width, uint32_t height) {
+    if (width == 0 || height == 0)
+        return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX12 swapchain size must be non-zero"));
     releaseBackBuffers();
+
+    HRESULT hr = swap_chain_->ResizeBuffers(desc_.bufferCount, width, height, toDXGIFormat(desc_.format), 0);
+    if (!checkDX12(hr, "IDXGISwapChain3::ResizeBuffers")) {
+        if (!createRTVHeap() || !createBackBuffers())
+            LOG_ERROR("[DX12] Swapchain recovery failed after ResizeBuffers failure");
+        return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX12 swapchain ResizeBuffers failed"));
+    }
 
     desc_.width = width;
     desc_.height = height;
 
-    HRESULT hr = swap_chain_->ResizeBuffers(desc_.bufferCount, width, height, toDXGIFormat(desc_.format), 0);
-    if (!checkDX12(hr, "IDXGISwapChain3::ResizeBuffers"))
-        return;
-
     if (!createRTVHeap()) {
-        LOG_ERROR("[DX12] Swap chain resize failed: descriptor heap creation failed");
-        return;
+        return std::unexpected(
+                makeError(EngineErrorCode::ResizeFailed, "DX12 swapchain descriptor heap recreation failed"));
     }
     if (auto result = createBackBuffers(); !result)
-        LOG_ERROR("[DX12] Swap chain resize recovery failed: {}", result.error().message);
+        return std::unexpected(result.error());
+    return {};
 }
 
 }  // namespace mulan::engine

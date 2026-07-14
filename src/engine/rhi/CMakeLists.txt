@@ -7,6 +7,7 @@ add_library(rhi STATIC
     device_factory.cpp
     bind_group.cpp
     bind_group_layout.cpp
+    pipeline_validation.cpp
     transient_uniform_allocator.cpp
 )
 

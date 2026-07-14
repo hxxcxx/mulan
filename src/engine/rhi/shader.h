@@ -10,6 +10,7 @@
 #include "resource.h"
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace mulan::engine {
@@ -45,7 +46,7 @@ enum class ShaderSourceLanguage : uint8_t {
 // ============================================================
 
 struct ShaderDesc {
-    std::string_view name;  // 调试名称
+    std::string name;  // 调试名称
     ShaderType type = ShaderType::Vertex;
 
     // 源码 — 三种方式任选其一
@@ -54,14 +55,21 @@ struct ShaderDesc {
     const uint8_t* byteCode = nullptr;  // 或预编译字节码
     uint32_t byteCodeSize = 0;
 
-    std::string_view entryPoint = "main";
+    std::string entryPoint = "main";
     ShaderSourceLanguage language = ShaderSourceLanguage::GLSL;
+
+    void discardCreationData() noexcept {
+        source = {};
+        filePath = {};
+        byteCode = nullptr;
+        byteCodeSize = 0;
+    }
 };
 
 // ============================================================
 // 着色器基类
 //
-// 平台无关的着色器资源，由 Device 创建，PipelineState 持有。
+// 平台无关的着色器资源，由 Device 创建。Pipeline 创建完成后不再依赖 Shader 对象生命周期。
 // ============================================================
 
 class Shader : public RHITrackedResource {

@@ -1,4 +1,5 @@
 #include "detail/dx12_frame_context.h"
+#include "../rhi/engine_error_code.h"
 
 namespace mulan::engine {
 
@@ -18,14 +19,19 @@ DX12FrameContext::DX12FrameContext(ID3D12Device* device) : transient_uniform_are
 
 DX12FrameContext::~DX12FrameContext() = default;
 
-void DX12FrameContext::waitForFence() {
-    fence_->wait(fence_value_);
+core::Result<void> DX12FrameContext::waitForFence() {
+    return fence_->wait(fence_value_);
 }
 
-void DX12FrameContext::resetCommandAllocator() {
-    cmd_allocator_->Reset();
+core::Result<void> DX12FrameContext::resetCommandAllocator() {
+    if (!checkDX12(cmd_allocator_->Reset(), "ID3D12CommandAllocator::Reset"))
+        return std::unexpected(
+                makeError(EngineErrorCode::CommandRecordingFailed, "DX12 frame command allocator reset failed"));
     // 重新 open command list
-    cmd_list_->Reset(cmd_allocator_.Get(), nullptr);
+    if (!checkDX12(cmd_list_->Reset(cmd_allocator_.Get(), nullptr), "ID3D12GraphicsCommandList::Reset"))
+        return std::unexpected(
+                makeError(EngineErrorCode::CommandRecordingFailed, "DX12 frame command list reset failed"));
+    return {};
 }
 
 }  // namespace mulan::engine

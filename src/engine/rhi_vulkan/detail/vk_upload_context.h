@@ -9,7 +9,9 @@
 
 #include "vk_common.h"
 
+#include "../rhi/engine_error_code.h"
 #include "../rhi/texture.h"
+#include <mulan/core/result/error.h>
 
 #include <vector>
 #include <mutex>
@@ -33,57 +35,65 @@ public:
     VKUploadContext(vk::Device device, VmaAllocator allocator, uint32_t queueFamily, vk::Queue queue);
     ~VKUploadContext();
 
-    void uploadToBuffer(VKBuffer* dst, const void* data, uint32_t size, uint32_t dstOffset = 0);
-    void uploadBufferInit(VKBuffer* dst);
+    core::Result<void> uploadToBuffer(VKBuffer* dst, const void* data, uint32_t size, uint32_t dstOffset = 0);
+    core::Result<void> uploadBufferInit(VKBuffer* dst);
 
     /// 上传像素数据到纹理：staging 拷贝 + layout 转换到 eShaderReadOnlyOptimal。
     /// 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式。
-    void uploadTexture(VKTexture* dst, const TextureUploadDesc& upload);
+    core::Result<void> uploadTexture(VKTexture* dst, const TextureUploadDesc& upload);
 
     StagingSlice allocStaging(uint32_t size);
     void resetSlabs();
     void flush();
 
     /// 开始批量上传：后续 uploadToBuffer/uploadTexture 只录制不提交
-    void beginUploadBatch();
+    core::Result<void> beginUploadBatch();
 
     /// 结束批量上传：提交一次命令并同步等待 GPU 完成
-    void flushUploadBatch();
+    core::Result<void> flushUploadBatch();
 
 private:
     template <typename F>
-    void executeCopy(F&& copyCmd) {
+    core::Result<void> executeCopy(F&& copyCmd) {
         if (batch_active_) {
             // 批量模式：只录制到 batch_cmd_，不提交
             copyCmd(batch_cmd_);
-            return;
+            return {};
         }
 
-        vk::CommandBufferAllocateInfo allocCI;
-        allocCI.commandPool = cmd_pool_;
-        allocCI.level = vk::CommandBufferLevel::ePrimary;
-        allocCI.commandBufferCount = 1;
-        auto cmds = device_.allocateCommandBuffers(allocCI);
+        try {
+            vk::CommandBufferAllocateInfo allocCI;
+            allocCI.commandPool = cmd_pool_;
+            allocCI.level = vk::CommandBufferLevel::ePrimary;
+            allocCI.commandBufferCount = 1;
+            auto cmds = device_.allocateCommandBuffers(allocCI);
 
-        vk::CommandBufferBeginInfo beginInfo;
-        beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
-        cmds[0].begin(beginInfo);
+            vk::CommandBufferBeginInfo beginInfo;
+            beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+            cmds[0].begin(beginInfo);
 
-        copyCmd(cmds[0]);
+            copyCmd(cmds[0]);
 
-        cmds[0].end();
+            cmds[0].end();
 
-        vk::SubmitInfo submitInfo;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &cmds[0];
-        queue_.submit(submitInfo, upload_fence_);
+            vk::SubmitInfo submitInfo;
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &cmds[0];
+            queue_.submit(submitInfo, upload_fence_);
 
-        (void) device_.waitForFences(upload_fence_, true, UINT64_MAX);
-        (void) device_.resetFences(upload_fence_);
+            const vk::Result waitResult = device_.waitForFences(upload_fence_, true, UINT64_MAX);
+            if (waitResult != vk::Result::eSuccess)
+                return std::unexpected(
+                        makeError(EngineErrorCode::ResourceUploadFailed, "Vulkan upload fence wait failed"));
+            device_.resetFences(upload_fence_);
 
-        device_.freeCommandBuffers(cmd_pool_, cmds);
-        (void) device_.resetCommandPool(cmd_pool_);
-        resetSlabs();
+            device_.freeCommandBuffers(cmd_pool_, cmds);
+            device_.resetCommandPool(cmd_pool_);
+            resetSlabs();
+        } catch (const vk::Error& error) {
+            return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed, error.what()));
+        }
+        return {};
     }
 
     struct Slab {

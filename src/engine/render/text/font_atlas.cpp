@@ -292,9 +292,14 @@ bool FontAtlas::uploadAtlas(const std::vector<uint8_t>& rgbaData) {
 
     // 当前引擎的 TextureDesc 没有 initData 字段，纹理内容通过 RHIDevice 的统一上传入口写入。
     // 后端相关的 UploadContext 与布局转换细节留在 RHI 层，FontAtlas 不直接依赖具体后端。
-    device_->uploadTextureData(texture_.get(),
-                               TextureUploadDesc::tightlyPacked(std::span(rgbaData), atlas_width_, atlas_height_,
-                                                                TextureFormat::RGBA8_UNorm));
+    auto uploadResult = device_->uploadTextureData(
+            texture_.get(), TextureUploadDesc::tightlyPacked(std::span(rgbaData), atlas_width_, atlas_height_,
+                                                             TextureFormat::RGBA8_UNorm));
+    if (!uploadResult) {
+        LOG_ERROR("[FontAtlas] Atlas texture upload failed: {}", uploadResult.error().message);
+        texture_.reset();
+        return false;
+    }
 
     return true;
 }

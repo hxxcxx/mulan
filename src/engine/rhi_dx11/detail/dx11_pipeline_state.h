@@ -29,6 +29,9 @@ public:
     ID3D11RasterizerState* rasterizerState() const { return m_rasterizer.Get(); }
     ID3D11BlendState* blendState() const { return m_blend.Get(); }
     ID3D11DepthStencilState* depthStencilState() const { return m_depthStencil.Get(); }
+    ID3D11VertexShader* vertexShader() const { return m_vertexShader.Get(); }
+    ID3D11PixelShader* pixelShader() const { return m_pixelShader.Get(); }
+    ID3D11GeometryShader* geometryShader() const { return m_geometryShader.Get(); }
     bool isValid() const { return m_initialized; }
 
     uint32_t stride() const { return m_desc.vertexLayout.stride(); }
@@ -46,6 +49,9 @@ private:
     ComPtr<ID3D11RasterizerState> m_rasterizer;
     ComPtr<ID3D11BlendState> m_blend;
     ComPtr<ID3D11DepthStencilState> m_depthStencil;
+    ComPtr<ID3D11VertexShader> m_vertexShader;
+    ComPtr<ID3D11PixelShader> m_pixelShader;
+    ComPtr<ID3D11GeometryShader> m_geometryShader;
     bool m_initialized = false;
 };
 

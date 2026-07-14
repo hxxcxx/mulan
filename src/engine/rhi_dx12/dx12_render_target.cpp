@@ -83,7 +83,9 @@ core::Result<void> DX12RenderTarget::createResources() {
     return {};
 }
 
-void DX12RenderTarget::resize(uint32_t width, uint32_t height) {
+core::Result<void> DX12RenderTarget::resize(uint32_t width, uint32_t height) {
+    if (width == 0 || height == 0)
+        return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX12 render target size must be non-zero"));
     desc_.width = width;
     desc_.height = height;
     color_texture_.reset();
@@ -92,7 +94,8 @@ void DX12RenderTarget::resize(uint32_t width, uint32_t height) {
     rtv_heap_.reset();
     dsv_heap_.reset();
     if (auto result = createResources(); !result)
-        LOG_ERROR("[DX12] Render target resize failed: {}", result.error().message);
+        return std::unexpected(result.error());
+    return {};
 }
 
 RenderPassBeginInfo DX12RenderTarget::renderPassBeginInfo() {
@@ -119,7 +122,6 @@ RenderPassBeginInfo DX12RenderTarget::renderPassBeginInfo() {
     info.presentSource = false;
     info.width = desc_.width;
     info.height = desc_.height;
-    info.nativeHandle = nativeRenderPassHandle();
     return info;
 }
 

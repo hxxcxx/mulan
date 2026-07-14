@@ -1,4 +1,5 @@
 #include "detail/gl_device.h"
+#include "../rhi/pipeline_validation.h"
 #include "detail/gl_swap_chain.h"
 #include "detail/gl_shader.h"
 #include "detail/gl_pipeline_state.h"
@@ -141,7 +142,10 @@ void GLDevice::init(const CreateInfo& ci) {
 }
 
 GLDevice::~GLDevice() {
-    waitIdle();
+    if (initialized_) {
+        if (auto result = waitIdle(); !result)
+            LOG_ERROR("[OpenGL] Device idle wait during shutdown failed: {}", result.error().message);
+    }
     drainDeferredReleases();
     shutdownSubmissionTracking();
     frame_command_list_.reset();
@@ -178,10 +182,11 @@ void GLDevice::queryCapabilities() {
     }
 
     const int version = major * 10 + minor;
-    caps_.depthClamp = version >= 32;
     caps_.geometryShader = version >= 32;
-    caps_.tessellationShader = version >= 40;
-    caps_.computeShader = version >= 43;
+    caps_.computeShader = false;
+    caps_.indirectDraw = false;
+    caps_.indirectDispatch = false;
+    caps_.pushConstants = false;
 }
 
 // ============================================================
@@ -221,6 +226,8 @@ core::Result<std::unique_ptr<Shader>> GLDevice::createShader(const ShaderDesc& d
 }
 
 core::Result<std::unique_ptr<PipelineState>> GLDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
+    if (auto validation = validateGraphicsPipelineDesc(desc, *this, caps_); !validation)
+        return std::unexpected(validation.error());
     return createGLResource<PipelineState, GLPipelineState>(*this, desc, EngineErrorCode::PipelineCreateFailed,
                                                             RHIResourceKind::PipelineState,
                                                             "OpenGL pipeline creation failed");
@@ -293,38 +300,62 @@ core::Result<std::unique_ptr<BindGroup>> GLDevice::createBindGroup(const BindGro
     }
 }
 
-void GLDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+core::Result<void> GLDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+    assertResourceOwned(dst);
     const uint32_t bpp = textureFormatBytesPerPixel(upload.format);
     const uint32_t rowPitch = upload.sourceRowPitch ? upload.sourceRowPitch : upload.width * bpp;
-    if (auto* texture = dynamic_cast<GLTexture*>(dst);
-        texture && !upload.data.empty() && bpp && rowPitch % bpp == 0 &&
-        upload.data.size_bytes() >= static_cast<size_t>(rowPitch) * upload.height) {
-        GLint previous_alignment = 4;
-        GLint previous_row_length = 0;
-        glGetIntegerv(GL_UNPACK_ALIGNMENT, &previous_alignment);
-        glGetIntegerv(GL_UNPACK_ROW_LENGTH, &previous_row_length);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, static_cast<GLint>(rowPitch / bpp));
-        texture->upload(upload.mipLevel, upload.data.data());
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, previous_row_length);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, previous_alignment);
-    }
+    auto* texture = static_cast<GLTexture*>(dst);
+    if (!texture || upload.data.empty() || bpp == 0 || rowPitch % bpp != 0 ||
+        upload.data.size_bytes() < static_cast<size_t>(rowPitch) * upload.height)
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceUploadFailed, "OpenGL texture upload arguments are invalid"));
+
+    const auto& destinationDesc = texture->desc();
+    if (destinationDesc.dimension != TextureDimension::Texture2D || destinationDesc.sampleCount != 1 ||
+        upload.mipLevel >= destinationDesc.mipLevels || upload.arrayLayer >= destinationDesc.arraySize ||
+        upload.format != destinationDesc.format || upload.depth != 1 ||
+        upload.width != std::max(1u, destinationDesc.width >> upload.mipLevel) ||
+        upload.height != std::max(1u, destinationDesc.height >> upload.mipLevel))
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceUploadFailed, "OpenGL texture upload subresource is invalid"));
+
+    GLint previous_alignment = 4;
+    GLint previous_row_length = 0;
+    glGetIntegerv(GL_UNPACK_ALIGNMENT, &previous_alignment);
+    glGetIntegerv(GL_UNPACK_ROW_LENGTH, &previous_row_length);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, static_cast<GLint>(rowPitch / bpp));
+    texture->upload(upload.mipLevel, upload.data.data());
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, previous_row_length);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, previous_alignment);
+    if (const GLenum error = glGetError(); error != GL_NO_ERROR)
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed, "OpenGL texture upload failed"));
+    return {};
 }
 
 core::Result<SubmissionToken> GLDevice::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
                                                             uint64_t fenceValue) {
+    if (auto validation = validateCommandListsForSubmission(cmdLists, count); !validation)
+        return std::unexpected(validation.error());
     if (!cmdLists || count == 0)
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "OpenGL command list batch is empty"));
-    auto submissionLock = lockSubmissionQueue();
+    for (uint32_t i = 0; i < count; ++i)
+        assertResourceOwned(cmdLists[i]);
     if (fence)
-        fence->signal(fenceValue);
+        assertResourceOwned(fence);
+    auto submissionLock = lockSubmissionQueue();
+    if (fence) {
+        if (auto signal = fence->signal(fenceValue); !signal)
+            return std::unexpected(signal.error());
+    }
 
     const SubmissionToken token = reserveSubmissionToken();
     auto* completionFence = static_cast<GLFence*>(submissionFence());
     if (!token || !completionFence)
         return std::unexpected(
                 makeError(EngineErrorCode::SubmissionFailed, "OpenGL submission timeline is unavailable"));
-    completionFence->signal(token.value);
+    if (auto signal = completionFence->signal(token.value); !signal)
+        return std::unexpected(signal.error());
     glFlush();
     if (!completionFence->isValid()) {
         LOG_ERROR("[OpenGL] Standalone submission timeline signal failed");
@@ -337,41 +368,38 @@ core::Result<SubmissionToken> GLDevice::executeCommandLists(CommandList** cmdLis
     return token;
 }
 
-void GLDevice::waitIdle() {
-    if (initialized_)
-        glFinish();
+core::Result<void> GLDevice::waitIdle() {
+    if (!initialized_)
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, "OpenGL device is unavailable"));
+    glFinish();
+    if (const GLenum error = glGetError(); error != GL_NO_ERROR)
+        return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "OpenGL glFinish failed"));
+    return {};
 }
 
-void GLDevice::beginFrame(SwapChain*) {
+core::Result<CommandList*> GLDevice::beginFrame(SwapChain* swapchain) {
+    if (swapchain)
+        assertResourceOwned(swapchain);
     if (context_ && !context_->makeCurrent()) {
-        LOG_ERROR("[OpenGL] Failed to make the context current for the frame");
-        return;
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, "OpenGL context activation failed"));
     }
     collectGarbage();
+    if (!initialized_ || !frame_command_list_)
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, "OpenGL frame CommandList is unavailable"));
+    if (auto result = frame_command_list_->begin(); !result)
+        return std::unexpected(result.error());
+    return frame_command_list_.get();
 }
 
-void GLDevice::clearCaches() {
-    if (!context_)
-        return;
-    context_->makeCurrent();
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindVertexArray(0);
-    glUseProgram(0);
-    glDisable(GL_SCISSOR_TEST);
-}
-
-CommandList* GLDevice::frameCommandList() {
-    return initialized_ ? frame_command_list_.get() : nullptr;
-}
-
-core::Result<SubmissionToken> GLDevice::submit() {
+core::Result<SubmissionToken> GLDevice::submitFrame() {
     auto submissionLock = lockSubmissionQueue();
     const SubmissionToken token = reserveSubmissionToken();
     if (!token)
         return std::unexpected(
                 makeError(EngineErrorCode::SubmissionFailed, "OpenGL submission timeline is unavailable"));
     auto* completionFence = static_cast<GLFence*>(submissionFence());
-    completionFence->signal(token.value);
+    if (auto signal = completionFence->signal(token.value); !signal)
+        return std::unexpected(signal.error());
     glFlush();
     if (!completionFence->isValid())
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "glFenceSync failed"));
@@ -380,21 +408,19 @@ core::Result<SubmissionToken> GLDevice::submit() {
     return token;
 }
 
-void GLDevice::present(SwapChain* swapchain) {
+core::Result<SubmissionToken> GLDevice::endFrame(SwapChain* swapchain) {
     if (swapchain)
-        swapchain->present();
-}
-
-core::Result<SubmissionToken> GLDevice::submitAndPresent(SwapChain* swapchain) {
-    auto result = submit();
+        assertResourceOwned(swapchain);
+    if (auto recording = frame_command_list_->end(); !recording)
+        return std::unexpected(recording.error());
+    auto result = submitFrame();
     if (!result)
         return std::unexpected(result.error());
-    present(swapchain);
+    if (swapchain) {
+        if (auto presentResult = swapchain->present(); !presentResult)
+            return std::unexpected(presentResult.error());
+    }
     return result;
-}
-
-core::Result<SubmissionToken> GLDevice::submitOffscreen() {
-    return submit();
 }
 
 }  // namespace mulan::engine

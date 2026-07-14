@@ -107,9 +107,8 @@ void WGLContext::clearCurrent() {
         wglMakeCurrent(nullptr, nullptr);
 }
 
-void WGLContext::swapBuffers() {
-    if (hdc_)
-        SwapBuffers(hdc_);
+bool WGLContext::swapBuffers() {
+    return hdc_ && SwapBuffers(hdc_) != FALSE;
 }
 
 void WGLContext::setSwapInterval(int interval) {

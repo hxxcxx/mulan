@@ -23,19 +23,19 @@ public:
     ~DX12UploadContext();
 
     /// 上传 Immutable/Default buffer 的初始数据
-    void uploadBuffer(DX12Buffer* dst, const void* data, uint32_t size, uint32_t dstOffset = 0);
+    core::Result<void> uploadBuffer(DX12Buffer* dst, const void* data, uint32_t size, uint32_t dstOffset = 0);
 
     /// 上传像素数据到纹理：staging 拷贝 + 资源状态转到 PIXEL_SHADER_RESOURCE。
     /// 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式。
-    void uploadTexture(DX12Texture* dst, const TextureUploadDesc& upload);
+    core::Result<void> uploadTexture(DX12Texture* dst, const TextureUploadDesc& upload);
 
     /// 开始批量上传：后续 uploadBuffer/uploadTexture 只录制到同一 cmd list，不提交。
     /// 配合 flushUploadBatch() 把多个上传合并成一次提交 + 一次 GPU 同步等待，
     /// 显著减少大模型加载（几十张纹理/网格）时的 GPU round-trip。
-    void beginUploadBatch();
+    core::Result<void> beginUploadBatch();
 
     /// 结束批量上传：Close + Execute + Signal + Wait，一次提交本批次所有命令。
-    void flushUploadBatch();
+    core::Result<void> flushUploadBatch();
 
     /// 提交并等待所有上传命令完成
     void flush();
@@ -44,7 +44,7 @@ public:
 private:
     /// 非批量模式下：录制完立即 Close→Execute→Signal→Wait（同步提交）。
     /// 批量模式下：不做任何提交，命令已录入 batch cmd list。
-    void submitIfNotBatching();
+    core::Result<void> submitIfNotBatching();
 
 private:
     ID3D12Device* device_;

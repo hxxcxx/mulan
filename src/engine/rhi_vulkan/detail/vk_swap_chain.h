@@ -55,10 +55,10 @@ public:
     RenderPassBeginInfo renderPassBeginInfo() override;
 
     bool acquireNextImage(vk::Semaphore imageAvailable);
-    void presentWithSemaphores(vk::Semaphore renderFinished);
-    void present() override;
+    core::Result<void> presentWithSemaphores(vk::Semaphore renderFinished);
+    core::Result<void> present() override;
 
-    void resize(uint32_t width, uint32_t height) override;
+    core::Result<void> resize(uint32_t width, uint32_t height) override;
 
     // --- Vulkan 特有 ---
     uint32_t currentImageIndex() const { return current_image_index_; }

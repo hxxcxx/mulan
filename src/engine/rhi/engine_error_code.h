@@ -47,6 +47,17 @@ enum class EngineErrorCode : int32_t {
     SubmissionFailed = 1017,
     SubmissionWaitFailed = 1018,
     InvalidSubmissionToken = 1019,
+
+    // --- 后端模块注册（1020~1021）---
+    InvalidBackendModule = 1020,
+    BackendAlreadyRegistered = 1021,
+
+    // --- 资源传输与呈现（1022~1024）---
+    ResourceUploadFailed = 1022,
+    PresentationFailed = 1023,
+    ResizeFailed = 1024,
+    CommandRecordingFailed = 1025,
+    ResourceReadbackFailed = 1026,
 };
 
 inline core::Error makeError(EngineErrorCode code, std::string_view msg,

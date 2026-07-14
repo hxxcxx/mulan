@@ -25,7 +25,7 @@ public:
 
     const BufferDesc& desc() const override { return desc_; }
     void update(uint32_t offset, uint32_t size, const void* data) override;
-    bool readback(uint32_t offset, uint32_t size, void* outData) override;
+    core::Result<void> readback(uint32_t offset, uint32_t size, void* outData) override;
 
     ID3D12Resource* resource() const { return resource_.Get(); }
     D3D12_RESOURCE_STATES state() const { return state_; }

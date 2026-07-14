@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cassert>
 #include <atomic>
+#include <iterator>
 
 namespace mulan::engine {
 
@@ -41,15 +42,39 @@ void RHIDevice::shutdownSubmissionTracking() {
     submission_fence_.reset();
 }
 
-SubmissionToken RHIDevice::reserveSubmissionToken(QueueType queue) {
-    if (!submission_fence_ || queue != QueueType::Graphics)
+core::Result<void> RHIDevice::validateCommandListsForSubmission(CommandList** commandLists, uint32_t count) const {
+    if (!commandLists || count == 0) {
+        return std::unexpected(
+                makeError(EngineErrorCode::SubmissionFailed, "CommandList submission requires at least one list"));
+    }
+    for (uint32_t i = 0; i < count; ++i) {
+        const CommandList* commandList = commandLists[i];
+        if (!commandList) {
+            return std::unexpected(
+                    makeError(EngineErrorCode::SubmissionFailed, "CommandList submission contains a null list"));
+        }
+        if (!commandList->isTracked() || !commandList->belongsTo(*this)) {
+            return std::unexpected(
+                    makeError(EngineErrorCode::SubmissionFailed, "CommandList is not owned by this device"));
+        }
+        if (!commandList->isExecutable()) {
+            const core::Error* recordingError = commandList->recordingError();
+            return std::unexpected(
+                    makeError(EngineErrorCode::SubmissionFailed,
+                              recordingError ? recordingError->message : "CommandList has not completed recording"));
+        }
+    }
+    return {};
+}
+
+SubmissionToken RHIDevice::reserveSubmissionToken() {
+    if (!submission_fence_)
         return {};
-    return SubmissionToken{ device_generation_, queue,
-                            next_submission_value_.fetch_add(1, std::memory_order_relaxed) + 1 };
+    return SubmissionToken{ device_generation_, next_submission_value_.fetch_add(1, std::memory_order_relaxed) + 1 };
 }
 
 void RHIDevice::commitSubmission(SubmissionToken token) {
-    if (!token || token.deviceGeneration != device_generation_ || token.queue != QueueType::Graphics)
+    if (!token || token.deviceGeneration != device_generation_)
         return;
 
     uint64_t current = last_submission_value_.load(std::memory_order_relaxed);
@@ -58,16 +83,15 @@ void RHIDevice::commitSubmission(SubmissionToken token) {
                                                          std::memory_order_relaxed)) {}
 }
 
-SubmissionToken RHIDevice::lastSubmissionToken(QueueType queue) const {
-    if (queue != QueueType::Graphics || !submission_fence_)
+SubmissionToken RHIDevice::lastSubmissionToken() const {
+    if (!submission_fence_)
         return {};
     const uint64_t value = last_submission_value_.load(std::memory_order_acquire);
-    return value == 0 ? SubmissionToken{} : SubmissionToken{ device_generation_, queue, value };
+    return value == 0 ? SubmissionToken{} : SubmissionToken{ device_generation_, value };
 }
 
 bool RHIDevice::isSubmissionComplete(SubmissionToken token) const {
-    if (!token || token.deviceGeneration != device_generation_ || token.queue != QueueType::Graphics ||
-        !submission_fence_)
+    if (!token || token.deviceGeneration != device_generation_ || !submission_fence_)
         return false;
     try {
         return submission_fence_->completedValue() >= token.value;
@@ -78,13 +102,13 @@ bool RHIDevice::isSubmissionComplete(SubmissionToken token) const {
 }
 
 core::Result<void> RHIDevice::waitForSubmission(SubmissionToken token) {
-    if (!token || token.deviceGeneration != device_generation_ || token.queue != QueueType::Graphics ||
-        !submission_fence_) {
+    if (!token || token.deviceGeneration != device_generation_ || !submission_fence_) {
         return std::unexpected(
                 makeError(EngineErrorCode::InvalidSubmissionToken, "submission token does not belong to this device"));
     }
     try {
-        submission_fence_->wait(token.value);
+        if (auto result = submission_fence_->wait(token.value); !result)
+            return std::unexpected(result.error());
         if (submission_fence_->completedValue() < token.value) {
             return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed,
                                              "GPU wait returned before the requested submission completed"));
@@ -98,8 +122,7 @@ core::Result<void> RHIDevice::waitForSubmission(SubmissionToken token) {
 core::Result<void> RHIDevice::retire(SubmissionToken token, DeferredRelease release) {
     if (!release)
         return {};
-    if (!token || token.deviceGeneration != device_generation_ || token.queue != QueueType::Graphics ||
-        !submission_fence_) {
+    if (!token || token.deviceGeneration != device_generation_ || !submission_fence_) {
         return std::unexpected(makeError(EngineErrorCode::InvalidSubmissionToken,
                                          "deferred release token does not belong to this device"));
     }
@@ -110,7 +133,14 @@ core::Result<void> RHIDevice::retire(SubmissionToken token, DeferredRelease rele
     }
 
     std::scoped_lock lock(deferred_release_mutex_);
-    deferred_releases_.push_back(DeferredReleaseEntry{ token, std::move(release) });
+    if (!deferred_release_batches_.empty() && deferred_release_batches_.back().token == token) {
+        deferred_release_batches_.back().releases.push_back(std::move(release));
+    } else {
+        DeferredReleaseBatch batch;
+        batch.token = token;
+        batch.releases.push_back(std::move(release));
+        deferred_release_batches_.push_back(std::move(batch));
+    }
     return {};
 }
 
@@ -118,14 +148,11 @@ void RHIDevice::collectGarbage() {
     std::vector<DeferredRelease> ready;
     {
         std::scoped_lock lock(deferred_release_mutex_);
-        auto it = deferred_releases_.begin();
-        while (it != deferred_releases_.end()) {
-            if (isSubmissionComplete(it->token)) {
-                ready.push_back(std::move(it->release));
-                it = deferred_releases_.erase(it);
-            } else {
-                ++it;
-            }
+        while (!deferred_release_batches_.empty() && isSubmissionComplete(deferred_release_batches_.front().token)) {
+            auto& batch = deferred_release_batches_.front();
+            ready.insert(ready.end(), std::make_move_iterator(batch.releases.begin()),
+                         std::make_move_iterator(batch.releases.end()));
+            deferred_release_batches_.pop_front();
         }
     }
     for (auto& release : ready)
@@ -136,10 +163,11 @@ void RHIDevice::drainDeferredReleases() {
     std::vector<DeferredRelease> releases;
     {
         std::scoped_lock lock(deferred_release_mutex_);
-        releases.reserve(deferred_releases_.size());
-        for (auto& entry : deferred_releases_)
-            releases.push_back(std::move(entry.release));
-        deferred_releases_.clear();
+        for (auto& batch : deferred_release_batches_) {
+            releases.insert(releases.end(), std::make_move_iterator(batch.releases.begin()),
+                            std::make_move_iterator(batch.releases.end()));
+        }
+        deferred_release_batches_.clear();
     }
     for (auto& release : releases)
         runDeferredRelease(release);

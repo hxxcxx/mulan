@@ -62,6 +62,7 @@ core::Result<std::unique_ptr<VKBuffer>> VKBuffer::create(const BufferDesc& desc,
         std::memcpy(obj->pending_data_.data(), desc.initData, desc.size);
     }
 
+    obj->desc_.discardInitialData();
     return obj;
 }
 
@@ -82,14 +83,17 @@ void VKBuffer::update(uint32_t offset, uint32_t size, const void* data) {
     }
 }
 
-bool VKBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
-    if (desc_.usage != BufferUsage::Staging || !mapped_data_)
-        return false;
+core::Result<void> VKBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
+    if (desc_.usage != BufferUsage::Staging || !mapped_data_ || !outData || offset > desc_.size ||
+        size > desc_.size - offset) {
+        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
+                                         "Vulkan buffer readback requires a valid mapped staging range"));
+    }
 
     // 确保 GPU 写入对 CPU 可见
     vmaInvalidateAllocation(allocator_, allocation_, offset, size);
     memcpy(outData, static_cast<const uint8_t*>(mapped_data_) + offset, size);
-    return true;
+    return {};
 }
 
 }  // namespace mulan::engine

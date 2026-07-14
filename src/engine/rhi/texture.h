@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <string_view>
 
 namespace mulan::engine {
@@ -142,7 +143,7 @@ struct TextureUploadDesc {
 // ============================================================
 
 struct TextureDesc {
-    std::string_view name;
+    std::string name;
     TextureFormat format = TextureFormat::RGBA8_UNorm;
     TextureDimension dimension = TextureDimension::Texture2D;
     TextureUsageFlags usage = TextureUsageFlags::ShaderResource;
@@ -157,7 +158,7 @@ struct TextureDesc {
 
     static TextureDesc renderTarget(uint32_t w, uint32_t h, TextureFormat fmt = TextureFormat::RGBA8_UNorm,
                                     std::string_view debugName = {}, uint32_t samples = 1) {
-        return { debugName,
+        return { std::string(debugName),
                  fmt,
                  TextureDimension::Texture2D,
                  TextureUsageFlags::RenderTarget | TextureUsageFlags::ShaderResource,
@@ -171,7 +172,7 @@ struct TextureDesc {
 
     static TextureDesc depthStencil(uint32_t w, uint32_t h, TextureFormat fmt = TextureFormat::D24_UNorm_S8_UInt,
                                     std::string_view debugName = {}, uint32_t samples = 1) {
-        return { debugName,
+        return { std::string(debugName),
                  fmt,
                  TextureDimension::Texture2D,
                  TextureUsageFlags::DepthStencil | TextureUsageFlags::ShaderResource,

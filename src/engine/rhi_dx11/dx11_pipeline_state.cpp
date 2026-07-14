@@ -12,11 +12,17 @@ DX11PipelineState::DX11PipelineState(const GraphicsPipelineDesc& desc, ID3D11Dev
         LOG_ERROR("[DX11] Pipeline initialization rejected: invalid device or vertex shader");
         return;
     }
+    m_vertexShader = vsShader->vsShader();
+    if (desc.ps)
+        m_pixelShader = static_cast<DX11Shader*>(desc.ps)->psShader();
+    if (desc.gs)
+        m_geometryShader = static_cast<DX11Shader*>(desc.gs)->gsShader();
     createInputLayout();
     createRasterizerState();
     createBlendState();
     createDepthStencilState();
     m_initialized = (m_desc.vertexLayout.empty() || m_inputLayout) && m_rasterizer && m_blend && m_depthStencil;
+    m_desc.discardShaderReferences();
 }
 
 void DX11PipelineState::createInputLayout() {

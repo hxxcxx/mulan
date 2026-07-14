@@ -60,24 +60,28 @@ void DX12CommandList::setCommandList(ID3D12GraphicsCommandList* cmdList) {
     recording_ = cmdList != nullptr;
 }
 
-void DX12CommandList::begin() {
-    resetResourceUsage();
-    if (!cmd_list_)
-        return;
+core::Result<void> DX12CommandList::doBegin() {
+    if (!cmd_list_) {
+        return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed, "DX12 command list is unavailable"));
+    }
 
     if (owns_cmd_list_) {
         // 独立命令列表由 create() 先关闭；begin() 负责复用 allocator 并重新打开。
-        if (recording_ || !allocator_)
-            return;
-        const auto previousSubmission = waitForPreviousSubmission();
-        if (!previousSubmission) {
-            LOG_ERROR("[DX12] Command list reuse rejected: {}", previousSubmission.error().message);
-            return;
+        if (recording_ || !allocator_) {
+            return std::unexpected(
+                    makeError(EngineErrorCode::CommandRecordingFailed, "DX12 command list cannot be reset"));
         }
-        if (!checkDX12(allocator_->Reset(), "ID3D12CommandAllocator::Reset"))
-            return;
-        if (!checkDX12(cmd_list_->Reset(allocator_.Get(), nullptr), "ID3D12GraphicsCommandList::Reset"))
-            return;
+        const auto previousSubmission = waitForPreviousSubmission();
+        if (!previousSubmission)
+            return std::unexpected(previousSubmission.error());
+        if (!checkDX12(allocator_->Reset(), "ID3D12CommandAllocator::Reset")) {
+            return std::unexpected(
+                    makeError(EngineErrorCode::CommandRecordingFailed, "DX12 command allocator reset failed"));
+        }
+        if (!checkDX12(cmd_list_->Reset(allocator_.Get(), nullptr), "ID3D12GraphicsCommandList::Reset")) {
+            return std::unexpected(
+                    makeError(EngineErrorCode::CommandRecordingFailed, "DX12 command list reset failed"));
+        }
     }
 
     // 帧循环模式的 allocator/list 已由 DX12FrameContext reset；这里仅标记录制状态。
@@ -85,24 +89,29 @@ void DX12CommandList::begin() {
     if (transient_uniform_arena_)
         transient_uniform_arena_->beginRecording();
     bindDescriptorHeaps();
+    return {};
 }
 
-void DX12CommandList::end() {
-    if (!cmd_list_ || !recording_)
-        return;
+core::Result<void> DX12CommandList::doEnd() {
+    if (!cmd_list_ || !recording_) {
+        return std::unexpected(
+                makeError(EngineErrorCode::CommandRecordingFailed, "DX12 command list is not recording"));
+    }
     HRESULT hr = cmd_list_->Close();
     if (transient_uniform_arena_)
         transient_uniform_arena_->endRecording();
     if (!checkDX12(hr, "ID3D12GraphicsCommandList::Close")) {
         recording_ = false;
-        return;
+        return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed, "DX12 command list close failed"));
     }
     recording_ = false;
+    return {};
 }
 
 void DX12CommandList::setPipelineState(PipelineState* pso) {
-    recordResourceUse(pso);
+    assertResourceCompatible(pso);
     auto* dx12Pso = static_cast<DX12PipelineState*>(pso);
+    activateBindGroupLayout(pso->bindGroupLayout());
     cmd_list_->SetPipelineState(dx12Pso->pipeline());
     cmd_list_->SetGraphicsRootSignature(dx12Pso->rootSignature());
     cmd_list_->IASetPrimitiveTopology(toDX12Topology(pso->desc().topology));
@@ -120,7 +129,7 @@ void DX12CommandList::setScissorRect(const ScissorRect& rect) {
 }
 
 void DX12CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
-    recordResourceUse(buffer);
+    assertResourceCompatible(buffer);
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
     D3D12_VERTEX_BUFFER_VIEW vbv = {};
     vbv.BufferLocation = dx12Buf->gpuAddress() + offset;
@@ -130,10 +139,8 @@ void DX12CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t of
 }
 
 void DX12CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
-    if (buffers) {
-        for (uint32_t i = 0; i < count; ++i)
-            recordResourceUse(buffers[i]);
-    }
+    for (uint32_t i = 0; i < count; ++i)
+        assertResourceCompatible(buffers[i]);
     D3D12_VERTEX_BUFFER_VIEW vbvs[16] = {};
     for (uint32_t i = 0; i < count && i < 16; ++i) {
         auto* dx12Buf = static_cast<DX12Buffer*>(buffers[i]);
@@ -145,7 +152,7 @@ void DX12CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffe
 }
 
 void DX12CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
-    recordResourceUse(buffer);
+    assertResourceCompatible(buffer);
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
     D3D12_INDEX_BUFFER_VIEW ibv = {};
     ibv.BufferLocation = dx12Buf->gpuAddress() + offset;
@@ -163,49 +170,55 @@ void DX12CommandList::drawIndexed(const DrawIndexedAttribs& attribs) {
                                     attribs.startInstance);
 }
 
-void DX12CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t /*stride*/) {
-    recordResourceUse(argsBuffer);
-    if (!draw_indirect_sig_)
+void DX12CommandList::drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
+    assertResourceCompatible(argsBuffer);
+    if (!draw_indirect_sig_) {
+        LOG_ERROR("[DX12] drawIndirect rejected: command signature is unavailable");
         return;
+    }
+    if (stride != 0 && stride != sizeof(D3D12_DRAW_INDEXED_ARGUMENTS)) {
+        LOG_ERROR("[DX12] drawIndirect rejected: custom argument stride is not supported");
+        return;
+    }
     auto* dx12Buf = static_cast<DX12Buffer*>(argsBuffer);
     cmd_list_->ExecuteIndirect(draw_indirect_sig_, drawCount, dx12Buf->resource(), offset, nullptr, 0);
 }
 
 void DX12CommandList::dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
-    cmd_list_->Dispatch(threadGroupX, threadGroupY, threadGroupZ);
+    (void) threadGroupX;
+    (void) threadGroupY;
+    (void) threadGroupZ;
+    LOG_ERROR("[DX12] dispatch rejected: compute pipeline is not implemented");
+    rejectRecording("DX12 compute dispatch is not implemented");
 }
 
 void DX12CommandList::dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
-    recordResourceUse(argsBuffer);
-    if (!dispatch_indirect_sig_)
-        return;
-    auto* dx12Buf = static_cast<DX12Buffer*>(argsBuffer);
-    cmd_list_->ExecuteIndirect(dispatch_indirect_sig_, 1, dx12Buf->resource(), offset, nullptr, 0);
+    assertResourceCompatible(argsBuffer);
+    (void) offset;
+    LOG_ERROR("[DX12] dispatchIndirect rejected: compute pipeline is not implemented");
+    rejectRecording("DX12 indirect compute dispatch is not implemented");
 }
 
-void DX12CommandList::setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t /*stageFlags*/) {
-    // DX12 root constants: binding slot 3 reserved for push constants
-    // (slot 0=scene UBO, 1=object UBO, 2=material UBO, 3=push constants)
-    uint32_t count = size / 4;
-    if (count > 0) {
-        cmd_list_->SetGraphicsRoot32BitConstants(3, count, data, offset / 4);
-    }
+void DX12CommandList::setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) {
+    (void) offset;
+    (void) size;
+    (void) data;
+    (void) stageFlags;
+    LOG_ERROR("[DX12] setPushConstants rejected: root constants are not implemented");
+    rejectRecording("DX12 root constants are not implemented");
 }
 
 void DX12CommandList::updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
                                    ResourceTransitionMode mode) {
-    recordResourceUse(buffer);
+    assertResourceCompatible(buffer);
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
     dx12Buf->update(offset, size, data);
 }
 
 void DX12CommandList::bindGroup(BindGroup& group) {
-    recordBindGroupUse(group);
-    auto* dx12Group = dynamic_cast<DX12BindGroup*>(&group);
-    if (!dx12Group) {
-        LOG_ERROR("[DX12] bindGroup rejected: bind group is not a DX12 bind group");
+    if (!validateBindGroupCompatible(group))
         return;
-    }
+    auto* dx12Group = static_cast<DX12BindGroup*>(&group);
     if (std::any_of(dx12Group->layout().entries().begin(), dx12Group->layout().entries().end(),
                     [](const BindGroupLayoutEntry& entry) { return entry.mode == BindingMode::Dynamic; })) {
         LOG_ERROR("[DX12] bindGroup rejected: dynamic UniformBuffer bindings are required by the layout");
@@ -215,12 +228,9 @@ void DX12CommandList::bindGroup(BindGroup& group) {
 }
 
 void DX12CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) {
-    recordBindGroupUse(group);
-    auto* dx12Group = dynamic_cast<DX12BindGroup*>(&group);
-    if (!dx12Group) {
-        LOG_ERROR("[DX12] bindGroup rejected: bind group is not a DX12 bind group");
+    if (!validateBindGroupCompatible(group))
         return;
-    }
+    auto* dx12Group = static_cast<DX12BindGroup*>(&group);
     const uint64_t generation = transient_uniform_arena_ ? transient_uniform_arena_->recordingGeneration() : 0;
     const std::string validationError =
             validateDynamicUniformBindings(dx12Group->layout(), dynamicUniforms,
@@ -232,13 +242,13 @@ void DX12CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniform
 
     bindStaticGroup(*dx12Group);
     for (const auto& binding : dynamicUniforms) {
-        auto* buffer = dynamic_cast<DX12Buffer*>(binding.slice.backingBuffer);
+        assertResourceCompatible(binding.slice.backingBuffer);
+        auto* buffer = static_cast<DX12Buffer*>(binding.slice.backingBuffer);
         const uint32_t rootIndex = dx12Group->rootIndexForBinding(binding.binding);
         if (!buffer || !buffer->resource() || rootIndex == DX12BindGroup::kInvalidRootIndex) {
             LOG_ERROR("[DX12] Dynamic uniform binding {} does not reference a DX12 upload page", binding.binding);
             continue;
         }
-        recordResourceUse(buffer);
         cmd_list_->SetGraphicsRootConstantBufferView(rootIndex, buffer->gpuAddress() + binding.slice.offset);
     }
 }
@@ -348,43 +358,6 @@ void DX12CommandList::bindStaticGroup(DX12BindGroup& group) {
     dx12Group->clearDirty(written);
 }
 
-void DX12CommandList::bindResources(const BindGroupDesc& desc) {
-    recordBindGroupUse(desc);
-    // 注意：此便捷路径仅接收 BindGroupDesc（无 BindGroupLayout），无法得知各 binding
-    // 的 DescriptorType，因此无法做 binding→root-parameter-index 映射。当前引擎渲染
-    // 路径一律走 bindGroup(BindGroup&)（后者有完整映射）。该便捷路径也不处理 sampler；
-    // 如需绑定 sampler，必须改为接收 layout 或 PSO 以正确计算 root index。
-    for (uint8_t i = 0; i < desc.count; ++i) {
-        const auto& e = desc.entries[i];
-        if (e.type == DescriptorType::UniformBuffer && e.buffer) {
-            auto* dx12Buf = static_cast<DX12Buffer*>(e.buffer);
-            cmd_list_->SetGraphicsRootConstantBufferView(e.binding, dx12Buf->gpuAddress() + e.offset);
-        } else if (e.type == DescriptorType::TextureSRV && e.texture && desc_heap_) {
-            auto* dx12Tex = static_cast<DX12Texture*>(e.texture);
-            if (!dx12Tex->srv().ptr)
-                continue;
-            if (desc_alloc_count_ >= desc_capacity_) {
-                LOG_ERROR("[DX12] bindResources rejected: shader-visible descriptor heap exhausted");
-                continue;
-            }
-
-            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = desc_cpu_base_;
-            cpuHandle.ptr += desc_alloc_count_ * desc_size_;
-            D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = desc_gpu_base_;
-            gpuHandle.ptr += desc_alloc_count_ * desc_size_;
-            ++desc_alloc_count_;
-
-            ID3D12Device* device = nullptr;
-            cmd_list_->GetDevice(IID_PPV_ARGS(&device));
-            if (device) {
-                device->CopyDescriptorsSimple(1, cpuHandle, dx12Tex->srv(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-                device->Release();
-            }
-            cmd_list_->SetGraphicsRootDescriptorTable(e.binding, gpuHandle);
-        }
-    }
-}
-
 void DX12CommandList::setDescriptorHeap(ID3D12DescriptorHeap* heap, D3D12_CPU_DESCRIPTOR_HANDLE cpuBase,
                                         D3D12_GPU_DESCRIPTOR_HANDLE gpuBase, uint32_t descriptorSize,
                                         ID3D12DescriptorHeap* samplerHeap, uint32_t descriptorCapacity) {
@@ -418,7 +391,7 @@ void DX12CommandList::bindDescriptorHeaps() {
 }
 
 void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState) {
-    recordResourceUse(buffer);
+    assertResourceCompatible(buffer);
     auto* dx12Buf = static_cast<DX12Buffer*>(buffer);
     if (!dx12Buf || !dx12Buf->resource())
         return;
@@ -446,7 +419,7 @@ void DX12CommandList::transitionResource(Buffer* buffer, ResourceState newState)
 }
 
 void DX12CommandList::transitionResource(Texture* texture, ResourceState newState) {
-    recordResourceUse(texture);
+    assertResourceCompatible(texture);
     auto* dx12Tex = static_cast<DX12Texture*>(texture);
     if (!dx12Tex || !dx12Tex->resource())
         return;
@@ -466,19 +439,21 @@ void DX12CommandList::transitionResource(Texture* texture, ResourceState newStat
     dx12Tex->setState(after);
 }
 
-bool DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
-    recordResourceUse(src);
-    recordResourceUse(dst);
+core::Result<void> DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+    assertResourceCompatible(src);
+    assertResourceCompatible(dst);
     auto* dx12Tex = static_cast<DX12Texture*>(src);
     auto* dx12Buf = static_cast<DX12Buffer*>(dst);
     if (!dx12Tex || !dx12Buf || !dx12Tex->resource() || !dx12Buf->resource())
-        return false;
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceReadbackFailed, "DX12 texture copy requires valid resources"));
 
-    // 取 device 用于 GetCopyableFootprints（与 bindResources 同模式）
+    // 取 device 用于 GetCopyableFootprints。
     ID3D12Device* device = nullptr;
     cmd_list_->GetDevice(IID_PPV_ARGS(&device));
     if (!device)
-        return false;
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceReadbackFailed, "DX12 texture copy could not query the device"));
 
     // 构建与纹理一致的 resource desc，用于计算可拷贝的 footprint
     const auto& td = dx12Tex->desc();
@@ -503,7 +478,7 @@ bool DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
 
     if (dx12Buf->size() < totalSize) {
         LOG_ERROR("[DX12] copyTextureToBuffer rejected: destination buffer is too small for texture footprint");
-        return false;
+        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed, "DX12 readback buffer is too small"));
     }
 
     const D3D12_RESOURCE_STATES originalTexState = dx12Tex->state();
@@ -512,7 +487,8 @@ bool DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     if (originalBufState != D3D12_RESOURCE_STATE_COPY_DEST &&
         (dx12Buf->usage() == BufferUsage::Staging || dx12Buf->usage() == BufferUsage::Dynamic)) {
         LOG_ERROR("[DX12] copyTextureToBuffer rejected: destination buffer is not in COPY_DEST state");
-        return false;
+        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
+                                         "DX12 destination buffer is not in copy-destination state"));
     }
 
     // Transition the source only when necessary. The caller may already have
@@ -568,35 +544,64 @@ bool DX12CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
         cmd_list_->ResourceBarrier(1, &texBarrier);
         dx12Tex->setState(originalTexState);
     }
-    return true;
+    return {};
 }
 
-void DX12CommandList::clearColor(float r, float g, float b, float a) {
-    // 由 SwapChain/RenderTarget 在 beginRenderPass 中处理
-}
-
-void DX12CommandList::clearDepth(float depth) {
-    // 由 SwapChain/RenderTarget 在 beginRenderPass 中处理
-}
-
-void DX12CommandList::clearStencil(uint8_t stencil) {
-    // 由 beginRenderPass 中处理
+void DX12CommandList::setComputePipelineState(ComputePipelineState*) {
+    LOG_ERROR("[DX12] Compute pipeline binding rejected: compute is not implemented");
+    rejectRecording("DX12 compute pipelines are not implemented");
 }
 
 // ============================================================
 // RenderPass
 // ============================================================
 
-void DX12CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
-    recordRenderPassUse(info);
+core::Result<void> DX12CommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
     auto* cl = cmd_list_.Get();
+    if (!cl || info.colorCount > RenderPassBeginInfo::kMaxColorTargets || info.width == 0 || info.height == 0)
+        return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
+                                         "DX12 render pass dimensions or attachment count are invalid"));
     rp_present_source_ = info.presentSource;
+    rp_color_count_ = info.colorCount;
+    rp_color_textures_.fill(nullptr);
+    rp_resolve_textures_.fill(nullptr);
+
+    uint32_t attachmentSampleCount = 0;
+    for (uint8_t i = 0; i < info.colorCount; ++i) {
+        auto* texture = static_cast<DX12Texture*>(info.colorAttachments[i].target);
+        if (!texture || !texture->resource())
+            return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
+                                             "DX12 render pass requires valid color textures"));
+        if (attachmentSampleCount == 0)
+            attachmentSampleCount = texture->desc().sampleCount;
+        else if (attachmentSampleCount != texture->desc().sampleCount)
+            return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
+                                             "DX12 render pass attachments must use the same sample count"));
+
+        if (auto* resolveTexture = static_cast<DX12Texture*>(info.colorAttachments[i].resolveTarget)) {
+            if (!resolveTexture->resource() || texture->desc().sampleCount <= 1 ||
+                resolveTexture->desc().sampleCount != 1 || resolveTexture->format() != texture->format() ||
+                resolveTexture->width() != texture->width() || resolveTexture->height() != texture->height()) {
+                return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
+                                                 "DX12 resolve target is incompatible with its color texture"));
+            }
+        }
+    }
+    if (auto* depthTexture = static_cast<DX12Texture*>(info.depthAttachment.target)) {
+        if (!depthTexture->resource() ||
+            (attachmentSampleCount != 0 && attachmentSampleCount != depthTexture->desc().sampleCount)) {
+            return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
+                                             "DX12 depth attachment is invalid or uses a different sample count"));
+        }
+    }
+
+    std::array<D3D12_CPU_DESCRIPTOR_HANDLE, RenderPassBeginInfo::kMaxColorTargets> rtvHandles{};
 
     // Color attachment barrier: current → RENDER_TARGET
     for (uint8_t i = 0; i < info.colorCount; ++i) {
         auto* tex = static_cast<DX12Texture*>(info.colorAttachments[i].target);
-        if (!tex)
-            continue;
+        rp_color_textures_[i] = tex;
+        rtvHandles[i] = tex->rtv();
 
         D3D12_RESOURCE_STATES before = tex->state();
         D3D12_RESOURCE_STATES after = D3D12_RESOURCE_STATE_RENDER_TARGET;
@@ -618,6 +623,7 @@ void DX12CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
 
         if (info.colorAttachments[i].resolveTarget) {
             auto* resolveTex = static_cast<DX12Texture*>(info.colorAttachments[i].resolveTarget);
+            rp_resolve_textures_[i] = resolveTex;
             D3D12_RESOURCE_STATES resolveBefore = resolveTex->state();
             D3D12_RESOURCE_STATES resolveAfter = D3D12_RESOURCE_STATE_RESOLVE_DEST;
             if (resolveTex->resource() && resolveBefore != resolveAfter) {
@@ -653,68 +659,65 @@ void DX12CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
         }
 
         if (info.depthAttachment.loadAction == LoadAction::Clear) {
-            cl->ClearDepthStencilView(depthTex->dsv(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-                                      info.clearDepth, info.clearStencil, 0, nullptr);
+            D3D12_CLEAR_FLAGS clearFlags = D3D12_CLEAR_FLAG_DEPTH;
+            if (depthTex->format() == TextureFormat::D24_UNorm_S8_UInt ||
+                depthTex->format() == TextureFormat::D32_Float_S8X24_UInt) {
+                clearFlags |= D3D12_CLEAR_FLAG_STENCIL;
+            }
+            cl->ClearDepthStencilView(depthTex->dsv(), clearFlags, info.clearDepth, info.clearStencil, 0, nullptr);
         }
         dsvHandle = depthTex->dsv();
         pDSV = &dsvHandle;
     }
 
-    // Set render targets (use first color attachment's RTV)
-    DX12Texture* colorTex = nullptr;
-    if (info.colorCount > 0) {
-        colorTex = static_cast<DX12Texture*>(info.colorAttachments[0].target);
-        D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = colorTex->rtv();
-        cl->OMSetRenderTargets(1, &rtvHandle, FALSE, pDSV);
-    }
-
-    rp_color_tex_ = colorTex;
-    rp_resolve_tex_ = (info.colorCount > 0 && info.colorAttachments[0].resolveTarget)
-                              ? static_cast<DX12Texture*>(info.colorAttachments[0].resolveTarget)
-                              : nullptr;
+    cl->OMSetRenderTargets(info.colorCount, info.colorCount > 0 ? rtvHandles.data() : nullptr, FALSE, pDSV);
+    return {};
 }
 
-void DX12CommandList::endRenderPass() {
-    if (!rp_color_tex_)
-        return;
+void DX12CommandList::doEndRenderPass() {
     auto* cl = cmd_list_.Get();
+    for (uint8_t i = 0; i < rp_color_count_; ++i) {
+        DX12Texture* colorTexture = rp_color_textures_[i];
+        DX12Texture* resolveTexture = rp_resolve_textures_[i];
+        if (!colorTexture)
+            continue;
 
-    DX12Texture* finalColorTex = rp_resolve_tex_ ? rp_resolve_tex_ : rp_color_tex_;
-    if (rp_resolve_tex_) {
-        D3D12_RESOURCE_STATES beforeResolve = rp_color_tex_->state();
-        if (rp_color_tex_->resource() && beforeResolve != D3D12_RESOURCE_STATE_RESOLVE_SOURCE) {
-            D3D12_RESOURCE_BARRIER barrier = {};
-            barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            barrier.Transition.pResource = rp_color_tex_->resource();
-            barrier.Transition.StateBefore = beforeResolve;
-            barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RESOLVE_SOURCE;
-            barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-            cl->ResourceBarrier(1, &barrier);
-            rp_color_tex_->setState(D3D12_RESOURCE_STATE_RESOLVE_SOURCE);
+        DX12Texture* finalColorTexture = resolveTexture ? resolveTexture : colorTexture;
+        if (resolveTexture) {
+            const D3D12_RESOURCE_STATES beforeResolve = colorTexture->state();
+            if (beforeResolve != D3D12_RESOURCE_STATE_RESOLVE_SOURCE) {
+                D3D12_RESOURCE_BARRIER barrier = {};
+                barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                barrier.Transition.pResource = colorTexture->resource();
+                barrier.Transition.StateBefore = beforeResolve;
+                barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RESOLVE_SOURCE;
+                barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+                cl->ResourceBarrier(1, &barrier);
+                colorTexture->setState(D3D12_RESOURCE_STATE_RESOLVE_SOURCE);
+            }
+            cl->ResolveSubresource(resolveTexture->resource(), 0, colorTexture->resource(), 0,
+                                   toDXGIFormat(resolveTexture->format()));
         }
 
-        cl->ResolveSubresource(rp_resolve_tex_->resource(), 0, rp_color_tex_->resource(), 0,
-                               toDXGIFormat(rp_resolve_tex_->format()));
+        const D3D12_RESOURCE_STATES targetState = rp_present_source_ && i == 0
+                                                          ? D3D12_RESOURCE_STATE_PRESENT
+                                                          : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+        const D3D12_RESOURCE_STATES before = finalColorTexture->state();
+        if (before != targetState) {
+            D3D12_RESOURCE_BARRIER barrier = {};
+            barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            barrier.Transition.pResource = finalColorTexture->resource();
+            barrier.Transition.StateBefore = before;
+            barrier.Transition.StateAfter = targetState;
+            barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            cl->ResourceBarrier(1, &barrier);
+            finalColorTexture->setState(targetState);
+        }
     }
 
-    D3D12_RESOURCE_STATES targetState =
-            rp_present_source_ ? D3D12_RESOURCE_STATE_PRESENT : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-
-    D3D12_RESOURCE_STATES before = finalColorTex->state();
-    D3D12_RESOURCE_STATES after = targetState;
-    if (finalColorTex->resource() && before != after) {
-        D3D12_RESOURCE_BARRIER barrier = {};
-        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrier.Transition.pResource = finalColorTex->resource();
-        barrier.Transition.StateBefore = before;
-        barrier.Transition.StateAfter = after;
-        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        cl->ResourceBarrier(1, &barrier);
-        finalColorTex->setState(after);
-    }
-
-    rp_color_tex_ = nullptr;
-    rp_resolve_tex_ = nullptr;
+    rp_color_count_ = 0;
+    rp_color_textures_.fill(nullptr);
+    rp_resolve_textures_.fill(nullptr);
 }
 
 }  // namespace mulan::engine

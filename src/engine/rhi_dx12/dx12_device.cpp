@@ -1,4 +1,5 @@
 #include "detail/dx12_device.h"
+#include "../rhi/pipeline_validation.h"
 #include "detail/dx12_debug_name.h"
 #include "detail/dx12_texture.h"
 #include "detail/dx12_bind_group.h"
@@ -55,7 +56,10 @@ DX12Device::DX12Device(const DeviceCreateInfo& ci) {
 }
 
 DX12Device::~DX12Device() {
-    waitIdle();
+    if (command_queue_) {
+        if (auto result = waitIdle(); !result)
+            LOG_ERROR("[DX12] Device idle wait during shutdown failed: {}", result.error().message);
+    }
     drainDeferredReleases();
     shutdownSubmissionTracking();
     upload_context_.reset();
@@ -101,6 +105,8 @@ void DX12Device::init(const DeviceCreateInfo& ci) {
     }
 
     frame_cmd_wrapper_ = std::make_unique<DX12CommandList>(nullptr);
+    frame_cmd_wrapper_->trackResource(*this, RHIResourceKind::CommandList, "DX12FrameCommandList");
+    frame_cmd_wrapper_->setDrawIndirectSignature(drawIndirectSignature());
 
     shader_visible_heap_ = std::make_unique<DX12DescriptorAllocator>(
             device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 8192);
@@ -121,11 +127,11 @@ void DX12Device::init(const DeviceCreateInfo& ci) {
 
     caps_.backend = GraphicsBackend::D3D12;
 
-    // D3D12 FL 12.0 所有基础特性均保证支持
-    caps_.depthClamp = true;
-    caps_.geometryShader = true;
-    caps_.tessellationShader = true;
-    caps_.computeShader = true;
+    caps_.geometryShader = false;
+    caps_.computeShader = false;
+    caps_.indirectDraw = draw_indirect_sig_ != nullptr;
+    caps_.indirectDispatch = false;
+    caps_.pushConstants = false;
     caps_.maxTextureSize = D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION;  // 16384
     caps_.maxTextureAniso = D3D12_DEFAULT_MAX_ANISOTROPY;         // 16
     const uint32_t colorSamples =
@@ -300,8 +306,8 @@ core::Result<std::unique_ptr<Buffer>> DX12Device::createBuffer(const BufferDesc&
     setDebugName(buf->resource(), desc.name.empty() ? "Buffer" : desc.name);
 
     if (buf->needsUpload()) {
-        upload_context_->uploadBuffer(buf.get(), buf->pendingData(), desc.size);
-        buf->markUploaded();
+        if (auto uploadResult = upload_context_->uploadBuffer(buf.get(), buf->pendingData(), desc.size); !uploadResult)
+            return std::unexpected(uploadResult.error());
     }
 
     buf->trackResource(*this, RHIResourceKind::Buffer, desc.name);
@@ -328,6 +334,8 @@ core::Result<std::unique_ptr<Shader>> DX12Device::createShader(const ShaderDesc&
 }
 
 core::Result<std::unique_ptr<PipelineState>> DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
+    if (auto validation = validateGraphicsPipelineDesc(desc, *this, caps_); !validation)
+        return std::unexpected(validation.error());
     HRESULT reason = device_->GetDeviceRemovedReason();
     if (FAILED(reason)) {
         LOG_ERROR("[DX12] createPipelineState({}) called after device removal: reason=0x{:08X}", desc.name,
@@ -358,7 +366,7 @@ core::Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
     if (!result)
         return std::unexpected(result.error());
     auto& cmd = *result;
-    cmd->setIndirectSignatures(drawIndirectSignature(), dispatchIndirectSignature());
+    cmd->setDrawIndirectSignature(drawIndirectSignature());
     if (auto* heap = shader_visible_heap_->heap()) {
         const auto cpuBase = heap->GetCPUDescriptorHandleForHeapStart();
         const auto gpuBase = heap->GetGPUDescriptorHandleForHeapStart();
@@ -436,16 +444,17 @@ core::Result<std::unique_ptr<BindGroup>> DX12Device::createBindGroup(const BindG
     return bindGroup;
 }
 
-void DX12Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
-    upload_context_->uploadTexture(static_cast<DX12Texture*>(dst), upload);
+core::Result<void> DX12Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+    assertResourceOwned(dst);
+    return upload_context_->uploadTexture(static_cast<DX12Texture*>(dst), upload);
 }
 
-void DX12Device::beginUploadBatch() {
-    upload_context_->beginUploadBatch();
+core::Result<void> DX12Device::beginUploadBatch() {
+    return upload_context_->beginUploadBatch();
 }
 
-void DX12Device::flushUploadBatch() {
-    upload_context_->flushUploadBatch();
+core::Result<void> DX12Device::flushUploadBatch() {
+    return upload_context_->flushUploadBatch();
 }
 
 ID3D12CommandSignature* DX12Device::drawIndirectSignature() {
@@ -464,30 +473,20 @@ ID3D12CommandSignature* DX12Device::drawIndirectSignature() {
     return draw_indirect_sig_.Get();
 }
 
-ID3D12CommandSignature* DX12Device::dispatchIndirectSignature() {
-    if (!dispatch_indirect_sig_) {
-        D3D12_INDIRECT_ARGUMENT_DESC argDesc{};
-        argDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
-
-        D3D12_COMMAND_SIGNATURE_DESC sigDesc{};
-        sigDesc.ByteStride = sizeof(D3D12_DISPATCH_ARGUMENTS);
-        sigDesc.NumArgumentDescs = 1;
-        sigDesc.pArgumentDescs = &argDesc;
-        sigDesc.NodeMask = 0;
-
-        device_->CreateCommandSignature(&sigDesc, nullptr, IID_PPV_ARGS(&dispatch_indirect_sig_));
-    }
-    return dispatch_indirect_sig_.Get();
-}
-
 // ============================================================
 // 命令提交
 // ============================================================
 
 core::Result<SubmissionToken> DX12Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
                                                               uint64_t fenceValue) {
+    if (auto validation = validateCommandListsForSubmission(cmdLists, count); !validation)
+        return std::unexpected(validation.error());
     if (!cmdLists || count == 0)
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX12 command list batch is empty"));
+    for (uint32_t i = 0; i < count; ++i)
+        assertResourceOwned(cmdLists[i]);
+    if (fence)
+        assertResourceOwned(fence);
     auto submissionLock = lockSubmissionQueue();
     std::vector<ID3D12CommandList*> lists(count);
     for (uint32_t i = 0; i < count; ++i) {
@@ -514,27 +513,44 @@ core::Result<SubmissionToken> DX12Device::executeCommandLists(CommandList** cmdL
     return token;
 }
 
-void DX12Device::waitIdle() {
+core::Result<void> DX12Device::waitIdle() {
     if (!command_queue_)
-        return;
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX12 command queue is unavailable"));
     ComPtr<ID3D12Fence> fence;
-    device_->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
-    command_queue_->Signal(fence.Get(), 1);
+    if (!checkDX12(device_->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)),
+                   "ID3D12Device::CreateFence(waitIdle)"))
+        return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "DX12 waitIdle fence creation failed"));
+    if (!checkDX12(command_queue_->Signal(fence.Get(), 1), "ID3D12CommandQueue::Signal(waitIdle)"))
+        return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "DX12 waitIdle signal failed"));
     HANDLE event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-    fence->SetEventOnCompletion(1, event);
-    WaitForSingleObject(event, INFINITE);
+    if (!event)
+        return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "DX12 waitIdle event creation failed"));
+    if (!checkDX12(fence->SetEventOnCompletion(1, event), "ID3D12Fence::SetEventOnCompletion(waitIdle)")) {
+        CloseHandle(event);
+        return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "DX12 waitIdle setup failed"));
+    }
+    const DWORD waitResult = WaitForSingleObject(event, INFINITE);
     CloseHandle(event);
+    if (waitResult != WAIT_OBJECT_0)
+        return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "DX12 waitIdle failed"));
+    return {};
 }
 
 // ============================================================
 // 帧循环
 // ============================================================
 
-void DX12Device::beginFrame(SwapChain* /*swapchain*/) {
+core::Result<CommandList*> DX12Device::beginFrame(SwapChain* swapchain) {
+    if (swapchain)
+        assertResourceOwned(swapchain);
     collectGarbage();
+    if (frames_.empty() || !frame_cmd_wrapper_)
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX12 frame resources are unavailable"));
     auto& frame = frames_[frame_index_];
-    frame->waitForFence();
-    frame->resetCommandAllocator();
+    if (auto waitResult = frame->waitForFence(); !waitResult)
+        return std::unexpected(waitResult.error());
+    if (auto resetResult = frame->resetCommandAllocator(); !resetResult)
+        return std::unexpected(resetResult.error());
 
     // 重置 shader-visible 描述符堆
     shader_visible_heap_->reset();
@@ -542,21 +558,14 @@ void DX12Device::beginFrame(SwapChain* /*swapchain*/) {
     // 单调递增 frame token：heap reset 已回收上一帧的 descriptor 区段，
     // 自增后 BindGroup 缓存句柄的旧 token 必然失配，触发跨帧失效。
     ++frame_token_;
-}
 
-void DX12Device::clearCaches() {
-    // D3D12 后端暂无内部缓存需要清理
-}
-
-CommandList* DX12Device::frameCommandList() {
-    auto& frame = frames_[frame_index_];
     frame_cmd_wrapper_->setCommandList(frame->commandList());
     frame_cmd_wrapper_->setTransientUniformArena(frame->transientUniformArena());
 
     // 注入当前帧 token，让 BindGroup 缓存的 descriptor 句柄跨帧自动失效
     frame_cmd_wrapper_->setFrameToken(frame_token_);
 
-    // 设置当前帧的描述符堆（bindResources 时分配 SRV 句柄用）
+    // 设置当前帧的描述符堆（bindGroup 时分配 SRV 句柄用）
     auto* heap = shader_visible_heap_->heap();
     if (heap) {
         D3D12_CPU_DESCRIPTOR_HANDLE cpuBase = heap->GetCPUDescriptorHandleForHeapStart();
@@ -567,22 +576,16 @@ CommandList* DX12Device::frameCommandList() {
                                               shader_visible_heap_->capacity());
     }
 
+    if (auto result = frame_cmd_wrapper_->begin(); !result)
+        return std::unexpected(result.error());
     return frame_cmd_wrapper_.get();
 }
 
-core::Result<SubmissionToken> DX12Device::submitAndPresent(SwapChain* swapchain) {
-    auto result = submit();
-    if (!result)
-        return std::unexpected(result.error());
-    present(swapchain);
-    return result;
-}
-
-core::Result<SubmissionToken> DX12Device::submit() {
+core::Result<SubmissionToken> DX12Device::submitFrame() {
     auto submissionLock = lockSubmissionQueue();
     auto& frame = frames_[frame_index_];
 
-    // cmd list 已由 EngineView::cmd->end() 关闭，直接提交
+    // endFrame 已完成 CommandList 关闭，这里只负责提交。
     ID3D12CommandList* lists[] = { frame->commandList() };
     command_queue_->ExecuteCommandLists(1, lists);
 
@@ -605,14 +608,22 @@ core::Result<SubmissionToken> DX12Device::submit() {
     return token;
 }
 
-void DX12Device::present(SwapChain* swapchain) {
-    auto* dx12Swap = static_cast<DX12SwapChain*>(swapchain);
-    dx12Swap->present();
-    frame_index_ = (frame_index_ + 1) % frame_count_;
-}
-
-core::Result<SubmissionToken> DX12Device::submitOffscreen() {
-    return submit();
+core::Result<SubmissionToken> DX12Device::endFrame(SwapChain* swapchain) {
+    if (swapchain)
+        assertResourceOwned(swapchain);
+    if (auto recording = frame_cmd_wrapper_->end(); !recording)
+        return std::unexpected(recording.error());
+    auto result = submitFrame();
+    if (!result)
+        return std::unexpected(result.error());
+    if (swapchain) {
+        auto* dx12Swap = static_cast<DX12SwapChain*>(swapchain);
+        auto presentResult = dx12Swap->present();
+        frame_index_ = (frame_index_ + 1) % frame_count_;
+        if (!presentResult)
+            return std::unexpected(presentResult.error());
+    }
+    return result;
 }
 
 }  // namespace mulan::engine

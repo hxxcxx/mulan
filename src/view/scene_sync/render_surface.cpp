@@ -14,31 +14,8 @@
 namespace mulan::view {
 
 namespace {
-void mergeLastUse(engine::SubmissionToken& latest, const engine::RHITrackedResource* resource) {
-    if (!resource)
-        return;
-    const engine::SubmissionToken candidate = resource->lastUseToken();
-    if (candidate &&
-        (!latest || (candidate.deviceGeneration == latest.deviceGeneration && candidate.value > latest.value)))
-        latest = candidate;
-}
-
-engine::SubmissionToken surfaceLastUse(engine::SwapChain* swapchain, engine::RenderTarget* renderTarget,
-                                       engine::Buffer* stagingBuffer) {
-    engine::SubmissionToken latest{};
-    mergeLastUse(latest, swapchain);
-    mergeLastUse(latest, renderTarget);
-    mergeLastUse(latest, stagingBuffer);
-    if (renderTarget) {
-        mergeLastUse(latest, renderTarget->colorTexture());
-        mergeLastUse(latest, renderTarget->depthTexture());
-    }
-    return latest;
-}
-
-bool waitForLastSurfaceUse(engine::RHIDevice& device, engine::SwapChain* swapchain, engine::RenderTarget* renderTarget,
-                           engine::Buffer* stagingBuffer, const char* operation) {
-    const engine::SubmissionToken token = surfaceLastUse(swapchain, renderTarget, stagingBuffer);
+bool waitForLastSurfaceUse(engine::RHIDevice& device, const char* operation) {
+    const engine::SubmissionToken token = device.lastSubmissionToken();
     if (!token)
         return true;
     auto result = device.waitForSubmission(token);
@@ -175,7 +152,7 @@ bool RenderSurface::configureOffscreenSurface(engine::RHIDevice& device, const R
     if (desc.readback && nextBytesPerPixel == 0)
         return false;
 
-    const engine::SubmissionToken token = surfaceLastUse(nullptr, render_target_.get(), staging_buffer_.get());
+    const engine::SubmissionToken token = device.lastSubmissionToken();
     auto oldRenderTarget = std::move(render_target_);
     auto oldStagingBuffer = std::move(staging_buffer_);
 
@@ -191,7 +168,7 @@ bool RenderSurface::configureOffscreenSurface(engine::RHIDevice& device, const R
 void RenderSurface::shutdown(engine::RHIDevice& device) {
     if (!swapchain_ && !render_target_)
         return;
-    const engine::SubmissionToken token = surfaceLastUse(swapchain_.get(), render_target_.get(), staging_buffer_.get());
+    const engine::SubmissionToken token = device.lastSubmissionToken();
     auto oldStagingBuffer = std::move(staging_buffer_);
     auto oldRenderTarget = std::move(render_target_);
     auto oldSwapchain = std::move(swapchain_);
@@ -216,12 +193,14 @@ void RenderSurface::resize(engine::RHIDevice& device, int width, int height) {
         if (!configureOffscreenSurface(device, desc))
             LOG_ERROR("[RenderSurface] Failed to resize the offscreen surface to {}x{}", width, height);
     } else if (swapchain_) {
-        if (!waitForLastSurfaceUse(device, swapchain_.get(), nullptr, nullptr, "swapchain resize"))
+        if (!waitForLastSurfaceUse(device, "swapchain resize"))
             return;
+        if (auto result = swapchain_->resize(width, height); !result) {
+            LOG_ERROR("[RenderSurface] Swapchain resize failed: {}", result.error().message);
+            return;
+        }
         width_ = width;
         height_ = height;
-        device.clearCaches();
-        swapchain_->resize(width, height);
         advanceGeneration();
     }
 }
@@ -236,14 +215,22 @@ bool RenderSurface::readbackPixels(engine::RHIDevice& device, std::vector<uint8_
         return false;
     }
     auto cmd = std::move(*cmdResult);
-    cmd->begin();
+    if (auto result = cmd->begin(); !result) {
+        LOG_ERROR("[RenderSurface] Pixel readback command recording failed: {}", result.error().message);
+        return false;
+    }
     cmd->transitionResource(render_target_->colorTexture(), engine::ResourceState::CopySrc);
-    const bool copyRecorded = cmd->copyTextureToBuffer(render_target_->colorTexture(), staging_buffer_.get());
+    auto copyResult = cmd->copyTextureToBuffer(render_target_->colorTexture(), staging_buffer_.get());
     // 截图表面会复用；恢复下一次渲染通道所需的状态，不能让纹理停留在 CopySrc。
     cmd->transitionResource(render_target_->colorTexture(), engine::ResourceState::RenderTarget);
-    cmd->end();
-    if (!copyRecorded)
+    if (auto result = cmd->end(); !result) {
+        LOG_ERROR("[RenderSurface] Pixel readback command finalization failed: {}", result.error().message);
         return false;
+    }
+    if (!copyResult) {
+        LOG_ERROR("[RenderSurface] Pixel readback copy failed: {}", copyResult.error().message);
+        return false;
+    }
 
     auto fenceResult = device.createFence(0);
     if (!fenceResult) {
@@ -258,11 +245,19 @@ bool RenderSurface::readbackPixels(engine::RHIDevice& device, std::vector<uint8_
     }
     // 不能改为 waitIdle()：命令列表与 fence 必须存活到本次 GPU 复制完成，
     // 但无需排空之后提交到其他队列的工作。
-    fence->wait(1);
+    if (auto waitResult = fence->wait(1); !waitResult) {
+        LOG_ERROR("[RenderSurface] Pixel readback wait failed: {}", waitResult.error().message);
+        return false;
+    }
 
     uint32_t byteSize = row_bytes_ * static_cast<uint32_t>(height_);
     pixels.resize(byteSize);
-    return staging_buffer_->readback(0, byteSize, pixels.data());
+    auto readbackResult = staging_buffer_->readback(0, byteSize, pixels.data());
+    if (!readbackResult) {
+        LOG_ERROR("[RenderSurface] Pixel readback mapping failed: {}", readbackResult.error().message);
+        return false;
+    }
+    return true;
 }
 
 std::optional<RenderSurfaceDesc> RenderSurface::offscreenDesc() const {

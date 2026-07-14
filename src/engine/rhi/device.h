@@ -25,6 +25,8 @@
 
 #include <cstdint>
 #include <atomic>
+#include <cassert>
+#include <deque>
 #include <expected>
 #include <functional>
 #include <memory>
@@ -52,10 +54,12 @@ struct GPUDeviceCapabilities {
     uint32_t maxSampleCount = 1;
     uint32_t minUniformBufferOffsetAlignment = 256;
     uint32_t maxUniformBufferBindingSize = 64 * 1024;
-    bool depthClamp = false;
+    /// Capability 仅在公开接口具备完整可用实现时为 true，不能只反映底层 API/硬件能力。
     bool geometryShader = false;
-    bool tessellationShader = false;
     bool computeShader = false;
+    bool indirectDraw = false;
+    bool indirectDispatch = false;
+    bool pushConstants = false;
 };
 
 // ============================================================
@@ -99,7 +103,7 @@ public:
     virtual const GPUDeviceCapabilities& capabilities() const = 0;
     virtual const RenderConfig& renderConfig() const = 0;
     uint64_t deviceGeneration() const { return device_generation_; }
-    SubmissionToken lastSubmissionToken(QueueType queue = QueueType::Graphics) const;
+    SubmissionToken lastSubmissionToken() const;
 
     // --- 裁剪空间修正 ---
     // 各后端 NDC 约定不同（Vulkan: Y↓ z∈[0,1]，OpenGL: Y↑ z∈[-1,1]）。
@@ -133,12 +137,12 @@ public:
     // 把 CPU 端像素数据同步上传到 GPU 纹理，并在内部完成到 SHADER_READ 的状态转换。
     // 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式（bpp 由公共工具统一计算）。
     // 后端各自实现，经此接口避免向 render 层泄漏后端 UploadContext 类型。
-    virtual void uploadTextureData(Texture* dst, const TextureUploadDesc& upload) = 0;
+    virtual core::Result<void> uploadTextureData(Texture* dst, const TextureUploadDesc& upload) = 0;
 
     /// 批量刷新所有待上传资源（beginUpload → 所有 pending upload → flushUploadBatch）。
     /// 在批量加载大量资源后调用一次，替代每个资源单独的 submit+wait。
-    virtual void beginUploadBatch() = 0;
-    virtual void flushUploadBatch() = 0;
+    virtual core::Result<void> beginUploadBatch() = 0;
+    virtual core::Result<void> flushUploadBatch() = 0;
 
     // --- 提交命令 ---
 
@@ -152,7 +156,7 @@ public:
 
     // --- 等待 GPU 空闲 ---
 
-    virtual void waitIdle() = 0;
+    virtual core::Result<void> waitIdle() = 0;
 
     /// 查询/等待由本设备返回的提交标识。旧设备或其他设备的 token 会被拒绝。
     bool isSubmissionComplete(SubmissionToken token) const;
@@ -164,59 +168,33 @@ public:
     core::Result<void> retire(SubmissionToken token, DeferredRelease release);
     void collectGarbage();
 
-    // ============================================================
-    // 帧循环接口（UI 层的标准渲染流程）
-    //
-    //   device->beginFrame();
-    //   auto* cmd = device->frameCommandList();
-    //   cmd->begin();
-    //   swapchain->beginRenderPass(cmd);
-    //   // ... draw calls ...
-    //   swapchain->endRenderPass(cmd);
-    //   cmd->end();
-    //   device->submitAndPresent(swapchain);
-    // ============================================================
+    /// 开始一帧并返回本帧 CommandList。swapchain 为空表示离屏渲染。
+    virtual core::Result<CommandList*> beginFrame(SwapChain* swapchain = nullptr) = 0;
 
-    /// 每帧开头：等待上一轮完成、acquire next image、重置资源
-    /// swapchain 为 nullptr 表示离屏模式（不做 acquire）
-    virtual void beginFrame(SwapChain* swapchain = nullptr) = 0;
-
-    /// 清空内部缓存（swapchain resize 时调用）
-    virtual void clearCaches() = 0;
-
-    /// 获取当前帧的 CommandList（已 reset，可直接 begin）
-    virtual CommandList* frameCommandList() = 0;
-
-    /// 提交当前帧命令 + present
-    /// 内部调用 submit() → present()
-    virtual core::Result<SubmissionToken> submitAndPresent(SwapChain* swapchain) = 0;
-
-    /// 提交当前帧命令（不 present，用于多线程录制场景）
-    /// 调用后可继续用其他 cmd list + present()
-    virtual core::Result<SubmissionToken> submit() = 0;
-
-    /// 呈现 swapchain 到屏幕（与 submit 分离，支持多线程录制后统一 present）
-    virtual void present(SwapChain* swapchain) = 0;
-
-    /// 提交当前帧命令（无 present — 用于离屏渲染）
-    virtual core::Result<SubmissionToken> submitOffscreen() = 0;
-
-    // ============================================================
-    // Descriptor 绑定（UBO / Texture 统一绑定接口）
-    // ============================================================
+    /// 提交本帧；swapchain 非空时在提交成功后呈现。
+    virtual core::Result<SubmissionToken> endFrame(SwapChain* swapchain = nullptr) = 0;
 
 protected:
     RHIDevice();
     RHIDevice(const RHIDevice&) = delete;
     RHIDevice& operator=(const RHIDevice&) = delete;
 
+    void assertResourceOwned(const RHITrackedResource* resource) const noexcept {
+#ifndef NDEBUG
+        assert(resource != nullptr);
+        assert(!resource->isTracked() || resource->belongsTo(*this));
+#else
+        (void) resource;
+#endif
+    }
     void assertNoLiveResources() const;
     void detachLiveResources();
 
     void initializeSubmissionTracking(std::unique_ptr<Fence> fence);
     void shutdownSubmissionTracking();
     void drainDeferredReleases();
-    SubmissionToken reserveSubmissionToken(QueueType queue = QueueType::Graphics);
+    core::Result<void> validateCommandListsForSubmission(CommandList** commandLists, uint32_t count) const;
+    SubmissionToken reserveSubmissionToken();
     void commitSubmission(SubmissionToken token);
     Fence* submissionFence() const { return submission_fence_.get(); }
     std::unique_lock<std::mutex> lockSubmissionQueue() { return std::unique_lock(submission_mutex_); }
@@ -237,12 +215,12 @@ private:
     std::unique_ptr<Fence> submission_fence_;
     std::mutex submission_mutex_;
 
-    struct DeferredReleaseEntry {
+    struct DeferredReleaseBatch {
         SubmissionToken token;
-        DeferredRelease release;
+        std::vector<DeferredRelease> releases;
     };
     mutable std::mutex deferred_release_mutex_;
-    std::vector<DeferredReleaseEntry> deferred_releases_;
+    std::deque<DeferredReleaseBatch> deferred_release_batches_;
 };
 
 // ============================================================

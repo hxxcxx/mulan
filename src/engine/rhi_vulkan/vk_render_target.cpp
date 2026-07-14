@@ -17,11 +17,15 @@ VKRenderTarget::~VKRenderTarget() {
     cleanup();
 }
 
-void VKRenderTarget::resize(uint32_t width, uint32_t height) {
+core::Result<void> VKRenderTarget::resize(uint32_t width, uint32_t height) {
+    if (width == 0 || height == 0)
+        return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "Vulkan render target size must be non-zero"));
     cleanup();
     desc_.width = width;
     desc_.height = height;
-    if (auto e = createResources(); e.code != 0) {}
+    if (auto error = createResources(); error.code != 0)
+        return std::unexpected(std::move(error));
+    return {};
 }
 
 core::Error VKRenderTarget::createResources() {
@@ -94,7 +98,6 @@ RenderPassBeginInfo VKRenderTarget::renderPassBeginInfo() {
     info.presentSource = false;
     info.width = desc_.width;
     info.height = desc_.height;
-    info.nativeHandle = nativeRenderPassHandle();
     return info;
 }
 

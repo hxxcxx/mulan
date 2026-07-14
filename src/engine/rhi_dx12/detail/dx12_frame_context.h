@@ -19,8 +19,8 @@ public:
     DX12FrameContext(ID3D12Device* device);
     ~DX12FrameContext();
 
-    void waitForFence();
-    void resetCommandAllocator();
+    core::Result<void> waitForFence();
+    core::Result<void> resetCommandAllocator();
 
     ID3D12CommandAllocator* commandAllocator() const { return cmd_allocator_.Get(); }
     ID3D12GraphicsCommandList* commandList() const { return cmd_list_.Get(); }

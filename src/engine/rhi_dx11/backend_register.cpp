@@ -1,3 +1,4 @@
+#include "backend.h"
 #include "../rhi/device_factory.h"
 #include "../rhi/engine_error_code.h"
 #include "detail/dx11_device.h"
@@ -12,7 +13,11 @@ core::Result<std::unique_ptr<RHIDevice>> createD3D11Device(const DeviceCreateInf
     return std::unique_ptr<RHIDevice>(std::move(device));
 }
 
-const AutoRegisterDeviceBackend _registerD3D11(GraphicsBackend::D3D11, &createD3D11Device);
-
 }  // namespace
+
+const BackendModule& d3d11BackendModule() {
+    static const BackendModule module{ GraphicsBackend::D3D11, "D3D11", &createD3D11Device };
+    return module;
+}
+
 }  // namespace mulan::engine

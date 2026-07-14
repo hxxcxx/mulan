@@ -1,5 +1,6 @@
 #include "detail/dx11_swap_chain.h"
 #include "detail/dx11_convert.h"
+#include "../rhi/engine_error_code.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -115,19 +116,24 @@ RenderPassBeginInfo DX11SwapChain::renderPassBeginInfo() {
     return info;
 }
 
-void DX11SwapChain::present() {
+core::Result<void> DX11SwapChain::present() {
     UINT syncInterval = m_desc.vsync ? 1 : 0;
     HRESULT hr = m_swapChain->Present(syncInterval, 0);
     if (FAILED(hr)) {
         logDX11Failure(hr, "IDXGISwapChain::Present");
         if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)
             logDX11Failure(m_device->GetDeviceRemovedReason(), "ID3D11Device::GetDeviceRemovedReason");
+        return std::unexpected(makeError(hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET
+                                                 ? EngineErrorCode::DeviceLost
+                                                 : EngineErrorCode::PresentationFailed,
+                                         "DX11 swapchain presentation failed"));
     }
+    return {};
 }
 
-void DX11SwapChain::resize(uint32_t width, uint32_t height) {
+core::Result<void> DX11SwapChain::resize(uint32_t width, uint32_t height) {
     if (width == 0 || height == 0)
-        return;
+        return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX11 swapchain size must be non-zero"));
 
     releaseBackBuffer();
     // ResizeBuffers 要求 context 不再保存旧 backbuffer 的任何引用。
@@ -141,14 +147,15 @@ void DX11SwapChain::resize(uint32_t width, uint32_t height) {
         // 下一帧只因一次临时失败而永久失效。
         if (!createBackBuffer())
             LOG_ERROR("[DX11] Swap chain backbuffer restore failed");
-        return;
+        return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX11 swapchain ResizeBuffers failed"));
     }
 
     m_desc.width = width;
     m_desc.height = height;
 
     if (!createBackBuffer())
-        LOG_ERROR("[DX11] Swap chain backbuffer recreation failed");
+        return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX11 swapchain backbuffer recreation failed"));
+    return {};
 }
 
 }  // namespace mulan::engine

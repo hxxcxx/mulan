@@ -55,6 +55,7 @@ core::Result<std::unique_ptr<VKShader>> VKShader::create(const ShaderDesc& desc,
                 makeError(EngineErrorCode::ShaderCompileFailed, std::string("createShaderModule failed: ") + e.what()));
     }
 
+    obj->desc_.discardCreationData();
     return obj;
 }
 

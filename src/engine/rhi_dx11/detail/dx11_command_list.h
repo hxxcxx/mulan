@@ -26,16 +26,16 @@ public:
     DX11CommandList(ID3D11Device* device, ID3D11DeviceContext* ctx, ID3D11DeviceContext1* ctx1 = nullptr);
     ~DX11CommandList() = default;
 
-    void begin() override;
-    void end() override;
+    core::Result<void> doBegin() override;
+    core::Result<void> doEnd() override;
 
     void setPipelineState(PipelineState* pso) override;
+    void setComputePipelineState(ComputePipelineState* pso) override;
     void setViewport(const Viewport& vp) override;
     void setScissorRect(const ScissorRect& rect) override;
 
     void bindGroup(BindGroup& group) override;
     void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
-    void bindResources(const BindGroupDesc& group) override;
     core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data) override;
 
     void setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset = 0) override;
@@ -45,21 +45,20 @@ public:
     void draw(const DrawAttribs& attribs) override;
     void drawIndexed(const DrawIndexedAttribs& attribs) override;
     void drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount = 1, uint32_t stride = 0) override;
+    void dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) override;
+    void dispatchIndirect(Buffer* argsBuffer, uint32_t offset) override;
+    void setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) override;
 
     void updateBuffer(Buffer* buffer, uint32_t offset, uint32_t size, const void* data,
                       ResourceTransitionMode mode = ResourceTransitionMode::Transition) override;
 
     void transitionResource(Buffer* buffer, ResourceState newState) override;
     void transitionResource(Texture* texture, ResourceState newState) override;
-    bool copyTextureToBuffer(Texture* src, Buffer* dst) override;
-
-    void clearColor(float r, float g, float b, float a) override;
-    void clearDepth(float depth) override;
-    void clearStencil(uint8_t stencil) override;
+    core::Result<void> copyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- RenderPass ---
-    void beginRenderPass(const RenderPassBeginInfo& info) override;
-    void endRenderPass() override;
+    core::Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
+    void doEndRenderPass() override;
 
     ID3D11DeviceContext* context() const { return m_ctx; }
     bool isValid() const { return m_device && m_ctx; }

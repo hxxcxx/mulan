@@ -1,11 +1,12 @@
 /**
  * @file backend_register.cpp
- * @brief D3D12 后端自注册 —— 编译期向 DeviceFactory 注册创建函数。
+ * @brief D3D12 后端创建与模块入口
  * @author hxxcxx
  * @date 2026-07-11
  */
 #include "../rhi/device_factory.h"
 #include "../rhi/engine_error_code.h"
+#include "backend.h"
 #include "detail/dx12_device.h"
 
 namespace mulan::engine {
@@ -19,8 +20,11 @@ core::Result<std::unique_ptr<RHIDevice>> createD3D12Device(const DeviceCreateInf
     return std::unique_ptr<RHIDevice>(std::move(device));
 }
 
-const AutoRegisterDeviceBackend _registerD3D12(GraphicsBackend::D3D12, &createD3D12Device);
-
 }  // namespace
+
+const BackendModule& d3d12BackendModule() {
+    static const BackendModule module{ GraphicsBackend::D3D12, "D3D12", &createD3D12Device };
+    return module;
+}
 
 }  // namespace mulan::engine

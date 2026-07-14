@@ -4,6 +4,7 @@ set(CMAKE_AUTORCC ON)
 
 set(MULAN_APP_SOURCES
     main.cpp
+    rhi_backends.cpp
     ui/document_area.cpp
     ui/startup_page.cpp
     ui/main_window.cpp
@@ -34,10 +35,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     editor
     platform
     $<LINK_LIBRARY:WHOLE_ARCHIVE,io>
-    $<$<TARGET_EXISTS:rhi_vulkan>:$<LINK_LIBRARY:WHOLE_ARCHIVE,rhi_vulkan>>
-    $<$<TARGET_EXISTS:rhi_dx12>:$<LINK_LIBRARY:WHOLE_ARCHIVE,rhi_dx12>>
-    $<$<TARGET_EXISTS:rhi_dx11>:$<LINK_LIBRARY:WHOLE_ARCHIVE,rhi_dx11>>
-    $<$<TARGET_EXISTS:rhi_opengl>:$<LINK_LIBRARY:WHOLE_ARCHIVE,rhi_opengl>>
+    $<$<TARGET_EXISTS:rhi_vulkan>:rhi_vulkan>
+    $<$<TARGET_EXISTS:rhi_dx12>:rhi_dx12>
+    $<$<TARGET_EXISTS:rhi_dx11>:rhi_dx11>
+    $<$<TARGET_EXISTS:rhi_opengl>:rhi_opengl>
     SARibbon
     Qt6::Core
     Qt6::Gui
@@ -75,6 +76,10 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     SHADER_DIR="${MULAN_SHADER_OUTPUT_DIR}"
+    MULAN_HAS_RHI_VULKAN=$<BOOL:$<TARGET_EXISTS:rhi_vulkan>>
+    MULAN_HAS_RHI_D3D12=$<BOOL:$<TARGET_EXISTS:rhi_dx12>>
+    MULAN_HAS_RHI_D3D11=$<BOOL:$<TARGET_EXISTS:rhi_dx11>>
+    MULAN_HAS_RHI_OPENGL=$<BOOL:$<TARGET_EXISTS:rhi_opengl>>
 )
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE

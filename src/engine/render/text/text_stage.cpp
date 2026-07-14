@@ -261,7 +261,8 @@ bool TextStage::createPipeline(const RenderTargetInfo& target) {
     desc.colorFormats[0] = target.colorFormat;
     desc.colorTargetCount = 1;
     desc.depthStencilFormat = target.depthFormat;
-    desc.depthEnable = target.hasDepth;
+    if (!target.hasDepth)
+        desc.depthStencilFormat = TextureFormat::Unknown;
     desc.sampleCount = target.sampleCount;
     desc.descriptorBindings[0] = { .binding = 0,
                                    .count = 1,

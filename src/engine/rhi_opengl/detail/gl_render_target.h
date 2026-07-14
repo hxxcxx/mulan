@@ -27,17 +27,15 @@ public:
     Texture* depthTexture() override { return depth_texture_.get(); }
     RenderPassBeginInfo renderPassBeginInfo() override;
 
-    void resize(uint32_t width, uint32_t height) override;
+    core::Result<void> resize(uint32_t width, uint32_t height) override;
 
     /// FBO 句柄（供外部 blit 使用）
     GLuint fbo() const { return fbo_; }
 
     bool isValid() const { return fbo_ != 0; }
 
-    uint64_t nativeRenderPassHandle() const override { return fbo_; }
-
 private:
-    void createResources();
+    core::Result<void> createResources();
     void destroyResources();
 
     static GLenum toGLInternalFormat(TextureFormat fmt);

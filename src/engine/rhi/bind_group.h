@@ -8,7 +8,7 @@
  *  - BindGroup（抽象基类）—— 与 Buffer/Texture/Shader 同级的 RHI 资源，
  *    由 Device::createBindGroup() 创建，后端持有缓存的 descriptor set / heap 句柄。
  *  - BindGroupDesc（值类型）—— 临时构建器，addUBO/addTexture/addSampler，
- *    传给 Device 工厂或 CommandList::bindResources() 便捷路径。
+ *    传给 Device 工厂创建可复用的 BindGroup。
  */
 
 #pragma once
@@ -55,7 +55,7 @@ struct BindGroupEntry {
 };
 
 // ============================================================
-// BindGroupDesc — 值类型构建器（临时栈分配，传给工厂或便捷绑定）
+// BindGroupDesc — 值类型构建器（临时栈分配，传给 Device 工厂）
 // ============================================================
 
 struct BindGroupDesc {

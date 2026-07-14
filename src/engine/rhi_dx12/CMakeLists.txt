@@ -1,5 +1,5 @@
 # rhi_dx12 - DX12 RHI 后端（Windows only）。
-# 通过 AutoRegisterDeviceBackend 编译期自注册到 DeviceFactory。
+# 导出 BackendModule，由最终应用显式注册。
 add_library(rhi_dx12 STATIC
     backend_register.cpp
     dx12_fence.cpp

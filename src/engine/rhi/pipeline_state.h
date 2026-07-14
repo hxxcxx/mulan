@@ -16,6 +16,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <string_view>
 
 namespace mulan::engine {
@@ -56,22 +57,23 @@ struct PipelineBinding {
     DescriptorType type = DescriptorType::UniformBuffer;
 
     static constexpr uint32_t kStageVertex = 0x00000001;
+    static constexpr uint32_t kStageGeometry = 0x00000008;
     static constexpr uint32_t kStageFragment = 0x00000010;
     static constexpr uint32_t kStageCompute = 0x00000100;
-    static constexpr uint32_t kStageAll = 0x7FFFFFFF;
+    static constexpr uint32_t kStageAllGraphics = kStageVertex | kStageGeometry | kStageFragment;
+    static constexpr uint32_t kStageAll = kStageAllGraphics;
 
     uint32_t stages = kStageAll;
     BindingMode mode = BindingMode::Static;
 };
 
 struct GraphicsPipelineDesc {
-    std::string_view name;
+    std::string name;
 
     // 着色器
     Shader* vs = nullptr;  // Vertex
     Shader* ps = nullptr;  // Pixel / Fragment
     Shader* gs = nullptr;  // Geometry（可选）
-    Shader* cs = nullptr;  // Compute（仅计算管线）
 
     // Descriptor bindings — 描述着色器需要的资源绑定
     static constexpr uint8_t kMaxDescriptorBindings = 16;
@@ -98,12 +100,17 @@ struct GraphicsPipelineDesc {
     TextureFormat colorFormats[kMaxRenderTargets] = {};
     uint8_t colorTargetCount = 0;
     TextureFormat depthStencilFormat = TextureFormat::Unknown;
-    bool depthEnable = false;
     uint32_t sampleCount = 1;  // MSAA: 1=无, 2/4/8=多采样
 
     // Push constant / root constant 范围
     // 若 size > 0，则 PSO 创建时会预留该范围
     uint32_t pushConstantSize = 0;  // 字节，必须 ≤ 128（VK 保证的最小值）
+
+    void discardShaderReferences() noexcept {
+        vs = nullptr;
+        ps = nullptr;
+        gs = nullptr;
+    }
 };
 
 // ============================================================
@@ -111,7 +118,7 @@ struct GraphicsPipelineDesc {
 // ============================================================
 
 struct ComputePipelineDesc {
-    std::string_view name;
+    std::string name;
 
     Shader* cs = nullptr;
 
@@ -120,6 +127,8 @@ struct ComputePipelineDesc {
     uint8_t descriptorBindingCount = 0;
 
     uint32_t pushConstantSize = 0;
+
+    void discardShaderReference() noexcept { cs = nullptr; }
 };
 
 // ============================================================
@@ -155,14 +164,18 @@ private:
 
 class ComputePipelineState : public RHITrackedResource {
 public:
-    virtual ~ComputePipelineState() = default;
+    virtual ~ComputePipelineState();
 
     virtual const ComputePipelineDesc& desc() const = 0;
+    const BindGroupLayout& bindGroupLayout() const;
 
 protected:
-    ComputePipelineState() = default;
+    ComputePipelineState();
     ComputePipelineState(const ComputePipelineState&) = delete;
     ComputePipelineState& operator=(const ComputePipelineState&) = delete;
+
+private:
+    mutable std::unique_ptr<BindGroupLayout> bg_layout_;
 };
 
 }  // namespace mulan::engine

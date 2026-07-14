@@ -22,7 +22,7 @@ public:
     bool isValid() const override { return hglrc_ != nullptr && hdc_ != nullptr; }
     bool makeCurrent() override;
     void clearCurrent() override;
-    void swapBuffers() override;
+    bool swapBuffers() override;
     void setSwapInterval(int interval) override;
 
     HDC hdc() const { return hdc_; }

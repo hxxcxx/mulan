@@ -7,17 +7,15 @@
  * OpenGL 是立即模式 (Immediate Mode) 渲染：
  * - 命令在录制时立即执行（与 Vulkan/D3D12 的延迟模式不同）
  * - 这里的 CommandList 主要做数据收集和状态应用
- * - begin()/end() 不做任何实质操作
+ * - begin()/end() 维护统一录制契约和瞬态 Uniform 批次
  * - 所有 set* 方法在调用时直接执行 GL 命令
  *
  * 工作流程:
- *   frameCommandList = device->frameCommandList()
- *   frameCommandList->begin()
+ *   frameCommandList = *device->beginFrame(swapchain)
  *   frameCommandList->setPipelineState(...)
  *   frameCommandList->setVertexBuffer(...)
  *   frameCommandList->draw(...)
- *   frameCommandList->end()
- *   device->submitAndPresent(swapchain)  // 无op，命令已执行
+ *   device->endFrame(swapchain)
  */
 
 #pragma once
@@ -49,22 +47,22 @@ public:
     // --- 生命周期 ---
 
     /// 开始录制命令（对 GL 无实际意义，但保持接口一致）
-    void begin() override;
+    core::Result<void> doBegin() override;
 
     /// 结束录制命令
-    void end() override;
+    core::Result<void> doEnd() override;
 
     // --- 管线状态 ---
 
     /// 设置当前管线状态
     void setPipelineState(PipelineState* pso) override;
+    void setComputePipelineState(ComputePipelineState* pso) override;
 
     // --- 资源绑定 ---
 
     /// 绑定资源组（UBO / Texture）
     void bindGroup(BindGroup& group) override;
     void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
-    void bindResources(const BindGroupDesc& desc) override;
     core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data) override;
 
     // --- 视口 / 裁剪 ---
@@ -94,6 +92,11 @@ public:
     /// 索引绘制
     void drawIndexed(const DrawIndexedAttribs& attribs) override;
 
+    void drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount = 1, uint32_t stride = 0) override;
+    void dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) override;
+    void dispatchIndirect(Buffer* argsBuffer, uint32_t offset) override;
+    void setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) override;
+
     // --- 资源更新 ---
 
     /// 更新缓冲区数据
@@ -102,29 +105,26 @@ public:
 
     // --- 资源状态转换（GL 无需显式） ---
 
-    /// GL 中无需显式资源状态转换（当前为无op）
+    /// GL 中无需显式 Buffer 状态转换，但会发出对应的 memory barrier。
     void transitionResource(Buffer* buffer, ResourceState newState) override;
 
-    /// GL 中纹理状态转换（当前为无op）
+    /// GL 中无需显式 Texture 状态转换，但会发出对应的 memory barrier。
     void transitionResource(Texture* texture, ResourceState newState) override;
 
     /// 复制纹理到缓冲区（用于 GPU→CPU 数据回读）
-    bool copyTextureToBuffer(Texture* src, Buffer* dst) override;
+    core::Result<void> copyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- 清除 ---
 
     /// 清除颜色缓冲区
-    void clearColor(float r, float g, float b, float a) override;
 
     /// 清除深度缓冲区
-    void clearDepth(float depth) override;
 
     /// 清除模板缓冲区
-    void clearStencil(uint8_t stencil) override;
 
     // --- RenderPass ---
-    void beginRenderPass(const RenderPassBeginInfo& info) override;
-    void endRenderPass() override;
+    core::Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
+    void doEndRenderPass() override;
 
     // --- OpenGL 特有接口 ---
 
@@ -160,7 +160,7 @@ private:
         bool isInteger;
     };
     static GLAttribType vertexFormatToGL(VertexFormat fmt);
-    void bindResources(const BindGroup& group);
+    void bindGroupEntries(const BindGroup& group);
     void bindEntries(const BindGroupEntry* entries, uint8_t count);
     void bindEntry(const BindGroupEntry& entry);
 
@@ -187,6 +187,7 @@ private:
     int32_t framebuffer_height_ = 0;
     GLuint previous_framebuffer_ = 0;
     GLuint active_framebuffer_ = 0;
+    GLuint temporary_framebuffer_ = 0;
     bool render_pass_active_ = false;
     GLTexture* resolve_source_ = nullptr;
     GLTexture* resolve_target_ = nullptr;

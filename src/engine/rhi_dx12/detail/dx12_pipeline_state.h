@@ -33,7 +33,7 @@ public:
 private:
     DX12PipelineState(const GraphicsPipelineDesc& desc, ID3D12Device* device);
 
-    void build(DXGI_FORMAT rtFormat, DXGI_FORMAT dsFormat);
+    void build(DXGI_FORMAT dsFormat);
     void createRootSignature();
     D3D12_INPUT_LAYOUT_DESC buildInputLayout();
 

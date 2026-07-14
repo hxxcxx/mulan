@@ -2,6 +2,7 @@
 #include "detail/dx12_buffer.h"
 #include "detail/dx12_texture.h"
 #include "detail/dx12_convert.h"
+#include "../rhi/engine_error_code.h"
 
 namespace mulan::engine {
 
@@ -88,11 +89,16 @@ DX12UploadContext::StagingSlab* DX12UploadContext::getOrCreateSlab(uint64_t minS
     return &slabs_.back();
 }
 
-void DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* data, uint32_t size, uint32_t dstOffset) {
+core::Result<void> DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* data, uint32_t size,
+                                                   uint32_t dstOffset) {
+    if (!dst || !dst->resource() || !data || size == 0 || static_cast<uint64_t>(dstOffset) + size > dst->desc().size)
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceUploadFailed, "DX12 buffer upload arguments are invalid"));
     uint32_t offset = 0;
     auto* slab = getOrCreateSlab(size, 256, offset);
     if (!slab)
-        return;
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceUploadFailed, "DX12 buffer staging allocation failed"));
 
     // 拷贝到 staging
     memcpy(static_cast<uint8_t*>(slab->mapped) + offset, data, size);
@@ -100,8 +106,13 @@ void DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* data, uint32_t
 
     // 非批量模式：每次提交都需 Reset 重新开录；批量模式：cmd_list 已 open，直接 Record
     if (!batch_active_) {
-        cmd_allocator_->Reset();
-        cmd_list_->Reset(cmd_allocator_.Get(), nullptr);
+        if (!checkDX12(cmd_allocator_->Reset(), "ID3D12CommandAllocator::Reset(buffer upload)"))
+            return std::unexpected(
+                    makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload allocator reset failed"));
+        if (!checkDX12(cmd_list_->Reset(cmd_allocator_.Get(), nullptr),
+                       "ID3D12GraphicsCommandList::Reset(buffer upload)"))
+            return std::unexpected(
+                    makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload command-list reset failed"));
     }
 
     // 确保目标处于 COPY_DEST 状态
@@ -119,24 +130,28 @@ void DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* data, uint32_t
     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COMMON;
     cmd_list_->ResourceBarrier(1, &barrier);
 
-    submitIfNotBatching();
+    if (auto result = submitIfNotBatching(); !result)
+        return std::unexpected(result.error());
     dst->markUploaded();
+    return {};
 }
 
-void DX12UploadContext::uploadTexture(DX12Texture* dst, const TextureUploadDesc& upload) {
+core::Result<void> DX12UploadContext::uploadTexture(DX12Texture* dst, const TextureUploadDesc& upload) {
     const uint32_t bpp = textureFormatBytesPerPixel(upload.format);
     const uint32_t sourceRowPitch = upload.sourceRowPitch ? upload.sourceRowPitch : upload.width * bpp;
     if (!dst || upload.data.empty() || bpp == 0 || upload.width == 0 || upload.height == 0 ||
         sourceRowPitch < upload.width * bpp ||
         upload.data.size_bytes() < static_cast<size_t>(sourceRowPitch) * upload.height)
-        return;
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceUploadFailed, "DX12 texture upload arguments are invalid"));
 
     const auto texDesc = dst->resource()->GetDesc();
     const uint32_t subresource = upload.mipLevel + upload.arrayLayer * dst->desc().mipLevels;
     if (upload.mipLevel >= dst->desc().mipLevels || upload.arrayLayer >= dst->desc().arraySize ||
         upload.format != dst->desc().format || upload.width != std::max(1u, dst->desc().width >> upload.mipLevel) ||
         upload.height != std::max(1u, dst->desc().height >> upload.mipLevel))
-        return;
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceUploadFailed, "DX12 texture upload subresource is invalid"));
 
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
     UINT numRows = 0;
@@ -148,7 +163,8 @@ void DX12UploadContext::uploadTexture(DX12Texture* dst, const TextureUploadDesc&
     uint32_t slabOffset = 0;
     auto* slab = getOrCreateSlab(totalSize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, slabOffset);
     if (!slab)
-        return;
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceUploadFailed, "DX12 texture staging allocation failed"));
 
     // 逐行拷贝：源行距 = width*bpp，目标行距 = footprint.Footprint.RowPitch
     const auto* src = reinterpret_cast<const uint8_t*>(upload.data.data());
@@ -161,8 +177,12 @@ void DX12UploadContext::uploadTexture(DX12Texture* dst, const TextureUploadDesc&
 
     // 录制
     if (!batch_active_) {
-        cmd_allocator_->Reset();
-        cmd_list_->Reset(cmd_allocator_.Get(), nullptr);
+        if (!checkDX12(cmd_allocator_->Reset(), "ID3D12CommandAllocator::Reset(upload)"))
+            return std::unexpected(
+                    makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload allocator reset failed"));
+        if (!checkDX12(cmd_list_->Reset(cmd_allocator_.Get(), nullptr), "ID3D12GraphicsCommandList::Reset(upload)"))
+            return std::unexpected(
+                    makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload command-list reset failed"));
     }
 
     D3D12_RESOURCE_BARRIER barrier = {};
@@ -191,54 +211,74 @@ void DX12UploadContext::uploadTexture(DX12Texture* dst, const TextureUploadDesc&
     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
     cmd_list_->ResourceBarrier(1, &barrier);
 
-    submitIfNotBatching();
+    if (auto result = submitIfNotBatching(); !result)
+        return std::unexpected(result.error());
     dst->setState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    return {};
 }
 
-void DX12UploadContext::beginUploadBatch() {
+core::Result<void> DX12UploadContext::beginUploadBatch() {
     if (batch_active_)
-        return;
-    cmd_allocator_->Reset();
-    cmd_list_->Reset(cmd_allocator_.Get(), nullptr);
+        return {};
+    if (!checkDX12(cmd_allocator_->Reset(), "ID3D12CommandAllocator::Reset(upload batch)"))
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload allocator reset failed"));
+    if (!checkDX12(cmd_list_->Reset(cmd_allocator_.Get(), nullptr), "ID3D12GraphicsCommandList::Reset(upload batch)"))
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload command-list reset failed"));
     batch_active_ = true;
+    return {};
 }
 
-void DX12UploadContext::flushUploadBatch() {
+core::Result<void> DX12UploadContext::flushUploadBatch() {
     if (!batch_active_)
-        return;
+        return {};
     batch_active_ = false;
-    cmd_list_->Close();
+    if (!checkDX12(cmd_list_->Close(), "ID3D12GraphicsCommandList::Close(upload batch)"))
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload command-list close failed"));
 
     ID3D12CommandList* lists[] = { cmd_list_.Get() };
     queue_->ExecuteCommandLists(1, lists);
 
     fence_value_++;
-    queue_->Signal(fence_.Get(), fence_value_);
-    fence_->SetEventOnCompletion(fence_value_, fence_event_);
-    WaitForSingleObject(fence_event_, INFINITE);
+    if (!checkDX12(queue_->Signal(fence_.Get(), fence_value_), "ID3D12CommandQueue::Signal(upload batch)"))
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload signal failed"));
+    if (!checkDX12(fence_->SetEventOnCompletion(fence_value_, fence_event_),
+                   "ID3D12Fence::SetEventOnCompletion(upload batch)"))
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload wait setup failed"));
+    if (WaitForSingleObject(fence_event_, INFINITE) != WAIT_OBJECT_0)
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload wait failed"));
 
     // 本批次 GPU 已完成，staging slab 空间可回收复用
     for (auto& slab : slabs_)
         slab.used = 0;
+    return {};
 }
 
-void DX12UploadContext::submitIfNotBatching() {
+core::Result<void> DX12UploadContext::submitIfNotBatching() {
     if (batch_active_)
-        return;
+        return {};
 
-    cmd_list_->Close();
+    if (!checkDX12(cmd_list_->Close(), "ID3D12GraphicsCommandList::Close(upload)"))
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload command-list close failed"));
 
     ID3D12CommandList* lists[] = { cmd_list_.Get() };
     queue_->ExecuteCommandLists(1, lists);
 
     fence_value_++;
-    queue_->Signal(fence_.Get(), fence_value_);
-    fence_->SetEventOnCompletion(fence_value_, fence_event_);
-    WaitForSingleObject(fence_event_, INFINITE);
+    if (!checkDX12(queue_->Signal(fence_.Get(), fence_value_), "ID3D12CommandQueue::Signal(upload)"))
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload signal failed"));
+    if (!checkDX12(fence_->SetEventOnCompletion(fence_value_, fence_event_),
+                   "ID3D12Fence::SetEventOnCompletion(upload)"))
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload wait setup failed"));
+    if (WaitForSingleObject(fence_event_, INFINITE) != WAIT_OBJECT_0)
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed, "DX12 upload wait failed"));
 
     // 同步提交完成后，staging 空间可复用
     for (auto& slab : slabs_)
         slab.used = 0;
+    return {};
 }
 
 void DX12UploadContext::flush() {

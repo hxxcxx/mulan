@@ -1,4 +1,5 @@
 #include "detail/vk_resource_factory.h"
+#include "../rhi/pipeline_validation.h"
 
 #include "detail/vk_bind_group.h"
 #include "detail/vk_buffer.h"
@@ -30,7 +31,8 @@ core::Result<std::unique_ptr<Buffer>> VKResourceFactory::createBuffer(const Buff
     setDebugName(device_, vk::ObjectType::eBuffer, reinterpret_cast<uint64_t>(VkBuffer(buf->vkBuffer())),
                  desc.name.empty() ? "Buffer" : desc.name);
     if (buf->needsUpload()) {
-        upload_context_.uploadBufferInit(buf.get());
+        if (auto uploadResult = upload_context_.uploadBufferInit(buf.get()); !uploadResult)
+            return std::unexpected(uploadResult.error());
     }
     buf->trackResource(owner_, RHIResourceKind::Buffer, desc.name);
     return result;
@@ -61,6 +63,8 @@ core::Result<std::unique_ptr<Shader>> VKResourceFactory::createShader(const Shad
 }
 
 core::Result<std::unique_ptr<PipelineState>> VKResourceFactory::createPipelineState(const GraphicsPipelineDesc& desc) {
+    if (auto validation = validateGraphicsPipelineDesc(desc, owner_, owner_.capabilities()); !validation)
+        return std::unexpected(validation.error());
     auto result = VKPipelineState::create(desc, device_);
     if (!result)
         return std::unexpected(result.error());
@@ -73,6 +77,8 @@ core::Result<std::unique_ptr<PipelineState>> VKResourceFactory::createPipelineSt
 
 core::Result<std::unique_ptr<ComputePipelineState>> VKResourceFactory::createComputePipelineState(
         const ComputePipelineDesc& desc) {
+    if (auto validation = validateComputePipelineDesc(desc, owner_, owner_.capabilities()); !validation)
+        return std::unexpected(validation.error());
     auto result = VKComputePipelineState::create(desc, device_);
     if (!result)
         return std::unexpected(result.error());

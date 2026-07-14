@@ -117,16 +117,17 @@ core::Result<std::unique_ptr<BindGroup>> VKDevice::createBindGroup(const BindGro
     return resource_factory_->createBindGroup(layout, desc);
 }
 
-void VKDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
-    upload_context_->uploadTexture(static_cast<VKTexture*>(dst), upload);
+core::Result<void> VKDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+    assertResourceOwned(dst);
+    return upload_context_->uploadTexture(static_cast<VKTexture*>(dst), upload);
 }
 
-void VKDevice::beginUploadBatch() {
-    upload_context_->beginUploadBatch();
+core::Result<void> VKDevice::beginUploadBatch() {
+    return upload_context_->beginUploadBatch();
 }
 
-void VKDevice::flushUploadBatch() {
-    upload_context_->flushUploadBatch();
+core::Result<void> VKDevice::flushUploadBatch() {
+    return upload_context_->flushUploadBatch();
 }
 
 core::Result<std::unique_ptr<RenderTarget>> VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
@@ -147,6 +148,8 @@ core::Result<std::unique_ptr<Sampler>> VKDevice::createSampler(const SamplerDesc
 
 core::Result<SubmissionToken> VKDevice::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
                                                             uint64_t fenceValue) {
+    if (auto validation = validateCommandListsForSubmission(cmdLists, count); !validation)
+        return std::unexpected(validation.error());
     // vulkan-hpp 的 submit() 为异常版：验证层发现的录制错误（缺 sampler、
     // layout 冲突等）会在这一步抛 vk::Error。这里统一转换为 Result，避免
     // 调用方在提交失败后继续等待永远不会被 signal 的 fence。
@@ -154,6 +157,10 @@ core::Result<SubmissionToken> VKDevice::executeCommandLists(CommandList** cmdLis
     // waitIdle / 下一帧 fence 检查时发现。
     if (!cmdLists || count == 0)
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "Vulkan command list batch is empty"));
+    for (uint32_t i = 0; i < count; ++i)
+        assertResourceOwned(cmdLists[i]);
+    if (fence)
+        assertResourceOwned(fence);
     auto submissionLock = lockSubmissionQueue();
     std::vector<vk::CommandBuffer> cmdBuffers(count);
     for (uint32_t i = 0; i < count; ++i) {
@@ -205,36 +212,38 @@ core::Result<SubmissionToken> VKDevice::executeCommandLists(CommandList** cmdLis
     }
 }
 
-void VKDevice::waitIdle() {
-    device_.waitIdle();
+core::Result<void> VKDevice::waitIdle() {
+    try {
+        device_.waitIdle();
+    } catch (const vk::Error& error) {
+        return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, error.what()));
+    }
+    return {};
 }
 
 // ============================================================
 // 帧循环
 // ============================================================
 
-void VKDevice::beginFrame(SwapChain* swapchain) {
+core::Result<CommandList*> VKDevice::beginFrame(SwapChain* swapchain) {
+    if (swapchain)
+        assertResourceOwned(swapchain);
     collectGarbage();
-    frame_scheduler_->beginFrame(swapchain);
-}
-
-void VKDevice::clearCaches() {
-    // dynamic rendering: 无需 Framebuffer 缓存
-}
-
-CommandList* VKDevice::frameCommandList() {
-    return frame_scheduler_->frameCommandList();
-}
-
-core::Result<SubmissionToken> VKDevice::submitAndPresent(SwapChain* swapchain) {
-    auto result = submit();
-    if (!result)
+    if (!frame_scheduler_)
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, "Vulkan frame scheduler is unavailable"));
+    if (auto result = frame_scheduler_->beginFrame(swapchain); !result)
         return std::unexpected(result.error());
-    present(swapchain);
-    return result;
+    CommandList* commandList = frame_scheduler_->frameCommandList();
+    if (!commandList)
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, "Vulkan frame CommandList is unavailable"));
+    if (!commandList->isTracked())
+        commandList->trackResource(*this, RHIResourceKind::CommandList, "VulkanFrameCommandList");
+    if (auto result = commandList->begin(); !result)
+        return std::unexpected(result.error());
+    return commandList;
 }
 
-core::Result<SubmissionToken> VKDevice::submit() {
+core::Result<SubmissionToken> VKDevice::submitFrame() {
     auto submissionLock = lockSubmissionQueue();
     const SubmissionToken token = reserveSubmissionToken();
     if (!token)
@@ -248,11 +257,7 @@ core::Result<SubmissionToken> VKDevice::submit() {
     return token;
 }
 
-void VKDevice::present(SwapChain* swapchain) {
-    frame_scheduler_->present(swapchain);
-}
-
-core::Result<SubmissionToken> VKDevice::submitOffscreen() {
+core::Result<SubmissionToken> VKDevice::submitOffscreenFrame() {
     auto submissionLock = lockSubmissionQueue();
     const SubmissionToken token = reserveSubmissionToken();
     if (!token)
@@ -264,5 +269,23 @@ core::Result<SubmissionToken> VKDevice::submitOffscreen() {
     frame_scheduler_->markSubmitted(token);
     commitSubmission(token);
     return token;
+}
+
+core::Result<SubmissionToken> VKDevice::endFrame(SwapChain* swapchain) {
+    if (swapchain)
+        assertResourceOwned(swapchain);
+    CommandList* commandList = frame_scheduler_->frameCommandList();
+    if (!commandList)
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, "Vulkan frame CommandList is unavailable"));
+    if (auto recording = commandList->end(); !recording)
+        return std::unexpected(recording.error());
+    auto result = swapchain ? submitFrame() : submitOffscreenFrame();
+    if (!result)
+        return std::unexpected(result.error());
+    if (swapchain) {
+        if (auto presentResult = frame_scheduler_->present(swapchain); !presentResult)
+            return std::unexpected(presentResult.error());
+    }
+    return result;
 }
 }  // namespace mulan::engine

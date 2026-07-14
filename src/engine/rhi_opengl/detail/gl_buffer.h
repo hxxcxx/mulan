@@ -44,7 +44,7 @@ public:
     void update(uint32_t offset, uint32_t size, const void* data) override;
 
     /// CPU 端回读缓冲区数据（仅 Staging buffer 支持）
-    bool readback(uint32_t offset, uint32_t size, void* outData) override;
+    core::Result<void> readback(uint32_t offset, uint32_t size, void* outData) override;
 
     // --- OpenGL 特有接口 ---
 

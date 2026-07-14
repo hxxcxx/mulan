@@ -61,7 +61,7 @@ TEST(DX11TransientUniformTest, PreservesIndependentWritesAndBindsTheRequestedSli
     DX11TestContext native;
     ASSERT_TRUE(native.initialize());
     DX11CommandList commandList(native.device.Get(), native.context.Get(), native.context1.Get());
-    commandList.begin();
+    ASSERT_TRUE(commandList.begin());
 
     const std::array<uint32_t, 4> firstValue{ 1, 2, 3, 4 };
     const std::array<uint32_t, 4> secondValue{ 5, 6, 7, 8 };
@@ -103,10 +103,30 @@ TEST(DX11TransientUniformTest, RejectsWritesOutsideCommandRecording) {
     const std::array<uint32_t, 4> value{ 1, 2, 3, 4 };
 
     EXPECT_FALSE(commandList.writeUniform(value));
-    commandList.begin();
+    ASSERT_TRUE(commandList.begin());
+    EXPECT_EQ(commandList.state(), CommandList::State::Recording);
     EXPECT_TRUE(commandList.writeUniform(value));
-    commandList.end();
+    ASSERT_TRUE(commandList.end());
+    EXPECT_EQ(commandList.state(), CommandList::State::Executable);
     EXPECT_FALSE(commandList.writeUniform(value));
+}
+
+TEST(DX11TransientUniformTest, RejectsAnUnclosedRenderPassAndCanRecordAgain) {
+    DX11TestContext native;
+    ASSERT_TRUE(native.initialize());
+    DX11CommandList commandList(native.device.Get(), native.context.Get(), native.context1.Get());
+    ASSERT_TRUE(commandList.begin());
+
+    RenderPassBeginInfo renderPass;
+    renderPass.width = 1;
+    renderPass.height = 1;
+    commandList.beginRenderPass(renderPass);
+    EXPECT_FALSE(commandList.end());
+    EXPECT_EQ(commandList.state(), CommandList::State::Invalid);
+
+    EXPECT_TRUE(commandList.begin());
+    EXPECT_TRUE(commandList.end());
+    EXPECT_EQ(commandList.state(), CommandList::State::Executable);
 }
 
 TEST(DX11TransientUniformTest, BindsNativeStaticUniformRangeWithoutCopying) {
@@ -132,7 +152,7 @@ TEST(DX11TransientUniformTest, BindsNativeStaticUniformRangeWithoutCopying) {
     DX11BindGroup group(layout, groupDesc);
 
     DX11CommandList commandList(native.device.Get(), native.context.Get(), native.context1.Get());
-    commandList.begin();
+    ASSERT_TRUE(commandList.begin());
     commandList.bindGroup(group);
 
     ComPtr<ID3D11Buffer> bound;

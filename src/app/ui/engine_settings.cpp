@@ -1,5 +1,6 @@
 #include "engine_settings.h"
 #include <mulan/core/log/log.h>
+#include <mulan/rhi/device_factory.h>
 #include <QColor>
 using namespace mulan::engine;
 
@@ -29,6 +30,9 @@ EngineSettings::EngineSettings() {
 // --- 后端 ---
 
 GraphicsBackend EngineSettings::backend() const {
+    const auto& factory = DeviceFactory::instance();
+    if (!factory.find(backend_) && !factory.modules().empty())
+        return factory.modules().front().backend;
     return backend_;
 }
 

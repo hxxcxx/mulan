@@ -1,10 +1,10 @@
 /**
  * @file device_factory.cpp
- * @brief DeviceFactory 注册表实现 + RHIDevice::create 分派。
+ * @brief DeviceFactory 显式注册与 RHIDevice::create 分派
  * @author hxxcxx
  * @date 2026-07-11
  *
- * 本文件不含任何后端头文件。后端各自通过 AutoRegisterDeviceBackend 注册。
+ * 本文件不包含任何具体后端头文件。
  */
 #include "device_factory.h"
 #include "engine_error_code.h"
@@ -18,29 +18,31 @@ DeviceFactory& DeviceFactory::instance() {
     return factory;
 }
 
-void DeviceFactory::registerBackend(GraphicsBackend backend, DeviceCreator creator) {
-    auto it = std::find_if(entries_.begin(), entries_.end(),
-                           [backend](const BackendEntry& e) { return e.backend == backend; });
-    if (it != entries_.end()) {
-        it->creator = creator;
-    } else {
-        entries_.push_back({ backend, creator });
-    }
+core::Result<void> DeviceFactory::registerModule(BackendModule module) {
+    if (module.name.empty() || module.createDevice == nullptr)
+        return std::unexpected(
+                makeError(EngineErrorCode::InvalidBackendModule, "BackendModule requires a name and Device creator"));
+    if (find(module.backend))
+        return std::unexpected(
+                makeError(EngineErrorCode::BackendAlreadyRegistered, "RHI backend is already registered"));
+
+    modules_.push_back(module);
+    return {};
 }
 
-DeviceCreator DeviceFactory::find(GraphicsBackend backend) const {
-    auto it = std::find_if(entries_.begin(), entries_.end(),
-                           [backend](const BackendEntry& e) { return e.backend == backend; });
-    return it != entries_.end() ? it->creator : nullptr;
+const BackendModule* DeviceFactory::find(GraphicsBackend backend) const noexcept {
+    const auto it = std::find_if(modules_.begin(), modules_.end(),
+                                 [backend](const BackendModule& module) { return module.backend == backend; });
+    return it != modules_.end() ? &*it : nullptr;
 }
 
 core::Result<std::unique_ptr<RHIDevice>> RHIDevice::create(const DeviceCreateInfo& ci) {
-    auto creator = DeviceFactory::instance().find(ci.backend);
-    if (!creator) {
+    const BackendModule* module = DeviceFactory::instance().find(ci.backend);
+    if (!module) {
         return std::unexpected(makeError(EngineErrorCode::BackendNotSupported, "Graphics backend not registered"));
     }
     try {
-        return creator(ci);
+        return module->createDevice(ci);
     } catch (const std::exception& e) {
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, e.what()));
     }

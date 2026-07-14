@@ -8,6 +8,7 @@
 #pragma once
 
 #include "resource.h"
+#include <mulan/core/result/error.h>
 #include "texture.h"
 #include "render_types.h"
 #include "window.h"
@@ -55,15 +56,14 @@ public:
     virtual Texture* depthTexture() = 0;
 
     // 呈现
-    virtual void present() = 0;
+    virtual core::Result<void> present() = 0;
 
     // 窗口大小变化时调用
-    virtual void resize(uint32_t width, uint32_t height) = 0;
+    virtual core::Result<void> resize(uint32_t width, uint32_t height) = 0;
 
     /// 构建 RenderPassBeginInfo（供 CommandList::beginRenderPass 使用）
     virtual RenderPassBeginInfo renderPassBeginInfo() {
         RenderPassBeginInfo info;
-        info.owner = this;
         auto* color = currentBackBuffer();
         if (color) {
             info.colorAttachments[0].target = color;

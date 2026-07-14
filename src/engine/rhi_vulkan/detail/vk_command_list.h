@@ -50,16 +50,16 @@ public:
     vk::CommandBuffer cmdBuffer() const { return cmd_buffer_; }
 
     // --- 生命周期 ---
-    void begin() override;
-    void end() override;
+    core::Result<void> doBegin() override;
+    core::Result<void> doEnd() override;
 
     // --- 管线状态 ---
     void setPipelineState(PipelineState* pso) override;
+    void setComputePipelineState(ComputePipelineState* pso) override;
 
     // --- 资源绑定 ---
     void bindGroup(BindGroup& group) override;
     void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
-    void bindResources(const BindGroupDesc& desc) override;
     core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data) override;
 
     // --- 视口 / 裁剪 ---
@@ -92,16 +92,13 @@ public:
     void transitionResource(Texture* texture, ResourceState newState) override;
 
     // --- 纹理 → 缓冲区复制（用于离屏回读）---
-    bool copyTextureToBuffer(Texture* src, Buffer* dst) override;
+    core::Result<void> copyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- 清除 ---
-    void clearColor(float r, float g, float b, float a) override;
-    void clearDepth(float depth) override;
-    void clearStencil(uint8_t stencil) override;
 
     // --- RenderPass (RHI override) ---
-    void beginRenderPass(const RenderPassBeginInfo& info) override;
-    void endRenderPass() override;
+    core::Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
+    void doEndRenderPass() override;
 
     vk::PipelineLayout currentLayout() const { return current_layout_; }
 
@@ -128,6 +125,8 @@ private:
     vk::CommandBuffer cmd_buffer_;
     vk::PipelineLayout current_layout_;
     vk::DescriptorSetLayout current_desc_set_layout_;
+    vk::PipelineBindPoint current_bind_point_ = vk::PipelineBindPoint::eGraphics;
+    uint32_t current_push_constant_size_ = 0;
     VKDescriptorAllocator* allocator_ = nullptr;
     bool rp_present_source_ = false;
     VKTexture* swapchain_color_texture_ = nullptr;  // endRenderPass 时转 PRESENT_SRC_KHR

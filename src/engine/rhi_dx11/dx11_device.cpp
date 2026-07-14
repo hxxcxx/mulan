@@ -1,4 +1,5 @@
 #include "detail/dx11_device.h"
+#include "../rhi/pipeline_validation.h"
 #include "../rhi/engine_error_code.h"
 
 #include <algorithm>
@@ -116,7 +117,10 @@ DX11Device::DX11Device(const DeviceCreateInfo& ci) {
 }
 
 DX11Device::~DX11Device() {
-    waitIdle();
+    if (m_device && m_immediateCtx) {
+        if (auto result = waitIdle(); !result)
+            LOG_ERROR("[DX11] Device idle wait during shutdown failed: {}", result.error().message);
+    }
     drainDeferredReleases();
     shutdownSubmissionTracking();
     m_frameCmdList.reset();
@@ -210,12 +214,13 @@ void DX11Device::init(const DeviceCreateInfo& ci) {
     m_caps.maxTextureAniso = D3D11_REQ_MAXANISOTROPY;
     m_caps.maxSampleCount = resolveSampleCount(TextureFormat::RGBA8_UNorm, TextureFormat::D24_UNorm_S8_UInt, true, 8);
     m_caps.minUniformBufferOffsetAlignment = 256;
-    m_caps.depthClamp = true;
     m_caps.geometryShader = achievedLevel >= D3D_FEATURE_LEVEL_11_0;
     // 当前 DX11 CommandList 仅实现 graphics immediate-context 路径；不要把尚未
     // 落地的 Hull/Domain/Compute 支持暴露给上层 capability 协商。
-    m_caps.tessellationShader = false;
     m_caps.computeShader = false;
+    m_caps.indirectDraw = achievedLevel >= D3D_FEATURE_LEVEL_11_0;
+    m_caps.indirectDispatch = false;
+    m_caps.pushConstants = false;
 
     const uint32_t selectedSamples = resolveSampleCount(TextureFormat::RGBA8_UNorm, TextureFormat::D24_UNorm_S8_UInt,
                                                         true, m_renderConfig.sampleCount());
@@ -292,6 +297,8 @@ core::Result<std::unique_ptr<Shader>> DX11Device::createShader(const ShaderDesc&
 core::Result<std::unique_ptr<PipelineState>> DX11Device::createPipelineState(const GraphicsPipelineDesc& desc) {
     if (!m_device)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is not initialized"));
+    if (auto validation = validateGraphicsPipelineDesc(desc, *this, m_caps); !validation)
+        return std::unexpected(validation.error());
     return createDX11Resource<PipelineState, DX11PipelineState>(*this, EngineErrorCode::PipelineCreateFailed,
                                                                 RHIResourceKind::PipelineState, desc.name, desc,
                                                                 m_device.Get());
@@ -365,26 +372,27 @@ core::Result<std::unique_ptr<BindGroup>> DX11Device::createBindGroup(const BindG
                                                         RHIResourceKind::BindGroup, "DX11BindGroup", layout, desc);
 }
 
-void DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
-    auto* texture = dynamic_cast<DX11Texture*>(dst);
+core::Result<void> DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+    assertResourceOwned(dst);
+    auto* texture = static_cast<DX11Texture*>(dst);
     if (!texture || !texture->resource() || !m_immediateCtx || upload.data.empty()) {
-        LOG_ERROR("[DX11] uploadTextureData rejected: invalid texture, missing context, or empty source data");
-        return;
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed,
+                                         "DX11 texture upload has invalid resources or empty source data"));
     }
 
     const auto& desc = texture->desc();
     const uint32_t bytesPerPixel = textureFormatBytesPerPixel(upload.format);
     if (desc.dimension != TextureDimension::Texture2D || desc.sampleCount != 1 || bytesPerPixel == 0 ||
         upload.format != desc.format || upload.mipLevel >= desc.mipLevels || upload.arrayLayer >= desc.arraySize) {
-        LOG_ERROR("[DX11] uploadTextureData rejected: unsupported format or subresource");
-        return;
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed,
+                                         "DX11 texture upload format or subresource is invalid"));
     }
 
     const uint32_t expectedWidth = (std::max) (1u, desc.width >> upload.mipLevel);
     const uint32_t expectedHeight = (std::max) (1u, desc.height >> upload.mipLevel);
     if (upload.width != expectedWidth || upload.height != expectedHeight || upload.depth != 1) {
-        LOG_ERROR("[DX11] uploadTextureData rejected: dimensions do not match the destination subresource");
-        return;
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed,
+                                         "DX11 texture upload dimensions do not match the destination"));
     }
 
     const uint32_t rowPitch = upload.sourceRowPitch ? upload.sourceRowPitch : upload.width * bytesPerPixel;
@@ -392,48 +400,53 @@ void DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload
     const uint32_t slicePitch = upload.sourceSlicePitch ? upload.sourceSlicePitch : rowPitch * upload.height;
     if (rowPitch < minimumRowPitch || slicePitch < rowPitch * upload.height ||
         upload.data.size_bytes() < static_cast<size_t>(slicePitch)) {
-        LOG_ERROR("[DX11] uploadTextureData rejected: source pitch or data size is invalid");
-        return;
+        return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed,
+                                         "DX11 texture upload source pitch or data size is invalid"));
     }
 
     const UINT subresource = D3D11CalcSubresource(upload.mipLevel, upload.arrayLayer, desc.mipLevels);
     m_immediateCtx->UpdateSubresource(texture->resource(), subresource, nullptr, upload.data.data(), rowPitch,
                                       slicePitch);
+    return {};
 }
 
 core::Result<SubmissionToken> DX11Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
                                                               uint64_t value) {
+    if (auto validation = validateCommandListsForSubmission(cmdLists, count); !validation)
+        return std::unexpected(validation.error());
     if (!cmdLists || count == 0)
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 command list batch is empty"));
+    for (uint32_t i = 0; i < count; ++i)
+        assertResourceOwned(cmdLists[i]);
+    if (fence)
+        assertResourceOwned(fence);
     auto submissionLock = lockSubmissionQueue();
     // CommandList 直接包装 immediate context，命令在录制时已经进入同一条队列。
     if (fence) {
-        auto* dx11Fence = dynamic_cast<DX11Fence*>(fence);
+        auto* dx11Fence = static_cast<DX11Fence*>(fence);
         if (!dx11Fence) {
             LOG_ERROR("[DX11] executeCommandLists rejected: fence is not a DX11 fence");
             return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 external fence type is invalid"));
         }
-        dx11Fence->signal(value);
+        if (auto signal = dx11Fence->signal(value); !signal)
+            return std::unexpected(signal.error());
     }
 
     const SubmissionToken token = reserveSubmissionToken();
     auto* completionFence = static_cast<DX11Fence*>(submissionFence());
     if (!token || !completionFence)
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 submission timeline is unavailable"));
-    completionFence->signal(token.value);
-    if (completionFence->signaledValue() < token.value) {
-        LOG_ERROR("[DX11] Standalone submission timeline signal failed");
-        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 submission timeline signal failed"));
-    }
+    if (auto signal = completionFence->signal(token.value); !signal)
+        return std::unexpected(signal.error());
     for (uint32_t i = 0; i < count; ++i)
         cmdLists[i]->markSubmitted(token);
     commitSubmission(token);
     return token;
 }
 
-void DX11Device::waitIdle() {
+core::Result<void> DX11Device::waitIdle() {
     if (!m_device || !m_immediateCtx)
-        return;
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is unavailable"));
 
     D3D11_QUERY_DESC desc = {};
     desc.Query = D3D11_QUERY_EVENT;
@@ -441,7 +454,8 @@ void DX11Device::waitIdle() {
     HRESULT hr = m_device->CreateQuery(&desc, &query);
     if (FAILED(hr)) {
         logDX11Failure(hr, "ID3D11Device::CreateQuery(waitIdle)");
-        return;
+        return std::unexpected(
+                makeError(EngineErrorCode::SubmissionWaitFailed, "DX11 waitIdle event query creation failed"));
     }
 
     m_immediateCtx->End(query.Get());
@@ -449,25 +463,26 @@ void DX11Device::waitIdle() {
     BOOL completed = FALSE;
     while ((hr = m_immediateCtx->GetData(query.Get(), &completed, sizeof(completed), 0)) == S_FALSE)
         std::this_thread::yield();
-    if (FAILED(hr))
+    if (FAILED(hr)) {
         logDX11Failure(hr, "ID3D11DeviceContext::GetData(waitIdle)");
+        return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "DX11 waitIdle failed"));
+    }
+    return {};
 }
 
-void DX11Device::beginFrame(SwapChain*) {
+core::Result<CommandList*> DX11Device::beginFrame(SwapChain* swapchain) {
+    if (swapchain)
+        assertResourceOwned(swapchain);
     collectGarbage();
     // immediate context 不需要 acquire/reset；SwapChain 在 Present 后自动轮换。
-}
-
-void DX11Device::clearCaches() {
-    if (m_immediateCtx)
-        m_immediateCtx->ClearState();
-}
-
-CommandList* DX11Device::frameCommandList() {
+    if (!m_frameCmdList)
+        return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 frame CommandList is unavailable"));
+    if (auto result = m_frameCmdList->begin(); !result)
+        return std::unexpected(result.error());
     return m_frameCmdList.get();
 }
 
-core::Result<SubmissionToken> DX11Device::submit() {
+core::Result<SubmissionToken> DX11Device::submitFrame() {
     if (!m_immediateCtx)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 immediate context is unavailable"));
 
@@ -476,29 +491,26 @@ core::Result<SubmissionToken> DX11Device::submit() {
     if (!token)
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 submission timeline is unavailable"));
     auto* completionFence = static_cast<DX11Fence*>(submissionFence());
-    completionFence->signal(token.value);
-    if (completionFence->signaledValue() < token.value)
-        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 event query creation failed"));
+    if (auto signal = completionFence->signal(token.value); !signal)
+        return std::unexpected(signal.error());
     m_frameCmdList->markSubmitted(token);
     commitSubmission(token);
     return token;
 }
 
-void DX11Device::present(SwapChain* swapchain) {
+core::Result<SubmissionToken> DX11Device::endFrame(SwapChain* swapchain) {
     if (swapchain)
-        swapchain->present();
-}
-
-core::Result<SubmissionToken> DX11Device::submitAndPresent(SwapChain* swapchain) {
-    auto result = submit();
+        assertResourceOwned(swapchain);
+    if (auto recording = m_frameCmdList->end(); !recording)
+        return std::unexpected(recording.error());
+    auto result = submitFrame();
     if (!result)
         return std::unexpected(result.error());
-    present(swapchain);
+    if (swapchain) {
+        if (auto presentResult = swapchain->present(); !presentResult)
+            return std::unexpected(presentResult.error());
+    }
     return result;
-}
-
-core::Result<SubmissionToken> DX11Device::submitOffscreen() {
-    return submit();
 }
 
 }  // namespace mulan::engine

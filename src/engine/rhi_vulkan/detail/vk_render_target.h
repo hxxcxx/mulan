@@ -31,7 +31,7 @@ public:
     Texture* colorTexture() override { return color_texture_.get(); }
     Texture* depthTexture() override { return depth_texture_.get(); }
 
-    void resize(uint32_t width, uint32_t height) override;
+    core::Result<void> resize(uint32_t width, uint32_t height) override;
     RenderPassBeginInfo renderPassBeginInfo() override;
 
 private:

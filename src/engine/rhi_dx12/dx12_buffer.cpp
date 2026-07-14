@@ -12,6 +12,7 @@ core::Result<std::unique_ptr<DX12Buffer>> DX12Buffer::create(const BufferDesc& d
     auto buffer = std::unique_ptr<DX12Buffer>(new DX12Buffer(desc));
     if (auto result = buffer->initialize(device); !result)
         return std::unexpected(makeError(EngineErrorCode::BufferCreateFailed, result.error().message));
+    buffer->desc_.discardInitialData();
     return buffer;
 }
 
@@ -120,21 +121,23 @@ void DX12Buffer::update(uint32_t offset, uint32_t size, const void* data) {
     }
 }
 
-bool DX12Buffer::readback(uint32_t offset, uint32_t size, void* outData) {
+core::Result<void> DX12Buffer::readback(uint32_t offset, uint32_t size, void* outData) {
     if (desc_.usage != BufferUsage::Staging || !resource_ || !outData || offset > desc_.size ||
         size > desc_.size - offset)
-        return false;
+        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
+                                         "DX12 buffer readback requires a valid staging range"));
 
     // Readback heap: 仅在 CPU 真正读取时映射，并声明读取范围。
     D3D12_RANGE readRange = { offset, offset + size };
     void* mapped = nullptr;
     HRESULT hr = resource_->Map(0, &readRange, &mapped);
     if (FAILED(hr))
-        return false;
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceReadbackFailed, "DX12 staging buffer mapping failed"));
     memcpy(outData, static_cast<uint8_t*>(mapped) + offset, size);
     D3D12_RANGE writeRange = { 0, 0 };
     resource_->Unmap(0, &writeRange);
-    return true;
+    return {};
 }
 
 }  // namespace mulan::engine

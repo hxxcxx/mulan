@@ -1,3 +1,4 @@
+#include "rhi_backends.h"
 #include "ui/main_window.h"
 #include <mulan/core/log/log.h>
 #include <mulan/modeling/runtime/runtime.h>
@@ -22,6 +23,12 @@ int main(int argc, char* argv[]) {
 
     mulan::core::log::init();
     LOG_INFO("[App] Starting mulan");
+
+    if (auto result = registerApplicationRHIBackends(); !result) {
+        LOG_ERROR("[App] RHI backend registration failed: {}", result.error().message);
+        mulan::core::log::shutdown();
+        return 1;
+    }
 
     // 初始化组装层：注册建模后端（STEP/IGES 读取等接入 modeling_core）。
     mulan::runtime::init();

@@ -20,7 +20,6 @@ using graphics::IndexType;
 // ============================================================
 
 class Texture;
-class RHITrackedResource;
 
 // ============================================================
 // RenderPass 加载/存储操作
@@ -59,10 +58,6 @@ struct RenderPassBeginInfo {
     uint8_t colorCount = 0;
     RenderPassAttachmentInfo depthAttachment = {};  // target==nullptr 表示无深度
 
-    // 拥有这些 attachment 的 SwapChain / RenderTarget。命令提交时一并记录，
-    // 用于覆盖交换链多 back-buffer 等无法从当前 attachment 反查的生命周期。
-    RHITrackedResource* owner = nullptr;
-
     float clearColor[4] = { 0.15f, 0.15f, 0.15f, 1.0f };
     float clearDepth = 1.0f;
     uint8_t clearStencil = 0;
@@ -70,9 +65,6 @@ struct RenderPassBeginInfo {
     bool presentSource = false;  // true = swapchain 模式，VK finalLayout=PresentSrcKHR
     uint32_t width = 0;
     uint32_t height = 0;
-
-    // Backend-specific native handle (e.g., GL FBO, unused by VK/DX)
-    uint64_t nativeHandle = 0;
 };
 
 // ============================================================

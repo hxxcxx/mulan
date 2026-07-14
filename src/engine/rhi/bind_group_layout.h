@@ -4,7 +4,7 @@
  * @author hxxcxx
  * @date 2026-07-04
  *
- * BindGroupLayout 从 GraphicsPipelineDesc::descriptorBindings 派生，不可变。
+ * BindGroupLayout 从 Pipeline descriptor bindings 派生，不可变。
  * 两个 PSO 若有完全相同的 binding 声明，则共享同一个 layout（通过哈希去重）。
  *
  * 设计：
@@ -37,6 +37,7 @@ public:
 
     /// 从 PSO 描述符绑定构建 layout（自动按 binding 排序 + 哈希）
     static BindGroupLayout fromPipelineDesc(const GraphicsPipelineDesc& desc);
+    static BindGroupLayout fromPipelineDesc(const ComputePipelineDesc& desc);
 
     /// 直接构造（用于测试 / 手工创建）
     static BindGroupLayout fromBindings(std::span<const BindGroupLayoutEntry> entries);

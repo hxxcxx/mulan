@@ -19,14 +19,30 @@ BindGroupLayout BindGroupLayout::fromPipelineDesc(const GraphicsPipelineDesc& de
     std::sort(entries.begin(), entries.end(),
               [](const BindGroupLayoutEntry& a, const BindGroupLayoutEntry& b) { return a.binding < b.binding; });
 
-    return BindGroupLayout(std::move(entries), computeHash(entries));
+    const uint64_t hash = computeHash(entries);
+    return BindGroupLayout(std::move(entries), hash);
+}
+
+BindGroupLayout BindGroupLayout::fromPipelineDesc(const ComputePipelineDesc& desc) {
+    std::vector<BindGroupLayoutEntry> entries;
+    entries.reserve(desc.descriptorBindingCount);
+    for (uint8_t i = 0; i < desc.descriptorBindingCount; ++i) {
+        const auto& binding = desc.descriptorBindings[i];
+        if (binding.count > 0)
+            entries.push_back({ binding.binding, binding.count, binding.type, binding.stages, binding.mode });
+    }
+    std::sort(entries.begin(), entries.end(),
+              [](const BindGroupLayoutEntry& a, const BindGroupLayoutEntry& b) { return a.binding < b.binding; });
+    const uint64_t hash = computeHash(entries);
+    return BindGroupLayout(std::move(entries), hash);
 }
 
 BindGroupLayout BindGroupLayout::fromBindings(std::span<const BindGroupLayoutEntry> entries) {
     std::vector<BindGroupLayoutEntry> sorted(entries.begin(), entries.end());
     std::sort(sorted.begin(), sorted.end(),
               [](const BindGroupLayoutEntry& a, const BindGroupLayoutEntry& b) { return a.binding < b.binding; });
-    return BindGroupLayout(std::move(sorted), computeHash(sorted));
+    const uint64_t hash = computeHash(sorted);
+    return BindGroupLayout(std::move(sorted), hash);
 }
 
 uint64_t BindGroupLayout::computeHash(const std::vector<BindGroupLayoutEntry>& entries) {
@@ -74,6 +90,15 @@ const BindGroupLayout& PipelineState::bindGroupLayout() const {
     if (!bg_layout_) {
         bg_layout_ = std::make_unique<BindGroupLayout>(BindGroupLayout::fromPipelineDesc(desc()));
     }
+    return *bg_layout_;
+}
+
+ComputePipelineState::ComputePipelineState() = default;
+ComputePipelineState::~ComputePipelineState() = default;
+
+const BindGroupLayout& ComputePipelineState::bindGroupLayout() const {
+    if (!bg_layout_)
+        bg_layout_ = std::make_unique<BindGroupLayout>(BindGroupLayout::fromPipelineDesc(desc()));
     return *bg_layout_;
 }
 

@@ -29,6 +29,7 @@ GLShader::GLShader(const ShaderDesc& desc) : desc_(desc) {
     if (shader_) {
         LOG_DEBUG("[OpenGL] Shader created: name={}, handle={}", desc.name, shader_);
     }
+    desc_.discardCreationData();
 }
 
 GLShader::~GLShader() {

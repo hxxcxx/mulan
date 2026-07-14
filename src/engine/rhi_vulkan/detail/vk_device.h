@@ -59,23 +59,18 @@ public:
                                                              const BindGroupDesc& desc) override;
 
     // --- 资源上传 ---
-    void uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
-    void beginUploadBatch() override;
-    void flushUploadBatch() override;
+    core::Result<void> uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
+    core::Result<void> beginUploadBatch() override;
+    core::Result<void> flushUploadBatch() override;
 
     // --- 提交命令 ---
     core::Result<SubmissionToken> executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence = nullptr,
                                                       uint64_t fenceValue = 0) override;
-    void waitIdle() override;
+    core::Result<void> waitIdle() override;
 
     // --- 帧循环 ---
-    void beginFrame(SwapChain* swapchain = nullptr) override;
-    void clearCaches() override;
-    CommandList* frameCommandList() override;
-    core::Result<SubmissionToken> submitAndPresent(SwapChain* swapchain) override;
-    core::Result<SubmissionToken> submit() override;
-    void present(SwapChain* swapchain) override;
-    core::Result<SubmissionToken> submitOffscreen() override;
+    core::Result<CommandList*> beginFrame(SwapChain* swapchain = nullptr) override;
+    core::Result<SubmissionToken> endFrame(SwapChain* swapchain = nullptr) override;
 
     // --- Vulkan 特有访问器 ---
     vk::Instance vkInstance() const { return instance_; }
@@ -91,6 +86,8 @@ public:
     uint32_t currentFrameIndex() const { return frame_scheduler_->currentFrameIndex(); }
 
 private:
+    core::Result<SubmissionToken> submitFrame();
+    core::Result<SubmissionToken> submitOffscreenFrame();
     void init(const DeviceCreateInfo& ci);
     void shutdown();
     void pickPhysicalDevice(const std::vector<vk::PhysicalDevice>& devices);

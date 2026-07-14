@@ -159,9 +159,15 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     if (!validateOutput(surface, request))
         return;
 
-    device.beginUploadBatch();
+    if (auto result = device.beginUploadBatch(); !result) {
+        LOG_ERROR("[RenderRenderer] Upload batch begin failed: {}", result.error().message);
+        return;
+    }
     compile(request);
-    device.flushUploadBatch();
+    if (auto result = device.flushUploadBatch(); !result) {
+        LOG_ERROR("[RenderRenderer] Upload batch flush failed: {}", result.error().message);
+        return;
+    }
 
     auto* cmd = beginFrame(device, surface, request);
     if (!cmd)
@@ -193,7 +199,6 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
     executeStages(frame, request.textDraws);
 
     cmd->endRenderPass();
-    cmd->end();
 
     endFrame(device, surface, request);
 }
@@ -206,7 +211,7 @@ void RenderRenderer::clearAssetResources(RHIDevice& device) {
     auto retiredRegistry = std::move(asset_gpu_registry_);
     asset_gpu_registry_ = std::make_unique<AssetGpuRegistry>(device);
 
-    const SubmissionToken token = retiredRegistry->lastUseToken();
+    const SubmissionToken token = device.lastSubmissionToken();
     if (!token)
         return;
     auto retireResult = device.retire(token, [registry = std::move(retiredRegistry)]() mutable { registry.reset(); });
@@ -324,11 +329,12 @@ void RenderRenderer::prepareResources(const RenderRequest& request) {
 
 CommandList* RenderRenderer::beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
                                         const RenderRequest& request) {
-    device.beginFrame(surface.swapChain ? surface.swapChain : nullptr);
-    auto* cmd = device.frameCommandList();
-    if (!cmd)
+    auto commandListResult = device.beginFrame(surface.swapChain ? surface.swapChain : nullptr);
+    if (!commandListResult) {
+        LOG_ERROR("[RenderRenderer] Frame begin failed: {}", commandListResult.error().message);
         return nullptr;
-    cmd->begin();
+    }
+    auto* cmd = *commandListResult;
 
     if (request.output.mode == RenderTargetMode::Present) {
         cmd->beginRenderPass(surface.swapChain->renderPassBeginInfo());
@@ -393,12 +399,8 @@ DrawExecutionContext RenderRenderer::buildDrawContext(CommandList& cmd, const Re
 }
 
 void RenderRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request) {
-    core::Result<SubmissionToken> result;
-    if (request.output.mode == RenderTargetMode::Present) {
-        result = device.submitAndPresent(surface.swapChain);
-    } else {
-        result = device.submitOffscreen();
-    }
+    SwapChain* swapchain = request.output.mode == RenderTargetMode::Present ? surface.swapChain : nullptr;
+    auto result = device.endFrame(swapchain);
     if (!result)
         LOG_ERROR("[RenderRenderer] Frame submission failed: {}", result.error().message);
 }

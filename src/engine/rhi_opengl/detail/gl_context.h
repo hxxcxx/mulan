@@ -30,7 +30,7 @@ public:
     virtual bool isValid() const = 0;
     virtual bool makeCurrent() = 0;
     virtual void clearCurrent() = 0;
-    virtual void swapBuffers() = 0;
+    virtual bool swapBuffers() = 0;
     virtual void setSwapInterval(int interval) = 0;
 
 protected:

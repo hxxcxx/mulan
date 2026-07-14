@@ -46,7 +46,7 @@ bool VKSwapChain::acquireNextImage(vk::Semaphore imageAvailable) {
     return false;
 }
 
-void VKSwapChain::presentWithSemaphores(vk::Semaphore renderFinished) {
+core::Result<void> VKSwapChain::presentWithSemaphores(vk::Semaphore renderFinished) {
     vk::PresentInfoKHR presentInfo;
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = &renderFinished;
@@ -56,13 +56,15 @@ void VKSwapChain::presentWithSemaphores(vk::Semaphore renderFinished) {
     try {
         const vk::Result result = params_.presentQueue.presentKHR(&presentInfo);
         if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
-            LOG_WARN("[Vulkan] Swapchain presentation failed: result={}", vk::to_string(result));
+            return std::unexpected(
+                    makeError(EngineErrorCode::PresentationFailed, "Vulkan swapchain presentation failed"));
     } catch (const vk::Error& error) {
-        LOG_ERROR("[Vulkan] Swapchain presentation failed: {}", error.what());
+        return std::unexpected(makeError(EngineErrorCode::PresentationFailed, error.what()));
     }
+    return {};
 }
 
-void VKSwapChain::present() {
+core::Result<void> VKSwapChain::present() {
     vk::PresentInfoKHR presentInfo;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &swapchain_;
@@ -70,27 +72,30 @@ void VKSwapChain::present() {
     try {
         const vk::Result result = params_.presentQueue.presentKHR(&presentInfo);
         if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
-            LOG_WARN("[Vulkan] Swapchain presentation failed: result={}", vk::to_string(result));
+            return std::unexpected(
+                    makeError(EngineErrorCode::PresentationFailed, "Vulkan swapchain presentation failed"));
     } catch (const vk::Error& error) {
-        LOG_ERROR("[Vulkan] Swapchain presentation failed: {}", error.what());
+        return std::unexpected(makeError(EngineErrorCode::PresentationFailed, error.what()));
     }
+    return {};
 }
 
-void VKSwapChain::resize(uint32_t width, uint32_t height) {
+core::Result<void> VKSwapChain::resize(uint32_t width, uint32_t height) {
+    if (width == 0 || height == 0)
+        return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "Vulkan swapchain size must be non-zero"));
     // Graphics submission 已由调用方精确等待；这里只等待 presentation queue
     // 释放旧 swapchain images，避免阻塞设备上的其他队列。
     try {
         params_.presentQueue.waitIdle();
     } catch (const vk::Error& error) {
-        LOG_ERROR("[Vulkan] Present queue wait failed during swapchain resize: {}", error.what());
-        return;
+        return std::unexpected(makeError(EngineErrorCode::ResizeFailed, error.what()));
     }
     cleanup();
     desc_.width = width;
     desc_.height = height;
-    // resize 是基类 void 热路径契约，内部消化错误：失败时记日志，
-    // 保持 swapchain_ 为空（currentBackBuffer() 将返回 nullptr）。
-    if (auto e = createSwapChain(); e.code != 0) {}
+    if (auto error = createSwapChain(); error.code != 0)
+        return std::unexpected(std::move(error));
+    return {};
 }
 
 core::Error VKSwapChain::createMsaaResources() {

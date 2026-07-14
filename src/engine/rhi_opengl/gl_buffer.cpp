@@ -1,4 +1,5 @@
 #include "detail/gl_buffer.h"
+#include "../rhi/engine_error_code.h"
 #include <cstddef>
 #include <cstring>
 #include <string>
@@ -59,6 +60,7 @@ GLBuffer::GLBuffer(const BufferDesc& desc) : desc_(desc) {
     buffer_Usage = getGLUsageHint(desc.usage);
 
     createBuffer();
+    desc_.discardInitialData();
 }
 
 GLBuffer::GLBuffer(uint32_t transientUniformPageSize)
@@ -81,6 +83,7 @@ GLBuffer::GLBuffer(uint32_t transientUniformPageSize)
         glDeleteBuffers(1, &buffer_);
         buffer_ = 0;
     }
+    desc_.discardInitialData();
 }
 
 std::unique_ptr<GLBuffer> GLBuffer::createTransientUniformPage(uint32_t size) {
@@ -181,18 +184,21 @@ void GLBuffer::updateDynamic(uint32_t offset, uint32_t size, const void* data) {
     }
 }
 
-bool GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
+core::Result<void> GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
     if (!isValid() || !outData)
-        return false;
+        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
+                                         "OpenGL buffer readback requires a valid destination"));
 
     if (desc_.usage != BufferUsage::Staging) {
         LOG_ERROR("[OpenGL] Buffer readback rejected: staging buffer required");
-        return false;
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceReadbackFailed, "OpenGL buffer readback requires a staging buffer"));
     }
 
     if (offset + size > desc_.size) {
         LOG_ERROR("[OpenGL] Buffer readback rejected: offset={}, size={}, bufferSize={}", offset, size, desc_.size);
-        return false;
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceReadbackFailed, "OpenGL buffer readback range exceeds the buffer"));
     }
 
     // 使用 DSA 读取数据
@@ -201,10 +207,10 @@ bool GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
         LOG_ERROR("[OpenGL] Buffer readback failed: error=0x{:X}", err);
-        return false;
+        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed, "OpenGL buffer readback failed"));
     }
 
-    return true;
+    return {};
 }
 
 }  // namespace mulan::engine

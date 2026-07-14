@@ -93,6 +93,18 @@ TEST(BindGroupValidationTest, IncludesBindingModeInLayoutIdentity) {
     EXPECT_NE(uniformLayout().hash(), dynamicUniformLayout().hash());
 }
 
+TEST(BindGroupValidationTest, DerivesComputeLayoutsFromTheirDeclaredBindings) {
+    ComputePipelineDesc desc;
+    desc.descriptorBindingCount = 1;
+    desc.descriptorBindings[0] = { 4, 1, DescriptorType::UniformBuffer, PipelineBinding::kStageCompute,
+                                   BindingMode::Dynamic };
+
+    const BindGroupLayout layout = BindGroupLayout::fromPipelineDesc(desc);
+    ASSERT_EQ(layout.entries().size(), 1u);
+    EXPECT_EQ(layout.entries()[0].binding, 4u);
+    EXPECT_EQ(layout.entries()[0].mode, BindingMode::Dynamic);
+}
+
 TEST(BindGroupValidationTest, AcceptsDynamicUniformFromCurrentRecording) {
     TestBuffer buffer(BufferDesc::uniform(1024, "TransientUniformPage"));
     const std::array bindings{ DynamicUniformBinding{ 2, { &buffer, 256, 128, 7 } } };

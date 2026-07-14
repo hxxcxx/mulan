@@ -14,6 +14,7 @@ core::Result<std::unique_ptr<VKComputePipelineState>> VKComputePipelineState::cr
     auto obj = std::unique_ptr<VKComputePipelineState>(new VKComputePipelineState(desc, device));
     if (auto e = obj->build(); e.code != 0)
         return std::unexpected(e);
+    obj->desc_.discardShaderReference();
     return obj;
 }
 
@@ -33,7 +34,10 @@ core::Error VKComputePipelineState::build() {
         const auto& b = desc_.descriptorBindings[i];
         vk::DescriptorType vkType;
         switch (b.type) {
-        case DescriptorType::UniformBuffer: vkType = vk::DescriptorType::eUniformBuffer; break;
+        case DescriptorType::UniformBuffer:
+            vkType = b.mode == BindingMode::Dynamic ? vk::DescriptorType::eUniformBufferDynamic
+                                                    : vk::DescriptorType::eUniformBuffer;
+            break;
         case DescriptorType::TextureSRV: vkType = vk::DescriptorType::eSampledImage; break;
         case DescriptorType::Sampler: vkType = vk::DescriptorType::eSampler; break;
         }

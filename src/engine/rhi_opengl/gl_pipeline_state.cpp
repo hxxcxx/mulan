@@ -126,6 +126,7 @@ GLenum getGLPrimitiveType(PrimitiveTopology topology) {
 
 GLPipelineState::GLPipelineState(const GraphicsPipelineDesc& desc) : desc_(desc) {
     linkProgram();
+    desc_.discardShaderReferences();
 }
 
 GLPipelineState::~GLPipelineState() {

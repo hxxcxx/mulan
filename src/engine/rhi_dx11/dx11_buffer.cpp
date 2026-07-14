@@ -1,4 +1,5 @@
 #include "detail/dx11_buffer.h"
+#include "../rhi/engine_error_code.h"
 
 #include <cstdio>
 #include <cstring>
@@ -135,6 +136,7 @@ DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11Devic
 
     if (!checkDX11(device->CreateBuffer(&bd, pInit, &m_buffer), "ID3D11Device::CreateBuffer"))
         return;
+    m_desc.discardInitialData();
 }
 
 void DX11Buffer::update(uint32_t offset, uint32_t size, const void* data) {
@@ -201,19 +203,21 @@ const void* DX11Buffer::uniformData(uint32_t offset, uint32_t size) const {
     return m_uniformShadow.data() + offset;
 }
 
-bool DX11Buffer::readback(uint32_t offset, uint32_t size, void* outData) {
+core::Result<void> DX11Buffer::readback(uint32_t offset, uint32_t size, void* outData) {
     if (m_nativeUsage != D3D11_USAGE_STAGING || !m_buffer || !outData || size == 0 || offset > m_desc.size ||
         size > m_desc.size - offset)
-        return false;
+        return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
+                                         "DX11 buffer readback requires a valid staging range"));
 
     D3D11_MAPPED_SUBRESOURCE mapped = {};
     HRESULT hr = m_ctx->Map(m_buffer.Get(), 0, D3D11_MAP_READ, 0, &mapped);
     if (FAILED(hr))
-        return false;
+        return std::unexpected(
+                makeError(EngineErrorCode::ResourceReadbackFailed, "DX11 staging buffer mapping failed"));
 
     std::memcpy(outData, static_cast<uint8_t*>(mapped.pData) + offset, size);
     m_ctx->Unmap(m_buffer.Get(), 0);
-    return true;
+    return {};
 }
 
 }  // namespace mulan::engine

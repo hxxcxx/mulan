@@ -59,29 +59,24 @@ public:
                                                              const BindGroupDesc& desc) override;
 
     // --- 资源上传 ---
-    void uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
-    void beginUploadBatch() override;
-    void flushUploadBatch() override;
+    core::Result<void> uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
+    core::Result<void> beginUploadBatch() override;
+    core::Result<void> flushUploadBatch() override;
 
     // --- 提交命令 ---
     core::Result<SubmissionToken> executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence = nullptr,
                                                       uint64_t fenceValue = 0) override;
-    void waitIdle() override;
+    core::Result<void> waitIdle() override;
 
     // --- 帧循环 ---
-    void beginFrame(SwapChain* swapchain = nullptr) override;
-    void clearCaches() override;
-    CommandList* frameCommandList() override;
-    core::Result<SubmissionToken> submitAndPresent(SwapChain* swapchain) override;
-    core::Result<SubmissionToken> submit() override;
-    void present(SwapChain* swapchain) override;
-    core::Result<SubmissionToken> submitOffscreen() override;
+    core::Result<CommandList*> beginFrame(SwapChain* swapchain = nullptr) override;
+    core::Result<SubmissionToken> endFrame(SwapChain* swapchain = nullptr) override;
 
     /// 惰性创建间接绘制 CommandSignature
     ID3D12CommandSignature* drawIndirectSignature();
-    ID3D12CommandSignature* dispatchIndirectSignature();
 
 private:
+    core::Result<SubmissionToken> submitFrame();
     void init(const DeviceCreateInfo& ci);
     void createFactory();
     void findAdapter();
@@ -99,7 +94,6 @@ private:
     ComPtr<ID3D12Debug> debug_controller_;
     ComPtr<ID3D12InfoQueue> info_queue_;
     ComPtr<ID3D12CommandSignature> draw_indirect_sig_;
-    ComPtr<ID3D12CommandSignature> dispatch_indirect_sig_;
 
     GPUDeviceCapabilities caps_;
     RenderConfig render_config_;

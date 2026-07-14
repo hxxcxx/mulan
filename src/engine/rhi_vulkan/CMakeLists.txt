@@ -1,5 +1,5 @@
 # rhi_vulkan - Vulkan RHI 后端。
-# 全平台可用，通过 AutoRegisterDeviceBackend 编译期自注册到 DeviceFactory。
+# 全平台可用，导出 BackendModule，由最终应用显式注册。
 add_library(rhi_vulkan STATIC
     backend_register.cpp
     vk_buffer.cpp

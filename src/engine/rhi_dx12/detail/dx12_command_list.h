@@ -12,6 +12,7 @@
 #include <mulan/core/result/error.h>
 
 #include <expected>
+#include <array>
 #include <memory>
 
 namespace mulan::engine {
@@ -30,16 +31,16 @@ public:
     DX12CommandList(ID3D12GraphicsCommandList* existingCmdList);
     ~DX12CommandList();
 
-    void begin() override;
-    void end() override;
+    core::Result<void> doBegin() override;
+    core::Result<void> doEnd() override;
 
     void setPipelineState(PipelineState* pso) override;
+    void setComputePipelineState(ComputePipelineState* pso) override;
     void setViewport(const Viewport& vp) override;
     void setScissorRect(const ScissorRect& rect) override;
 
     void bindGroup(BindGroup& group) override;
     void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
-    void bindResources(const BindGroupDesc& desc) override;
     core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data) override;
 
     void setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset = 0) override;
@@ -62,26 +63,19 @@ public:
 
     void transitionResource(Buffer* buffer, ResourceState newState) override;
     void transitionResource(Texture* texture, ResourceState newState) override;
-    bool copyTextureToBuffer(Texture* src, Buffer* dst) override;
-
-    void clearColor(float r, float g, float b, float a) override;
-    void clearDepth(float depth) override;
-    void clearStencil(uint8_t stencil) override;
+    core::Result<void> copyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- RenderPass ---
-    void beginRenderPass(const RenderPassBeginInfo& info) override;
-    void endRenderPass() override;
+    core::Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
+    void doEndRenderPass() override;
 
     ID3D12GraphicsCommandList* commandList() const { return cmd_list_.Get(); }
 
     /// 设置内部命令列表（帧循环中使用外部 cmd list）
     void setCommandList(ID3D12GraphicsCommandList* cmdList);
 
-    /// 设置间接绘制 CommandSignature（由 DX12Device 注入）
-    void setIndirectSignatures(ID3D12CommandSignature* drawSig, ID3D12CommandSignature* dispatchSig) {
-        draw_indirect_sig_ = drawSig;
-        dispatch_indirect_sig_ = dispatchSig;
-    }
+    /// 设置间接绘制 CommandSignature（由 DX12Device 注入）。
+    void setDrawIndirectSignature(ID3D12CommandSignature* signature) { draw_indirect_sig_ = signature; }
 
     /// 设置当前帧的 CBV/SRV/UAV heap 和 sampler heap。
     /// 两个 heap 必须在同一次 SetDescriptorHeaps 调用中绑定，
@@ -103,12 +97,13 @@ private:
 
     ComPtr<ID3D12CommandAllocator> allocator_;
     ComPtr<ID3D12GraphicsCommandList> cmd_list_;
-    bool owns_cmd_list_ = true;            // 是否在析构时释放
+    bool owns_cmd_list_ = true;   // 是否在析构时释放
     bool recording_ = false;
-    uint32_t cached_stride_ = 0;           // 从 PSO vertexLayout 缓存的 stride
-    bool rp_present_source_ = false;       // endRenderPass 中决定 barrier 目标状态（PRESENT vs SRV）
-    DX12Texture* rp_color_tex_ = nullptr;  // 当前 render pass 的颜色附件
-    DX12Texture* rp_resolve_tex_ = nullptr;
+    uint32_t cached_stride_ = 0;  // 从 PSO vertexLayout 缓存的 stride
+    bool rp_present_source_ = false;
+    uint8_t rp_color_count_ = 0;
+    std::array<DX12Texture*, RenderPassBeginInfo::kMaxColorTargets> rp_color_textures_{};
+    std::array<DX12Texture*, RenderPassBeginInfo::kMaxColorTargets> rp_resolve_textures_{};
 
     // 纹理绑定用：当前帧的描述符堆
     ID3D12DescriptorHeap* desc_heap_ = nullptr;
@@ -122,7 +117,6 @@ private:
     uint64_t frame_token_ = 0;       // 当前帧 token，0=独立/未注入
 
     ID3D12CommandSignature* draw_indirect_sig_ = nullptr;
-    ID3D12CommandSignature* dispatch_indirect_sig_ = nullptr;
     std::unique_ptr<DX12TransientUniformArena> owned_transient_uniform_arena_;
     DX12TransientUniformArena* transient_uniform_arena_ = nullptr;
 };

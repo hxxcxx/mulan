@@ -34,8 +34,8 @@ public:
     Texture* currentBackBuffer() override;
     Texture* depthTexture() override { return depth_texture_ ? depth_texture_.get() : nullptr; }
     RenderPassBeginInfo renderPassBeginInfo() override;
-    void present() override;
-    void resize(uint32_t width, uint32_t height) override;
+    core::Result<void> present() override;
+    core::Result<void> resize(uint32_t width, uint32_t height) override;
 
     uint32_t currentFrameIndex() const { return frame_index_; }
     DXGI_FORMAT rtvFormat() const { return toDXGIFormat(desc_.format); }

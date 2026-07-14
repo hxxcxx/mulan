@@ -1,4 +1,5 @@
 #include "detail/dx11_fence.h"
+#include "../rhi/engine_error_code.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -12,11 +13,12 @@ DX11Fence::DX11Fence(ID3D11Device* device, ID3D11DeviceContext* context, uint64_
         LOG_ERROR("[DX11] Fence initialization rejected: invalid device or context");
 }
 
-void DX11Fence::signal(uint64_t value) {
+core::Result<void> DX11Fence::signal(uint64_t value) {
     if (value <= m_signaled) {
-        if (value < m_signaled)
-            LOG_ERROR("[DX11] Fence signal rejected: currentValue={}, requestedValue={}", m_signaled, value);
-        return;
+        if (value < m_signaled) {
+            return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 fence values must be monotonic"));
+        }
+        return {};
     }
 
     D3D11_QUERY_DESC desc = {};
@@ -26,7 +28,7 @@ void DX11Fence::signal(uint64_t value) {
     HRESULT hr = m_device->CreateQuery(&desc, &pending.query);
     if (FAILED(hr)) {
         logDX11Failure(hr, "ID3D11Device::CreateQuery(fence event)");
-        return;
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 fence event query creation failed"));
     }
 
     m_ctx->End(pending.query.Get());
@@ -34,16 +36,20 @@ void DX11Fence::signal(uint64_t value) {
     m_ctx->Flush();
     m_pendingSignals.push_back(std::move(pending));
     m_signaled = value;
+    return {};
 }
 
-void DX11Fence::wait(uint64_t value) {
+core::Result<void> DX11Fence::wait(uint64_t value) {
     if (m_completed >= value)
-        return;
+        return {};
     if (value > m_signaled) {
-        LOG_ERROR("[DX11] Fence wait rejected: value {} has not been signaled", value);
-        return;
+        return std::unexpected(
+                makeError(EngineErrorCode::SubmissionWaitFailed, "DX11 fence value has not been signaled"));
     }
     poll(true, value);
+    if (m_completed < value)
+        return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "DX11 fence wait failed"));
+    return {};
 }
 
 uint64_t DX11Fence::completedValue() const {

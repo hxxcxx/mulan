@@ -9,7 +9,10 @@
 
 #include "resource.h"
 
+#include <mulan/core/result/error.h>
+
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace mulan::engine {
@@ -52,32 +55,34 @@ constexpr bool operator&(BufferBindFlags a, BufferBindFlags b) {
 // ============================================================
 
 struct BufferDesc {
-    std::string_view name;  // 调试名称
-    uint32_t size = 0;      // 字节大小
+    std::string name;   // 调试名称
+    uint32_t size = 0;  // 字节大小
     BufferUsage usage = BufferUsage::Immutable;
     BufferBindFlags bindFlags = BufferBindFlags::None;
     const void* initData = nullptr;  // 可选：初始数据
 
+    void discardInitialData() noexcept { initData = nullptr; }
+
     // 便捷构造
 
     static BufferDesc vertex(uint32_t size, const void* data = nullptr, std::string_view debugName = {}) {
-        return { debugName, size, BufferUsage::Immutable, BufferBindFlags::VertexBuffer, data };
+        return { std::string(debugName), size, BufferUsage::Immutable, BufferBindFlags::VertexBuffer, data };
     }
 
     static BufferDesc index(uint32_t size, const void* data = nullptr, std::string_view debugName = {}) {
-        return { debugName, size, BufferUsage::Immutable, BufferBindFlags::IndexBuffer, data };
+        return { std::string(debugName), size, BufferUsage::Immutable, BufferBindFlags::IndexBuffer, data };
     }
 
     static BufferDesc uniform(uint32_t size, std::string_view debugName = {}) {
-        return { debugName, size, BufferUsage::Dynamic, BufferBindFlags::UniformBuffer, nullptr };
+        return { std::string(debugName), size, BufferUsage::Dynamic, BufferBindFlags::UniformBuffer, nullptr };
     }
 
     static BufferDesc dynamicVertex(uint32_t size, std::string_view debugName = {}) {
-        return { debugName, size, BufferUsage::Dynamic, BufferBindFlags::VertexBuffer, nullptr };
+        return { std::string(debugName), size, BufferUsage::Dynamic, BufferBindFlags::VertexBuffer, nullptr };
     }
 
     static BufferDesc staging(uint32_t size, std::string_view debugName = {}) {
-        return { debugName, size, BufferUsage::Staging, BufferBindFlags::None, nullptr };
+        return { std::string(debugName), size, BufferUsage::Staging, BufferBindFlags::None, nullptr };
     }
 };
 
@@ -98,11 +103,11 @@ public:
     virtual void update(uint32_t offset, uint32_t size, const void* data) = 0;
 
     /// CPU 端回读缓冲区数据（仅 Staging buffer 支持）
-    virtual bool readback(uint32_t offset, uint32_t size, void* outData) {
+    virtual core::Result<void> readback(uint32_t offset, uint32_t size, void* outData) {
         (void) offset;
         (void) size;
         (void) outData;
-        return false;
+        return std::unexpected(core::Error::make(core::ErrorCode::NotSupported, "Buffer readback is not supported"));
     }
 
     // 便捷查询

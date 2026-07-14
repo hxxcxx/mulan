@@ -25,8 +25,8 @@ public:
 
     ~DX12Fence();
 
-    void signal(uint64_t value) override;
-    void wait(uint64_t value) override;
+    core::Result<void> signal(uint64_t value) override;
+    core::Result<void> wait(uint64_t value) override;
     uint64_t completedValue() const override;
     bool isValid() const { return fence_ && event_; }
 

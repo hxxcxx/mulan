@@ -10,6 +10,8 @@
 #include "buffer.h"
 #include "bind_group.h"
 #include "resource.h"
+#include "sampler.h"
+#include "submission.h"
 #include "render_types.h"
 #include "uniform_slice.h"
 
@@ -17,9 +19,11 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cassert>
 #include <span>
+#include <optional>
+#include <string_view>
 #include <type_traits>
-#include <vector>
 
 namespace mulan::engine {
 
@@ -28,6 +32,7 @@ namespace mulan::engine {
 // ============================================================
 
 class PipelineState;
+class ComputePipelineState;
 class Shader;
 class Texture;
 
@@ -37,16 +42,28 @@ class Texture;
 
 class CommandList : public RHITrackedResource {
 public:
+    enum class State : uint8_t {
+        Initial,
+        Recording,
+        Executable,
+        Submitted,
+        Invalid,
+    };
+
     virtual ~CommandList() = default;
 
     // --- 生命周期 ---
 
-    virtual void begin() = 0;
-    virtual void end() = 0;
+    core::Result<void> begin();
+    core::Result<void> end();
+    State state() const noexcept { return state_; }
+    bool isExecutable() const noexcept { return state_ == State::Executable; }
+    const core::Error* recordingError() const noexcept;
 
     // --- 管线状态 ---
 
     virtual void setPipelineState(PipelineState* pso) = 0;
+    virtual void setComputePipelineState(ComputePipelineState* pso) = 0;
 
     // --- 资源绑定 ---
 
@@ -56,10 +73,6 @@ public:
     /// 绑定对象化 BindGroup，并提供 layout 中声明为 Dynamic 的 UniformBuffer 切片。
     /// 默认实现仅接受空动态绑定，后端实现瞬态 Uniform 分配后覆盖该入口。
     virtual void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms);
-
-    /// 便捷路径：从 BindGroupDesc 临时构建并绑定（无缓存，每帧重新分配）。
-    /// 用于兼容旧代码或动态变化的绑定场景。
-    virtual void bindResources(const BindGroupDesc& desc) = 0;
 
     /// 将一份小型常量数据写入当前录制周期的后端瞬态 Uniform 分配器。
     virtual core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data);
@@ -90,27 +103,15 @@ public:
     // Indirect draw arguments layout in buffer:
     //   DrawIndirectArgs: { indexCount, instanceCount, firstIndex, baseVertex, startInstance }
     //   DispatchIndirectArgs: { groupCountX, groupCountY, groupCountZ }
-    virtual void drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount = 1, uint32_t stride = 0) {
-        (void) argsBuffer;
-        (void) offset;
-        (void) drawCount;
-        (void) stride;
-    }
+    virtual void drawIndirect(Buffer* argsBuffer, uint32_t offset, uint32_t drawCount = 1, uint32_t stride = 0) = 0;
 
     // --- Compute ---
 
     /// 执行 compute shader dispatch
-    virtual void dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) {
-        (void) threadGroupX;
-        (void) threadGroupY;
-        (void) threadGroupZ;
-    }
+    virtual void dispatch(uint32_t threadGroupX, uint32_t threadGroupY, uint32_t threadGroupZ) = 0;
 
     /// 间接 dispatch（GPU-driven）
-    virtual void dispatchIndirect(Buffer* argsBuffer, uint32_t offset) {
-        (void) argsBuffer;
-        (void) offset;
-    }
+    virtual void dispatchIndirect(Buffer* argsBuffer, uint32_t offset) = 0;
 
     // --- Push Constants（快速小数据路径，不走 UBO）---
 
@@ -119,12 +120,7 @@ public:
     /// @param size    数据大小（字节），必须是 4 的倍数
     /// @param data    数据指针
     /// @param stageFlags 着色器阶段（PipelineBinding::kStageVertex 等）
-    virtual void setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) {
-        (void) offset;
-        (void) size;
-        (void) data;
-        (void) stageFlags;
-    }
+    virtual void setPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) = 0;
 
     // --- 资源更新 ---
 
@@ -135,31 +131,17 @@ public:
 
     virtual void transitionResource(Buffer* buffer, ResourceState newState) = 0;
 
-    virtual void transitionResource(Texture* texture, ResourceState newState) {
-        (void) texture;
-        (void) newState;
-    }
+    virtual void transitionResource(Texture* texture, ResourceState newState) = 0;
 
     /// 将渲染目标 color 纹理复制到 staging buffer（用于 CPU 回读）。
-    /// 返回 false 表示当前后端或资源组合不支持该复制。
-    virtual bool copyTextureToBuffer(Texture* src, Buffer* dst) {
-        (void) src;
-        (void) dst;
-        return false;
-    }
+    virtual core::Result<void> copyTextureToBuffer(Texture* src, Buffer* dst) = 0;
 
     // --- RenderPass ---
 
-    virtual void beginRenderPass(const RenderPassBeginInfo& info) { (void) info; }
-    virtual void endRenderPass() {}
+    void beginRenderPass(const RenderPassBeginInfo& info);
+    void endRenderPass();
 
-    // --- 清除 ---
-
-    virtual void clearColor(float r, float g, float b, float a) = 0;
-    virtual void clearDepth(float depth) = 0;
-    virtual void clearStencil(uint8_t stencil) = 0;
-
-    /// 设备在 queue submit 成功后调用，将本次使用传播到全部资源。
+    /// 设备在 queue submit 成功后调用，记录 CommandList 自身的重用边界。
     void markSubmitted(SubmissionToken token);
 
 protected:
@@ -167,34 +149,71 @@ protected:
     CommandList(const CommandList&) = delete;
     CommandList& operator=(const CommandList&) = delete;
 
-    void resetResourceUsage();
-    void recordResourceUse(RHITrackedResource* resource);
-    void recordBindGroupUse(BindGroup& group);
-    void recordBindGroupUse(const BindGroupDesc& desc);
-    void recordRenderPassUse(const RenderPassBeginInfo& info);
     core::Result<void> waitForPreviousSubmission();
+    virtual core::Result<void> doBegin() = 0;
+    virtual core::Result<void> doEnd() = 0;
+    virtual core::Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) = 0;
+    virtual void doEndRenderPass() = 0;
+
+    void invalidate(core::Error error);
+    void rejectRecording(std::string_view reason);
+    void activateBindGroupLayout(const BindGroupLayout& layout);
+    bool validateBindGroupCompatible(const BindGroup& group);
+    void assertResourceCompatible(const RHITrackedResource* resource) const noexcept {
+#ifndef NDEBUG
+        assert(resource != nullptr);
+        if (trackingDevice())
+            assert(!resource->isTracked() || resource->belongsTo(*trackingDevice()));
+#else
+        (void) resource;
+#endif
+    }
+
+    void assertBindGroupCompatible(const BindGroup& group) const noexcept {
+#ifndef NDEBUG
+        assertResourceCompatible(&group);
+        for (uint8_t i = 0; i < group.entryCount(); ++i) {
+            const BindGroupEntry& entry = group.entries()[i];
+            if (entry.buffer)
+                assertResourceCompatible(entry.buffer);
+            if (entry.texture)
+                assertResourceCompatible(entry.texture);
+            if (entry.sampler)
+                assertResourceCompatible(entry.sampler);
+        }
+#else
+        (void) group;
+#endif
+    }
+
+    void assertRenderPassCompatible(const RenderPassBeginInfo& info) const noexcept {
+#ifndef NDEBUG
+        assert(info.colorCount <= RenderPassBeginInfo::kMaxColorTargets);
+        for (uint8_t i = 0; i < info.colorCount; ++i) {
+            if (info.colorAttachments[i].target)
+                assertResourceCompatible(info.colorAttachments[i].target);
+            if (info.colorAttachments[i].resolveTarget)
+                assertResourceCompatible(info.colorAttachments[i].resolveTarget);
+        }
+        if (info.depthAttachment.target)
+            assertResourceCompatible(info.depthAttachment.target);
+        if (info.depthAttachment.resolveTarget)
+            assertResourceCompatible(info.depthAttachment.resolveTarget);
+#else
+        (void) info;
+#endif
+    }
 
 private:
-    std::vector<RHITrackedResource*> used_resources_;
-};
-
-// ============================================================
-// RAII guard：作用域内自动 begin/end
-// ============================================================
-
-class ScopedCommandRecorder {
-public:
-    explicit ScopedCommandRecorder(CommandList* cmd) : cmd_(cmd) { cmd_->begin(); }
-    ~ScopedCommandRecorder() { cmd_->end(); }
-
-    CommandList* operator->() { return cmd_; }
-    CommandList& cmd() { return *cmd_; }
-
-    ScopedCommandRecorder(const ScopedCommandRecorder&) = delete;
-    ScopedCommandRecorder& operator=(const ScopedCommandRecorder&) = delete;
-
-private:
-    CommandList* cmd_;
+    SubmissionToken last_submission_;
+    State state_ = State::Initial;
+    bool backend_recording_ = false;
+    bool render_pass_active_ = false;
+    bool bind_group_layout_active_ = false;
+    uint64_t bind_group_layout_hash_ = 0;
+    bool pending_bind_group_layout_ = false;
+    uint64_t pending_bind_group_layout_hash_ = 0;
+    std::optional<core::Error> recording_error_;
 };
 
 }  // namespace mulan::engine

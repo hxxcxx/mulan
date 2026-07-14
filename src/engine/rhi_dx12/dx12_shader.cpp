@@ -36,6 +36,7 @@ core::Result<std::unique_ptr<DX12Shader>> DX12Shader::create(const ShaderDesc& d
                           "DX12Shader ended up with empty bytecode"));
     }
 
+    obj->desc_.discardCreationData();
     return obj;
 }
 

@@ -54,25 +54,21 @@ public:
     core::Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout,
                                                              const BindGroupDesc& desc) override;
 
-    void uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
-    void beginUploadBatch() override {}
-    void flushUploadBatch() override {}
+    core::Result<void> uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
+    core::Result<void> beginUploadBatch() override { return {}; }
+    core::Result<void> flushUploadBatch() override { return {}; }
 
     // --- 提交命令 ---
     core::Result<SubmissionToken> executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence = nullptr,
                                                       uint64_t fenceValue = 0) override;
-    void waitIdle() override;
+    core::Result<void> waitIdle() override;
 
     // --- 帧循环 ---
-    void beginFrame(SwapChain* swapchain = nullptr) override;
-    void clearCaches() override;
-    CommandList* frameCommandList() override;
-    core::Result<SubmissionToken> submitAndPresent(SwapChain* swapchain) override;
-    core::Result<SubmissionToken> submit() override;
-    void present(SwapChain* swapchain) override;
-    core::Result<SubmissionToken> submitOffscreen() override;
+    core::Result<CommandList*> beginFrame(SwapChain* swapchain = nullptr) override;
+    core::Result<SubmissionToken> endFrame(SwapChain* swapchain = nullptr) override;
 
 private:
+    core::Result<SubmissionToken> submitFrame();
     void init(const DeviceCreateInfo& ci);
     uint32_t resolveSampleCount(TextureFormat colorFormat, TextureFormat depthFormat, bool hasDepth,
                                 uint32_t requestedSampleCount) const;

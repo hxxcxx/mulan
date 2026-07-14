@@ -19,6 +19,8 @@ add_library(rhi_opengl STATIC
     gl_texture.cpp
 )
 
+mulan_copy_public_headers(rhi_opengl rhi_opengl)
+
 target_link_libraries(rhi_opengl
     PUBLIC rhi
     PRIVATE glad::glad OpenGL::GL

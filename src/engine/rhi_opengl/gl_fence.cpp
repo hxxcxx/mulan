@@ -6,6 +6,7 @@
  */
 
 #include "detail/gl_fence.h"
+#include "../rhi/engine_error_code.h"
 
 namespace mulan::engine {
 
@@ -17,29 +18,31 @@ GLFence::~GLFence() {
         glDeleteSync(sync_);
 }
 
-void GLFence::signal(uint64_t value) {
+core::Result<void> GLFence::signal(uint64_t value) {
     if (sync_)
         glDeleteSync(sync_);
     sync_ = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (!sync_)
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "glFenceSync failed"));
     signaled_value_ = value;
+    return {};
 }
 
-void GLFence::wait(uint64_t value) {
+core::Result<void> GLFence::wait(uint64_t value) {
     if (value <= completed_value_)
-        return;
-    if (!sync_) {
-        completed_value_ = signaled_value_;
-        return;
-    }
+        return {};
+    if (!sync_ || value > signaled_value_)
+        return std::unexpected(
+                makeError(EngineErrorCode::SubmissionWaitFailed, "OpenGL fence value has not been signaled"));
 
     for (;;) {
         const GLenum result = glClientWaitSync(sync_, GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000ull);
         if (result == GL_ALREADY_SIGNALED || result == GL_CONDITION_SATISFIED) {
             completed_value_ = signaled_value_;
-            return;
+            return {};
         }
         if (result == GL_WAIT_FAILED)
-            return;
+            return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "glClientWaitSync failed"));
     }
 }
 

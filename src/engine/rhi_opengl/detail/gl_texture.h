@@ -38,6 +38,10 @@ public:
     /// OpenGL 纹理对象句柄
     GLuint handle() const { return handle_; }
 
+    /// 此纹理作为标准 RenderTarget attachment 时对应的 FBO，不拥有该对象。
+    GLuint renderTargetFramebuffer() const { return render_target_framebuffer_; }
+    void setRenderTargetFramebuffer(GLuint framebuffer) { render_target_framebuffer_ = framebuffer; }
+
     /// OpenGL 纹理目标 (GL_TEXTURE_2D, GL_TEXTURE_CUBE_MAP, ...)
     GLenum target() const { return target_; }
 
@@ -75,6 +79,7 @@ private:
 
     TextureDesc desc_;
     GLuint handle_ = 0;
+    GLuint render_target_framebuffer_ = 0;
     GLenum target_ = GL_TEXTURE_2D;
     GLenum internal_format_ = GL_RGBA8;
 };

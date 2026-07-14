@@ -52,7 +52,6 @@ std::unique_ptr<PipelineState> createBakePSO(RHIDevice& device, Shader* vs, Shad
 
     desc.colorFormats[0] = colorFmt;
     desc.colorTargetCount = 1;
-    desc.depthEnable = false;
 
     auto r = device.createPipelineState(desc);
     if (!r) {
@@ -88,10 +87,14 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
         return false;
     }
     auto sourceEquirect = std::move(*eqR);
-    device.uploadTextureData(
+    auto uploadResult = device.uploadTextureData(
             sourceEquirect.get(),
             TextureUploadDesc::tightlyPacked(std::span((*image)->data(), (*image)->totalBytes() / sizeof(float)),
                                              (*image)->width(), (*image)->height(), TextureFormat::RGBA32_Float));
+    if (!uploadResult) {
+        LOG_ERROR("[IBL] Source texture upload failed: {}", uploadResult.error().message);
+        return false;
+    }
 
     // 2. 创建三张输出纹理（2D equirect 表示）
     auto make2D = [](RHIDevice& dev, uint32_t width, uint32_t height, TextureFormat fmt,
@@ -143,7 +146,10 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
     if (!cmdR)
         return false;
     CommandList* cmd = cmdR->get();
-    cmd->begin();
+    if (auto result = cmd->begin(); !result) {
+        LOG_ERROR("[IBL] Command recording begin failed: {}", result.error().message);
+        return false;
+    }
 
     // 5a. irradiance
     {
@@ -207,7 +213,10 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
                     uniforms);
     }
 
-    cmd->end();
+    if (auto result = cmd->end(); !result) {
+        LOG_ERROR("[IBL] Command recording end failed: {}", result.error().message);
+        return false;
+    }
     auto fenceResult = device.createFence(0);
     if (!fenceResult) {
         LOG_ERROR("[IBL] Bake completion fence creation failed: {}", fenceResult.error().message);
@@ -219,7 +228,10 @@ bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
         LOG_ERROR("[IBL] Bake submission failed: {}", submitResult.error().message);
         return false;
     }
-    completionFence->wait(1);
+    if (auto waitResult = completionFence->wait(1); !waitResult) {
+        LOG_ERROR("[IBL] Bake completion wait failed: {}", waitResult.error().message);
+        return false;
+    }
     if (completionFence->completedValue() < 1) {
         LOG_ERROR("[IBL] Bake submission did not complete");
         return false;

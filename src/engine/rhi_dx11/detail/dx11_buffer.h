@@ -21,7 +21,7 @@ public:
 
     const BufferDesc& desc() const override { return m_desc; }
     void update(uint32_t offset, uint32_t size, const void* data) override;
-    bool readback(uint32_t offset, uint32_t size, void* outData) override;
+    core::Result<void> readback(uint32_t offset, uint32_t size, void* outData) override;
 
     ID3D11Buffer* buffer() const { return m_buffer.Get(); }
     const void* uniformData(uint32_t offset, uint32_t size) const;

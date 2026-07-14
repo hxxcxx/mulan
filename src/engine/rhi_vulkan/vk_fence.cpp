@@ -33,21 +33,32 @@ VKFence::~VKFence() {
     }
 }
 
-void VKFence::signal(uint64_t value) {
+core::Result<void> VKFence::signal(uint64_t value) {
     vk::SemaphoreSignalInfo info;
     info.semaphore = semaphore_;
     info.value = value;
-    device_.signalSemaphore(info);
+    try {
+        device_.signalSemaphore(info);
+    } catch (const vk::Error& error) {
+        return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, error.what()));
+    }
+    return {};
 }
 
-void VKFence::wait(uint64_t value) {
+core::Result<void> VKFence::wait(uint64_t value) {
     vk::SemaphoreWaitInfo info;
     info.semaphoreCount = 1;
     vk::Semaphore semaphores[] = { semaphore_ };
     uint64_t values[] = { value };
     info.pSemaphores = semaphores;
     info.pValues = values;
-    (void) device_.waitSemaphores(info, UINT64_MAX);
+    try {
+        if (device_.waitSemaphores(info, UINT64_MAX) != vk::Result::eSuccess)
+            return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "Vulkan fence wait failed"));
+    } catch (const vk::Error& error) {
+        return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, error.what()));
+    }
+    return {};
 }
 
 uint64_t VKFence::completedValue() const {

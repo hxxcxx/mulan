@@ -19,6 +19,7 @@ core::Result<std::unique_ptr<VKPipelineState>> VKPipelineState::create(const Gra
     if (auto e = obj->build(); e.code != 0)
         return std::unexpected(e);
 
+    obj->desc_.discardShaderReferences();
     return obj;
 }
 
@@ -35,27 +36,18 @@ core::Error VKPipelineState::createRootSignature() {
     // --- Descriptor Set Layout ---
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
 
-    if (desc_.descriptorBindingCount > 0) {
-        for (uint8_t i = 0; i < desc_.descriptorBindingCount; ++i) {
-            const auto& b = desc_.descriptorBindings[i];
-            vk::DescriptorType vkType;
-            switch (b.type) {
-            case DescriptorType::UniformBuffer:
-                vkType = b.mode == BindingMode::Dynamic ? vk::DescriptorType::eUniformBufferDynamic
-                                                        : vk::DescriptorType::eUniformBuffer;
-                break;
-            case DescriptorType::TextureSRV: vkType = vk::DescriptorType::eSampledImage; break;
-            case DescriptorType::Sampler: vkType = vk::DescriptorType::eSampler; break;
-            }
-            bindings.push_back({ b.binding, vkType, b.count, static_cast<vk::ShaderStageFlags>(b.stages) });
+    for (uint8_t i = 0; i < desc_.descriptorBindingCount; ++i) {
+        const auto& b = desc_.descriptorBindings[i];
+        vk::DescriptorType vkType;
+        switch (b.type) {
+        case DescriptorType::UniformBuffer:
+            vkType = b.mode == BindingMode::Dynamic ? vk::DescriptorType::eUniformBufferDynamic
+                                                    : vk::DescriptorType::eUniformBuffer;
+            break;
+        case DescriptorType::TextureSRV: vkType = vk::DescriptorType::eSampledImage; break;
+        case DescriptorType::Sampler: vkType = vk::DescriptorType::eSampler; break;
         }
-    } else {
-        // 向后兼容：无 descriptor 描述时使用默认 3 个 UBO
-        bindings.push_back({ 0, vk::DescriptorType::eUniformBuffer, 1,
-                             vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment });
-        bindings.push_back({ 1, vk::DescriptorType::eUniformBuffer, 1,
-                             vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment });
-        bindings.push_back({ 2, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment });
+        bindings.push_back({ b.binding, vkType, b.count, static_cast<vk::ShaderStageFlags>(b.stages) });
     }
 
     vk::DescriptorSetLayoutCreateInfo dslCI;
@@ -92,9 +84,14 @@ core::Error VKPipelineState::build() {
     for (uint8_t i = 0; i < desc_.colorTargetCount; ++i)
         colorFmts[i] = toVkFormat(desc_.colorFormats[i]);
     renderingCI.pColorAttachmentFormats = colorFmts.data();
-    renderingCI.depthAttachmentFormat =
-            desc_.depthEnable ? toVkFormat(desc_.depthStencilFormat) : vk::Format::eUndefined;
-    renderingCI.stencilAttachmentFormat = vk::Format::eUndefined;
+    renderingCI.depthAttachmentFormat = desc_.depthStencilFormat != TextureFormat::Unknown
+                                                ? toVkFormat(desc_.depthStencilFormat)
+                                                : vk::Format::eUndefined;
+    renderingCI.stencilAttachmentFormat =
+            desc_.depthStencilFormat == TextureFormat::D24_UNorm_S8_UInt ||
+                            desc_.depthStencilFormat == TextureFormat::D32_Float_S8X24_UInt
+                    ? toVkFormat(desc_.depthStencilFormat)
+                    : vk::Format::eUndefined;
 
     // --- Vertex Input ---
     auto vertexInputState = buildVertexInputState();
@@ -137,20 +134,23 @@ core::Error VKPipelineState::build() {
     }
 
     // --- Blend ---
-    vk::PipelineColorBlendAttachmentState colorBlend;
-    const auto& rt0 = desc_.blend.renderTargets[0];
-    colorBlend.blendEnable = rt0.blendEnable;
-    colorBlend.srcColorBlendFactor = toVkBlendFactor(rt0.srcBlend);
-    colorBlend.dstColorBlendFactor = toVkBlendFactor(rt0.dstBlend);
-    colorBlend.colorBlendOp = toVkBlendOp(rt0.blendOp);
-    colorBlend.srcAlphaBlendFactor = toVkBlendFactor(rt0.srcBlendAlpha);
-    colorBlend.dstAlphaBlendFactor = toVkBlendFactor(rt0.dstBlendAlpha);
-    colorBlend.alphaBlendOp = toVkBlendOp(rt0.blendOpAlpha);
-    colorBlend.colorWriteMask = vk::ColorComponentFlagBits(rt0.writeMask);
+    std::array<vk::PipelineColorBlendAttachmentState, GraphicsPipelineDesc::kMaxRenderTargets> colorBlends{};
+    for (uint8_t i = 0; i < desc_.colorTargetCount; ++i) {
+        const auto& source = desc_.blend.renderTargets[desc_.blend.independentBlend ? i : 0];
+        auto& target = colorBlends[i];
+        target.blendEnable = source.blendEnable;
+        target.srcColorBlendFactor = toVkBlendFactor(source.srcBlend);
+        target.dstColorBlendFactor = toVkBlendFactor(source.dstBlend);
+        target.colorBlendOp = toVkBlendOp(source.blendOp);
+        target.srcAlphaBlendFactor = toVkBlendFactor(source.srcBlendAlpha);
+        target.dstAlphaBlendFactor = toVkBlendFactor(source.dstBlendAlpha);
+        target.alphaBlendOp = toVkBlendOp(source.blendOpAlpha);
+        target.colorWriteMask = vk::ColorComponentFlagBits(source.writeMask);
+    }
 
     vk::PipelineColorBlendStateCreateInfo blendCI;
-    blendCI.attachmentCount = 1;
-    blendCI.pAttachments = &colorBlend;
+    blendCI.attachmentCount = desc_.colorTargetCount;
+    blendCI.pAttachments = desc_.colorTargetCount > 0 ? colorBlends.data() : nullptr;
 
     // --- Dynamic State ---
     vk::DynamicState dynamicStates[] = {
