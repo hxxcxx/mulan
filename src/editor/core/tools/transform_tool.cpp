@@ -57,6 +57,16 @@ EditorAction TransformTool::handleInput(const EditorInput& input) {
         return EditorAction::cancel();
     }
 
+    // 生命周期事件优先于空间数据（修 P7）：release 必须能结束工具，即使 worldPoint 缺失。
+    if (isLeftRelease(input.event)) {
+        if (drag_start_world_ && drag_preview_started_) {
+            // worldPoint 缺失时用已记录的增量回退，确保 release 总能完成。
+            const auto point = input.worldPoint();
+            return point ? commit(*point) : commitWithLastDelta();
+        }
+        return EditorAction::cancel();  // 无可提交内容：取消而非吞事件
+    }
+
     const auto point = input.worldPoint();
     if (!point) {
         return EditorAction::consumeEvent();
@@ -71,13 +81,6 @@ EditorAction TransformTool::handleInput(const EditorInput& input) {
 
     if (isMouseMove(input.event)) {
         return update(*point);
-    }
-
-    if (isLeftRelease(input.event)) {
-        if (drag_start_world_ && drag_preview_started_) {
-            return commit(*point);
-        }
-        return EditorAction::consumeEvent();
     }
 
     return EditorAction::ignored();
@@ -128,6 +131,27 @@ EditorAction TransformTool::commit(const math::Point3& worldPoint) {
     }
 
     std::vector<EntityTransformUpdate> updates = context_.entityUpdates(*delta);
+    if (updates.empty()) {
+        return EditorAction::cancel();
+    }
+
+    DocumentOperation operation = commit_mode_ == TransformEditCommitMode::Copy
+                                          ? DocumentOperation::copyEntityTransforms(std::move(updates))
+                                          : DocumentOperation::updateEntityTransforms(std::move(updates));
+
+    EditorAction action = EditorAction::commit(std::move(operation));
+    action.clearPreviewOnApply().finishTool();
+    return action;
+}
+
+EditorAction TransformTool::commitWithLastDelta() const {
+    // release 时 worldPoint 缺失（射线无法得到工作点）的回退路径：
+    // 用最后一次 move 记录的增量提交，确保 release 总能完成变换。
+    if (!current_delta_) {
+        return EditorAction::cancel();
+    }
+
+    std::vector<EntityTransformUpdate> updates = context_.entityUpdates(*current_delta_);
     if (updates.empty()) {
         return EditorAction::cancel();
     }

@@ -28,13 +28,16 @@ const char* finishReasonName(ToolFinishReason reason) {
 ToolController::~ToolController() = default;
 
 EditorAction ToolController::start(std::unique_ptr<EditorTool> tool) {
-    clear(ToolFinishReason::Replaced);
+    // 替换旧工具时，保留其 end action 的 clearPreview 语义（原先被丢弃）。
+    EditorAction replacedEnd = clear(ToolFinishReason::Replaced);
     active_tool_ = std::move(tool);
     if (active_tool_) {
         LOG_DEBUG("[Editor] Tool started: id={}", active_tool_->id());
-        return active_tool_->begin();
+        EditorAction beginAction = active_tool_->begin();
+        mergeEndAction(beginAction, std::move(replacedEnd));
+        return beginAction;
     }
-    return EditorAction::ignored();
+    return replacedEnd;
 }
 
 EditorAction ToolController::handleInput(const EditorInput& input) {
@@ -48,12 +51,24 @@ EditorAction ToolController::handleInput(const EditorInput& input) {
 
     EditorAction action = active_tool_->handleInput(input);
     if (action.lifecycle() == ToolLifecycle::Finished) {
-        clear(ToolFinishReason::Finished);
+        EditorAction endAction = clear(ToolFinishReason::Finished);
+        mergeEndAction(action, std::move(endAction));
     } else if (action.lifecycle() == ToolLifecycle::Cancelled) {
-        clear(ToolFinishReason::Cancelled);
+        EditorAction endAction = clear(ToolFinishReason::Cancelled);
+        mergeEndAction(action, std::move(endAction));
     }
 
     return action;
+}
+
+void ToolController::mergeEndAction(EditorAction& action, EditorAction endAction) {
+    // 以工具返回的 action 为主，补入 end action 的 clearPreview（若工具未显式设置）。
+    // 这修复了原先 clear(Replaced/Finished/Cancelled) 返回的 end action 被丢弃的问题，
+    // 使工具的 end() 清理（如 TransformTool::end 返回 clearPreview）不再丢失。
+    if (endAction.shouldClearPreview() && !action.shouldClearPreview() && !action.preview() &&
+        !action.hasPreviewReferences()) {
+        action.clearPreviewOnApply();
+    }
 }
 
 EditorAction ToolController::cancel() {

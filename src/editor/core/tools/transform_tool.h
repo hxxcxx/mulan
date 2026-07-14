@@ -37,6 +37,7 @@ private:
     EditorAction setDragStart(math::Point3 worldPoint);
     EditorAction update(const math::Point3& worldPoint);
     EditorAction commit(const math::Point3& worldPoint);
+    EditorAction commitWithLastDelta() const;  ///< release 时 worldPoint 缺失的回退提交
     EditorAction updatePreview(const math::Mat4& worldDelta) const;
     std::optional<math::Mat4> worldDelta(const math::Point3& worldPoint) const;
 

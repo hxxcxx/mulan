@@ -21,6 +21,7 @@ public:
 private:
     EditorAction updatePreview(const EditorInput& input, const math::Point3& worldPoint);
     EditorAction commitAt(const math::Point3& worldPoint);
+    EditorAction commitPrimitive(const asset::CurvePrimitive& primitive);  ///< release 时 worldPoint 缺失的回退提交
     std::optional<asset::CurvePrimitive> makeEditedPrimitive(const DragEditSample& sample) const;
     DraftGeometry previewGeometry(const EditorInput& input, const asset::CurvePrimitive& primitive) const;
 

@@ -402,6 +402,19 @@ EditorAction GripDragTool::handleInput(const EditorInput& input) {
         return EditorAction::consumeEvent();
     }
 
+    // 生命周期事件优先于空间数据（修 P7）：release 必须能结束工具，即使 worldPoint 缺失。
+    if (isLeftRelease(input.event)) {
+        const auto point = input.worldPoint();
+        if (point) {
+            return commitAt(*point);
+        }
+        // worldPoint 缺失时用最后一次预览的图元回退提交，确保 release 总能完成。
+        if (current_primitive_) {
+            return commitPrimitive(*current_primitive_);
+        }
+        return EditorAction::cancel();  // 无可提交：取消而非吞事件
+    }
+
     const auto point = input.worldPoint();
     if (!point) {
         return EditorAction::consumeEvent();
@@ -409,10 +422,6 @@ EditorAction GripDragTool::handleInput(const EditorInput& input) {
 
     if (isMouseMove(input.event)) {
         return updatePreview(input, *point);
-    }
-
-    if (isLeftRelease(input.event)) {
-        return commitAt(*point);
     }
 
     return EditorAction::ignored();
@@ -445,9 +454,12 @@ EditorAction GripDragTool::commitAt(const math::Point3& worldPoint) {
     if (!primitive) {
         return EditorAction::cancel();
     }
+    return commitPrimitive(*primitive);
+}
 
+EditorAction GripDragTool::commitPrimitive(const asset::CurvePrimitive& primitive) {
     EditorAction action =
-            EditorAction::commit(DocumentOperation::updateCurve(grip_.entity, grip_.element, std::move(*primitive)));
+            EditorAction::commit(DocumentOperation::updateCurve(grip_.entity, grip_.element, primitive));
     action.clearPreviewOnApply().finishTool();
     return action;
 }
