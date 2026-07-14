@@ -2,7 +2,10 @@
  * @file doc_widget.h
  * @brief 承载文档视图运行时的 Qt 渲染控件。
  * @author hxxcxx
- * @date 2026-04-22 (原始) / 2026-06-01 (重构)
+ * @date 2026-04-22 (原始) / 2026-06-01 (重构) / 2026-07-14 (输入 adapter 抽离 + 状态下移)
+ *
+ * 2026-07-14：DocWidget 不再持有任何编辑语义状态（click/drag/consumed）。
+ * 这些职责已下移到 DocumentView。DocWidget 只做 Qt 转换 + cancel 路由 + 结果应用。
  */
 #pragma once
 
@@ -13,6 +16,8 @@
 #include <mulan/interaction/input_event.h>
 #include <mulan/view/core/view_config.h>
 #include <mulan/editor/document/document_view.h>
+
+#include "qt_viewport_input_adapter.h"
 
 class DocumentSession;
 
@@ -52,29 +57,16 @@ protected:
     void keyPressEvent(QKeyEvent* e) override;
     void keyReleaseEvent(QKeyEvent* e) override;
     void leaveEvent(QEvent* e) override;
+    void focusOutEvent(QFocusEvent* e) override;
+    bool event(QEvent* e) override;
 
 private:
-    static mulan::engine::MouseButton translateButton(Qt::MouseButton btn);
-    static mulan::engine::MouseButton translateButtons(Qt::MouseButtons btns);
-    static mulan::engine::KeyModifier translateModifiers(Qt::KeyboardModifiers mods);
-    static mulan::engine::Key translateKey(int qtKey);
-
-    QPoint framebufferEventPosition(const QPointF& pos) const;
-    QPointF framebufferPosition(const QPointF& pos) const;
-    mulan::engine::InputEvent makeMousePressEvent(const QMouseEvent& e) const;
-    mulan::engine::InputEvent makeMouseReleaseEvent(const QMouseEvent& e) const;
-    mulan::engine::InputEvent makeMouseMoveEvent(const QMouseEvent& e) const;
-    mulan::engine::InputEvent makeMouseDoubleClickEvent(const QMouseEvent& e) const;
-    mulan::engine::InputEvent makeWheelEvent(const QWheelEvent& e) const;
+    /// 把 handleInput 结果转换为 frame/commandState 通知。
+    void applyResult(bool consumed);
     void updateHoverAtFramebuffer(const QPointF& framebufferPos);
-    void selectAtFramebuffer(const QPointF& framebufferPos);
     void clearPreview(bool refresh = true);
 
     DocumentView document_view_;
     mulan::view::ViewConfig view_config_;
-
-    QPoint press_pos_;
-    bool left_press_pending_ = false;
-    bool left_press_dragged_ = false;
-    bool left_press_consumed_ = false;
+    mulan::app::QtViewportInputAdapter input_adapter_;
 };

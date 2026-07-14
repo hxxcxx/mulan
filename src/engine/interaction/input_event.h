@@ -131,6 +131,8 @@ struct InputEvent {
         Wheel,
         KeyPress,
         KeyRelease,
+        PointerCancel,  ///< 指针事务被系统打断（UngrabMouse / WindowDeactivate）
+        FocusLost,      ///< 视口失去焦点 / 文档切换 / 控件即将销毁
     };
 
     Type type = Type::MouseMove;
@@ -148,11 +150,22 @@ struct InputEvent {
     // Keyboard
     Key key = Key::Unknown;
 
+    // 交互事务追踪（为多指针 / 触控预留；第一阶段鼠标恒为 0）
+    uint64_t pointerId = 0;
+    uint64_t timestampMs = 0;  ///< 事件时间戳，用于多按钮时序与防抖
+    bool autoRepeat = false;   ///< 键盘自动重复（工具应忽略重复触发）
+
     // --- 便捷查询 ---
 
-    bool isMouseEvent() const { return type <= Type::MouseDoubleClick; }
+    bool isMouseEvent() const {
+        return type == Type::MousePress || type == Type::MouseRelease || type == Type::MouseMove ||
+               type == Type::MouseDoubleClick;
+    }
 
-    bool isKeyEvent() const { return type >= Type::KeyPress; }
+    bool isKeyEvent() const { return type == Type::KeyPress || type == Type::KeyRelease; }
+
+    /// 是否为生命周期取消事件（应优先于空间数据处理）。
+    bool isCancelEvent() const { return type == Type::PointerCancel || type == Type::FocusLost; }
 
     bool hasModifier(KeyModifier mod) const { return modifiers & mod; }
 
@@ -162,28 +175,74 @@ struct InputEvent {
 
     static InputEvent mousePress(int x, int y, MouseButton btn, MouseButton held,
                                  KeyModifier mods = KeyModifier::None) {
-        return { Type::MousePress, btn, held | btn, mods, x, y, 0.0f, Key::Unknown };
+        InputEvent e;
+        e.type = Type::MousePress;
+        e.button = btn;
+        e.buttons = held | btn;
+        e.modifiers = mods;
+        e.x = x;
+        e.y = y;
+        return e;
     }
 
     static InputEvent mouseRelease(int x, int y, MouseButton btn, MouseButton held,
                                    KeyModifier mods = KeyModifier::None) {
-        return { Type::MouseRelease, btn, held, mods, x, y, 0.0f, Key::Unknown };
+        InputEvent e;
+        e.type = Type::MouseRelease;
+        e.button = btn;
+        e.buttons = held;
+        e.modifiers = mods;
+        e.x = x;
+        e.y = y;
+        return e;
     }
 
     static InputEvent mouseMove(int x, int y, MouseButton held, KeyModifier mods = KeyModifier::None) {
-        return { Type::MouseMove, MouseButton::None, held, mods, x, y, 0.0f, Key::Unknown };
+        InputEvent e;
+        e.type = Type::MouseMove;
+        e.buttons = held;
+        e.modifiers = mods;
+        e.x = x;
+        e.y = y;
+        return e;
     }
 
     static InputEvent wheel(int x, int y, float delta, KeyModifier mods = KeyModifier::None) {
-        return { Type::Wheel, MouseButton::None, MouseButton::None, mods, x, y, delta, Key::Unknown };
+        InputEvent e;
+        e.type = Type::Wheel;
+        e.modifiers = mods;
+        e.x = x;
+        e.y = y;
+        e.wheelDelta = delta;
+        return e;
     }
 
     static InputEvent keyPress(Key k, KeyModifier mods = KeyModifier::None) {
-        return { Type::KeyPress, MouseButton::None, MouseButton::None, mods, 0, 0, 0.0f, k };
+        InputEvent e;
+        e.type = Type::KeyPress;
+        e.modifiers = mods;
+        e.key = k;
+        return e;
     }
 
     static InputEvent keyRelease(Key k, KeyModifier mods = KeyModifier::None) {
-        return { Type::KeyRelease, MouseButton::None, MouseButton::None, mods, 0, 0, 0.0f, k };
+        InputEvent e;
+        e.type = Type::KeyRelease;
+        e.modifiers = mods;
+        e.key = k;
+        return e;
+    }
+
+    static InputEvent pointerCancel() {
+        InputEvent e;
+        e.type = Type::PointerCancel;
+        return e;
+    }
+
+    static InputEvent focusLost() {
+        InputEvent e;
+        e.type = Type::FocusLost;
+        return e;
     }
 };
 
