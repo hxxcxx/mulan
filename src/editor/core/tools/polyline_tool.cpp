@@ -53,10 +53,8 @@ EditorAction PolylineTool::finishPolyline() const {
     }
 
     math::Polyline3 polyline(acceptedWorldPoints(), false);
-    EditorAction action =
-            EditorAction::commit(DocumentOperation::createCurve("Polyline", asset::CurvePrimitive::polyline(polyline)));
-    action.clearPreviewOnApply().finishTool();
-    return action;
+    return EditorAction::commitAndFinish(
+            DocumentOperation::createCurve("Polyline", asset::CurvePrimitive::polyline(polyline)));
 }
 
 DraftGeometry PolylineTool::previewGeometry(const std::optional<math::Point3>& cursor) const {

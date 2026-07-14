@@ -88,9 +88,7 @@ EditorAction ParametricCurveTool::finishCurve() const {
         return EditorAction::cancel();
     }
 
-    EditorAction action = EditorAction::commit(DocumentOperation::createCurve(curveName(), std::move(*primitive)));
-    action.clearPreviewOnApply().finishTool();
-    return action;
+    return EditorAction::commitAndFinish(DocumentOperation::createCurve(curveName(), std::move(*primitive)));
 }
 
 DraftGeometry ParametricCurveTool::previewGeometry(const EditorInput* input,

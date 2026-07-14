@@ -104,9 +104,7 @@ EditorAction FaceTool::finishFace() const {
         return updatePreview(nullptr);
     }
 
-    EditorAction action = EditorAction::commit(DocumentOperation::createFace("Face", std::move(face)));
-    action.clearPreviewOnApply().finishTool();
-    return action;
+    return EditorAction::commitAndFinish(DocumentOperation::createFace("Face", std::move(face)));
 }
 
 EditorAction FaceTool::updatePreview(const ToolPoint* cursor) const {

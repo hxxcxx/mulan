@@ -29,10 +29,6 @@ namespace mulan::editor {
 
 namespace {
 
-bool isLeftPress(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Left;
-}
-
 bool hasTransformableEntitySubject(const TransformEditContext& context) {
     for (const TransformEditSubject& subject : context.subjects()) {
         if (subject.valid() && subject.hasInitialWorldTransform) {
@@ -342,7 +338,7 @@ void EditorSession::updateSnapPreview(const EditorInput& input) {
 }
 
 bool EditorSession::tryStartGripDrag(const engine::InputEvent& event) {
-    if (!isLeftPress(event)) {
+    if (!event.isLeftPress()) {
         return false;
     }
 

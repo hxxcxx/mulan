@@ -5,24 +5,8 @@
 namespace mulan::editor {
 namespace {
 
-bool isLeftPress(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Left;
-}
-
-bool isLeftRelease(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MouseRelease && event.button == engine::MouseButton::Left;
-}
-
-bool isRightPress(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Right;
-}
-
-bool isMouseMove(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MouseMove;
-}
-
 bool isPointDrawingEvent(const engine::InputEvent& event) {
-    return isLeftPress(event) || isLeftRelease(event) || isRightPress(event) || isMouseMove(event);
+    return event.isLeftPress() || event.isLeftRelease() || event.isRightPress() || event.isMouseMove();
 }
 
 }  // namespace
@@ -68,7 +52,7 @@ EditorAction PointDrawingTool::begin() {
 }
 
 EditorAction PointDrawingTool::handleInput(const EditorInput& input) {
-    if (isRightPress(input.event)) {
+    if (input.event.isRightPress()) {
         return onRightPressed(input);
     }
 
@@ -81,15 +65,15 @@ EditorAction PointDrawingTool::handleInput(const EditorInput& input) {
         return EditorAction::consumeEvent();
     }
 
-    if (isMouseMove(input.event)) {
+    if (input.event.isMouseMove()) {
         return onPointMoved(input, *point);
     }
 
-    if (isLeftPress(input.event)) {
+    if (input.event.isLeftPress()) {
         return onPointPressed(input, *point);
     }
 
-    if (isLeftRelease(input.event)) {
+    if (input.event.isLeftRelease()) {
         return EditorAction::consumeEvent();
     }
 

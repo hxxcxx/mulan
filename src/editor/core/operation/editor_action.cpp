@@ -45,6 +45,13 @@ EditorAction EditorAction::commit(DocumentOperation operation) {
     return action;
 }
 
+EditorAction EditorAction::commitAndFinish(DocumentOperation operation) {
+    EditorAction action = commit(std::move(operation));
+    action.clear_preview_ = true;
+    action.lifecycle_ = ToolLifecycle::Finished;
+    return action;
+}
+
 EditorAction EditorAction::finish() {
     EditorAction action = consumeEvent();
     action.lifecycle_ = ToolLifecycle::Finished;

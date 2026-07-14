@@ -6,25 +6,6 @@
 #include <utility>
 
 namespace mulan::editor {
-namespace {
-
-bool isLeftPress(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Left;
-}
-
-bool isLeftRelease(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MouseRelease && event.button == engine::MouseButton::Left;
-}
-
-bool isRightPress(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Right;
-}
-
-bool isMouseMove(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MouseMove;
-}
-
-}  // namespace
 
 TransformTool::TransformTool(const io::Document* document, TransformEditContext context, TransformEditMode mode,
                              TransformEditCommitMode commitMode)
@@ -53,12 +34,12 @@ EditorAction TransformTool::begin() {
 }
 
 EditorAction TransformTool::handleInput(const EditorInput& input) {
-    if (isRightPress(input.event)) {
+    if (input.event.isRightPress()) {
         return EditorAction::cancel();
     }
 
     // 生命周期事件优先于空间数据（修 P7）：release 必须能结束工具，即使 worldPoint 缺失。
-    if (isLeftRelease(input.event)) {
+    if (input.event.isLeftRelease()) {
         if (drag_start_world_ && drag_preview_started_) {
             // worldPoint 缺失时用已记录的增量回退，确保 release 总能完成。
             const auto point = input.worldPoint();
@@ -72,14 +53,14 @@ EditorAction TransformTool::handleInput(const EditorInput& input) {
         return EditorAction::consumeEvent();
     }
 
-    if (isLeftPress(input.event)) {
+    if (input.event.isLeftPress()) {
         if (!drag_start_world_) {
             return setDragStart(*point);
         }
         return commit(*point);
     }
 
-    if (isMouseMove(input.event)) {
+    if (input.event.isMouseMove()) {
         return update(*point);
     }
 
@@ -139,9 +120,7 @@ EditorAction TransformTool::commit(const math::Point3& worldPoint) {
                                           ? DocumentOperation::copyEntityTransforms(std::move(updates))
                                           : DocumentOperation::updateEntityTransforms(std::move(updates));
 
-    EditorAction action = EditorAction::commit(std::move(operation));
-    action.clearPreviewOnApply().finishTool();
-    return action;
+    return EditorAction::commitAndFinish(std::move(operation));
 }
 
 EditorAction TransformTool::commitWithLastDelta() const {
@@ -160,9 +139,7 @@ EditorAction TransformTool::commitWithLastDelta() const {
                                           ? DocumentOperation::copyEntityTransforms(std::move(updates))
                                           : DocumentOperation::updateEntityTransforms(std::move(updates));
 
-    EditorAction action = EditorAction::commit(std::move(operation));
-    action.clearPreviewOnApply().finishTool();
-    return action;
+    return EditorAction::commitAndFinish(std::move(operation));
 }
 
 EditorAction TransformTool::updatePreview(const math::Mat4& worldDelta) const {

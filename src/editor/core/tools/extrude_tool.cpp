@@ -109,9 +109,7 @@ EditorAction ExtrudeTool::finishExtrude() {
         .distance = std::abs(signed_distance_),
         .inward = signed_distance_ < 0.0,
     };
-    EditorAction action = EditorAction::commit(DocumentOperation::extrudeFace("Extrude", std::move(params)));
-    action.clearPreviewOnApply().finishTool();
-    return action;
+    return EditorAction::commitAndFinish(DocumentOperation::extrudeFace("Extrude", std::move(params)));
 }
 
 EditorAction ExtrudeTool::updateProfilePreview(const ToolPoint* cursor) const {

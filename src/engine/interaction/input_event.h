@@ -171,6 +171,13 @@ struct InputEvent {
 
     bool isButtonPressed(MouseButton btn) const { return buttons & btn; }
 
+    // --- 按钮/动作便捷查询（供工具的事件分发复用，消除重复谓词）---
+
+    bool isLeftPress() const { return type == Type::MousePress && button == MouseButton::Left; }
+    bool isLeftRelease() const { return type == Type::MouseRelease && button == MouseButton::Left; }
+    bool isRightPress() const { return type == Type::MousePress && button == MouseButton::Right; }
+    bool isMouseMove() const { return type == Type::MouseMove; }
+
     // --- 工厂 ---
 
     static InputEvent mousePress(int x, int y, MouseButton btn, MouseButton held,
