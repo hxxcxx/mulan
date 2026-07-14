@@ -57,5 +57,20 @@ TEST(DX12TransientUniformTest, PreservesIndependentAlignedWrites) {
     EXPECT_EQ(secondRead, secondValue);
 }
 
+TEST(DX12TransientUniformTest, RejectsWritesOutsideCommandRecording) {
+    DX12TestContext native;
+    ASSERT_TRUE(native.initialize());
+    auto commandListResult = DX12CommandList::create(native.device.Get(), native.allocator.Get());
+    ASSERT_TRUE(commandListResult);
+    auto& commandList = **commandListResult;
+    const std::array<uint32_t, 4> value{ 1, 2, 3, 4 };
+
+    EXPECT_FALSE(commandList.writeUniform(value));
+    commandList.begin();
+    EXPECT_TRUE(commandList.writeUniform(value));
+    commandList.end();
+    EXPECT_FALSE(commandList.writeUniform(value));
+}
+
 }  // namespace
 }  // namespace mulan::engine

@@ -96,6 +96,19 @@ TEST(DX11TransientUniformTest, PreservesIndependentWritesAndBindsTheRequestedSli
     EXPECT_EQ(bound.Get(), secondBuffer->buffer());
 }
 
+TEST(DX11TransientUniformTest, RejectsWritesOutsideCommandRecording) {
+    DX11TestContext native;
+    ASSERT_TRUE(native.initialize());
+    DX11CommandList commandList(native.device.Get(), native.context.Get(), native.context1.Get());
+    const std::array<uint32_t, 4> value{ 1, 2, 3, 4 };
+
+    EXPECT_FALSE(commandList.writeUniform(value));
+    commandList.begin();
+    EXPECT_TRUE(commandList.writeUniform(value));
+    commandList.end();
+    EXPECT_FALSE(commandList.writeUniform(value));
+}
+
 TEST(DX11TransientUniformTest, BindsNativeStaticUniformRangeWithoutCopying) {
     DX11TestContext native;
     ASSERT_TRUE(native.initialize());
