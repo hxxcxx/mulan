@@ -2,13 +2,18 @@
  * @file camera_manipulator.h
  * @brief 组合相机操作器 — 集成轨道旋转、平移、缩放
  * @author hxxcxx
- * @date 2026-04-17
+ * @date 2026-04-17 (原始) / 2026-07-14 (按钮记录修复) / 2026-07-15 (返回 bool)
  *
  * 设计思路：
  *  - 一个类完成所有基础相机交互，无需拆分为多个小类
  *  - 默认映射：左键轨道旋转、中键平移、右键平移、滚轮缩放
  *  - 按键映射可通过 Config 调整
  *  - 速度因子暴露为公共成员便于调参
+ *
+ * 2026-07-14 修复：
+ *  - onMousePress 不再对任意按钮置 dragging_，只接受导航按钮（orbit/pan）；
+ *  - 记录启动按钮 press_button_，onMouseRelease 只结束匹配按钮，避免多按钮错序；
+ *  - 非 navigation 事件返回 false，让上层路由给其他 handler。
  */
 
 #pragma once
@@ -36,20 +41,34 @@ public:
     // --- Operator 接口实现 ---
 
     bool onMousePress(const InputEvent& e, Camera& cam) override {
+        const bool isOrbit = e.button & config.orbitButton;
+        const bool isPan = e.button & (config.panButton | config.panAltButton);
+        if (!isOrbit && !isPan) {
+            return false;  // 非导航按钮：不抢占，交回路由
+        }
+
         last_x_ = e.x;
         last_y_ = e.y;
         dragging_ = true;
+        press_button_ = e.button;  // 记录启动按钮，供 release 匹配
 
-        if (e.isButtonPressed(config.orbitButton)) {
+        if (isOrbit) {
             cam.beginOrbit(e.x, e.y);
         }
         return true;
     }
 
     bool onMouseRelease(const InputEvent& e, Camera& cam) override {
-        (void) e;
+        if (!dragging_) {
+            return false;
+        }
+        // 只结束匹配启动按钮的 release，多按钮错序不会提前终止其他交互
+        if (!(e.button & press_button_)) {
+            return false;
+        }
         cam.endOrbit();
         dragging_ = false;
+        press_button_ = MouseButton::None;
         return true;
     }
 
@@ -94,10 +113,20 @@ public:
         return false;
     }
 
+    bool onCancel() override {
+        // 焦点丢失 / 系统取消时清理 drag 状态（幂等）
+        if (dragging_) {
+            dragging_ = false;
+            press_button_ = MouseButton::None;
+        }
+        return false;
+    }
+
 private:
     int last_x_ = 0;
     int last_y_ = 0;
     bool dragging_ = false;
+    MouseButton press_button_ = MouseButton::None;  ///< 启动本次 drag 的按钮
 };
 
 }  // namespace mulan::engine
