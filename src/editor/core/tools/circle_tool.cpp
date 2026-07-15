@@ -34,10 +34,8 @@ EditorAction CircleTool::acceptRadiusPoint(const EditorInput& input, const ToolP
         return updatePreview(input, point);
     }
 
-    EditorAction action =
-            EditorAction::commit(DocumentOperation::createCurve("Circle", asset::CurvePrimitive::circle(*circle)));
-    action.clearPreviewOnApply().finishTool();
-    return action;
+    return EditorAction::commitAndFinish(
+            DocumentOperation::createCurve("Circle", asset::CurvePrimitive::circle(*circle)));
 }
 
 EditorAction CircleTool::updatePreview(const EditorInput& input, const ToolPoint& point) const {

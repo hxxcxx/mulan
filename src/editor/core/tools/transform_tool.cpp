@@ -6,25 +6,6 @@
 #include <utility>
 
 namespace mulan::editor {
-namespace {
-
-bool isLeftPress(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Left;
-}
-
-bool isLeftRelease(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MouseRelease && event.button == engine::MouseButton::Left;
-}
-
-bool isRightPress(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Right;
-}
-
-bool isMouseMove(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MouseMove;
-}
-
-}  // namespace
 
 TransformTool::TransformTool(const io::Document* document, TransformEditContext context, TransformEditMode mode,
                              TransformEditCommitMode commitMode)
@@ -52,35 +33,42 @@ EditorAction TransformTool::begin() {
     return EditorAction::clearPreview();
 }
 
-EditorAction TransformTool::handleInput(const EditorInput& input) {
-    if (isRightPress(input.event)) {
-        return EditorAction::cancel();
+EditorAction TransformTool::onAnchorPress(const EditorInput& /*input*/, const math::Point3& worldPoint) {
+    // 首次 press 设定锚点；再次 press 直接提交（确认变换）。
+    if (!drag_start_world_) {
+        return setDragStart(worldPoint);
     }
+    return commit(worldPoint);
+}
 
-    const auto point = input.worldPoint();
-    if (!point) {
+EditorAction TransformTool::updateDragPreview(const EditorInput& /*input*/, const math::Point3& worldPoint) {
+    if (!drag_start_world_) {
         return EditorAction::consumeEvent();
     }
 
-    if (isLeftPress(input.event)) {
-        if (!drag_start_world_) {
-            return setDragStart(*point);
-        }
-        return commit(*point);
+    current_delta_ = worldDelta(worldPoint);
+    if (!current_delta_) {
+        return EditorAction::clearPreview();
     }
 
-    if (isMouseMove(input.event)) {
-        return update(*point);
-    }
+    drag_preview_started_ = true;
+    return updatePreview(*current_delta_);
+}
 
-    if (isLeftRelease(input.event)) {
-        if (drag_start_world_ && drag_preview_started_) {
-            return commit(*point);
-        }
-        return EditorAction::consumeEvent();
+EditorAction TransformTool::commitAtPoint(const EditorInput& /*input*/, const math::Point3& worldPoint) {
+    // 有预览才提交，否则取消（守卫移入提交方法，保持基类分发简洁）。
+    if (drag_start_world_ && drag_preview_started_) {
+        return commit(worldPoint);
     }
+    return EditorAction::cancel();
+}
 
-    return EditorAction::ignored();
+std::optional<EditorAction> TransformTool::commitFallback(const EditorInput& /*input*/) {
+    // worldPoint 缺失时用已记录的增量回退提交，确保 release 总能完成。
+    if (drag_start_world_ && drag_preview_started_) {
+        return commitWithLastDelta();
+    }
+    return std::nullopt;  // 无可提交：基类将转为 cancel
 }
 
 EditorAction TransformTool::end(ToolFinishReason reason) {
@@ -98,20 +86,6 @@ EditorAction TransformTool::setDragStart(math::Point3 worldPoint) {
     current_delta_.reset();
     context_.setAnchorWorld(worldPoint);
     return EditorAction::clearPreview();
-}
-
-EditorAction TransformTool::update(const math::Point3& worldPoint) {
-    if (!drag_start_world_) {
-        return EditorAction::consumeEvent();
-    }
-
-    current_delta_ = worldDelta(worldPoint);
-    if (!current_delta_) {
-        return EditorAction::clearPreview();
-    }
-
-    drag_preview_started_ = true;
-    return updatePreview(*current_delta_);
 }
 
 EditorAction TransformTool::commit(const math::Point3& worldPoint) {
@@ -136,9 +110,26 @@ EditorAction TransformTool::commit(const math::Point3& worldPoint) {
                                           ? DocumentOperation::copyEntityTransforms(std::move(updates))
                                           : DocumentOperation::updateEntityTransforms(std::move(updates));
 
-    EditorAction action = EditorAction::commit(std::move(operation));
-    action.clearPreviewOnApply().finishTool();
-    return action;
+    return EditorAction::commitAndFinish(std::move(operation));
+}
+
+EditorAction TransformTool::commitWithLastDelta() const {
+    // release 时 worldPoint 缺失（射线无法得到工作点）的回退路径：
+    // 用最后一次 move 记录的增量提交，确保 release 总能完成变换。
+    if (!current_delta_) {
+        return EditorAction::cancel();
+    }
+
+    std::vector<EntityTransformUpdate> updates = context_.entityUpdates(*current_delta_);
+    if (updates.empty()) {
+        return EditorAction::cancel();
+    }
+
+    DocumentOperation operation = commit_mode_ == TransformEditCommitMode::Copy
+                                          ? DocumentOperation::copyEntityTransforms(std::move(updates))
+                                          : DocumentOperation::updateEntityTransforms(std::move(updates));
+
+    return EditorAction::commitAndFinish(std::move(operation));
 }
 
 EditorAction TransformTool::updatePreview(const math::Mat4& worldDelta) const {

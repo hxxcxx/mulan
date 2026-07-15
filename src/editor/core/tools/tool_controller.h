@@ -30,6 +30,9 @@ public:
     EditorAction clear(ToolFinishReason reason);
 
 private:
+    /// 把 end action 的 clearPreview 语义合并进主 action（修复原先 end action 被丢弃）。
+    static void mergeEndAction(EditorAction& action, EditorAction endAction);
+
     std::unique_ptr<EditorTool> active_tool_;
 };
 

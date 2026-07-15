@@ -9,6 +9,7 @@ set(MULAN_APP_SOURCES
     ui/startup_page.cpp
     ui/main_window.cpp
     ui/doc_widget.cpp
+    ui/qt_viewport_input_adapter.cpp
     ui/engine_settings.cpp
     ui/engine_settings_dialog.cpp
 )

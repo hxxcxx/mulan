@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "editor_tool.h"
+#include "drag_from_anchor_tool.h"
 #include "../operation/transform_edit_context.h"
 
 #include <optional>
@@ -18,7 +18,7 @@ class Document;
 
 namespace mulan::editor {
 
-class TransformTool final : public EditorTool {
+class TransformTool final : public DragFromAnchorTool {
 public:
     TransformTool(const io::Document* document, TransformEditContext context,
                   TransformEditMode mode = TransformEditMode::Translate,
@@ -30,13 +30,18 @@ public:
     std::string_view id() const override { return "edit.transform"; }
     EditorPointPolicy pointPolicy() const override;
     EditorAction begin() override;
-    EditorAction handleInput(const EditorInput& input) override;
     EditorAction end(ToolFinishReason reason) override;
+
+protected:
+    EditorAction onAnchorPress(const EditorInput& input, const math::Point3& worldPoint) override;
+    EditorAction updateDragPreview(const EditorInput& input, const math::Point3& worldPoint) override;
+    EditorAction commitAtPoint(const EditorInput& input, const math::Point3& worldPoint) override;
+    std::optional<EditorAction> commitFallback(const EditorInput& input) override;
 
 private:
     EditorAction setDragStart(math::Point3 worldPoint);
-    EditorAction update(const math::Point3& worldPoint);
     EditorAction commit(const math::Point3& worldPoint);
+    EditorAction commitWithLastDelta() const;  ///< release 时 worldPoint 缺失的回退提交
     EditorAction updatePreview(const math::Mat4& worldDelta) const;
     std::optional<math::Mat4> worldDelta(const math::Point3& worldPoint) const;
 

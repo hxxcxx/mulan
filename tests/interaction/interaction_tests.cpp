@@ -1,0 +1,196 @@
+/**
+ * @file interaction_tests.cpp
+ * @brief 交互层纯逻辑测试：InputEvent 谓词、CameraManipulator 按钮、Operator 状态机。
+ *
+ * 不依赖 GPU / Qt / 渲染后端，完全离屏运行。
+ * @author hxxcxx
+ * @date 2026-07-15
+ */
+
+#include <gtest/gtest.h>
+
+#include <mulan/interaction/input_event.h>
+#include <mulan/interaction/camera_manipulator.h>
+#include <mulan/render/camera/camera.h>
+
+using namespace mulan::engine;
+
+namespace {
+// 状态机测试不需要真实相机操作，提供一个共享占位实例。
+Camera& sharedCam() {
+    static Camera c{CameraMode::Trackball};
+    return c;
+}
+}  // namespace
+
+// ============================================================
+// InputEvent 谓词（从 5 个文件去重集中到成员方法）
+// ============================================================
+
+TEST(InputEventPredicateTest, LeftPress) {
+    InputEvent e = InputEvent::mousePress(10, 20, MouseButton::Left, MouseButton::None);
+    EXPECT_TRUE(e.isLeftPress());
+    EXPECT_FALSE(e.isLeftRelease());
+    EXPECT_FALSE(e.isRightPress());
+    EXPECT_FALSE(e.isMouseMove());
+}
+
+TEST(InputEventPredicateTest, LeftRelease) {
+    InputEvent e = InputEvent::mouseRelease(10, 20, MouseButton::Left, MouseButton::None);
+    EXPECT_TRUE(e.isLeftRelease());
+    EXPECT_FALSE(e.isLeftPress());
+}
+
+TEST(InputEventPredicateTest, RightPress) {
+    InputEvent e = InputEvent::mousePress(10, 20, MouseButton::Right, MouseButton::None);
+    EXPECT_TRUE(e.isRightPress());
+    EXPECT_FALSE(e.isLeftPress());
+}
+
+TEST(InputEventPredicateTest, MouseMove) {
+    InputEvent e = InputEvent::mouseMove(5, 5, MouseButton::None);
+    EXPECT_TRUE(e.isMouseMove());
+    EXPECT_FALSE(e.isLeftPress());
+}
+
+TEST(InputEventPredicateTest, MoveButtonIsNone) {
+    // move 的 button 恒为 None（工厂保证），这是 isCameraEvent 必须查 buttons 的根因。
+    InputEvent e = InputEvent::mouseMove(5, 5, MouseButton::Left);
+    EXPECT_EQ(e.button, MouseButton::None);
+    EXPECT_TRUE(e.buttons & MouseButton::Left);
+}
+
+TEST(InputEventPredicateTest, CancelEvents) {
+    EXPECT_TRUE(InputEvent::pointerCancel().isCancelEvent());
+    EXPECT_TRUE(InputEvent::focusLost().isCancelEvent());
+    EXPECT_FALSE(InputEvent::mousePress(0, 0, MouseButton::Left, MouseButton::None).isCancelEvent());
+}
+
+// ============================================================
+// CameraManipulator —— 按钮匹配与多按钮修复
+// ============================================================
+
+class CameraManipulatorTest : public ::testing::Test {
+protected:
+    Camera cam{CameraMode::Trackball};
+    CameraManipulator manip;
+
+    void SetUp() override {
+        manip.setState(Operator::State::Active);
+    }
+};
+
+// 修复 P2：非导航按钮（左键）press 不应抢占。
+TEST_F(CameraManipulatorTest, LeftPressNotConsumedByCamera) {
+    // 默认 orbitButton=Left，但只有当按钮匹配 orbit/pan 时才抢占。
+    // 左键匹配 orbitButton，所以左键应被消费——这是默认映射下的预期。
+    InputEvent press = InputEvent::mousePress(100, 100, MouseButton::Left, MouseButton::None);
+    EXPECT_TRUE(manip.onMousePress(press, cam));
+}
+
+TEST_F(CameraManipulatorTest, MiddlePressConsumed) {
+    InputEvent press = InputEvent::mousePress(100, 100, MouseButton::Middle, MouseButton::None);
+    EXPECT_TRUE(manip.onMousePress(press, cam));
+}
+
+// 修复 P3：release 只结束匹配启动按钮的 drag，多按钮错序不提前终止。
+TEST_F(CameraManipulatorTest, ReleaseMatchesStartButton) {
+    // 中键启动 drag
+    InputEvent midPress = InputEvent::mousePress(100, 100, MouseButton::Middle, MouseButton::Middle);
+    ASSERT_TRUE(manip.onMousePress(midPress, cam));
+
+    // 左键 release（错序）不应结束中键 drag
+    InputEvent leftRelease = InputEvent::mouseRelease(100, 100, MouseButton::Left, MouseButton::Middle);
+    EXPECT_FALSE(manip.onMouseRelease(leftRelease, cam));
+
+    // 中键 release 才结束
+    InputEvent midRelease = InputEvent::mouseRelease(100, 100, MouseButton::Middle, MouseButton::None);
+    EXPECT_TRUE(manip.onMouseRelease(midRelease, cam));
+}
+
+TEST_F(CameraManipulatorTest, ReleaseWithoutPressIgnored) {
+    InputEvent release = InputEvent::mouseRelease(100, 100, MouseButton::Middle, MouseButton::None);
+    EXPECT_FALSE(manip.onMouseRelease(release, cam));
+}
+
+TEST_F(CameraManipulatorTest, MoveRequiresDrag) {
+    InputEvent move = InputEvent::mouseMove(200, 200, MouseButton::None);
+    EXPECT_FALSE(manip.onMouseMove(move, cam));  // 未 press，move 被忽略
+}
+
+TEST_F(CameraManipulatorTest, WheelZooms) {
+    InputEvent wheel = InputEvent::wheel(100, 100, 1.0f);
+    EXPECT_TRUE(manip.onWheel(wheel, cam));
+}
+
+// cancel 幂等：重复调用不崩溃，清理 dragging_ 状态。
+TEST_F(CameraManipulatorTest, CancelIsIdempotent) {
+    InputEvent press = InputEvent::mousePress(100, 100, MouseButton::Middle, MouseButton::Middle);
+    manip.onMousePress(press, cam);
+
+    manip.cancel(CancelReason::FocusLost);
+    manip.cancel(CancelReason::System);  // 重复调用
+
+    // cancel 后 move 应被忽略（dragging_ 已清）
+    InputEvent move = InputEvent::mouseMove(200, 200, MouseButton::Middle);
+    EXPECT_FALSE(manip.onMouseMove(move, cam));
+}
+
+// ============================================================
+// Operator 状态机
+// ============================================================
+
+namespace {
+// 测试专用 Operator，公开 protected finish 以便直接验证状态转换。
+class TestOperator : public Operator {
+public:
+    using Operator::finish;  // 公开 finish
+    bool onMousePress(const InputEvent&, Camera&) override { return true; }
+};
+}  // namespace
+
+TEST(OperatorStateMachineTest, InitialStateInactive) {
+    TestOperator m;
+    EXPECT_EQ(m.state(), Operator::State::Inactive);
+    EXPECT_FALSE(m.isActive());
+    EXPECT_FALSE(m.isFinished());
+}
+
+TEST(OperatorStateMachineTest, FinishIsIdempotent) {
+    TestOperator m;
+    m.finish(true);
+    EXPECT_EQ(m.state(), Operator::State::Finished);
+    m.finish(false);  // 重复 finish 不改变状态
+    EXPECT_EQ(m.state(), Operator::State::Finished);
+    EXPECT_TRUE(m.isCompleted());
+}
+
+TEST(OperatorStateMachineTest, CancelSetsCancelledState) {
+    TestOperator m;
+    m.finish(false);
+    EXPECT_EQ(m.state(), Operator::State::Cancelled);
+    EXPECT_TRUE(m.isFinished());
+    EXPECT_FALSE(m.isCompleted());
+}
+
+// handleEvent 对 cancel 事件优先走 cancel 路径
+TEST(OperatorStateMachineTest, CancelEventTriggersCancel) {
+    CameraManipulator m;
+    m.setState(Operator::State::Active);
+    // 先 press 进入 dragging
+    InputEvent press = InputEvent::mousePress(50, 50, MouseButton::Middle, MouseButton::Middle);
+    m.onMousePress(press, sharedCam());
+
+    InputEvent cancel = InputEvent::focusLost();
+    m.handleEvent(cancel, sharedCam());
+    // cancel 清理了 dragging，后续 move 不再响应
+    InputEvent move = InputEvent::mouseMove(60, 60, MouseButton::Middle);
+    EXPECT_FALSE(m.handleEvent(move, sharedCam()));
+}
+
+TEST(OperatorStateMachineTest, InactiveDoesNotHandle) {
+    CameraManipulator m;
+    // 未 Active，handleEvent 应返回 false
+    InputEvent press = InputEvent::mousePress(50, 50, MouseButton::Left, MouseButton::None);
+    EXPECT_FALSE(m.handleEvent(press, sharedCam()));
+}

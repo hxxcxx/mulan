@@ -26,6 +26,8 @@ add_library(editor STATIC
     core/tools/grip_drag_tool.cpp
     core/tools/transform_tool.cpp
     core/tools/tool_controller.cpp
+    core/tools/editor_tool_operator.cpp
+    core/tools/drag_from_anchor_tool.cpp
     # core/selection/ — 选择与拾取
     core/selection/editor_selection.cpp
     core/selection/editor_selection_service.cpp

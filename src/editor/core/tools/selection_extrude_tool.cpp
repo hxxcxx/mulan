@@ -170,14 +170,6 @@ asset::CurvePrimitive closedLoop(const std::vector<math::Point3>& points) {
     return asset::CurvePrimitive::polyline(math::Polyline3(points, true));
 }
 
-bool isRightPress(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Right;
-}
-
-bool isLeftPress(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Left;
-}
-
 }  // namespace
 
 std::optional<SelectionExtrudeTool::ExtrudeSource> SelectionExtrudeTool::sourceFromSelection(
@@ -216,16 +208,16 @@ EditorAction SelectionExtrudeTool::begin() {
 }
 
 EditorAction SelectionExtrudeTool::handleInput(const EditorInput& input) {
-    if (isRightPress(input.event)) {
+    if (input.event.isRightPress()) {
         return EditorAction::cancel();
     }
     if (!profile_) {
-        return isLeftPress(input.event) ? selectSource(input) : EditorAction::consumeEvent();
+        return input.event.isLeftPress() ? selectSource(input) : EditorAction::consumeEvent();
     }
-    if (isLeftPress(input.event)) {
+    if (input.event.isLeftPress()) {
         return commit();
     }
-    if (input.event.type != engine::InputEvent::Type::MouseMove) {
+    if (!input.event.isMouseMove()) {
         return EditorAction::consumeEvent();
     }
 
@@ -284,9 +276,7 @@ EditorAction SelectionExtrudeTool::commit() {
         .distance = std::abs(signed_distance_),
         .inward = signed_distance_ < 0.0,
     };
-    EditorAction action = EditorAction::commit(DocumentOperation::extrudeFace("Extrude", std::move(params)));
-    action.clearPreviewOnApply().finishTool();
-    return action;
+    return EditorAction::commitAndFinish(DocumentOperation::extrudeFace("Extrude", std::move(params)));
 }
 
 double SelectionExtrudeTool::signedDistanceFor(const EditorInput& input) const {

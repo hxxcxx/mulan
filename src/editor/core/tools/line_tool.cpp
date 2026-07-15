@@ -41,10 +41,8 @@ EditorAction LineTool::acceptEndPoint(const ToolPoint& point) {
         return updateRubberBand(point);
     }
 
-    EditorAction action =
-            EditorAction::commit(DocumentOperation::createCurve("Line", asset::CurvePrimitive::segment(segment)));
-    action.clearPreviewOnApply().finishTool();
-    return action;
+    return EditorAction::commitAndFinish(
+            DocumentOperation::createCurve("Line", asset::CurvePrimitive::segment(segment)));
 }
 
 EditorAction LineTool::updateRubberBand(const ToolPoint& point) const {

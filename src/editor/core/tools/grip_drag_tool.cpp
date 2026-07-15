@@ -16,22 +16,6 @@ constexpr double kMinimumSweepRadians = 1.0e-6;
 constexpr double kControlPointMarkerPixels = 7.0;
 constexpr double kFallbackControlPointMarkerRadius = 0.05;
 
-bool isLeftPress(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Left;
-}
-
-bool isLeftRelease(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MouseRelease && event.button == engine::MouseButton::Left;
-}
-
-bool isRightPress(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MousePress && event.button == engine::MouseButton::Right;
-}
-
-bool isMouseMove(const engine::InputEvent& event) {
-    return event.type == engine::InputEvent::Type::MouseMove;
-}
-
 SelectionTarget selectionTargetForGrip(const EditorGrip& grip) {
     SelectionTarget target;
     target.entity = grip.entity;
@@ -393,29 +377,38 @@ EditorAction GripDragTool::begin() {
     return EditorAction::clearPreview();
 }
 
-EditorAction GripDragTool::handleInput(const EditorInput& input) {
-    if (isRightPress(input.event)) {
+EditorAction GripDragTool::onAnchorPress(const EditorInput& /*input*/, const math::Point3& /*worldPoint*/) {
+    // 锚点在构造时已由 grip 位置确定，press 恒吞事件。
+    return EditorAction::consumeEvent();
+}
+
+EditorAction GripDragTool::updateDragPreview(const EditorInput& input, const math::Point3& worldPoint) {
+    const DragEditSample sample = drag_.update(worldPoint);
+    current_primitive_ = makeEditedPrimitive(sample);
+    if (!current_primitive_) {
+        return EditorAction::clearPreview();
+    }
+    return EditorAction::setPreview(previewGeometry(input, *current_primitive_));
+}
+
+EditorAction GripDragTool::commitAtPoint(const EditorInput& /*input*/, const math::Point3& worldPoint) {
+    const DragEditSample sample = drag_.update(worldPoint);
+    std::optional<asset::CurvePrimitive> primitive = makeEditedPrimitive(sample);
+    if (!primitive) {
+        primitive = current_primitive_;
+    }
+    if (!primitive) {
         return EditorAction::cancel();
     }
+    return commitPrimitive(*primitive);
+}
 
-    if (isLeftPress(input.event)) {
-        return EditorAction::consumeEvent();
+std::optional<EditorAction> GripDragTool::commitFallback(const EditorInput& /*input*/) {
+    // worldPoint 缺失时用最后一次预览的图元回退提交。
+    if (!current_primitive_) {
+        return std::nullopt;
     }
-
-    const auto point = input.worldPoint();
-    if (!point) {
-        return EditorAction::consumeEvent();
-    }
-
-    if (isMouseMove(input.event)) {
-        return updatePreview(input, *point);
-    }
-
-    if (isLeftRelease(input.event)) {
-        return commitAt(*point);
-    }
-
-    return EditorAction::ignored();
+    return commitPrimitive(*current_primitive_);
 }
 
 EditorAction GripDragTool::end(ToolFinishReason reason) {
@@ -427,29 +420,9 @@ EditorAction GripDragTool::end(ToolFinishReason reason) {
     return EditorAction::ignored();
 }
 
-EditorAction GripDragTool::updatePreview(const EditorInput& input, const math::Point3& worldPoint) {
-    const DragEditSample sample = drag_.update(worldPoint);
-    current_primitive_ = makeEditedPrimitive(sample);
-    if (!current_primitive_) {
-        return EditorAction::clearPreview();
-    }
-    return EditorAction::setPreview(previewGeometry(input, *current_primitive_));
-}
-
-EditorAction GripDragTool::commitAt(const math::Point3& worldPoint) {
-    const DragEditSample sample = drag_.update(worldPoint);
-    std::optional<asset::CurvePrimitive> primitive = makeEditedPrimitive(sample);
-    if (!primitive) {
-        primitive = current_primitive_;
-    }
-    if (!primitive) {
-        return EditorAction::cancel();
-    }
-
-    EditorAction action =
-            EditorAction::commit(DocumentOperation::updateCurve(grip_.entity, grip_.element, std::move(*primitive)));
-    action.clearPreviewOnApply().finishTool();
-    return action;
+EditorAction GripDragTool::commitPrimitive(const asset::CurvePrimitive& primitive) {
+    return EditorAction::commitAndFinish(
+            DocumentOperation::updateCurve(grip_.entity, grip_.element, primitive));
 }
 
 std::optional<asset::CurvePrimitive> GripDragTool::makeEditedPrimitive(const DragEditSample& sample) const {

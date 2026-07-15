@@ -61,6 +61,13 @@ public:
     bool canUndo() const { return operation_executor_.canUndo(); }
     bool canRedo() const { return operation_executor_.canRedo(); }
     bool handleInput(const engine::InputEvent& event);
+
+    /// 驱动当前活动工具处理一次输入（供 EditorToolOperator 适配器使用）。
+    /// 完成 makeEditorInput → snap preview → tool dispatch → applyAction 全流程。
+    /// 返回 consumed 标志；工具若已结束，hasActiveTool() 在返回后为 false。
+    bool driveActiveTool(const engine::InputEvent& event);
+
+    /// 取消当前活动工具（供 EditorToolOperator 在 cancel 时调用）。
     void cancelActiveTool();
     void refreshGrips();
     void clearGrips();
@@ -79,6 +86,7 @@ private:
     void updateSnapPreview(const EditorInput& input);
     bool tryStartGripDrag(const engine::InputEvent& event);
     bool applyAction(EditorAction action);
+    void popToolOperators();  ///< 弹出 view 栈上所有 EditorToolOperator
 
     DocumentSession* session_ = nullptr;
     view::ViewContext* view_ = nullptr;

@@ -36,6 +36,9 @@ public:
     static EditorAction setPreviewReferences(std::vector<view::PreviewReference> references);
     static EditorAction clearPreview();
     static EditorAction commit(DocumentOperation operation);
+    /// 提交操作并结束工具：等价于 commit(op).clearPreviewOnApply().finishTool()。
+    /// 所有编辑工具的 commit 路径共用此尾巴，集中于此避免重复。
+    static EditorAction commitAndFinish(DocumentOperation operation);
     static EditorAction finish();
     static EditorAction cancel();
 
@@ -54,7 +57,6 @@ public:
 
     EditorAction& consume();
     EditorAction& clearPreviewOnApply();
-    EditorAction& finishTool();
     EditorAction& cancelTool();
 
 private:
