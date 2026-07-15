@@ -8,6 +8,7 @@
  */
 
 #include "runtime/detail/render_worker_protocol.h"
+#include "runtime/detail/gpu_execution_domain.h"
 
 #include <gtest/gtest.h>
 
@@ -88,4 +89,43 @@ TEST(RenderWorkerProtocolTests, FailureIsObservableAndNeverProducesFalseAck) {
     EXPECT_EQ(events.front().error.message, failure.message);
     ASSERT_TRUE(protocol.failure().has_value());
     EXPECT_EQ(protocol.failure()->message, failure.message);
+}
+
+TEST(GpuExecutionDomainTests, CompatibleThreadedViewsReuseOneDomain) {
+    mulan::view::ViewConfig config;
+    config.backend = mulan::engine::GraphicsBackend::Vulkan;
+    config.executionMode = mulan::view::RenderExecutionMode::Threaded;
+    auto first = GpuExecutionDomain::acquire(config);
+    auto second = GpuExecutionDomain::acquire(config);
+    ASSERT_TRUE(first);
+    ASSERT_TRUE(second);
+    EXPECT_EQ(first->get(), second->get());
+    EXPECT_EQ((*first)->stats().domainId, (*second)->stats().domainId);
+
+    config.msaa = mulan::engine::RenderConfig::MSAALevel::x8;
+    auto incompatible = GpuExecutionDomain::acquire(config);
+    ASSERT_TRUE(incompatible);
+    EXPECT_NE(first->get(), incompatible->get());
+}
+
+TEST(GpuExecutionDomainTests, OpenGLContextsAlwaysUseIndependentDomains) {
+    mulan::view::ViewConfig config;
+    config.backend = mulan::engine::GraphicsBackend::OpenGL;
+    config.executionMode = mulan::view::RenderExecutionMode::Threaded;
+    auto first = GpuExecutionDomain::acquire(config);
+    auto second = GpuExecutionDomain::acquire(config);
+    ASSERT_TRUE(first);
+    ASSERT_TRUE(second);
+    EXPECT_NE(first->get(), second->get());
+}
+
+TEST(GpuExecutionDomainTests, FairCursorVisitsEveryContinuouslyReadyClient) {
+    FairClientCursor cursor;
+    std::vector<size_t> selected;
+    for (size_t iteration = 0; iteration < 9; ++iteration) {
+        const size_t index = cursor.start(3);
+        selected.push_back(index);
+        cursor.selected(index, 3);
+    }
+    EXPECT_EQ(selected, (std::vector<size_t>{ 0, 1, 2, 0, 1, 2, 0, 1, 2 }));
 }

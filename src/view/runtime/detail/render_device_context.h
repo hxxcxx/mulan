@@ -48,7 +48,7 @@ private:
           resource_service_(std::make_unique<engine::DeviceResourceService>(*device_)),
           backend_(backend) {}
 
-    static bool canShare(engine::GraphicsBackend backend);
+    static bool canShare(const ViewConfig& config);
     static bool matches(const RenderDeviceContext& context, const ViewConfig& config);
 
     std::unique_ptr<engine::RHIDevice> device_;

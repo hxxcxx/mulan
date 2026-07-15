@@ -20,9 +20,10 @@ bool sameRenderConfig(const engine::RenderConfig& lhs, const engine::RenderConfi
 
 }  // namespace
 
-bool RenderDeviceContext::canShare(engine::GraphicsBackend backend) {
+bool RenderDeviceContext::canShare(const ViewConfig& config) {
     // OpenGL 资源绑定到原生上下文；共享需要专门的共享上下文实现，不能在此隐式复用。
-    return backend != engine::GraphicsBackend::OpenGL;
+    // 同步调试模式不经过设备级调度器，也必须使用独立 Device，避免与 GPU 线程竞争。
+    return config.backend != engine::GraphicsBackend::OpenGL && config.executionMode == RenderExecutionMode::Threaded;
 }
 
 bool RenderDeviceContext::matches(const RenderDeviceContext& context, const ViewConfig& config) {
@@ -41,7 +42,7 @@ Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::acquire(const 
     const engine::RenderConfig renderConfig = config.toRenderConfig();
     std::scoped_lock registryLock(registry_mutex);
 
-    if (canShare(config.backend)) {
+    if (canShare(config)) {
         for (auto it = registry.begin(); it != registry.end();) {
             if (auto existing = it->lock()) {
                 if (!existing->isHealthy()) {
@@ -80,11 +81,11 @@ Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::acquire(const 
     }
     context->render_config_ = renderConfig;
     context->validation_enabled_ = config.enableValidation;
-    if (canShare(config.backend)) {
+    if (canShare(config)) {
         registry.emplace_back(context);
     }
     LOG_INFO("[RenderDeviceContext] Device context created: backend={}, validation={}, shared={}",
-             static_cast<int>(config.backend), config.enableValidation, canShare(config.backend));
+             static_cast<int>(config.backend), config.enableValidation, canShare(config));
     return context;
 }
 
