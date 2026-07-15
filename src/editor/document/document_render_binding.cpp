@@ -22,6 +22,7 @@ void DocumentRenderBinding::bind(DocumentSession& session, view::ViewContext& vi
     applyViewPreferences();
     prepared_camera_depth_revision_ = view_->camera().depthRevision();
     scene_bounds_dirty_ = false;
+    clip_tightening_pending_ = false;
 }
 
 void DocumentRenderBinding::unbind() {
@@ -34,6 +35,7 @@ void DocumentRenderBinding::unbind() {
     render_cache_.clear();
     prepared_camera_depth_revision_ = 0;
     scene_bounds_dirty_ = false;
+    clip_tightening_pending_ = false;
 }
 
 void DocumentRenderBinding::setFrameInvalidationCallback(FrameInvalidationCallback callback) {
@@ -71,23 +73,28 @@ void DocumentRenderBinding::fitAll() {
     }
     prepared_camera_depth_revision_ = view_->camera().depthRevision();
     scene_bounds_dirty_ = false;
+    clip_tightening_pending_ = false;
     injectRenderCache();
     invalidateFrame();
 }
 
-void DocumentRenderBinding::prepareFrame() {
+void DocumentRenderBinding::prepareFrame(ClipUpdateMode mode) {
     if (!isBound()) {
         return;
     }
 
     const uint64_t cameraRevision = view_->camera().depthRevision();
-    if (!scene_bounds_dirty_ && prepared_camera_depth_revision_ == cameraRevision) {
+    const bool mayTighten = mode == ClipUpdateMode::Settled;
+    if (!scene_bounds_dirty_ && prepared_camera_depth_revision_ == cameraRevision &&
+        !(mayTighten && clip_tightening_pending_)) {
         return;
     }
 
-    fitCameraClipPlanesToSceneBounds();
+    fitCameraClipPlanesToSceneBounds(mayTighten ? engine::ClipPlaneFitMode::Tight
+                                                : engine::ClipPlaneFitMode::ExpandOnly);
     prepared_camera_depth_revision_ = cameraRevision;
     scene_bounds_dirty_ = false;
+    clip_tightening_pending_ = !mayTighten && render_cache_.sceneBoundsSphere().isValid();
 }
 
 void DocumentRenderBinding::syncRenderCache() {
@@ -106,14 +113,14 @@ void DocumentRenderBinding::injectRenderCache() {
     view_->setRenderScene(render_cache_.renderScene(), render_cache_.assets());
 }
 
-void DocumentRenderBinding::fitCameraClipPlanesToSceneBounds() {
+void DocumentRenderBinding::fitCameraClipPlanesToSceneBounds(engine::ClipPlaneFitMode mode) {
     if (!isBound()) {
         return;
     }
 
     const auto& sphere = render_cache_.sceneBoundsSphere();
     if (sphere.isValid()) {
-        view_->camera().fitClipPlanesToSphere(sphere);
+        view_->camera().fitClipPlanesToSphere(sphere, 1.2, mode);
     }
 }
 

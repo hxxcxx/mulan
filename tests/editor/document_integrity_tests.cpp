@@ -391,3 +391,25 @@ TEST(DocumentCameraLifecycle, EmptyDocumentBindResetsThePreviousComposition) {
     EXPECT_DOUBLE_EQ(view.camera().nearPlane(), 0.1);
     EXPECT_DOUBLE_EQ(view.camera().farPlane(), 1000.0);
 }
+
+TEST(DocumentCameraClipPlanes, InteractiveRangeTightensOnlyAfterTheInteractionSettles) {
+    auto document = std::make_unique<Document>("interactive-clip-policy");
+    DocumentEditor editor(*document);
+    ASSERT_TRUE(editor.createCurve("Line", segment(1.0)));
+
+    DocumentSession session(std::move(document));
+    mulan::view::ViewContext view;
+    mulan::editor::DocumentRenderBinding binding;
+    binding.bind(session, view);
+    view.camera().setClipPlanes(0.1, 1000.0);
+    view.camera().setTarget({ 0.0, 0.0, 0.0 });
+
+    binding.prepareFrame(mulan::editor::ClipUpdateMode::Interactive);
+    EXPECT_DOUBLE_EQ(view.camera().nearPlane(), 0.1);
+    EXPECT_DOUBLE_EQ(view.camera().farPlane(), 1000.0);
+
+    // 即使场景和相机版本未再次变化，结束交互也必须消费待收紧状态。
+    binding.prepareFrame(mulan::editor::ClipUpdateMode::Settled);
+    EXPECT_GT(view.camera().nearPlane(), 0.1);
+    EXPECT_LT(view.camera().farPlane(), 1000.0);
+}

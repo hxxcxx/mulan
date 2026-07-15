@@ -37,6 +37,8 @@ public:
 
     Config config;
 
+    bool isDragging() const { return dragging_; }
+
     // --- Operator 接口实现 ---
 
     bool onMousePress(const InputEvent& e, Camera& cam) override {

@@ -170,6 +170,26 @@ TEST(CameraClipPlanesTest, InvalidCandidatesKeepLastGoodRange) {
     EXPECT_DOUBLE_EQ(camera.farPlane(), initialFar);
 }
 
+TEST(CameraClipPlanesTest, InteractiveFitExpandsButNeverShrinks) {
+    Camera camera{ CameraMode::Trackball };
+    camera.setDistance(10.0);
+    camera.setClipPlanes(0.1, 1000.0);
+    const mulan::math::Sphere3 compact{ mulan::math::Point3::origin(), 1.0 };
+
+    camera.fitClipPlanesToSphere(compact, 1.2, ClipPlaneFitMode::ExpandOnly);
+    EXPECT_DOUBLE_EQ(camera.nearPlane(), 0.1);
+    EXPECT_DOUBLE_EQ(camera.farPlane(), 1000.0);
+
+    camera.fitClipPlanesToSphere(compact, 1.2, ClipPlaneFitMode::Tight);
+    EXPECT_GT(camera.nearPlane(), 0.1);
+    EXPECT_LT(camera.farPlane(), 1000.0);
+
+    camera.setClipPlanes(9.5, 10.5);
+    camera.fitClipPlanesToSphere(compact, 1.2, ClipPlaneFitMode::ExpandOnly);
+    EXPECT_LT(camera.nearPlane(), 9.0);
+    EXPECT_GT(camera.farPlane(), 11.0);
+}
+
 TEST(CameraDepthRevisionTest, OnlyDepthRelevantChangesAdvanceRevision) {
     Camera camera{ CameraMode::Trackball };
     const uint64_t initial = camera.depthRevision();

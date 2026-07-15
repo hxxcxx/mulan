@@ -9,10 +9,11 @@
 
 #include "document_render_cache.h"
 
+#include <mulan/render/camera/camera.h>
 #include <mulan/render/light_environment.h>
 
-#include <functional>
 #include <cstdint>
+#include <functional>
 #include <span>
 
 class DocumentSession;
@@ -22,6 +23,11 @@ class ViewContext;
 }
 
 namespace mulan::editor {
+
+enum class ClipUpdateMode : uint8_t {
+    Settled,
+    Interactive,
+};
 
 class DocumentRenderBinding {
 public:
@@ -45,7 +51,7 @@ public:
     void refreshVisualState();
     void fitAll();
     /// 在构建帧快照前，按场景与相机深度版本统一更新裁剪面。
-    void prepareFrame();
+    void prepareFrame(ClipUpdateMode mode = ClipUpdateMode::Settled);
     DocumentSession* session() const { return session_; }
     view::ViewContext* view() const { return view_; }
     const view::RenderScene* renderScene() const;
@@ -53,7 +59,7 @@ public:
 private:
     void syncRenderCache();
     void injectRenderCache();
-    void fitCameraClipPlanesToSceneBounds();
+    void fitCameraClipPlanesToSceneBounds(engine::ClipPlaneFitMode mode);
     void applyViewPreferences();
     void invalidateFrame() const;
 
@@ -63,6 +69,7 @@ private:
     FrameInvalidationCallback frame_invalidation_callback_;
     uint64_t prepared_camera_depth_revision_ = 0;
     bool scene_bounds_dirty_ = false;
+    bool clip_tightening_pending_ = false;
 };
 
 }  // namespace mulan::editor

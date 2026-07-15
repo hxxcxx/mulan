@@ -33,8 +33,8 @@ void DocumentViewBinding::fitAll() {
     render_binding_.fitAll();
 }
 
-void DocumentViewBinding::prepareFrame() {
-    render_binding_.prepareFrame();
+void DocumentViewBinding::prepareFrame(mulan::editor::ClipUpdateMode mode) {
+    render_binding_.prepareFrame(mode);
 }
 
 const mulan::view::RenderScene* DocumentViewBinding::renderScene() const {

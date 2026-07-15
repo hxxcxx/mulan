@@ -75,6 +75,7 @@ public:
 
     engine::Operator* activeOperator() const;
     engine::Operator* defaultOperator() const { return default_op_.get(); }
+    bool isCameraNavigating() const;
 
     core::Result<engine::RenderCaptureResult> capture(const engine::RenderCaptureDesc& desc);
     core::Result<CaptureImage> capture(const CaptureRequest& request);

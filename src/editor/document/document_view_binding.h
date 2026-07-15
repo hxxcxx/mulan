@@ -40,7 +40,7 @@ public:
 
     void refresh();
     void fitAll();
-    void prepareFrame();
+    void prepareFrame(mulan::editor::ClipUpdateMode mode = mulan::editor::ClipUpdateMode::Settled);
     const mulan::view::RenderScene* renderScene() const;
     std::optional<mulan::view::RenderScene::PickResult> pickAt(const mulan::engine::Camera& camera, double x, double y);
     std::optional<mulan::view::RenderScene::PickResult> pickEntityAt(const mulan::engine::Camera& camera, double x,

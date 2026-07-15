@@ -267,7 +267,7 @@ void Camera::fitToSphere(const math::Sphere3& sphere, double padding) {
     fitClipPlanesToSphere(sphere, padding);
 }
 
-void Camera::fitClipPlanesToBox(const math::AABB3& box, double padding) {
+void Camera::fitClipPlanesToBox(const math::AABB3& box, double padding, ClipPlaneFitMode mode) {
     if (box.isEmpty() || !finiteBounds(box) || !std::isfinite(padding)) {
         return;
     }
@@ -294,10 +294,10 @@ void Camera::fitClipPlanesToBox(const math::AABB3& box, double padding) {
     const double margin = std::max(radius * (pad - 1.0), kMinClipSpan);
     const double nearZ = std::max(kMinNearPlane, minDepth - margin);
     const double farZ = std::max(nearZ + kMinClipSpan, maxDepth + margin);
-    setClipPlanes(nearZ, farZ);
+    applyFittedClipPlanes(nearZ, farZ, mode);
 }
 
-void Camera::fitClipPlanesToSphere(const math::Sphere3& sphere, double padding) {
+void Camera::fitClipPlanesToSphere(const math::Sphere3& sphere, double padding, ClipPlaneFitMode mode) {
     if (!finiteSphere(sphere) || !std::isfinite(padding)) {
         return;
     }
@@ -313,6 +313,14 @@ void Camera::fitClipPlanesToSphere(const math::Sphere3& sphere, double padding) 
 
     const double nearZ = std::max(kMinNearPlane, centerDepth - radius - margin);
     const double farZ = std::max(nearZ + kMinClipSpan, centerDepth + radius + margin);
+    applyFittedClipPlanes(nearZ, farZ, mode);
+}
+
+void Camera::applyFittedClipPlanes(double nearZ, double farZ, ClipPlaneFitMode mode) {
+    if (mode == ClipPlaneFitMode::ExpandOnly) {
+        nearZ = std::min(near_z_, nearZ);
+        farZ = std::max(far_z_, farZ);
+    }
     setClipPlanes(nearZ, farZ);
 }
 

@@ -32,6 +32,12 @@ enum class CameraMode : uint8_t {
     Trackball,  ///< 四元数自由旋转
 };
 
+/// 动态裁剪面的更新策略。交互过程中只允许扩大可见深度，避免连续帧抖动。
+enum class ClipPlaneFitMode : uint8_t {
+    Tight,
+    ExpandOnly,
+};
+
 class Camera {
 public:
     /// @param initialMode 初始旋转模式，缺省为 Trackball
@@ -117,8 +123,10 @@ public:
     void zoom(double delta);
     void fitToBox(const math::AABB3& box, double padding = 1.2);
     void fitToSphere(const math::Sphere3& sphere, double padding = 1.2);
-    void fitClipPlanesToBox(const math::AABB3& box, double padding = 1.2);
-    void fitClipPlanesToSphere(const math::Sphere3& sphere, double padding = 1.2);
+    void fitClipPlanesToBox(const math::AABB3& box, double padding = 1.2,
+                            ClipPlaneFitMode mode = ClipPlaneFitMode::Tight);
+    void fitClipPlanesToSphere(const math::Sphere3& sphere, double padding = 1.2,
+                               ClipPlaneFitMode mode = ClipPlaneFitMode::Tight);
 
     // ==================== 速度参数 ====================
 
@@ -181,6 +189,7 @@ private:
     /// 根据模式创建对应的 RotationMode 实例
     void createRotation(CameraMode mode);
     void copyFrom(const Camera& other);
+    void applyFittedClipPlanes(double nearZ, double farZ, ClipPlaneFitMode mode);
     void markDepthChanged() {
         if (++depth_revision_ == 0) {
             ++depth_revision_;

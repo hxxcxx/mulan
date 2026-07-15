@@ -264,6 +264,11 @@ bool ViewContext::handleInput(const engine::InputEvent& event) {
     return dispatchInput(event).handled();
 }
 
+bool ViewContext::isCameraNavigating() const {
+    const auto* manipulator = dynamic_cast<const engine::CameraManipulator*>(default_op_.get());
+    return manipulator && manipulator->isDragging();
+}
+
 engine::InputOutcome ViewContext::dispatchInput(const engine::InputEvent& event) {
     // 生命周期取消必须同时终止 ViewCube 的 press/release 事务；它不一定会收到
     // 后续 MouseRelease，不能只清悬停标记而保留 consuming_view_cube_click_。
