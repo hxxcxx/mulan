@@ -10,9 +10,11 @@
 #include "runtime/detail/render_executor.h"
 
 #include <mulan/core/log/log.h>
+#include <mulan/rhi/engine_error_code.h>
 
 #include <algorithm>
 #include <atomic>
+#include <cassert>
 #include <deque>
 #include <exception>
 #include <utility>
@@ -80,7 +82,7 @@ Result<std::shared_ptr<GpuExecutionDomain>> GpuExecutionDomain::acquire(const Vi
     if (config.backend != engine::GraphicsBackend::OpenGL) {
         for (auto it = registry.begin(); it != registry.end();) {
             if (auto domain = it->lock()) {
-                if (compatibleConfig(domain->config_, config)) {
+                if (domain->state() == GpuExecutionDomainState::Healthy && compatibleConfig(domain->config_, config)) {
                     return domain;
                 }
                 ++it;
@@ -105,7 +107,12 @@ Result<std::shared_ptr<GpuExecutionDomain>> GpuExecutionDomain::acquire(const Vi
 }
 
 GpuExecutionDomain::GpuExecutionDomain(const ViewConfig& config)
-    : config_(config), domain_id_(next_domain_id.fetch_add(1)), thread_([this](std::stop_token token) { run(token); }) {
+    : config_(config), domain_id_(next_domain_id.fetch_add(1)) {
+    thread_ = std::jthread([this](std::stop_token token) { run(token); });
+    {
+        std::scoped_lock lock(mutex_);
+        state_ = GpuExecutionDomainState::Healthy;
+    }
     LOG_INFO("[GpuExecutionDomain] Domain created: id={}, backend={}", domain_id_, static_cast<int>(config.backend));
 }
 
@@ -114,6 +121,7 @@ GpuExecutionDomain::~GpuExecutionDomain() {
     {
         std::scoped_lock lock(mutex_);
         stopping_ = true;
+        state_ = GpuExecutionDomainState::Stopped;
         for (auto& [id, client] : clients_) {
             client->lifecycle = Client::Lifecycle::Stopping;
             client->latestFrame.reset();
@@ -154,7 +162,7 @@ Result<GpuExecutionClientId> GpuExecutionDomain::attach(Initializer initialize) 
     GpuExecutionClientId clientId = 0;
     {
         std::scoped_lock lock(mutex_);
-        if (stopping_) {
+        if (stopping_ || state_ != GpuExecutionDomainState::Healthy) {
             return std::unexpected(domainError(ErrorCode::InvalidArg, "GPU execution domain is stopping."));
         }
         clientId = next_client_++;
@@ -171,6 +179,7 @@ Result<GpuExecutionClientId> GpuExecutionDomain::attach(Initializer initialize) 
         });
         clients_.emplace(clientId, std::move(client));
         client_order_.push_back(clientId);
+        assertInvariantsLocked();
     }
     wake_.notify_one();
 
@@ -238,21 +247,26 @@ void GpuExecutionDomain::detach(GpuExecutionClientId clientId) {
         clients_.erase(clientId);
         std::erase(client_order_, clientId);
         cursor_.clamp(client_order_.size());
+        assertInvariantsLocked();
     }
 }
 
 bool GpuExecutionDomain::isReady(GpuExecutionClientId clientId) const {
     std::scoped_lock lock(mutex_);
     const auto known = clients_.find(clientId);
-    return known != clients_.end() && known->second->lifecycle == Client::Lifecycle::Ready;
+    return state_ == GpuExecutionDomainState::Healthy && known != clients_.end() &&
+           known->second->lifecycle == Client::Lifecycle::Ready;
 }
 
 ResultVoid GpuExecutionDomain::submitFrame(GpuExecutionClientId clientId, RenderSubmission submission) {
     {
         std::scoped_lock lock(mutex_);
         const auto known = clients_.find(clientId);
-        if (known == clients_.end() || known->second->lifecycle != Client::Lifecycle::Ready) {
-            return std::unexpected(domainError(ErrorCode::InvalidArg, "Render client is not ready."));
+        if (state_ != GpuExecutionDomainState::Healthy || known == clients_.end() ||
+            known->second->lifecycle != Client::Lifecycle::Ready) {
+            ++rejected_work_count_;
+            return std::unexpected(
+                    domain_failure_.value_or(domainError(ErrorCode::InvalidArg, "Render client is not ready.")));
         }
         Client& client = *known->second;
         auto dependency = enqueueSubmissionResourcesLocked(client, submission);
@@ -309,8 +323,11 @@ Result<engine::RenderCaptureResult> GpuExecutionDomain::capture(GpuExecutionClie
     {
         std::scoped_lock lock(mutex_);
         const auto known = clients_.find(clientId);
-        if (known == clients_.end() || known->second->lifecycle != Client::Lifecycle::Ready) {
-            return std::unexpected(domainError(ErrorCode::InvalidArg, "Render client is not available."));
+        if (state_ != GpuExecutionDomainState::Healthy || known == clients_.end() ||
+            known->second->lifecycle != Client::Lifecycle::Ready) {
+            ++rejected_work_count_;
+            return std::unexpected(
+                    domain_failure_.value_or(domainError(ErrorCode::InvalidArg, "Render client is not available.")));
         }
         Client& client = *known->second;
         auto dependency = enqueueSubmissionResourcesLocked(client, submission);
@@ -348,8 +365,11 @@ Result<RenderSurfaceState> GpuExecutionDomain::resize(GpuExecutionClientId clien
     {
         std::scoped_lock lock(mutex_);
         const auto known = clients_.find(clientId);
-        if (known == clients_.end() || known->second->lifecycle != Client::Lifecycle::Ready) {
-            return std::unexpected(domainError(ErrorCode::InvalidArg, "Render client is not available."));
+        if (state_ != GpuExecutionDomainState::Healthy || known == clients_.end() ||
+            known->second->lifecycle != Client::Lifecycle::Ready) {
+            ++rejected_work_count_;
+            return std::unexpected(
+                    domain_failure_.value_or(domainError(ErrorCode::InvalidArg, "Render client is not available.")));
         }
         Client& client = *known->second;
         client.latestFrame.reset();
@@ -385,8 +405,11 @@ ResultVoid GpuExecutionDomain::clearAssetResources(GpuExecutionClientId clientId
     {
         std::scoped_lock lock(mutex_);
         const auto known = clients_.find(clientId);
-        if (known == clients_.end() || known->second->lifecycle != Client::Lifecycle::Ready) {
-            return std::unexpected(domainError(ErrorCode::InvalidArg, "Render client is not ready."));
+        if (state_ != GpuExecutionDomainState::Healthy || known == clients_.end() ||
+            known->second->lifecycle != Client::Lifecycle::Ready) {
+            ++rejected_work_count_;
+            return std::unexpected(
+                    domain_failure_.value_or(domainError(ErrorCode::InvalidArg, "Render client is not ready.")));
         }
         Client& client = *known->second;
         client.latestFrame.reset();
@@ -408,7 +431,9 @@ bool GpuExecutionDomain::enqueue(GpuExecutionClientId clientId, ControlTask task
     {
         std::scoped_lock lock(mutex_);
         const auto known = clients_.find(clientId);
-        if (known == clients_.end() || known->second->lifecycle != Client::Lifecycle::Ready) {
+        if (state_ != GpuExecutionDomainState::Healthy || known == clients_.end() ||
+            known->second->lifecycle != Client::Lifecycle::Ready) {
+            ++rejected_work_count_;
             return false;
         }
         known->second->controls.push_back(std::move(task));
@@ -437,13 +462,35 @@ RenderSurfaceState GpuExecutionDomain::surfaceState(GpuExecutionClientId clientI
 
 GpuExecutionDomainStats GpuExecutionDomain::stats() const {
     std::scoped_lock lock(mutex_);
+    size_t pendingControls = 0;
+    size_t pendingFrames = 0;
+    for (const auto& [id, client] : clients_) {
+        pendingControls += client->controls.size();
+        pendingFrames += client->latestFrame.has_value() ? 1u : 0u;
+    }
     return GpuExecutionDomainStats{
         .domainId = domain_id_,
         .clientCount = clients_.size(),
         .executedControlCount = executed_control_count_,
         .executedFrameCount = executed_frame_count_,
+        .rejectedWorkCount = rejected_work_count_,
+        .failureBroadcastCount = failure_broadcast_count_,
+        .pendingControlCount = pendingControls,
+        .pendingFrameCount = pendingFrames,
+        .state = state_,
     };
 }
+
+GpuExecutionDomainState GpuExecutionDomain::state() const {
+    std::scoped_lock lock(mutex_);
+    return state_;
+}
+
+#ifdef _DEBUG
+void GpuExecutionDomain::injectFailureForTesting(Error error) {
+    failDomain(error);
+}
+#endif
 
 bool GpuExecutionDomain::clientHasWorkLocked(const Client& client) const {
     if (!client.controls.empty()) {
@@ -451,6 +498,19 @@ bool GpuExecutionDomain::clientHasWorkLocked(const Client& client) const {
     }
     return client.lifecycle == Client::Lifecycle::Ready && client.latestFrame.has_value() &&
            client.protocol.canExecuteFrame(client.latestFrame->requiredResourceSequence);
+}
+
+void GpuExecutionDomain::assertInvariantsLocked() const {
+#ifndef NDEBUG
+    assert(client_order_.size() == clients_.size());
+    for (size_t index = 0; index < client_order_.size(); ++index) {
+        assert(client_order_[index] != 0);
+        assert(clients_.contains(client_order_[index]));
+        assert(std::find(client_order_.begin() + static_cast<std::ptrdiff_t>(index + 1), client_order_.end(),
+                         client_order_[index]) == client_order_.end());
+    }
+    assert(state_ != GpuExecutionDomainState::Failed || domain_failure_.has_value());
+#endif
 }
 
 bool GpuExecutionDomain::hasWorkLocked() const {
@@ -512,6 +572,53 @@ void GpuExecutionDomain::failClient(const std::shared_ptr<Client>& client, const
     wake_.notify_all();
 }
 
+bool GpuExecutionDomain::isDeviceDomainFailure(const Error& error) {
+    switch (static_cast<engine::EngineErrorCode>(error.code)) {
+    case engine::EngineErrorCode::DeviceLost:
+    case engine::EngineErrorCode::OutOfDeviceMemory:
+    case engine::EngineErrorCode::SubmissionFailed:
+    case engine::EngineErrorCode::SubmissionWaitFailed:
+    case engine::EngineErrorCode::ResourceUploadFailed:
+    case engine::EngineErrorCode::PresentationFailed:
+    case engine::EngineErrorCode::CommandRecordingFailed: return true;
+    default: return false;
+    }
+}
+
+void GpuExecutionDomain::failDomain(const Error& error) {
+    std::deque<ControlTask> cancelled;
+    {
+        std::scoped_lock lock(mutex_);
+        if (state_ == GpuExecutionDomainState::Failed || state_ == GpuExecutionDomainState::Stopped) {
+            return;
+        }
+        state_ = GpuExecutionDomainState::Failed;
+        domain_failure_ = error;
+        ++failure_broadcast_count_;
+        for (auto& [id, client] : clients_) {
+            client->latestFrame.reset();
+            // 广播事件不伪装成某个客户端的资源批次失败；原始 Error 保留真实设备原因。
+            client->protocol.fail(error);
+            if (client->lifecycle == Client::Lifecycle::Stopping) {
+                continue;
+            }
+            client->lifecycle = Client::Lifecycle::Failed;
+            while (!client->controls.empty()) {
+                cancelled.push_back(std::move(client->controls.front()));
+                client->controls.pop_front();
+            }
+        }
+        assertInvariantsLocked();
+    }
+    for (ControlTask& task : cancelled) {
+        if (task.fail) {
+            task.fail(error);
+        }
+    }
+    LOG_CRITICAL("[GpuExecutionDomain] Device domain failed: id={}, error={}", domain_id_, error.message);
+    wake_.notify_all();
+}
+
 void GpuExecutionDomain::run(std::stop_token stopToken) {
     {
         std::scoped_lock lock(mutex_);
@@ -541,7 +648,11 @@ void GpuExecutionDomain::run(std::stop_token stopToken) {
             try {
                 auto rendered = client->executor->executeFrame(frame->submission);
                 if (!rendered) {
-                    failClient(client, rendered.error());
+                    if (isDeviceDomainFailure(rendered.error())) {
+                        failDomain(rendered.error());
+                    } else {
+                        failClient(client, rendered.error());
+                    }
                     continue;
                 }
                 std::scoped_lock lock(mutex_);
@@ -559,7 +670,11 @@ void GpuExecutionDomain::run(std::stop_token stopToken) {
                 if (control.fail) {
                     control.fail(executed.error());
                 }
-                if (control.fatalOnFailure) {
+                if (isDeviceDomainFailure(executed.error())) {
+                    // capture 等同步控制即使自身不定义为“客户端致命”，DeviceLost 也必须
+                    // 立即毒化整个共享执行域，不能等其他 Surface 下一次提交才被动发现。
+                    failDomain(executed.error());
+                } else if (control.fatalOnFailure) {
                     failClient(client, executed.error(), control.resourceSequence, control.resourceBatchId);
                 }
                 continue;

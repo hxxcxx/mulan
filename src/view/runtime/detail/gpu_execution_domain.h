@@ -39,11 +39,23 @@ class RenderExecutor;
 
 using GpuExecutionClientId = uint64_t;
 
+enum class GpuExecutionDomainState : uint8_t {
+    Healthy,
+    Failed,
+    Rebuilding,
+    Stopped,
+};
+
 struct GpuExecutionDomainStats {
     uint64_t domainId = 0;
     size_t clientCount = 0;
     size_t executedControlCount = 0;
     size_t executedFrameCount = 0;
+    size_t rejectedWorkCount = 0;
+    size_t failureBroadcastCount = 0;
+    size_t pendingControlCount = 0;
+    size_t pendingFrameCount = 0;
+    GpuExecutionDomainState state = GpuExecutionDomainState::Stopped;
 };
 
 /// 轮转游标只负责公平起点；调度器仍会跳过当前无任务的客户端。
@@ -81,6 +93,12 @@ public:
     std::optional<Error> failureSnapshot(GpuExecutionClientId client) const;
     RenderSurfaceState surfaceState(GpuExecutionClientId client) const;
     GpuExecutionDomainStats stats() const;
+    GpuExecutionDomainState state() const;
+
+#ifdef _DEBUG
+    /// 无真实 GPU 的状态机测试入口；只在 Debug 构建可用。
+    void injectFailureForTesting(Error error);
+#endif
 
 private:
     struct Client;
@@ -96,11 +114,14 @@ private:
                                                     std::optional<PendingFrame>& frame);
     bool hasWorkLocked() const;
     bool clientHasWorkLocked(const Client& client) const;
+    void assertInvariantsLocked() const;
     bool enqueue(GpuExecutionClientId client, ControlTask task);
     Result<uint64_t> enqueueSubmissionResourcesLocked(Client& client, RenderSubmission& submission);
     void publishSurfaceStateLocked(Client& client);
     void failClient(const std::shared_ptr<Client>& client, const Error& error, uint64_t resourceSequence = 0,
                     uint64_t resourceBatchId = 0);
+    void failDomain(const Error& error);
+    static bool isDeviceDomainFailure(const Error& error);
     static Error domainError(ErrorCode code, std::string_view message);
 
     ViewConfig config_;
@@ -109,13 +130,18 @@ private:
     std::unordered_map<GpuExecutionClientId, std::shared_ptr<Client>> clients_;
     std::vector<GpuExecutionClientId> client_order_;
     FairClientCursor cursor_;
-    std::jthread thread_;
     std::thread::id execution_thread_id_;
     GpuExecutionClientId next_client_ = 1;
     uint64_t domain_id_ = 0;
     size_t executed_control_count_ = 0;
     size_t executed_frame_count_ = 0;
+    size_t rejected_work_count_ = 0;
+    size_t failure_broadcast_count_ = 0;
+    GpuExecutionDomainState state_ = GpuExecutionDomainState::Rebuilding;
+    std::optional<Error> domain_failure_;
     bool stopping_ = false;
+    // 必须最后声明并在构造函数体启动，禁止线程观察到尚未构造的状态成员。
+    std::jthread thread_;
 };
 
 }  // namespace mulan::view::detail

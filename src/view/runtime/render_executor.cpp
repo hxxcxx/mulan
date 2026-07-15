@@ -407,6 +407,9 @@ void RenderExecutor::shutdownLocked() {
     if (device_context_) {
         auto deviceLock = device_context_->lock();
         auto& device = device_context_->device();
+        // 先移除所有 Surface，确保执行域租约释放后再也没有窗口/截图后备缓冲引用 Device。
+        capture_surface_.shutdown(device);
+        surface_.shutdown(device);
         // 即使初始化只完成了一部分，也必须让 RenderRenderer 无条件清理已创建资源。
         renderer_.shutdown(device);
         if (resource_client_ != 0) {
@@ -416,8 +419,6 @@ void RenderExecutor::shutdownLocked() {
             }
             resource_client_ = 0;
         }
-        capture_surface_.shutdown(device);
-        surface_.shutdown(device);
     }
     device_context_.reset();
     resource_client_ = 0;

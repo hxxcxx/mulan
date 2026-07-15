@@ -10,6 +10,8 @@
 #include "runtime/detail/render_worker_protocol.h"
 #include "runtime/detail/gpu_execution_domain.h"
 
+#include <mulan/rhi/engine_error_code.h>
+
 #include <gtest/gtest.h>
 
 using namespace mulan::view::detail;
@@ -128,4 +130,45 @@ TEST(GpuExecutionDomainTests, FairCursorVisitsEveryContinuouslyReadyClient) {
         cursor.selected(index, 3);
     }
     EXPECT_EQ(selected, (std::vector<size_t>{ 0, 1, 2, 0, 1, 2, 0, 1, 2 }));
+}
+
+TEST(GpuExecutionDomainTests, DeviceFailurePoisonsTheOldDomainAndForcesReplacement) {
+    mulan::view::ViewConfig config;
+    config.backend = mulan::engine::GraphicsBackend::Vulkan;
+    config.executionMode = mulan::view::RenderExecutionMode::Threaded;
+    auto failedDomain = GpuExecutionDomain::acquire(config);
+    ASSERT_TRUE(failedDomain);
+    const uint64_t failedId = (*failedDomain)->stats().domainId;
+
+    const mulan::Error failure =
+            mulan::engine::makeError(mulan::engine::EngineErrorCode::DeviceLost, "injected shared device loss");
+    (*failedDomain)->injectFailureForTesting(failure);
+    (*failedDomain)->injectFailureForTesting(failure);
+    EXPECT_EQ((*failedDomain)->state(), GpuExecutionDomainState::Failed);
+    EXPECT_EQ((*failedDomain)->stats().failureBroadcastCount, 1u);
+    EXPECT_FALSE((*failedDomain)->submitFrame(999, mulan::view::RenderSubmission{}));
+    EXPECT_EQ((*failedDomain)->stats().rejectedWorkCount, 1u);
+
+    auto replacement = GpuExecutionDomain::acquire(config);
+    ASSERT_TRUE(replacement);
+    EXPECT_NE((*replacement)->stats().domainId, failedId);
+    EXPECT_EQ((*replacement)->state(), GpuExecutionDomainState::Healthy);
+}
+
+TEST(RenderWorkerProtocolTests, ThousandsOfReliableBatchesKeepOrderedAcksWithoutLeakage) {
+    RenderWorkerProtocol protocol;
+    constexpr uint64_t batchCount = 10000;
+    for (uint64_t batch = 1; batch <= batchCount; ++batch) {
+        const ResourceRegistration registered = protocol.registerResourceBatch(batch);
+        ASSERT_TRUE(registered.newlyQueued);
+        ASSERT_TRUE(protocol.completeResource(registered.sequence, batch));
+    }
+    const auto events = protocol.drainEvents();
+    ASSERT_EQ(events.size(), batchCount);
+    for (uint64_t index = 0; index < batchCount; ++index) {
+        EXPECT_EQ(events[index].resourceBatchId, index + 1);
+        EXPECT_EQ(events[index].resourceSequence, index + 1);
+    }
+    EXPECT_TRUE(protocol.drainEvents().empty());
+    EXPECT_FALSE(protocol.failure().has_value());
 }
