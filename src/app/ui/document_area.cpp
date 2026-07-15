@@ -158,7 +158,7 @@ bool DocumentArea::confirmDiscard(int index) {
     }
 
     const auto it = docs_.find(docWidget);
-    if (it == docs_.end() || !it->second || !it->second->document() || !it->second->document()->isDirty()) {
+    if (it == docs_.end() || !it->second || !it->second->requiresDiscardConfirmation()) {
         return true;
     }
 

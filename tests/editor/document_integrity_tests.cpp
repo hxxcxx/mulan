@@ -44,6 +44,15 @@ CurvePrimitive segment(double endX) {
     return CurvePrimitive::segment(Segment3{ Point3{ 0.0, 0.0, 0.0 }, Point3{ endX, 0.0, 0.0 } });
 }
 
+TEST(DocumentSessionPolicy, DirtyDraftDoesNotRequestDiscardConfirmation) {
+    auto document = std::make_unique<Document>("unsaved-draft");
+    document->markDirty();
+    DocumentSession session(std::move(document));
+
+    EXPECT_EQ(session.kind(), DocumentSessionKind::Draft);
+    EXPECT_FALSE(session.requiresDiscardConfirmation());
+}
+
 double segmentEndX(const CurveAsset& curve) {
     const auto& primitive = std::get<mulan::asset::CurveSegmentPrimitive>(curve.elements().front().primitive.data());
     return primitive.segment.end.x;

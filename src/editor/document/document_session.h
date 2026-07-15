@@ -50,6 +50,10 @@ public:
     bool preferPBRSurface() const { return preferences_.preferPBRSurface; }
     DocumentSessionKind kind() const { return kind_; }
     bool allowsDrawingCommands() const { return kind_ == DocumentSessionKind::Draft; }
+    /// 草稿文档当前没有保存工作流，关闭时不应伪装成可保存文档打断用户。
+    bool requiresDiscardConfirmation() const {
+        return kind_ != DocumentSessionKind::Draft && document_ && document_->isDirty();
+    }
 
 private:
     friend class mulan::editor::DocumentOperationExecutor;

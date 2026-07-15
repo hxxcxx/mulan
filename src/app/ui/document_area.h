@@ -32,7 +32,7 @@ public:
     /// 关闭指定索引的标签；用户取消丢弃未保存修改时返回 false。
     bool closeDocument(int index);
 
-    /// 在应用退出前统一确认全部 dirty 文档；确认完成后再集中关闭，避免只关闭一半。
+    /// 在应用退出前统一确认需要保护的 dirty 文档；草稿当前没有保存流程，直接关闭。
     bool closeAllDocuments();
 
     /// 获取当前激活的 DocWidget（可能为 nullptr）
