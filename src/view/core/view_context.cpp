@@ -106,6 +106,14 @@ bool ViewContext::isInitialized() const {
     return render_session_->isInitialized();
 }
 
+std::optional<core::Error> ViewContext::runtimeFailure() const {
+    return render_session_->runtimeFailure();
+}
+
+core::Result<void> ViewContext::pollRuntime() {
+    return render_session_->pollRuntime();
+}
+
 void ViewContext::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
     clearHoveredPickId();
     render_session_->setRenderScene(scene, assets);
@@ -173,16 +181,12 @@ void ViewContext::setCameraToWorldXY() {
 }
 
 void ViewContext::renderFrame() {
-    if (!render_session_->isInitialized())
-        return;
-
+    // submitFrame 自身会先 drain worker ACK/失败；这里不能用 isInitialized 前置短路，
+    // 否则 worker 刚失败时 owner 永远没有机会消费真实失败事件。
     renderFrame(buildViewState());
 }
 
 void ViewContext::renderFrame(const ViewState& viewState) {
-    if (!render_session_->isInitialized())
-        return;
-
     render_session_->submitFrame(viewState);
 }
 

@@ -12,6 +12,8 @@
 
 #include <mulan/core/log/log.h>
 
+#include <utility>
+
 namespace {
 
 DocumentInputDisposition documentDisposition(mulan::engine::InputDisposition disposition, bool editorToolActive) {
@@ -29,7 +31,9 @@ DocumentInputDisposition documentDisposition(mulan::engine::InputDisposition dis
 
 }  // namespace
 
-DocumentView::DocumentView() = default;
+DocumentView::DocumentView() {
+    binding_.setFrameInvalidationCallback([this]() { invalidateFrame(); });
+}
 
 DocumentView::~DocumentView() {
     editor_session_.unbind();
@@ -54,6 +58,7 @@ bool DocumentView::init(const mulan::view::ViewConfig& config, int width, int he
     }
     LOG_INFO("[Editor] Document view initialized: name={}, size={}x{}",
              session_ ? std::string_view(session_->displayName()) : std::string_view("<unbound>"), width, height);
+    invalidateFrame();
     return true;
 }
 
@@ -61,13 +66,18 @@ void DocumentView::resize(int width, int height) {
     if (view_context_.isInitialized()) {
         view_context_.resize(width, height);
         editor_session_.refreshGrips();
+        invalidateFrame();
     }
 }
 
 void DocumentView::renderFrame() {
-    if (view_context_.isInitialized()) {
-        view_context_.renderFrame();
-    }
+    // ViewContext 会先泵出 worker ACK/Failure。这里不能以 Ready 状态前置短路，
+    // 否则异步失败事件和最后一个资源批次的 ACK 都可能无人消费。
+    view_context_.renderFrame();
+}
+
+mulan::core::Result<void> DocumentView::pollRenderRuntime() {
+    return view_context_.pollRuntime();
 }
 
 void DocumentView::fitAll() {
@@ -77,6 +87,10 @@ void DocumentView::fitAll() {
 
     binding_.fitAll();
     editor_session_.refreshGrips();
+}
+
+void DocumentView::setFrameInvalidationCallback(std::function<void()> callback) {
+    frame_invalidation_callback_ = std::move(callback);
 }
 
 void DocumentView::setDocumentSession(DocumentSession* session) {
@@ -92,6 +106,7 @@ void DocumentView::setDocumentSession(DocumentSession* session) {
         binding_.bind(*session_, view_context_);
         editor_session_.bind(session_, &view_context_, &binding_);
     }
+    invalidateFrame();
 }
 
 DocumentInputOutcome DocumentView::handleInput(const mulan::engine::InputEvent& event) {
@@ -226,10 +241,17 @@ void DocumentView::selectAtFramebuffer(double x, double y) {
 void DocumentView::cancelActiveEditorTool() {
     editor_session_.cancelActiveTool();
     clearClickTracking();
+    invalidateFrame();
 }
 
 DocumentInputOutcome DocumentView::cancelInteraction() {
     // FocusLost 统一走 handleInput 的生命周期路径：工具、camera delegate、默认相机、
     // ViewCube click 事务与文档 click tracker 在同一个边界内清理。
     return handleInput(mulan::engine::InputEvent::focusLost());
+}
+
+void DocumentView::invalidateFrame() const {
+    if (frame_invalidation_callback_) {
+        frame_invalidation_callback_();
+    }
 }

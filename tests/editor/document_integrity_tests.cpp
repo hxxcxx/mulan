@@ -12,12 +12,14 @@
 #include <mulan/asset/curve_asset.h>
 #include <mulan/editor/core/operation/document_operation.h>
 #include <mulan/editor/core/operation/document_operation_executor.h>
+#include <mulan/editor/document/document_render_binding.h>
 #include <mulan/editor/document/document_session.h>
 #include <mulan/io/document.h>
 #include <mulan/io/document_editor.h>
 #include <mulan/modeling/core/shape_ops.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/scene.h>
+#include <mulan/view/core/view_context.h>
 
 #include <memory>
 #include <string>
@@ -227,4 +229,31 @@ TEST(DocumentOperationTransactions, InvalidBatchRemovalDoesNotPartiallyCommit) {
     EXPECT_TRUE(documentPtr->scene()->isValid(first.entity));
     EXPECT_TRUE(documentPtr->scene()->isValid(second.entity));
     EXPECT_EQ(documentPtr->scene()->entityCount(), 2u);
+}
+
+TEST(DocumentRenderInvalidation, BindingReportsFrameDemandThroughSingleCallback) {
+    auto document = std::make_unique<Document>("render-invalidation");
+    DocumentEditor editor(*document);
+    ASSERT_TRUE(editor.createCurve("Line", segment(1.0)));
+
+    DocumentSession session(std::move(document));
+    mulan::view::ViewContext view;
+    mulan::editor::DocumentRenderBinding binding;
+    size_t invalidationCount = 0;
+    binding.setFrameInvalidationCallback([&invalidationCount]() { ++invalidationCount; });
+    binding.bind(session, view);
+
+    binding.refresh();
+    EXPECT_EQ(invalidationCount, 1u);
+
+    // 仅更新裁剪面不会自行提交新帧；由实际输入结果决定是否失效。
+    binding.updateCameraClipPlanes();
+    EXPECT_EQ(invalidationCount, 1u);
+
+    binding.fitAll();
+    EXPECT_EQ(invalidationCount, 2u);
+
+    binding.unbind();
+    binding.refresh();
+    EXPECT_EQ(invalidationCount, 2u);
 }

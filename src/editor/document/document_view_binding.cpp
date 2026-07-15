@@ -1,5 +1,7 @@
 #include "document_view_binding.h"
 
+#include <utility>
+
 DocumentViewBinding::DocumentViewBinding() = default;
 
 DocumentViewBinding::~DocumentViewBinding() {
@@ -17,6 +19,10 @@ void DocumentViewBinding::unbind() {
     selection_bridge_.unbind();
     pick_bridge_.unbind();
     render_binding_.unbind();
+}
+
+void DocumentViewBinding::setFrameInvalidationCallback(std::function<void()> callback) {
+    render_binding_.setFrameInvalidationCallback(std::move(callback));
 }
 
 void DocumentViewBinding::refresh() {

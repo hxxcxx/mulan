@@ -44,6 +44,13 @@ core::Result<void> RenderWorker::start(Initializer initialize) {
         return std::unexpected(workerError(core::ErrorCode::InvalidArg, "Render worker is not in the stopped state."));
     }
 
+    {
+        std::scoped_lock lock(mutex_);
+        controls_.clear();
+        latest_frame_.reset();
+        protocol_.reset();
+        surface_state_ = {};
+    }
     lifecycle_.store(Lifecycle::Starting);
     std::promise<core::Result<void>> ready;
     auto future = ready.get_future();
@@ -102,7 +109,8 @@ void RenderWorker::run(std::stop_token stopToken, Initializer initialize, std::p
                 {
                     std::unique_lock lock(mutex_);
                     wake_.wait(lock, stopToken, [this] {
-                        return lifecycle_.load() != Lifecycle::Ready || !controls_.empty() || latest_frame_.has_value();
+                        return lifecycle_.load() != Lifecycle::Ready || !controls_.empty() ||
+                               hasExecutableFrameLocked();
                     });
                     if (stopToken.stop_requested() || lifecycle_.load() != Lifecycle::Ready) {
                         break;
@@ -131,12 +139,26 @@ void RenderWorker::run(std::stop_token stopToken, Initializer initialize, std::p
                             control.fail(executed.error());
                         }
                         if (control.fatalOnFailure) {
-                            failWorker(executed.error());
+                            failWorker(executed.error(), control.resourceSequence, control.resourceBatchId);
                             break;
                         }
                         continue;
                     }
                     publishSurfaceState(executor);
+                    if (control.resourceSequence != 0) {
+                        bool completed = false;
+                        {
+                            std::scoped_lock lock(mutex_);
+                            completed = protocol_.completeResource(control.resourceSequence, control.resourceBatchId);
+                        }
+                        if (!completed) {
+                            const auto failure =
+                                    workerError(core::ErrorCode::Internal,
+                                                "Render resource completion violated reliable queue ordering.");
+                            failWorker(failure, control.resourceSequence, control.resourceBatchId);
+                            break;
+                        }
+                    }
                     if (control.complete) {
                         control.complete();
                     }
@@ -147,7 +169,7 @@ void RenderWorker::run(std::stop_token stopToken, Initializer initialize, std::p
                     if (control.fail) {
                         control.fail(failure);
                     }
-                    failWorker(failure);
+                    failWorker(failure, control.resourceSequence, control.resourceBatchId);
                     break;
                 } catch (...) {
                     LOG_CRITICAL("[RenderWorker] Control task failed with an unknown exception");
@@ -156,7 +178,7 @@ void RenderWorker::run(std::stop_token stopToken, Initializer initialize, std::p
                     if (control.fail) {
                         control.fail(failure);
                     }
-                    failWorker(failure);
+                    failWorker(failure, control.resourceSequence, control.resourceBatchId);
                     break;
                 }
             }
@@ -190,66 +212,75 @@ void RenderWorker::run(std::stop_token stopToken, Initializer initialize, std::p
     LOG_INFO("[RenderWorker] Worker exited");
 }
 
-core::Result<void> RenderWorker::prepareResources(engine::RenderResourcePrepareList prepare) {
-    if (worker_.joinable() && worker_.get_id() == std::this_thread::get_id()) {
-        return std::unexpected(
-                workerError(core::ErrorCode::InvalidArg, "Resource preparation cannot wait on the render worker."));
-    }
-    if (prepare.empty()) {
-        return {};
-    }
-
-    auto promise = std::make_shared<std::promise<core::Result<void>>>();
-    auto future = promise->get_future();
-    {
-        std::scoped_lock lock(mutex_);
-        if (lifecycle_.load() != Lifecycle::Ready) {
-            return std::unexpected(workerError(core::ErrorCode::InvalidArg, "Render worker is not ready."));
-        }
-        // 新资源可能 force-update 既有 GPU key；必须在同一线性化点丢弃旧世界视觉帧，
-        // 防止旧 world 在新资源上传后才被绘制。
-        latest_frame_.reset();
-        controls_.push_back(ControlTask{
-                .execute = [prepare = std::move(prepare)](
-                                   RenderExecutor& executor) { return executor.prepareResources(prepare); },
-                .fatalOnFailure = true,
-                .complete = [promise] { promise->set_value(core::Result<void>{}); },
-                .fail = [promise](const core::Error& error) { promise->set_value(std::unexpected(error)); },
-        });
-    }
-    wake_.notify_one();
-    return future.get();
-}
-
 core::Result<void> RenderWorker::submitFrame(RenderSubmission submission) {
-    // 持久资源只能走 prepareResources 的可靠通道，视觉邮箱从不消费一次性资源状态。
-    if (submission.hasResourceUpdates()) {
-        return std::unexpected(
-                workerError(core::ErrorCode::InvalidArg, "Visual frame still contains unacknowledged resources."));
-    }
-
     {
         std::scoped_lock lock(mutex_);
         if (lifecycle_.load() != Lifecycle::Ready) {
             return std::unexpected(workerError(core::ErrorCode::InvalidArg, "Render worker is not ready."));
         }
-        latest_frame_ = std::move(submission);
+        auto dependency = enqueueSubmissionResourcesLocked(submission);
+        if (!dependency) {
+            return std::unexpected(dependency.error());
+        }
+        latest_frame_ = PendingFrame{
+            .submission = std::move(submission),
+            .requiredResourceSequence = *dependency,
+        };
     }
     wake_.notify_one();
     return {};
 }
 
+core::Result<uint64_t> RenderWorker::enqueueSubmissionResourcesLocked(RenderSubmission& submission) {
+    const bool hasPrepare = !submission.prepare.empty();
+    const bool hasBatch = submission.resourceBatchId != 0;
+    if (hasPrepare != hasBatch) {
+        return std::unexpected(workerError(
+                core::ErrorCode::InvalidArg,
+                "Render submission resource batch id and prepare payload must either both exist or both be empty."));
+    }
+
+    if (hasPrepare) {
+        const ResourceRegistration registration = protocol_.registerResourceBatch(submission.resourceBatchId);
+        if (registration.newlyQueued) {
+            // 新资源可能 force-update 既有 GPU key；丢弃旧世界帧，防止它在上传后执行。
+            latest_frame_.reset();
+            engine::RenderResourcePrepareList prepare = std::move(submission.prepare);
+            controls_.push_back(ControlTask{
+                    .execute = [prepare = std::move(prepare)](
+                                       RenderExecutor& executor) { return executor.prepareResources(prepare); },
+                    .fatalOnFailure = true,
+                    .resourceSequence = registration.sequence,
+                    .resourceBatchId = submission.resourceBatchId,
+            });
+        } else {
+            // builder 在 ACK 前会重复携带同一完整批次；可靠队列已经拥有它。
+            submission.prepare.clear();
+        }
+    }
+
+    submission.prepare.clear();
+    return protocol_.currentDependency();
+}
+
+bool RenderWorker::hasExecutableFrameLocked() const {
+    return latest_frame_.has_value() && protocol_.canExecuteFrame(latest_frame_->requiredResourceSequence);
+}
+
 core::Result<void> RenderWorker::executeLatest(RenderExecutor& executor) {
-    std::optional<RenderSubmission> submission;
+    std::optional<PendingFrame> pending;
     {
         std::scoped_lock lock(mutex_);
-        submission = std::move(latest_frame_);
+        if (!hasExecutableFrameLocked()) {
+            return {};
+        }
+        pending = std::move(latest_frame_);
         latest_frame_.reset();
     }
-    if (!submission) {
+    if (!pending) {
         return {};
     }
-    return executor.executeFrame(*submission);
+    return executor.executeFrame(pending->submission);
 }
 
 core::Result<engine::RenderCaptureResult> RenderWorker::capture(RenderSubmission submission,
@@ -263,7 +294,16 @@ core::Result<engine::RenderCaptureResult> RenderWorker::capture(RenderSubmission
     auto promise = std::make_shared<std::promise<CaptureResult>>();
     auto outcome = std::make_shared<std::optional<CaptureResult>>();
     auto future = promise->get_future();
-    if (!enqueue(ControlTask{
+    {
+        std::scoped_lock lock(mutex_);
+        if (lifecycle_.load() != Lifecycle::Ready) {
+            return std::unexpected(workerError(core::ErrorCode::InvalidArg, "Render worker is not available."));
+        }
+        auto dependency = enqueueSubmissionResourcesLocked(submission);
+        if (!dependency) {
+            return std::unexpected(dependency.error());
+        }
+        controls_.push_back(ControlTask{
                 .execute = [submission = std::move(submission), desc,
                             outcome](RenderExecutor& executor) mutable -> core::Result<void> {
                     *outcome = executor.capture(submission, desc);
@@ -271,9 +311,9 @@ core::Result<engine::RenderCaptureResult> RenderWorker::capture(RenderSubmission
                 },
                 .complete = [promise, outcome] { promise->set_value(std::move(outcome->value())); },
                 .fail = [promise](const core::Error& error) { promise->set_value(std::unexpected(error)); },
-        })) {
-        return std::unexpected(workerError(core::ErrorCode::InvalidArg, "Render worker is not available."));
+        });
     }
+    wake_.notify_one();
     return future.get();
 }
 
@@ -327,13 +367,6 @@ void RenderWorker::enableIBL(std::string hdrPath) {
 }
 
 core::Result<void> RenderWorker::clearAssetResources() {
-    if (worker_.joinable() && worker_.get_id() == std::this_thread::get_id()) {
-        return std::unexpected(workerError(core::ErrorCode::InvalidArg,
-                                           "Asset resource clearing cannot wait on the render worker thread."));
-    }
-
-    auto promise = std::make_shared<std::promise<core::Result<void>>>();
-    auto future = promise->get_future();
     {
         std::scoped_lock lock(mutex_);
         if (lifecycle_.load() != Lifecycle::Ready) {
@@ -341,17 +374,28 @@ core::Result<void> RenderWorker::clearAssetResources() {
         }
         // 文档资源域切换时，旧文档邮箱必须与 GPU 缓存一起失效。
         latest_frame_.reset();
+        const uint64_t sequence = protocol_.registerResourceBarrier();
         controls_.push_back(ControlTask{
                 .execute = [](RenderExecutor& executor) -> core::Result<void> {
                     executor.clearAssetResources();
                     return {};
                 },
-                .complete = [promise] { promise->set_value(core::Result<void>{}); },
-                .fail = [promise](const core::Error& error) { promise->set_value(std::unexpected(error)); },
+                .fatalOnFailure = true,
+                .resourceSequence = sequence,
         });
     }
     wake_.notify_one();
-    return future.get();
+    return {};
+}
+
+std::vector<RenderWorkerEvent> RenderWorker::drainEvents() {
+    std::scoped_lock lock(mutex_);
+    return protocol_.drainEvents();
+}
+
+std::optional<core::Error> RenderWorker::failureSnapshot() const {
+    std::scoped_lock lock(mutex_);
+    return protocol_.failure();
 }
 
 bool RenderWorker::enqueue(ControlTask task) {
@@ -395,6 +439,7 @@ void RenderWorker::shutdown() {
     {
         std::scoped_lock lock(mutex_);
         surface_state_ = {};
+        protocol_.reset();
     }
     lifecycle_.store(Lifecycle::Stopped);
     LOG_INFO("[RenderWorker] Worker shut down");
@@ -411,13 +456,14 @@ void RenderWorker::publishSurfaceState(const RenderExecutor& executor) {
     surface_state_ = state;
 }
 
-void RenderWorker::failWorker(const core::Error& error) {
+void RenderWorker::failWorker(const core::Error& error, uint64_t resourceSequence, uint64_t resourceBatchId) {
     std::deque<ControlTask> cancelled;
     {
         std::scoped_lock lock(mutex_);
         lifecycle_.store(Lifecycle::Failed);
         latest_frame_.reset();
         cancelled = std::move(controls_);
+        protocol_.fail(error, resourceSequence, resourceBatchId);
     }
     for (auto& control : cancelled) {
         if (control.fail) {

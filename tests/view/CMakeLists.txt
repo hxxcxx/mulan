@@ -4,6 +4,7 @@ add_executable(ViewRuntimeTests
     material_cache_tests.cpp
     operator_routing_tests.cpp
     render_submission_builder_tests.cpp
+    render_worker_protocol_tests.cpp
 )
 
 target_include_directories(ViewRuntimeTests PRIVATE

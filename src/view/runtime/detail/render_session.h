@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 
@@ -50,6 +51,10 @@ public:
     void shutdown();
 
     bool isInitialized() const;
+    /// worker 异步失败快照；不消费事件，供 owner/UI 健康检查读取真实原因。
+    std::optional<core::Error> runtimeFailure() const;
+    /// owner 线程主动 drain ACK/Failure；失败时同步销毁执行域并使 builder 资源失效。
+    core::Result<void> pollRuntime();
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
     void setPreviewLayer(const PreviewLayer* preview);
@@ -71,7 +76,8 @@ private:
     };
 
     void assertOwnerThread() const;
-    core::Result<void> prepareSubmissionResources(RenderSubmission& submission);
+    core::Result<void> prepareInlineResources(RenderSubmission& submission);
+    core::Result<void> drainWorkerEvents();
     void failExecution(const core::Error& error);
     void discardExecutionDomain();
     void clearAssetResources();
@@ -80,6 +86,7 @@ private:
     std::unique_ptr<RenderExecutor> inline_executor_;
     std::unique_ptr<RenderWorker> worker_;
     const asset::AssetLibrary* asset_source_ = nullptr;
+    std::optional<core::Error> last_runtime_failure_;
     ExecutionMode execution_mode_ = ExecutionMode::None;
     std::thread::id owner_thread_;
 };

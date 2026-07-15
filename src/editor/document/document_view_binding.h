@@ -7,6 +7,7 @@
  */
 #pragma once
 
+#include <functional>
 #include <optional>
 
 #include "document_pick_bridge.h"
@@ -33,6 +34,9 @@ public:
     void bind(DocumentSession& session, mulan::view::ViewContext& view);
     void unbind();
     bool isBound() const { return render_binding_.isBound(); }
+
+    /// 设置统一帧失效回调；DocumentRenderBinding 不再深层直接渲染。
+    void setFrameInvalidationCallback(std::function<void()> callback);
 
     void refresh();
     void fitAll();

@@ -17,6 +17,7 @@
 #include <mulan/view/core/view_context.h>
 
 #include <cstdint>
+#include <functional>
 
 class DocumentSession;
 
@@ -53,8 +54,14 @@ public:
 
     bool init(const mulan::view::ViewConfig& config, int width, int height);
     void resize(int width, int height);
+    /// 帧调度器的最终提交入口；其他调用方应只发失效请求。
     void renderFrame();
+    /// 在文档视图 owner 线程回收渲染资源 ACK 与异步失败。
+    mulan::core::Result<void> pollRenderRuntime();
     void fitAll();
+
+    /// 设置视图状态变化后的统一帧失效出口。
+    void setFrameInvalidationCallback(std::function<void()> callback);
 
     bool isInitialized() const { return view_context_.isInitialized(); }
 
@@ -95,11 +102,13 @@ private:
     bool maybeSelectOnRelease(const mulan::engine::InputEvent& event, bool allowSelection);
     void clearClickTracking();
     bool isLeftDragExceedingThreshold(const mulan::engine::InputEvent& event) const;
+    void invalidateFrame() const;
 
     DocumentSession* session_ = nullptr;
     DocumentViewBinding binding_;
     mulan::view::ViewContext view_context_;
     mulan::editor::EditorSession editor_session_;
+    std::function<void()> frame_invalidation_callback_;
 
     // 左键 click/drag/select 跟踪（从 DocWidget 下移；用 QApplication::startDragDistance 风格阈值）。
     int left_press_x_ = 0;

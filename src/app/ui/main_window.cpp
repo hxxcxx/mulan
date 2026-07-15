@@ -384,16 +384,44 @@ void MainWindow::executeCommand(std::string_view id) {
 
     if (view && view->activeEditorToolId() == id) {
         view->cancelActiveEditorTool();
+        doc->requestFrame();
         updateDisplayActions();
         return;
     }
 
+    const QPointer<DocWidget> guardedDoc(doc);
     mulan::editor::CommandHost host = currentCommandHost();
     auto result = command_manager_.execute(id, host);
     if (!result) {
         statusBar()->showMessage(QString::fromStdString(result.error().message));
+    } else if (guardedDoc) {
+        // 命令可能只改变工具、预览或相机而不经过文档 binding；统一发一次帧失效。
+        guardedDoc->requestFrame();
     }
     updateDisplayActions();
+}
+
+void MainWindow::observeDocumentRuntime(DocWidget* docWidget) {
+    if (!docWidget) {
+        return;
+    }
+
+    const QPointer<DocWidget> guardedWidget(docWidget);
+    connect(docWidget, &DocWidget::renderRuntimeFailed, this, [this, guardedWidget](const QString& message) {
+        if (!guardedWidget) {
+            return;
+        }
+
+        const QString documentName =
+                guardedWidget->documentView().session()
+                        ? QString::fromStdString(guardedWidget->documentView().session()->displayName())
+                        : tr("Document");
+        LOG_ERROR("[App] Document render runtime failed: document={}, error={}", documentName.toStdString(),
+                  message.toStdString());
+        statusBar()->showMessage(tr("Rendering stopped for %1: %2").arg(documentName, message));
+        QMessageBox::critical(this, tr("Rendering stopped"),
+                              tr("The render thread for \"%1\" stopped.\n\n%2").arg(documentName, message));
+    });
 }
 
 void MainWindow::onCurrentDocumentChanged(const QString& name) {
@@ -501,11 +529,13 @@ void MainWindow::onNewDocument() {
     const QString title = tr("Untitled %1").arg(untitledIndex++);
     auto doc = std::make_unique<mulan::io::Document>(title.toStdString());
     auto* session = new DocumentSession(std::move(doc));
-    if (!doc_area_->addDocument(session, title)) {
+    DocWidget* docWidget = doc_area_->addDocument(session, title);
+    if (!docWidget) {
         LOG_ERROR("[App] New document view initialization failed: title={}", title.toStdString());
         statusBar()->showMessage(tr("Failed to initialize document view"));
         return;
     }
+    observeDocumentRuntime(docWidget);
     LOG_INFO("[App] New document created: {}", title.toStdString());
 
     updateDisplayActions();
@@ -551,6 +581,7 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
         statusBar()->showMessage("Ready");
         return false;
     }
+    observeDocumentRuntime(docWidget);
     if (recordRecent) {
         doc_area_->recordOpenedFile(filePath);
         scheduleRecentThumbnailCapture(docWidget, filePath);

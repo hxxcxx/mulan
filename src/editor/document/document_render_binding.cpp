@@ -4,6 +4,8 @@
 
 #include <mulan/view/core/view_context.h>
 
+#include <utility>
+
 namespace mulan::editor {
 
 DocumentRenderBinding::~DocumentRenderBinding() {
@@ -30,6 +32,10 @@ void DocumentRenderBinding::unbind() {
     render_cache_.clear();
 }
 
+void DocumentRenderBinding::setFrameInvalidationCallback(FrameInvalidationCallback callback) {
+    frame_invalidation_callback_ = std::move(callback);
+}
+
 void DocumentRenderBinding::refresh() {
     if (!isBound()) {
         return;
@@ -38,7 +44,7 @@ void DocumentRenderBinding::refresh() {
     // 实体变化只更新世界包围球与投影裁剪面，绝不改用户的视图中心或 zoom。
     fitCameraClipPlanesToSceneBounds();
     injectRenderCache();
-    view_->renderFrame();
+    invalidateFrame();
 }
 
 void DocumentRenderBinding::fitAll() {
@@ -51,7 +57,7 @@ void DocumentRenderBinding::fitAll() {
         view_->camera().fitToSphere(sphere);
     }
     injectRenderCache();
-    view_->renderFrame();
+    invalidateFrame();
 }
 
 void DocumentRenderBinding::updateCameraClipPlanes() {
@@ -110,6 +116,12 @@ void DocumentRenderBinding::applyViewPreferences() {
     const auto& sphere = render_cache_.sceneBoundsSphere();
     if (sphere.isValid()) {
         view_->camera().fitToSphere(sphere);
+    }
+}
+
+void DocumentRenderBinding::invalidateFrame() const {
+    if (frame_invalidation_callback_) {
+        frame_invalidation_callback_();
     }
 }
 
