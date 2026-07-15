@@ -32,8 +32,8 @@ public:
     DX12CommandList(ID3D12GraphicsCommandList* existingCmdList);
     ~DX12CommandList();
 
-    Result<void> doBegin() override;
-    Result<void> doEnd() override;
+    ResultVoid doBegin() override;
+    ResultVoid doEnd() override;
     void doMarkSubmitted() override;
 
     void doSetPipelineState(PipelineState* pso) override;
@@ -61,10 +61,10 @@ public:
     void doSetPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) override;
 
     void doTransitionResource(Texture* texture, ResourceState newState) override;
-    Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
+    ResultVoid doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- RenderPass ---
-    Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
+    ResultVoid doBeginRenderPass(const RenderPassBeginInfo& info) override;
     void doEndRenderPass() override;
 
     ID3D12GraphicsCommandList* commandList() const { return cmd_list_.Get(); }

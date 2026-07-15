@@ -34,19 +34,19 @@ public:
     Texture* currentBackBuffer() override;
     Texture* depthTexture() override { return depth_texture_ ? depth_texture_.get() : nullptr; }
     RenderPassBeginInfo renderPassBeginInfo() override;
-    Result<void> present() override;
-    Result<void> resize(uint32_t width, uint32_t height) override;
+    ResultVoid present() override;
+    ResultVoid resize(uint32_t width, uint32_t height) override;
 
     uint32_t currentFrameIndex() const { return frame_index_; }
     DXGI_FORMAT rtvFormat() const { return toDXGIFormat(desc_.format); }
 
 private:
     DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device, ID3D12CommandQueue* queue);
-    [[nodiscard]] Result<void> initialize(IDXGIFactory4* factory, const NativeWindowHandle& window);
+    [[nodiscard]] ResultVoid initialize(IDXGIFactory4* factory, const NativeWindowHandle& window);
 
     bool createRTVHeap();
-    [[nodiscard]] Result<void> createBackBuffers();
-    [[nodiscard]] Result<void> createMsaaColor();
+    [[nodiscard]] ResultVoid createBackBuffers();
+    [[nodiscard]] ResultVoid createMsaaColor();
     void releaseBackBuffers();
     void logDeviceRemovedReason(HRESULT presentResult) const;
 

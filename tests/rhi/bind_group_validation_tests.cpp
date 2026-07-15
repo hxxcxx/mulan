@@ -13,8 +13,8 @@ public:
     explicit TestBuffer(BufferDesc desc) : desc_(desc) {}
 
     const BufferDesc& desc() const override { return desc_; }
-    Result<void> write(uint32_t, uint32_t, const void*) override { return {}; }
-    Result<void> readback(uint32_t, uint32_t, void*) override { return {}; }
+    ResultVoid write(uint32_t, uint32_t, const void*) override { return {}; }
+    ResultVoid readback(uint32_t, uint32_t, void*) override { return {}; }
 
 private:
     BufferDesc desc_;

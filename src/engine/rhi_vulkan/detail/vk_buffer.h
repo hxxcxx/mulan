@@ -37,8 +37,8 @@ public:
         pending_data_.shrink_to_fit();
     }
 
-    Result<void> write(uint32_t offset, uint32_t size, const void* data) override;
-    Result<void> readback(uint32_t offset, uint32_t size, void* outData) override;
+    ResultVoid write(uint32_t offset, uint32_t size, const void* data) override;
+    ResultVoid readback(uint32_t offset, uint32_t size, void* outData) override;
 
 private:
     explicit VKBuffer(const BufferDesc& desc) : desc_(desc) {}

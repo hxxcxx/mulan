@@ -21,7 +21,7 @@ Result<std::unique_ptr<DX12RenderTarget>> DX12RenderTarget::create(const RenderT
 
 DX12RenderTarget::~DX12RenderTarget() = default;
 
-Result<void> DX12RenderTarget::createResources() {
+ResultVoid DX12RenderTarget::createResources() {
     const uint32_t samples = desc_.sampleCount > 1 ? desc_.sampleCount : 1;
 
     // Color texture
@@ -82,7 +82,7 @@ Result<void> DX12RenderTarget::createResources() {
     return {};
 }
 
-Result<void> DX12RenderTarget::resize(uint32_t width, uint32_t height) {
+ResultVoid DX12RenderTarget::resize(uint32_t width, uint32_t height) {
     if (width == 0 || height == 0)
         return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX12 render target size must be non-zero"));
     desc_.width = width;

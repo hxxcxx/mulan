@@ -24,8 +24,8 @@ public:
     ~DX12Buffer();
 
     const BufferDesc& desc() const override { return desc_; }
-    Result<void> write(uint32_t offset, uint32_t size, const void* data) override;
-    Result<void> readback(uint32_t offset, uint32_t size, void* outData) override;
+    ResultVoid write(uint32_t offset, uint32_t size, const void* data) override;
+    ResultVoid readback(uint32_t offset, uint32_t size, void* outData) override;
 
     ID3D12Resource* resource() const { return resource_.Get(); }
     D3D12_RESOURCE_STATES state() const { return state_; }
@@ -44,7 +44,7 @@ public:
 
 private:
     explicit DX12Buffer(const BufferDesc& desc) : desc_(desc) {}
-    [[nodiscard]] Result<void> initialize(ID3D12Device* device);
+    [[nodiscard]] ResultVoid initialize(ID3D12Device* device);
 
     BufferDesc desc_;
     ComPtr<ID3D12Resource> resource_;

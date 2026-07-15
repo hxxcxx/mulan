@@ -102,8 +102,8 @@ private:
     };
 
     Result<GpuGeometry> createGpuBuffer(const graphics::Mesh& mesh);
-    Result<void> retireGeometryResource(GpuGeometry geometry);
-    Result<void> retireTextureResource(std::unique_ptr<Texture> texture);
+    ResultVoid retireGeometryResource(GpuGeometry geometry);
+    ResultVoid retireTextureResource(std::unique_ptr<Texture> texture);
     static std::string textureKey(AssetGpuKey resourceKey, const TextureLoadOptions& options);
     static TextureFormat toRHITextureFormat(core::PixelFormat pixelFmt, bool sRGB);
 

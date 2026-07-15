@@ -27,7 +27,7 @@ void runDeferredRelease(RHIDevice::DeferredRelease& release) noexcept {
 RHIDevice::RHIDevice() : device_generation_(g_next_device_generation.fetch_add(1, std::memory_order_relaxed)) {
 }
 
-Result<void> validateRenderTargetDesc(const RenderTargetDesc& desc, const GPUDeviceCapabilities& capabilities) {
+ResultVoid validateRenderTargetDesc(const RenderTargetDesc& desc, const GPUDeviceCapabilities& capabilities) {
     if (desc.width == 0 || desc.height == 0)
         return std::unexpected(
                 makeError(EngineErrorCode::RenderTargetCreateFailed, "Render target dimensions must be non-zero"));
@@ -62,7 +62,7 @@ void RHIDevice::shutdownSubmissionTracking() {
     submission_fence_.reset();
 }
 
-Result<void> RHIDevice::validateCommandListsForSubmission(CommandList** commandLists, uint32_t count) const {
+ResultVoid RHIDevice::validateCommandListsForSubmission(CommandList** commandLists, uint32_t count) const {
     if (!commandLists || count == 0) {
         return std::unexpected(
                 makeError(EngineErrorCode::SubmissionFailed, "CommandList submission requires at least one list"));
@@ -128,7 +128,7 @@ bool RHIDevice::isSubmissionComplete(SubmissionToken token) const {
     }
 }
 
-Result<void> RHIDevice::waitForSubmission(SubmissionToken token) {
+ResultVoid RHIDevice::waitForSubmission(SubmissionToken token) {
     if (!token || token.deviceGeneration != device_generation_ || !submission_fence_) {
         return std::unexpected(
                 makeError(EngineErrorCode::InvalidSubmissionToken, "submission token does not belong to this device"));
@@ -146,7 +146,7 @@ Result<void> RHIDevice::waitForSubmission(SubmissionToken token) {
     return {};
 }
 
-Result<void> RHIDevice::retire(SubmissionToken token, DeferredRelease release) {
+ResultVoid RHIDevice::retire(SubmissionToken token, DeferredRelease release) {
     if (!release)
         return {};
     if (!token || token.deviceGeneration != device_generation_ || !submission_fence_) {

@@ -9,7 +9,7 @@ FaceStage::FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResou
       view_cube_executor_(device, sharedResources, RenderTechnique::ViewCube) {
 }
 
-Result<void> FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
+ResultVoid FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
     if (!solid_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
         return std::unexpected(Error::make(ErrorCode::Internal, "FaceStage SolidLit init failed"));
     }

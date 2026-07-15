@@ -8,7 +8,7 @@ HighlightStage::HighlightStage(RHIDevice& device, GeometryDrawSharedResources& s
       edge_executor_(device, sharedResources, RenderTechnique::HighlightEdge) {
 }
 
-Result<void> HighlightStage::init(RHIDevice&, const RenderTargetInfo& target) {
+ResultVoid HighlightStage::init(RHIDevice&, const RenderTargetInfo& target) {
     if (!surface_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
         return std::unexpected(Error::make(ErrorCode::Internal, "HighlightStage surface init failed"));
     }

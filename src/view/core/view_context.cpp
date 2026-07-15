@@ -110,7 +110,7 @@ std::optional<Error> ViewContext::runtimeFailure() const {
     return render_session_->runtimeFailure();
 }
 
-Result<void> ViewContext::pollRuntime() {
+ResultVoid ViewContext::pollRuntime() {
     return render_session_->pollRuntime();
 }
 

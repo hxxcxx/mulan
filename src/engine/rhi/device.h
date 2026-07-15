@@ -75,7 +75,7 @@ struct DeviceCreateInfo {
 };
 
 /// 验证显式离屏渲染目标描述。创建接口不得静默修改调用方请求。
-Result<void> validateRenderTargetDesc(const RenderTargetDesc& desc, const GPUDeviceCapabilities& capabilities);
+ResultVoid validateRenderTargetDesc(const RenderTargetDesc& desc, const GPUDeviceCapabilities& capabilities);
 
 // ============================================================
 // RHI 设备基类
@@ -140,12 +140,12 @@ public:
     // 把 CPU 端像素数据同步上传到 GPU 纹理，并在内部完成到 SHADER_READ 的状态转换。
     // 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式（bpp 由公共工具统一计算）。
     // 后端各自实现，经此接口避免向 render 层泄漏后端 UploadContext 类型。
-    virtual Result<void> uploadTextureData(Texture* dst, const TextureUploadDesc& upload) = 0;
+    virtual ResultVoid uploadTextureData(Texture* dst, const TextureUploadDesc& upload) = 0;
 
     /// 批量刷新所有待上传资源（beginUpload → 所有 pending upload → flushUploadBatch）。
     /// 在批量加载大量资源后调用一次，替代每个资源单独的 submit+wait。
-    virtual Result<void> beginUploadBatch() = 0;
-    virtual Result<void> flushUploadBatch() = 0;
+    virtual ResultVoid beginUploadBatch() = 0;
+    virtual ResultVoid flushUploadBatch() = 0;
 
     // --- 提交命令 ---
 
@@ -158,16 +158,16 @@ public:
 
     // --- 等待 GPU 空闲 ---
 
-    virtual Result<void> waitIdle() = 0;
+    virtual ResultVoid waitIdle() = 0;
 
     /// 查询/等待由本设备返回的提交标识。旧设备或其他设备的 token 会被拒绝。
     bool isSubmissionComplete(SubmissionToken token) const;
-    Result<void> waitForSubmission(SubmissionToken token);
+    ResultVoid waitForSubmission(SubmissionToken token);
 
     using DeferredRelease = std::move_only_function<void()>;
 
     /// 在 token 完成后于渲染线程执行释放回调。
-    Result<void> retire(SubmissionToken token, DeferredRelease release);
+    ResultVoid retire(SubmissionToken token, DeferredRelease release);
     void collectGarbage();
 
     /// 开始一帧并返回本帧 CommandList。swapchain 为空表示离屏渲染。
@@ -191,14 +191,14 @@ protected:
     }
     void assertNoLiveResources() const;
     void detachLiveResources();
-    Result<void> waitForResourceLastUse(RHITrackedResource* resource) {
-        return resource ? resource->waitForLastUse() : Result<void>{};
+    ResultVoid waitForResourceLastUse(RHITrackedResource* resource) {
+        return resource ? resource->waitForLastUse() : ResultVoid{};
     }
 
     void initializeSubmissionTracking(std::unique_ptr<Fence> fence);
     void shutdownSubmissionTracking();
     void drainDeferredReleases();
-    Result<void> validateCommandListsForSubmission(CommandList** commandLists, uint32_t count) const;
+    ResultVoid validateCommandListsForSubmission(CommandList** commandLists, uint32_t count) const;
     SubmissionToken reserveSubmissionToken();
     void commitSubmission(SubmissionToken token);
     Fence* submissionFence() const { return submission_fence_.get(); }

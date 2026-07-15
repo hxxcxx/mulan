@@ -20,10 +20,10 @@ public:
     virtual ~Fence() = default;
 
     // CPU 端发起信号（递增内部计数器）
-    virtual Result<void> signal(uint64_t value) = 0;
+    virtual ResultVoid signal(uint64_t value) = 0;
 
     // CPU 端阻塞等待，直到 GPU 达到指定值
-    virtual Result<void> wait(uint64_t value) = 0;
+    virtual ResultVoid wait(uint64_t value) = 0;
 
     // 查询当前 GPU 已完成的值
     virtual uint64_t completedValue() const = 0;

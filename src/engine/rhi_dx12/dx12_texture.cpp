@@ -19,7 +19,7 @@ Result<std::unique_ptr<DX12Texture>> DX12Texture::create(const TextureDesc& desc
     return texture;
 }
 
-Result<void> DX12Texture::initialize(ID3D12Device* device) {
+ResultVoid DX12Texture::initialize(ID3D12Device* device) {
     const auto& desc = desc_;
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
     if (desc.usage & TextureUsageFlags::RenderTarget) {
@@ -84,7 +84,7 @@ DX12Texture::DX12Texture(const TextureDesc& desc, ID3D12Resource* existingResour
     : desc_(desc), resource_(existingResource), state_(initialState) {
 }
 
-Result<void> DX12Texture::createSRVIfNeeded(ID3D12Device* device) {
+ResultVoid DX12Texture::createSRVIfNeeded(ID3D12Device* device) {
     if (!(desc_.usage & TextureUsageFlags::ShaderResource) || !resource_)
         return {};
 

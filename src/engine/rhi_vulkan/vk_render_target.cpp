@@ -17,7 +17,7 @@ VKRenderTarget::~VKRenderTarget() {
     cleanup();
 }
 
-Result<void> VKRenderTarget::resize(uint32_t width, uint32_t height) {
+ResultVoid VKRenderTarget::resize(uint32_t width, uint32_t height) {
     if (width == 0 || height == 0)
         return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "Vulkan render target size must be non-zero"));
     cleanup();

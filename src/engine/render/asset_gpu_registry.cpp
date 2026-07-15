@@ -230,7 +230,7 @@ Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(const graphics::Mesh& mesh
     return geo;
 }
 
-Result<void> AssetGpuRegistry::retireGeometryResource(GpuGeometry geometry) {
+ResultVoid AssetGpuRegistry::retireGeometryResource(GpuGeometry geometry) {
     const SubmissionToken token = device_.lastSubmissionToken();
     if (!token) {
         return {};
@@ -247,7 +247,7 @@ Result<void> AssetGpuRegistry::retireGeometryResource(GpuGeometry geometry) {
     return {};
 }
 
-Result<void> AssetGpuRegistry::retireTextureResource(std::unique_ptr<Texture> texture) {
+ResultVoid AssetGpuRegistry::retireTextureResource(std::unique_ptr<Texture> texture) {
     if (!texture) {
         return {};
     }

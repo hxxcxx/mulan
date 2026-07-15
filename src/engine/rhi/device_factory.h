@@ -32,7 +32,7 @@ class DeviceFactory {
 public:
     static DeviceFactory& instance();
 
-    Result<void> registerModule(BackendModule module);
+    ResultVoid registerModule(BackendModule module);
 
     const BackendModule* find(GraphicsBackend backend) const noexcept;
     std::span<const BackendModule> modules() const noexcept { return modules_; }

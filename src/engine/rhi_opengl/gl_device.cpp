@@ -303,7 +303,7 @@ Result<std::unique_ptr<BindGroup>> GLDevice::createBindGroup(const BindGroupLayo
     }
 }
 
-Result<void> GLDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+ResultVoid GLDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     assertResourceOwned(dst);
     if (auto wait = waitForResourceLastUse(dst); !wait)
         return std::unexpected(wait.error());
@@ -387,7 +387,7 @@ Result<SubmissionToken> GLDevice::executeCommandLists(CommandList** cmdLists, ui
     return token;
 }
 
-Result<void> GLDevice::waitIdle() {
+ResultVoid GLDevice::waitIdle() {
     if (!initialized_)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "OpenGL device is unavailable"));
     glFinish();

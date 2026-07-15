@@ -47,8 +47,8 @@ public:
 
     void enableIBL(RHIDevice& device, const std::string& hdrPath);
     /// 上传跨帧持久资源；只有整个批次完成后才返回成功，供上层生成可靠 ACK。
-    Result<void> preparePersistentResources(RHIDevice& device, const RenderResourcePrepareList& prepare);
-    Result<void> render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
+    ResultVoid preparePersistentResources(RHIDevice& device, const RenderResourcePrepareList& prepare);
+    ResultVoid render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
 
     /// 释放全部资产派生 GPU 资源（资产域切换时由 view RenderSession 触发）。
     void clearAssetResources(RHIDevice& device);
@@ -60,13 +60,13 @@ public:
 private:
     bool validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const;
     void clearCompiledCommands();
-    Result<void> prepareFrameResources(const RenderRequest& request);
-    Result<void> compile(const RenderRequest& request);
+    ResultVoid prepareFrameResources(const RenderRequest& request);
+    ResultVoid compile(const RenderRequest& request);
     DrawExecutionContext buildDrawContext(CommandList& cmd, const RenderFrame& frame) const;
     Result<CommandList*> beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
                                     const RenderRequest& request);
     void executeStages(RenderFrame& frame, const TextDrawList& requestTextDraws);
-    Result<void> endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
+    ResultVoid endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
 
     std::unique_ptr<MaterialCache> material_cache_;
     std::unique_ptr<IBLPipeline> ibl_;

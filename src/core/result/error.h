@@ -55,10 +55,12 @@ struct CORE_API Error {
 
 // ============================================================
 // Result<T> — std::expected<T, Error> 的模块内统一缩写
-// 用 Result<T> 替代冗长的 std::expected<T, Error>；无返回值用 Result<void>。
+// 用 Result<T> 替代冗长的 std::expected<T, Error>；无返回值用 ResultVoid。
 // ============================================================
 
 template <typename T>
 using Result = std::expected<T, Error>;
+
+using ResultVoid = Result<void>;
 
 }  // namespace mulan

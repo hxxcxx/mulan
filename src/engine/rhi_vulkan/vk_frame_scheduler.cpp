@@ -56,7 +56,7 @@ Result<std::unique_ptr<CommandList>> VKFrameScheduler::createStandaloneCommandLi
     return VKCommandList::create(device_, graphics_queue_family_, allocator_, uniform_alignment_, max_uniform_size_);
 }
 
-Result<void> VKFrameScheduler::beginFrame(SwapChain* swapchain) {
+ResultVoid VKFrameScheduler::beginFrame(SwapChain* swapchain) {
     frame_ready_ = false;
     submitted_ = false;
     pending_render_finished_ = nullptr;
@@ -144,9 +144,9 @@ bool VKFrameScheduler::submit(vk::Semaphore completionSemaphore, uint64_t comple
     }
 }
 
-Result<void> VKFrameScheduler::present(SwapChain* swapchain) {
+ResultVoid VKFrameScheduler::present(SwapChain* swapchain) {
     auto* vkSC = static_cast<VKSwapChain*>(swapchain);
-    Result<void> result;
+    ResultVoid result;
     if (submitted_ && pending_render_finished_) {
         result = vkSC->presentWithSemaphores(pending_render_finished_);
     } else {

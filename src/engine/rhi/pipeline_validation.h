@@ -16,9 +16,9 @@ namespace mulan::engine {
 class RHIDevice;
 struct GPUDeviceCapabilities;
 
-Result<void> validateGraphicsPipelineDesc(const GraphicsPipelineDesc& desc, const RHIDevice& device,
-                                          const GPUDeviceCapabilities& capabilities);
-Result<void> validateComputePipelineDesc(const ComputePipelineDesc& desc, const RHIDevice& device,
-                                         const GPUDeviceCapabilities& capabilities);
+ResultVoid validateGraphicsPipelineDesc(const GraphicsPipelineDesc& desc, const RHIDevice& device,
+                                        const GPUDeviceCapabilities& capabilities);
+ResultVoid validateComputePipelineDesc(const ComputePipelineDesc& desc, const RHIDevice& device,
+                                       const GPUDeviceCapabilities& capabilities);
 
 }  // namespace mulan::engine

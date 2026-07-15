@@ -41,17 +41,17 @@ public:
     RenderWorker(const RenderWorker&) = delete;
     RenderWorker& operator=(const RenderWorker&) = delete;
 
-    Result<void> initWindow(const ViewConfig& config, int width, int height);
-    Result<void> initOffscreen(const ViewConfig& config, int width, int height);
+    ResultVoid initWindow(const ViewConfig& config, int width, int height);
+    ResultVoid initOffscreen(const ViewConfig& config, int width, int height);
     void shutdown();
 
     bool isInitialized() const;
 
-    Result<void> submitFrame(RenderSubmission submission);
+    ResultVoid submitFrame(RenderSubmission submission);
     Result<engine::RenderCaptureResult> capture(RenderSubmission submission, engine::RenderCaptureDesc desc);
     Result<RenderSurfaceState> resize(int width, int height);
     void enableIBL(std::string hdrPath);
-    Result<void> clearAssetResources();
+    ResultVoid clearAssetResources();
 
     /// owner 线程非阻塞回收资源 ACK / worker 失败事件。
     std::vector<RenderWorkerEvent> drainEvents();
@@ -69,7 +69,7 @@ private:
     };
 
     struct ControlTask {
-        std::function<Result<void>(RenderExecutor&)> execute;
+        std::function<ResultVoid(RenderExecutor&)> execute;
         bool fatalOnFailure = false;
         uint64_t resourceSequence = 0;
         uint64_t resourceBatchId = 0;
@@ -82,14 +82,14 @@ private:
         uint64_t requiredResourceSequence = 0;
     };
 
-    using Initializer = std::function<Result<void>(RenderExecutor&)>;
+    using Initializer = std::function<ResultVoid(RenderExecutor&)>;
 
-    Result<void> start(Initializer initialize);
-    void run(std::stop_token stopToken, Initializer initialize, std::promise<Result<void>> ready);
+    ResultVoid start(Initializer initialize);
+    void run(std::stop_token stopToken, Initializer initialize, std::promise<ResultVoid> ready);
     bool enqueue(ControlTask task);
     Result<uint64_t> enqueueSubmissionResourcesLocked(RenderSubmission& submission);
     bool hasExecutableFrameLocked() const;
-    Result<void> executeLatest(RenderExecutor& executor);
+    ResultVoid executeLatest(RenderExecutor& executor);
     void publishSurfaceState(const RenderExecutor& executor);
     void failWorker(const Error& error, uint64_t resourceSequence = 0, uint64_t resourceBatchId = 0);
 

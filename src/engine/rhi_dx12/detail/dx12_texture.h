@@ -52,8 +52,8 @@ public:
 private:
     DX12Texture(const TextureDesc& desc, D3D12_RESOURCE_STATES initialState) : desc_(desc), state_(initialState) {}
 
-    [[nodiscard]] Result<void> initialize(ID3D12Device* device);
-    [[nodiscard]] Result<void> createSRVIfNeeded(ID3D12Device* device);
+    [[nodiscard]] ResultVoid initialize(ID3D12Device* device);
+    [[nodiscard]] ResultVoid createSRVIfNeeded(ID3D12Device* device);
 
     TextureDesc desc_;
     ComPtr<ID3D12Resource> resource_;

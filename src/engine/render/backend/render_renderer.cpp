@@ -19,7 +19,7 @@
 namespace mulan::engine {
 namespace {
 
-Result<void> prepareTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
+ResultVoid prepareTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
     if (!desc.resourceKey || !desc.image || !desc.image->valid())
         return {};
 
@@ -33,7 +33,7 @@ Result<void> prepareTexture(AssetGpuRegistry& assets, const RenderTextureDesc& d
     return {};
 }
 
-Result<void> prepareMaterialTextures(AssetGpuRegistry& assets, const RenderMaterialDesc& material) {
+ResultVoid prepareMaterialTextures(AssetGpuRegistry& assets, const RenderMaterialDesc& material) {
     if (auto result = prepareTexture(assets, material.baseColorTexture); !result)
         return std::unexpected(result.error());
     if (auto result = prepareTexture(assets, material.normalTexture); !result)
@@ -166,7 +166,7 @@ void RenderRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
     }
 }
 
-Result<void> RenderRenderer::preparePersistentResources(RHIDevice& device, const RenderResourcePrepareList& prepare) {
+ResultVoid RenderRenderer::preparePersistentResources(RHIDevice& device, const RenderResourcePrepareList& prepare) {
     if (!initialized_ || !asset_gpu_registry_) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render renderer is not initialized."));
     }
@@ -238,8 +238,8 @@ Result<void> RenderRenderer::preparePersistentResources(RHIDevice& device, const
     return {};
 }
 
-Result<void> RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surface,
-                                    const RenderRequest& request) {
+ResultVoid RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surface,
+                                  const RenderRequest& request) {
     if (!initialized_) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render renderer is not initialized."));
     }
@@ -362,7 +362,7 @@ void RenderRenderer::clearCompiledCommands() {
     compiler_.clear();
 }
 
-Result<void> RenderRenderer::compile(const RenderRequest& request) {
+ResultVoid RenderRenderer::compile(const RenderRequest& request) {
     if (!request.world) {
         clearCompiledCommands();
         return {};
@@ -408,7 +408,7 @@ Result<void> RenderRenderer::compile(const RenderRequest& request) {
     return {};
 }
 
-Result<void> RenderRenderer::prepareFrameResources(const RenderRequest& request) {
+ResultVoid RenderRenderer::prepareFrameResources(const RenderRequest& request) {
     if (!request.world || !asset_gpu_registry_)
         return {};
 
@@ -496,8 +496,8 @@ DrawExecutionContext RenderRenderer::buildDrawContext(CommandList& cmd, const Re
     return ctx;
 }
 
-Result<void> RenderRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
-                                      const RenderRequest& request) {
+ResultVoid RenderRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
+                                    const RenderRequest& request) {
     SwapChain* swapchain = request.output.mode == RenderTargetMode::Present ? surface.swapChain : nullptr;
     auto result = device.endFrame(swapchain);
     if (!result) {

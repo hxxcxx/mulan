@@ -24,9 +24,9 @@ class CaptureImageEncoder {
 public:
     static Result<std::shared_ptr<core::Image>> toImage(const engine::RenderCaptureResult& result);
 
-    static Result<void> savePNG(const engine::RenderCaptureResult& result, std::string_view path);
+    static ResultVoid savePNG(const engine::RenderCaptureResult& result, std::string_view path);
 
-    static Result<void> savePNG(const CaptureImage& image, std::string_view path);
+    static ResultVoid savePNG(const CaptureImage& image, std::string_view path);
 };
 
 }  // namespace mulan::view

@@ -47,10 +47,10 @@ public:
     // --- 生命周期 ---
 
     /// 开始录制命令（对 GL 无实际意义，但保持接口一致）
-    Result<void> doBegin() override;
+    ResultVoid doBegin() override;
 
     /// 结束录制命令
-    Result<void> doEnd() override;
+    ResultVoid doEnd() override;
 
     // --- 管线状态 ---
 
@@ -103,7 +103,7 @@ public:
     void doTransitionResource(Texture* texture, ResourceState newState) override;
 
     /// 复制纹理到缓冲区（用于 GPU→CPU 数据回读）
-    Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
+    ResultVoid doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- 清除 ---
 
@@ -114,7 +114,7 @@ public:
     /// 清除模板缓冲区
 
     // --- RenderPass ---
-    Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
+    ResultVoid doBeginRenderPass(const RenderPassBeginInfo& info) override;
     void doEndRenderPass() override;
 
     // --- OpenGL 特有接口 ---

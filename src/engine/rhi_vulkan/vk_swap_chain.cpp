@@ -46,7 +46,7 @@ bool VKSwapChain::acquireNextImage(vk::Semaphore imageAvailable) {
     return false;
 }
 
-Result<void> VKSwapChain::presentWithSemaphores(vk::Semaphore renderFinished) {
+ResultVoid VKSwapChain::presentWithSemaphores(vk::Semaphore renderFinished) {
     vk::PresentInfoKHR presentInfo;
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = &renderFinished;
@@ -64,7 +64,7 @@ Result<void> VKSwapChain::presentWithSemaphores(vk::Semaphore renderFinished) {
     return {};
 }
 
-Result<void> VKSwapChain::present() {
+ResultVoid VKSwapChain::present() {
     vk::PresentInfoKHR presentInfo;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &swapchain_;
@@ -80,7 +80,7 @@ Result<void> VKSwapChain::present() {
     return {};
 }
 
-Result<void> VKSwapChain::resize(uint32_t width, uint32_t height) {
+ResultVoid VKSwapChain::resize(uint32_t width, uint32_t height) {
     if (width == 0 || height == 0)
         return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "Vulkan swapchain size must be non-zero"));
     // Graphics submission 已由调用方精确等待；这里只等待 presentation queue

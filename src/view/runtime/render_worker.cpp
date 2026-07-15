@@ -25,18 +25,18 @@ bool RenderWorker::isInitialized() const {
     return lifecycle_.load() == Lifecycle::Ready;
 }
 
-Result<void> RenderWorker::initWindow(const ViewConfig& config, int width, int height) {
+ResultVoid RenderWorker::initWindow(const ViewConfig& config, int width, int height) {
     return start(
             [config, width, height](RenderExecutor& executor) { return executor.initWindow(config, width, height); });
 }
 
-Result<void> RenderWorker::initOffscreen(const ViewConfig& config, int width, int height) {
+ResultVoid RenderWorker::initOffscreen(const ViewConfig& config, int width, int height) {
     return start([config, width, height](RenderExecutor& executor) {
         return executor.initOffscreen(config, width, height);
     });
 }
 
-Result<void> RenderWorker::start(Initializer initialize) {
+ResultVoid RenderWorker::start(Initializer initialize) {
     if (lifecycle_.load() == Lifecycle::Ready) {
         return {};
     }
@@ -52,7 +52,7 @@ Result<void> RenderWorker::start(Initializer initialize) {
         surface_state_ = {};
     }
     lifecycle_.store(Lifecycle::Starting);
-    std::promise<Result<void>> ready;
+    std::promise<ResultVoid> ready;
     auto future = ready.get_future();
     try {
         worker_ = std::jthread(
@@ -87,7 +87,7 @@ Result<void> RenderWorker::start(Initializer initialize) {
     return std::unexpected(workerError(ErrorCode::Internal, "Render worker initialization handshake failed."));
 }
 
-void RenderWorker::run(std::stop_token stopToken, Initializer initialize, std::promise<Result<void>> ready) {
+void RenderWorker::run(std::stop_token stopToken, Initializer initialize, std::promise<ResultVoid> ready) {
     RenderExecutor executor;
     bool readinessPublished = false;
     try {
@@ -100,7 +100,7 @@ void RenderWorker::run(std::stop_token stopToken, Initializer initialize, std::p
             // 初始化成功的线性化点：完整表面状态和 Ready 必须先于成功回执可见。
             publishSurfaceState(executor);
             lifecycle_.store(Lifecycle::Ready);
-            ready.set_value(Result<void>{});
+            ready.set_value(ResultVoid{});
             readinessPublished = true;
 
             while (!stopToken.stop_requested()) {
@@ -212,7 +212,7 @@ void RenderWorker::run(std::stop_token stopToken, Initializer initialize, std::p
     LOG_INFO("[RenderWorker] Worker exited");
 }
 
-Result<void> RenderWorker::submitFrame(RenderSubmission submission) {
+ResultVoid RenderWorker::submitFrame(RenderSubmission submission) {
     {
         std::scoped_lock lock(mutex_);
         if (lifecycle_.load() != Lifecycle::Ready) {
@@ -267,7 +267,7 @@ bool RenderWorker::hasExecutableFrameLocked() const {
     return latest_frame_.has_value() && protocol_.canExecuteFrame(latest_frame_->requiredResourceSequence);
 }
 
-Result<void> RenderWorker::executeLatest(RenderExecutor& executor) {
+ResultVoid RenderWorker::executeLatest(RenderExecutor& executor) {
     std::optional<PendingFrame> pending;
     {
         std::scoped_lock lock(mutex_);
@@ -303,7 +303,7 @@ Result<engine::RenderCaptureResult> RenderWorker::capture(RenderSubmission submi
         }
         controls_.push_back(ControlTask{
                 .execute = [submission = std::move(submission), desc,
-                            outcome](RenderExecutor& executor) mutable -> Result<void> {
+                            outcome](RenderExecutor& executor) mutable -> ResultVoid {
                     *outcome = executor.capture(submission, desc);
                     return {};
                 },
@@ -336,7 +336,7 @@ Result<RenderSurfaceState> RenderWorker::resize(int width, int height) {
         // 并让真实 resize 失败直接终止 worker，禁止半失效表面继续执行。
         latest_frame_.reset();
         controls_.push_back(ControlTask{
-                .execute = [width, height, outcome](RenderExecutor& executor) -> Result<void> {
+                .execute = [width, height, outcome](RenderExecutor& executor) -> ResultVoid {
                     *outcome = executor.resize(width, height);
                     if (!outcome->value()) {
                         return std::unexpected(outcome->value().error());
@@ -354,7 +354,7 @@ Result<RenderSurfaceState> RenderWorker::resize(int width, int height) {
 
 void RenderWorker::enableIBL(std::string hdrPath) {
     if (!enqueue(ControlTask{
-                .execute = [path = std::move(hdrPath)](RenderExecutor& executor) -> Result<void> {
+                .execute = [path = std::move(hdrPath)](RenderExecutor& executor) -> ResultVoid {
                     executor.enableIBL(path);
                     return {};
                 },
@@ -363,7 +363,7 @@ void RenderWorker::enableIBL(std::string hdrPath) {
     }
 }
 
-Result<void> RenderWorker::clearAssetResources() {
+ResultVoid RenderWorker::clearAssetResources() {
     {
         std::scoped_lock lock(mutex_);
         if (lifecycle_.load() != Lifecycle::Ready) {
@@ -373,7 +373,7 @@ Result<void> RenderWorker::clearAssetResources() {
         latest_frame_.reset();
         const uint64_t sequence = protocol_.registerResourceBarrier();
         controls_.push_back(ControlTask{
-                .execute = [](RenderExecutor& executor) -> Result<void> {
+                .execute = [](RenderExecutor& executor) -> ResultVoid {
                     executor.clearAssetResources();
                     return {};
                 },

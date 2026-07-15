@@ -27,7 +27,7 @@ public:
     Texture* depthTexture() override { return depth_texture_.get(); }
     RenderPassBeginInfo renderPassBeginInfo() override;
 
-    Result<void> resize(uint32_t width, uint32_t height) override;
+    ResultVoid resize(uint32_t width, uint32_t height) override;
 
     /// FBO 句柄（供外部 blit 使用）
     GLuint fbo() const { return fbo_; }
@@ -35,7 +35,7 @@ public:
     bool isValid() const { return fbo_ != 0; }
 
 private:
-    Result<void> createResources();
+    ResultVoid createResources();
     void destroyResources();
 
     static GLenum toGLInternalFormat(TextureFormat fmt);

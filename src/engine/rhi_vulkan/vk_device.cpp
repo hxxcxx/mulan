@@ -116,18 +116,18 @@ Result<std::unique_ptr<BindGroup>> VKDevice::createBindGroup(const BindGroupLayo
             layout, desc, { caps_.minUniformBufferOffsetAlignment, caps_.maxUniformBufferBindingSize });
 }
 
-Result<void> VKDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+ResultVoid VKDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     assertResourceOwned(dst);
     if (auto wait = waitForResourceLastUse(dst); !wait)
         return std::unexpected(wait.error());
     return upload_context_->uploadTexture(static_cast<VKTexture*>(dst), upload);
 }
 
-Result<void> VKDevice::beginUploadBatch() {
+ResultVoid VKDevice::beginUploadBatch() {
     return upload_context_->beginUploadBatch();
 }
 
-Result<void> VKDevice::flushUploadBatch() {
+ResultVoid VKDevice::flushUploadBatch() {
     return upload_context_->flushUploadBatch();
 }
 
@@ -208,7 +208,7 @@ Result<SubmissionToken> VKDevice::executeCommandLists(CommandList** cmdLists, ui
     }
 }
 
-Result<void> VKDevice::waitIdle() {
+ResultVoid VKDevice::waitIdle() {
     try {
         device_.waitIdle();
     } catch (const vk::Error& error) {

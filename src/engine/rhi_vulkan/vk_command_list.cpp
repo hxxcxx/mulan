@@ -163,7 +163,7 @@ VKCommandList::~VKCommandList() {
     }
 }
 
-Result<void> VKCommandList::doBegin() {
+ResultVoid VKCommandList::doBegin() {
     dynamic_set_cache_.clear();
     pending_texture_layouts_.clear();
     current_layout_ = nullptr;
@@ -215,7 +215,7 @@ void VKCommandList::doMarkSubmitted() {
     pending_texture_layouts_.clear();
 }
 
-Result<void> VKCommandList::doEnd() {
+ResultVoid VKCommandList::doEnd() {
     try {
         cmd_buffer_.end();
     } catch (const vk::Error& error) {
@@ -447,10 +447,10 @@ void VKCommandList::doTransitionResource(Texture* texture, ResourceState newStat
     setTextureLayout(vkTex, barrier.newLayout);
 }
 
-Result<void> VKCommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
+ResultVoid VKCommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
-    const auto rejectCopy = [this](std::string_view reason) -> Result<void> {
+    const auto rejectCopy = [this](std::string_view reason) -> ResultVoid {
         rejectRecording(reason);
         return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed, reason));
     };
@@ -670,7 +670,7 @@ Result<UniformSlice> VKCommandList::doWriteUniformBytes(std::span<const std::byt
 // RHI beginRenderPass / endRenderPass
 // ============================================================
 
-Result<void> VKCommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
+ResultVoid VKCommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
     if (info.colorCount > RenderPassBeginInfo::kMaxColorTargets || info.width == 0 || info.height == 0)
         return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
                                          "Vulkan render pass dimensions or attachment count are invalid"));

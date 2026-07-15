@@ -46,15 +46,15 @@ public:
     RenderSession(const RenderSession&) = delete;
     RenderSession& operator=(const RenderSession&) = delete;
 
-    Result<void> initWindow(const ViewConfig& config, int width, int height);
-    Result<void> initOffscreen(const ViewConfig& config, int width, int height);
+    ResultVoid initWindow(const ViewConfig& config, int width, int height);
+    ResultVoid initOffscreen(const ViewConfig& config, int width, int height);
     void shutdown();
 
     bool isInitialized() const;
     /// worker 异步失败快照；不消费事件，供 owner/UI 健康检查读取真实原因。
     std::optional<Error> runtimeFailure() const;
     /// owner 线程主动 drain ACK/Failure；失败时同步销毁执行域并使 builder 资源失效。
-    Result<void> pollRuntime();
+    ResultVoid pollRuntime();
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
     void setPreviewLayer(const PreviewLayer* preview);
@@ -75,8 +75,8 @@ private:
     };
 
     void assertOwnerThread() const;
-    Result<void> prepareInlineResources(RenderSubmission& submission);
-    Result<void> drainWorkerEvents();
+    ResultVoid prepareInlineResources(RenderSubmission& submission);
+    ResultVoid drainWorkerEvents();
     void failExecution(const Error& error);
     void discardExecutionDomain();
     void clearAssetResources();

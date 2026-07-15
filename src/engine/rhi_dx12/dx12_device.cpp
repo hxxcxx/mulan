@@ -436,18 +436,18 @@ Result<std::unique_ptr<BindGroup>> DX12Device::createBindGroup(const BindGroupLa
     return bindGroup;
 }
 
-Result<void> DX12Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+ResultVoid DX12Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     assertResourceOwned(dst);
     if (auto wait = waitForResourceLastUse(dst); !wait)
         return std::unexpected(wait.error());
     return upload_context_->uploadTexture(static_cast<DX12Texture*>(dst), upload);
 }
 
-Result<void> DX12Device::beginUploadBatch() {
+ResultVoid DX12Device::beginUploadBatch() {
     return upload_context_->beginUploadBatch();
 }
 
-Result<void> DX12Device::flushUploadBatch() {
+ResultVoid DX12Device::flushUploadBatch() {
     return upload_context_->flushUploadBatch();
 }
 
@@ -515,7 +515,7 @@ Result<SubmissionToken> DX12Device::executeCommandLists(CommandList** cmdLists, 
     return token;
 }
 
-Result<void> DX12Device::waitIdle() {
+ResultVoid DX12Device::waitIdle() {
     if (!command_queue_)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX12 command queue is unavailable"));
     ComPtr<ID3D12Fence> fence;

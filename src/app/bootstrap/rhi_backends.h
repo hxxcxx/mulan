@@ -15,6 +15,6 @@ class DeviceFactory;
 
 namespace mulan::app {
 
-Result<void> registerLinkedRHIBackends(engine::DeviceFactory& factory);
+ResultVoid registerLinkedRHIBackends(engine::DeviceFactory& factory);
 
 }  // namespace mulan::app

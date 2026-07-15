@@ -58,14 +58,14 @@ public:
                                                        const BindGroupDesc& desc) override;
 
     // --- 资源上传 ---
-    Result<void> uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
-    Result<void> beginUploadBatch() override;
-    Result<void> flushUploadBatch() override;
+    ResultVoid uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
+    ResultVoid beginUploadBatch() override;
+    ResultVoid flushUploadBatch() override;
 
     // --- 提交命令 ---
     Result<SubmissionToken> executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence = nullptr,
                                                 uint64_t fenceValue = 0) override;
-    Result<void> waitIdle() override;
+    ResultVoid waitIdle() override;
 
     // --- 帧循环 ---
     Result<CommandList*> beginFrame(SwapChain* swapchain = nullptr) override;

@@ -99,10 +99,10 @@ public:
     virtual const BufferDesc& desc() const = 0;
 
     /// CPU 写入 Dynamic Buffer。GPU-only Buffer 的更新应走显式上传/复制路径。
-    virtual Result<void> write(uint32_t offset, uint32_t size, const void* data) = 0;
+    virtual ResultVoid write(uint32_t offset, uint32_t size, const void* data) = 0;
 
     /// CPU 端回读缓冲区数据（仅 Staging buffer 支持）
-    virtual Result<void> readback(uint32_t offset, uint32_t size, void* outData) = 0;
+    virtual ResultVoid readback(uint32_t offset, uint32_t size, void* outData) = 0;
 
     // 便捷查询
     uint32_t size() const { return desc().size; }

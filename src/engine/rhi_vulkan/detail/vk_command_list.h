@@ -50,8 +50,8 @@ public:
     vk::CommandBuffer cmdBuffer() const { return cmd_buffer_; }
 
     // --- 生命周期 ---
-    Result<void> doBegin() override;
-    Result<void> doEnd() override;
+    ResultVoid doBegin() override;
+    ResultVoid doEnd() override;
     void doMarkSubmitted() override;
 
     // --- 管线状态 ---
@@ -88,12 +88,12 @@ public:
     void doTransitionResource(Texture* texture, ResourceState newState) override;
 
     // --- 纹理 → 缓冲区复制（用于离屏回读）---
-    Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
+    ResultVoid doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- 清除 ---
 
     // --- RenderPass (RHI override) ---
-    Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
+    ResultVoid doBeginRenderPass(const RenderPassBeginInfo& info) override;
     void doEndRenderPass() override;
 
     vk::PipelineLayout currentLayout() const { return current_layout_; }

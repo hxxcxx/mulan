@@ -377,7 +377,7 @@ Result<std::unique_ptr<BindGroup>> DX11Device::createBindGroup(const BindGroupLa
             BindGroupValidationLimits{ m_caps.minUniformBufferOffsetAlignment, m_caps.maxUniformBufferBindingSize });
 }
 
-Result<void> DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+ResultVoid DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     assertResourceOwned(dst);
     if (auto wait = waitForResourceLastUse(dst); !wait)
         return std::unexpected(wait.error());
@@ -462,7 +462,7 @@ Result<SubmissionToken> DX11Device::executeCommandLists(CommandList** cmdLists, 
     return token;
 }
 
-Result<void> DX11Device::waitIdle() {
+ResultVoid DX11Device::waitIdle() {
     if (!m_device || !m_immediateCtx)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is unavailable"));
 

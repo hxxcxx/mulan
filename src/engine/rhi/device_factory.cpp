@@ -18,7 +18,7 @@ DeviceFactory& DeviceFactory::instance() {
     return factory;
 }
 
-Result<void> DeviceFactory::registerModule(BackendModule module) {
+ResultVoid DeviceFactory::registerModule(BackendModule module) {
     if (module.name.empty() || module.createDevice == nullptr)
         return std::unexpected(
                 makeError(EngineErrorCode::InvalidBackendModule, "BackendModule requires a name and Device creator"));

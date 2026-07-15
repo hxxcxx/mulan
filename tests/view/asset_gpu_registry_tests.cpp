@@ -18,11 +18,11 @@ namespace {
 
 class RegistryTestFence final : public Fence {
 public:
-    Result<void> signal(uint64_t value) override {
+    ResultVoid signal(uint64_t value) override {
         completed_ = value;
         return {};
     }
-    Result<void> wait(uint64_t value) override {
+    ResultVoid wait(uint64_t value) override {
         completed_ = value;
         return {};
     }
@@ -101,16 +101,16 @@ public:
         return std::unique_ptr<BindGroup>{};
     }
 
-    Result<void> uploadTextureData(Texture*, const TextureUploadDesc&) override {
+    ResultVoid uploadTextureData(Texture*, const TextureUploadDesc&) override {
         ++upload_count_;
         return {};
     }
-    Result<void> beginUploadBatch() override { return {}; }
-    Result<void> flushUploadBatch() override { return {}; }
+    ResultVoid beginUploadBatch() override { return {}; }
+    ResultVoid flushUploadBatch() override { return {}; }
     Result<SubmissionToken> executeCommandLists(CommandList**, uint32_t, Fence*, uint64_t) override {
         return issueSubmission();
     }
-    Result<void> waitIdle() override { return {}; }
+    ResultVoid waitIdle() override { return {}; }
     Result<CommandList*> beginFrame(SwapChain*) override { return static_cast<CommandList*>(nullptr); }
     Result<SubmissionToken> endFrame(SwapChain*) override { return issueSubmission(); }
 

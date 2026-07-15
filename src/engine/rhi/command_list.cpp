@@ -16,7 +16,7 @@ std::atomic<uint64_t> g_next_descriptor_scope_id{ 1 };
 CommandList::CommandList() : descriptor_scope_id_(g_next_descriptor_scope_id.fetch_add(1, std::memory_order_relaxed)) {
 }
 
-Result<void> CommandList::begin() {
+ResultVoid CommandList::begin() {
     if (state_ == State::Recording) {
         return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed, "CommandList is already recording"));
     }
@@ -49,7 +49,7 @@ Result<void> CommandList::begin() {
     return {};
 }
 
-Result<void> CommandList::end() {
+ResultVoid CommandList::end() {
     if (recording_error_) {
         const Error error = *recording_error_;
         if (backend_recording_) {
@@ -150,7 +150,7 @@ void CommandList::recordResource(const RHITrackedResource* resource) {
         referenced_resources_.push_back(lifetime);
 }
 
-Result<void> CommandList::validateReferencedResources() const {
+ResultVoid CommandList::validateReferencedResources() const {
     for (const auto& resource : referenced_resources_) {
         if (!resource || !resource->alive.load(std::memory_order_acquire)) {
             return std::unexpected(makeError(EngineErrorCode::SubmissionFailed,
@@ -343,7 +343,7 @@ void CommandList::transitionResource(Texture* texture, ResourceState newState) {
     doTransitionResource(texture, newState);
 }
 
-Result<void> CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+ResultVoid CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     if (!requireRecording("copyTextureToBuffer") || render_pass_active_) {
         if (render_pass_active_)
             rejectRecording("copyTextureToBuffer is not allowed inside a render pass");
@@ -523,7 +523,7 @@ void CommandList::markSubmitted(SubmissionToken token) {
     state_ = State::Submitted;
 }
 
-Result<void> CommandList::waitForPreviousSubmission() {
+ResultVoid CommandList::waitForPreviousSubmission() {
     const SubmissionToken token = last_submission_;
     if (!token)
         return {};

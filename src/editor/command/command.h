@@ -36,7 +36,7 @@ private:
     EditorSession* editor_session_ = nullptr;
 };
 
-using CommandOutcome = Result<void>;
+using CommandOutcome = ResultVoid;
 
 struct CommandState {
     std::string title;

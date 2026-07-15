@@ -24,7 +24,7 @@
 
 namespace mulan::app {
 
-Result<void> registerLinkedRHIBackends(engine::DeviceFactory& factory) {
+ResultVoid registerLinkedRHIBackends(engine::DeviceFactory& factory) {
 #if MULAN_HAS_RHI_VULKAN
     if (auto result = factory.registerModule(engine::vulkanBackendModule()); !result)
         return result;

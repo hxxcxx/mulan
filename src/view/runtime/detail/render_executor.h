@@ -35,15 +35,15 @@ public:
     RenderExecutor(const RenderExecutor&) = delete;
     RenderExecutor& operator=(const RenderExecutor&) = delete;
 
-    Result<void> initWindow(const ViewConfig& config, int width, int height);
-    Result<void> initOffscreen(const ViewConfig& config, int width, int height);
+    ResultVoid initWindow(const ViewConfig& config, int width, int height);
+    ResultVoid initOffscreen(const ViewConfig& config, int width, int height);
     void shutdown();
 
     bool isInitialized() const;
     RenderSurfaceState surfaceState() const;
 
-    Result<void> prepareResources(const engine::RenderResourcePrepareList& prepare);
-    Result<void> executeFrame(const RenderSubmission& submission);
+    ResultVoid prepareResources(const engine::RenderResourcePrepareList& prepare);
+    ResultVoid executeFrame(const RenderSubmission& submission);
     Result<engine::RenderCaptureResult> capture(const RenderSubmission& submission,
                                                 const engine::RenderCaptureDesc& desc);
     Result<RenderSurfaceState> resize(int width, int height);
@@ -51,7 +51,7 @@ public:
     void clearAssetResources();
 
 private:
-    Result<void> initRenderer();
+    ResultVoid initRenderer();
     bool configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
     RenderSurfaceState surfaceStateLocked() const;
     void shutdownLocked();

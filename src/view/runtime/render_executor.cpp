@@ -94,7 +94,7 @@ RenderExecutor::~RenderExecutor() {
     shutdown();
 }
 
-Result<void> RenderExecutor::initWindow(const ViewConfig& config, int width, int height) {
+ResultVoid RenderExecutor::initWindow(const ViewConfig& config, int width, int height) {
     std::scoped_lock executorLock(mutex_);
     if (initialized_) {
         return {};
@@ -144,7 +144,7 @@ Result<void> RenderExecutor::initWindow(const ViewConfig& config, int width, int
     return {};
 }
 
-Result<void> RenderExecutor::initOffscreen(const ViewConfig& config, int width, int height) {
+ResultVoid RenderExecutor::initOffscreen(const ViewConfig& config, int width, int height) {
     std::scoped_lock executorLock(mutex_);
     if (initialized_) {
         return {};
@@ -205,7 +205,7 @@ RenderSurfaceState RenderExecutor::surfaceState() const {
     return surfaceStateLocked();
 }
 
-Result<void> RenderExecutor::prepareResources(const engine::RenderResourcePrepareList& prepare) {
+ResultVoid RenderExecutor::prepareResources(const engine::RenderResourcePrepareList& prepare) {
     std::scoped_lock executorLock(mutex_);
     if (!initialized_ || !device_context_) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
@@ -225,7 +225,7 @@ Result<void> RenderExecutor::prepareResources(const engine::RenderResourcePrepar
     return prepared;
 }
 
-Result<void> RenderExecutor::executeFrame(const RenderSubmission& submission) {
+ResultVoid RenderExecutor::executeFrame(const RenderSubmission& submission) {
     std::scoped_lock executorLock(mutex_);
     if (!initialized_ || !device_context_) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
@@ -351,7 +351,7 @@ void RenderExecutor::clearAssetResources() {
     renderer_.clearAssetResources(device_context_->device());
 }
 
-Result<void> RenderExecutor::initRenderer() {
+ResultVoid RenderExecutor::initRenderer() {
     if (!device_context_) {
         return std::unexpected(
                 executorError(ErrorCode::InvalidArg, "RenderExecutor cannot initialize without a device."));

@@ -23,13 +23,13 @@ DX12Fence::DX12Fence(ID3D12Device* device, uint64_t initialValue) {
     event_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
 }
 
-Result<void> DX12Fence::signal(uint64_t value) {
+ResultVoid DX12Fence::signal(uint64_t value) {
     if (!checkDX12(fence_->Signal(value), "ID3D12Fence::Signal"))
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX12 fence signal failed"));
     return {};
 }
 
-Result<void> DX12Fence::wait(uint64_t value) {
+ResultVoid DX12Fence::wait(uint64_t value) {
     if (fence_->GetCompletedValue() < value) {
         if (!checkDX12(fence_->SetEventOnCompletion(value, event_), "ID3D12Fence::SetEventOnCompletion"))
             return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "DX12 fence wait setup failed"));

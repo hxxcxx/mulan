@@ -29,7 +29,7 @@ GLCommandList::~GLCommandList() {
     }
 }
 
-Result<void> GLCommandList::doBegin() {
+ResultVoid GLCommandList::doBegin() {
     if (!transient_uniform_arena_->beginRecording()) {
         return std::unexpected(
                 makeError(EngineErrorCode::CommandRecordingFailed, "OpenGL transient uniform batch is unavailable"));
@@ -43,7 +43,7 @@ Result<void> GLCommandList::doBegin() {
     return {};
 }
 
-Result<void> GLCommandList::doEnd() {
+ResultVoid GLCommandList::doEnd() {
     transient_uniform_arena_->endRecording();
     return {};
 }
@@ -485,10 +485,10 @@ void GLCommandList::doTransitionResource(Texture* texture, ResourceState newStat
         glMemoryBarrier(barriers);
 }
 
-Result<void> GLCommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
+ResultVoid GLCommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
-    const auto rejectCopy = [this](std::string_view reason) -> Result<void> {
+    const auto rejectCopy = [this](std::string_view reason) -> ResultVoid {
         rejectRecording(reason);
         return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed, reason));
     };
@@ -698,7 +698,7 @@ GLenum GLCommandList::indexTypeToGLFormat(IndexType type) {
     }
 }
 
-Result<void> GLCommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
+ResultVoid GLCommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
     if (info.colorCount > RenderPassBeginInfo::kMaxColorTargets || info.width == 0 || info.height == 0)
         return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
                                          "OpenGL render pass dimensions or attachment count are invalid"));

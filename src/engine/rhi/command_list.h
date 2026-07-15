@@ -56,8 +56,8 @@ public:
 
     // --- 生命周期 ---
 
-    Result<void> begin();
-    Result<void> end();
+    ResultVoid begin();
+    ResultVoid end();
     State state() const noexcept { return state_; }
     bool isExecutable() const noexcept { return state_ == State::Executable; }
     const Error* recordingError() const noexcept;
@@ -129,7 +129,7 @@ public:
     void transitionResource(Texture* texture, ResourceState newState);
 
     /// 将渲染目标 color 纹理复制到 staging buffer（用于 CPU 回读）。
-    Result<void> copyTextureToBuffer(Texture* src, Buffer* dst);
+    ResultVoid copyTextureToBuffer(Texture* src, Buffer* dst);
 
     // --- RenderPass ---
 
@@ -144,12 +144,12 @@ protected:
     CommandList(const CommandList&) = delete;
     CommandList& operator=(const CommandList&) = delete;
 
-    Result<void> waitForPreviousSubmission();
+    ResultVoid waitForPreviousSubmission();
     DescriptorCacheEpoch descriptorCacheEpoch(uint64_t generation) const noexcept {
         return { descriptor_scope_id_, generation };
     }
-    virtual Result<void> doBegin() = 0;
-    virtual Result<void> doEnd() = 0;
+    virtual ResultVoid doBegin() = 0;
+    virtual ResultVoid doEnd() = 0;
     virtual void doMarkSubmitted() {}
     virtual void doSetPipelineState(PipelineState* pso) = 0;
     virtual void doSetComputePipelineState(ComputePipelineState* pso) = 0;
@@ -168,8 +168,8 @@ protected:
     virtual void doDispatchIndirect(Buffer* argsBuffer, uint32_t offset) = 0;
     virtual void doSetPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) = 0;
     virtual void doTransitionResource(Texture* texture, ResourceState newState) = 0;
-    virtual Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) = 0;
-    virtual Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) = 0;
+    virtual ResultVoid doCopyTextureToBuffer(Texture* src, Buffer* dst) = 0;
+    virtual ResultVoid doBeginRenderPass(const RenderPassBeginInfo& info) = 0;
     virtual void doEndRenderPass() = 0;
 
     void invalidate(Error error);
@@ -250,7 +250,7 @@ private:
     std::optional<Error> recording_error_;
 
     void recordResource(const RHITrackedResource* resource);
-    Result<void> validateReferencedResources() const;
+    ResultVoid validateReferencedResources() const;
 };
 
 }  // namespace mulan::engine

@@ -32,7 +32,7 @@ RenderSession::~RenderSession() {
     shutdown();
 }
 
-Result<void> RenderSession::initWindow(const ViewConfig& config, int width, int height) {
+ResultVoid RenderSession::initWindow(const ViewConfig& config, int width, int height) {
     assertOwnerThread();
     if (isInitialized()) {
         return {};
@@ -63,7 +63,7 @@ Result<void> RenderSession::initWindow(const ViewConfig& config, int width, int 
     return {};
 }
 
-Result<void> RenderSession::initOffscreen(const ViewConfig& config, int width, int height) {
+ResultVoid RenderSession::initOffscreen(const ViewConfig& config, int width, int height) {
     assertOwnerThread();
     if (isInitialized()) {
         return {};
@@ -131,7 +131,7 @@ std::optional<Error> RenderSession::runtimeFailure() const {
     return std::nullopt;
 }
 
-Result<void> RenderSession::pollRuntime() {
+ResultVoid RenderSession::pollRuntime() {
     assertOwnerThread();
     if (last_runtime_failure_) {
         return std::unexpected(*last_runtime_failure_);
@@ -326,7 +326,7 @@ void RenderSession::assertOwnerThread() const {
            "RenderSession must only be accessed from its owning thread.");
 }
 
-Result<void> RenderSession::prepareInlineResources(RenderSubmission& submission) {
+ResultVoid RenderSession::prepareInlineResources(RenderSubmission& submission) {
     if (!submission.hasResourceUpdates()) {
         return {};
     }
@@ -335,7 +335,7 @@ Result<void> RenderSession::prepareInlineResources(RenderSubmission& submission)
     if (execution_mode_ != ExecutionMode::Inline || !inline_executor_) {
         return std::unexpected(sessionError(ErrorCode::InvalidArg, "Render execution is not available."));
     }
-    Result<void> prepared = inline_executor_->prepareResources(submission.prepare);
+    ResultVoid prepared = inline_executor_->prepareResources(submission.prepare);
     if (!prepared) {
         return prepared;
     }
@@ -346,7 +346,7 @@ Result<void> RenderSession::prepareInlineResources(RenderSubmission& submission)
     return {};
 }
 
-Result<void> RenderSession::drainWorkerEvents() {
+ResultVoid RenderSession::drainWorkerEvents() {
     if (!worker_) {
         return {};
     }

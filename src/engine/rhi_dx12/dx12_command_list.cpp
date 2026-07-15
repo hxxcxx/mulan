@@ -65,7 +65,7 @@ void DX12CommandList::setCommandList(ID3D12GraphicsCommandList* cmdList) {
     recording_ = cmdList != nullptr;
 }
 
-Result<void> DX12CommandList::doBegin() {
+ResultVoid DX12CommandList::doBegin() {
     if (!cmd_list_) {
         return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed, "DX12 command list is unavailable"));
     }
@@ -104,7 +104,7 @@ Result<void> DX12CommandList::doBegin() {
     return {};
 }
 
-Result<void> DX12CommandList::doEnd() {
+ResultVoid DX12CommandList::doEnd() {
     if (!cmd_list_ || !recording_) {
         return std::unexpected(
                 makeError(EngineErrorCode::CommandRecordingFailed, "DX12 command list is not recording"));
@@ -487,10 +487,10 @@ void DX12CommandList::doTransitionResource(Texture* texture, ResourceState newSt
     setTextureState(dx12Tex, after);
 }
 
-Result<void> DX12CommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
+ResultVoid DX12CommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
-    const auto rejectCopy = [this](std::string_view reason) -> Result<void> {
+    const auto rejectCopy = [this](std::string_view reason) -> ResultVoid {
         rejectRecording(reason);
         return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed, reason));
     };
@@ -605,7 +605,7 @@ void DX12CommandList::doSetComputePipelineState(ComputePipelineState*) {
 // RenderPass
 // ============================================================
 
-Result<void> DX12CommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
+ResultVoid DX12CommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
     auto* cl = cmd_list_.Get();
     if (!cl || info.colorCount > RenderPassBeginInfo::kMaxColorTargets || info.width == 0 || info.height == 0)
         return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,

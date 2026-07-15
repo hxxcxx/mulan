@@ -116,7 +116,7 @@ RenderPassBeginInfo DX11SwapChain::renderPassBeginInfo() {
     return info;
 }
 
-Result<void> DX11SwapChain::present() {
+ResultVoid DX11SwapChain::present() {
     UINT syncInterval = m_desc.vsync ? 1 : 0;
     HRESULT hr = m_swapChain->Present(syncInterval, 0);
     if (FAILED(hr)) {
@@ -131,7 +131,7 @@ Result<void> DX11SwapChain::present() {
     return {};
 }
 
-Result<void> DX11SwapChain::resize(uint32_t width, uint32_t height) {
+ResultVoid DX11SwapChain::resize(uint32_t width, uint32_t height) {
     if (width == 0 || height == 0)
         return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX11 swapchain size must be non-zero"));
 

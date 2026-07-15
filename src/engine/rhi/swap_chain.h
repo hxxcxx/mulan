@@ -56,10 +56,10 @@ public:
     virtual Texture* depthTexture() = 0;
 
     // 呈现
-    virtual Result<void> present() = 0;
+    virtual ResultVoid present() = 0;
 
     // 窗口大小变化时调用
-    virtual Result<void> resize(uint32_t width, uint32_t height) = 0;
+    virtual ResultVoid resize(uint32_t width, uint32_t height) = 0;
 
     /// 构建 RenderPassBeginInfo（供 CommandList::beginRenderPass 使用）
     virtual RenderPassBeginInfo renderPassBeginInfo() {

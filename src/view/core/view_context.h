@@ -57,7 +57,7 @@ public:
     /// 专用渲染线程的异步失败快照；无失败时返回空。
     std::optional<Error> runtimeFailure() const;
     /// owner 主动回收渲染线程 ACK/Failure，并在失败时完成执行域清理。
-    Result<void> pollRuntime();
+    ResultVoid pollRuntime();
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
 

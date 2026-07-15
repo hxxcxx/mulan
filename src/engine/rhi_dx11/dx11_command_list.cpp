@@ -55,14 +55,14 @@ DX11CommandList::DX11CommandList(ID3D11Device* device, ID3D11DeviceContext* ctx,
         LOG_ERROR("[DX11] Command list initialization rejected: invalid device or context");
 }
 
-Result<void> DX11CommandList::doBegin() {
+ResultVoid DX11CommandList::doBegin() {
     m_transientUniformArena.beginRecording();
     m_constantBufferCache.clear();
     // D3D11 immediate context 无需显式 begin。
     return {};
 }
 
-Result<void> DX11CommandList::doEnd() {
+ResultVoid DX11CommandList::doEnd() {
     m_transientUniformArena.endRecording();
     // D3D11 immediate context 无需显式 end。
     return {};
@@ -599,7 +599,7 @@ bool DX11CommandList::ensureReadbackResolveTexture(uint32_t width, uint32_t heig
     return true;
 }
 
-Result<void> DX11CommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
+ResultVoid DX11CommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
     if (m_renderPassActive) {
@@ -703,7 +703,7 @@ void DX11CommandList::unbindShaderResources() {
 // RenderPass
 // ============================================================
 
-Result<void> DX11CommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
+ResultVoid DX11CommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
     if (m_renderPassActive)
         doEndRenderPass();
 
@@ -712,7 +712,7 @@ Result<void> DX11CommandList::doBeginRenderPass(const RenderPassBeginInfo& info)
     m_activeDepthTexture = nullptr;
     m_activeDepthStoreAction = StoreAction::Store;
 
-    const auto rejectRenderPass = [this](const char* reason) -> Result<void> {
+    const auto rejectRenderPass = [this](const char* reason) -> ResultVoid {
         LOG_ERROR("[DX11] beginRenderPass rejected: {}", reason);
         // 失败后显式解绑，避免后续 draw 意外写入上一轮 render pass 的附件。
         m_ctx->OMSetRenderTargets(0, nullptr, nullptr);

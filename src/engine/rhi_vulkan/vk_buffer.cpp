@@ -73,7 +73,7 @@ VKBuffer::~VKBuffer() {
     }
 }
 
-Result<void> VKBuffer::write(uint32_t offset, uint32_t size, const void* data) {
+ResultVoid VKBuffer::write(uint32_t offset, uint32_t size, const void* data) {
     if (auto wait = waitForLastUse(); !wait)
         return std::unexpected(wait.error());
     if (desc_.usage != BufferUsage::Dynamic || !mapped_data_ || !data || size == 0 || offset > desc_.size ||
@@ -88,7 +88,7 @@ Result<void> VKBuffer::write(uint32_t offset, uint32_t size, const void* data) {
     return {};
 }
 
-Result<void> VKBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
+ResultVoid VKBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
     if (auto wait = waitForLastUse(); !wait)
         return std::unexpected(wait.error());
     if (desc_.usage != BufferUsage::Staging || !mapped_data_ || !outData || offset > desc_.size ||

@@ -33,7 +33,7 @@ VKFence::~VKFence() {
     }
 }
 
-Result<void> VKFence::signal(uint64_t value) {
+ResultVoid VKFence::signal(uint64_t value) {
     vk::SemaphoreSignalInfo info;
     info.semaphore = semaphore_;
     info.value = value;
@@ -45,7 +45,7 @@ Result<void> VKFence::signal(uint64_t value) {
     return {};
 }
 
-Result<void> VKFence::wait(uint64_t value) {
+ResultVoid VKFence::wait(uint64_t value) {
     vk::SemaphoreWaitInfo info;
     info.semaphoreCount = 1;
     vk::Semaphore semaphores[] = { semaphore_ };

@@ -60,14 +60,14 @@ Result<std::shared_ptr<core::Image>> CaptureImageEncoder::toImage(const engine::
     return core::Image::createFromBuffer(result.width, result.height, pixelFormat, std::move(pixels));
 }
 
-Result<void> CaptureImageEncoder::savePNG(const engine::RenderCaptureResult& result, std::string_view path) {
+ResultVoid CaptureImageEncoder::savePNG(const engine::RenderCaptureResult& result, std::string_view path) {
     auto image = toImage(result);
     if (!image)
         return std::unexpected(image.error());
     return (*image)->savePNGExpected(path);
 }
 
-Result<void> CaptureImageEncoder::savePNG(const CaptureImage& image, std::string_view path) {
+ResultVoid CaptureImageEncoder::savePNG(const CaptureImage& image, std::string_view path) {
     return savePNG(image.result, path);
 }
 

@@ -21,11 +21,11 @@ namespace {
 
 class TestFence final : public Fence {
 public:
-    Result<void> signal(uint64_t value) override {
+    ResultVoid signal(uint64_t value) override {
         completed_ = value;
         return {};
     }
-    Result<void> wait(uint64_t value) override {
+    ResultVoid wait(uint64_t value) override {
         completed_ = value;
         return {};
     }
@@ -56,7 +56,7 @@ public:
 
     void complete(SubmissionToken token) { ASSERT_TRUE(fence_->signal(token.value)); }
     GPUDeviceCapabilities& mutableCapabilities() { return capabilities_; }
-    Result<void> validateBatch(CommandList** lists, uint32_t count) const {
+    ResultVoid validateBatch(CommandList** lists, uint32_t count) const {
         return validateCommandListsForSubmission(lists, count);
     }
 
@@ -87,9 +87,9 @@ public:
         return std::unique_ptr<BindGroup>{};
     }
 
-    Result<void> uploadTextureData(Texture*, const TextureUploadDesc&) override { return {}; }
-    Result<void> beginUploadBatch() override { return {}; }
-    Result<void> flushUploadBatch() override { return {}; }
+    ResultVoid uploadTextureData(Texture*, const TextureUploadDesc&) override { return {}; }
+    ResultVoid beginUploadBatch() override { return {}; }
+    ResultVoid flushUploadBatch() override { return {}; }
     Result<SubmissionToken> executeCommandLists(CommandList** lists, uint32_t count, Fence*, uint64_t) override {
         if (auto validation = validateCommandListsForSubmission(lists, count); !validation)
             return std::unexpected(validation.error());
@@ -97,7 +97,7 @@ public:
         lists[0]->markSubmitted(token);
         return token;
     }
-    Result<void> waitIdle() override { return {}; }
+    ResultVoid waitIdle() override { return {}; }
     Result<CommandList*> beginFrame(SwapChain*) override { return static_cast<CommandList*>(nullptr); }
     Result<SubmissionToken> endFrame(SwapChain*) override { return issueSubmission(); }
 
@@ -128,8 +128,8 @@ public:
     TestBuffer() { desc_ = BufferDesc::dynamicVertex(64, "TestBuffer"); }
     ~TestBuffer() override { waitForLastUseBeforeDestruction(); }
     const BufferDesc& desc() const override { return desc_; }
-    Result<void> write(uint32_t, uint32_t, const void*) override { return {}; }
-    Result<void> readback(uint32_t, uint32_t, void*) override { return {}; }
+    ResultVoid write(uint32_t, uint32_t, const void*) override { return {}; }
+    ResultVoid readback(uint32_t, uint32_t, void*) override { return {}; }
     void attach(RHIDevice& device) { trackResource(device, RHIResourceKind::Buffer, desc_.name); }
 
 private:
@@ -176,8 +176,8 @@ public:
     uint32_t drawCount() const { return draw_count_; }
     DescriptorCacheEpoch epoch(uint64_t generation) const { return descriptorCacheEpoch(generation); }
 
-    Result<void> doBegin() override { return {}; }
-    Result<void> doEnd() override { return {}; }
+    ResultVoid doBegin() override { return {}; }
+    ResultVoid doEnd() override { return {}; }
     void doSetPipelineState(PipelineState*) override {}
     void doSetComputePipelineState(ComputePipelineState*) override {}
     void doBindGroup(BindGroup&) override {}
@@ -193,8 +193,8 @@ public:
     void doDispatchIndirect(Buffer*, uint32_t) override {}
     void doSetPushConstants(uint32_t, uint32_t, const void*, uint32_t) override {}
     void doTransitionResource(Texture*, ResourceState) override {}
-    Result<void> doCopyTextureToBuffer(Texture*, Buffer*) override { return {}; }
-    Result<void> doBeginRenderPass(const RenderPassBeginInfo&) override { return {}; }
+    ResultVoid doCopyTextureToBuffer(Texture*, Buffer*) override { return {}; }
+    ResultVoid doBeginRenderPass(const RenderPassBeginInfo&) override { return {}; }
     void doEndRenderPass() override {}
 
 private:

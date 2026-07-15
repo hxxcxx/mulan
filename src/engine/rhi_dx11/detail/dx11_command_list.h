@@ -26,8 +26,8 @@ public:
     DX11CommandList(ID3D11Device* device, ID3D11DeviceContext* ctx, ID3D11DeviceContext1* ctx1 = nullptr);
     ~DX11CommandList() = default;
 
-    Result<void> doBegin() override;
-    Result<void> doEnd() override;
+    ResultVoid doBegin() override;
+    ResultVoid doEnd() override;
 
     void doSetPipelineState(PipelineState* pso) override;
     void doSetComputePipelineState(ComputePipelineState* pso) override;
@@ -50,10 +50,10 @@ public:
     void doSetPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) override;
 
     void doTransitionResource(Texture* texture, ResourceState newState) override;
-    Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
+    ResultVoid doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- RenderPass ---
-    Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
+    ResultVoid doBeginRenderPass(const RenderPassBeginInfo& info) override;
     void doEndRenderPass() override;
 
     ID3D11DeviceContext* context() const { return m_ctx; }

@@ -112,7 +112,7 @@ bool Image::savePNG(std::string_view path) const {
     return savePNGExpected(path).has_value();
 }
 
-Result<void> Image::savePNGExpected(std::string_view path) const {
+ResultVoid Image::savePNGExpected(std::string_view path) const {
     if (!valid()) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Cannot save an invalid image."));
     }

@@ -61,7 +61,7 @@ public:
     /// 帧调度器的最终提交入口；其他调用方应只发失效请求。
     void renderFrame();
     /// 在文档视图 owner 线程回收渲染资源 ACK 与异步失败。
-    mulan::Result<void> pollRenderRuntime();
+    mulan::ResultVoid pollRenderRuntime();
     void fitAll();
     /// 切换到世界 XY 正视图，并统一刷新依赖屏幕位置的编辑器覆盖层。
     void setCameraToWorldXY();

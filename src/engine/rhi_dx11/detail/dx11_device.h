@@ -53,14 +53,14 @@ public:
     Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout,
                                                        const BindGroupDesc& desc) override;
 
-    Result<void> uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
-    Result<void> beginUploadBatch() override { return {}; }
-    Result<void> flushUploadBatch() override { return {}; }
+    ResultVoid uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
+    ResultVoid beginUploadBatch() override { return {}; }
+    ResultVoid flushUploadBatch() override { return {}; }
 
     // --- 提交命令 ---
     Result<SubmissionToken> executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence = nullptr,
                                                 uint64_t fenceValue = 0) override;
-    Result<void> waitIdle() override;
+    ResultVoid waitIdle() override;
 
     // --- 帧循环 ---
     Result<CommandList*> beginFrame(SwapChain* swapchain = nullptr) override;

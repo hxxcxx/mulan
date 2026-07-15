@@ -115,7 +115,7 @@ public:
 
     /// 保存为 PNG（自动根据 format 选择通道数）
     bool savePNG(std::string_view path) const;
-    Result<void> savePNGExpected(std::string_view path) const;
+    ResultVoid savePNGExpected(std::string_view path) const;
 
     /// 保存为 BMP
     bool saveBMP(std::string_view path) const;

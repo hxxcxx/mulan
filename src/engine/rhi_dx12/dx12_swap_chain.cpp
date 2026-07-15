@@ -31,7 +31,7 @@ DX12SwapChain::DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device, ID
     clear_color_[3] = desc.clearColor[3];
 }
 
-Result<void> DX12SwapChain::initialize(IDXGIFactory4* factory, const NativeWindowHandle& window) {
+ResultVoid DX12SwapChain::initialize(IDXGIFactory4* factory, const NativeWindowHandle& window) {
     DXGI_SWAP_CHAIN_DESC1 scDesc = {};
     scDesc.Width = desc_.width;
     scDesc.Height = desc_.height;
@@ -73,7 +73,7 @@ bool DX12SwapChain::createRTVHeap() {
     return rtv_heap_->isValid() && dsv_heap_->isValid();
 }
 
-Result<void> DX12SwapChain::createBackBuffers() {
+ResultVoid DX12SwapChain::createBackBuffers() {
     back_buffers_.resize(desc_.bufferCount);
     back_buffer_textures_.resize(desc_.bufferCount);
 
@@ -114,7 +114,7 @@ Result<void> DX12SwapChain::createBackBuffers() {
     return {};
 }
 
-Result<void> DX12SwapChain::createMsaaColor() {
+ResultVoid DX12SwapChain::createMsaaColor() {
     msaa_color_texture_.reset();
     if (desc_.sampleCount <= 1)
         return {};
@@ -177,7 +177,7 @@ Texture* DX12SwapChain::currentBackBuffer() {
     return nullptr;
 }
 
-Result<void> DX12SwapChain::present() {
+ResultVoid DX12SwapChain::present() {
     UINT syncInterval = desc_.vsync ? 1 : 0;
     UINT flags = desc_.vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING;
     HRESULT hr = swap_chain_->Present(syncInterval, flags);
@@ -197,7 +197,7 @@ void DX12SwapChain::logDeviceRemovedReason(HRESULT presentResult) const {
               static_cast<unsigned>(presentResult), static_cast<unsigned>(reason));
 }
 
-Result<void> DX12SwapChain::resize(uint32_t width, uint32_t height) {
+ResultVoid DX12SwapChain::resize(uint32_t width, uint32_t height) {
     if (width == 0 || height == 0)
         return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX12 swapchain size must be non-zero"));
     releaseBackBuffers();

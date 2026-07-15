@@ -23,8 +23,8 @@ public:
     static Result<std::unique_ptr<VKFence>> create(vk::Device device, uint64_t initialValue);
     ~VKFence();
 
-    Result<void> signal(uint64_t value) override;
-    Result<void> wait(uint64_t value) override;
+    ResultVoid signal(uint64_t value) override;
+    ResultVoid wait(uint64_t value) override;
     uint64_t completedValue() const override;
 
     vk::Semaphore semaphore() const { return semaphore_; }
