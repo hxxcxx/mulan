@@ -14,11 +14,14 @@
 #include "../forward/face_stage.h"
 #include "../forward/highlight_stage.h"
 #include "../frontend/render_request.h"
+#include "../frontend/render_resource_prepare.h"
 #include "../frontend/render_workload.h"
 #include "../light_environment.h"
 #include "../material/material_cache.h"
 #include "../asset_gpu_registry.h"
 #include "../draw/geometry_draw_shared_resources.h"
+
+#include <mulan/core/result/error.h>
 
 #include <memory>
 #include <string>
@@ -43,9 +46,11 @@ public:
     void shutdown(RHIDevice& device);
 
     void enableIBL(RHIDevice& device, const std::string& hdrPath);
-    void render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
+    /// 上传跨帧持久资源；只有整个批次完成后才返回成功，供上层生成可靠 ACK。
+    core::Result<void> preparePersistentResources(RHIDevice& device, const RenderResourcePrepareList& prepare);
+    core::Result<void> render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
 
-    /// 释放全部资产派生 GPU 资源（文档切换时由 Renderer::setScene 触发）。
+    /// 释放全部资产派生 GPU 资源（资产域切换时由 view RenderSession 触发）。
     void clearAssetResources(RHIDevice& device);
 
     bool isInitialized() const { return initialized_; }
@@ -55,12 +60,13 @@ public:
 private:
     bool validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const;
     void clearCompiledCommands();
-    void prepareResources(const RenderRequest& request);
-    void compile(const RenderRequest& request);
+    core::Result<void> prepareFrameResources(const RenderRequest& request);
+    core::Result<void> compile(const RenderRequest& request);
     DrawExecutionContext buildDrawContext(CommandList& cmd, const RenderFrame& frame) const;
-    CommandList* beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
+    core::Result<CommandList*> beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
+                                          const RenderRequest& request);
     void executeStages(RenderFrame& frame, const TextDrawList& requestTextDraws);
-    void endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
+    core::Result<void> endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
 
     std::unique_ptr<MaterialCache> material_cache_;
     std::unique_ptr<IBLPipeline> ibl_;

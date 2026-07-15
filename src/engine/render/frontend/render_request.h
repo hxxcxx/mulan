@@ -8,7 +8,6 @@
 #pragma once
 
 #include "render_capture.h"
-#include "render_resource_prepare.h"
 #include "selection_visual_state.h"
 #include "render_view_desc.h"
 #include "render_world_snapshot.h"
@@ -83,7 +82,6 @@ struct RenderOutputDesc {
 
 struct RenderRequest {
     const RenderWorldSnapshot* world = nullptr;
-    const RenderResourcePrepareList* prepare = nullptr;
     RenderViewDesc view;
     RenderOutputDesc output;
     RenderOptions options;

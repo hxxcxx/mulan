@@ -1,6 +1,6 @@
 #include <mulan/view/scene_sync/render_scene.h>
 
-#include <mulan/view/scene_sync/geometry_query.h>
+#include "scene_sync/geometry_query.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/geometry_asset.h>

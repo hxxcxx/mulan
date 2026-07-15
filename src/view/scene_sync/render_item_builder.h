@@ -36,8 +36,8 @@ public:
     static void buildSceneItems(asset::AssetId geometry, std::span<const asset::Drawable> drawables,
                                 std::vector<RenderItem>& out, RenderItemDiagnostics* diagnostics = nullptr);
 
-    static void buildPreviewItems(uint64_t generation, std::span<const PreviewDrawable> drawables,
-                                  std::vector<RenderItem>& out, RenderItemDiagnostics* diagnostics = nullptr);
+    static void buildPreviewItems(std::span<const PreviewDrawable> drawables, std::vector<RenderItem>& out,
+                                  RenderItemDiagnostics* diagnostics = nullptr);
 
     static uint64_t previewMaterialKey(PreviewVisualRole role);
 };

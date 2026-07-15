@@ -4,26 +4,29 @@
  * @date 2026-07-03
  */
 
-#include <mulan/view/scene_sync/render_surface.h>
+#include "runtime/detail/render_surface.h"
 
 #include <mulan/core/log/log.h>
-#include "mulan/rhi/device.h"
+#include <mulan/rhi/device.h>
+#include <mulan/rhi/engine_error_code.h>
 
+#include <cstring>
+#include <limits>
 #include <utility>
 
-namespace mulan::view {
+namespace mulan::view::detail {
 
 namespace {
-bool waitForLastSurfaceUse(engine::RHIDevice& device, const char* operation) {
+core::Result<void> waitForLastSurfaceUse(engine::RHIDevice& device, const char* operation) {
     const engine::SubmissionToken token = device.lastSubmissionToken();
     if (!token)
-        return true;
+        return {};
     auto result = device.waitForSubmission(token);
     if (!result) {
         LOG_ERROR("[RenderSurface] GPU wait failed before {}: {}", operation, result.error().message);
-        return false;
+        return std::unexpected(result.error());
     }
-    return true;
+    return {};
 }
 
 void retireSurfaceResources(engine::RHIDevice& device, engine::SubmissionToken token,
@@ -46,14 +49,69 @@ void retireSurfaceResources(engine::RHIDevice& device, engine::SubmissionToken t
 }
 
 uint32_t readbackRowBytes(const engine::RHIDevice& device, int width, uint32_t bytesPerPixel) {
-    const uint32_t tightRowBytes = static_cast<uint32_t>(width) * bytesPerPixel;
+    const uint64_t tightRowBytes64 = static_cast<uint64_t>(width) * bytesPerPixel;
+    if (tightRowBytes64 > std::numeric_limits<uint32_t>::max())
+        return 0;
+    const uint32_t tightRowBytes = static_cast<uint32_t>(tightRowBytes64);
     if (device.backend() != engine::GraphicsBackend::D3D12) {
         return tightRowBytes;
     }
 
     // D3D12 CopyTextureRegion 的 footprint 行距必须按 256 字节对齐。
     constexpr uint32_t kD3D12TextureDataPitchAlignment = 256;
+    if (tightRowBytes > std::numeric_limits<uint32_t>::max() - (kD3D12TextureDataPitchAlignment - 1))
+        return 0;
     return (tightRowBytes + kD3D12TextureDataPitchAlignment - 1) & ~(kD3D12TextureDataPitchAlignment - 1);
+}
+
+struct OffscreenResources {
+    std::unique_ptr<engine::RenderTarget> renderTarget;
+    std::unique_ptr<engine::Buffer> stagingBuffer;
+    uint32_t bytesPerPixel = 0;
+    uint32_t rowBytes = 0;
+};
+
+bool createOffscreenResources(engine::RHIDevice& device, const RenderSurfaceDesc& desc, OffscreenResources& resources) {
+    if (desc.width <= 0 || desc.height <= 0)
+        return false;
+
+    const uint32_t bytesPerPixel = engine::textureFormatBytesPerPixel(desc.colorFormat);
+    if (desc.readback && bytesPerPixel == 0)
+        return false;
+
+    const uint32_t rowBytes = readbackRowBytes(device, desc.width, bytesPerPixel);
+    if (desc.readback && rowBytes == 0)
+        return false;
+
+    engine::RenderTargetDesc rtDesc;
+    rtDesc.width = static_cast<uint32_t>(desc.width);
+    rtDesc.height = static_cast<uint32_t>(desc.height);
+    rtDesc.colorFormat = desc.colorFormat;
+    rtDesc.depthFormat = desc.depthFormat;
+    rtDesc.hasDepth = desc.hasDepth;
+    rtDesc.sampleCount = desc.sampleCount;
+
+    auto renderTarget = device.createRenderTarget(rtDesc);
+    if (!renderTarget)
+        return false;
+
+    std::unique_ptr<engine::Buffer> stagingBuffer;
+    if (desc.readback) {
+        const uint64_t byteSize64 = static_cast<uint64_t>(rowBytes) * static_cast<uint32_t>(desc.height);
+        if (byteSize64 == 0 || byteSize64 > std::numeric_limits<uint32_t>::max())
+            return false;
+        auto buffer =
+                device.createBuffer(engine::BufferDesc::staging(static_cast<uint32_t>(byteSize64), "ReadbackStaging"));
+        if (!buffer)
+            return false;
+        stagingBuffer = std::move(*buffer);
+    }
+
+    resources.renderTarget = std::move(*renderTarget);
+    resources.stagingBuffer = std::move(stagingBuffer);
+    resources.bytesPerPixel = bytesPerPixel;
+    resources.rowBytes = rowBytes;
+    return true;
 }
 
 }  // namespace
@@ -65,9 +123,8 @@ RenderSurface::~RenderSurface() {
 bool RenderSurface::initWindowSurface(engine::RHIDevice& device, const ViewConfig& config, int width, int height) {
     if (swapchain_ || render_target_)
         return true;
-
-    width_ = width;
-    height_ = height;
+    if (width <= 0 || height <= 0)
+        return false;
 
     engine::NativeWindowHandle window = config.toNativeWindowHandle();
     if (!window.valid())
@@ -90,6 +147,8 @@ bool RenderSurface::initWindowSurface(engine::RHIDevice& device, const ViewConfi
     if (!sc)
         return false;
     swapchain_ = std::move(*sc);
+    width_ = width;
+    height_ = height;
     advanceGeneration();
     return true;
 }
@@ -105,35 +164,20 @@ bool RenderSurface::initOffscreenSurface(engine::RHIDevice& device, int width, i
 bool RenderSurface::initOffscreenSurface(engine::RHIDevice& device, const RenderSurfaceDesc& desc) {
     if (swapchain_ || render_target_)
         return true;
-    if (desc.width <= 0 || desc.height <= 0)
-        return false;
-    const uint32_t bpp = engine::textureFormatBytesPerPixel(desc.colorFormat);
-    if (desc.readback && bpp == 0)
+
+    OffscreenResources resources;
+    if (!createOffscreenResources(device, desc, resources))
         return false;
 
+    // 候选 target 与 staging 全部创建成功后才提交成员状态，
+    // 因此初次初始化失败不会留下伪尺寸或伪描述。
+    render_target_ = std::move(resources.renderTarget);
+    staging_buffer_ = std::move(resources.stagingBuffer);
     offscreen_desc_ = desc;
     width_ = desc.width;
     height_ = desc.height;
-    bytes_per_pixel_ = bpp;
-    row_bytes_ = readbackRowBytes(device, width_, bytes_per_pixel_);
-
-    engine::RenderTargetDesc rtDesc;
-    rtDesc.width = static_cast<uint32_t>(desc.width);
-    rtDesc.height = static_cast<uint32_t>(desc.height);
-    rtDesc.colorFormat = desc.colorFormat;
-    rtDesc.depthFormat = desc.depthFormat;
-    rtDesc.hasDepth = desc.hasDepth;
-    rtDesc.sampleCount = desc.sampleCount;
-
-    auto rt = device.createRenderTarget(rtDesc);
-    if (!rt)
-        return false;
-    render_target_ = std::move(*rt);
-
-    if (!createReadbackBuffer(device)) {
-        render_target_.reset();
-        return false;
-    }
+    bytes_per_pixel_ = resources.bytesPerPixel;
+    row_bytes_ = resources.rowBytes;
     advanceGeneration();
     return true;
 }
@@ -146,23 +190,28 @@ bool RenderSurface::configureOffscreenSurface(engine::RHIDevice& device, const R
     if (offscreenDescMatches(desc))
         return true;
 
-    if (desc.width <= 0 || desc.height <= 0)
-        return false;
-    const uint32_t nextBytesPerPixel = engine::textureFormatBytesPerPixel(desc.colorFormat);
-    if (desc.readback && nextBytesPerPixel == 0)
+    OffscreenResources resources;
+    if (!createOffscreenResources(device, desc, resources))
         return false;
 
+    // 先完整构造新资源，再一次性替换当前表面。创建失败时，
+    // 旧 target、staging、尺寸与 generation 全部保持不变。
     const engine::SubmissionToken token = device.lastSubmissionToken();
     auto oldRenderTarget = std::move(render_target_);
     auto oldStagingBuffer = std::move(staging_buffer_);
 
-    // 离屏资源可以版本化替换，无需阻塞等待 GPU。旧 target 即使在新建失败时
-    // 也保持失效，generation 会让已排队的旧帧提交被上层丢弃。
-    const bool initialized = initOffscreenSurface(device, desc);
-    if (!initialized)
-        advanceGeneration();
+    render_target_ = std::move(resources.renderTarget);
+    staging_buffer_ = std::move(resources.stagingBuffer);
+    offscreen_desc_ = desc;
+    width_ = desc.width;
+    height_ = desc.height;
+    bytes_per_pixel_ = resources.bytesPerPixel;
+    row_bytes_ = resources.rowBytes;
+    advanceGeneration();
+
+    // 旧资源继续按最后一次提交的 token 延迟退役，表面替换本身不阻塞 GPU。
     retireSurfaceResources(device, token, nullptr, std::move(oldRenderTarget), std::move(oldStagingBuffer));
-    return initialized;
+    return true;
 }
 
 void RenderSurface::shutdown(engine::RHIDevice& device) {
@@ -182,27 +231,35 @@ void RenderSurface::shutdown(engine::RHIDevice& device) {
                            std::move(oldStagingBuffer));
 }
 
-void RenderSurface::resize(engine::RHIDevice& device, int width, int height) {
+core::Result<void> RenderSurface::resize(engine::RHIDevice& device, int width, int height) {
     if (!isInitialized() || width <= 0 || height <= 0) {
-        return;
+        return std::unexpected(
+                core::Error::make(core::ErrorCode::InvalidArg, "Render surface resize arguments are invalid."));
     }
     if (render_target_) {
         RenderSurfaceDesc desc = offscreen_desc_;
         desc.width = width;
         desc.height = height;
-        if (!configureOffscreenSurface(device, desc))
+        if (!configureOffscreenSurface(device, desc)) {
             LOG_ERROR("[RenderSurface] Failed to resize the offscreen surface to {}x{}", width, height);
+            return std::unexpected(
+                    engine::makeError(engine::EngineErrorCode::ResizeFailed, "Offscreen surface resize failed."));
+        }
+        return {};
     } else if (swapchain_) {
-        if (!waitForLastSurfaceUse(device, "swapchain resize"))
-            return;
+        if (auto waited = waitForLastSurfaceUse(device, "swapchain resize"); !waited)
+            return std::unexpected(waited.error());
         if (auto result = swapchain_->resize(width, height); !result) {
             LOG_ERROR("[RenderSurface] Swapchain resize failed: {}", result.error().message);
-            return;
+            return std::unexpected(result.error());
         }
         width_ = width;
         height_ = height;
         advanceGeneration();
+        return {};
     }
+    return std::unexpected(
+            engine::makeError(engine::EngineErrorCode::ResizeFailed, "Render surface has no resizeable target."));
 }
 
 bool RenderSurface::readbackPixels(engine::RHIDevice& device, std::vector<uint8_t>& pixels) {
@@ -260,20 +317,6 @@ bool RenderSurface::readbackPixels(engine::RHIDevice& device, std::vector<uint8_
     return true;
 }
 
-bool RenderSurface::createReadbackBuffer(engine::RHIDevice& device) {
-    staging_buffer_.reset();
-    if (!offscreen_desc_.readback)
-        return true;
-    const uint32_t byteSize = row_bytes_ * static_cast<uint32_t>(height_);
-    if (byteSize == 0)
-        return false;
-    auto sb = device.createBuffer(engine::BufferDesc::staging(byteSize, "ReadbackStaging"));
-    if (!sb)
-        return false;
-    staging_buffer_ = std::move(*sb);
-    return true;
-}
-
 bool RenderSurface::offscreenDescMatches(const RenderSurfaceDesc& desc) const {
     return render_target_ && offscreen_desc_.width == desc.width && offscreen_desc_.height == desc.height &&
            offscreen_desc_.colorFormat == desc.colorFormat && offscreen_desc_.depthFormat == desc.depthFormat &&
@@ -306,4 +349,4 @@ uint32_t RenderSurface::sampleCount() const {
     return 1;
 }
 
-}  // namespace mulan::view
+}  // namespace mulan::view::detail

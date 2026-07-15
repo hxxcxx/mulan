@@ -5,7 +5,6 @@
  */
 #pragma once
 
-#include <mulan/view/runtime/render_runtime_host.h>
 #include <mulan/view/core/view_config.h>
 #include <mulan/view/core/view_state.h>
 #include <mulan/view/core/preview_layer.h>
@@ -33,7 +32,10 @@ class AssetLibrary;
 
 namespace mulan::view {
 class RenderScene;
+namespace detail {
+class RenderSession;
 }
+}  // namespace mulan::view
 
 namespace mulan::view {
 
@@ -50,7 +52,7 @@ public:
     bool initOffscreen(int width, int height);
     void shutdown();
 
-    bool isInitialized() const { return runtime_host_.isInitialized(); }
+    bool isInitialized() const;
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
 
@@ -105,15 +107,8 @@ public:
 
     bool showOverlays() const { return show_overlays_; }
     void setShowOverlays(bool show) { show_overlays_ = show; }
-    const RenderWorldSyncStats& renderWorldSyncStats() const { return runtime_host_.lastWorldSyncStats(); }
-    const RenderSubmissionDiagnostics& renderSubmissionDiagnostics() const {
-        return runtime_host_.renderSubmissionDiagnostics();
-    }
-    const engine::RenderWorkloadStats& renderWorkloadStats() const { return runtime_host_.lastRenderWorkloadStats(); }
-    const engine::RenderCompilerStats& renderCompilerStats() const { return runtime_host_.lastRenderCompilerStats(); }
-
-    /// 按需烘焙 IBL（转发给 Renderer）。HDR 路径来自 ViewConfig::hdrPath。
-    /// 通常由 DocumentSession 在 attachViewContext 时根据模型类型决定是否调用。
+    /// 按需烘焙 IBL。HDR 路径来自 ViewConfig::hdrPath。
+    /// 通常由上层会话根据模型类型决定是否调用。
     /// 内部会再检查全局开关 iblEnabled()：关则不烘。
     void enableIBL();
 
@@ -125,7 +120,7 @@ private:
 
     ViewState buildViewState() const;
     void renderFrame(const ViewState& viewState);
-    ViewState snapshotViewState() const;
+    ViewState snapshotViewState(uint32_t width, uint32_t height) const;
     ViewState snapshotViewState(const engine::Camera& camera, const CaptureVisual& visual, uint32_t width,
                                 uint32_t height) const;
     bool handleViewCubeInput(const engine::InputEvent& event);
@@ -137,7 +132,7 @@ private:
     core::Result<engine::RenderCaptureResult> captureFrame(const ViewState& viewState,
                                                            const engine::RenderCaptureDesc& desc);
 
-    RenderRuntimeHost runtime_host_;
+    std::unique_ptr<detail::RenderSession> render_session_;
     engine::Camera camera_{ engine::CameraMode::Trackball };
 
     std::unique_ptr<engine::Operator> default_op_;
@@ -159,7 +154,7 @@ private:
     int height_ = 600;
 
     // HDR 路径（由 ViewConfig::hdrPath 填充，enableIBL() 时使用）。
-    // 是否实际启用由两层决定：(1) 全局开关 ibl_enabled_，(2) DocumentSession 按模型类型
+    // 是否实际启用由两层决定：(1) 全局开关 ibl_enabled_，(2) 上层会话按模型类型
     // 决定是否调用 enableIBL()——CAD 文档即使全局开关开了也不会调用。
     bool ibl_enabled_ = false;
     std::string hdr_path_ = "assets/envmap.hdr";

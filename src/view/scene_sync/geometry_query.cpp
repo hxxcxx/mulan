@@ -4,7 +4,7 @@
  * @author hxxcxx
  * @date 2026-07-11
  */
-#include <mulan/view/scene_sync/geometry_query.h>
+#include "scene_sync/geometry_query.h"
 
 #include "detail/asset_picking.h"
 #include "detail/picking_types.h"

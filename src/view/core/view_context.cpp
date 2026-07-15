@@ -1,6 +1,8 @@
 #include <mulan/view/core/view_context.h>
 
-#include <mulan/view/capture/capture_service.h>
+#include "capture/capture_service.h"
+
+#include "runtime/detail/render_session.h"
 
 #include <algorithm>
 #include <utility>
@@ -25,7 +27,9 @@ math::Quat makeCameraRotation(const math::Vec3& forward, const math::Vec3& prefe
 
 }  // namespace
 
-ViewContext::ViewContext() : default_op_(std::make_unique<engine::CameraManipulator>()) {
+ViewContext::ViewContext()
+    : render_session_(std::make_unique<detail::RenderSession>()),
+      default_op_(std::make_unique<engine::CameraManipulator>()) {
     default_op_->setState(engine::Operator::State::Active);
     default_op_->onActivate(camera_);
     camera_.setOrthographic(true);
@@ -39,7 +43,7 @@ ViewContext::~ViewContext() {
 }
 
 bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
-    if (runtime_host_.isInitialized())
+    if (render_session_->isInitialized())
         return true;
 
     width_ = width;
@@ -47,14 +51,15 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
     ibl_enabled_ = cfg.iblEnabled;
     hdr_path_ = cfg.hdrPath;
 
-    if (!runtime_host_.initWindow(cfg, width, height)) {
+    if (!render_session_->initWindow(cfg, width, height)) {
         return false;
     }
-    runtime_host_.setPreviewLayer(&preview_layer_);
-    runtime_host_.setLightEnvironment(light_env_);
+    render_session_->setPreviewLayer(&preview_layer_);
+    render_session_->setLightEnvironment(light_env_);
 
-    width_ = static_cast<int>(runtime_host_.surfaceWidth());
-    height_ = static_cast<int>(runtime_host_.surfaceHeight());
+    const auto surface = render_session_->surfaceState();
+    width_ = static_cast<int>(surface.width);
+    height_ = static_cast<int>(surface.height);
 
     camera_.setViewport(width_, height_);
     camera_.fitToBox(math::AABB3(math::Point3(-1, -1, -1), math::Point3(1, 1, 1)));
@@ -63,7 +68,7 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
 }
 
 bool ViewContext::initOffscreen(const ViewConfig& cfg, int width, int height) {
-    if (runtime_host_.isInitialized())
+    if (render_session_->isInitialized())
         return true;
 
     width_ = width;
@@ -71,14 +76,15 @@ bool ViewContext::initOffscreen(const ViewConfig& cfg, int width, int height) {
     ibl_enabled_ = cfg.iblEnabled;
     hdr_path_ = cfg.hdrPath;
 
-    if (!runtime_host_.initOffscreen(cfg, width, height)) {
+    if (!render_session_->initOffscreen(cfg, width, height)) {
         return false;
     }
-    runtime_host_.setPreviewLayer(&preview_layer_);
-    runtime_host_.setLightEnvironment(light_env_);
+    render_session_->setPreviewLayer(&preview_layer_);
+    render_session_->setLightEnvironment(light_env_);
 
-    width_ = static_cast<int>(runtime_host_.surfaceWidth());
-    height_ = static_cast<int>(runtime_host_.surfaceHeight());
+    const auto surface = render_session_->surfaceState();
+    width_ = static_cast<int>(surface.width);
+    height_ = static_cast<int>(surface.height);
 
     camera_.setViewport(width_, height_);
     camera_.fitToBox(math::AABB3(math::Point3(-1, -1, -1), math::Point3(1, 1, 1)));
@@ -91,20 +97,24 @@ bool ViewContext::initOffscreen(int width, int height) {
 }
 
 void ViewContext::shutdown() {
-    runtime_host_.setPreviewLayer(nullptr);
-    runtime_host_.shutdown();
+    render_session_->setPreviewLayer(nullptr);
+    render_session_->shutdown();
+}
+
+bool ViewContext::isInitialized() const {
+    return render_session_->isInitialized();
 }
 
 void ViewContext::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
     clearHoveredPickId();
-    runtime_host_.setRenderScene(scene, assets);
+    render_session_->setRenderScene(scene, assets);
 }
 
 void ViewContext::enableIBL() {
     // 两层门控：全局开关 + HDR 路径有效
     if (!ibl_enabled_)
         return;
-    runtime_host_.enableIBL(hdr_path_);
+    render_session_->enableIBL(hdr_path_);
 }
 
 void ViewContext::setHoveredPickId(engine::PickId pickId) {
@@ -128,7 +138,7 @@ void ViewContext::setSceneLights(std::span<const engine::Light> lights) {
     for (const auto& light : lights) {
         light_env_.addLight(light);
     }
-    runtime_host_.setLightEnvironment(light_env_);
+    render_session_->setLightEnvironment(light_env_);
 }
 
 void ViewContext::clearPreview() {
@@ -162,21 +172,30 @@ void ViewContext::setCameraToWorldXY() {
 }
 
 void ViewContext::renderFrame() {
-    if (!runtime_host_.isInitialized())
+    if (!render_session_->isInitialized())
         return;
 
     renderFrame(buildViewState());
 }
 
 void ViewContext::renderFrame(const ViewState& viewState) {
-    if (!runtime_host_.isInitialized())
+    if (!render_session_->isInitialized())
         return;
 
-    runtime_host_.render(viewState);
+    render_session_->submitFrame(viewState);
 }
 
-ViewState ViewContext::snapshotViewState() const {
-    return buildViewState();
+ViewState ViewContext::snapshotViewState(uint32_t width, uint32_t height) const {
+    engine::Camera camera = camera_;
+    camera.setViewport(static_cast<int>(width), static_cast<int>(height));
+
+    ViewState state = buildViewState();
+    state.viewMatrix = camera.viewMatrix();
+    state.projectionMatrix = camera.projectionMatrix();
+    state.cameraPosition = camera.eyePosition();
+    state.width = static_cast<int>(width);
+    state.height = static_cast<int>(height);
+    return state;
 }
 
 ViewState ViewContext::snapshotViewState(const engine::Camera& camera, const CaptureVisual& visual, uint32_t width,
@@ -217,10 +236,10 @@ ViewState ViewContext::snapshotViewState(const engine::Camera& camera, const Cap
 void ViewContext::resize(int width, int height) {
     width_ = width;
     height_ = height;
-    if (runtime_host_.isInitialized()) {
-        runtime_host_.resize(width, height);
-        width_ = static_cast<int>(runtime_host_.surfaceWidth());
-        height_ = static_cast<int>(runtime_host_.surfaceHeight());
+    if (render_session_->isInitialized()) {
+        const auto surface = render_session_->resize(width, height);
+        width_ = static_cast<int>(surface.width);
+        height_ = static_cast<int>(surface.height);
     }
     camera_.setViewport(width_, height_);
 }
@@ -345,11 +364,11 @@ engine::Operator* ViewContext::activeOperator() const {
 }
 
 uint32_t ViewContext::surfaceWidth() const {
-    return runtime_host_.surfaceWidth();
+    return width_ > 0 ? static_cast<uint32_t>(width_) : 0;
 }
 
 uint32_t ViewContext::surfaceHeight() const {
-    return runtime_host_.surfaceHeight();
+    return height_ > 0 ? static_cast<uint32_t>(height_) : 0;
 }
 
 core::Result<engine::RenderCaptureResult> ViewContext::capture(const engine::RenderCaptureDesc& desc) {
@@ -366,7 +385,7 @@ CaptureBatchResult ViewContext::capture(const CaptureBatch& batch) {
 
 core::Result<engine::RenderCaptureResult> ViewContext::captureFrame(const ViewState& viewState,
                                                                     const engine::RenderCaptureDesc& desc) {
-    return runtime_host_.capture(viewState, desc);
+    return render_session_->capture(viewState, desc);
 }
 
 ViewState ViewContext::buildViewState() const {

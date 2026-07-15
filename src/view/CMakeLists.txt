@@ -7,22 +7,35 @@ add_library(view STATIC
     capture/capture_request.cpp
     capture/capture_service.cpp
     runtime/render_device_context.cpp
-    runtime/render_runtime.cpp
-    runtime/render_runtime_host.cpp
-    runtime/threaded_render_runtime.cpp
+    runtime/render_executor.cpp
+    runtime/render_session.cpp
+    runtime/render_surface.cpp
+    runtime/render_worker.cpp
     scene_sync/render_item_builder.cpp
     scene_sync/render_submission_builder.cpp
-    scene_sync/renderer.cpp
     scene_sync/render_world_sync.cpp
     scene_sync/geometry_query.cpp
     scene_sync/detail/mesh_picking.cpp
     scene_sync/detail/curve_picking.cpp
     scene_sync/detail/asset_picking.cpp
     scene_sync/render_scene.cpp
-    scene_sync/render_surface.cpp
 )
 
-mulan_copy_public_headers(view view)
+mulan_copy_public_headers(view view
+    capture/capture_batch.h
+    capture/capture_image_encoder.h
+    capture/capture_request.h
+    core/preview_layer.h
+    core/view_config.h
+    core/view_context.h
+    core/view_state.h
+    scene_sync/render_scene.h
+    scene_sync/scene_proxy.h
+)
+
+target_include_directories(view PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 target_link_libraries(view PUBLIC
     render

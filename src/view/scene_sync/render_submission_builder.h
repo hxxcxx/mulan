@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <mulan/view/scene_sync/render_submission.h>
+#include "scene_sync/render_submission.h"
 
 #include <mulan/render/frontend/render_world.h>
 #include <mulan/render/light_environment.h>
@@ -43,12 +43,18 @@ public:
 
     RenderSubmission build(const ViewState& viewState);
 
+    /// 仅在执行端确认整个上传批次后清除 pending；过期 ACK 不影响更新批次。
+    void acknowledgeResources(uint64_t batchId);
+    /// GPU 执行域重建或资产域切换后，强制从当前 CPU 场景重新生成资源批次。
+    void invalidateResources();
+
     const RenderWorldSyncStats& lastStats() const { return last_sync_stats_; }
     const RenderSubmissionDiagnostics& diagnostics() const { return diagnostics_; }
 
 private:
     bool needsRebuild() const;
     void rebuild(RenderSubmission& submission);
+    void advanceResourceBatch();
 
     const RenderScene* scene_ = nullptr;
     const asset::AssetLibrary* assets_ = nullptr;
@@ -67,6 +73,8 @@ private:
     RenderWorldSyncStats last_sync_stats_;
     RenderSubmissionDiagnostics diagnostics_;
     engine::LightEnvironment light_environment_;
+    engine::RenderResourcePrepareList pending_prepare_;
+    uint64_t resource_batch_id_ = 0;
 };
 
 }  // namespace mulan::view

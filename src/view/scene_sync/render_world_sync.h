@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <mulan/view/scene_sync/render_item_builder.h>
+#include "scene_sync/render_item_builder.h"
 
 #include <mulan/render/frontend/render_world.h>
 #include <mulan/render/frontend/render_resource_prepare.h>

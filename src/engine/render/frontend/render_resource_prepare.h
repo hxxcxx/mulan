@@ -11,8 +11,10 @@
 
 #include <mulan/graphics/mesh.h>
 
+#include <cstddef>
 #include <memory>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace mulan::engine {
@@ -29,15 +31,38 @@ class RenderResourcePrepareList {
 public:
     void clear() { geometries_.clear(); }
 
+    bool empty() const { return geometries_.empty(); }
+    size_t size() const { return geometries_.size(); }
+
     void addGeometry(AssetGpuKey resourceKey, const graphics::Mesh& mesh, bool forceUpdate = false) {
         if (!resourceKey || mesh.empty()) {
             return;
         }
-        geometries_.push_back(RenderGeometryPrepareDesc{
+        addGeometry(RenderGeometryPrepareDesc{
                 .resourceKey = resourceKey,
                 .mesh = std::make_shared<graphics::Mesh>(mesh),
                 .forceUpdate = forceUpdate,
         });
+    }
+
+    /// 合并同一资源键时由新快照覆盖旧快照，未确认批次可安全吸收后续场景更新。
+    void addGeometry(RenderGeometryPrepareDesc desc) {
+        if (!desc.resourceKey || !desc.mesh || desc.mesh->empty()) {
+            return;
+        }
+        for (auto& current : geometries_) {
+            if (current.resourceKey == desc.resourceKey) {
+                current = std::move(desc);
+                return;
+            }
+        }
+        geometries_.push_back(std::move(desc));
+    }
+
+    void merge(const RenderResourcePrepareList& other) {
+        for (const auto& geometry : other.geometries_) {
+            addGeometry(geometry);
+        }
     }
 
     std::span<const RenderGeometryPrepareDesc> geometries() const { return geometries_; }

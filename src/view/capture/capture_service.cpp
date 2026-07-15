@@ -1,4 +1,4 @@
-#include <mulan/view/capture/capture_service.h>
+#include "capture/capture_service.h"
 
 #include <mulan/view/core/view_context.h>
 
@@ -65,7 +65,7 @@ core::Result<engine::RenderCaptureResult> CaptureService::capture(ViewContext& c
     if (auto failure = validateCaptureInput(context, {}, width, height)) {
         return std::unexpected(failure->result.error());
     }
-    return context.captureFrame(context.snapshotViewState(), normalizedDesc(desc, width, height));
+    return context.captureFrame(context.snapshotViewState(width, height), normalizedDesc(desc, width, height));
 }
 
 core::Result<CaptureImage> CaptureService::capture(ViewContext& context, const CaptureRequest& request) const {

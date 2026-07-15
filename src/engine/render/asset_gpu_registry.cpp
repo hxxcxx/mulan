@@ -1,11 +1,14 @@
 #include "asset_gpu_registry.h"
 #include "../rhi/buffer.h"
 #include "../rhi/device.h"
+#include "../rhi/engine_error_code.h"
 
 #include <mulan/core/log/log.h>
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
+#include <utility>
 
 namespace mulan::engine {
 
@@ -20,9 +23,10 @@ AssetGpuRegistry::GpuTextureResource::GpuTextureResource(std::unique_ptr<Texture
     }
 }
 
-const GpuGeometry* AssetGpuRegistry::acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh, bool forceUpdate) {
+core::Result<const GpuGeometry*> AssetGpuRegistry::acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh,
+                                                                   bool forceUpdate) {
     if (!key) {
-        return nullptr;
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "GPU geometry resource key is invalid."));
     }
 
     if (auto it = geometries_.find(key); it != geometries_.end()) {
@@ -30,29 +34,33 @@ const GpuGeometry* AssetGpuRegistry::acquireGeometry(AssetGpuKey key, const grap
             return &it->second;
         }
 
-        auto result = createGpuBuffer(device_, mesh);
+        auto result = createGpuBuffer(mesh);
         if (!result) {
-            return nullptr;
+            return std::unexpected(result.error());
         }
-        if (it->second.isValid()) {
-            retired_geometries_.push_back(std::move(it->second));
-        }
+        GpuGeometry oldGeometry = std::move(it->second);
         it->second = std::move(*result);
+        if (oldGeometry.isValid()) {
+            if (auto retired = retireGeometry(std::move(oldGeometry)); !retired) {
+                return std::unexpected(retired.error());
+            }
+        }
         return &it->second;
     }
 
-    auto result = createGpuBuffer(device_, mesh);
+    auto result = createGpuBuffer(mesh);
     if (!result) {
-        return nullptr;
+        return std::unexpected(result.error());
     }
     auto [inserted, _] = geometries_.emplace(key, std::move(*result));
     return &inserted->second;
 }
 
-Texture* AssetGpuRegistry::acquireTexture(AssetGpuKey key, const core::Image& image,
-                                          const TextureLoadOptions& options) {
+core::Result<Texture*> AssetGpuRegistry::acquireTexture(AssetGpuKey key, const core::Image& image,
+                                                        const TextureLoadOptions& options) {
     if (!key || !image.valid()) {
-        return nullptr;
+        return std::unexpected(
+                core::Error::make(core::ErrorCode::InvalidArg, "GPU texture resource input is invalid."));
     }
 
     const auto cacheKey = textureKey(key, options);
@@ -64,12 +72,17 @@ Texture* AssetGpuRegistry::acquireTexture(AssetGpuKey key, const core::Image& im
                                     (options.generateMips ? TextureUsageFlags::GenerateMips : TextureUsageFlags::None);
     auto texture = createRHITexture(image, usage, options.sRGB, options.generateMips);
     if (!texture) {
-        return nullptr;
+        return std::unexpected(texture.error());
     }
 
     auto [inserted, _] =
-            textures_.emplace(cacheKey, GpuTextureResource{ std::move(texture), std::to_string(key.value) });
+            textures_.emplace(cacheKey, GpuTextureResource{ std::move(*texture), std::to_string(key.value) });
     return inserted->second.get();
+}
+
+void AssetGpuRegistry::releaseUploadFailureKeepalives() {
+    failed_upload_geometry_.reset();
+    failed_upload_texture_.reset();
 }
 
 const GpuGeometry* AssetGpuRegistry::findGeometry(AssetGpuKey key) const {
@@ -113,11 +126,13 @@ Texture* AssetGpuRegistry::createTexture(uint32_t width, uint32_t height, Textur
 
 void AssetGpuRegistry::clear() {
     geometries_.clear();
-    retired_geometries_.clear();
     textures_.clear();
+    retirement_failure_keepalive_.reset();
+    failed_upload_geometry_.reset();
+    failed_upload_texture_.reset();
 }
 
-core::Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(RHIDevice& device, const graphics::Mesh& mesh) {
+core::Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(const graphics::Mesh& mesh) {
     GpuGeometry geo;
     if (mesh.empty()) {
         return geo;
@@ -131,7 +146,7 @@ core::Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(RHIDevice& device, c
 
     if (geo.vertexCount > 0 && !mesh.vertices.empty()) {
         const uint32_t size = static_cast<uint32_t>(mesh.vertices.size());
-        auto vb = device.createBuffer(BufferDesc::vertex(size, mesh.vertices.data(), "AssetGpuRegistryVB"));
+        auto vb = device_.createBuffer(BufferDesc::vertex(size, mesh.vertices.data(), "AssetGpuRegistryVB"));
         if (!vb) {
             return std::unexpected(vb.error());
         }
@@ -140,8 +155,12 @@ core::Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(RHIDevice& device, c
 
     if (geo.indexCount > 0 && !mesh.indices.empty()) {
         const uint32_t size = static_cast<uint32_t>(mesh.indices.size());
-        auto ib = device.createBuffer(BufferDesc::index(size, mesh.indices.data(), "AssetGpuRegistryIB"));
+        auto ib = device_.createBuffer(BufferDesc::index(size, mesh.indices.data(), "AssetGpuRegistryIB"));
         if (!ib) {
+            // vertexBuffer 的上传命令可能已经录入当前批次；保活到调用方 flush 完成。
+            if (geo.vertexBuffer) {
+                failed_upload_geometry_.emplace(std::move(geo));
+            }
             return std::unexpected(ib.error());
         }
         geo.indexBuffer = std::move(*ib);
@@ -149,6 +168,23 @@ core::Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(RHIDevice& device, c
 
     geo.uploaded = true;
     return geo;
+}
+
+core::Result<void> AssetGpuRegistry::retireGeometry(GpuGeometry geometry) {
+    const SubmissionToken token = device_.lastSubmissionToken();
+    if (!token) {
+        return {};
+    }
+
+    auto keepalive = std::make_shared<GpuGeometry>(std::move(geometry));
+    auto retired = device_.retire(token, [keepalive] {});
+    if (!retired) {
+        // 理论上同一 device 产生的 token 不应被拒绝；保守保活并让上层 fail-stop，
+        // 避免退役登记异常退化为旧帧仍在使用的 GPU 对象提前析构。
+        retirement_failure_keepalive_.emplace(std::move(*keepalive));
+        return std::unexpected(retired.error());
+    }
+    return {};
 }
 
 std::string AssetGpuRegistry::textureKey(AssetGpuKey resourceKey, const TextureLoadOptions& options) {
@@ -173,14 +209,16 @@ TextureFormat AssetGpuRegistry::toRHITextureFormat(core::PixelFormat pixelFmt, b
     }
 }
 
-std::unique_ptr<Texture> AssetGpuRegistry::createRHITexture(const core::Image& image, TextureUsageFlags usage,
-                                                            bool sRGB, bool generateMips) {
+core::Result<std::unique_ptr<Texture>> AssetGpuRegistry::createRHITexture(const core::Image& image,
+                                                                          TextureUsageFlags usage, bool sRGB,
+                                                                          bool generateMips) {
     std::shared_ptr<core::Image> rgbaImage;
     const core::Image* uploadImage = &image;
     if (image.format() != core::PixelFormat::RGBA8) {
         rgbaImage = image.toRGBA();
         if (!rgbaImage || !rgbaImage->valid()) {
-            return nullptr;
+            return std::unexpected(
+                    makeError(EngineErrorCode::ResourceUploadFailed, "Texture conversion to RGBA failed."));
         }
         uploadImage = rgbaImage.get();
     }
@@ -195,7 +233,7 @@ std::unique_ptr<Texture> AssetGpuRegistry::createRHITexture(const core::Image& i
 
     auto result = device_.createTexture(desc);
     if (!result) {
-        return nullptr;
+        return std::unexpected(result.error());
     }
 
     if (uploadImage->data() && uploadImage->totalBytes() > 0) {
@@ -205,7 +243,9 @@ std::unique_ptr<Texture> AssetGpuRegistry::createRHITexture(const core::Image& i
                                                  uploadImage->width(), uploadImage->height(), desc.format));
         if (!uploadResult) {
             LOG_ERROR("[AssetGpuRegistry] Texture upload failed: {}", uploadResult.error().message);
-            return nullptr;
+            // RHI 不要求失败前完全没有录制命令；保活目标纹理直到批次 flush 收口。
+            failed_upload_texture_ = std::move(*result);
+            return std::unexpected(uploadResult.error());
         }
     }
 

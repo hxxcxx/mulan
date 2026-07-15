@@ -36,7 +36,7 @@ struct ViewConfig {
     bool stencilBuffer = false;
 
     bool enableValidation = true;
-    /// 线程路径仍在迭代，当前默认走稳定的同步运行时；可显式设为 Threaded 进行验证。
+    /// 当前默认走调用线程内执行；可显式设为 Threaded 使用专用渲染线程。
     RenderExecutionMode executionMode = RenderExecutionMode::Synchronous;
 
     float clearColor[4] = { 97.0f / 255, 101.0f / 255, 118.0f / 255, 1.0f };

@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include <mulan/view/scene_sync/render_world_sync.h>
+#include "scene_sync/render_world_sync.h"
 #include <mulan/view/core/view_state.h>
 
 #include <mulan/render/frontend/render_resource_prepare.h>
@@ -36,11 +36,13 @@ struct RenderSubmission {
     uint64_t geometryGeneration = 0;
     uint64_t previewGeneration = 0;
     uint64_t surfaceGeneration = 0;
+    /// 当前携带的待确认 GPU 资源批次；0 表示没有持久资源更新。
+    uint64_t resourceBatchId = 0;
     bool rebuiltWorld = false;
     uint64_t generation = 0;
 
     bool hasWorld() const { return static_cast<bool>(world); }
-    bool hasResourceUpdates() const { return !prepare.geometries().empty(); }
+    bool hasResourceUpdates() const { return resourceBatchId != 0 && !prepare.empty(); }
 };
 
 }  // namespace mulan::view

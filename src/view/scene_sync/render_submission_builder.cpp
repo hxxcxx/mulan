@@ -5,7 +5,7 @@
  * @date 2026-07-10
  */
 
-#include <mulan/view/scene_sync/render_submission_builder.h>
+#include "scene_sync/render_submission_builder.h"
 
 #include <mulan/view/core/preview_layer.h>
 #include <mulan/view/scene_sync/render_scene.h>
@@ -31,6 +31,8 @@ void RenderSubmissionBuilder::reset() {
     last_sync_stats_ = {};
     diagnostics_ = {};
     light_environment_ = {};
+    pending_prepare_.clear();
+    resource_batch_id_ = 0;
 }
 
 void RenderSubmissionBuilder::setScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
@@ -40,7 +42,7 @@ void RenderSubmissionBuilder::setScene(const RenderScene* scene, const asset::As
 
     scene_ = scene;
     assets_ = assets;
-    scene_source_dirty_ = true;
+    invalidateResources();
 }
 
 void RenderSubmissionBuilder::setPreviewLayer(const PreviewLayer* preview) {
@@ -49,7 +51,7 @@ void RenderSubmissionBuilder::setPreviewLayer(const PreviewLayer* preview) {
     }
 
     preview_ = preview;
-    preview_source_dirty_ = true;
+    invalidateResources();
 }
 
 void RenderSubmissionBuilder::setLightEnvironment(const engine::LightEnvironment& lightEnvironment) {
@@ -69,6 +71,13 @@ RenderSubmission RenderSubmissionBuilder::build(const ViewState& viewState) {
         rebuild(submission);
     }
 
+    if (!submission.prepare.empty()) {
+        pending_prepare_.merge(submission.prepare);
+        advanceResourceBatch();
+    }
+    submission.prepare = pending_prepare_;
+    submission.resourceBatchId = pending_prepare_.empty() ? 0 : resource_batch_id_;
+
     submission.world = world_snapshot_;
     submission.syncStats = last_sync_stats_;
     submission.generation = ++submission_generation_;
@@ -87,6 +96,20 @@ RenderSubmission RenderSubmissionBuilder::build(const ViewState& viewState) {
     diagnostics_.lastGeometryGeneration = submission.geometryGeneration;
     diagnostics_.lastPreviewGeneration = submission.previewGeneration;
     return submission;
+}
+
+void RenderSubmissionBuilder::acknowledgeResources(uint64_t batchId) {
+    if (batchId == 0 || batchId != resource_batch_id_) {
+        return;
+    }
+    pending_prepare_.clear();
+}
+
+void RenderSubmissionBuilder::invalidateResources() {
+    pending_prepare_.clear();
+    advanceResourceBatch();
+    scene_source_dirty_ = true;
+    preview_source_dirty_ = true;
 }
 
 bool RenderSubmissionBuilder::needsRebuild() const {
@@ -121,6 +144,13 @@ void RenderSubmissionBuilder::rebuild(RenderSubmission& submission) {
     last_preview_generation_ = previewGeneration;
     scene_source_dirty_ = false;
     preview_source_dirty_ = false;
+}
+
+void RenderSubmissionBuilder::advanceResourceBatch() {
+    ++resource_batch_id_;
+    if (resource_batch_id_ == 0) {
+        resource_batch_id_ = 1;
+    }
 }
 
 }  // namespace mulan::view

@@ -5,6 +5,7 @@
 #include "../text/text_stage.h"
 #include "../../rhi/command_list.h"
 #include "../../rhi/device.h"
+#include "../../rhi/engine_error_code.h"
 #include "../../rhi/render_target.h"
 #include "../../rhi/render_types.h"
 #include "../../rhi/swap_chain.h"
@@ -12,26 +13,37 @@
 #include <mulan/core/log/log.h>
 
 #include <cstdio>
+#include <optional>
 #include <span>
 
 namespace mulan::engine {
 namespace {
 
-void prepareTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
+core::Result<void> prepareTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
     if (!desc.resourceKey || !desc.image || !desc.image->valid())
-        return;
+        return {};
 
     TextureLoadOptions options;
     options.sRGB = desc.srgb;
-    assets.acquireTexture(desc.resourceKey, *desc.image, options);
+    auto texture = assets.acquireTexture(desc.resourceKey, *desc.image, options);
+    if (!texture) {
+        return std::unexpected(texture.error());
+    }
+    return {};
 }
 
-void prepareMaterialTextures(AssetGpuRegistry& assets, const RenderMaterialDesc& material) {
-    prepareTexture(assets, material.baseColorTexture);
-    prepareTexture(assets, material.normalTexture);
-    prepareTexture(assets, material.metallicRoughnessTexture);
-    prepareTexture(assets, material.emissiveTexture);
-    prepareTexture(assets, material.ambientOcclusionTexture);
+core::Result<void> prepareMaterialTextures(AssetGpuRegistry& assets, const RenderMaterialDesc& material) {
+    if (auto result = prepareTexture(assets, material.baseColorTexture); !result)
+        return std::unexpected(result.error());
+    if (auto result = prepareTexture(assets, material.normalTexture); !result)
+        return std::unexpected(result.error());
+    if (auto result = prepareTexture(assets, material.metallicRoughnessTexture); !result)
+        return std::unexpected(result.error());
+    if (auto result = prepareTexture(assets, material.emissiveTexture); !result)
+        return std::unexpected(result.error());
+    if (auto result = prepareTexture(assets, material.ambientOcclusionTexture); !result)
+        return std::unexpected(result.error());
+    return {};
 }
 
 }  // namespace
@@ -153,25 +165,76 @@ void RenderRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
     }
 }
 
-void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request) {
-    if (!initialized_ || !surface.isValid())
-        return;
-    if (!validateOutput(surface, request))
-        return;
+core::Result<void> RenderRenderer::preparePersistentResources(RHIDevice& device,
+                                                              const RenderResourcePrepareList& prepare) {
+    if (!initialized_ || !asset_gpu_registry_) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "Render renderer is not initialized."));
+    }
+    if (prepare.empty()) {
+        return {};
+    }
+
+    if (auto result = device.beginUploadBatch(); !result) {
+        LOG_ERROR("[RenderRenderer] Persistent upload batch begin failed: {}", result.error().message);
+        return std::unexpected(result.error());
+    }
+
+    std::optional<core::Error> prepareFailure;
+    for (const auto& geometry : prepare.geometries()) {
+        if (!geometry.mesh || geometry.mesh->empty()) {
+            continue;
+        }
+        auto acquired =
+                asset_gpu_registry_->acquireGeometry(geometry.resourceKey, *geometry.mesh, geometry.forceUpdate);
+        if (!acquired) {
+            prepareFailure = acquired.error();
+            break;
+        }
+    }
+
+    // 即使单个资源创建失败，也要结束已开启的批次，避免后端停留在半开启状态。
+    if (auto result = device.flushUploadBatch(); !result) {
+        LOG_ERROR("[RenderRenderer] Persistent upload batch flush failed: {}", result.error().message);
+        return std::unexpected(result.error());
+    }
+    asset_gpu_registry_->releaseUploadFailureKeepalives();
+    if (prepareFailure) {
+        LOG_ERROR("[RenderRenderer] Persistent resource preparation failed: {}", prepareFailure->message);
+        return std::unexpected(std::move(*prepareFailure));
+    }
+    return {};
+}
+
+core::Result<void> RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surface,
+                                          const RenderRequest& request) {
+    if (!initialized_) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "Render renderer is not initialized."));
+    }
+    if (!surface.isValid() || !validateOutput(surface, request)) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "Render output is invalid."));
+    }
 
     if (auto result = device.beginUploadBatch(); !result) {
         LOG_ERROR("[RenderRenderer] Upload batch begin failed: {}", result.error().message);
-        return;
+        return std::unexpected(result.error());
     }
-    compile(request);
+    auto compiled = compile(request);
     if (auto result = device.flushUploadBatch(); !result) {
         LOG_ERROR("[RenderRenderer] Upload batch flush failed: {}", result.error().message);
-        return;
+        return std::unexpected(result.error());
+    }
+    asset_gpu_registry_->releaseUploadFailureKeepalives();
+    if (!compiled) {
+        clearCompiledCommands();
+        LOG_ERROR("[RenderRenderer] Frame resource preparation failed: {}", compiled.error().message);
+        return std::unexpected(compiled.error());
     }
 
-    auto* cmd = beginFrame(device, surface, request);
-    if (!cmd)
-        return;
+    auto commandList = beginFrame(device, surface, request);
+    if (!commandList) {
+        return std::unexpected(commandList.error());
+    }
+    auto* cmd = *commandList;
 
     RenderView renderView;
     renderView.viewMatrix = request.view.viewMatrix;
@@ -200,7 +263,7 @@ void RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surfa
 
     cmd->endRenderPass();
 
-    endFrame(device, surface, request);
+    return endFrame(device, surface, request);
 }
 
 void RenderRenderer::clearAssetResources(RHIDevice& device) {
@@ -262,14 +325,16 @@ void RenderRenderer::clearCompiledCommands() {
     compiler_.clear();
 }
 
-void RenderRenderer::compile(const RenderRequest& request) {
+core::Result<void> RenderRenderer::compile(const RenderRequest& request) {
     if (!request.world) {
         clearCompiledCommands();
-        return;
+        return {};
     }
 
     workload_.build(*request.world, request.options);
-    prepareResources(request);
+    if (auto result = prepareFrameResources(request); !result) {
+        return std::unexpected(result.error());
+    }
 
     if (face_stage_) {
         face_stage_->setSurfaceTechnique(request.options.surfaceTechnique);
@@ -303,36 +368,32 @@ void RenderRenderer::compile(const RenderRequest& request) {
         highlight_stage_->setEdgeDrawCommands(
                 !compiler_.highlightEdgeCommands().empty() ? compiler_.highlightEdgeCommands() : emptyCommands);
     }
+    return {};
 }
 
-void RenderRenderer::prepareResources(const RenderRequest& request) {
+core::Result<void> RenderRenderer::prepareFrameResources(const RenderRequest& request) {
     if (!request.world || !asset_gpu_registry_)
-        return;
-
-    if (request.prepare) {
-        for (const auto& geometry : request.prepare->geometries()) {
-            if (geometry.mesh && !geometry.mesh->empty()) {
-                asset_gpu_registry_->acquireGeometry(geometry.resourceKey, *geometry.mesh, geometry.forceUpdate);
-            }
-        }
-    }
+        return {};
 
     if (request.options.surfaceTechnique == SurfaceTechnique::SurfacePBR) {
         for (const auto& item : workload_.surfaces()) {
             const auto* material = request.world->material(item.material);
             if (material) {
-                prepareMaterialTextures(*asset_gpu_registry_, material->desc);
+                if (auto result = prepareMaterialTextures(*asset_gpu_registry_, material->desc); !result) {
+                    return std::unexpected(result.error());
+                }
             }
         }
     }
+    return {};
 }
 
-CommandList* RenderRenderer::beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
-                                        const RenderRequest& request) {
+core::Result<CommandList*> RenderRenderer::beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
+                                                      const RenderRequest& request) {
     auto commandListResult = device.beginFrame(surface.swapChain ? surface.swapChain : nullptr);
     if (!commandListResult) {
         LOG_ERROR("[RenderRenderer] Frame begin failed: {}", commandListResult.error().message);
-        return nullptr;
+        return std::unexpected(commandListResult.error());
     }
     auto* cmd = *commandListResult;
 
@@ -398,11 +459,15 @@ DrawExecutionContext RenderRenderer::buildDrawContext(CommandList& cmd, const Re
     return ctx;
 }
 
-void RenderRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request) {
+core::Result<void> RenderRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
+                                            const RenderRequest& request) {
     SwapChain* swapchain = request.output.mode == RenderTargetMode::Present ? surface.swapChain : nullptr;
     auto result = device.endFrame(swapchain);
-    if (!result)
+    if (!result) {
         LOG_ERROR("[RenderRenderer] Frame submission failed: {}", result.error().message);
+        return std::unexpected(result.error());
+    }
+    return {};
 }
 
 }  // namespace mulan::engine

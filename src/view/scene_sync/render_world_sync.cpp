@@ -1,4 +1,4 @@
-#include <mulan/view/scene_sync/render_world_sync.h>
+#include "scene_sync/render_world_sync.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/geometry_asset.h>
@@ -173,8 +173,7 @@ void appendPreviewDrawables(const PreviewLayer& preview, engine::RenderWorld& wo
 
     std::vector<RenderItem> items;
     RenderItemDiagnostics diagnostics;
-    RenderItemBuilder::buildPreviewItems(preview.generation(),
-                                         std::span<const PreviewDrawable>{ drawables.data(), drawables.size() }, items,
+    RenderItemBuilder::buildPreviewItems(std::span<const PreviewDrawable>{ drawables.data(), drawables.size() }, items,
                                          &diagnostics);
     accumulate(stats.previewItems, diagnostics);
     for (const RenderItem& item : items) {
@@ -186,7 +185,8 @@ void appendPreviewDrawables(const PreviewLayer& preview, engine::RenderWorld& wo
         geometryDesc.vertexLayout = mesh.layout;
         geometryDesc.empty = mesh.empty();
         if (prepare) {
-            prepare->addGeometry(geometryDesc.resourceKey, mesh);
+            // 预览 key 按角色槽位稳定复用；每次预览重建都覆盖同一 GPU 资源。
+            prepare->addGeometry(geometryDesc.resourceKey, mesh, true);
         }
 
         if (!mesh.bounds.isEmpty()) {

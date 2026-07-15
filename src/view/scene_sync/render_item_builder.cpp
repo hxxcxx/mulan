@@ -1,13 +1,14 @@
-#include <mulan/view/scene_sync/render_item_builder.h>
+#include "scene_sync/render_item_builder.h"
 
 #include <mulan/render/frontend/render_contract.h>
 
+#include <array>
 #include <optional>
 
 namespace mulan::view {
 namespace {
 
-constexpr uint64_t kPreviewGeometryKey = 0xF000000000000001ull;
+constexpr uint64_t kPreviewGeometryNamespace = 0xF100000000000000ull;
 constexpr uint64_t kPreviewToolMaterialKey = 0xF000000000000002ull;
 constexpr uint64_t kPreviewSnapMaterialKey = 0xF000000000000003ull;
 constexpr uint64_t kPreviewGripMaterialKey = 0xF000000000000004ull;
@@ -17,8 +18,24 @@ uint64_t sceneGeometryKey(asset::AssetId geometry, size_t drawableIndex) {
     return geometry.value ^ ((static_cast<uint64_t>(drawableIndex) + 1u) << 32u);
 }
 
-uint64_t previewGeometryKey(uint64_t generation, size_t drawableIndex) {
-    return kPreviewGeometryKey ^ generation ^ ((static_cast<uint64_t>(drawableIndex) + 1u) << 32u);
+constexpr size_t kPreviewRoleCount = static_cast<size_t>(PreviewVisualRole::GripHot) + 1u;
+
+size_t previewRoleIndex(PreviewVisualRole role) {
+    switch (role) {
+    case PreviewVisualRole::Tool: return 0;
+    case PreviewVisualRole::Snap: return 1;
+    case PreviewVisualRole::Grip: return 2;
+    case PreviewVisualRole::GripHot: return 3;
+    }
+    return 0;
+}
+
+uint64_t previewGeometryKey(PreviewVisualRole role, size_t roleSlot) {
+    constexpr uint64_t kRoleShift = 48u;
+    constexpr uint64_t kSlotMask = (1ull << kRoleShift) - 1ull;
+    const uint64_t roleBits = (static_cast<uint64_t>(previewRoleIndex(role)) + 1ull) << kRoleShift;
+    const uint64_t slotBits = (static_cast<uint64_t>(roleSlot) + 1ull) & kSlotMask;
+    return kPreviewGeometryNamespace | roleBits | slotBits;
 }
 
 std::optional<engine::RenderBucket> bucketForSceneDrawable(const asset::Drawable& drawable) {
@@ -112,15 +129,18 @@ void RenderItemBuilder::buildSceneItems(asset::AssetId geometry, std::span<const
     }
 }
 
-void RenderItemBuilder::buildPreviewItems(uint64_t generation, std::span<const PreviewDrawable> drawables,
-                                          std::vector<RenderItem>& out, RenderItemDiagnostics* diagnostics) {
+void RenderItemBuilder::buildPreviewItems(std::span<const PreviewDrawable> drawables, std::vector<RenderItem>& out,
+                                          RenderItemDiagnostics* diagnostics) {
     out.clear();
     if (diagnostics) {
         diagnostics->reset();
     }
 
+    std::array<size_t, kPreviewRoleCount> roleSlots{};
     for (size_t i = 0; i < drawables.size(); ++i) {
         const PreviewDrawable& drawable = drawables[i];
+        const size_t roleIndex = previewRoleIndex(drawable.role);
+        const size_t roleSlot = roleSlots[roleIndex]++;
         const graphics::Mesh& mesh = drawable.mesh;
         if (mesh.empty()) {
             countRejectedEmpty(diagnostics);
@@ -147,7 +167,7 @@ void RenderItemBuilder::buildPreviewItems(uint64_t generation, std::span<const P
                 .mesh = &mesh,
                 .material = asset::AssetId::invalid(),
                 .bucket = *bucket,
-                .geometryKey = previewGeometryKey(generation, i),
+                .geometryKey = previewGeometryKey(drawable.role, roleSlot),
                 .sourceDrawableIndex = i,
                 .previewRole = drawable.role,
         });

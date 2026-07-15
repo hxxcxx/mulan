@@ -1,11 +1,11 @@
-#include <mulan/view/runtime/render_device_context.h>
+#include "runtime/detail/render_device_context.h"
 
 #include <mulan/core/log/log.h>
 
 #include <algorithm>
 #include <vector>
 
-namespace mulan::view {
+namespace mulan::view::detail {
 namespace {
 
 std::mutex registry_mutex;
@@ -30,6 +30,13 @@ bool RenderDeviceContext::matches(const RenderDeviceContext& context, const View
            sameRenderConfig(context.render_config_, config.toRenderConfig());
 }
 
+void RenderDeviceContext::markFailed() {
+    if (healthy_.exchange(false)) {
+        LOG_CRITICAL("[RenderDeviceContext] Shared device context marked unhealthy: backend={}",
+                     static_cast<int>(backend_));
+    }
+}
+
 core::Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::acquire(const ViewConfig& config) {
     const engine::RenderConfig renderConfig = config.toRenderConfig();
     std::scoped_lock registryLock(registry_mutex);
@@ -37,8 +44,12 @@ core::Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::acquire(
     if (canShare(config.backend)) {
         for (auto it = registry.begin(); it != registry.end();) {
             if (auto existing = it->lock()) {
+                if (!existing->isHealthy()) {
+                    it = registry.erase(it);
+                    continue;
+                }
                 if (matches(*existing, config)) {
-                    LOG_DEBUG("[ViewRuntime] Reusing render device context: backend={}",
+                    LOG_DEBUG("[RenderDeviceContext] Reusing device context: backend={}",
                               static_cast<int>(config.backend));
                     return existing;
                 }
@@ -58,7 +69,7 @@ core::Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::acquire(
 
     auto device = engine::RHIDevice::create(createInfo);
     if (!device) {
-        LOG_ERROR("[ViewRuntime] Render device creation failed: backend={}, validation={}, error={}",
+        LOG_ERROR("[RenderDeviceContext] Device creation failed: backend={}, validation={}, error={}",
                   static_cast<int>(config.backend), config.enableValidation, device.error().message);
         return std::unexpected(device.error());
     }
@@ -69,9 +80,9 @@ core::Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::acquire(
     if (canShare(config.backend)) {
         registry.emplace_back(context);
     }
-    LOG_INFO("[ViewRuntime] Render device context created: backend={}, validation={}, shared={}",
+    LOG_INFO("[RenderDeviceContext] Device context created: backend={}, validation={}, shared={}",
              static_cast<int>(config.backend), config.enableValidation, canShare(config.backend));
     return context;
 }
 
-}  // namespace mulan::view
+}  // namespace mulan::view::detail

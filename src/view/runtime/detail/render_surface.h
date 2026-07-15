@@ -11,9 +11,10 @@
 
 #pragma once
 
-#include "mulan/rhi/buffer.h"
-#include "mulan/rhi/render_target.h"
-#include "mulan/rhi/swap_chain.h"
+#include <mulan/core/result/error.h>
+#include <mulan/rhi/buffer.h>
+#include <mulan/rhi/render_target.h>
+#include <mulan/rhi/swap_chain.h>
 #include <mulan/view/core/view_config.h>
 
 #include <cstdint>
@@ -24,7 +25,7 @@ namespace mulan::engine {
 class RHIDevice;
 }
 
-namespace mulan::view {
+namespace mulan::view::detail {
 
 struct RenderSurfaceDesc {
     int width = 0;
@@ -55,7 +56,8 @@ public:
 
     void shutdown(engine::RHIDevice& device);
 
-    void resize(engine::RHIDevice& device, int width, int height);
+    /// 调整表面尺寸。失败时保留后端错误，使上层能够决定是否丢弃执行域。
+    core::Result<void> resize(engine::RHIDevice& device, int width, int height);
 
     bool readbackPixels(engine::RHIDevice& device, std::vector<uint8_t>& pixels);
 
@@ -76,7 +78,6 @@ public:
     uint32_t sampleCount() const;
 
 private:
-    bool createReadbackBuffer(engine::RHIDevice& device);
     bool offscreenDescMatches(const RenderSurfaceDesc& desc) const;
     void advanceGeneration();
 
@@ -93,4 +94,4 @@ private:
     uint64_t generation_ = 1;
 };
 
-}  // namespace mulan::view
+}  // namespace mulan::view::detail
