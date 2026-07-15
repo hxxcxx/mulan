@@ -115,7 +115,7 @@ public:
 
     /// 保存为 PNG（自动根据 format 选择通道数）
     bool savePNG(std::string_view path) const;
-    core::Result<void> savePNGExpected(std::string_view path) const;
+    Result<void> savePNGExpected(std::string_view path) const;
 
     /// 保存为 BMP
     bool saveBMP(std::string_view path) const;
@@ -129,9 +129,9 @@ public:
     // --- 工厂：从文件加载 ---
 
     /// 从文件加载图像；失败返回带原因的 Error。
-    static core::Result<std::shared_ptr<Image>> load(std::string_view path, const ImageDecodeOptions& options = {});
-    static core::Result<std::shared_ptr<Image>> loadFromMemory(std::span<const std::byte> encoded,
-                                                               const ImageDecodeOptions& options = {});
+    static Result<std::shared_ptr<Image>> load(std::string_view path, const ImageDecodeOptions& options = {});
+    static Result<std::shared_ptr<Image>> loadFromMemory(std::span<const std::byte> encoded,
+                                                         const ImageDecodeOptions& options = {});
 
     // --- 工厂：从缓冲区构建 ---
 
@@ -169,7 +169,7 @@ public:
     size_t totalBytes() const { return pixels_.size() * sizeof(float); }
 
     static std::shared_ptr<FloatImage> loadHDR(std::string_view path, int forceChannels = 4);
-    static core::Result<std::shared_ptr<FloatImage>> loadHDRExpected(std::string_view path, int forceChannels = 4);
+    static Result<std::shared_ptr<FloatImage>> loadHDRExpected(std::string_view path, int forceChannels = 4);
 
 private:
     uint32_t width_ = 0;

@@ -22,8 +22,8 @@ namespace mulan::engine {
 class VKRenderTarget : public RenderTarget {
 public:
     /// 创建 VKRenderTarget。失败返回 RenderTargetCreateFailed。
-    static core::Result<std::unique_ptr<VKRenderTarget>> create(const RenderTargetDesc& desc, vk::Device device,
-                                                                VmaAllocator allocator);
+    static Result<std::unique_ptr<VKRenderTarget>> create(const RenderTargetDesc& desc, vk::Device device,
+                                                          VmaAllocator allocator);
     ~VKRenderTarget();
 
     const RenderTargetDesc& desc() const override { return desc_; }
@@ -31,7 +31,7 @@ public:
     Texture* colorTexture() override { return color_texture_.get(); }
     Texture* depthTexture() override { return depth_texture_.get(); }
 
-    core::Result<void> resize(uint32_t width, uint32_t height) override;
+    Result<void> resize(uint32_t width, uint32_t height) override;
     RenderPassBeginInfo renderPassBeginInfo() override;
 
 private:
@@ -39,7 +39,7 @@ private:
         : desc_(desc), device_(device), allocator_(allocator) {}
 
     /// 创建/重建资源。成功返回默认 Error(code=0)。
-    core::Error createResources();
+    Error createResources();
     void cleanup();
 
     RenderTargetDesc desc_;

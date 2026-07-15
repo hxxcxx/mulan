@@ -28,11 +28,10 @@ std::string lowerExtension(std::string_view path) {
 }
 
 /// STEP/IGES 路径:把 ShapeFileReader 产出的 NamedShape 列表包成 ParsedScene(brep 分区)。
-core::Result<ParsedScene> parseShapeFile(const std::string& path, const std::string& ext) {
+Result<ParsedScene> parseShapeFile(const std::string& path, const std::string& ext) {
     auto reader = modeling::ShapeFileReaderRegistry::instance().create(ext);
     if (!reader) {
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::NotSupported, "No shape reader for extension: ." + ext));
+        return std::unexpected(Error::make(ErrorCode::NotSupported, "No shape reader for extension: ." + ext));
     }
 
     auto shapes = reader->read(path);
@@ -59,7 +58,7 @@ core::Result<ParsedScene> parseShapeFile(const std::string& path, const std::str
 
 }  // namespace
 
-core::Result<OpenDocumentResult> FileManager::openFile(const std::string& path, const ImportOptions& options) {
+Result<OpenDocumentResult> FileManager::openFile(const std::string& path, const ImportOptions& options) {
     const auto startedAt = std::chrono::steady_clock::now();
     const std::string ext = lowerExtension(path);
     LOG_INFO("[IO] Import started: path={}, extension={}", path, ext.empty() ? "<none>" : ext);
@@ -69,8 +68,8 @@ core::Result<OpenDocumentResult> FileManager::openFile(const std::string& path, 
     doc->setFilePath(path);
 
     // 解析 → ParsedScene(两条路:io 自有 importer 或 shape reader)
-    core::Result<ParsedScene> sceneResult =
-            std::unexpected(core::Error::make(core::ErrorCode::NotSupported, "No importer for extension: ." + ext));
+    Result<ParsedScene> sceneResult =
+            std::unexpected(Error::make(ErrorCode::NotSupported, "No importer for extension: ." + ext));
 
     const char* importerKind = "none";
     if (auto importer = ImporterFactory::instance().create(ext)) {

@@ -12,7 +12,7 @@ namespace mulan::io {
 
 class IO_API GltfImporter : public IFileImporter {
 public:
-    core::Result<ParsedScene> parse(const std::string& path, const ImportOptions& options = {}) override;
+    Result<ParsedScene> parse(const std::string& path, const ImportOptions& options = {}) override;
 
     std::vector<std::string> supportedExtensions() const override;
     std::string name() const override;

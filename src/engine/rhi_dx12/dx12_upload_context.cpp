@@ -89,8 +89,7 @@ DX12UploadContext::StagingSlab* DX12UploadContext::getOrCreateSlab(uint64_t minS
     return &slabs_.back();
 }
 
-core::Result<void> DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* data, uint32_t size,
-                                                   uint32_t dstOffset) {
+Result<void> DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* data, uint32_t size, uint32_t dstOffset) {
     if (!dst || !dst->resource() || !data || size == 0 || static_cast<uint64_t>(dstOffset) + size > dst->desc().size)
         return std::unexpected(
                 makeError(EngineErrorCode::ResourceUploadFailed, "DX12 buffer upload arguments are invalid"));
@@ -136,7 +135,7 @@ core::Result<void> DX12UploadContext::uploadBuffer(DX12Buffer* dst, const void* 
     return {};
 }
 
-core::Result<void> DX12UploadContext::uploadTexture(DX12Texture* dst, const TextureUploadDesc& upload) {
+Result<void> DX12UploadContext::uploadTexture(DX12Texture* dst, const TextureUploadDesc& upload) {
     const uint32_t bpp = textureFormatBytesPerPixel(upload.format);
     const uint32_t sourceRowPitch = upload.sourceRowPitch ? upload.sourceRowPitch : upload.width * bpp;
     if (!dst || upload.data.empty() || bpp == 0 || upload.width == 0 || upload.height == 0 ||
@@ -217,7 +216,7 @@ core::Result<void> DX12UploadContext::uploadTexture(DX12Texture* dst, const Text
     return {};
 }
 
-core::Result<void> DX12UploadContext::beginUploadBatch() {
+Result<void> DX12UploadContext::beginUploadBatch() {
     if (batch_active_)
         return {};
     if (!checkDX12(cmd_allocator_->Reset(), "ID3D12CommandAllocator::Reset(upload batch)"))
@@ -229,7 +228,7 @@ core::Result<void> DX12UploadContext::beginUploadBatch() {
     return {};
 }
 
-core::Result<void> DX12UploadContext::flushUploadBatch() {
+Result<void> DX12UploadContext::flushUploadBatch() {
     if (!batch_active_)
         return {};
     batch_active_ = false;
@@ -255,7 +254,7 @@ core::Result<void> DX12UploadContext::flushUploadBatch() {
     return {};
 }
 
-core::Result<void> DX12UploadContext::submitIfNotBatching() {
+Result<void> DX12UploadContext::submitIfNotBatching() {
     if (batch_active_)
         return {};
 

@@ -116,7 +116,7 @@ std::vector<BackendContractParam> availableBackends() {
 
 class BackendContractTest : public testing::TestWithParam<BackendContractParam> {
 protected:
-    core::Result<std::unique_ptr<RHIDevice>> createDevice(ContractWindow& window) const {
+    Result<std::unique_ptr<RHIDevice>> createDevice(ContractWindow& window) const {
         const BackendModule& module = GetParam().module();
         DeviceCreateInfo createInfo;
         createInfo.backend = module.backend;

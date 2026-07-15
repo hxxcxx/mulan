@@ -7,20 +7,20 @@
 namespace mulan::view {
 namespace {
 
-core::ErrorCode errorCodeFor(CaptureFailureCode code) {
+ErrorCode errorCodeFor(CaptureFailureCode code) {
     switch (code) {
-    case CaptureFailureCode::ContextNotInitialized: return core::ErrorCode::InvalidArg;
+    case CaptureFailureCode::ContextNotInitialized: return ErrorCode::InvalidArg;
     case CaptureFailureCode::SurfaceNotOffscreen:
-    case CaptureFailureCode::SurfaceConfigurationFailed: return core::ErrorCode::NotSupported;
-    case CaptureFailureCode::InvalidSize: return core::ErrorCode::InvalidArg;
-    case CaptureFailureCode::ReadbackFailed: return core::ErrorCode::Io;
-    case CaptureFailureCode::None: return core::ErrorCode::Generic;
+    case CaptureFailureCode::SurfaceConfigurationFailed: return ErrorCode::NotSupported;
+    case CaptureFailureCode::InvalidSize: return ErrorCode::InvalidArg;
+    case CaptureFailureCode::ReadbackFailed: return ErrorCode::Io;
+    case CaptureFailureCode::None: return ErrorCode::Generic;
     }
-    return core::ErrorCode::Generic;
+    return ErrorCode::Generic;
 }
 
 CaptureResult makeFailure(std::string name, CaptureFailureCode code, std::string message) {
-    auto error = core::Error::make(errorCodeFor(code), message);
+    auto error = Error::make(errorCodeFor(code), message);
     return CaptureResult{
         .name = std::move(name),
         .result = std::unexpected(error),
@@ -58,8 +58,8 @@ std::optional<CaptureResult> CaptureService::validateCaptureInput(ViewContext& c
     return std::nullopt;
 }
 
-core::Result<engine::RenderCaptureResult> CaptureService::capture(ViewContext& context,
-                                                                  const engine::RenderCaptureDesc& desc) const {
+Result<engine::RenderCaptureResult> CaptureService::capture(ViewContext& context,
+                                                            const engine::RenderCaptureDesc& desc) const {
     const uint32_t width = captureWidth(context, desc);
     const uint32_t height = captureHeight(context, desc);
     if (auto failure = validateCaptureInput(context, {}, width, height)) {
@@ -68,7 +68,7 @@ core::Result<engine::RenderCaptureResult> CaptureService::capture(ViewContext& c
     return context.captureFrame(context.snapshotViewState(width, height), normalizedDesc(desc, width, height));
 }
 
-core::Result<CaptureImage> CaptureService::capture(ViewContext& context, const CaptureRequest& request) const {
+Result<CaptureImage> CaptureService::capture(ViewContext& context, const CaptureRequest& request) const {
     const uint32_t width = captureWidth(context, request.desc);
     const uint32_t height = captureHeight(context, request.desc);
     if (auto failure = validateCaptureInput(context, request.name, width, height)) {

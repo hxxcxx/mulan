@@ -23,7 +23,7 @@ VKResourceFactory::VKResourceFactory(RHIDevice& owner, vk::Device device, VmaAll
     : owner_(owner), device_(device), allocator_(allocator), upload_context_(uploadContext) {
 }
 
-core::Result<std::unique_ptr<Buffer>> VKResourceFactory::createBuffer(const BufferDesc& desc) {
+Result<std::unique_ptr<Buffer>> VKResourceFactory::createBuffer(const BufferDesc& desc) {
     auto result = VKBuffer::create(desc, allocator_);
     if (!result)
         return std::unexpected(result.error());
@@ -38,7 +38,7 @@ core::Result<std::unique_ptr<Buffer>> VKResourceFactory::createBuffer(const Buff
     return result;
 }
 
-core::Result<std::unique_ptr<Texture>> VKResourceFactory::createTexture(const TextureDesc& desc) {
+Result<std::unique_ptr<Texture>> VKResourceFactory::createTexture(const TextureDesc& desc) {
     auto result = VKTexture::create(desc, device_, allocator_);
     if (!result)
         return std::unexpected(result.error());
@@ -51,7 +51,7 @@ core::Result<std::unique_ptr<Texture>> VKResourceFactory::createTexture(const Te
     return result;
 }
 
-core::Result<std::unique_ptr<Shader>> VKResourceFactory::createShader(const ShaderDesc& desc) {
+Result<std::unique_ptr<Shader>> VKResourceFactory::createShader(const ShaderDesc& desc) {
     auto result = VKShader::create(desc, device_);
     if (!result)
         return std::unexpected(result.error());
@@ -62,7 +62,7 @@ core::Result<std::unique_ptr<Shader>> VKResourceFactory::createShader(const Shad
     return result;
 }
 
-core::Result<std::unique_ptr<PipelineState>> VKResourceFactory::createPipelineState(const GraphicsPipelineDesc& desc) {
+Result<std::unique_ptr<PipelineState>> VKResourceFactory::createPipelineState(const GraphicsPipelineDesc& desc) {
     if (auto validation = validateGraphicsPipelineDesc(desc, owner_, owner_.capabilities()); !validation)
         return std::unexpected(validation.error());
     auto result = VKPipelineState::create(desc, device_);
@@ -75,7 +75,7 @@ core::Result<std::unique_ptr<PipelineState>> VKResourceFactory::createPipelineSt
     return result;
 }
 
-core::Result<std::unique_ptr<ComputePipelineState>> VKResourceFactory::createComputePipelineState(
+Result<std::unique_ptr<ComputePipelineState>> VKResourceFactory::createComputePipelineState(
         const ComputePipelineDesc& desc) {
     if (auto validation = validateComputePipelineDesc(desc, owner_, owner_.capabilities()); !validation)
         return std::unexpected(validation.error());
@@ -86,7 +86,7 @@ core::Result<std::unique_ptr<ComputePipelineState>> VKResourceFactory::createCom
     return result;
 }
 
-core::Result<std::unique_ptr<RenderTarget>> VKResourceFactory::createRenderTarget(const RenderTargetDesc& desc) {
+Result<std::unique_ptr<RenderTarget>> VKResourceFactory::createRenderTarget(const RenderTargetDesc& desc) {
     auto result = VKRenderTarget::create(desc, device_, allocator_);
     if (!result)
         return std::unexpected(result.error());
@@ -94,7 +94,7 @@ core::Result<std::unique_ptr<RenderTarget>> VKResourceFactory::createRenderTarge
     return result;
 }
 
-core::Result<std::unique_ptr<Sampler>> VKResourceFactory::createSampler(const SamplerDesc& desc) {
+Result<std::unique_ptr<Sampler>> VKResourceFactory::createSampler(const SamplerDesc& desc) {
     auto result = VKSampler::create(desc, device_);
     if (!result)
         return std::unexpected(result.error());
@@ -106,7 +106,7 @@ core::Result<std::unique_ptr<Sampler>> VKResourceFactory::createSampler(const Sa
     return result;
 }
 
-core::Result<std::unique_ptr<Fence>> VKResourceFactory::createFence(uint64_t initialValue) {
+Result<std::unique_ptr<Fence>> VKResourceFactory::createFence(uint64_t initialValue) {
     auto result = VKFence::create(device_, initialValue);
     if (!result)
         return std::unexpected(result.error());
@@ -118,9 +118,9 @@ core::Result<std::unique_ptr<Fence>> VKResourceFactory::createFence(uint64_t ini
     return result;
 }
 
-core::Result<std::unique_ptr<BindGroup>> VKResourceFactory::createBindGroup(const BindGroupLayout& layout,
-                                                                            const BindGroupDesc& desc,
-                                                                            BindGroupValidationLimits limits) {
+Result<std::unique_ptr<BindGroup>> VKResourceFactory::createBindGroup(const BindGroupLayout& layout,
+                                                                      const BindGroupDesc& desc,
+                                                                      BindGroupValidationLimits limits) {
     auto bindGroup =
             std::unique_ptr<BindGroup>(std::make_unique<VKBindGroup>(layout, desc.entries, desc.count, limits));
     bindGroup->trackResource(owner_, RHIResourceKind::BindGroup, "BindGroup");

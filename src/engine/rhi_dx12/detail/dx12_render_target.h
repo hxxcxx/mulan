@@ -21,20 +21,20 @@ namespace mulan::engine {
 class DX12RenderTarget final : public RenderTarget {
 public:
     /// 创建 DX12RenderTarget。失败返回 RenderTargetCreateFailed。
-    static core::Result<std::unique_ptr<DX12RenderTarget>> create(const RenderTargetDesc& desc, ID3D12Device* device);
+    static Result<std::unique_ptr<DX12RenderTarget>> create(const RenderTargetDesc& desc, ID3D12Device* device);
     ~DX12RenderTarget();
 
     const RenderTargetDesc& desc() const override { return desc_; }
     Texture* colorTexture() override { return color_texture_.get(); }
     Texture* depthTexture() override { return depth_texture_.get(); }
 
-    core::Result<void> resize(uint32_t width, uint32_t height) override;
+    Result<void> resize(uint32_t width, uint32_t height) override;
     RenderPassBeginInfo renderPassBeginInfo() override;
 
 private:
     DX12RenderTarget(const RenderTargetDesc& desc, ID3D12Device* device) : desc_(desc), device_(device) {}
 
-    [[nodiscard]] core::Result<void> createResources();
+    [[nodiscard]] Result<void> createResources();
 
     RenderTargetDesc desc_;
     ID3D12Device* device_;

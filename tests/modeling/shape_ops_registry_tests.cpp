@@ -15,9 +15,9 @@ public:
 
     int id() const { return id_; }
 
-    core::Result<Shape> extrude(const ExtrudeParams&) override { return Shape{}; }
+    Result<Shape> extrude(const ExtrudeParams&) override { return Shape{}; }
 
-    core::Result<Shape> boolean(const Shape&, const Shape&, BooleanOp) override { return Shape{}; }
+    Result<Shape> boolean(const Shape&, const Shape&, BooleanOp) override { return Shape{}; }
 
 private:
     int id_ = 0;

@@ -13,8 +13,8 @@ public:
     explicit TestBuffer(BufferDesc desc) : desc_(desc) {}
 
     const BufferDesc& desc() const override { return desc_; }
-    core::Result<void> write(uint32_t, uint32_t, const void*) override { return {}; }
-    core::Result<void> readback(uint32_t, uint32_t, void*) override { return {}; }
+    Result<void> write(uint32_t, uint32_t, const void*) override { return {}; }
+    Result<void> readback(uint32_t, uint32_t, void*) override { return {}; }
 
 private:
     BufferDesc desc_;

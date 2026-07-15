@@ -23,60 +23,58 @@
 namespace mulan::io {
 namespace {
 
-using namespace fastgltf;
-
 std::string fileDirectory(const std::string& filePath) {
     return std::filesystem::path(filePath).parent_path().string();
 }
 
-std::vector<uint32_t> readIndices(const Asset& asset, const Accessor& accessor) {
+std::vector<uint32_t> readIndices(const fastgltf::Asset& asset, const fastgltf::Accessor& accessor) {
     std::vector<uint32_t> result(accessor.count);
     iterateAccessorWithIndex<uint32_t>(asset, accessor, [&](uint32_t idx, size_t i) { result[i] = idx; });
     return result;
 }
 
-std::vector<math::FVec3> readPositions(const Asset& asset, const Accessor& acc) {
+std::vector<math::FVec3> readPositions(const fastgltf::Asset& asset, const fastgltf::Accessor& acc) {
     std::vector<math::FVec3> result(acc.count);
     iterateAccessorWithIndex<fastgltf::math::fvec3>(
             asset, acc, [&](fastgltf::math::fvec3 v, size_t i) { result[i] = { v[0], v[1], v[2] }; });
     return result;
 }
 
-std::vector<math::FVec2> readTexcoords(const Asset& asset, const Accessor& acc) {
+std::vector<math::FVec2> readTexcoords(const fastgltf::Asset& asset, const fastgltf::Accessor& acc) {
     std::vector<math::FVec2> result(acc.count);
     iterateAccessorWithIndex<fastgltf::math::fvec2>(
             asset, acc, [&](fastgltf::math::fvec2 v, size_t i) { result[i] = { v[0], v[1] }; });
     return result;
 }
 
-std::vector<math::FVec4> readTangents(const Asset& asset, const Accessor& acc) {
+std::vector<math::FVec4> readTangents(const fastgltf::Asset& asset, const fastgltf::Accessor& acc) {
     std::vector<math::FVec4> result(acc.count);
     iterateAccessorWithIndex<fastgltf::math::fvec4>(
             asset, acc, [&](fastgltf::math::fvec4 v, size_t i) { result[i] = { v[0], v[1], v[2], v[3] }; });
     return result;
 }
 
-std::string mimeTypeString(MimeType mt) {
+std::string mimeTypeString(fastgltf::MimeType mt) {
     switch (mt) {
-    case MimeType::JPEG: return "image/jpeg";
-    case MimeType::PNG: return "image/png";
-    case MimeType::KTX2: return "image/ktx2";
-    case MimeType::DDS: return "image/dds";
-    case MimeType::WEBP: return "image/webp";
+    case fastgltf::MimeType::JPEG: return "image/jpeg";
+    case fastgltf::MimeType::PNG: return "image/png";
+    case fastgltf::MimeType::KTX2: return "image/ktx2";
+    case fastgltf::MimeType::DDS: return "image/dds";
+    case fastgltf::MimeType::WEBP: return "image/webp";
     default: return {};
     }
 }
 
-const std::byte* bufferDataView(const DataSource& src, size_t& outLen) {
-    if (auto* v = std::get_if<sources::Vector>(&src)) {
+const std::byte* bufferDataView(const fastgltf::DataSource& src, size_t& outLen) {
+    if (auto* v = std::get_if<fastgltf::sources::Vector>(&src)) {
         outLen = v->bytes.size();
         return reinterpret_cast<const std::byte*>(v->bytes.data());
     }
-    if (auto* a = std::get_if<sources::Array>(&src)) {
+    if (auto* a = std::get_if<fastgltf::sources::Array>(&src)) {
         outLen = a->bytes.size();
         return reinterpret_cast<const std::byte*>(a->bytes.data());
     }
-    if (auto* b = std::get_if<sources::ByteView>(&src)) {
+    if (auto* b = std::get_if<fastgltf::sources::ByteView>(&src)) {
         outLen = b->bytes.size();
         return b->bytes.data();
     }
@@ -86,7 +84,7 @@ const std::byte* bufferDataView(const DataSource& src, size_t& outLen) {
 // ============================================================
 // 纹理:产出 ParsedTexture,返回 {gltfImageIndex → ParsedScene.textures 索引}
 // ============================================================
-std::map<size_t, size_t> importTextures(const Asset& gltf, ParsedScene& scene, const std::string& sourceDir,
+std::map<size_t, size_t> importTextures(const fastgltf::Asset& gltf, ParsedScene& scene, const std::string& sourceDir,
                                         const std::string& importPath) {
     std::map<size_t, size_t> texMap;
     for (size_t i = 0; i < gltf.images.size(); ++i) {
@@ -96,45 +94,46 @@ std::map<size_t, size_t> importTextures(const Asset& gltf, ParsedScene& scene, c
 
         const std::string embeddedKey = "gltf:" + importPath + "#image[" + std::to_string(i) + "]";
 
-        std::visit(visitor{ [&](const sources::URI& uri) {
+        std::visit(fastgltf::visitor{
+                           [&](const fastgltf::sources::URI& uri) {
                                if (!uri.uri.isLocalPath())
                                    return;
                                auto p = std::filesystem::path(uri.uri.path());
                                desc.sourcePath =
                                        p.is_relative() ? (std::filesystem::path(sourceDir) / p).string() : p.string();
                            },
-                            [&](const sources::BufferView& bv) {
-                                if (bv.bufferViewIndex >= gltf.bufferViews.size())
-                                    return;
-                                const auto& view = gltf.bufferViews[bv.bufferViewIndex];
-                                if (view.bufferIndex >= gltf.buffers.size())
-                                    return;
-                                size_t totalLen = 0;
-                                const auto* base = bufferDataView(gltf.buffers[view.bufferIndex].data, totalLen);
-                                if (!base || view.byteOffset + view.byteLength > totalLen)
-                                    return;
-                                desc.data.assign(base + view.byteOffset, base + view.byteOffset + view.byteLength);
-                                desc.mimeType = mimeTypeString(bv.mimeType);
-                                desc.sourcePath = embeddedKey;
-                            },
-                            [&](const sources::Vector& v) {
-                                desc.data.assign(reinterpret_cast<const std::byte*>(v.bytes.data()),
-                                                 reinterpret_cast<const std::byte*>(v.bytes.data()) + v.bytes.size());
-                                desc.mimeType = mimeTypeString(v.mimeType);
-                                desc.sourcePath = embeddedKey;
-                            },
-                            [&](const sources::Array& a) {
-                                desc.data.assign(reinterpret_cast<const std::byte*>(a.bytes.data()),
-                                                 reinterpret_cast<const std::byte*>(a.bytes.data()) + a.bytes.size());
-                                desc.mimeType = mimeTypeString(a.mimeType);
-                                desc.sourcePath = embeddedKey;
-                            },
-                            [&](const sources::ByteView& b) {
-                                desc.data.assign(b.bytes.data(), b.bytes.data() + b.bytes.size());
-                                desc.mimeType = mimeTypeString(b.mimeType);
-                                desc.sourcePath = embeddedKey;
-                            },
-                            [](auto&) {} },
+                           [&](const fastgltf::sources::BufferView& bv) {
+                               if (bv.bufferViewIndex >= gltf.bufferViews.size())
+                                   return;
+                               const auto& view = gltf.bufferViews[bv.bufferViewIndex];
+                               if (view.bufferIndex >= gltf.buffers.size())
+                                   return;
+                               size_t totalLen = 0;
+                               const auto* base = bufferDataView(gltf.buffers[view.bufferIndex].data, totalLen);
+                               if (!base || view.byteOffset + view.byteLength > totalLen)
+                                   return;
+                               desc.data.assign(base + view.byteOffset, base + view.byteOffset + view.byteLength);
+                               desc.mimeType = mimeTypeString(bv.mimeType);
+                               desc.sourcePath = embeddedKey;
+                           },
+                           [&](const fastgltf::sources::Vector& v) {
+                               desc.data.assign(reinterpret_cast<const std::byte*>(v.bytes.data()),
+                                                reinterpret_cast<const std::byte*>(v.bytes.data()) + v.bytes.size());
+                               desc.mimeType = mimeTypeString(v.mimeType);
+                               desc.sourcePath = embeddedKey;
+                           },
+                           [&](const fastgltf::sources::Array& a) {
+                               desc.data.assign(reinterpret_cast<const std::byte*>(a.bytes.data()),
+                                                reinterpret_cast<const std::byte*>(a.bytes.data()) + a.bytes.size());
+                               desc.mimeType = mimeTypeString(a.mimeType);
+                               desc.sourcePath = embeddedKey;
+                           },
+                           [&](const fastgltf::sources::ByteView& b) {
+                               desc.data.assign(b.bytes.data(), b.bytes.data() + b.bytes.size());
+                               desc.mimeType = mimeTypeString(b.mimeType);
+                               desc.sourcePath = embeddedKey;
+                           },
+                           [](auto&) {} },
                    image.data);
 
         if (desc.sourcePath.empty() && desc.data.empty())
@@ -155,8 +154,8 @@ struct TextureSlotResolve {
     bool found = false;
 };
 
-std::map<size_t, size_t> importMaterials(const Asset& gltf, ParsedScene& scene, const std::map<size_t, size_t>& texMap,
-                                         std::vector<std::string>& warnings) {
+std::map<size_t, size_t> importMaterials(const fastgltf::Asset& gltf, ParsedScene& scene,
+                                         const std::map<size_t, size_t>& texMap, std::vector<std::string>& warnings) {
     std::map<size_t, size_t> matMap;
 
     auto resolveTexture = [&](size_t texIdx) -> TextureSlotResolve {
@@ -218,7 +217,8 @@ std::map<size_t, size_t> importMaterials(const Asset& gltf, ParsedScene& scene, 
     return matMap;
 }
 
-bool hasUsableNormalTexture(const Asset& gltf, const Primitive& primitive, const std::map<size_t, size_t>& texMap) {
+bool hasUsableNormalTexture(const fastgltf::Asset& gltf, const fastgltf::Primitive& primitive,
+                            const std::map<size_t, size_t>& texMap) {
     if (!primitive.materialIndex.has_value() || *primitive.materialIndex >= gltf.materials.size())
         return false;
     const auto& material = gltf.materials[*primitive.materialIndex];
@@ -303,14 +303,14 @@ std::vector<math::FVec4> generateTangents(const PrimitiveGeomData& geom) {
     return tangents;
 }
 
-bool isAccessorReadable(const Asset& gltf, size_t accessorIndex, AccessorType expectedType,
-                        ComponentType expectedCompType = ComponentType::Invalid) {
+bool isAccessorReadable(const fastgltf::Asset& gltf, size_t accessorIndex, fastgltf::AccessorType expectedType,
+                        fastgltf::ComponentType expectedCompType = fastgltf::ComponentType::Invalid) {
     if (accessorIndex >= gltf.accessors.size())
         return false;
     const auto& acc = gltf.accessors[accessorIndex];
     if (acc.type != expectedType)
         return false;
-    if (expectedCompType != ComponentType::Invalid && acc.componentType != expectedCompType)
+    if (expectedCompType != fastgltf::ComponentType::Invalid && acc.componentType != expectedCompType)
         return false;
     if (acc.count == 0)
         return false;
@@ -322,30 +322,36 @@ bool isAccessorReadable(const Asset& gltf, size_t accessorIndex, AccessorType ex
     if (view.bufferIndex >= gltf.buffers.size())
         return false;
     const auto& buf = gltf.buffers[view.bufferIndex].data;
-    return std::holds_alternative<sources::Array>(buf) || std::holds_alternative<sources::Vector>(buf) ||
-           std::holds_alternative<sources::ByteView>(buf);
+    return std::holds_alternative<fastgltf::sources::Array>(buf) ||
+           std::holds_alternative<fastgltf::sources::Vector>(buf) ||
+           std::holds_alternative<fastgltf::sources::ByteView>(buf);
 }
 
-PrimitiveGeomData extractPrimitiveData(const Asset& gltf, const Primitive& prim) {
+PrimitiveGeomData extractPrimitiveData(const fastgltf::Asset& gltf, const fastgltf::Primitive& prim) {
     PrimitiveGeomData geom;
 
     auto* posAttr = prim.findAttribute("POSITION");
-    if (posAttr && isAccessorReadable(gltf, posAttr->accessorIndex, AccessorType::Vec3, ComponentType::Float))
+    if (posAttr &&
+        isAccessorReadable(gltf, posAttr->accessorIndex, fastgltf::AccessorType::Vec3, fastgltf::ComponentType::Float))
         geom.positions = readPositions(gltf, gltf.accessors[posAttr->accessorIndex]);
 
     auto* nrmAttr = prim.findAttribute("NORMAL");
-    if (nrmAttr && isAccessorReadable(gltf, nrmAttr->accessorIndex, AccessorType::Vec3, ComponentType::Float))
+    if (nrmAttr &&
+        isAccessorReadable(gltf, nrmAttr->accessorIndex, fastgltf::AccessorType::Vec3, fastgltf::ComponentType::Float))
         geom.normals = readPositions(gltf, gltf.accessors[nrmAttr->accessorIndex]);
 
     auto* uvAttr = prim.findAttribute("TEXCOORD_0");
-    if (uvAttr && isAccessorReadable(gltf, uvAttr->accessorIndex, AccessorType::Vec2, ComponentType::Float))
+    if (uvAttr &&
+        isAccessorReadable(gltf, uvAttr->accessorIndex, fastgltf::AccessorType::Vec2, fastgltf::ComponentType::Float))
         geom.texcoords = readTexcoords(gltf, gltf.accessors[uvAttr->accessorIndex]);
 
     auto* tangentAttr = prim.findAttribute("TANGENT");
-    if (tangentAttr && isAccessorReadable(gltf, tangentAttr->accessorIndex, AccessorType::Vec4, ComponentType::Float))
+    if (tangentAttr && isAccessorReadable(gltf, tangentAttr->accessorIndex, fastgltf::AccessorType::Vec4,
+                                          fastgltf::ComponentType::Float))
         geom.tangents = readTangents(gltf, gltf.accessors[tangentAttr->accessorIndex]);
 
-    if (prim.indicesAccessor.has_value() && isAccessorReadable(gltf, *prim.indicesAccessor, AccessorType::Scalar))
+    if (prim.indicesAccessor.has_value() &&
+        isAccessorReadable(gltf, *prim.indicesAccessor, fastgltf::AccessorType::Scalar))
         geom.indices = readIndices(gltf, gltf.accessors[*prim.indicesAccessor]);
 
     return geom;
@@ -392,23 +398,23 @@ math::Mat4 nodeTransform(const fastgltf::Node& node) {
 // GltfImporter
 // ============================================================
 
-core::Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOptions& options) {
+Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOptions& options) {
     ParsedScene scene;
     scene.unitScale = options.unitScale > 0.0 ? options.unitScale : 1.0;
 
     const std::string sourceDir = fileDirectory(path);
 
-    auto fileStream = GltfFileStream(path);
+    auto fileStream = fastgltf::GltfFileStream(path);
     if (!fileStream.isOpen())
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "Failed to open glTF file: " + path));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Failed to open glTF file: " + path));
 
-    Parser parser(Extensions::KHR_lights_punctual | Extensions::KHR_materials_emissive_strength);
-    constexpr auto gltfOpts = Options::LoadExternalBuffers | Options::LoadExternalImages;
+    fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual |
+                            fastgltf::Extensions::KHR_materials_emissive_strength);
+    constexpr auto gltfOpts = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
     auto assetResult = parser.loadGltf(fileStream, std::filesystem::path(path).parent_path(), gltfOpts);
-    if (assetResult.error() != Error::None) {
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::InvalidArg,
-                                  "Failed to parse glTF: " + std::string(getErrorMessage(assetResult.error()))));
+    if (assetResult.error() != fastgltf::Error::None) {
+        return std::unexpected(Error::make(
+                ErrorCode::InvalidArg, "Failed to parse glTF: " + std::string(getErrorMessage(assetResult.error()))));
     }
 
     auto& gltf = assetResult.get();

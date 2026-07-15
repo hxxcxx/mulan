@@ -39,6 +39,6 @@ protected:
     GLContext& operator=(const GLContext&) = delete;
 };
 
-core::Result<std::unique_ptr<GLContext>> createGLContext(const GLContextCreateInfo& ci);
+Result<std::unique_ptr<GLContext>> createGLContext(const GLContextCreateInfo& ci);
 
 }  // namespace mulan::engine

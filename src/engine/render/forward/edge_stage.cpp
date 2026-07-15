@@ -7,12 +7,12 @@ EdgeStage::EdgeStage(RHIDevice& device, GeometryDrawSharedResources& sharedResou
       view_cube_executor_(device, sharedResources, RenderTechnique::ViewCubeLine) {
 }
 
-core::Result<void> EdgeStage::init(RHIDevice&, const RenderTargetInfo& target) {
+Result<void> EdgeStage::init(RHIDevice&, const RenderTargetInfo& target) {
     if (!draw_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "EdgeStage init failed"));
+        return std::unexpected(Error::make(ErrorCode::Internal, "EdgeStage init failed"));
     }
     if (!view_cube_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "EdgeStage ViewCubeLine init failed"));
+        return std::unexpected(Error::make(ErrorCode::Internal, "EdgeStage ViewCubeLine init failed"));
     }
     return {};
 }

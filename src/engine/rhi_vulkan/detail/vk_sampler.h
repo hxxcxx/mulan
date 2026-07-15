@@ -20,7 +20,7 @@ namespace mulan::engine {
 class VKSampler : public Sampler {
 public:
     /// 创建 VKSampler。失败返回 SamplerCreateFailed。
-    static core::Result<std::unique_ptr<VKSampler>> create(const SamplerDesc& desc, vk::Device device);
+    static Result<std::unique_ptr<VKSampler>> create(const SamplerDesc& desc, vk::Device device);
     ~VKSampler();
 
     const SamplerDesc& desc() const override { return desc_; }

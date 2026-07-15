@@ -109,7 +109,7 @@ protected:
     CommandOutcome perform(CommandHost& host) override {
         DocumentView* view = host.documentView();
         if (!view || !view->isInitialized() || !view->session()) {
-            return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active document view"));
+            return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active document view"));
         }
 
         view->fitAll();
@@ -121,11 +121,10 @@ template <typename Tool>
 CommandOutcome startDrawTool(CommandHost& host) {
     EditorSession* editor = host.editorSession();
     if (!canUseDrawingCommands(host)) {
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::InvalidArg, "Drawing is unavailable for imported documents"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Drawing is unavailable for imported documents"));
     }
     if (!editor || !editor->isReady()) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active editor session"));
     }
 
     if (DocumentView* view = host.documentView(); view && view->isInitialized()) {
@@ -141,11 +140,10 @@ template <typename Tool>
 CommandOutcome startWorldXYDrawTool(CommandHost& host) {
     EditorSession* editor = host.editorSession();
     if (!canUseDrawingCommands(host)) {
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::InvalidArg, "Drawing is unavailable for imported documents"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Drawing is unavailable for imported documents"));
     }
     if (!editor || !editor->isReady()) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active editor session"));
     }
 
     editor->setWorkPlane(mulan::engine::WorkPlane::worldXY());
@@ -156,11 +154,10 @@ CommandOutcome startWorldXYDrawTool(CommandHost& host) {
 CommandOutcome startParametricCurveTool(CommandHost& host, ParametricCurveToolKind kind) {
     EditorSession* editor = host.editorSession();
     if (!canUseDrawingCommands(host)) {
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::InvalidArg, "Drawing is unavailable for imported documents"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Drawing is unavailable for imported documents"));
     }
     if (!editor || !editor->isReady()) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active editor session"));
     }
 
     if (DocumentView* view = host.documentView(); view && view->isInitialized()) {
@@ -176,11 +173,10 @@ CommandOutcome startViewPlaneDrawTool(CommandHost& host) {
     EditorSession* editor = host.editorSession();
     DocumentView* view = host.documentView();
     if (!canUseDrawingCommands(host)) {
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::InvalidArg, "Drawing is unavailable for imported documents"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Drawing is unavailable for imported documents"));
     }
     if (!editor || !editor->isReady() || !view || !view->isInitialized()) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active editor session"));
     }
 
     editor->setWorkPlane(mulan::engine::WorkPlane::fromView(view->viewContext().camera()));
@@ -191,10 +187,10 @@ CommandOutcome startViewPlaneDrawTool(CommandHost& host) {
 CommandOutcome startTransformTool(CommandHost& host, TransformEditCommitMode commitMode) {
     EditorSession* editor = host.editorSession();
     if (!editor || !editor->isReady()) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active editor session"));
     }
     if (!editor->startTransformTool(commitMode)) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No selected movable entity"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "No selected movable entity"));
     }
     return {};
 }
@@ -202,10 +198,10 @@ CommandOutcome startTransformTool(CommandHost& host, TransformEditCommitMode com
 CommandOutcome runUndo(CommandHost& host) {
     EditorSession* editor = host.editorSession();
     if (!editor || !editor->isReady()) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active editor session"));
     }
     if (!editor->undo()) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "Nothing to undo"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Nothing to undo"));
     }
     return {};
 }
@@ -213,10 +209,10 @@ CommandOutcome runUndo(CommandHost& host) {
 CommandOutcome runRedo(CommandHost& host) {
     EditorSession* editor = host.editorSession();
     if (!editor || !editor->isReady()) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active editor session"));
     }
     if (!editor->redo()) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "Nothing to redo"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Nothing to redo"));
     }
     return {};
 }
@@ -285,7 +281,7 @@ protected:
     CommandOutcome perform(CommandHost& host) override {
         EditorSession* editor = host.editorSession();
         if (!editor || !editor->startSelectionExtrudeTool()) {
-            return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No active editor session"));
+            return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active editor session"));
         }
         return {};
     }
@@ -370,7 +366,7 @@ protected:
     CommandOutcome perform(CommandHost& host) override {
         EditorSession* editor = host.editorSession();
         if (!editor || !editor->deleteSelectedEntities()) {
-            return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "No selected entity"));
+            return std::unexpected(Error::make(ErrorCode::InvalidArg, "No selected entity"));
         }
         return {};
     }

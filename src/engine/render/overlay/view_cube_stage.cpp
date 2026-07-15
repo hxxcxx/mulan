@@ -123,7 +123,7 @@ ViewCubeStage::~ViewCubeStage() {
 // 初始化
 // ============================================================
 
-core::Result<void> ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo&) {
+Result<void> ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo&) {
     device_ = &device;
 
     // --- 初始化材质 ---

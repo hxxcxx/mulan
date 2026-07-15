@@ -5,8 +5,8 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<VKRenderTarget>> VKRenderTarget::create(const RenderTargetDesc& desc, vk::Device device,
-                                                                     VmaAllocator allocator) {
+Result<std::unique_ptr<VKRenderTarget>> VKRenderTarget::create(const RenderTargetDesc& desc, vk::Device device,
+                                                               VmaAllocator allocator) {
     auto obj = std::unique_ptr<VKRenderTarget>(new VKRenderTarget(desc, device, allocator));
     if (auto e = obj->createResources(); e.code != 0)
         return std::unexpected(e);
@@ -17,7 +17,7 @@ VKRenderTarget::~VKRenderTarget() {
     cleanup();
 }
 
-core::Result<void> VKRenderTarget::resize(uint32_t width, uint32_t height) {
+Result<void> VKRenderTarget::resize(uint32_t width, uint32_t height) {
     if (width == 0 || height == 0)
         return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "Vulkan render target size must be non-zero"));
     cleanup();
@@ -28,7 +28,7 @@ core::Result<void> VKRenderTarget::resize(uint32_t width, uint32_t height) {
     return {};
 }
 
-core::Error VKRenderTarget::createResources() {
+Error VKRenderTarget::createResources() {
     const uint32_t samples = desc_.sampleCount > 1 ? desc_.sampleCount : 1;
 
     TextureDesc colorDesc = TextureDesc::renderTarget(desc_.width, desc_.height, desc_.colorFormat, "OffscreenColor");

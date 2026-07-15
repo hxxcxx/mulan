@@ -9,8 +9,7 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<VKPipelineState>> VKPipelineState::create(const GraphicsPipelineDesc& desc,
-                                                                       vk::Device device) {
+Result<std::unique_ptr<VKPipelineState>> VKPipelineState::create(const GraphicsPipelineDesc& desc, vk::Device device) {
     auto obj = std::unique_ptr<VKPipelineState>(new VKPipelineState(desc, device));
 
     if (auto e = obj->createRootSignature(); e.code != 0)
@@ -33,7 +32,7 @@ VKPipelineState::~VKPipelineState() {
         device_.destroyDescriptorSetLayout(descriptor_set_layout_);
 }
 
-core::Error VKPipelineState::createRootSignature() {
+Error VKPipelineState::createRootSignature() {
     // --- Descriptor Set Layout ---
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
 
@@ -69,7 +68,7 @@ core::Error VKPipelineState::createRootSignature() {
     return {};
 }
 
-core::Error VKPipelineState::build() {
+Error VKPipelineState::build() {
     std::vector<vk::PipelineShaderStageCreateInfo> stages;
     auto* vkVs = static_cast<VKShader*>(desc_.vs);
     auto* vkPs = static_cast<VKShader*>(desc_.ps);

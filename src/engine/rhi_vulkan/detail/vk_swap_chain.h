@@ -38,8 +38,8 @@ public:
     };
 
     /// 创建 VKSwapChain。失败返回 SwapChainCreateFailed / SurfaceNotSupported。
-    static core::Result<std::unique_ptr<VKSwapChain>> create(const SwapChainDesc& desc, const InitParams& params,
-                                                             const RenderConfig& renderConfig);
+    static Result<std::unique_ptr<VKSwapChain>> create(const SwapChainDesc& desc, const InitParams& params,
+                                                       const RenderConfig& renderConfig);
     ~VKSwapChain();
 
     const SwapChainDesc& desc() const override { return desc_; }
@@ -55,10 +55,10 @@ public:
     RenderPassBeginInfo renderPassBeginInfo() override;
 
     bool acquireNextImage(vk::Semaphore imageAvailable);
-    core::Result<void> presentWithSemaphores(vk::Semaphore renderFinished);
-    core::Result<void> present() override;
+    Result<void> presentWithSemaphores(vk::Semaphore renderFinished);
+    Result<void> present() override;
 
-    core::Result<void> resize(uint32_t width, uint32_t height) override;
+    Result<void> resize(uint32_t width, uint32_t height) override;
 
     // --- Vulkan 特有 ---
     uint32_t currentImageIndex() const { return current_image_index_; }
@@ -71,8 +71,8 @@ private:
 
     /// 创建/重建 swapchain 与子资源。成功返回默认 Error(code=0)。
     /// 被 create() 与 resize() 共用。
-    core::Error createSwapChain();
-    core::Error createMsaaResources();
+    Error createSwapChain();
+    Error createMsaaResources();
     void cleanup();
 
     SwapChainDesc desc_;

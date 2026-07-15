@@ -5,7 +5,7 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<DX12Buffer>> DX12Buffer::create(const BufferDesc& desc, ID3D12Device* device) {
+Result<std::unique_ptr<DX12Buffer>> DX12Buffer::create(const BufferDesc& desc, ID3D12Device* device) {
     if (!device)
         return std::unexpected(makeError(EngineErrorCode::BufferCreateFailed, "DX12Buffer requires a valid device"));
 
@@ -16,7 +16,7 @@ core::Result<std::unique_ptr<DX12Buffer>> DX12Buffer::create(const BufferDesc& d
     return buffer;
 }
 
-core::Result<void> DX12Buffer::initialize(ID3D12Device* device) {
+Result<void> DX12Buffer::initialize(ID3D12Device* device) {
     const auto& desc = desc_;
     D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON;
 
@@ -105,7 +105,7 @@ DX12Buffer::~DX12Buffer() {
     }
 }
 
-core::Result<void> DX12Buffer::write(uint32_t offset, uint32_t size, const void* data) {
+Result<void> DX12Buffer::write(uint32_t offset, uint32_t size, const void* data) {
     if (auto wait = waitForLastUse(); !wait)
         return std::unexpected(wait.error());
     if (desc_.usage != BufferUsage::Dynamic || !mapped_data_ || !data || size == 0 || offset > desc_.size ||
@@ -117,7 +117,7 @@ core::Result<void> DX12Buffer::write(uint32_t offset, uint32_t size, const void*
     return {};
 }
 
-core::Result<void> DX12Buffer::readback(uint32_t offset, uint32_t size, void* outData) {
+Result<void> DX12Buffer::readback(uint32_t offset, uint32_t size, void* outData) {
     if (auto wait = waitForLastUse(); !wait)
         return std::unexpected(wait.error());
     if (desc_.usage != BufferUsage::Staging || !resource_ || !outData || offset > desc_.size ||

@@ -112,7 +112,7 @@ bool Image::savePNG(std::string_view path) const {
     return savePNGExpected(path).has_value();
 }
 
-core::Result<void> Image::savePNGExpected(std::string_view path) const {
+Result<void> Image::savePNGExpected(std::string_view path) const {
     if (!valid()) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Cannot save an invalid image."));
     }
@@ -167,8 +167,8 @@ PixelFormat pixelFormatForChannels(int channels) {
     }
 }
 
-core::Result<std::shared_ptr<Image>> finishDecode(stbi_uc* raw, int width, int height, int sourceChannels,
-                                                  const ImageDecodeOptions& options) {
+Result<std::shared_ptr<Image>> finishDecode(stbi_uc* raw, int width, int height, int sourceChannels,
+                                            const ImageDecodeOptions& options) {
     if (!raw)
         return std::unexpected(
                 Error::make(ErrorCode::Io, stbi_failure_reason() ? stbi_failure_reason() : "Failed to decode image."));
@@ -192,7 +192,7 @@ core::Result<std::shared_ptr<Image>> finishDecode(stbi_uc* raw, int width, int h
 }
 }  // namespace
 
-core::Result<std::shared_ptr<Image>> Image::load(std::string_view path, const ImageDecodeOptions& options) {
+Result<std::shared_ptr<Image>> Image::load(std::string_view path, const ImageDecodeOptions& options) {
     std::string p(path);
     int width = 0, height = 0, channels = 0;
     const int requestedChannels = static_cast<int>(options.channels);
@@ -200,8 +200,8 @@ core::Result<std::shared_ptr<Image>> Image::load(std::string_view path, const Im
     return finishDecode(raw, width, height, channels, options);
 }
 
-core::Result<std::shared_ptr<Image>> Image::loadFromMemory(std::span<const std::byte> encoded,
-                                                           const ImageDecodeOptions& options) {
+Result<std::shared_ptr<Image>> Image::loadFromMemory(std::span<const std::byte> encoded,
+                                                     const ImageDecodeOptions& options) {
     if (encoded.empty() || encoded.size() > static_cast<size_t>(std::numeric_limits<int>::max()))
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Encoded image buffer is empty or too large."));
     int width = 0, height = 0, channels = 0;
@@ -252,7 +252,7 @@ std::shared_ptr<FloatImage> FloatImage::loadHDR(std::string_view path, int force
     return result ? *result : nullptr;
 }
 
-core::Result<std::shared_ptr<FloatImage>> FloatImage::loadHDRExpected(std::string_view path, int forceChannels) {
+Result<std::shared_ptr<FloatImage>> FloatImage::loadHDRExpected(std::string_view path, int forceChannels) {
     std::string p(path);
     int w = 0, h = 0, ch = 0;
     float* raw = stbi_loadf(p.c_str(), &w, &h, &ch, forceChannels);

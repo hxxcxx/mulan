@@ -17,8 +17,8 @@ public:
     explicit GLFence(uint64_t initialValue = 0);
     ~GLFence() override;
 
-    core::Result<void> signal(uint64_t value) override;
-    core::Result<void> wait(uint64_t value) override;
+    Result<void> signal(uint64_t value) override;
+    Result<void> wait(uint64_t value) override;
     uint64_t completedValue() const override;
     bool isValid() const { return sync_ != nullptr; }
 

@@ -100,7 +100,7 @@ void DocumentView::renderFrame() {
     impl_->view_context.renderFrame();
 }
 
-mulan::core::Result<void> DocumentView::pollRenderRuntime() {
+mulan::Result<void> DocumentView::pollRenderRuntime() {
     return impl_->view_context.pollRuntime();
 }
 

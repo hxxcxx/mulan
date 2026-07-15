@@ -10,15 +10,15 @@
 namespace mulan::view::detail {
 namespace {
 
-core::Error executorError(core::ErrorCode code, std::string_view message) {
-    return core::Error::make(code, message);
+Error executorError(ErrorCode code, std::string_view message) {
+    return Error::make(code, message);
 }
 
-core::Error unavailableDeviceError() {
+Error unavailableDeviceError() {
     return engine::makeError(engine::EngineErrorCode::DeviceLost, "Shared render device is no longer healthy.");
 }
 
-bool isDeviceExecutionError(const core::Error& error) {
+bool isDeviceExecutionError(const Error& error) {
     switch (static_cast<engine::EngineErrorCode>(error.code)) {
     case engine::EngineErrorCode::DeviceLost:
     case engine::EngineErrorCode::OutOfDeviceMemory:
@@ -94,19 +94,19 @@ RenderExecutor::~RenderExecutor() {
     shutdown();
 }
 
-core::Result<void> RenderExecutor::initWindow(const ViewConfig& config, int width, int height) {
+Result<void> RenderExecutor::initWindow(const ViewConfig& config, int width, int height) {
     std::scoped_lock executorLock(mutex_);
     if (initialized_) {
         return {};
     }
     if (width <= 0 || height <= 0) {
         return std::unexpected(
-                executorError(core::ErrorCode::InvalidArg, "Window render surface size must be greater than zero."));
+                executorError(ErrorCode::InvalidArg, "Window render surface size must be greater than zero."));
     }
     if (!config.toNativeWindowHandle().valid()) {
         LOG_ERROR("[RenderExecutor] Window initialization rejected: invalid native window handle");
         return std::unexpected(
-                executorError(core::ErrorCode::InvalidArg, "Window render session requires a valid native window."));
+                executorError(ErrorCode::InvalidArg, "Window render session requires a valid native window."));
     }
 
     auto context = RenderDeviceContext::acquire(config);
@@ -127,7 +127,7 @@ core::Result<void> RenderExecutor::initWindow(const ViewConfig& config, int widt
         deviceLock.unlock();
         shutdownLocked();
         LOG_ERROR("[RenderExecutor] Window surface initialization failed: size={}x{}", width, height);
-        return std::unexpected(executorError(core::ErrorCode::Internal, "Failed to initialize window render surface."));
+        return std::unexpected(executorError(ErrorCode::Internal, "Failed to initialize window render surface."));
     }
 
     auto initialized = initRenderer();
@@ -144,14 +144,14 @@ core::Result<void> RenderExecutor::initWindow(const ViewConfig& config, int widt
     return {};
 }
 
-core::Result<void> RenderExecutor::initOffscreen(const ViewConfig& config, int width, int height) {
+Result<void> RenderExecutor::initOffscreen(const ViewConfig& config, int width, int height) {
     std::scoped_lock executorLock(mutex_);
     if (initialized_) {
         return {};
     }
     if (width <= 0 || height <= 0) {
         return std::unexpected(
-                executorError(core::ErrorCode::InvalidArg, "Offscreen render surface size must be greater than zero."));
+                executorError(ErrorCode::InvalidArg, "Offscreen render surface size must be greater than zero."));
     }
 
     auto context = RenderDeviceContext::acquire(config);
@@ -173,8 +173,7 @@ core::Result<void> RenderExecutor::initOffscreen(const ViewConfig& config, int w
         deviceLock.unlock();
         shutdownLocked();
         LOG_ERROR("[RenderExecutor] Offscreen surface initialization failed: size={}x{}", width, height);
-        return std::unexpected(
-                executorError(core::ErrorCode::Internal, "Failed to initialize offscreen render surface."));
+        return std::unexpected(executorError(ErrorCode::Internal, "Failed to initialize offscreen render surface."));
     }
 
     auto initialized = initRenderer();
@@ -206,10 +205,10 @@ RenderSurfaceState RenderExecutor::surfaceState() const {
     return surfaceStateLocked();
 }
 
-core::Result<void> RenderExecutor::prepareResources(const engine::RenderResourcePrepareList& prepare) {
+Result<void> RenderExecutor::prepareResources(const engine::RenderResourcePrepareList& prepare) {
     std::scoped_lock executorLock(mutex_);
     if (!initialized_ || !device_context_) {
-        return std::unexpected(executorError(core::ErrorCode::InvalidArg, "Render session is not initialized."));
+        return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
     if (!device_context_->isHealthy()) {
         return std::unexpected(unavailableDeviceError());
@@ -226,10 +225,10 @@ core::Result<void> RenderExecutor::prepareResources(const engine::RenderResource
     return prepared;
 }
 
-core::Result<void> RenderExecutor::executeFrame(const RenderSubmission& submission) {
+Result<void> RenderExecutor::executeFrame(const RenderSubmission& submission) {
     std::scoped_lock executorLock(mutex_);
     if (!initialized_ || !device_context_) {
-        return std::unexpected(executorError(core::ErrorCode::InvalidArg, "Render session is not initialized."));
+        return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
     if (!device_context_->isHealthy()) {
         return std::unexpected(unavailableDeviceError());
@@ -241,7 +240,7 @@ core::Result<void> RenderExecutor::executeFrame(const RenderSubmission& submissi
         return {};
     }
     if (!state.valid || (!surface_.renderTarget() && !surface_.swapChain())) {
-        return std::unexpected(executorError(core::ErrorCode::Internal, "Render surface is not available."));
+        return std::unexpected(executorError(ErrorCode::Internal, "Render surface is not available."));
     }
 
     auto deviceLock = device_context_->lock();
@@ -257,11 +256,11 @@ core::Result<void> RenderExecutor::executeFrame(const RenderSubmission& submissi
     return rendered;
 }
 
-core::Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmission& submission,
-                                                                  const engine::RenderCaptureDesc& desc) {
+Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmission& submission,
+                                                            const engine::RenderCaptureDesc& desc) {
     std::scoped_lock executorLock(mutex_);
     if (!initialized_ || !device_context_) {
-        return std::unexpected(executorError(core::ErrorCode::InvalidArg, "Render session is not initialized."));
+        return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
     if (!device_context_->isHealthy()) {
         return std::unexpected(unavailableDeviceError());
@@ -270,7 +269,7 @@ core::Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSu
     const uint32_t width = desc.width ? desc.width : static_cast<uint32_t>(surface_.width());
     const uint32_t height = desc.height ? desc.height : static_cast<uint32_t>(surface_.height());
     if (width == 0 || height == 0) {
-        return std::unexpected(executorError(core::ErrorCode::InvalidArg, "Capture size must be greater than zero."));
+        return std::unexpected(executorError(ErrorCode::InvalidArg, "Capture size must be greater than zero."));
     }
 
     auto deviceLock = device_context_->lock();
@@ -278,8 +277,7 @@ core::Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSu
         return std::unexpected(unavailableDeviceError());
     }
     if (!configureCaptureSurface(desc, width, height)) {
-        return std::unexpected(
-                executorError(core::ErrorCode::Internal, "Failed to configure dedicated capture surface."));
+        return std::unexpected(executorError(ErrorCode::Internal, "Failed to configure dedicated capture surface."));
     }
 
     light_environment_ = submission.lightEnvironment;
@@ -300,15 +298,15 @@ core::Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSu
     result.bytesPerPixel = capture_surface_.bytesPerPixel();
     result.rowBytes = capture_surface_.rowBytes();
     if (desc.readback && !capture_surface_.readbackPixels(device_context_->device(), result.pixels)) {
-        return std::unexpected(executorError(core::ErrorCode::Io, "Capture readback failed."));
+        return std::unexpected(executorError(ErrorCode::Io, "Capture readback failed."));
     }
     return result;
 }
 
-core::Result<RenderSurfaceState> RenderExecutor::resize(int width, int height) {
+Result<RenderSurfaceState> RenderExecutor::resize(int width, int height) {
     std::scoped_lock executorLock(mutex_);
     if (!device_context_ || !initialized_ || width <= 0 || height <= 0) {
-        return std::unexpected(executorError(core::ErrorCode::InvalidArg, "Render surface resize is invalid."));
+        return std::unexpected(executorError(ErrorCode::InvalidArg, "Render surface resize is invalid."));
     }
     if (!device_context_->isHealthy()) {
         return std::unexpected(unavailableDeviceError());
@@ -353,16 +351,16 @@ void RenderExecutor::clearAssetResources() {
     renderer_.clearAssetResources(device_context_->device());
 }
 
-core::Result<void> RenderExecutor::initRenderer() {
+Result<void> RenderExecutor::initRenderer() {
     if (!device_context_) {
         return std::unexpected(
-                executorError(core::ErrorCode::InvalidArg, "RenderExecutor cannot initialize without a device."));
+                executorError(ErrorCode::InvalidArg, "RenderExecutor cannot initialize without a device."));
     }
 
     auto& device = device_context_->device();
     if (!renderer_.init(device, light_environment_, surface_.colorFormat(device), surface_.depthFormat(device),
                         surface_.sampleCount())) {
-        return std::unexpected(executorError(core::ErrorCode::Internal, "Failed to initialize renderer."));
+        return std::unexpected(executorError(ErrorCode::Internal, "Failed to initialize renderer."));
     }
     return {};
 }

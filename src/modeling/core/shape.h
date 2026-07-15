@@ -44,7 +44,7 @@ public:
     virtual BodyKind bodyKind() const = 0;
     virtual math::AABB3 bounds() const = 0;
     /// 将 B-Rep 离散为显示网格。由后端实现（OCCT 后端用 BRepMesh/Poly/GCPnts）。
-    virtual core::Result<TessellatedGeometry> tessellate(const TessellationOptions& opts) const = 0;
+    virtual Result<TessellatedGeometry> tessellate(const TessellationOptions& opts) const = 0;
 };
 
 /// 值语义 B-Rep 形状句柄。可拷贝（共享底层拓扑）、可移动。
@@ -65,7 +65,7 @@ public:
     math::AABB3 bounds() const;
 
     /// 离散为显示网格。内部经虚函数分发到具体后端实现。
-    core::Result<TessellatedGeometry> tessellate(const TessellationOptions& opts = {}) const;
+    Result<TessellatedGeometry> tessellate(const TessellationOptions& opts = {}) const;
 
 private:
     // 后端构造 Shape 时注入具体 ShapeStorage。

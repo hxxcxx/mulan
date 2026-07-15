@@ -25,11 +25,11 @@ DX12FrameContext::DX12FrameContext(ID3D12Device* device) : transient_uniform_are
 
 DX12FrameContext::~DX12FrameContext() = default;
 
-core::Result<void> DX12FrameContext::waitForFence() {
+Result<void> DX12FrameContext::waitForFence() {
     return fence_->wait(fence_value_);
 }
 
-core::Result<void> DX12FrameContext::resetCommandAllocator() {
+Result<void> DX12FrameContext::resetCommandAllocator() {
     if (!checkDX12(cmd_allocator_->Reset(), "ID3D12CommandAllocator::Reset"))
         return std::unexpected(
                 makeError(EngineErrorCode::CommandRecordingFailed, "DX12 frame command allocator reset failed"));

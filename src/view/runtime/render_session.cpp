@@ -15,11 +15,11 @@
 namespace mulan::view::detail {
 namespace {
 
-core::Error sessionError(core::ErrorCode code, std::string_view message) {
-    return core::Error::make(code, message);
+Error sessionError(ErrorCode code, std::string_view message) {
+    return Error::make(code, message);
 }
 
-bool isGpuExecutionError(const core::Error& error) {
+bool isGpuExecutionError(const Error& error) {
     return error.code >= static_cast<int32_t>(engine::EngineErrorCode::DeviceLost) && error.code < 2000;
 }
 
@@ -32,7 +32,7 @@ RenderSession::~RenderSession() {
     shutdown();
 }
 
-core::Result<void> RenderSession::initWindow(const ViewConfig& config, int width, int height) {
+Result<void> RenderSession::initWindow(const ViewConfig& config, int width, int height) {
     assertOwnerThread();
     if (isInitialized()) {
         return {};
@@ -63,7 +63,7 @@ core::Result<void> RenderSession::initWindow(const ViewConfig& config, int width
     return {};
 }
 
-core::Result<void> RenderSession::initOffscreen(const ViewConfig& config, int width, int height) {
+Result<void> RenderSession::initOffscreen(const ViewConfig& config, int width, int height) {
     assertOwnerThread();
     if (isInitialized()) {
         return {};
@@ -120,7 +120,7 @@ bool RenderSession::isInitialized() const {
     return false;
 }
 
-std::optional<core::Error> RenderSession::runtimeFailure() const {
+std::optional<Error> RenderSession::runtimeFailure() const {
     assertOwnerThread();
     if (last_runtime_failure_) {
         return last_runtime_failure_;
@@ -131,7 +131,7 @@ std::optional<core::Error> RenderSession::runtimeFailure() const {
     return std::nullopt;
 }
 
-core::Result<void> RenderSession::pollRuntime() {
+Result<void> RenderSession::pollRuntime() {
     assertOwnerThread();
     if (last_runtime_failure_) {
         return std::unexpected(*last_runtime_failure_);
@@ -151,10 +151,10 @@ core::Result<void> RenderSession::pollRuntime() {
         return {};
     }
 
-    const std::optional<core::Error> snapshot = worker_->failureSnapshot();
-    const core::Error failure =
+    const std::optional<Error> snapshot = worker_->failureSnapshot();
+    const Error failure =
             snapshot ? *snapshot
-                     : sessionError(core::ErrorCode::Internal, "Render worker stopped without a completion event.");
+                     : sessionError(ErrorCode::Internal, "Render worker stopped without a completion event.");
     failExecution(failure);
     return std::unexpected(failure);
 }
@@ -199,8 +199,8 @@ void RenderSession::submitFrame(const ViewState& viewState) {
         // owner 此处只提交，不等待 GPU 上传。
         auto submitted = worker_->submitFrame(std::move(submission));
         if (!submitted) {
-            const std::optional<core::Error> snapshot = worker_->failureSnapshot();
-            const core::Error failure = snapshot ? *snapshot : submitted.error();
+            const std::optional<Error> snapshot = worker_->failureSnapshot();
+            const Error failure = snapshot ? *snapshot : submitted.error();
             LOG_ERROR("[RenderSession] Frame submission failed: {}", failure.message);
             failExecution(failure);
         }
@@ -219,8 +219,8 @@ void RenderSession::submitFrame(const ViewState& viewState) {
     }
 }
 
-core::Result<engine::RenderCaptureResult> RenderSession::capture(const ViewState& viewState,
-                                                                 const engine::RenderCaptureDesc& desc) {
+Result<engine::RenderCaptureResult> RenderSession::capture(const ViewState& viewState,
+                                                           const engine::RenderCaptureDesc& desc) {
     assertOwnerThread();
     if (execution_mode_ == ExecutionMode::Threaded && worker_) {
         auto polled = pollRuntime();
@@ -228,21 +228,21 @@ core::Result<engine::RenderCaptureResult> RenderSession::capture(const ViewState
             return std::unexpected(polled.error());
         }
         if (!worker_ || !worker_->isInitialized()) {
-            const std::optional<core::Error> snapshot = worker_ ? worker_->failureSnapshot() : std::nullopt;
-            const core::Error failure = snapshot ? *snapshot
-                                                 : sessionError(core::ErrorCode::Internal,
-                                                                "Render worker stopped before capture submission.");
+            const std::optional<Error> snapshot = worker_ ? worker_->failureSnapshot() : std::nullopt;
+            const Error failure =
+                    snapshot ? *snapshot
+                             : sessionError(ErrorCode::Internal, "Render worker stopped before capture submission.");
             failExecution(failure);
             return std::unexpected(failure);
         }
     } else if (!isInitialized()) {
-        return std::unexpected(sessionError(core::ErrorCode::InvalidArg, "Render session is not initialized."));
+        return std::unexpected(sessionError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
 
     RenderSubmission submission = submission_builder_.build(viewState);
     submission.surfaceGeneration = surfaceState().generation;
 
-    core::Result<engine::RenderCaptureResult> result;
+    Result<engine::RenderCaptureResult> result;
     if (execution_mode_ == ExecutionMode::Threaded) {
         // capture 自身是同步 API，但其资源上传仍由 worker 可靠队列先行执行；owner
         // 不再单独等待 prepare future，完成后统一 drain ACK。
@@ -326,16 +326,16 @@ void RenderSession::assertOwnerThread() const {
            "RenderSession must only be accessed from its owning thread.");
 }
 
-core::Result<void> RenderSession::prepareInlineResources(RenderSubmission& submission) {
+Result<void> RenderSession::prepareInlineResources(RenderSubmission& submission) {
     if (!submission.hasResourceUpdates()) {
         return {};
     }
 
     const uint64_t batchId = submission.resourceBatchId;
     if (execution_mode_ != ExecutionMode::Inline || !inline_executor_) {
-        return std::unexpected(sessionError(core::ErrorCode::InvalidArg, "Render execution is not available."));
+        return std::unexpected(sessionError(ErrorCode::InvalidArg, "Render execution is not available."));
     }
-    core::Result<void> prepared = inline_executor_->prepareResources(submission.prepare);
+    Result<void> prepared = inline_executor_->prepareResources(submission.prepare);
     if (!prepared) {
         return prepared;
     }
@@ -346,12 +346,12 @@ core::Result<void> RenderSession::prepareInlineResources(RenderSubmission& submi
     return {};
 }
 
-core::Result<void> RenderSession::drainWorkerEvents() {
+Result<void> RenderSession::drainWorkerEvents() {
     if (!worker_) {
         return {};
     }
 
-    std::optional<core::Error> failure;
+    std::optional<Error> failure;
     for (RenderWorkerEvent& event : worker_->drainEvents()) {
         if (event.type == RenderWorkerEventType::ResourceBatchCompleted) {
             // Builder 只接受当前 pending batch；迟到 ACK 会被安全忽略。
@@ -367,12 +367,12 @@ core::Result<void> RenderSession::drainWorkerEvents() {
         return {};
     }
 
-    const core::Error error = *failure;
+    const Error error = *failure;
     failExecution(error);
     return std::unexpected(error);
 }
 
-void RenderSession::failExecution(const core::Error& error) {
+void RenderSession::failExecution(const Error& error) {
     last_runtime_failure_ = error;
     LOG_CRITICAL("[RenderSession] Execution domain failed and will be discarded: {}", error.message);
     discardExecutionDomain();

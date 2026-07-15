@@ -51,21 +51,20 @@ public:
     /// 几何：按 key 查询，命中即返；miss 才用 mesh 上传（mesh 仅 miss 时被读）。
     /// key 由调用方（view 层）按资产身份或稳定临时槽位生成，本层只校验有效性，不解释其语义。
     /// mesh 指向资产持有的稳定存储（文档存活期有效），上传后本层不持有该指针。
-    core::Result<const GpuGeometry*> acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh,
-                                                     bool forceUpdate = false);
+    Result<const GpuGeometry*> acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh, bool forceUpdate = false);
 
     /// 按 key 移除几何并延迟到最近一次 GPU 提交完成后销毁。
     /// 返回 false 表示 key 本就不存在，该情况是幂等成功。
-    core::Result<bool> retireGeometry(AssetGpuKey key);
+    Result<bool> retireGeometry(AssetGpuKey key);
 
     /// 贴图：按资产身份 + 加载意图 + 内容版本去重。
     /// 同 key/options 且版本相同时复用；版本变化时上传新实例并延迟退役旧实例。
-    core::Result<Texture*> acquireTexture(AssetGpuKey key, const core::Image& image,
-                                          const TextureLoadOptions& options = {}, uint64_t contentRevision = 0);
+    Result<Texture*> acquireTexture(AssetGpuKey key, const core::Image& image, const TextureLoadOptions& options = {},
+                                    uint64_t contentRevision = 0);
 
     /// 按资产键与加载意图移除单个贴图实例，并延迟到最近一次 GPU 提交完成后销毁。
     /// 返回 false 表示完整身份本就不存在，该情况是幂等成功。
-    core::Result<bool> retireTexture(AssetGpuKey key, const TextureLoadOptions& options = {});
+    Result<bool> retireTexture(AssetGpuKey key, const TextureLoadOptions& options = {});
 
     /// 上传批次同步结束后释放失败路径保活对象；调用前必须保证批次已经 flush 成功。
     void releaseUploadFailureKeepalives();
@@ -102,14 +101,14 @@ private:
         explicit operator bool() const { return texture != nullptr; }
     };
 
-    core::Result<GpuGeometry> createGpuBuffer(const graphics::Mesh& mesh);
-    core::Result<void> retireGeometryResource(GpuGeometry geometry);
-    core::Result<void> retireTextureResource(std::unique_ptr<Texture> texture);
+    Result<GpuGeometry> createGpuBuffer(const graphics::Mesh& mesh);
+    Result<void> retireGeometryResource(GpuGeometry geometry);
+    Result<void> retireTextureResource(std::unique_ptr<Texture> texture);
     static std::string textureKey(AssetGpuKey resourceKey, const TextureLoadOptions& options);
     static TextureFormat toRHITextureFormat(core::PixelFormat pixelFmt, bool sRGB);
 
-    core::Result<std::unique_ptr<Texture>> createRHITexture(const core::Image& image, TextureUsageFlags usage,
-                                                            bool sRGB, bool generateMips);
+    Result<std::unique_ptr<Texture>> createRHITexture(const core::Image& image, TextureUsageFlags usage, bool sRGB,
+                                                      bool generateMips);
 
     RHIDevice& device_;
     std::unordered_map<AssetGpuKey, GpuGeometry> geometries_;

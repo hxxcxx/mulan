@@ -22,7 +22,7 @@ namespace mulan::view::detail {
 
 class RenderDeviceContext {
 public:
-    static core::Result<std::shared_ptr<RenderDeviceContext>> acquire(const ViewConfig& config);
+    static Result<std::shared_ptr<RenderDeviceContext>> acquire(const ViewConfig& config);
 
     RenderDeviceContext(const RenderDeviceContext&) = delete;
     RenderDeviceContext& operator=(const RenderDeviceContext&) = delete;

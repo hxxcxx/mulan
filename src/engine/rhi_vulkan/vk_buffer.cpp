@@ -8,7 +8,7 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<VKBuffer>> VKBuffer::create(const BufferDesc& desc, VmaAllocator allocator) {
+Result<std::unique_ptr<VKBuffer>> VKBuffer::create(const BufferDesc& desc, VmaAllocator allocator) {
     auto obj = std::unique_ptr<VKBuffer>(new VKBuffer(desc));
     obj->allocator_ = allocator;
 
@@ -73,7 +73,7 @@ VKBuffer::~VKBuffer() {
     }
 }
 
-core::Result<void> VKBuffer::write(uint32_t offset, uint32_t size, const void* data) {
+Result<void> VKBuffer::write(uint32_t offset, uint32_t size, const void* data) {
     if (auto wait = waitForLastUse(); !wait)
         return std::unexpected(wait.error());
     if (desc_.usage != BufferUsage::Dynamic || !mapped_data_ || !data || size == 0 || offset > desc_.size ||
@@ -88,7 +88,7 @@ core::Result<void> VKBuffer::write(uint32_t offset, uint32_t size, const void* d
     return {};
 }
 
-core::Result<void> VKBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
+Result<void> VKBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
     if (auto wait = waitForLastUse(); !wait)
         return std::unexpected(wait.error());
     if (desc_.usage != BufferUsage::Staging || !mapped_data_ || !outData || offset > desc_.size ||

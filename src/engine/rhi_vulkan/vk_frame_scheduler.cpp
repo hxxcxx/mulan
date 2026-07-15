@@ -52,11 +52,11 @@ void VKFrameScheduler::ensureSwapchainImageSync(uint32_t imageCount) {
     }
 }
 
-core::Result<std::unique_ptr<CommandList>> VKFrameScheduler::createStandaloneCommandList() {
+Result<std::unique_ptr<CommandList>> VKFrameScheduler::createStandaloneCommandList() {
     return VKCommandList::create(device_, graphics_queue_family_, allocator_, uniform_alignment_, max_uniform_size_);
 }
 
-core::Result<void> VKFrameScheduler::beginFrame(SwapChain* swapchain) {
+Result<void> VKFrameScheduler::beginFrame(SwapChain* swapchain) {
     frame_ready_ = false;
     submitted_ = false;
     pending_render_finished_ = nullptr;
@@ -144,9 +144,9 @@ bool VKFrameScheduler::submit(vk::Semaphore completionSemaphore, uint64_t comple
     }
 }
 
-core::Result<void> VKFrameScheduler::present(SwapChain* swapchain) {
+Result<void> VKFrameScheduler::present(SwapChain* swapchain) {
     auto* vkSC = static_cast<VKSwapChain*>(swapchain);
-    core::Result<void> result;
+    Result<void> result;
     if (submitted_ && pending_render_finished_) {
         result = vkSC->presentWithSemaphores(pending_render_finished_);
     } else {

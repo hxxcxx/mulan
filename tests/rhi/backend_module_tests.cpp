@@ -13,7 +13,7 @@
 namespace mulan::engine {
 namespace {
 
-core::Result<std::unique_ptr<RHIDevice>> rejectDeviceCreation(const DeviceCreateInfo&) {
+Result<std::unique_ptr<RHIDevice>> rejectDeviceCreation(const DeviceCreateInfo&) {
     return std::unexpected(makeError(EngineErrorCode::BackendNotSupported, "test backend does not create a Device"));
 }
 

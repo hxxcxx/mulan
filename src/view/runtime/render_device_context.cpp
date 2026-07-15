@@ -37,7 +37,7 @@ void RenderDeviceContext::markFailed() {
     }
 }
 
-core::Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::acquire(const ViewConfig& config) {
+Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::acquire(const ViewConfig& config) {
     const engine::RenderConfig renderConfig = config.toRenderConfig();
     std::scoped_lock registryLock(registry_mutex);
 

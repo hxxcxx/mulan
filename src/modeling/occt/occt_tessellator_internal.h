@@ -19,6 +19,6 @@ namespace mulan::modeling::detail {
 ///
 /// 流程：bounds(BRepBndLib) -> faceMesh(BRepMesh_IncrementalMesh + Poly_Triangulation)
 ///      -> edgeMesh(BRepAdaptor_Curve + GCPnts_TangentialDeflection)。
-core::Result<TessellatedGeometry> tessellateTopoShape(const TopoDS_Shape& shape, const TessellationOptions& opts);
+Result<TessellatedGeometry> tessellateTopoShape(const TopoDS_Shape& shape, const TessellationOptions& opts);
 
 }  // namespace mulan::modeling::detail

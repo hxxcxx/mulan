@@ -26,7 +26,7 @@ public:
     virtual ~IFileImporter() = default;
 
     /// 解析文件为中立 ParsedScene。
-    virtual core::Result<ParsedScene> parse(const std::string& path, const ImportOptions& options = {}) = 0;
+    virtual Result<ParsedScene> parse(const std::string& path, const ImportOptions& options = {}) = 0;
 
     virtual std::vector<std::string> supportedExtensions() const = 0;
     virtual std::string name() const = 0;

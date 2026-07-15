@@ -41,10 +41,10 @@ public:
     const BufferDesc& desc() const override { return desc_; }
 
     /// CPU 端更新缓冲区数据
-    core::Result<void> write(uint32_t offset, uint32_t size, const void* data) override;
+    Result<void> write(uint32_t offset, uint32_t size, const void* data) override;
 
     /// CPU 端回读缓冲区数据（仅 Staging buffer 支持）
-    core::Result<void> readback(uint32_t offset, uint32_t size, void* outData) override;
+    Result<void> readback(uint32_t offset, uint32_t size, void* outData) override;
 
     // --- OpenGL 特有接口 ---
 
@@ -79,10 +79,10 @@ private:
     void uploadInitData();
 
     /// 更新 Dynamic 缓冲区（使用 DISCARD 或 persistent mapping）
-    core::Result<void> updateDynamic(uint32_t offset, uint32_t size, const void* data);
+    Result<void> updateDynamic(uint32_t offset, uint32_t size, const void* data);
 
     /// 更新 Default 缓冲区（使用 glNamedBufferSubData）
-    core::Result<void> updateDefault(uint32_t offset, uint32_t size, const void* data);
+    Result<void> updateDefault(uint32_t offset, uint32_t size, const void* data);
 
     // --- 成员变量 ---
 

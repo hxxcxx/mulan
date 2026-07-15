@@ -16,7 +16,7 @@ class WGLContext final : public GLContext {
 public:
     using SwapIntervalProc = BOOL(WINAPI*)(int);
 
-    static core::Result<std::unique_ptr<WGLContext>> create(const GLContextCreateInfo& ci);
+    static Result<std::unique_ptr<WGLContext>> create(const GLContextCreateInfo& ci);
     ~WGLContext() override;
 
     bool isValid() const override { return hglrc_ != nullptr && hdc_ != nullptr; }

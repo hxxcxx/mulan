@@ -39,7 +39,7 @@ CommandState CommandManager::state(std::string_view id, const CommandHost& host)
 CommandOutcome CommandManager::execute(std::string_view id, CommandHost host) {
     Command* command = find(id);
     if (!command) {
-        return std::unexpected(core::Error::make(core::ErrorCode::NotFound, "Command not found"));
+        return std::unexpected(Error::make(ErrorCode::NotFound, "Command not found"));
     }
 
     return command->execute(host);

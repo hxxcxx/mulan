@@ -28,15 +28,14 @@ double tessellationTolerance(const TessellationOptions& opts) {
     return opts.linearDeflection > 0.0 ? opts.linearDeflection : 0.01;
 }
 
-core::Result<TruckPolygonMesh*> solidToPolygon(const TruckSolid* solid, double tolerance) {
+Result<TruckPolygonMesh*> solidToPolygon(const TruckSolid* solid, double tolerance) {
     if (!solid)
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "truck solid is null"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "truck solid is null"));
 
     TruckPolygonMesh* mesh = nullptr;
     TruckError* err = nullptr;
     if (!truck_solid_to_polygon(solid, tolerance, &mesh, &err) || !mesh) {
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::Internal, errorMessage(err, "truck tessellation failed")));
+        return std::unexpected(Error::make(ErrorCode::Internal, errorMessage(err, "truck tessellation failed")));
     }
     return mesh;
 }
@@ -157,7 +156,7 @@ math::AABB3 TruckShapeStorage::bounds() const {
     return result;
 }
 
-core::Result<TessellatedGeometry> TruckShapeStorage::tessellate(const TessellationOptions& opts) const {
+Result<TessellatedGeometry> TruckShapeStorage::tessellate(const TessellationOptions& opts) const {
     auto polygon = solidToPolygon(solid_, tessellationTolerance(opts));
     if (!polygon)
         return std::unexpected(polygon.error());
@@ -166,8 +165,7 @@ core::Result<TessellatedGeometry> TruckShapeStorage::tessellate(const Tessellati
     TruckError* err = nullptr;
     if (!truck_polygonmesh_to_buffer(*polygon, &buffer, &err)) {
         truck_polygonmesh_free(*polygon);
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::Internal, errorMessage(err, "truck polygon buffer failed")));
+        return std::unexpected(Error::make(ErrorCode::Internal, errorMessage(err, "truck polygon buffer failed")));
     }
 
     TessellatedGeometry result;

@@ -17,8 +17,8 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<DX12CommandList>> DX12CommandList::create(ID3D12Device* device,
-                                                                       ID3D12CommandAllocator* allocator) {
+Result<std::unique_ptr<DX12CommandList>> DX12CommandList::create(ID3D12Device* device,
+                                                                 ID3D12CommandAllocator* allocator) {
     if (!device || !allocator)
         return std::unexpected(makeError(EngineErrorCode::CommandListCreateFailed, "Invalid command list arguments"));
     auto object = std::unique_ptr<DX12CommandList>(new DX12CommandList(device, allocator));
@@ -65,7 +65,7 @@ void DX12CommandList::setCommandList(ID3D12GraphicsCommandList* cmdList) {
     recording_ = cmdList != nullptr;
 }
 
-core::Result<void> DX12CommandList::doBegin() {
+Result<void> DX12CommandList::doBegin() {
     if (!cmd_list_) {
         return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed, "DX12 command list is unavailable"));
     }
@@ -104,7 +104,7 @@ core::Result<void> DX12CommandList::doBegin() {
     return {};
 }
 
-core::Result<void> DX12CommandList::doEnd() {
+Result<void> DX12CommandList::doEnd() {
     if (!cmd_list_ || !recording_) {
         return std::unexpected(
                 makeError(EngineErrorCode::CommandRecordingFailed, "DX12 command list is not recording"));
@@ -287,7 +287,7 @@ void DX12CommandList::doBindGroup(BindGroup& group, std::span<const DynamicUnifo
     }
 }
 
-core::Result<UniformSlice> DX12CommandList::doWriteUniformBytes(std::span<const std::byte> data) {
+Result<UniformSlice> DX12CommandList::doWriteUniformBytes(std::span<const std::byte> data) {
     if (!transient_uniform_arena_)
         return std::unexpected(
                 makeError(EngineErrorCode::ResourceUploadFailed, "DX12 transient uniform arena is unavailable"));
@@ -487,10 +487,10 @@ void DX12CommandList::doTransitionResource(Texture* texture, ResourceState newSt
     setTextureState(dx12Tex, after);
 }
 
-core::Result<void> DX12CommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
+Result<void> DX12CommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
-    const auto rejectCopy = [this](std::string_view reason) -> core::Result<void> {
+    const auto rejectCopy = [this](std::string_view reason) -> Result<void> {
         rejectRecording(reason);
         return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed, reason));
     };
@@ -605,7 +605,7 @@ void DX12CommandList::doSetComputePipelineState(ComputePipelineState*) {
 // RenderPass
 // ============================================================
 
-core::Result<void> DX12CommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
+Result<void> DX12CommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
     auto* cl = cmd_list_.Get();
     if (!cl || info.colorCount > RenderPassBeginInfo::kMaxColorTargets || info.width == 0 || info.height == 0)
         return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,

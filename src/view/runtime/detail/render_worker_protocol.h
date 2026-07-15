@@ -29,7 +29,7 @@ struct RenderWorkerEvent {
     RenderWorkerEventType type = RenderWorkerEventType::ResourceBatchCompleted;
     uint64_t resourceSequence = 0;
     uint64_t resourceBatchId = 0;
-    core::Error error;
+    Error error;
 };
 
 struct ResourceRegistration {
@@ -82,7 +82,7 @@ public:
     }
 
     /// 失败快照持久保留；事件只发布一次，且失败路径不会发布资源 ACK。
-    void fail(core::Error error, uint64_t sequence = 0, uint64_t batchId = 0) {
+    void fail(Error error, uint64_t sequence = 0, uint64_t batchId = 0) {
         if (failed_) {
             return;
         }
@@ -105,7 +105,7 @@ public:
         return drained;
     }
 
-    const std::optional<core::Error>& failure() const { return failed_; }
+    const std::optional<Error>& failure() const { return failed_; }
 
     void reset() {
         last_enqueued_sequence_ = 0;
@@ -132,7 +132,7 @@ private:
     uint64_t active_batch_id_ = 0;
     uint64_t active_batch_sequence_ = 0;
     std::deque<RenderWorkerEvent> events_;
-    std::optional<core::Error> failed_;
+    std::optional<Error> failed_;
 };
 
 }  // namespace mulan::view::detail

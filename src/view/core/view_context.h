@@ -55,9 +55,9 @@ public:
 
     bool isInitialized() const;
     /// 专用渲染线程的异步失败快照；无失败时返回空。
-    std::optional<core::Error> runtimeFailure() const;
+    std::optional<Error> runtimeFailure() const;
     /// owner 主动回收渲染线程 ACK/Failure，并在失败时完成执行域清理。
-    core::Result<void> pollRuntime();
+    Result<void> pollRuntime();
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
 
@@ -77,8 +77,8 @@ public:
     engine::Operator* defaultOperator() const { return default_op_.get(); }
     bool isCameraNavigating() const;
 
-    core::Result<engine::RenderCaptureResult> capture(const engine::RenderCaptureDesc& desc);
-    core::Result<CaptureImage> capture(const CaptureRequest& request);
+    Result<engine::RenderCaptureResult> capture(const engine::RenderCaptureDesc& desc);
+    Result<CaptureImage> capture(const CaptureRequest& request);
     CaptureBatchResult capture(const CaptureBatch& batch);
 
     engine::Camera& camera() { return camera_; }
@@ -144,8 +144,7 @@ private:
 
     uint32_t surfaceWidth() const;
     uint32_t surfaceHeight() const;
-    core::Result<engine::RenderCaptureResult> captureFrame(const ViewState& viewState,
-                                                           const engine::RenderCaptureDesc& desc);
+    Result<engine::RenderCaptureResult> captureFrame(const ViewState& viewState, const engine::RenderCaptureDesc& desc);
 
     std::unique_ptr<detail::RenderSession> render_session_;
     engine::Camera camera_{ engine::CameraMode::Trackball };

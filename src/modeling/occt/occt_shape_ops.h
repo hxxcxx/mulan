@@ -16,8 +16,8 @@ namespace mulan::modeling {
 /// OCCT 后端建模操作:拉伸(BRepPrimAPI_MakePrism)+ 布尔(BRepAlgoAPI_Cut/Fuse/Common)。
 class OccShapeOps final : public IShapeOps {
 public:
-    core::Result<Shape> extrude(const ExtrudeParams& params) override;
-    core::Result<Shape> boolean(const Shape& target, const Shape& tool, BooleanOp op) override;
+    Result<Shape> extrude(const ExtrudeParams& params) override;
+    Result<Shape> boolean(const Shape& target, const Shape& tool, BooleanOp op) override;
 };
 
 }  // namespace mulan::modeling

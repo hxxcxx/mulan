@@ -60,9 +60,9 @@ enum class EngineErrorCode : int32_t {
     ResourceReadbackFailed = 1026,
 };
 
-inline core::Error makeError(EngineErrorCode code, std::string_view msg,
-                             std::source_location loc = std::source_location::current()) {
-    return core::Error::make(static_cast<int32_t>(code), msg, loc);
+inline Error makeError(EngineErrorCode code, std::string_view msg,
+                       std::source_location loc = std::source_location::current()) {
+    return Error::make(static_cast<int32_t>(code), msg, loc);
 }
 
 }  // namespace mulan::engine

@@ -24,10 +24,10 @@ AssetGpuRegistry::GpuTextureResource::GpuTextureResource(std::unique_ptr<Texture
     }
 }
 
-core::Result<const GpuGeometry*> AssetGpuRegistry::acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh,
-                                                                   bool forceUpdate) {
+Result<const GpuGeometry*> AssetGpuRegistry::acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh,
+                                                             bool forceUpdate) {
     if (!key) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "GPU geometry resource key is invalid."));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "GPU geometry resource key is invalid."));
     }
 
     if (auto it = geometries_.find(key); it != geometries_.end()) {
@@ -57,9 +57,9 @@ core::Result<const GpuGeometry*> AssetGpuRegistry::acquireGeometry(AssetGpuKey k
     return &inserted->second;
 }
 
-core::Result<bool> AssetGpuRegistry::retireGeometry(AssetGpuKey key) {
+Result<bool> AssetGpuRegistry::retireGeometry(AssetGpuKey key) {
     if (!key) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "GPU geometry resource key is invalid."));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "GPU geometry resource key is invalid."));
     }
 
     auto node = geometries_.extract(key);
@@ -76,11 +76,10 @@ core::Result<bool> AssetGpuRegistry::retireGeometry(AssetGpuKey key) {
     return true;
 }
 
-core::Result<Texture*> AssetGpuRegistry::acquireTexture(AssetGpuKey key, const core::Image& image,
-                                                        const TextureLoadOptions& options, uint64_t contentRevision) {
+Result<Texture*> AssetGpuRegistry::acquireTexture(AssetGpuKey key, const core::Image& image,
+                                                  const TextureLoadOptions& options, uint64_t contentRevision) {
     if (!key || !image.valid()) {
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::InvalidArg, "GPU texture resource input is invalid."));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "GPU texture resource input is invalid."));
     }
 
     const auto cacheKey = textureKey(key, options);
@@ -119,9 +118,9 @@ core::Result<Texture*> AssetGpuRegistry::acquireTexture(AssetGpuKey key, const c
     return inserted->second.get();
 }
 
-core::Result<bool> AssetGpuRegistry::retireTexture(AssetGpuKey key, const TextureLoadOptions& options) {
+Result<bool> AssetGpuRegistry::retireTexture(AssetGpuKey key, const TextureLoadOptions& options) {
     if (!key) {
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "GPU texture resource key is invalid."));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "GPU texture resource key is invalid."));
     }
 
     const auto cacheKey = textureKey(key, options);
@@ -193,7 +192,7 @@ void AssetGpuRegistry::clear() {
     failed_upload_texture_.reset();
 }
 
-core::Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(const graphics::Mesh& mesh) {
+Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(const graphics::Mesh& mesh) {
     GpuGeometry geo;
     if (mesh.empty()) {
         return geo;
@@ -231,7 +230,7 @@ core::Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(const graphics::Mesh
     return geo;
 }
 
-core::Result<void> AssetGpuRegistry::retireGeometryResource(GpuGeometry geometry) {
+Result<void> AssetGpuRegistry::retireGeometryResource(GpuGeometry geometry) {
     const SubmissionToken token = device_.lastSubmissionToken();
     if (!token) {
         return {};
@@ -248,7 +247,7 @@ core::Result<void> AssetGpuRegistry::retireGeometryResource(GpuGeometry geometry
     return {};
 }
 
-core::Result<void> AssetGpuRegistry::retireTextureResource(std::unique_ptr<Texture> texture) {
+Result<void> AssetGpuRegistry::retireTextureResource(std::unique_ptr<Texture> texture) {
     if (!texture) {
         return {};
     }
@@ -290,9 +289,8 @@ TextureFormat AssetGpuRegistry::toRHITextureFormat(core::PixelFormat pixelFmt, b
     }
 }
 
-core::Result<std::unique_ptr<Texture>> AssetGpuRegistry::createRHITexture(const core::Image& image,
-                                                                          TextureUsageFlags usage, bool sRGB,
-                                                                          bool generateMips) {
+Result<std::unique_ptr<Texture>> AssetGpuRegistry::createRHITexture(const core::Image& image, TextureUsageFlags usage,
+                                                                    bool sRGB, bool generateMips) {
     std::shared_ptr<core::Image> rgbaImage;
     const core::Image* uploadImage = &image;
     if (image.format() != core::PixelFormat::RGBA8) {

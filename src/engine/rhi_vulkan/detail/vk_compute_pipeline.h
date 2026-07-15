@@ -18,8 +18,7 @@ namespace mulan::engine {
 
 class VKComputePipelineState : public ComputePipelineState {
 public:
-    static core::Result<std::unique_ptr<VKComputePipelineState>> create(const ComputePipelineDesc& desc,
-                                                                        vk::Device device);
+    static Result<std::unique_ptr<VKComputePipelineState>> create(const ComputePipelineDesc& desc, vk::Device device);
     ~VKComputePipelineState();
 
     const ComputePipelineDesc& desc() const override { return desc_; }
@@ -31,7 +30,7 @@ public:
 private:
     VKComputePipelineState(const ComputePipelineDesc& desc, vk::Device device) : desc_(desc), device_(device) {}
 
-    core::Error build();
+    Error build();
 
     ComputePipelineDesc desc_;
     vk::Device device_;

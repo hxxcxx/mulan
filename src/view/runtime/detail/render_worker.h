@@ -41,21 +41,21 @@ public:
     RenderWorker(const RenderWorker&) = delete;
     RenderWorker& operator=(const RenderWorker&) = delete;
 
-    core::Result<void> initWindow(const ViewConfig& config, int width, int height);
-    core::Result<void> initOffscreen(const ViewConfig& config, int width, int height);
+    Result<void> initWindow(const ViewConfig& config, int width, int height);
+    Result<void> initOffscreen(const ViewConfig& config, int width, int height);
     void shutdown();
 
     bool isInitialized() const;
 
-    core::Result<void> submitFrame(RenderSubmission submission);
-    core::Result<engine::RenderCaptureResult> capture(RenderSubmission submission, engine::RenderCaptureDesc desc);
-    core::Result<RenderSurfaceState> resize(int width, int height);
+    Result<void> submitFrame(RenderSubmission submission);
+    Result<engine::RenderCaptureResult> capture(RenderSubmission submission, engine::RenderCaptureDesc desc);
+    Result<RenderSurfaceState> resize(int width, int height);
     void enableIBL(std::string hdrPath);
-    core::Result<void> clearAssetResources();
+    Result<void> clearAssetResources();
 
     /// owner 线程非阻塞回收资源 ACK / worker 失败事件。
     std::vector<RenderWorkerEvent> drainEvents();
-    std::optional<core::Error> failureSnapshot() const;
+    std::optional<Error> failureSnapshot() const;
 
     RenderSurfaceState surfaceState() const;
 
@@ -69,12 +69,12 @@ private:
     };
 
     struct ControlTask {
-        std::function<core::Result<void>(RenderExecutor&)> execute;
+        std::function<Result<void>(RenderExecutor&)> execute;
         bool fatalOnFailure = false;
         uint64_t resourceSequence = 0;
         uint64_t resourceBatchId = 0;
         std::function<void()> complete;
-        std::function<void(const core::Error&)> fail;
+        std::function<void(const Error&)> fail;
     };
 
     struct PendingFrame {
@@ -82,16 +82,16 @@ private:
         uint64_t requiredResourceSequence = 0;
     };
 
-    using Initializer = std::function<core::Result<void>(RenderExecutor&)>;
+    using Initializer = std::function<Result<void>(RenderExecutor&)>;
 
-    core::Result<void> start(Initializer initialize);
-    void run(std::stop_token stopToken, Initializer initialize, std::promise<core::Result<void>> ready);
+    Result<void> start(Initializer initialize);
+    void run(std::stop_token stopToken, Initializer initialize, std::promise<Result<void>> ready);
     bool enqueue(ControlTask task);
-    core::Result<uint64_t> enqueueSubmissionResourcesLocked(RenderSubmission& submission);
+    Result<uint64_t> enqueueSubmissionResourcesLocked(RenderSubmission& submission);
     bool hasExecutableFrameLocked() const;
-    core::Result<void> executeLatest(RenderExecutor& executor);
+    Result<void> executeLatest(RenderExecutor& executor);
     void publishSurfaceState(const RenderExecutor& executor);
-    void failWorker(const core::Error& error, uint64_t resourceSequence = 0, uint64_t resourceBatchId = 0);
+    void failWorker(const Error& error, uint64_t resourceSequence = 0, uint64_t resourceBatchId = 0);
 
     mutable std::mutex mutex_;
     std::condition_variable_any wake_;

@@ -51,27 +51,25 @@ std::string errorMessage(TruckError* err, const char* fallback) {
     return result;
 }
 
-core::Result<const TruckSolid*> solidFromShape(const Shape& shape) {
+Result<const TruckSolid*> solidFromShape(const Shape& shape) {
     auto storage = storageOf(shape);
     if (!storage)
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "truck operand is empty Shape"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "truck operand is empty Shape"));
 
     auto truck = std::dynamic_pointer_cast<TruckShapeStorage>(storage);
     if (!truck || !truck->solid()) {
-        return std::unexpected(core::Error::make(core::ErrorCode::NotSupported, "operand is not a truck shape"));
+        return std::unexpected(Error::make(ErrorCode::NotSupported, "operand is not a truck shape"));
     }
     return truck->solid();
 }
 
-core::Result<Shape> shapeFromAbstractSolid(AbstractShape* abstractShape, const char* context) {
+Result<Shape> shapeFromAbstractSolid(AbstractShape* abstractShape, const char* context) {
     if (!abstractShape)
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::Internal, std::string(context) + ": null abstract shape"));
+        return std::unexpected(Error::make(ErrorCode::Internal, std::string(context) + ": null abstract shape"));
 
     TruckSolid* solid = truck_abstractshape_into_solid(abstractShape);
     if (!solid) {
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::Internal, std::string(context) + ": result is not a solid"));
+        return std::unexpected(Error::make(ErrorCode::Internal, std::string(context) + ": result is not a solid"));
     }
     return makeTruckShape(solid);
 }
@@ -91,28 +89,26 @@ bool finitePositive(double value) {
 
 }  // namespace
 
-core::Result<Shape> TruckShapeOps::extrude(const ExtrudeParams& params) {
+Result<Shape> TruckShapeOps::extrude(const ExtrudeParams& params) {
     if (params.circleProfile) {
-        return std::unexpected(core::Error::make(core::ErrorCode::NotSupported,
-                                                 "truck extrude does not support analytic circle profiles yet"));
+        return std::unexpected(
+                Error::make(ErrorCode::NotSupported, "truck extrude does not support analytic circle profiles yet"));
     }
     if (!params.profile.hasOuterLoop())
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "extrude profile has no outer loop"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "extrude profile has no outer loop"));
     if (!finitePositive(params.distance))
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "extrude distance must be positive"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "extrude distance must be positive"));
 
     const auto& points = params.profile.outer.points;
     if (points.size() < 3)
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::InvalidArg, "truck extrude requires at least 3 profile points"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "truck extrude requires at least 3 profile points"));
 
     std::vector<VertexHandle> vertices;
     vertices.reserve(points.size());
     for (const auto& p : points) {
         VertexHandle v(truck_vertex_new(p.x, p.y, p.z));
         if (!v.ptr)
-            return std::unexpected(
-                    core::Error::make(core::ErrorCode::Internal, "truck failed to create profile vertex"));
+            return std::unexpected(Error::make(ErrorCode::Internal, "truck failed to create profile vertex"));
         vertices.push_back(std::move(v));
     }
 
@@ -125,7 +121,7 @@ core::Result<Shape> TruckShapeOps::extrude(const ExtrudeParams& params) {
         if (!edge) {
             for (TruckEdge* e : edges)
                 truck_edge_free(e);
-            return std::unexpected(core::Error::make(core::ErrorCode::Internal, "truck failed to create profile edge"));
+            return std::unexpected(Error::make(ErrorCode::Internal, "truck failed to create profile edge"));
         }
         edges.push_back(edge);
     }
@@ -134,18 +130,18 @@ core::Result<Shape> TruckShapeOps::extrude(const ExtrudeParams& params) {
     if (!wire) {
         for (TruckEdge* e : edges)
             truck_edge_free(e);
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "truck failed to create profile wire"));
+        return std::unexpected(Error::make(ErrorCode::Internal, "truck failed to create profile wire"));
     }
 
     TruckFace* face = truck_face_attach_plane(wire);
     truck_wire_free(wire);
     if (!face)
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "truck failed to create profile face"));
+        return std::unexpected(Error::make(ErrorCode::Internal, "truck failed to create profile face"));
 
     AbstractShape* source = truck_face_upcast(face);
     if (!source) {
         truck_face_free(face);
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "truck failed to upcast profile face"));
+        return std::unexpected(Error::make(ErrorCode::Internal, "truck failed to upcast profile face"));
     }
 
     const math::Vec3 dir = normalizedDirection(params);
@@ -155,13 +151,13 @@ core::Result<Shape> TruckShapeOps::extrude(const ExtrudeParams& params) {
     const bool ok = truck_tsweep(source, sweep.data(), sweep.size(), &swept, &err);
     truck_abstractshape_free(source);
     if (!ok || !swept)
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, errorMessage(err, "truck tsweep failed")));
+        return std::unexpected(Error::make(ErrorCode::Internal, errorMessage(err, "truck tsweep failed")));
     freeError(err);
 
     return shapeFromAbstractSolid(swept, "truck extrude");
 }
 
-core::Result<Shape> TruckShapeOps::boolean(const Shape& target, const Shape& tool, BooleanOp op) {
+Result<Shape> TruckShapeOps::boolean(const Shape& target, const Shape& tool, BooleanOp op) {
     auto a = solidFromShape(target);
     if (!a)
         return std::unexpected(a.error());
@@ -174,13 +170,12 @@ core::Result<Shape> TruckShapeOps::boolean(const Shape& target, const Shape& too
     case BooleanOp::Union: result = truck_solid_or(*a, *b, 0.05); break;
     case BooleanOp::Intersection: result = truck_solid_and(*a, *b, 0.05); break;
     case BooleanOp::Difference:
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::NotSupported,
-                                  "truck boolean difference is not wired until bridge exposes cut directly"));
+        return std::unexpected(Error::make(ErrorCode::NotSupported,
+                                           "truck boolean difference is not wired until bridge exposes cut directly"));
     }
 
     if (!result)
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "truck boolean failed"));
+        return std::unexpected(Error::make(ErrorCode::Internal, "truck boolean failed"));
     return makeTruckShape(result);
 }
 

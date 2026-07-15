@@ -30,7 +30,7 @@ VKUploadContext::~VKUploadContext() {
         device_.destroyCommandPool(cmd_pool_);
 }
 
-core::Result<void> VKUploadContext::uploadToBuffer(VKBuffer* dst, const void* data, uint32_t size, uint32_t dstOffset) {
+Result<void> VKUploadContext::uploadToBuffer(VKBuffer* dst, const void* data, uint32_t size, uint32_t dstOffset) {
     if (!dst || !dst->vkBuffer() || !data || size == 0 || static_cast<uint64_t>(dstOffset) + size > dst->desc().size)
         return std::unexpected(
                 makeError(EngineErrorCode::ResourceUploadFailed, "Vulkan buffer upload arguments are invalid"));
@@ -55,14 +55,14 @@ core::Result<void> VKUploadContext::uploadToBuffer(VKBuffer* dst, const void* da
     return {};
 }
 
-core::Result<void> VKUploadContext::uploadBufferInit(VKBuffer* dst) {
+Result<void> VKUploadContext::uploadBufferInit(VKBuffer* dst) {
     if (auto result = uploadToBuffer(dst, dst->pendingData(), dst->desc().size); !result)
         return std::unexpected(result.error());
     dst->markUploaded();
     return {};
 }
 
-core::Result<void> VKUploadContext::uploadTexture(VKTexture* dst, const TextureUploadDesc& upload) {
+Result<void> VKUploadContext::uploadTexture(VKTexture* dst, const TextureUploadDesc& upload) {
     const uint32_t bpp = textureFormatBytesPerPixel(upload.format);
     const uint32_t sourceRowPitch = upload.sourceRowPitch ? upload.sourceRowPitch : upload.width * bpp;
     const uint64_t tightRowPitch = static_cast<uint64_t>(upload.width) * bpp;
@@ -201,7 +201,7 @@ void VKUploadContext::flush() {
     }
 }
 
-core::Result<void> VKUploadContext::beginUploadBatch() {
+Result<void> VKUploadContext::beginUploadBatch() {
     if (batch_active_)
         return {};
 
@@ -223,7 +223,7 @@ core::Result<void> VKUploadContext::beginUploadBatch() {
     return {};
 }
 
-core::Result<void> VKUploadContext::flushUploadBatch() {
+Result<void> VKUploadContext::flushUploadBatch() {
     if (!batch_active_)
         return {};
 

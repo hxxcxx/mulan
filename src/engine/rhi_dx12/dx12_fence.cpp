@@ -7,7 +7,7 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<DX12Fence>> DX12Fence::create(ID3D12Device* device, uint64_t initialValue) {
+Result<std::unique_ptr<DX12Fence>> DX12Fence::create(ID3D12Device* device, uint64_t initialValue) {
     if (!device)
         return std::unexpected(makeError(EngineErrorCode::FenceCreateFailed, "DX12Fence requires a valid device"));
     auto object = std::unique_ptr<DX12Fence>(new DX12Fence(device, initialValue));
@@ -23,13 +23,13 @@ DX12Fence::DX12Fence(ID3D12Device* device, uint64_t initialValue) {
     event_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
 }
 
-core::Result<void> DX12Fence::signal(uint64_t value) {
+Result<void> DX12Fence::signal(uint64_t value) {
     if (!checkDX12(fence_->Signal(value), "ID3D12Fence::Signal"))
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX12 fence signal failed"));
     return {};
 }
 
-core::Result<void> DX12Fence::wait(uint64_t value) {
+Result<void> DX12Fence::wait(uint64_t value) {
     if (fence_->GetCompletedValue() < value) {
         if (!checkDX12(fence_->SetEventOnCompletion(value, event_), "ID3D12Fence::SetEventOnCompletion"))
             return std::unexpected(makeError(EngineErrorCode::SubmissionWaitFailed, "DX12 fence wait setup failed"));

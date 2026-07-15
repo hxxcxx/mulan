@@ -42,7 +42,7 @@ class IShapeFileReader {
 public:
     virtual ~IShapeFileReader() = default;
 
-    virtual core::Result<std::vector<NamedShape>> read(const std::string& path) = 0;
+    virtual Result<std::vector<NamedShape>> read(const std::string& path) = 0;
     virtual std::vector<std::string> supportedExtensions() const = 0;
     virtual std::string name() const = 0;
 };

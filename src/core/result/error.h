@@ -20,7 +20,7 @@
 #include <string>
 #include <string_view>
 
-namespace mulan::core {
+namespace mulan {
 
 // ============================================================
 // ErrorCode — 通用错误码（0~999），各模块从 1000 起自定义
@@ -61,4 +61,4 @@ struct CORE_API Error {
 template <typename T>
 using Result = std::expected<T, Error>;
 
-}  // namespace mulan::core
+}  // namespace mulan

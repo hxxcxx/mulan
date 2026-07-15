@@ -7,7 +7,7 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<VKFence>> VKFence::create(vk::Device device, uint64_t initialValue) {
+Result<std::unique_ptr<VKFence>> VKFence::create(vk::Device device, uint64_t initialValue) {
     auto obj = std::unique_ptr<VKFence>(new VKFence(device));
 
     vk::SemaphoreTypeCreateInfo timelineCI;
@@ -33,7 +33,7 @@ VKFence::~VKFence() {
     }
 }
 
-core::Result<void> VKFence::signal(uint64_t value) {
+Result<void> VKFence::signal(uint64_t value) {
     vk::SemaphoreSignalInfo info;
     info.semaphore = semaphore_;
     info.value = value;
@@ -45,7 +45,7 @@ core::Result<void> VKFence::signal(uint64_t value) {
     return {};
 }
 
-core::Result<void> VKFence::wait(uint64_t value) {
+Result<void> VKFence::wait(uint64_t value) {
     vk::SemaphoreWaitInfo info;
     info.semaphoreCount = 1;
     vk::Semaphore semaphores[] = { semaphore_ };

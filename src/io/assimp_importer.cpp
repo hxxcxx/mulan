@@ -311,7 +311,7 @@ void importNode(const aiNode& node, ParsedScene& parsed, const std::vector<size_
 // AssimpImporter
 // ============================================================
 
-core::Result<ParsedScene> AssimpImporter::parse(const std::string& path, const ImportOptions& options) {
+Result<ParsedScene> AssimpImporter::parse(const std::string& path, const ImportOptions& options) {
     ParsedScene scene;
     scene.unitScale = options.unitScale > 0.0 ? options.unitScale : 1.0;
 
@@ -324,8 +324,8 @@ core::Result<ParsedScene> AssimpImporter::parse(const std::string& path, const I
 
     const aiScene* aiScene = importer.ReadFile(path, flags);
     if (!aiScene || !aiScene->mRootNode) {
-        return std::unexpected(core::Error::make(
-                core::ErrorCode::Io, std::string("Assimp failed to import model: ") + importer.GetErrorString()));
+        return std::unexpected(
+                Error::make(ErrorCode::Io, std::string("Assimp failed to import model: ") + importer.GetErrorString()));
     }
 
     const std::filesystem::path baseDirectory = std::filesystem::path(path).parent_path();
@@ -334,8 +334,7 @@ core::Result<ParsedScene> AssimpImporter::parse(const std::string& path, const I
 
     bool hasMesh = std::any_of(meshes.begin(), meshes.end(), [](size_t idx) { return idx != SIZE_MAX; });
     if (!hasMesh) {
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::InvalidArg, "Imported model contains no renderable meshes"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Imported model contains no renderable meshes"));
     }
 
     importNode(*aiScene->mRootNode, scene, meshes, SIZE_MAX);

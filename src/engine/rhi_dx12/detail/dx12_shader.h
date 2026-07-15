@@ -20,7 +20,7 @@ namespace mulan::engine {
 class DX12Shader final : public Shader {
 public:
     /// 创建 DX12Shader。文件读失败 → ShaderFileNotFound；无字节码 → ShaderCompileFailed。
-    static core::Result<std::unique_ptr<DX12Shader>> create(const ShaderDesc& desc);
+    static Result<std::unique_ptr<DX12Shader>> create(const ShaderDesc& desc);
     ~DX12Shader() = default;
 
     const ShaderDesc& desc() const override { return desc_; }

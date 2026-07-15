@@ -68,7 +68,7 @@ public:
         return { Point3{ marker_, 0.0, 0.0 }, Point3{ marker_ + 1.0, 1.0, 1.0 } };
     }
 
-    mulan::core::Result<mulan::modeling::TessellatedGeometry> tessellate(
+    mulan::Result<mulan::modeling::TessellatedGeometry> tessellate(
             const mulan::modeling::TessellationOptions&) const override {
         return mulan::modeling::TessellatedGeometry{};
     }
@@ -83,12 +83,12 @@ mulan::modeling::Shape testShape(double marker) {
 
 class TestShapeOps final : public mulan::modeling::IShapeOps {
 public:
-    mulan::core::Result<mulan::modeling::Shape> extrude(const mulan::modeling::ExtrudeParams&) override {
+    mulan::Result<mulan::modeling::Shape> extrude(const mulan::modeling::ExtrudeParams&) override {
         return testShape(50.0);
     }
 
-    mulan::core::Result<mulan::modeling::Shape> boolean(const mulan::modeling::Shape&, const mulan::modeling::Shape&,
-                                                        mulan::modeling::BooleanOp) override {
+    mulan::Result<mulan::modeling::Shape> boolean(const mulan::modeling::Shape&, const mulan::modeling::Shape&,
+                                                  mulan::modeling::BooleanOp) override {
         return testShape(100.0);
     }
 };

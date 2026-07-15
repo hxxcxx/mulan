@@ -22,7 +22,7 @@ public:
 
     std::string_view name() const override { return "Edge"; }
 
-    core::Result<void> init(RHIDevice& device, const RenderTargetInfo& target) override;
+    Result<void> init(RHIDevice& device, const RenderTargetInfo& target) override;
 
     void shutdown(RHIDevice& device) override;
     void execute(RenderFrame& frame) override;

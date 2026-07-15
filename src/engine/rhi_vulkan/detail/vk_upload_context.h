@@ -35,26 +35,26 @@ public:
     VKUploadContext(vk::Device device, VmaAllocator allocator, uint32_t queueFamily, vk::Queue queue);
     ~VKUploadContext();
 
-    core::Result<void> uploadToBuffer(VKBuffer* dst, const void* data, uint32_t size, uint32_t dstOffset = 0);
-    core::Result<void> uploadBufferInit(VKBuffer* dst);
+    Result<void> uploadToBuffer(VKBuffer* dst, const void* data, uint32_t size, uint32_t dstOffset = 0);
+    Result<void> uploadBufferInit(VKBuffer* dst);
 
     /// 上传像素数据到纹理：staging 拷贝 + layout 转换到 eShaderReadOnlyOptimal。
     /// 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式。
-    core::Result<void> uploadTexture(VKTexture* dst, const TextureUploadDesc& upload);
+    Result<void> uploadTexture(VKTexture* dst, const TextureUploadDesc& upload);
 
     StagingSlice allocStaging(uint32_t size);
     void resetSlabs();
     void flush();
 
     /// 开始批量上传：后续 uploadToBuffer/uploadTexture 只录制不提交
-    core::Result<void> beginUploadBatch();
+    Result<void> beginUploadBatch();
 
     /// 结束批量上传：提交一次命令并同步等待 GPU 完成
-    core::Result<void> flushUploadBatch();
+    Result<void> flushUploadBatch();
 
 private:
     template <typename F>
-    core::Result<void> executeCopy(F&& copyCmd) {
+    Result<void> executeCopy(F&& copyCmd) {
         if (batch_active_) {
             // 批量模式：只录制到 batch_cmd_，不提交
             copyCmd(batch_cmd_);

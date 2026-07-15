@@ -26,8 +26,8 @@ public:
     Texture* currentBackBuffer() override;
     Texture* depthTexture() override { return m_depthTexture ? m_depthTexture.get() : nullptr; }
     RenderPassBeginInfo renderPassBeginInfo() override;
-    core::Result<void> present() override;
-    core::Result<void> resize(uint32_t width, uint32_t height) override;
+    Result<void> present() override;
+    Result<void> resize(uint32_t width, uint32_t height) override;
 
 private:
     bool createBackBuffer();

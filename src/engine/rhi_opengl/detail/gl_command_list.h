@@ -47,10 +47,10 @@ public:
     // --- 生命周期 ---
 
     /// 开始录制命令（对 GL 无实际意义，但保持接口一致）
-    core::Result<void> doBegin() override;
+    Result<void> doBegin() override;
 
     /// 结束录制命令
-    core::Result<void> doEnd() override;
+    Result<void> doEnd() override;
 
     // --- 管线状态 ---
 
@@ -63,7 +63,7 @@ public:
     /// 绑定资源组（UBO / Texture）
     void doBindGroup(BindGroup& group) override;
     void doBindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
-    core::Result<UniformSlice> doWriteUniformBytes(std::span<const std::byte> data) override;
+    Result<UniformSlice> doWriteUniformBytes(std::span<const std::byte> data) override;
 
     // --- 视口 / 裁剪 ---
 
@@ -103,7 +103,7 @@ public:
     void doTransitionResource(Texture* texture, ResourceState newState) override;
 
     /// 复制纹理到缓冲区（用于 GPU→CPU 数据回读）
-    core::Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
+    Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- 清除 ---
 
@@ -114,7 +114,7 @@ public:
     /// 清除模板缓冲区
 
     // --- RenderPass ---
-    core::Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
+    Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
     void doEndRenderPass() override;
 
     // --- OpenGL 特有接口 ---

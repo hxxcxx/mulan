@@ -16,8 +16,8 @@ namespace mulan::modeling {
 
 class TruckShapeOps final : public IShapeOps {
 public:
-    core::Result<Shape> extrude(const ExtrudeParams& params) override;
-    core::Result<Shape> boolean(const Shape& target, const Shape& tool, BooleanOp op) override;
+    Result<Shape> extrude(const ExtrudeParams& params) override;
+    Result<Shape> boolean(const Shape& target, const Shape& tool, BooleanOp op) override;
 };
 
 }  // namespace mulan::modeling

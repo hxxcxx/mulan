@@ -9,8 +9,8 @@ namespace mulan::engine {
 
 namespace {
 
-core::Result<void> validateBindings(const PipelineBinding* bindings, uint8_t count, uint8_t capacity,
-                                    uint32_t allowedStages) {
+Result<void> validateBindings(const PipelineBinding* bindings, uint8_t count, uint8_t capacity,
+                              uint32_t allowedStages) {
     if (count > capacity)
         return std::unexpected(makeError(EngineErrorCode::PipelineCreateFailed,
                                          "Pipeline descriptor binding count exceeds its fixed capacity"));
@@ -39,8 +39,8 @@ core::Result<void> validateBindings(const PipelineBinding* bindings, uint8_t cou
     return {};
 }
 
-core::Result<void> validateShader(const Shader* shader, ShaderType expectedType, const RHIDevice& device,
-                                  const char* missingMessage) {
+Result<void> validateShader(const Shader* shader, ShaderType expectedType, const RHIDevice& device,
+                            const char* missingMessage) {
     if (!shader)
         return std::unexpected(makeError(EngineErrorCode::PipelineCreateFailed, missingMessage));
     if (shader->type() != expectedType)
@@ -52,7 +52,7 @@ core::Result<void> validateShader(const Shader* shader, ShaderType expectedType,
     return {};
 }
 
-core::Result<void> validatePushConstants(uint32_t size, bool supported) {
+Result<void> validatePushConstants(uint32_t size, bool supported) {
     if (size == 0)
         return {};
     if (!supported)
@@ -66,8 +66,8 @@ core::Result<void> validatePushConstants(uint32_t size, bool supported) {
 
 }  // namespace
 
-core::Result<void> validateGraphicsPipelineDesc(const GraphicsPipelineDesc& desc, const RHIDevice& device,
-                                                const GPUDeviceCapabilities& capabilities) {
+Result<void> validateGraphicsPipelineDesc(const GraphicsPipelineDesc& desc, const RHIDevice& device,
+                                          const GPUDeviceCapabilities& capabilities) {
     if (auto result = validateShader(desc.vs, ShaderType::Vertex, device, "Graphics pipeline requires a vertex shader");
         !result)
         return result;
@@ -115,8 +115,8 @@ core::Result<void> validateGraphicsPipelineDesc(const GraphicsPipelineDesc& desc
     return {};
 }
 
-core::Result<void> validateComputePipelineDesc(const ComputePipelineDesc& desc, const RHIDevice& device,
-                                               const GPUDeviceCapabilities& capabilities) {
+Result<void> validateComputePipelineDesc(const ComputePipelineDesc& desc, const RHIDevice& device,
+                                         const GPUDeviceCapabilities& capabilities) {
     if (!capabilities.computeShader)
         return std::unexpected(makeError(EngineErrorCode::BackendNotSupported,
                                          "The active backend does not support compute pipelines"));

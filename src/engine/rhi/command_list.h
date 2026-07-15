@@ -56,11 +56,11 @@ public:
 
     // --- 生命周期 ---
 
-    core::Result<void> begin();
-    core::Result<void> end();
+    Result<void> begin();
+    Result<void> end();
     State state() const noexcept { return state_; }
     bool isExecutable() const noexcept { return state_ == State::Executable; }
-    const core::Error* recordingError() const noexcept;
+    const Error* recordingError() const noexcept;
 
     // --- 管线状态 ---
 
@@ -77,10 +77,10 @@ public:
     void bindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms);
 
     /// 将一份小型常量数据写入当前录制周期的后端瞬态 Uniform 分配器。
-    core::Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data);
+    Result<UniformSlice> writeUniformBytes(std::span<const std::byte> data);
 
     template <typename T>
-    core::Result<UniformSlice> writeUniform(const T& value) {
+    Result<UniformSlice> writeUniform(const T& value) {
         static_assert(std::is_trivially_copyable_v<T>, "Uniform data must be trivially copyable");
         return writeUniformBytes(std::as_bytes(std::span{ &value, size_t{ 1 } }));
     }
@@ -129,7 +129,7 @@ public:
     void transitionResource(Texture* texture, ResourceState newState);
 
     /// 将渲染目标 color 纹理复制到 staging buffer（用于 CPU 回读）。
-    core::Result<void> copyTextureToBuffer(Texture* src, Buffer* dst);
+    Result<void> copyTextureToBuffer(Texture* src, Buffer* dst);
 
     // --- RenderPass ---
 
@@ -144,18 +144,18 @@ protected:
     CommandList(const CommandList&) = delete;
     CommandList& operator=(const CommandList&) = delete;
 
-    core::Result<void> waitForPreviousSubmission();
+    Result<void> waitForPreviousSubmission();
     DescriptorCacheEpoch descriptorCacheEpoch(uint64_t generation) const noexcept {
         return { descriptor_scope_id_, generation };
     }
-    virtual core::Result<void> doBegin() = 0;
-    virtual core::Result<void> doEnd() = 0;
+    virtual Result<void> doBegin() = 0;
+    virtual Result<void> doEnd() = 0;
     virtual void doMarkSubmitted() {}
     virtual void doSetPipelineState(PipelineState* pso) = 0;
     virtual void doSetComputePipelineState(ComputePipelineState* pso) = 0;
     virtual void doBindGroup(BindGroup& group) = 0;
     virtual void doBindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms);
-    virtual core::Result<UniformSlice> doWriteUniformBytes(std::span<const std::byte> data);
+    virtual Result<UniformSlice> doWriteUniformBytes(std::span<const std::byte> data);
     virtual void doSetViewport(const Viewport& vp) = 0;
     virtual void doSetScissorRect(const ScissorRect& rect) = 0;
     virtual void doSetVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) = 0;
@@ -168,11 +168,11 @@ protected:
     virtual void doDispatchIndirect(Buffer* argsBuffer, uint32_t offset) = 0;
     virtual void doSetPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) = 0;
     virtual void doTransitionResource(Texture* texture, ResourceState newState) = 0;
-    virtual core::Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) = 0;
-    virtual core::Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) = 0;
+    virtual Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) = 0;
+    virtual Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) = 0;
     virtual void doEndRenderPass() = 0;
 
-    void invalidate(core::Error error);
+    void invalidate(Error error);
     void rejectRecording(std::string_view reason);
     void activateBindGroupLayout(const BindGroupLayout& layout);
     bool validateBindGroupCompatible(const BindGroup& group);
@@ -247,10 +247,10 @@ private:
     std::optional<GraphicsPipelineDesc> active_graphics_pipeline_desc_;
     RenderPassBeginInfo active_render_pass_info_{};
     std::vector<std::shared_ptr<RHIResourceLifetimeState>> referenced_resources_;
-    std::optional<core::Error> recording_error_;
+    std::optional<Error> recording_error_;
 
     void recordResource(const RHITrackedResource* resource);
-    core::Result<void> validateReferencedResources() const;
+    Result<void> validateReferencedResources() const;
 };
 
 }  // namespace mulan::engine

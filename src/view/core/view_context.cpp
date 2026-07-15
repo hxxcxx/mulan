@@ -106,11 +106,11 @@ bool ViewContext::isInitialized() const {
     return render_session_->isInitialized();
 }
 
-std::optional<core::Error> ViewContext::runtimeFailure() const {
+std::optional<Error> ViewContext::runtimeFailure() const {
     return render_session_->runtimeFailure();
 }
 
-core::Result<void> ViewContext::pollRuntime() {
+Result<void> ViewContext::pollRuntime() {
     return render_session_->pollRuntime();
 }
 
@@ -429,11 +429,11 @@ uint32_t ViewContext::surfaceHeight() const {
     return height_ > 0 ? static_cast<uint32_t>(height_) : 0;
 }
 
-core::Result<engine::RenderCaptureResult> ViewContext::capture(const engine::RenderCaptureDesc& desc) {
+Result<engine::RenderCaptureResult> ViewContext::capture(const engine::RenderCaptureDesc& desc) {
     return CaptureService{}.capture(*this, desc);
 }
 
-core::Result<CaptureImage> ViewContext::capture(const CaptureRequest& request) {
+Result<CaptureImage> ViewContext::capture(const CaptureRequest& request) {
     return CaptureService{}.capture(*this, request);
 }
 
@@ -441,8 +441,8 @@ CaptureBatchResult ViewContext::capture(const CaptureBatch& batch) {
     return CaptureService{}.capture(*this, batch);
 }
 
-core::Result<engine::RenderCaptureResult> ViewContext::captureFrame(const ViewState& viewState,
-                                                                    const engine::RenderCaptureDesc& desc) {
+Result<engine::RenderCaptureResult> ViewContext::captureFrame(const ViewState& viewState,
+                                                              const engine::RenderCaptureDesc& desc) {
     return render_session_->capture(viewState, desc);
 }
 

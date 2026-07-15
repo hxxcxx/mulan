@@ -288,7 +288,7 @@ math::Mat4 DX12Device::clipSpaceCorrectionMatrix() const {
 // 资源创建
 // ============================================================
 
-core::Result<std::unique_ptr<Buffer>> DX12Device::createBuffer(const BufferDesc& desc) {
+Result<std::unique_ptr<Buffer>> DX12Device::createBuffer(const BufferDesc& desc) {
     HRESULT reason = device_->GetDeviceRemovedReason();
     if (FAILED(reason)) {
         LOG_ERROR("[DX12] createBuffer called after device removal: reason=0x{:08X}", static_cast<unsigned>(reason));
@@ -310,7 +310,7 @@ core::Result<std::unique_ptr<Buffer>> DX12Device::createBuffer(const BufferDesc&
     return result;
 }
 
-core::Result<std::unique_ptr<Texture>> DX12Device::createTexture(const TextureDesc& desc) {
+Result<std::unique_ptr<Texture>> DX12Device::createTexture(const TextureDesc& desc) {
     auto result = DX12Texture::create(desc, device_.Get());
     if (!result)
         return std::unexpected(result.error());
@@ -320,7 +320,7 @@ core::Result<std::unique_ptr<Texture>> DX12Device::createTexture(const TextureDe
     return result;
 }
 
-core::Result<std::unique_ptr<Shader>> DX12Device::createShader(const ShaderDesc& desc) {
+Result<std::unique_ptr<Shader>> DX12Device::createShader(const ShaderDesc& desc) {
     auto result = DX12Shader::create(desc);
     if (!result)
         return std::unexpected(result.error());
@@ -329,7 +329,7 @@ core::Result<std::unique_ptr<Shader>> DX12Device::createShader(const ShaderDesc&
     return result;
 }
 
-core::Result<std::unique_ptr<PipelineState>> DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
+Result<std::unique_ptr<PipelineState>> DX12Device::createPipelineState(const GraphicsPipelineDesc& desc) {
     if (auto validation = validateGraphicsPipelineDesc(desc, *this, caps_); !validation)
         return std::unexpected(validation.error());
     HRESULT reason = device_->GetDeviceRemovedReason();
@@ -349,12 +349,12 @@ core::Result<std::unique_ptr<PipelineState>> DX12Device::createPipelineState(con
     return result;
 }
 
-core::Result<std::unique_ptr<ComputePipelineState>> DX12Device::createComputePipelineState(
+Result<std::unique_ptr<ComputePipelineState>> DX12Device::createComputePipelineState(
         const ComputePipelineDesc& /*desc*/) {
     return std::unexpected(makeError(EngineErrorCode::BackendNotSupported, "DX12 compute pipeline is not implemented"));
 }
 
-core::Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
+Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
     auto allocator = ComPtr<ID3D12CommandAllocator>();
     device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&allocator));
     auto result = DX12CommandList::create(device_.Get(), allocator.Get());
@@ -375,7 +375,7 @@ core::Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
     return result;
 }
 
-core::Result<std::unique_ptr<SwapChain>> DX12Device::createSwapChain(const SwapChainDesc& desc) {
+Result<std::unique_ptr<SwapChain>> DX12Device::createSwapChain(const SwapChainDesc& desc) {
     SwapChainDesc resolvedDesc = desc;
     resolvedDesc.sampleCount = render_config_.sampleCount();
     if (!resolvedDesc.window.valid()) {
@@ -390,7 +390,7 @@ core::Result<std::unique_ptr<SwapChain>> DX12Device::createSwapChain(const SwapC
     return result;
 }
 
-core::Result<std::unique_ptr<RenderTarget>> DX12Device::createRenderTarget(const RenderTargetDesc& desc) {
+Result<std::unique_ptr<RenderTarget>> DX12Device::createRenderTarget(const RenderTargetDesc& desc) {
     if (auto validation = validateRenderTargetDesc(desc, caps_); !validation)
         return std::unexpected(validation.error());
     auto result = DX12RenderTarget::create(desc, device_.Get());
@@ -400,7 +400,7 @@ core::Result<std::unique_ptr<RenderTarget>> DX12Device::createRenderTarget(const
     return result;
 }
 
-core::Result<std::unique_ptr<Sampler>> DX12Device::createSampler(const SamplerDesc& desc) {
+Result<std::unique_ptr<Sampler>> DX12Device::createSampler(const SamplerDesc& desc) {
     // Sampler 仅持有 descriptor handle（非 COM 对象），无需命名。
     // Descriptors are allocated from the persistent shader-visible sampler heap
     // and consumed by the sampler descriptor-table root parameter.
@@ -411,7 +411,7 @@ core::Result<std::unique_ptr<Sampler>> DX12Device::createSampler(const SamplerDe
     return result;
 }
 
-core::Result<std::unique_ptr<Fence>> DX12Device::createFence(uint64_t initialValue) {
+Result<std::unique_ptr<Fence>> DX12Device::createFence(uint64_t initialValue) {
     auto result = DX12Fence::create(device_.Get(), initialValue);
     if (!result)
         return std::unexpected(result.error());
@@ -423,8 +423,8 @@ core::Result<std::unique_ptr<Fence>> DX12Device::createFence(uint64_t initialVal
     return result;
 }
 
-core::Result<std::unique_ptr<BindGroup>> DX12Device::createBindGroup(const BindGroupLayout& layout,
-                                                                     const BindGroupDesc& desc) {
+Result<std::unique_ptr<BindGroup>> DX12Device::createBindGroup(const BindGroupLayout& layout,
+                                                               const BindGroupDesc& desc) {
     const std::string validationError = validateBindGroupDesc(
             layout, desc, { caps_.minUniformBufferOffsetAlignment, caps_.maxUniformBufferBindingSize });
     if (!validationError.empty())
@@ -436,18 +436,18 @@ core::Result<std::unique_ptr<BindGroup>> DX12Device::createBindGroup(const BindG
     return bindGroup;
 }
 
-core::Result<void> DX12Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+Result<void> DX12Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     assertResourceOwned(dst);
     if (auto wait = waitForResourceLastUse(dst); !wait)
         return std::unexpected(wait.error());
     return upload_context_->uploadTexture(static_cast<DX12Texture*>(dst), upload);
 }
 
-core::Result<void> DX12Device::beginUploadBatch() {
+Result<void> DX12Device::beginUploadBatch() {
     return upload_context_->beginUploadBatch();
 }
 
-core::Result<void> DX12Device::flushUploadBatch() {
+Result<void> DX12Device::flushUploadBatch() {
     return upload_context_->flushUploadBatch();
 }
 
@@ -471,8 +471,8 @@ ID3D12CommandSignature* DX12Device::drawIndirectSignature() {
 // 命令提交
 // ============================================================
 
-core::Result<SubmissionToken> DX12Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
-                                                              uint64_t fenceValue) {
+Result<SubmissionToken> DX12Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
+                                                        uint64_t fenceValue) {
     if (auto validation = validateCommandListsForSubmission(cmdLists, count); !validation)
         return std::unexpected(validation.error());
     if (!cmdLists || count == 0)
@@ -488,7 +488,7 @@ core::Result<SubmissionToken> DX12Device::executeCommandLists(CommandList** cmdL
     }
     command_queue_->ExecuteCommandLists(count, lists.data());
 
-    std::optional<core::Error> externalFenceError;
+    std::optional<Error> externalFenceError;
     if (fence) {
         auto* dx12Fence = static_cast<DX12Fence*>(fence);
         if (!checkDX12(command_queue_->Signal(dx12Fence->fence(), fenceValue),
@@ -515,7 +515,7 @@ core::Result<SubmissionToken> DX12Device::executeCommandLists(CommandList** cmdL
     return token;
 }
 
-core::Result<void> DX12Device::waitIdle() {
+Result<void> DX12Device::waitIdle() {
     if (!command_queue_)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX12 command queue is unavailable"));
     ComPtr<ID3D12Fence> fence;
@@ -543,7 +543,7 @@ core::Result<void> DX12Device::waitIdle() {
 // 帧循环
 // ============================================================
 
-core::Result<CommandList*> DX12Device::beginFrame(SwapChain* swapchain) {
+Result<CommandList*> DX12Device::beginFrame(SwapChain* swapchain) {
     if (swapchain)
         assertResourceOwned(swapchain);
     collectGarbage();
@@ -585,7 +585,7 @@ core::Result<CommandList*> DX12Device::beginFrame(SwapChain* swapchain) {
     return frame_cmd_wrapper_.get();
 }
 
-core::Result<SubmissionToken> DX12Device::submitFrame() {
+Result<SubmissionToken> DX12Device::submitFrame() {
     auto submissionLock = lockSubmissionQueue();
     auto& frame = frames_[frame_index_];
 
@@ -612,7 +612,7 @@ core::Result<SubmissionToken> DX12Device::submitFrame() {
     return token;
 }
 
-core::Result<SubmissionToken> DX12Device::endFrame(SwapChain* swapchain) {
+Result<SubmissionToken> DX12Device::endFrame(SwapChain* swapchain) {
     if (swapchain)
         assertResourceOwned(swapchain);
     if (auto recording = frame_cmd_wrapper_->end(); !recording)

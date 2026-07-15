@@ -9,8 +9,8 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<VKComputePipelineState>> VKComputePipelineState::create(const ComputePipelineDesc& desc,
-                                                                                     vk::Device device) {
+Result<std::unique_ptr<VKComputePipelineState>> VKComputePipelineState::create(const ComputePipelineDesc& desc,
+                                                                               vk::Device device) {
     auto obj = std::unique_ptr<VKComputePipelineState>(new VKComputePipelineState(desc, device));
     if (auto e = obj->build(); e.code != 0)
         return std::unexpected(e);
@@ -28,7 +28,7 @@ VKComputePipelineState::~VKComputePipelineState() {
         device_.destroyDescriptorSetLayout(descriptor_set_layout_);
 }
 
-core::Error VKComputePipelineState::build() {
+Error VKComputePipelineState::build() {
     // Descriptor set layout
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
     for (uint8_t i = 0; i < desc_.descriptorBindingCount; ++i) {

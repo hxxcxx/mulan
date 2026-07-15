@@ -18,7 +18,7 @@ DeviceFactory& DeviceFactory::instance() {
     return factory;
 }
 
-core::Result<void> DeviceFactory::registerModule(BackendModule module) {
+Result<void> DeviceFactory::registerModule(BackendModule module) {
     if (module.name.empty() || module.createDevice == nullptr)
         return std::unexpected(
                 makeError(EngineErrorCode::InvalidBackendModule, "BackendModule requires a name and Device creator"));
@@ -36,7 +36,7 @@ const BackendModule* DeviceFactory::find(GraphicsBackend backend) const noexcept
     return it != modules_.end() ? &*it : nullptr;
 }
 
-core::Result<std::unique_ptr<RHIDevice>> RHIDevice::create(const DeviceCreateInfo& ci) {
+Result<std::unique_ptr<RHIDevice>> RHIDevice::create(const DeviceCreateInfo& ci) {
     const BackendModule* module = DeviceFactory::instance().find(ci.backend);
     if (!module) {
         return std::unexpected(makeError(EngineErrorCode::BackendNotSupported, "Graphics backend not registered"));

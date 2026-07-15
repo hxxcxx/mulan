@@ -52,7 +52,7 @@ bool DX11RenderTarget::createResources() {
     return true;
 }
 
-core::Result<void> DX11RenderTarget::resize(uint32_t width, uint32_t height) {
+Result<void> DX11RenderTarget::resize(uint32_t width, uint32_t height) {
     if (width == 0 || height == 0)
         return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX11 render target size must be non-zero"));
 

@@ -58,7 +58,7 @@ public:
     virtual Texture* depthTexture() = 0;
 
     /// 大小变化时重建资源
-    virtual core::Result<void> resize(uint32_t width, uint32_t height) = 0;
+    virtual Result<void> resize(uint32_t width, uint32_t height) = 0;
 
     /// 构建 RenderPassBeginInfo（供 CommandList::beginRenderPass 使用）
     virtual RenderPassBeginInfo renderPassBeginInfo() {

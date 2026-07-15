@@ -25,28 +25,28 @@ namespace mulan::engine {
 class DX12SwapChain final : public SwapChain {
 public:
     /// 创建 DX12SwapChain。失败返回 SwapChainCreateFailed。
-    static core::Result<std::unique_ptr<DX12SwapChain>> create(const SwapChainDesc& desc, ID3D12Device* device,
-                                                               IDXGIFactory4* factory, ID3D12CommandQueue* queue,
-                                                               const NativeWindowHandle& window);
+    static Result<std::unique_ptr<DX12SwapChain>> create(const SwapChainDesc& desc, ID3D12Device* device,
+                                                         IDXGIFactory4* factory, ID3D12CommandQueue* queue,
+                                                         const NativeWindowHandle& window);
     ~DX12SwapChain();
 
     const SwapChainDesc& desc() const override { return desc_; }
     Texture* currentBackBuffer() override;
     Texture* depthTexture() override { return depth_texture_ ? depth_texture_.get() : nullptr; }
     RenderPassBeginInfo renderPassBeginInfo() override;
-    core::Result<void> present() override;
-    core::Result<void> resize(uint32_t width, uint32_t height) override;
+    Result<void> present() override;
+    Result<void> resize(uint32_t width, uint32_t height) override;
 
     uint32_t currentFrameIndex() const { return frame_index_; }
     DXGI_FORMAT rtvFormat() const { return toDXGIFormat(desc_.format); }
 
 private:
     DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device, ID3D12CommandQueue* queue);
-    [[nodiscard]] core::Result<void> initialize(IDXGIFactory4* factory, const NativeWindowHandle& window);
+    [[nodiscard]] Result<void> initialize(IDXGIFactory4* factory, const NativeWindowHandle& window);
 
     bool createRTVHeap();
-    [[nodiscard]] core::Result<void> createBackBuffers();
-    [[nodiscard]] core::Result<void> createMsaaColor();
+    [[nodiscard]] Result<void> createBackBuffers();
+    [[nodiscard]] Result<void> createMsaaColor();
     void releaseBackBuffers();
     void logDeviceRemovedReason(HRESULT presentResult) const;
 

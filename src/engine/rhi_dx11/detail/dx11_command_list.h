@@ -26,8 +26,8 @@ public:
     DX11CommandList(ID3D11Device* device, ID3D11DeviceContext* ctx, ID3D11DeviceContext1* ctx1 = nullptr);
     ~DX11CommandList() = default;
 
-    core::Result<void> doBegin() override;
-    core::Result<void> doEnd() override;
+    Result<void> doBegin() override;
+    Result<void> doEnd() override;
 
     void doSetPipelineState(PipelineState* pso) override;
     void doSetComputePipelineState(ComputePipelineState* pso) override;
@@ -36,7 +36,7 @@ public:
 
     void doBindGroup(BindGroup& group) override;
     void doBindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
-    core::Result<UniformSlice> doWriteUniformBytes(std::span<const std::byte> data) override;
+    Result<UniformSlice> doWriteUniformBytes(std::span<const std::byte> data) override;
 
     void doSetVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) override;
     void doSetVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) override;
@@ -50,10 +50,10 @@ public:
     void doSetPushConstants(uint32_t offset, uint32_t size, const void* data, uint32_t stageFlags) override;
 
     void doTransitionResource(Texture* texture, ResourceState newState) override;
-    core::Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
+    Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- RenderPass ---
-    core::Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
+    Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
     void doEndRenderPass() override;
 
     ID3D11DeviceContext* context() const { return m_ctx; }

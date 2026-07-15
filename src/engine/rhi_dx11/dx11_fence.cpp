@@ -13,7 +13,7 @@ DX11Fence::DX11Fence(ID3D11Device* device, ID3D11DeviceContext* context, uint64_
         LOG_ERROR("[DX11] Fence initialization rejected: invalid device or context");
 }
 
-core::Result<void> DX11Fence::signal(uint64_t value) {
+Result<void> DX11Fence::signal(uint64_t value) {
     if (value <= m_signaled) {
         if (value < m_signaled) {
             return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 fence values must be monotonic"));
@@ -39,7 +39,7 @@ core::Result<void> DX11Fence::signal(uint64_t value) {
     return {};
 }
 
-core::Result<void> DX11Fence::wait(uint64_t value) {
+Result<void> DX11Fence::wait(uint64_t value) {
     if (m_completed >= value)
         return {};
     if (value > m_signaled) {

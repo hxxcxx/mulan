@@ -143,7 +143,7 @@ DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11Devic
     m_desc.discardInitialData();
 }
 
-core::Result<void> DX11Buffer::write(uint32_t offset, uint32_t size, const void* data) {
+Result<void> DX11Buffer::write(uint32_t offset, uint32_t size, const void* data) {
     if (auto wait = waitForLastUse(); !wait)
         return std::unexpected(wait.error());
     if (!m_buffer || !data || size == 0 || offset > m_desc.size || size > m_desc.size - offset) {
@@ -200,7 +200,7 @@ const void* DX11Buffer::uniformData(uint32_t offset, uint32_t size) const {
     return m_uniformShadow.data() + offset;
 }
 
-core::Result<void> DX11Buffer::readback(uint32_t offset, uint32_t size, void* outData) {
+Result<void> DX11Buffer::readback(uint32_t offset, uint32_t size, void* outData) {
     if (auto wait = waitForLastUse(); !wait)
         return std::unexpected(wait.error());
     if (m_nativeUsage != D3D11_USAGE_STAGING || !m_buffer || !outData || size == 0 || offset > m_desc.size ||

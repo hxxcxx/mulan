@@ -46,23 +46,22 @@ public:
     RenderSession(const RenderSession&) = delete;
     RenderSession& operator=(const RenderSession&) = delete;
 
-    core::Result<void> initWindow(const ViewConfig& config, int width, int height);
-    core::Result<void> initOffscreen(const ViewConfig& config, int width, int height);
+    Result<void> initWindow(const ViewConfig& config, int width, int height);
+    Result<void> initOffscreen(const ViewConfig& config, int width, int height);
     void shutdown();
 
     bool isInitialized() const;
     /// worker 异步失败快照；不消费事件，供 owner/UI 健康检查读取真实原因。
-    std::optional<core::Error> runtimeFailure() const;
+    std::optional<Error> runtimeFailure() const;
     /// owner 线程主动 drain ACK/Failure；失败时同步销毁执行域并使 builder 资源失效。
-    core::Result<void> pollRuntime();
+    Result<void> pollRuntime();
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
     void setPreviewLayer(const PreviewLayer* preview);
     void setLightEnvironment(const engine::LightEnvironment& lightEnvironment);
 
     void submitFrame(const ViewState& viewState);
-    core::Result<engine::RenderCaptureResult> capture(const ViewState& viewState,
-                                                      const engine::RenderCaptureDesc& desc);
+    Result<engine::RenderCaptureResult> capture(const ViewState& viewState, const engine::RenderCaptureDesc& desc);
     RenderSurfaceState resize(int width, int height);
     void enableIBL(const std::string& hdrPath);
 
@@ -76,9 +75,9 @@ private:
     };
 
     void assertOwnerThread() const;
-    core::Result<void> prepareInlineResources(RenderSubmission& submission);
-    core::Result<void> drainWorkerEvents();
-    void failExecution(const core::Error& error);
+    Result<void> prepareInlineResources(RenderSubmission& submission);
+    Result<void> drainWorkerEvents();
+    void failExecution(const Error& error);
     void discardExecutionDomain();
     void clearAssetResources();
 
@@ -86,7 +85,7 @@ private:
     std::unique_ptr<RenderExecutor> inline_executor_;
     std::unique_ptr<RenderWorker> worker_;
     const asset::AssetLibrary* asset_source_ = nullptr;
-    std::optional<core::Error> last_runtime_failure_;
+    std::optional<Error> last_runtime_failure_;
     ExecutionMode execution_mode_ = ExecutionMode::None;
     std::thread::id owner_thread_;
 };

@@ -27,14 +27,13 @@ namespace mulan::modeling {
 namespace {
 
 /// 从 OcctShapeStorage 取 TopoDS_Shape;非 OCCT 后端返回错误。
-core::Result<TopoDS_Shape> topoFromShape(const Shape& s) {
+Result<TopoDS_Shape> topoFromShape(const Shape& s) {
     auto storage = storageOf(s);
     if (!storage)
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "boolean operand is empty Shape"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "boolean operand is empty Shape"));
     auto occt = std::dynamic_pointer_cast<OcctShapeStorage>(storage);
     if (!occt)
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::NotSupported, "boolean operand is not an OCCT shape"));
+        return std::unexpected(Error::make(ErrorCode::NotSupported, "boolean operand is not an OCCT shape"));
     return occt->topoShape();
 }
 
@@ -49,11 +48,11 @@ TopoDS_Wire loopToWire(std::span<const math::Point3> points) {
 
 }  // namespace
 
-core::Result<Shape> OccShapeOps::extrude(const ExtrudeParams& params) {
+Result<Shape> OccShapeOps::extrude(const ExtrudeParams& params) {
     if (!params.profile.hasOuterLoop() && !params.circleProfile)
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "extrude profile has no outer loop"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "extrude profile has no outer loop"));
     if (params.distance <= 0.0)
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "extrude distance must be positive"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "extrude distance must be positive"));
 
     // 方向:零向量用 profile.frame.normal。
     math::Vec3 dir = params.direction;
@@ -73,14 +72,13 @@ core::Result<Shape> OccShapeOps::extrude(const ExtrudeParams& params) {
             BRepBuilderAPI_MakeWire wireMaker(edgeMaker.Edge());
             BRepBuilderAPI_MakeFace faceMaker(wireMaker.Wire());
             if (!faceMaker.IsDone()) {
-                return std::unexpected(
-                        core::Error::make(core::ErrorCode::Internal, "extrude: failed to build circle face"));
+                return std::unexpected(Error::make(ErrorCode::Internal, "extrude: failed to build circle face"));
             }
             face = faceMaker.Face();
         } else {
             BRepBuilderAPI_MakeFace faceMaker(loopToWire(params.profile.outer.points));
             if (!faceMaker.IsDone()) {
-                return std::unexpected(core::Error::make(core::ErrorCode::Internal, "extrude: failed to build face"));
+                return std::unexpected(Error::make(ErrorCode::Internal, "extrude: failed to build face"));
             }
             face = faceMaker.Face();
         }
@@ -90,15 +88,15 @@ core::Result<Shape> OccShapeOps::extrude(const ExtrudeParams& params) {
         BRepPrimAPI_MakePrism prism(face, vec);
         prism.Build();
         if (!prism.IsDone())
-            return std::unexpected(core::Error::make(core::ErrorCode::Internal, "extrude: MakePrism failed"));
+            return std::unexpected(Error::make(ErrorCode::Internal, "extrude: MakePrism failed"));
 
         return makeShape(prism.Shape());
     } catch (const std::exception& e) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, e.what()));
+        return std::unexpected(Error::make(ErrorCode::Internal, e.what()));
     }
 }
 
-core::Result<Shape> OccShapeOps::boolean(const Shape& target, const Shape& tool, BooleanOp op) {
+Result<Shape> OccShapeOps::boolean(const Shape& target, const Shape& tool, BooleanOp op) {
     auto a = topoFromShape(target);
     if (!a)
         return std::unexpected(a.error());
@@ -107,7 +105,7 @@ core::Result<Shape> OccShapeOps::boolean(const Shape& target, const Shape& tool,
         return std::unexpected(b.error());
 
     if (a->IsNull() || b->IsNull())
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "boolean operand is null"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "boolean operand is null"));
 
     try {
         TopoDS_Shape result;
@@ -117,10 +115,10 @@ core::Result<Shape> OccShapeOps::boolean(const Shape& target, const Shape& tool,
         case BooleanOp::Intersection: result = BRepAlgoAPI_Common(*a, *b).Shape(); break;
         }
         if (result.IsNull())
-            return std::unexpected(core::Error::make(core::ErrorCode::Internal, "boolean produced null result"));
+            return std::unexpected(Error::make(ErrorCode::Internal, "boolean produced null result"));
         return makeShape(result);
     } catch (const std::exception& e) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, e.what()));
+        return std::unexpected(Error::make(ErrorCode::Internal, e.what()));
     }
 }
 

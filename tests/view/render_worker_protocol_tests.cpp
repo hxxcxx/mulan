@@ -75,8 +75,7 @@ TEST(RenderWorkerProtocolTests, ResourceBarrierInvalidatesOldBatchDeduplication)
 TEST(RenderWorkerProtocolTests, FailureIsObservableAndNeverProducesFalseAck) {
     RenderWorkerProtocol protocol;
     const ResourceRegistration batch = protocol.registerResourceBatch(9);
-    const mulan::core::Error failure =
-            mulan::core::Error::make(mulan::core::ErrorCode::Internal, "resource upload failed");
+    const mulan::Error failure = mulan::Error::make(mulan::ErrorCode::Internal, "resource upload failed");
 
     protocol.fail(failure, batch.sequence, 9);
     EXPECT_FALSE(protocol.completeResource(batch.sequence, 9));

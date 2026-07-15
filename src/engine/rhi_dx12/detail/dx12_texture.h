@@ -19,7 +19,7 @@ namespace mulan::engine {
 class DX12Texture final : public Texture {
 public:
     /// 创建常规纹理。失败返回 TextureCreateFailed。
-    static core::Result<std::unique_ptr<DX12Texture>> create(
+    static Result<std::unique_ptr<DX12Texture>> create(
             const TextureDesc& desc, ID3D12Device* device,
             D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON);
 
@@ -52,8 +52,8 @@ public:
 private:
     DX12Texture(const TextureDesc& desc, D3D12_RESOURCE_STATES initialState) : desc_(desc), state_(initialState) {}
 
-    [[nodiscard]] core::Result<void> initialize(ID3D12Device* device);
-    [[nodiscard]] core::Result<void> createSRVIfNeeded(ID3D12Device* device);
+    [[nodiscard]] Result<void> initialize(ID3D12Device* device);
+    [[nodiscard]] Result<void> createSRVIfNeeded(ID3D12Device* device);
 
     TextureDesc desc_;
     ComPtr<ID3D12Resource> resource_;

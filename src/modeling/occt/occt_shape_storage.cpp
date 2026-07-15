@@ -43,7 +43,7 @@ math::AABB3 OcctShapeStorage::bounds() const {
     return result;
 }
 
-core::Result<TessellatedGeometry> OcctShapeStorage::tessellate(const TessellationOptions& opts) const {
+Result<TessellatedGeometry> OcctShapeStorage::tessellate(const TessellationOptions& opts) const {
     return detail::tessellateTopoShape(shape_, opts);
 }
 

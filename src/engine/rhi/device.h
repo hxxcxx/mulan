@@ -75,7 +75,7 @@ struct DeviceCreateInfo {
 };
 
 /// 验证显式离屏渲染目标描述。创建接口不得静默修改调用方请求。
-core::Result<void> validateRenderTargetDesc(const RenderTargetDesc& desc, const GPUDeviceCapabilities& capabilities);
+Result<void> validateRenderTargetDesc(const RenderTargetDesc& desc, const GPUDeviceCapabilities& capabilities);
 
 // ============================================================
 // RHI 设备基类
@@ -93,7 +93,7 @@ public:
     virtual ~RHIDevice();
 
     // --- 工厂函数（根据 backend 创建具体实现）---
-    static core::Result<std::unique_ptr<RHIDevice>> create(const DeviceCreateInfo& ci);
+    static Result<std::unique_ptr<RHIDevice>> create(const DeviceCreateInfo& ci);
 
     void registerLiveResource(const RHITrackedResource* resource, RHIResourceKind kind, std::string_view name);
     void unregisterLiveResource(const RHITrackedResource* resource);
@@ -117,65 +117,64 @@ public:
     virtual math::Mat4 clipSpaceCorrectionMatrix() const = 0;
 
     // --- 资源创建 ---
-    // 全部返回 core::Result<unique_ptr<T>>：失败时调用方拿到
+    // 全部返回 Result<unique_ptr<T>>：失败时调用方拿到
     // 失败原因（含 EngineErrorCode），可据此决策。参见 core/result/error.h。
-    virtual core::Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc) = 0;
-    virtual core::Result<std::unique_ptr<Texture>> createTexture(const TextureDesc& desc) = 0;
-    virtual core::Result<std::unique_ptr<Shader>> createShader(const ShaderDesc& desc) = 0;
-    virtual core::Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc& desc) = 0;
-    virtual core::Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(
+    virtual Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc) = 0;
+    virtual Result<std::unique_ptr<Texture>> createTexture(const TextureDesc& desc) = 0;
+    virtual Result<std::unique_ptr<Shader>> createShader(const ShaderDesc& desc) = 0;
+    virtual Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc& desc) = 0;
+    virtual Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(
             const ComputePipelineDesc& desc) = 0;
-    virtual core::Result<std::unique_ptr<CommandList>> createCommandList() = 0;
-    virtual core::Result<std::unique_ptr<SwapChain>> createSwapChain(const SwapChainDesc& desc) = 0;
-    virtual core::Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc& desc) = 0;
-    virtual core::Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc& desc) = 0;
-    virtual core::Result<std::unique_ptr<Fence>> createFence(uint64_t initialValue = 0) = 0;
+    virtual Result<std::unique_ptr<CommandList>> createCommandList() = 0;
+    virtual Result<std::unique_ptr<SwapChain>> createSwapChain(const SwapChainDesc& desc) = 0;
+    virtual Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc& desc) = 0;
+    virtual Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc& desc) = 0;
+    virtual Result<std::unique_ptr<Fence>> createFence(uint64_t initialValue = 0) = 0;
 
     /// 创建 BindGroup 对象（从 layout + desc，缓存后端 descriptor 句柄）。
     /// layout 从 PipelineState::bindGroupLayout() 获取。
-    virtual core::Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout,
-                                                                     const BindGroupDesc& desc) = 0;
+    virtual Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout,
+                                                               const BindGroupDesc& desc) = 0;
 
     // --- 资源上传 ---
     // 把 CPU 端像素数据同步上传到 GPU 纹理，并在内部完成到 SHADER_READ 的状态转换。
     // 同步等待 GPU 完成。仅支持单 mip、非压缩颜色格式（bpp 由公共工具统一计算）。
     // 后端各自实现，经此接口避免向 render 层泄漏后端 UploadContext 类型。
-    virtual core::Result<void> uploadTextureData(Texture* dst, const TextureUploadDesc& upload) = 0;
+    virtual Result<void> uploadTextureData(Texture* dst, const TextureUploadDesc& upload) = 0;
 
     /// 批量刷新所有待上传资源（beginUpload → 所有 pending upload → flushUploadBatch）。
     /// 在批量加载大量资源后调用一次，替代每个资源单独的 submit+wait。
-    virtual core::Result<void> beginUploadBatch() = 0;
-    virtual core::Result<void> flushUploadBatch() = 0;
+    virtual Result<void> beginUploadBatch() = 0;
+    virtual Result<void> flushUploadBatch() = 0;
 
     // --- 提交命令 ---
 
-    virtual core::Result<SubmissionToken> executeCommandLists(CommandList** cmdLists, uint32_t count,
-                                                              Fence* fence = nullptr, uint64_t fenceValue = 0) = 0;
+    virtual Result<SubmissionToken> executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence = nullptr,
+                                                        uint64_t fenceValue = 0) = 0;
 
-    core::Result<SubmissionToken> executeCommandList(CommandList* cmdList, Fence* fence = nullptr,
-                                                     uint64_t fenceValue = 0) {
+    Result<SubmissionToken> executeCommandList(CommandList* cmdList, Fence* fence = nullptr, uint64_t fenceValue = 0) {
         return executeCommandLists(&cmdList, 1, fence, fenceValue);
     }
 
     // --- 等待 GPU 空闲 ---
 
-    virtual core::Result<void> waitIdle() = 0;
+    virtual Result<void> waitIdle() = 0;
 
     /// 查询/等待由本设备返回的提交标识。旧设备或其他设备的 token 会被拒绝。
     bool isSubmissionComplete(SubmissionToken token) const;
-    core::Result<void> waitForSubmission(SubmissionToken token);
+    Result<void> waitForSubmission(SubmissionToken token);
 
     using DeferredRelease = std::move_only_function<void()>;
 
     /// 在 token 完成后于渲染线程执行释放回调。
-    core::Result<void> retire(SubmissionToken token, DeferredRelease release);
+    Result<void> retire(SubmissionToken token, DeferredRelease release);
     void collectGarbage();
 
     /// 开始一帧并返回本帧 CommandList。swapchain 为空表示离屏渲染。
-    virtual core::Result<CommandList*> beginFrame(SwapChain* swapchain = nullptr) = 0;
+    virtual Result<CommandList*> beginFrame(SwapChain* swapchain = nullptr) = 0;
 
     /// 提交本帧；swapchain 非空时在提交成功后呈现。
-    virtual core::Result<SubmissionToken> endFrame(SwapChain* swapchain = nullptr) = 0;
+    virtual Result<SubmissionToken> endFrame(SwapChain* swapchain = nullptr) = 0;
 
 protected:
     RHIDevice();
@@ -192,14 +191,14 @@ protected:
     }
     void assertNoLiveResources() const;
     void detachLiveResources();
-    core::Result<void> waitForResourceLastUse(RHITrackedResource* resource) {
-        return resource ? resource->waitForLastUse() : core::Result<void>{};
+    Result<void> waitForResourceLastUse(RHITrackedResource* resource) {
+        return resource ? resource->waitForLastUse() : Result<void>{};
     }
 
     void initializeSubmissionTracking(std::unique_ptr<Fence> fence);
     void shutdownSubmissionTracking();
     void drainDeferredReleases();
-    core::Result<void> validateCommandListsForSubmission(CommandList** commandLists, uint32_t count) const;
+    Result<void> validateCommandListsForSubmission(CommandList** commandLists, uint32_t count) const;
     SubmissionToken reserveSubmissionToken();
     void commitSubmission(SubmissionToken token);
     Fence* submissionFence() const { return submission_fence_.get(); }

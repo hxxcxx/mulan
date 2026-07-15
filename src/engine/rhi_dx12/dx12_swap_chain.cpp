@@ -10,9 +10,9 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<DX12SwapChain>> DX12SwapChain::create(const SwapChainDesc& desc, ID3D12Device* device,
-                                                                   IDXGIFactory4* factory, ID3D12CommandQueue* queue,
-                                                                   const NativeWindowHandle& window) {
+Result<std::unique_ptr<DX12SwapChain>> DX12SwapChain::create(const SwapChainDesc& desc, ID3D12Device* device,
+                                                             IDXGIFactory4* factory, ID3D12CommandQueue* queue,
+                                                             const NativeWindowHandle& window) {
     if (!device || !factory || !queue || !window.win32.hWnd || desc.width == 0 || desc.height == 0 ||
         desc.bufferCount < 2)
         return std::unexpected(makeError(EngineErrorCode::SwapChainCreateFailed, "Invalid DX12 swap chain arguments"));
@@ -31,7 +31,7 @@ DX12SwapChain::DX12SwapChain(const SwapChainDesc& desc, ID3D12Device* device, ID
     clear_color_[3] = desc.clearColor[3];
 }
 
-core::Result<void> DX12SwapChain::initialize(IDXGIFactory4* factory, const NativeWindowHandle& window) {
+Result<void> DX12SwapChain::initialize(IDXGIFactory4* factory, const NativeWindowHandle& window) {
     DXGI_SWAP_CHAIN_DESC1 scDesc = {};
     scDesc.Width = desc_.width;
     scDesc.Height = desc_.height;
@@ -73,7 +73,7 @@ bool DX12SwapChain::createRTVHeap() {
     return rtv_heap_->isValid() && dsv_heap_->isValid();
 }
 
-core::Result<void> DX12SwapChain::createBackBuffers() {
+Result<void> DX12SwapChain::createBackBuffers() {
     back_buffers_.resize(desc_.bufferCount);
     back_buffer_textures_.resize(desc_.bufferCount);
 
@@ -114,7 +114,7 @@ core::Result<void> DX12SwapChain::createBackBuffers() {
     return {};
 }
 
-core::Result<void> DX12SwapChain::createMsaaColor() {
+Result<void> DX12SwapChain::createMsaaColor() {
     msaa_color_texture_.reset();
     if (desc_.sampleCount <= 1)
         return {};
@@ -177,7 +177,7 @@ Texture* DX12SwapChain::currentBackBuffer() {
     return nullptr;
 }
 
-core::Result<void> DX12SwapChain::present() {
+Result<void> DX12SwapChain::present() {
     UINT syncInterval = desc_.vsync ? 1 : 0;
     UINT flags = desc_.vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING;
     HRESULT hr = swap_chain_->Present(syncInterval, flags);
@@ -197,7 +197,7 @@ void DX12SwapChain::logDeviceRemovedReason(HRESULT presentResult) const {
               static_cast<unsigned>(presentResult), static_cast<unsigned>(reason));
 }
 
-core::Result<void> DX12SwapChain::resize(uint32_t width, uint32_t height) {
+Result<void> DX12SwapChain::resize(uint32_t width, uint32_t height) {
     if (width == 0 || height == 0)
         return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX12 swapchain size must be non-zero"));
     releaseBackBuffers();

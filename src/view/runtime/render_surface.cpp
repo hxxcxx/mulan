@@ -17,7 +17,7 @@
 namespace mulan::view::detail {
 
 namespace {
-core::Result<void> waitForLastSurfaceUse(engine::RHIDevice& device, const char* operation) {
+Result<void> waitForLastSurfaceUse(engine::RHIDevice& device, const char* operation) {
     const engine::SubmissionToken token = device.lastSubmissionToken();
     if (!token)
         return {};
@@ -231,10 +231,9 @@ void RenderSurface::shutdown(engine::RHIDevice& device) {
                            std::move(oldStagingBuffer));
 }
 
-core::Result<void> RenderSurface::resize(engine::RHIDevice& device, int width, int height) {
+Result<void> RenderSurface::resize(engine::RHIDevice& device, int width, int height) {
     if (!isInitialized() || width <= 0 || height <= 0) {
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::InvalidArg, "Render surface resize arguments are invalid."));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render surface resize arguments are invalid."));
     }
     if (render_target_) {
         RenderSurfaceDesc desc = offscreen_desc_;

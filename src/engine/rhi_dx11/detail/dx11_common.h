@@ -39,9 +39,9 @@ inline std::string dx11SystemErrorMessage(HRESULT hr) {
     return length > 0 ? std::string(message, length) : std::string();
 }
 
-[[nodiscard]] inline core::Result<void> checkDX11(HRESULT hr, std::string_view operation,
-                                                  EngineErrorCode errorCode = EngineErrorCode::ResourceCreateFailed,
-                                                  std::source_location where = std::source_location::current()) {
+[[nodiscard]] inline Result<void> checkDX11(HRESULT hr, std::string_view operation,
+                                            EngineErrorCode errorCode = EngineErrorCode::ResourceCreateFailed,
+                                            std::source_location where = std::source_location::current()) {
     if (SUCCEEDED(hr))
         return {};
 

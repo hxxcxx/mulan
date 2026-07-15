@@ -57,7 +57,7 @@ enum class CaptureFailureCode : uint8_t {
 
 struct CaptureResult {
     std::string name;
-    core::Result<engine::RenderCaptureResult> result;
+    Result<engine::RenderCaptureResult> result;
     CaptureFailureCode failure = CaptureFailureCode::None;
     std::string message;
 

@@ -18,7 +18,7 @@
 namespace mulan::engine {
 
 /// 设备创建函数签名。
-using DeviceCreator = core::Result<std::unique_ptr<RHIDevice>> (*)(const DeviceCreateInfo&);
+using DeviceCreator = Result<std::unique_ptr<RHIDevice>> (*)(const DeviceCreateInfo&);
 
 struct BackendModule {
     GraphicsBackend backend = GraphicsBackend::Vulkan;
@@ -32,7 +32,7 @@ class DeviceFactory {
 public:
     static DeviceFactory& instance();
 
-    core::Result<void> registerModule(BackendModule module);
+    Result<void> registerModule(BackendModule module);
 
     const BackendModule* find(GraphicsBackend backend) const noexcept;
     std::span<const BackendModule> modules() const noexcept { return modules_; }

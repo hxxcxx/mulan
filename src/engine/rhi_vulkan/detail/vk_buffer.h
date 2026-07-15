@@ -21,7 +21,7 @@ namespace mulan::engine {
 class VKBuffer : public Buffer {
 public:
     /// 创建 VKBuffer。失败返回 EngineErrorCode::BufferCreateFailed。
-    static core::Result<std::unique_ptr<VKBuffer>> create(const BufferDesc& desc, VmaAllocator allocator);
+    static Result<std::unique_ptr<VKBuffer>> create(const BufferDesc& desc, VmaAllocator allocator);
     ~VKBuffer();
 
     const BufferDesc& desc() const override { return desc_; }
@@ -37,8 +37,8 @@ public:
         pending_data_.shrink_to_fit();
     }
 
-    core::Result<void> write(uint32_t offset, uint32_t size, const void* data) override;
-    core::Result<void> readback(uint32_t offset, uint32_t size, void* outData) override;
+    Result<void> write(uint32_t offset, uint32_t size, const void* data) override;
+    Result<void> readback(uint32_t offset, uint32_t size, void* outData) override;
 
 private:
     explicit VKBuffer(const BufferDesc& desc) : desc_(desc) {}

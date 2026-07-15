@@ -21,7 +21,7 @@ namespace mulan::modeling {
 /// OCCT 后端的 STEP/IGES 读取器。
 class MODELING_OCCT_API OccStepReader final : public IShapeFileReader {
 public:
-    core::Result<std::vector<NamedShape>> read(const std::string& path) override;
+    Result<std::vector<NamedShape>> read(const std::string& path) override;
     std::vector<std::string> supportedExtensions() const override;
     std::string name() const override;
 };

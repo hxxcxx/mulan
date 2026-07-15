@@ -29,13 +29,13 @@ public:
     void initFrameContexts(uint32_t count);
     void ensureSwapchainImageSync(uint32_t imageCount);
 
-    core::Result<std::unique_ptr<CommandList>> createStandaloneCommandList();
+    Result<std::unique_ptr<CommandList>> createStandaloneCommandList();
 
-    core::Result<void> beginFrame(SwapChain* swapchain);
+    Result<void> beginFrame(SwapChain* swapchain);
     CommandList* frameCommandList();
     void markSubmitted(SubmissionToken token);
     bool submit(vk::Semaphore completionSemaphore, uint64_t completionValue);
-    core::Result<void> present(SwapChain* swapchain);
+    Result<void> present(SwapChain* swapchain);
     bool submitOffscreen(vk::Semaphore completionSemaphore, uint64_t completionValue);
 
     VKDescriptorAllocator& descriptorAllocator();

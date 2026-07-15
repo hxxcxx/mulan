@@ -35,23 +35,23 @@ public:
     RenderExecutor(const RenderExecutor&) = delete;
     RenderExecutor& operator=(const RenderExecutor&) = delete;
 
-    core::Result<void> initWindow(const ViewConfig& config, int width, int height);
-    core::Result<void> initOffscreen(const ViewConfig& config, int width, int height);
+    Result<void> initWindow(const ViewConfig& config, int width, int height);
+    Result<void> initOffscreen(const ViewConfig& config, int width, int height);
     void shutdown();
 
     bool isInitialized() const;
     RenderSurfaceState surfaceState() const;
 
-    core::Result<void> prepareResources(const engine::RenderResourcePrepareList& prepare);
-    core::Result<void> executeFrame(const RenderSubmission& submission);
-    core::Result<engine::RenderCaptureResult> capture(const RenderSubmission& submission,
-                                                      const engine::RenderCaptureDesc& desc);
-    core::Result<RenderSurfaceState> resize(int width, int height);
+    Result<void> prepareResources(const engine::RenderResourcePrepareList& prepare);
+    Result<void> executeFrame(const RenderSubmission& submission);
+    Result<engine::RenderCaptureResult> capture(const RenderSubmission& submission,
+                                                const engine::RenderCaptureDesc& desc);
+    Result<RenderSurfaceState> resize(int width, int height);
     void enableIBL(const std::string& hdrPath);
     void clearAssetResources();
 
 private:
-    core::Result<void> initRenderer();
+    Result<void> initRenderer();
     bool configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
     RenderSurfaceState surfaceStateLocked() const;
     void shutdownLocked();

@@ -54,7 +54,7 @@ void RHITrackedResource::waitForLastUseBeforeDestruction() noexcept {
         LOG_ERROR("[RHI] GPU resource destruction wait failed: {}", result.error().message);
 }
 
-core::Result<void> RHITrackedResource::waitForLastUse() {
+Result<void> RHITrackedResource::waitForLastUse() {
     if (!tracking_device_ || !lifetime_state_)
         return {};
     const uint64_t value = lifetime_state_->lastSubmissionValue.load(std::memory_order_acquire);

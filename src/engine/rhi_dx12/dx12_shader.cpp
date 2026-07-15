@@ -10,7 +10,7 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<DX12Shader>> DX12Shader::create(const ShaderDesc& desc) {
+Result<std::unique_ptr<DX12Shader>> DX12Shader::create(const ShaderDesc& desc) {
     auto obj = std::unique_ptr<DX12Shader>(new DX12Shader(desc));
 
     bool fromFile = false;

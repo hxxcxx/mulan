@@ -10,8 +10,7 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<DX12RenderTarget>> DX12RenderTarget::create(const RenderTargetDesc& desc,
-                                                                         ID3D12Device* device) {
+Result<std::unique_ptr<DX12RenderTarget>> DX12RenderTarget::create(const RenderTargetDesc& desc, ID3D12Device* device) {
     if (!device || desc.width == 0 || desc.height == 0)
         return std::unexpected(makeError(EngineErrorCode::RenderTargetCreateFailed, "Invalid render target arguments"));
     auto obj = std::unique_ptr<DX12RenderTarget>(new DX12RenderTarget(desc, device));
@@ -22,7 +21,7 @@ core::Result<std::unique_ptr<DX12RenderTarget>> DX12RenderTarget::create(const R
 
 DX12RenderTarget::~DX12RenderTarget() = default;
 
-core::Result<void> DX12RenderTarget::createResources() {
+Result<void> DX12RenderTarget::createResources() {
     const uint32_t samples = desc_.sampleCount > 1 ? desc_.sampleCount : 1;
 
     // Color texture
@@ -83,7 +82,7 @@ core::Result<void> DX12RenderTarget::createResources() {
     return {};
 }
 
-core::Result<void> DX12RenderTarget::resize(uint32_t width, uint32_t height) {
+Result<void> DX12RenderTarget::resize(uint32_t width, uint32_t height) {
     if (width == 0 || height == 0)
         return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "DX12 render target size must be non-zero"));
     desc_.width = width;

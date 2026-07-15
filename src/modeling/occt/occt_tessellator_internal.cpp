@@ -198,9 +198,9 @@ graphics::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
 
 }  // namespace
 
-core::Result<TessellatedGeometry> tessellateTopoShape(const TopoDS_Shape& shape, const TessellationOptions& opts) {
+Result<TessellatedGeometry> tessellateTopoShape(const TopoDS_Shape& shape, const TessellationOptions& opts) {
     if (shape.IsNull())
-        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "tessellate on null TopoDS_Shape"));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "tessellate on null TopoDS_Shape"));
 
     TessellatedGeometry result;
     result.bounds = buildBounds(shape);

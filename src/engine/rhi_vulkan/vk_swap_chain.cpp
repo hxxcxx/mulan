@@ -11,8 +11,8 @@
 
 namespace mulan::engine {
 
-core::Result<std::unique_ptr<VKSwapChain>> VKSwapChain::create(const SwapChainDesc& desc, const InitParams& params,
-                                                               const RenderConfig& renderConfig) {
+Result<std::unique_ptr<VKSwapChain>> VKSwapChain::create(const SwapChainDesc& desc, const InitParams& params,
+                                                         const RenderConfig& renderConfig) {
     auto obj = std::unique_ptr<VKSwapChain>(new VKSwapChain(desc, params, renderConfig));
     if (auto e = obj->createSwapChain(); e.code != 0)
         return std::unexpected(e);
@@ -46,7 +46,7 @@ bool VKSwapChain::acquireNextImage(vk::Semaphore imageAvailable) {
     return false;
 }
 
-core::Result<void> VKSwapChain::presentWithSemaphores(vk::Semaphore renderFinished) {
+Result<void> VKSwapChain::presentWithSemaphores(vk::Semaphore renderFinished) {
     vk::PresentInfoKHR presentInfo;
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = &renderFinished;
@@ -64,7 +64,7 @@ core::Result<void> VKSwapChain::presentWithSemaphores(vk::Semaphore renderFinish
     return {};
 }
 
-core::Result<void> VKSwapChain::present() {
+Result<void> VKSwapChain::present() {
     vk::PresentInfoKHR presentInfo;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &swapchain_;
@@ -80,7 +80,7 @@ core::Result<void> VKSwapChain::present() {
     return {};
 }
 
-core::Result<void> VKSwapChain::resize(uint32_t width, uint32_t height) {
+Result<void> VKSwapChain::resize(uint32_t width, uint32_t height) {
     if (width == 0 || height == 0)
         return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "Vulkan swapchain size must be non-zero"));
     // Graphics submission 已由调用方精确等待；这里只等待 presentation queue
@@ -98,7 +98,7 @@ core::Result<void> VKSwapChain::resize(uint32_t width, uint32_t height) {
     return {};
 }
 
-core::Error VKSwapChain::createMsaaResources() {
+Error VKSwapChain::createMsaaResources() {
     msaa_color_texture_.reset();
     if (desc_.sampleCount <= 1)
         return {};
@@ -119,7 +119,7 @@ core::Error VKSwapChain::createMsaaResources() {
 // SwapChain 创建
 // --------------------------------------------------------
 
-core::Error VKSwapChain::createSwapChain() {
+Error VKSwapChain::createSwapChain() {
     std::vector<vk::SurfaceFormatKHR> formats;
     try {
         auto caps = params_.physicalDevice.getSurfaceCapabilitiesKHR(surface_);

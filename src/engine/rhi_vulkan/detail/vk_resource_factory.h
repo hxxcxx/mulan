@@ -19,16 +19,16 @@ class VKResourceFactory {
 public:
     VKResourceFactory(RHIDevice& owner, vk::Device device, VmaAllocator allocator, VKUploadContext& uploadContext);
 
-    core::Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc);
-    core::Result<std::unique_ptr<Texture>> createTexture(const TextureDesc& desc);
-    core::Result<std::unique_ptr<Shader>> createShader(const ShaderDesc& desc);
-    core::Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc& desc);
-    core::Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(const ComputePipelineDesc& desc);
-    core::Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc& desc);
-    core::Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc& desc);
-    core::Result<std::unique_ptr<Fence>> createFence(uint64_t initialValue);
-    core::Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc,
-                                                             BindGroupValidationLimits limits);
+    Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc);
+    Result<std::unique_ptr<Texture>> createTexture(const TextureDesc& desc);
+    Result<std::unique_ptr<Shader>> createShader(const ShaderDesc& desc);
+    Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc& desc);
+    Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(const ComputePipelineDesc& desc);
+    Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc& desc);
+    Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc& desc);
+    Result<std::unique_ptr<Fence>> createFence(uint64_t initialValue);
+    Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc,
+                                                       BindGroupValidationLimits limits);
 
 private:
     RHIDevice& owner_;

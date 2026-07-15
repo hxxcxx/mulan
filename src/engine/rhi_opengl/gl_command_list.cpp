@@ -29,7 +29,7 @@ GLCommandList::~GLCommandList() {
     }
 }
 
-core::Result<void> GLCommandList::doBegin() {
+Result<void> GLCommandList::doBegin() {
     if (!transient_uniform_arena_->beginRecording()) {
         return std::unexpected(
                 makeError(EngineErrorCode::CommandRecordingFailed, "OpenGL transient uniform batch is unavailable"));
@@ -43,7 +43,7 @@ core::Result<void> GLCommandList::doBegin() {
     return {};
 }
 
-core::Result<void> GLCommandList::doEnd() {
+Result<void> GLCommandList::doEnd() {
     transient_uniform_arena_->endRecording();
     return {};
 }
@@ -125,7 +125,7 @@ void GLCommandList::doBindGroup(BindGroup& group, std::span<const DynamicUniform
     group.markClean();
 }
 
-core::Result<UniformSlice> GLCommandList::doWriteUniformBytes(std::span<const std::byte> data) {
+Result<UniformSlice> GLCommandList::doWriteUniformBytes(std::span<const std::byte> data) {
     const auto allocation = transient_uniform_arena_->upload(data);
     if (!allocation)
         return std::unexpected(
@@ -485,10 +485,10 @@ void GLCommandList::doTransitionResource(Texture* texture, ResourceState newStat
         glMemoryBarrier(barriers);
 }
 
-core::Result<void> GLCommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
+Result<void> GLCommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
-    const auto rejectCopy = [this](std::string_view reason) -> core::Result<void> {
+    const auto rejectCopy = [this](std::string_view reason) -> Result<void> {
         rejectRecording(reason);
         return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed, reason));
     };
@@ -698,7 +698,7 @@ GLenum GLCommandList::indexTypeToGLFormat(IndexType type) {
     }
 }
 
-core::Result<void> GLCommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
+Result<void> GLCommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
     if (info.colorCount > RenderPassBeginInfo::kMaxColorTargets || info.width == 0 || info.height == 0)
         return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
                                          "OpenGL render pass dimensions or attachment count are invalid"));

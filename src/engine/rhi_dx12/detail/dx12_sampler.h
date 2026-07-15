@@ -21,8 +21,8 @@ namespace mulan::engine {
 class DX12Sampler : public Sampler {
 public:
     /// 创建 DX12Sampler。samplerHeap 为空时不分配 descriptor。
-    static core::Result<std::unique_ptr<DX12Sampler>> create(const SamplerDesc& desc, ID3D12Device* device,
-                                                             DX12DescriptorAllocator* samplerHeap);
+    static Result<std::unique_ptr<DX12Sampler>> create(const SamplerDesc& desc, ID3D12Device* device,
+                                                       DX12DescriptorAllocator* samplerHeap);
     ~DX12Sampler();
 
     const SamplerDesc& desc() const override { return desc_; }

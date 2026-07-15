@@ -19,14 +19,14 @@ namespace mulan::engine {
 class DX12Fence final : public Fence {
 public:
     /// 创建 DX12Fence。失败返回 FenceCreateFailed。
-    static core::Result<std::unique_ptr<DX12Fence>> create(ID3D12Device* device, uint64_t initialValue);
+    static Result<std::unique_ptr<DX12Fence>> create(ID3D12Device* device, uint64_t initialValue);
 
     DX12Fence(ID3D12Device* device, uint64_t initialValue);
 
     ~DX12Fence();
 
-    core::Result<void> signal(uint64_t value) override;
-    core::Result<void> wait(uint64_t value) override;
+    Result<void> signal(uint64_t value) override;
+    Result<void> wait(uint64_t value) override;
     uint64_t completedValue() const override;
     bool isValid() const { return fence_ && event_; }
 

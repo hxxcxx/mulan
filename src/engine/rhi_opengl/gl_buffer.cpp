@@ -134,7 +134,7 @@ void GLBuffer::createBuffer() {
     LOG_DEBUG("[OpenGL] Buffer created: handle={}, size={}, name={}", buffer_, desc_.size, desc_.name);
 }
 
-core::Result<void> GLBuffer::write(uint32_t offset, uint32_t size, const void* data) {
+Result<void> GLBuffer::write(uint32_t offset, uint32_t size, const void* data) {
     if (auto wait = waitForLastUse(); !wait)
         return std::unexpected(wait.error());
     if (!isValid() || !data || size == 0 || offset > desc_.size || size > desc_.size - offset)
@@ -151,7 +151,7 @@ core::Result<void> GLBuffer::write(uint32_t offset, uint32_t size, const void* d
     return updateDynamic(offset, size, data);
 }
 
-core::Result<void> GLBuffer::updateDefault(uint32_t offset, uint32_t size, const void* data) {
+Result<void> GLBuffer::updateDefault(uint32_t offset, uint32_t size, const void* data) {
     // 使用 DSA 更新部分数据
     glNamedBufferSubData(buffer_, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
 
@@ -163,7 +163,7 @@ core::Result<void> GLBuffer::updateDefault(uint32_t offset, uint32_t size, const
     return {};
 }
 
-core::Result<void> GLBuffer::updateDynamic(uint32_t offset, uint32_t size, const void* data) {
+Result<void> GLBuffer::updateDynamic(uint32_t offset, uint32_t size, const void* data) {
     // 这里使用简单的 DSA 更新，对于动态缓冲区大小的内容可以接受
     glNamedBufferSubData(buffer_, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
 
@@ -175,7 +175,7 @@ core::Result<void> GLBuffer::updateDynamic(uint32_t offset, uint32_t size, const
     return {};
 }
 
-core::Result<void> GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
+Result<void> GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
     if (auto wait = waitForLastUse(); !wait)
         return std::unexpected(wait.error());
     if (!isValid() || !outData)

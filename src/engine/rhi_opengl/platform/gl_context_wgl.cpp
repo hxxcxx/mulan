@@ -19,7 +19,7 @@ using CreateContextAttribsProc = HGLRC(WINAPI*)(HDC, HGLRC, const int*);
 
 }  // namespace
 
-core::Result<std::unique_ptr<WGLContext>> WGLContext::create(const GLContextCreateInfo& ci) {
+Result<std::unique_ptr<WGLContext>> WGLContext::create(const GLContextCreateInfo& ci) {
     auto context = std::unique_ptr<WGLContext>(new WGLContext());
     if (!context->initialize(ci)) {
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "Failed to create WGL context"));
@@ -141,7 +141,7 @@ void WGLContext::shutdown() {
     }
 }
 
-core::Result<std::unique_ptr<GLContext>> createGLContext(const GLContextCreateInfo& ci) {
+Result<std::unique_ptr<GLContext>> createGLContext(const GLContextCreateInfo& ci) {
     auto result = WGLContext::create(ci);
     if (!result)
         return std::unexpected(result.error());

@@ -24,10 +24,9 @@ class ViewContext;
 
 class CaptureService {
 public:
-    core::Result<engine::RenderCaptureResult> capture(ViewContext& context,
-                                                      const engine::RenderCaptureDesc& desc) const;
+    Result<engine::RenderCaptureResult> capture(ViewContext& context, const engine::RenderCaptureDesc& desc) const;
 
-    core::Result<CaptureImage> capture(ViewContext& context, const CaptureRequest& request) const;
+    Result<CaptureImage> capture(ViewContext& context, const CaptureRequest& request) const;
 
     CaptureBatchResult capture(ViewContext& context, const CaptureBatch& batch) const;
 

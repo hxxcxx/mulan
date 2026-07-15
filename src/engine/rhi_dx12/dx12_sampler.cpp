@@ -65,8 +65,8 @@ static D3D12_COMPARISON_FUNC toDX12ComparisonFunc(CompareFunc f) {
 // DX12Sampler
 // ============================================================
 
-core::Result<std::unique_ptr<DX12Sampler>> DX12Sampler::create(const SamplerDesc& desc, ID3D12Device* device,
-                                                               DX12DescriptorAllocator* samplerHeap) {
+Result<std::unique_ptr<DX12Sampler>> DX12Sampler::create(const SamplerDesc& desc, ID3D12Device* device,
+                                                         DX12DescriptorAllocator* samplerHeap) {
     // samplerHeap 为空时保留空 descriptor，供不需要 shader 绑定的调用方使用；
     // 正常 DX12Device 路径传入 shader-visible sampler heap。
     if (!device)

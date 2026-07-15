@@ -27,7 +27,7 @@ public:
 
     BodyKind bodyKind() const override;
     math::AABB3 bounds() const override;
-    core::Result<TessellatedGeometry> tessellate(const TessellationOptions& opts) const override;
+    Result<TessellatedGeometry> tessellate(const TessellationOptions& opts) const override;
 
 private:
     TruckSolid* solid_ = nullptr;

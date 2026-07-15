@@ -8,7 +8,7 @@
 namespace mulan::engine {
 namespace {
 
-core::Result<std::unique_ptr<RHIDevice>> createD3D11Device(const DeviceCreateInfo& ci) {
+Result<std::unique_ptr<RHIDevice>> createD3D11Device(const DeviceCreateInfo& ci) {
     try {
         auto device = std::make_unique<DX11Device>(ci);
         if (!device->isInitialized())

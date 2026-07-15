@@ -21,28 +21,27 @@ namespace mulan::engine {
 // 资源创建
 // ============================================================
 
-core::Result<std::unique_ptr<Buffer>> VKDevice::createBuffer(const BufferDesc& desc) {
+Result<std::unique_ptr<Buffer>> VKDevice::createBuffer(const BufferDesc& desc) {
     return resource_factory_->createBuffer(desc);
 }
 
-core::Result<std::unique_ptr<Texture>> VKDevice::createTexture(const TextureDesc& desc) {
+Result<std::unique_ptr<Texture>> VKDevice::createTexture(const TextureDesc& desc) {
     return resource_factory_->createTexture(desc);
 }
 
-core::Result<std::unique_ptr<Shader>> VKDevice::createShader(const ShaderDesc& desc) {
+Result<std::unique_ptr<Shader>> VKDevice::createShader(const ShaderDesc& desc) {
     return resource_factory_->createShader(desc);
 }
 
-core::Result<std::unique_ptr<PipelineState>> VKDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
+Result<std::unique_ptr<PipelineState>> VKDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
     return resource_factory_->createPipelineState(desc);
 }
 
-core::Result<std::unique_ptr<ComputePipelineState>> VKDevice::createComputePipelineState(
-        const ComputePipelineDesc& desc) {
+Result<std::unique_ptr<ComputePipelineState>> VKDevice::createComputePipelineState(const ComputePipelineDesc& desc) {
     return resource_factory_->createComputePipelineState(desc);
 }
 
-core::Result<std::unique_ptr<CommandList>> VKDevice::createCommandList() {
+Result<std::unique_ptr<CommandList>> VKDevice::createCommandList() {
     auto result = frame_scheduler_->createStandaloneCommandList();
     if (!result)
         return std::unexpected(result.error());
@@ -50,7 +49,7 @@ core::Result<std::unique_ptr<CommandList>> VKDevice::createCommandList() {
     return result;
 }
 
-core::Result<std::unique_ptr<SwapChain>> VKDevice::createSwapChain(const SwapChainDesc& desc) {
+Result<std::unique_ptr<SwapChain>> VKDevice::createSwapChain(const SwapChainDesc& desc) {
     if (!desc.window.valid()) {
         return std::unexpected(
                 makeError(EngineErrorCode::SwapChainCreateFailed, "Vulkan swap chain requires a native window handle"));
@@ -104,12 +103,11 @@ core::Result<std::unique_ptr<SwapChain>> VKDevice::createSwapChain(const SwapCha
     return result;
 }
 
-core::Result<std::unique_ptr<Fence>> VKDevice::createFence(uint64_t initialValue) {
+Result<std::unique_ptr<Fence>> VKDevice::createFence(uint64_t initialValue) {
     return resource_factory_->createFence(initialValue);
 }
 
-core::Result<std::unique_ptr<BindGroup>> VKDevice::createBindGroup(const BindGroupLayout& layout,
-                                                                   const BindGroupDesc& desc) {
+Result<std::unique_ptr<BindGroup>> VKDevice::createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) {
     const std::string validationError = validateBindGroupDesc(
             layout, desc, { caps_.minUniformBufferOffsetAlignment, caps_.maxUniformBufferBindingSize });
     if (!validationError.empty())
@@ -118,34 +116,34 @@ core::Result<std::unique_ptr<BindGroup>> VKDevice::createBindGroup(const BindGro
             layout, desc, { caps_.minUniformBufferOffsetAlignment, caps_.maxUniformBufferBindingSize });
 }
 
-core::Result<void> VKDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+Result<void> VKDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     assertResourceOwned(dst);
     if (auto wait = waitForResourceLastUse(dst); !wait)
         return std::unexpected(wait.error());
     return upload_context_->uploadTexture(static_cast<VKTexture*>(dst), upload);
 }
 
-core::Result<void> VKDevice::beginUploadBatch() {
+Result<void> VKDevice::beginUploadBatch() {
     return upload_context_->beginUploadBatch();
 }
 
-core::Result<void> VKDevice::flushUploadBatch() {
+Result<void> VKDevice::flushUploadBatch() {
     return upload_context_->flushUploadBatch();
 }
 
-core::Result<std::unique_ptr<RenderTarget>> VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
+Result<std::unique_ptr<RenderTarget>> VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
     if (auto validation = validateRenderTargetDesc(desc, caps_); !validation)
         return std::unexpected(validation.error());
     frame_scheduler_->ensureSwapchainImageSync(1);
     return resource_factory_->createRenderTarget(desc);
 }
 
-core::Result<std::unique_ptr<Sampler>> VKDevice::createSampler(const SamplerDesc& desc) {
+Result<std::unique_ptr<Sampler>> VKDevice::createSampler(const SamplerDesc& desc) {
     return resource_factory_->createSampler(desc);
 }
 
-core::Result<SubmissionToken> VKDevice::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
-                                                            uint64_t fenceValue) {
+Result<SubmissionToken> VKDevice::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
+                                                      uint64_t fenceValue) {
     if (auto validation = validateCommandListsForSubmission(cmdLists, count); !validation)
         return std::unexpected(validation.error());
     // vulkan-hpp 的 submit() 为异常版：验证层发现的录制错误（缺 sampler、
@@ -210,7 +208,7 @@ core::Result<SubmissionToken> VKDevice::executeCommandLists(CommandList** cmdLis
     }
 }
 
-core::Result<void> VKDevice::waitIdle() {
+Result<void> VKDevice::waitIdle() {
     try {
         device_.waitIdle();
     } catch (const vk::Error& error) {
@@ -224,7 +222,7 @@ core::Result<void> VKDevice::waitIdle() {
 // 帧循环
 // ============================================================
 
-core::Result<CommandList*> VKDevice::beginFrame(SwapChain* swapchain) {
+Result<CommandList*> VKDevice::beginFrame(SwapChain* swapchain) {
     if (swapchain)
         assertResourceOwned(swapchain);
     collectGarbage();
@@ -242,7 +240,7 @@ core::Result<CommandList*> VKDevice::beginFrame(SwapChain* swapchain) {
     return commandList;
 }
 
-core::Result<SubmissionToken> VKDevice::submitFrame() {
+Result<SubmissionToken> VKDevice::submitFrame() {
     auto submissionLock = lockSubmissionQueue();
     const SubmissionToken token = reserveSubmissionToken();
     if (!token)
@@ -256,7 +254,7 @@ core::Result<SubmissionToken> VKDevice::submitFrame() {
     return token;
 }
 
-core::Result<SubmissionToken> VKDevice::submitOffscreenFrame() {
+Result<SubmissionToken> VKDevice::submitOffscreenFrame() {
     auto submissionLock = lockSubmissionQueue();
     const SubmissionToken token = reserveSubmissionToken();
     if (!token)
@@ -270,7 +268,7 @@ core::Result<SubmissionToken> VKDevice::submitOffscreenFrame() {
     return token;
 }
 
-core::Result<SubmissionToken> VKDevice::endFrame(SwapChain* swapchain) {
+Result<SubmissionToken> VKDevice::endFrame(SwapChain* swapchain) {
     if (swapchain)
         assertResourceOwned(swapchain);
     CommandList* commandList = frame_scheduler_->frameCommandList();

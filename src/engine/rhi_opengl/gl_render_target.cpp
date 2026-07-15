@@ -50,7 +50,7 @@ GLRenderTarget::~GLRenderTarget() {
 // 资源创建与销毁
 // ============================================================
 
-core::Result<void> GLRenderTarget::createResources() {
+Result<void> GLRenderTarget::createResources() {
     const GLenum colorFormat = toGLInternalFormat(desc_.colorFormat);
     if (colorFormat == 0) {
         return std::unexpected(makeError(EngineErrorCode::RenderTargetCreateFailed, "OpenGL 不支持请求的颜色附件格式"));
@@ -192,7 +192,7 @@ RenderPassBeginInfo GLRenderTarget::renderPassBeginInfo() {
 // resize
 // ============================================================
 
-core::Result<void> GLRenderTarget::resize(uint32_t width, uint32_t height) {
+Result<void> GLRenderTarget::resize(uint32_t width, uint32_t height) {
     if (desc_.width == width && desc_.height == height)
         return {};
     if (width == 0 || height == 0)

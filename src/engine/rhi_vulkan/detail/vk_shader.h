@@ -20,7 +20,7 @@ namespace mulan::engine {
 class VKShader : public Shader {
 public:
     /// 创建 VKShader。文件读失败 → ShaderFileNotFound；编译失败 → ShaderCompileFailed。
-    static core::Result<std::unique_ptr<VKShader>> create(const ShaderDesc& desc, vk::Device device);
+    static Result<std::unique_ptr<VKShader>> create(const ShaderDesc& desc, vk::Device device);
     ~VKShader();
 
     const ShaderDesc& desc() const override { return desc_; }

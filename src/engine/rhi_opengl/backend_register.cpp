@@ -8,7 +8,7 @@
 namespace mulan::engine {
 namespace {
 
-core::Result<std::unique_ptr<RHIDevice>> createOpenGLDevice(const DeviceCreateInfo& ci) {
+Result<std::unique_ptr<RHIDevice>> createOpenGLDevice(const DeviceCreateInfo& ci) {
     try {
         auto device = std::make_unique<GLDevice>(ci);
         if (!device->isInitialized())

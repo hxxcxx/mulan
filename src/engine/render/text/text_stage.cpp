@@ -130,7 +130,7 @@ TextStage::TextStage(RHIDevice& device) : device_(&device) {
 
 TextStage::~TextStage() = default;
 
-core::Result<void> TextStage::init(RHIDevice& device, const RenderTargetInfo& target) {
+Result<void> TextStage::init(RHIDevice& device, const RenderTargetInfo& target) {
     device_ = &device;
 
     if (!loadShaders()) {

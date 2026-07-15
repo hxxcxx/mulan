@@ -64,7 +64,7 @@ RenderPassBeginInfo GLSwapChain::renderPassBeginInfo() {
 // present — 交换前后缓冲区
 // ----------------------------------------------------------------
 
-core::Result<void> GLSwapChain::present() {
+Result<void> GLSwapChain::present() {
     if (msaa_target_) {
         GLuint read_fbo = 0;
         glCreateFramebuffers(1, &read_fbo);
@@ -98,7 +98,7 @@ core::Result<void> GLSwapChain::present() {
 // resize — 更新视口（OpenGL 默认 FBO 随窗口自动调整，无需重建）
 // ----------------------------------------------------------------
 
-core::Result<void> GLSwapChain::resize(uint32_t width, uint32_t height) {
+Result<void> GLSwapChain::resize(uint32_t width, uint32_t height) {
     if (width == 0 || height == 0)
         return std::unexpected(makeError(EngineErrorCode::ResizeFailed, "OpenGL swapchain size must be non-zero"));
     if (msaa_target_) {

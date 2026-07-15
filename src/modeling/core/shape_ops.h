@@ -80,23 +80,23 @@ struct ExtrudeParams {
 };
 
 /// 中立建模操作接口。后端实现并注册到 ShapeOpsRegistry。
-/// 后端不能实现的操作返回 core::ErrorCode::NotSupported。
+/// 后端不能实现的操作返回 ErrorCode::NotSupported。
 class IShapeOps {
 public:
     virtual ~IShapeOps() = default;
 
     /// 拉伸平面轮廓为实体/片体。
-    virtual core::Result<Shape> extrude(const ExtrudeParams& params) = 0;
+    virtual Result<Shape> extrude(const ExtrudeParams& params) = 0;
 
     /// 两体布尔。target ⊕ tool。
-    virtual core::Result<Shape> boolean(const Shape& target, const Shape& tool, BooleanOp op) = 0;
+    virtual Result<Shape> boolean(const Shape& target, const Shape& tool, BooleanOp op) = 0;
 
     // 后续操作(逐个加,框架不变):
-    //   virtual core::Result<Shape> sweep(const SweepParams&) = 0;        // 扫掠
-    //   virtual core::Result<Shape> revolve(const RevolveParams&) = 0;    // 旋转
-    //   virtual core::Result<Shape> fillet(const FilletParams&) = 0;      // 圆角
-    //   virtual core::Result<Shape> chamfer(const ChamferParams&) = 0;    // 倒角
-    //   virtual core::Result<Shape> shell(const ShellParams&) = 0;        // 抽壳
+    //   virtual Result<Shape> sweep(const SweepParams&) = 0;        // 扫掠
+    //   virtual Result<Shape> revolve(const RevolveParams&) = 0;    // 旋转
+    //   virtual Result<Shape> fillet(const FilletParams&) = 0;      // 圆角
+    //   virtual Result<Shape> chamfer(const ChamferParams&) = 0;    // 倒角
+    //   virtual Result<Shape> shell(const ShellParams&) = 0;        // 抽壳
 };
 
 /// 建模操作注册表。多个后端按名称共存，当前选择与插件加载顺序无关。

@@ -24,9 +24,9 @@ RenderConfig::MSAALevel toMSAALevel(uint32_t sampleCount) {
 }
 
 template <typename Base, typename Impl, typename... Args>
-mulan::core::Result<std::unique_ptr<Base>> createDX11Resource(RHIDevice& device, EngineErrorCode errorCode,
-                                                              RHIResourceKind resourceKind, std::string_view name,
-                                                              Args&&... args) {
+mulan::Result<std::unique_ptr<Base>> createDX11Resource(RHIDevice& device, EngineErrorCode errorCode,
+                                                        RHIResourceKind resourceKind, std::string_view name,
+                                                        Args&&... args) {
     auto resource = std::make_unique<Impl>(std::forward<Args>(args)...);
     if (!resource->isValid())
         return std::unexpected(makeError(errorCode, "DX11 resource initialization failed"));
@@ -273,28 +273,28 @@ math::Mat4 DX11Device::clipSpaceCorrectionMatrix() const {
     return mat;
 }
 
-core::Result<std::unique_ptr<Buffer>> DX11Device::createBuffer(const BufferDesc& desc) {
+Result<std::unique_ptr<Buffer>> DX11Device::createBuffer(const BufferDesc& desc) {
     if (!m_device || !m_immediateCtx)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is not initialized"));
     return createDX11Resource<Buffer, DX11Buffer>(*this, EngineErrorCode::BufferCreateFailed, RHIResourceKind::Buffer,
                                                   desc.name, desc, m_device.Get(), m_immediateCtx.Get());
 }
 
-core::Result<std::unique_ptr<Texture>> DX11Device::createTexture(const TextureDesc& desc) {
+Result<std::unique_ptr<Texture>> DX11Device::createTexture(const TextureDesc& desc) {
     if (!m_device)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is not initialized"));
     return createDX11Resource<Texture, DX11Texture>(*this, EngineErrorCode::TextureCreateFailed,
                                                     RHIResourceKind::Texture, desc.name, desc, m_device.Get());
 }
 
-core::Result<std::unique_ptr<Shader>> DX11Device::createShader(const ShaderDesc& desc) {
+Result<std::unique_ptr<Shader>> DX11Device::createShader(const ShaderDesc& desc) {
     if (!m_device)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is not initialized"));
     return createDX11Resource<Shader, DX11Shader>(*this, EngineErrorCode::ShaderCompileFailed, RHIResourceKind::Shader,
                                                   desc.name, desc, m_device.Get());
 }
 
-core::Result<std::unique_ptr<PipelineState>> DX11Device::createPipelineState(const GraphicsPipelineDesc& desc) {
+Result<std::unique_ptr<PipelineState>> DX11Device::createPipelineState(const GraphicsPipelineDesc& desc) {
     if (!m_device)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is not initialized"));
     if (auto validation = validateGraphicsPipelineDesc(desc, *this, m_caps); !validation)
@@ -304,12 +304,12 @@ core::Result<std::unique_ptr<PipelineState>> DX11Device::createPipelineState(con
                                                                 m_device.Get());
 }
 
-core::Result<std::unique_ptr<ComputePipelineState>> DX11Device::createComputePipelineState(const ComputePipelineDesc&) {
+Result<std::unique_ptr<ComputePipelineState>> DX11Device::createComputePipelineState(const ComputePipelineDesc&) {
     return std::unexpected(
             makeError(EngineErrorCode::BackendNotSupported, "D3D11 compute pipeline is not implemented"));
 }
 
-core::Result<std::unique_ptr<CommandList>> DX11Device::createCommandList() {
+Result<std::unique_ptr<CommandList>> DX11Device::createCommandList() {
     if (!m_device || !m_immediateCtx)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is not initialized"));
     return createDX11Resource<CommandList, DX11CommandList>(
@@ -317,7 +317,7 @@ core::Result<std::unique_ptr<CommandList>> DX11Device::createCommandList() {
             m_device.Get(), m_immediateCtx.Get(), m_immediateCtx1.Get());
 }
 
-core::Result<std::unique_ptr<SwapChain>> DX11Device::createSwapChain(const SwapChainDesc& desc) {
+Result<std::unique_ptr<SwapChain>> DX11Device::createSwapChain(const SwapChainDesc& desc) {
     if (!m_device || !m_factory || !m_immediateCtx)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is not initialized"));
     if (!desc.window.valid() || desc.window.type != NativeWindowHandle::Type::Win32) {
@@ -333,7 +333,7 @@ core::Result<std::unique_ptr<SwapChain>> DX11Device::createSwapChain(const SwapC
             m_device.Get(), m_factory.Get(), m_immediateCtx.Get(), resolvedDesc.window);
 }
 
-core::Result<std::unique_ptr<RenderTarget>> DX11Device::createRenderTarget(const RenderTargetDesc& desc) {
+Result<std::unique_ptr<RenderTarget>> DX11Device::createRenderTarget(const RenderTargetDesc& desc) {
     if (!m_device)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is not initialized"));
 
@@ -349,7 +349,7 @@ core::Result<std::unique_ptr<RenderTarget>> DX11Device::createRenderTarget(const
                                                               m_device.Get());
 }
 
-core::Result<std::unique_ptr<Sampler>> DX11Device::createSampler(const SamplerDesc& desc) {
+Result<std::unique_ptr<Sampler>> DX11Device::createSampler(const SamplerDesc& desc) {
     if (!m_device)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is not initialized"));
     const std::string_view name = desc.debugName.empty() ? std::string_view("DX11Sampler") : desc.debugName;
@@ -357,15 +357,15 @@ core::Result<std::unique_ptr<Sampler>> DX11Device::createSampler(const SamplerDe
                                                     RHIResourceKind::Sampler, name, desc, m_device.Get());
 }
 
-core::Result<std::unique_ptr<Fence>> DX11Device::createFence(uint64_t value) {
+Result<std::unique_ptr<Fence>> DX11Device::createFence(uint64_t value) {
     if (!m_device || !m_immediateCtx)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is not initialized"));
     return createDX11Resource<Fence, DX11Fence>(*this, EngineErrorCode::FenceCreateFailed, RHIResourceKind::Fence,
                                                 "DX11Fence", m_device.Get(), m_immediateCtx.Get(), value);
 }
 
-core::Result<std::unique_ptr<BindGroup>> DX11Device::createBindGroup(const BindGroupLayout& layout,
-                                                                     const BindGroupDesc& desc) {
+Result<std::unique_ptr<BindGroup>> DX11Device::createBindGroup(const BindGroupLayout& layout,
+                                                               const BindGroupDesc& desc) {
     std::string validationError = validateBindGroupDesc(
             layout, desc, { m_caps.minUniformBufferOffsetAlignment, m_caps.maxUniformBufferBindingSize });
     if (validationError.empty())
@@ -377,7 +377,7 @@ core::Result<std::unique_ptr<BindGroup>> DX11Device::createBindGroup(const BindG
             BindGroupValidationLimits{ m_caps.minUniformBufferOffsetAlignment, m_caps.maxUniformBufferBindingSize });
 }
 
-core::Result<void> DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+Result<void> DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     assertResourceOwned(dst);
     if (auto wait = waitForResourceLastUse(dst); !wait)
         return std::unexpected(wait.error());
@@ -417,8 +417,8 @@ core::Result<void> DX11Device::uploadTextureData(Texture* dst, const TextureUplo
     return {};
 }
 
-core::Result<SubmissionToken> DX11Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
-                                                              uint64_t value) {
+Result<SubmissionToken> DX11Device::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
+                                                        uint64_t value) {
     if (auto validation = validateCommandListsForSubmission(cmdLists, count); !validation)
         return std::unexpected(validation.error());
     if (!cmdLists || count == 0)
@@ -429,7 +429,7 @@ core::Result<SubmissionToken> DX11Device::executeCommandLists(CommandList** cmdL
         assertResourceOwned(fence);
     auto submissionLock = lockSubmissionQueue();
     // CommandList 直接包装 immediate context，命令在录制时已经进入同一条队列。
-    std::optional<core::Error> externalFenceError;
+    std::optional<Error> externalFenceError;
     if (fence) {
         auto* dx11Fence = static_cast<DX11Fence*>(fence);
         if (!dx11Fence) {
@@ -462,7 +462,7 @@ core::Result<SubmissionToken> DX11Device::executeCommandLists(CommandList** cmdL
     return token;
 }
 
-core::Result<void> DX11Device::waitIdle() {
+Result<void> DX11Device::waitIdle() {
     if (!m_device || !m_immediateCtx)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 device is unavailable"));
 
@@ -489,7 +489,7 @@ core::Result<void> DX11Device::waitIdle() {
     return {};
 }
 
-core::Result<CommandList*> DX11Device::beginFrame(SwapChain* swapchain) {
+Result<CommandList*> DX11Device::beginFrame(SwapChain* swapchain) {
     if (swapchain)
         assertResourceOwned(swapchain);
     collectGarbage();
@@ -501,7 +501,7 @@ core::Result<CommandList*> DX11Device::beginFrame(SwapChain* swapchain) {
     return m_frameCmdList.get();
 }
 
-core::Result<SubmissionToken> DX11Device::submitFrame() {
+Result<SubmissionToken> DX11Device::submitFrame() {
     if (!m_immediateCtx)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "DX11 immediate context is unavailable"));
 
@@ -517,7 +517,7 @@ core::Result<SubmissionToken> DX11Device::submitFrame() {
     return token;
 }
 
-core::Result<SubmissionToken> DX11Device::endFrame(SwapChain* swapchain) {
+Result<SubmissionToken> DX11Device::endFrame(SwapChain* swapchain) {
     if (swapchain)
         assertResourceOwned(swapchain);
     if (auto recording = m_frameCmdList->end(); !recording)

@@ -18,11 +18,11 @@ namespace {
 
 class RegistryTestFence final : public Fence {
 public:
-    core::Result<void> signal(uint64_t value) override {
+    Result<void> signal(uint64_t value) override {
         completed_ = value;
         return {};
     }
-    core::Result<void> wait(uint64_t value) override {
+    Result<void> wait(uint64_t value) override {
         completed_ = value;
         return {};
     }
@@ -75,47 +75,44 @@ public:
     const RenderConfig& renderConfig() const override { return render_config_; }
     math::Mat4 clipSpaceCorrectionMatrix() const override { return math::Mat4(1.0); }
 
-    core::Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc&) override { return std::unique_ptr<Buffer>{}; }
-    core::Result<std::unique_ptr<Texture>> createTexture(const TextureDesc& desc) override {
+    Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc&) override { return std::unique_ptr<Buffer>{}; }
+    Result<std::unique_ptr<Texture>> createTexture(const TextureDesc& desc) override {
         ++create_count_;
         std::unique_ptr<Texture> texture = std::make_unique<RegistryTestTexture>(desc, live_texture_count_);
         return std::move(texture);
     }
-    core::Result<std::unique_ptr<Shader>> createShader(const ShaderDesc&) override { return std::unique_ptr<Shader>{}; }
-    core::Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc&) override {
+    Result<std::unique_ptr<Shader>> createShader(const ShaderDesc&) override { return std::unique_ptr<Shader>{}; }
+    Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc&) override {
         return std::unique_ptr<PipelineState>{};
     }
-    core::Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(
-            const ComputePipelineDesc&) override {
+    Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(const ComputePipelineDesc&) override {
         return std::unique_ptr<ComputePipelineState>{};
     }
-    core::Result<std::unique_ptr<CommandList>> createCommandList() override { return std::unique_ptr<CommandList>{}; }
-    core::Result<std::unique_ptr<SwapChain>> createSwapChain(const SwapChainDesc&) override {
+    Result<std::unique_ptr<CommandList>> createCommandList() override { return std::unique_ptr<CommandList>{}; }
+    Result<std::unique_ptr<SwapChain>> createSwapChain(const SwapChainDesc&) override {
         return std::unique_ptr<SwapChain>{};
     }
-    core::Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc&) override {
+    Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc&) override {
         return std::unique_ptr<RenderTarget>{};
     }
-    core::Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc&) override {
-        return std::unique_ptr<Sampler>{};
-    }
-    core::Result<std::unique_ptr<Fence>> createFence(uint64_t) override { return std::unique_ptr<Fence>{}; }
-    core::Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout&, const BindGroupDesc&) override {
+    Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc&) override { return std::unique_ptr<Sampler>{}; }
+    Result<std::unique_ptr<Fence>> createFence(uint64_t) override { return std::unique_ptr<Fence>{}; }
+    Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout&, const BindGroupDesc&) override {
         return std::unique_ptr<BindGroup>{};
     }
 
-    core::Result<void> uploadTextureData(Texture*, const TextureUploadDesc&) override {
+    Result<void> uploadTextureData(Texture*, const TextureUploadDesc&) override {
         ++upload_count_;
         return {};
     }
-    core::Result<void> beginUploadBatch() override { return {}; }
-    core::Result<void> flushUploadBatch() override { return {}; }
-    core::Result<SubmissionToken> executeCommandLists(CommandList**, uint32_t, Fence*, uint64_t) override {
+    Result<void> beginUploadBatch() override { return {}; }
+    Result<void> flushUploadBatch() override { return {}; }
+    Result<SubmissionToken> executeCommandLists(CommandList**, uint32_t, Fence*, uint64_t) override {
         return issueSubmission();
     }
-    core::Result<void> waitIdle() override { return {}; }
-    core::Result<CommandList*> beginFrame(SwapChain*) override { return static_cast<CommandList*>(nullptr); }
-    core::Result<SubmissionToken> endFrame(SwapChain*) override { return issueSubmission(); }
+    Result<void> waitIdle() override { return {}; }
+    Result<CommandList*> beginFrame(SwapChain*) override { return static_cast<CommandList*>(nullptr); }
+    Result<SubmissionToken> endFrame(SwapChain*) override { return issueSubmission(); }
 
 private:
     RegistryTestFence* fence_ = nullptr;

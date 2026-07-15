@@ -34,9 +34,9 @@ class VKCommandList : public CommandList {
 public:
     /// 独立模式：自建 command pool + buffer（可选 descriptor allocator）。
     /// 失败返回 CommandListCreateFailed。
-    static core::Result<std::unique_ptr<VKCommandList>> create(vk::Device device, uint32_t queueFamilyIndex,
-                                                               VmaAllocator memoryAllocator, uint32_t uniformAlignment,
-                                                               uint32_t maxUniformSize);
+    static Result<std::unique_ptr<VKCommandList>> create(vk::Device device, uint32_t queueFamilyIndex,
+                                                         VmaAllocator memoryAllocator, uint32_t uniformAlignment,
+                                                         uint32_t maxUniformSize);
 
     /// 外部 buffer 模式：引用 frameContext 的 command buffer
     VKCommandList(vk::Device device, vk::CommandBuffer externalCmd);
@@ -50,8 +50,8 @@ public:
     vk::CommandBuffer cmdBuffer() const { return cmd_buffer_; }
 
     // --- 生命周期 ---
-    core::Result<void> doBegin() override;
-    core::Result<void> doEnd() override;
+    Result<void> doBegin() override;
+    Result<void> doEnd() override;
     void doMarkSubmitted() override;
 
     // --- 管线状态 ---
@@ -61,7 +61,7 @@ public:
     // --- 资源绑定 ---
     void doBindGroup(BindGroup& group) override;
     void doBindGroup(BindGroup& group, std::span<const DynamicUniformBinding> dynamicUniforms) override;
-    core::Result<UniformSlice> doWriteUniformBytes(std::span<const std::byte> data) override;
+    Result<UniformSlice> doWriteUniformBytes(std::span<const std::byte> data) override;
 
     // --- 视口 / 裁剪 ---
     void doSetViewport(const Viewport& vp) override;
@@ -88,12 +88,12 @@ public:
     void doTransitionResource(Texture* texture, ResourceState newState) override;
 
     // --- 纹理 → 缓冲区复制（用于离屏回读）---
-    core::Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
+    Result<void> doCopyTextureToBuffer(Texture* src, Buffer* dst) override;
 
     // --- 清除 ---
 
     // --- RenderPass (RHI override) ---
-    core::Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
+    Result<void> doBeginRenderPass(const RenderPassBeginInfo& info) override;
     void doEndRenderPass() override;
 
     vk::PipelineLayout currentLayout() const { return current_layout_; }

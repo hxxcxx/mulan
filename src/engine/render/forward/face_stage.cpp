@@ -9,18 +9,18 @@ FaceStage::FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResou
       view_cube_executor_(device, sharedResources, RenderTechnique::ViewCube) {
 }
 
-core::Result<void> FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
+Result<void> FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
     if (!solid_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage SolidLit init failed"));
+        return std::unexpected(Error::make(ErrorCode::Internal, "FaceStage SolidLit init failed"));
     }
     if (!pbr_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage SurfacePBR init failed"));
+        return std::unexpected(Error::make(ErrorCode::Internal, "FaceStage SurfacePBR init failed"));
     }
     if (!pbr_tangent_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage SurfacePBRTangent init failed"));
+        return std::unexpected(Error::make(ErrorCode::Internal, "FaceStage SurfacePBRTangent init failed"));
     }
     if (!view_cube_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "FaceStage ViewCube init failed"));
+        return std::unexpected(Error::make(ErrorCode::Internal, "FaceStage ViewCube init failed"));
     }
     return {};
 }

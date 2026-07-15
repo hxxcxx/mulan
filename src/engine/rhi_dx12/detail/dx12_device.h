@@ -44,39 +44,38 @@ public:
     }
 
     // --- 资源创建 ---
-    core::Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc) override;
-    core::Result<std::unique_ptr<Texture>> createTexture(const TextureDesc& desc) override;
-    core::Result<std::unique_ptr<Shader>> createShader(const ShaderDesc& desc) override;
-    core::Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc& desc) override;
-    core::Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(
-            const ComputePipelineDesc& desc) override;
-    core::Result<std::unique_ptr<CommandList>> createCommandList() override;
-    core::Result<std::unique_ptr<SwapChain>> createSwapChain(const SwapChainDesc& desc) override;
-    core::Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc& desc) override;
-    core::Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc& desc) override;
-    core::Result<std::unique_ptr<Fence>> createFence(uint64_t initialValue = 0) override;
-    core::Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout,
-                                                             const BindGroupDesc& desc) override;
+    Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc) override;
+    Result<std::unique_ptr<Texture>> createTexture(const TextureDesc& desc) override;
+    Result<std::unique_ptr<Shader>> createShader(const ShaderDesc& desc) override;
+    Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc& desc) override;
+    Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(const ComputePipelineDesc& desc) override;
+    Result<std::unique_ptr<CommandList>> createCommandList() override;
+    Result<std::unique_ptr<SwapChain>> createSwapChain(const SwapChainDesc& desc) override;
+    Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc& desc) override;
+    Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc& desc) override;
+    Result<std::unique_ptr<Fence>> createFence(uint64_t initialValue = 0) override;
+    Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout,
+                                                       const BindGroupDesc& desc) override;
 
     // --- 资源上传 ---
-    core::Result<void> uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
-    core::Result<void> beginUploadBatch() override;
-    core::Result<void> flushUploadBatch() override;
+    Result<void> uploadTextureData(Texture* dst, const TextureUploadDesc& upload) override;
+    Result<void> beginUploadBatch() override;
+    Result<void> flushUploadBatch() override;
 
     // --- 提交命令 ---
-    core::Result<SubmissionToken> executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence = nullptr,
-                                                      uint64_t fenceValue = 0) override;
-    core::Result<void> waitIdle() override;
+    Result<SubmissionToken> executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence = nullptr,
+                                                uint64_t fenceValue = 0) override;
+    Result<void> waitIdle() override;
 
     // --- 帧循环 ---
-    core::Result<CommandList*> beginFrame(SwapChain* swapchain = nullptr) override;
-    core::Result<SubmissionToken> endFrame(SwapChain* swapchain = nullptr) override;
+    Result<CommandList*> beginFrame(SwapChain* swapchain = nullptr) override;
+    Result<SubmissionToken> endFrame(SwapChain* swapchain = nullptr) override;
 
     /// 惰性创建间接绘制 CommandSignature
     ID3D12CommandSignature* drawIndirectSignature();
 
 private:
-    core::Result<SubmissionToken> submitFrame();
+    Result<SubmissionToken> submitFrame();
     void init(const DeviceCreateInfo& ci);
     void createFactory();
     void findAdapter();

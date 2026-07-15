@@ -110,13 +110,13 @@ std::vector<NamedShape> splitIntoNamedShapes(const TopoDS_Shape& shape) {
 
 }  // namespace
 
-core::Result<std::vector<NamedShape>> OccStepReader::read(const std::string& path) {
+Result<std::vector<NamedShape>> OccStepReader::read(const std::string& path) {
     try {
         NumericLocaleGuard locale;
         TopoDS_Shape shape = readFile(path);
         return splitIntoNamedShapes(shape);
     } catch (const std::exception& e) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Io, e.what()));
+        return std::unexpected(Error::make(ErrorCode::Io, e.what()));
     }
 }
 

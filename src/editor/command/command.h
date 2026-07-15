@@ -36,7 +36,7 @@ private:
     EditorSession* editor_session_ = nullptr;
 };
 
-using CommandOutcome = core::Result<void>;
+using CommandOutcome = Result<void>;
 
 struct CommandState {
     std::string title;
@@ -71,11 +71,11 @@ public:
         CommandState currentState = state(host);
         if (!currentState.visible) {
             std::string message = currentState.statusText.empty() ? "Command is unavailable" : currentState.statusText;
-            return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, std::move(message)));
+            return std::unexpected(Error::make(ErrorCode::InvalidArg, std::move(message)));
         }
         if (!currentState.enabled) {
             std::string message = currentState.statusText.empty() ? "Command is disabled" : currentState.statusText;
-            return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, std::move(message)));
+            return std::unexpected(Error::make(ErrorCode::InvalidArg, std::move(message)));
         }
 
         CommandOutcome prepared = prepare(host);

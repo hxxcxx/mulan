@@ -8,16 +8,15 @@ HighlightStage::HighlightStage(RHIDevice& device, GeometryDrawSharedResources& s
       edge_executor_(device, sharedResources, RenderTechnique::HighlightEdge) {
 }
 
-core::Result<void> HighlightStage::init(RHIDevice&, const RenderTargetInfo& target) {
+Result<void> HighlightStage::init(RHIDevice&, const RenderTargetInfo& target) {
     if (!surface_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "HighlightStage surface init failed"));
+        return std::unexpected(Error::make(ErrorCode::Internal, "HighlightStage surface init failed"));
     }
     if (!surface_tangent_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
-        return std::unexpected(
-                core::Error::make(core::ErrorCode::Internal, "HighlightStage tangent surface init failed"));
+        return std::unexpected(Error::make(ErrorCode::Internal, "HighlightStage tangent surface init failed"));
     }
     if (!edge_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
-        return std::unexpected(core::Error::make(core::ErrorCode::Internal, "HighlightStage edge init failed"));
+        return std::unexpected(Error::make(ErrorCode::Internal, "HighlightStage edge init failed"));
     }
     return {};
 }

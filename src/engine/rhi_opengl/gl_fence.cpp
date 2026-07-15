@@ -18,7 +18,7 @@ GLFence::~GLFence() {
         glDeleteSync(sync_);
 }
 
-core::Result<void> GLFence::signal(uint64_t value) {
+Result<void> GLFence::signal(uint64_t value) {
     if (sync_)
         glDeleteSync(sync_);
     sync_ = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
@@ -28,7 +28,7 @@ core::Result<void> GLFence::signal(uint64_t value) {
     return {};
 }
 
-core::Result<void> GLFence::wait(uint64_t value) {
+Result<void> GLFence::wait(uint64_t value) {
     if (value <= completed_value_)
         return {};
     if (!sync_ || value > signaled_value_)

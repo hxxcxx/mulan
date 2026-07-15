@@ -32,8 +32,8 @@ namespace mulan::engine {
 
 using graphics::VertexSemantic;
 
-core::Result<std::unique_ptr<DX12PipelineState>> DX12PipelineState::create(const GraphicsPipelineDesc& desc,
-                                                                           ID3D12Device* device) {
+Result<std::unique_ptr<DX12PipelineState>> DX12PipelineState::create(const GraphicsPipelineDesc& desc,
+                                                                     ID3D12Device* device) {
     if (!device)
         return std::unexpected(makeError(EngineErrorCode::PipelineCreateFailed, "DX12 pipeline requires a device"));
     auto object = std::unique_ptr<DX12PipelineState>(new DX12PipelineState(desc, device));

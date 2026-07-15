@@ -62,7 +62,7 @@ protected:
     /// 后端资源析构函数必须在释放原生句柄前调用，确保 GPU 已结束最后一次使用。
     void waitForLastUseBeforeDestruction() noexcept;
     /// 可变资源写入前调用，避免覆盖仍被 GPU 读取的存储。
-    core::Result<void> waitForLastUse();
+    Result<void> waitForLastUse();
 
 private:
     friend class RHIDevice;

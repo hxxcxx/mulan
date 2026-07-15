@@ -104,9 +104,9 @@ vk::ImageAspectFlags aspectMaskForTexture(TextureFormat format) {
 
 }  // namespace
 
-core::Result<std::unique_ptr<VKCommandList>> VKCommandList::create(vk::Device device, uint32_t queueFamilyIndex,
-                                                                   VmaAllocator memoryAllocator,
-                                                                   uint32_t uniformAlignment, uint32_t maxUniformSize) {
+Result<std::unique_ptr<VKCommandList>> VKCommandList::create(vk::Device device, uint32_t queueFamilyIndex,
+                                                             VmaAllocator memoryAllocator, uint32_t uniformAlignment,
+                                                             uint32_t maxUniformSize) {
     vk::CommandPoolCreateInfo poolCI;
     poolCI.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
     poolCI.queueFamilyIndex = queueFamilyIndex;
@@ -163,7 +163,7 @@ VKCommandList::~VKCommandList() {
     }
 }
 
-core::Result<void> VKCommandList::doBegin() {
+Result<void> VKCommandList::doBegin() {
     dynamic_set_cache_.clear();
     pending_texture_layouts_.clear();
     current_layout_ = nullptr;
@@ -215,7 +215,7 @@ void VKCommandList::doMarkSubmitted() {
     pending_texture_layouts_.clear();
 }
 
-core::Result<void> VKCommandList::doEnd() {
+Result<void> VKCommandList::doEnd() {
     try {
         cmd_buffer_.end();
     } catch (const vk::Error& error) {
@@ -447,10 +447,10 @@ void VKCommandList::doTransitionResource(Texture* texture, ResourceState newStat
     setTextureLayout(vkTex, barrier.newLayout);
 }
 
-core::Result<void> VKCommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
+Result<void> VKCommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
     assertResourceCompatible(src);
     assertResourceCompatible(dst);
-    const auto rejectCopy = [this](std::string_view reason) -> core::Result<void> {
+    const auto rejectCopy = [this](std::string_view reason) -> Result<void> {
         rejectRecording(reason);
         return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed, reason));
     };
@@ -655,7 +655,7 @@ void VKCommandList::doBindGroup(BindGroup& group, std::span<const DynamicUniform
     vkGroup->markClean();
 }
 
-core::Result<UniformSlice> VKCommandList::doWriteUniformBytes(std::span<const std::byte> data) {
+Result<UniformSlice> VKCommandList::doWriteUniformBytes(std::span<const std::byte> data) {
     if (!transient_uniform_arena_)
         return std::unexpected(
                 makeError(EngineErrorCode::ResourceUploadFailed, "Vulkan transient uniform arena is unavailable"));
@@ -670,7 +670,7 @@ core::Result<UniformSlice> VKCommandList::doWriteUniformBytes(std::span<const st
 // RHI beginRenderPass / endRenderPass
 // ============================================================
 
-core::Result<void> VKCommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
+Result<void> VKCommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
     if (info.colorCount > RenderPassBeginInfo::kMaxColorTargets || info.width == 0 || info.height == 0)
         return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed,
                                          "Vulkan render pass dimensions or attachment count are invalid"));

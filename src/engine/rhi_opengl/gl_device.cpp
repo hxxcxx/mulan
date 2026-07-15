@@ -194,8 +194,8 @@ void GLDevice::queryCapabilities() {
 // ============================================================
 
 template <typename Base, typename Impl, typename Desc>
-static core::Result<std::unique_ptr<Base>> createGLResource(RHIDevice& device, const Desc& desc, EngineErrorCode code,
-                                                            RHIResourceKind kind, const char* label) {
+static Result<std::unique_ptr<Base>> createGLResource(RHIDevice& device, const Desc& desc, EngineErrorCode code,
+                                                      RHIResourceKind kind, const char* label) {
     try {
         auto resource = std::make_unique<Impl>(desc);
         if (!resource->isValid())
@@ -210,22 +210,22 @@ static core::Result<std::unique_ptr<Base>> createGLResource(RHIDevice& device, c
     }
 }
 
-core::Result<std::unique_ptr<Buffer>> GLDevice::createBuffer(const BufferDesc& desc) {
+Result<std::unique_ptr<Buffer>> GLDevice::createBuffer(const BufferDesc& desc) {
     return createGLResource<Buffer, GLBuffer>(*this, desc, EngineErrorCode::BufferCreateFailed, RHIResourceKind::Buffer,
                                               "OpenGL buffer creation failed");
 }
 
-core::Result<std::unique_ptr<Texture>> GLDevice::createTexture(const TextureDesc& desc) {
+Result<std::unique_ptr<Texture>> GLDevice::createTexture(const TextureDesc& desc) {
     return createGLResource<Texture, GLTexture>(*this, desc, EngineErrorCode::TextureCreateFailed,
                                                 RHIResourceKind::Texture, "OpenGL texture creation failed");
 }
 
-core::Result<std::unique_ptr<Shader>> GLDevice::createShader(const ShaderDesc& desc) {
+Result<std::unique_ptr<Shader>> GLDevice::createShader(const ShaderDesc& desc) {
     return createGLResource<Shader, GLShader>(*this, desc, EngineErrorCode::ShaderCompileFailed,
                                               RHIResourceKind::Shader, "OpenGL shader creation failed");
 }
 
-core::Result<std::unique_ptr<PipelineState>> GLDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
+Result<std::unique_ptr<PipelineState>> GLDevice::createPipelineState(const GraphicsPipelineDesc& desc) {
     if (auto validation = validateGraphicsPipelineDesc(desc, *this, caps_); !validation)
         return std::unexpected(validation.error());
     return createGLResource<PipelineState, GLPipelineState>(*this, desc, EngineErrorCode::PipelineCreateFailed,
@@ -233,12 +233,12 @@ core::Result<std::unique_ptr<PipelineState>> GLDevice::createPipelineState(const
                                                             "OpenGL pipeline creation failed");
 }
 
-core::Result<std::unique_ptr<ComputePipelineState>> GLDevice::createComputePipelineState(const ComputePipelineDesc&) {
+Result<std::unique_ptr<ComputePipelineState>> GLDevice::createComputePipelineState(const ComputePipelineDesc&) {
     return std::unexpected(
             makeError(EngineErrorCode::BackendNotSupported, "OpenGL compute pipeline is not implemented"));
 }
 
-core::Result<std::unique_ptr<CommandList>> GLDevice::createCommandList() {
+Result<std::unique_ptr<CommandList>> GLDevice::createCommandList() {
     try {
         auto command_list = std::make_unique<GLCommandList>(caps_.minUniformBufferOffsetAlignment,
                                                             caps_.maxUniformBufferBindingSize);
@@ -249,7 +249,7 @@ core::Result<std::unique_ptr<CommandList>> GLDevice::createCommandList() {
     }
 }
 
-core::Result<std::unique_ptr<SwapChain>> GLDevice::createSwapChain(const SwapChainDesc& desc) {
+Result<std::unique_ptr<SwapChain>> GLDevice::createSwapChain(const SwapChainDesc& desc) {
     if (!context_)
         return std::unexpected(makeError(EngineErrorCode::SwapChainCreateFailed, "OpenGL context is not initialized"));
     auto swap_chain = std::make_unique<GLSwapChain>(desc, *context_, render_config_);
@@ -257,7 +257,7 @@ core::Result<std::unique_ptr<SwapChain>> GLDevice::createSwapChain(const SwapCha
     return std::unique_ptr<SwapChain>(std::move(swap_chain));
 }
 
-core::Result<std::unique_ptr<Fence>> GLDevice::createFence(uint64_t initialValue) {
+Result<std::unique_ptr<Fence>> GLDevice::createFence(uint64_t initialValue) {
     try {
         auto fence = std::make_unique<GLFence>(initialValue);
         fence->trackResource(*this, RHIResourceKind::Fence, "OpenGLFence");
@@ -267,7 +267,7 @@ core::Result<std::unique_ptr<Fence>> GLDevice::createFence(uint64_t initialValue
     }
 }
 
-core::Result<std::unique_ptr<RenderTarget>> GLDevice::createRenderTarget(const RenderTargetDesc& desc) {
+Result<std::unique_ptr<RenderTarget>> GLDevice::createRenderTarget(const RenderTargetDesc& desc) {
     if (auto validation = validateRenderTargetDesc(desc, caps_); !validation)
         return std::unexpected(validation.error());
     return createGLResource<RenderTarget, GLRenderTarget>(*this, desc, EngineErrorCode::RenderTargetCreateFailed,
@@ -275,7 +275,7 @@ core::Result<std::unique_ptr<RenderTarget>> GLDevice::createRenderTarget(const R
                                                           "OpenGL render target creation failed");
 }
 
-core::Result<std::unique_ptr<Sampler>> GLDevice::createSampler(const SamplerDesc& desc) {
+Result<std::unique_ptr<Sampler>> GLDevice::createSampler(const SamplerDesc& desc) {
     try {
         auto sampler = std::make_unique<GLSampler>(desc);
         if (!sampler->isValid())
@@ -287,8 +287,7 @@ core::Result<std::unique_ptr<Sampler>> GLDevice::createSampler(const SamplerDesc
     }
 }
 
-core::Result<std::unique_ptr<BindGroup>> GLDevice::createBindGroup(const BindGroupLayout& layout,
-                                                                   const BindGroupDesc& desc) {
+Result<std::unique_ptr<BindGroup>> GLDevice::createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) {
     const std::string validationError = validateBindGroupDesc(
             layout, desc, { caps_.minUniformBufferOffsetAlignment, caps_.maxUniformBufferBindingSize });
     if (!validationError.empty())
@@ -304,7 +303,7 @@ core::Result<std::unique_ptr<BindGroup>> GLDevice::createBindGroup(const BindGro
     }
 }
 
-core::Result<void> GLDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
+Result<void> GLDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     assertResourceOwned(dst);
     if (auto wait = waitForResourceLastUse(dst); !wait)
         return std::unexpected(wait.error());
@@ -339,8 +338,8 @@ core::Result<void> GLDevice::uploadTextureData(Texture* dst, const TextureUpload
     return {};
 }
 
-core::Result<SubmissionToken> GLDevice::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
-                                                            uint64_t fenceValue) {
+Result<SubmissionToken> GLDevice::executeCommandLists(CommandList** cmdLists, uint32_t count, Fence* fence,
+                                                      uint64_t fenceValue) {
     if (auto validation = validateCommandListsForSubmission(cmdLists, count); !validation)
         return std::unexpected(validation.error());
     if (!cmdLists || count == 0)
@@ -350,7 +349,7 @@ core::Result<SubmissionToken> GLDevice::executeCommandLists(CommandList** cmdLis
     if (fence)
         assertResourceOwned(fence);
     auto submissionLock = lockSubmissionQueue();
-    std::optional<core::Error> externalFenceError;
+    std::optional<Error> externalFenceError;
     if (fence) {
         if (auto signal = fence->signal(fenceValue); !signal)
             externalFenceError = signal.error();
@@ -388,7 +387,7 @@ core::Result<SubmissionToken> GLDevice::executeCommandLists(CommandList** cmdLis
     return token;
 }
 
-core::Result<void> GLDevice::waitIdle() {
+Result<void> GLDevice::waitIdle() {
     if (!initialized_)
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, "OpenGL device is unavailable"));
     glFinish();
@@ -398,7 +397,7 @@ core::Result<void> GLDevice::waitIdle() {
     return {};
 }
 
-core::Result<CommandList*> GLDevice::beginFrame(SwapChain* swapchain) {
+Result<CommandList*> GLDevice::beginFrame(SwapChain* swapchain) {
     if (swapchain)
         assertResourceOwned(swapchain);
     if (context_ && !context_->makeCurrent()) {
@@ -412,7 +411,7 @@ core::Result<CommandList*> GLDevice::beginFrame(SwapChain* swapchain) {
     return frame_command_list_.get();
 }
 
-core::Result<SubmissionToken> GLDevice::submitFrame() {
+Result<SubmissionToken> GLDevice::submitFrame() {
     auto submissionLock = lockSubmissionQueue();
     const SubmissionToken token = reserveSubmissionToken();
     if (!token)
@@ -429,7 +428,7 @@ core::Result<SubmissionToken> GLDevice::submitFrame() {
     return token;
 }
 
-core::Result<SubmissionToken> GLDevice::endFrame(SwapChain* swapchain) {
+Result<SubmissionToken> GLDevice::endFrame(SwapChain* swapchain) {
     if (swapchain)
         assertResourceOwned(swapchain);
     if (auto recording = frame_command_list_->end(); !recording)

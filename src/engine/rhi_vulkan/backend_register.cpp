@@ -15,7 +15,7 @@ namespace mulan::engine {
 
 namespace {
 
-core::Result<std::unique_ptr<RHIDevice>> createVulkanDevice(const DeviceCreateInfo& ci) {
+Result<std::unique_ptr<RHIDevice>> createVulkanDevice(const DeviceCreateInfo& ci) {
     try {
         return std::unique_ptr<RHIDevice>(std::make_unique<VKDevice>(ci));
     } catch (const std::exception& error) {

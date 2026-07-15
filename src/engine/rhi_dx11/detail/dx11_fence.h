@@ -18,8 +18,8 @@ public:
     DX11Fence(ID3D11Device* device, ID3D11DeviceContext* context, uint64_t initialValue);
     ~DX11Fence() = default;
 
-    core::Result<void> signal(uint64_t value) override;
-    core::Result<void> wait(uint64_t value) override;
+    Result<void> signal(uint64_t value) override;
+    Result<void> wait(uint64_t value) override;
     uint64_t completedValue() const override;
     uint64_t signaledValue() const { return m_signaled; }
     bool isValid() const { return m_device && m_ctx; }

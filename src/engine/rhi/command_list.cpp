@@ -16,7 +16,7 @@ std::atomic<uint64_t> g_next_descriptor_scope_id{ 1 };
 CommandList::CommandList() : descriptor_scope_id_(g_next_descriptor_scope_id.fetch_add(1, std::memory_order_relaxed)) {
 }
 
-core::Result<void> CommandList::begin() {
+Result<void> CommandList::begin() {
     if (state_ == State::Recording) {
         return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed, "CommandList is already recording"));
     }
@@ -49,9 +49,9 @@ core::Result<void> CommandList::begin() {
     return {};
 }
 
-core::Result<void> CommandList::end() {
+Result<void> CommandList::end() {
     if (recording_error_) {
-        const core::Error error = *recording_error_;
+        const Error error = *recording_error_;
         if (backend_recording_) {
             if (render_pass_active_)
                 doEndRenderPass();
@@ -87,7 +87,7 @@ core::Result<void> CommandList::end() {
     return {};
 }
 
-const core::Error* CommandList::recordingError() const noexcept {
+const Error* CommandList::recordingError() const noexcept {
     return recording_error_ ? &*recording_error_ : nullptr;
 }
 
@@ -150,7 +150,7 @@ void CommandList::recordResource(const RHITrackedResource* resource) {
         referenced_resources_.push_back(lifetime);
 }
 
-core::Result<void> CommandList::validateReferencedResources() const {
+Result<void> CommandList::validateReferencedResources() const {
     for (const auto& resource : referenced_resources_) {
         if (!resource || !resource->alive.load(std::memory_order_acquire)) {
             return std::unexpected(makeError(EngineErrorCode::SubmissionFailed,
@@ -207,7 +207,7 @@ void CommandList::bindGroup(BindGroup& group, std::span<const DynamicUniformBind
     doBindGroup(group, dynamicUniforms);
 }
 
-core::Result<UniformSlice> CommandList::writeUniformBytes(std::span<const std::byte> data) {
+Result<UniformSlice> CommandList::writeUniformBytes(std::span<const std::byte> data) {
     if (!requireRecording("writeUniformBytes"))
         return std::unexpected(*recording_error_);
     if (data.empty()) {
@@ -343,7 +343,7 @@ void CommandList::transitionResource(Texture* texture, ResourceState newState) {
     doTransitionResource(texture, newState);
 }
 
-core::Result<void> CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
+Result<void> CommandList::copyTextureToBuffer(Texture* src, Buffer* dst) {
     if (!requireRecording("copyTextureToBuffer") || render_pass_active_) {
         if (render_pass_active_)
             rejectRecording("copyTextureToBuffer is not allowed inside a render pass");
@@ -452,7 +452,7 @@ bool CommandList::validateGraphicsPipelineRenderPass(const GraphicsPipelineDesc&
     return true;
 }
 
-void CommandList::invalidate(core::Error error) {
+void CommandList::invalidate(Error error) {
     if (!recording_error_)
         recording_error_ = std::move(error);
     state_ = State::Invalid;
@@ -503,7 +503,7 @@ void CommandList::doBindGroup(BindGroup& group, std::span<const DynamicUniformBi
     doBindGroup(group);
 }
 
-core::Result<UniformSlice> CommandList::doWriteUniformBytes(std::span<const std::byte>) {
+Result<UniformSlice> CommandList::doWriteUniformBytes(std::span<const std::byte>) {
     return std::unexpected(
             makeError(EngineErrorCode::BackendNotSupported, "Transient uniform allocation is not implemented"));
 }
@@ -523,7 +523,7 @@ void CommandList::markSubmitted(SubmissionToken token) {
     state_ = State::Submitted;
 }
 
-core::Result<void> CommandList::waitForPreviousSubmission() {
+Result<void> CommandList::waitForPreviousSubmission() {
     const SubmissionToken token = last_submission_;
     if (!token)
         return {};
