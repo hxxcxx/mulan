@@ -199,7 +199,81 @@ TEST(RenderSubmissionBuilderTests, PreviewReferenceOnlyRevisionDoesNotUploadUnch
     preview.setReferences({ PreviewReference{} });
     const RenderSubmission referencesChanged = builder.build(view);
     EXPECT_TRUE(referencesChanged.rebuiltWorld);
+    EXPECT_FALSE(referencesChanged.rebuiltSceneWorld);
+    EXPECT_TRUE(referencesChanged.rebuiltOverlayWorld);
     EXPECT_TRUE(referencesChanged.prepare.empty());
+}
+
+TEST(RenderSubmissionBuilderTests, PreviewAndViewChangesReuseSceneWorld) {
+    asset::AssetLibrary assets;
+    auto* geometry = assets.create<asset::TessellatedAsset>("StableScene");
+    geometry->setRenderMeshes(makeSurfaceMesh(), {});
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("StableEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    PreviewLayer preview;
+    preview.setMesh(makePreviewMesh());
+
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+    builder.setPreviewLayer(&preview);
+
+    ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_TRUE(first.sceneWorld);
+    ASSERT_TRUE(first.overlayWorld);
+    const auto stableSceneWorld = first.sceneWorld;
+
+    preview.setMesh(makePreviewMesh());
+    const RenderSubmission previewChanged = builder.build(view);
+    EXPECT_FALSE(previewChanged.rebuiltSceneWorld);
+    EXPECT_TRUE(previewChanged.rebuiltOverlayWorld);
+    EXPECT_EQ(previewChanged.sceneWorld, stableSceneWorld);
+
+    view.hoveredPickId = engine::PickId{ 7 };
+    const RenderSubmission viewChanged = builder.build(view);
+    EXPECT_FALSE(viewChanged.rebuiltSceneWorld);
+    EXPECT_FALSE(viewChanged.rebuiltOverlayWorld);
+    EXPECT_EQ(viewChanged.sceneWorld, stableSceneWorld);
+}
+
+TEST(RenderSubmissionBuilderTests, PreviewReferencesBorrowSceneResourcesWithoutRetiringThem) {
+    asset::AssetLibrary assets;
+    auto* geometry = assets.create<asset::TessellatedAsset>("ReferencedScene");
+    geometry->setRenderMeshes(makeSurfaceMesh(), {});
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("ReferencedEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    PreviewLayer preview;
+
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+    builder.setPreviewLayer(&preview);
+
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_EQ(first.prepare.geometries().size(), 1u);
+    const engine::AssetGpuKey sceneGeometryKey = first.prepare.geometries().front().resourceKey;
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    preview.setReferences({ PreviewReference{ .entity = entity } });
+    const RenderSubmission referenced = builder.build(view);
+    ASSERT_TRUE(referenced.overlayWorld);
+    EXPECT_TRUE(referenced.prepare.empty());
+
+    preview.clearReferences();
+    const RenderSubmission cleared = builder.build(view);
+    for (const auto& resource : cleared.prepare.geometries()) {
+        EXPECT_FALSE(resource.resourceKey == sceneGeometryKey && resource.isRetire());
+    }
 }
 
 TEST(RenderSubmissionBuilderTests, ReplacingPreviewSourceWithSameGenerationUpdatesOnlyPreviewGeometry) {
@@ -444,9 +518,9 @@ TEST(RenderSubmissionBuilderTests, TextureRevisionFlowsIntoWorldWithoutGeometryU
 
     const ViewState view;
     const RenderSubmission first = builder.build(view);
-    ASSERT_TRUE(first.world);
-    ASSERT_EQ(first.world->materials().size(), 1u);
-    ASSERT_EQ(first.world->materials().front().desc.baseColorTexture.contentRevision, texture->revision());
+    ASSERT_TRUE(first.sceneWorld);
+    ASSERT_EQ(first.sceneWorld->materials().size(), 1u);
+    ASSERT_EQ(first.sceneWorld->materials().front().desc.baseColorTexture.contentRevision, texture->revision());
     builder.acknowledgeResources(first.resourceBatchId);
 
     texture->setImage(core::Image::create(1, 1, core::PixelFormat::RGBA8));
@@ -457,9 +531,10 @@ TEST(RenderSubmissionBuilderTests, TextureRevisionFlowsIntoWorldWithoutGeometryU
     ASSERT_EQ(textureChanged.prepare.textures().size(), 1u);
     EXPECT_TRUE(textureChanged.prepare.textures().front().isUpsert());
     EXPECT_EQ(textureChanged.prepare.textures().front().contentRevision, texture->revision());
-    ASSERT_TRUE(textureChanged.world);
-    ASSERT_EQ(textureChanged.world->materials().size(), 1u);
-    EXPECT_EQ(textureChanged.world->materials().front().desc.baseColorTexture.contentRevision, texture->revision());
+    ASSERT_TRUE(textureChanged.sceneWorld);
+    ASSERT_EQ(textureChanged.sceneWorld->materials().size(), 1u);
+    EXPECT_EQ(textureChanged.sceneWorld->materials().front().desc.baseColorTexture.contentRevision,
+              texture->revision());
 }
 
 TEST(RenderSubmissionBuilderTests, RemovingLastTextureReferenceEmitsReliableRetire) {
@@ -725,27 +800,53 @@ TEST(RenderSubmissionBuilderTests, MaterialLessDrawableKeepsStableDefaultIdentit
 
     const ViewState view;
     const RenderSubmission first = builder.build(view);
-    ASSERT_TRUE(first.world);
-    ASSERT_EQ(first.world->materials().size(), 1u);
-    const engine::AssetGpuKey stableKey = first.world->materials().front().desc.resourceKey;
+    ASSERT_TRUE(first.sceneWorld);
+    ASSERT_EQ(first.sceneWorld->materials().size(), 1u);
+    const engine::AssetGpuKey stableKey = first.sceneWorld->materials().front().desc.resourceKey;
     ASSERT_EQ(stableKey, engine::defaultRenderMaterialResourceKey());
-    uint32_t previousHandleGeneration = first.world->materials().front().handle.generation;
+    uint32_t previousHandleGeneration = first.sceneWorld->materials().front().handle.generation;
 
-    bool selected = false;
     for (size_t rebuild = 0; rebuild < 32u; ++rebuild) {
-        selected = !selected;
-        ASSERT_TRUE(sourceScene.setSelected(entity, selected));
+        ASSERT_TRUE(sourceScene.setWorldTransform(
+                entity, math::Mat4::translate(math::Vec3(static_cast<double>(rebuild + 1u), 0.0, 0.0))));
         renderScene.sync(sourceScene, assets);
 
         const RenderSubmission submission = builder.build(view);
         ASSERT_TRUE(submission.rebuiltWorld);
-        ASSERT_TRUE(submission.world);
-        ASSERT_EQ(submission.world->materials().size(), 1u);
-        const auto& material = submission.world->materials().front();
+        ASSERT_TRUE(submission.sceneWorld);
+        ASSERT_EQ(submission.sceneWorld->materials().size(), 1u);
+        const auto& material = submission.sceneWorld->materials().front();
         EXPECT_EQ(material.desc.resourceKey, stableKey);
         EXPECT_NE(material.handle.generation, previousHandleGeneration);
         previousHandleGeneration = material.handle.generation;
     }
+}
+
+TEST(RenderSubmissionBuilderTests, SelectionChangesOnlyViewVisualState) {
+    asset::AssetLibrary assets;
+    auto* meshAsset = assets.create<asset::MeshAsset>("SelectionStableMesh");
+    meshAsset->addPrimitive(makeSurfaceMesh());
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("SelectionStableEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, meshAsset->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_TRUE(first.sceneWorld);
+
+    ASSERT_TRUE(sourceScene.setSelected(entity, true));
+    renderScene.sync(sourceScene, assets);
+    const RenderSubmission selected = builder.build(view);
+
+    EXPECT_FALSE(selected.rebuiltSceneWorld);
+    EXPECT_FALSE(selected.rebuiltOverlayWorld);
+    EXPECT_EQ(selected.sceneWorld, first.sceneWorld);
 }
 
 }  // namespace

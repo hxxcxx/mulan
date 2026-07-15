@@ -358,17 +358,32 @@ void RenderRenderer::clearCompiledCommands() {
         highlight_stage_->setSurfaceDrawCommands(emptyCommands);
         highlight_stage_->setEdgeDrawCommands(emptyCommands);
     }
-    workload_.clear();
-    compiler_.clear();
+    scene_workload_.clear();
+    overlay_workload_.clear();
+    scene_compiler_.clear();
+    overlay_compiler_.clear();
+    surface_commands_.clear();
+    edge_commands_.clear();
+    highlight_surface_commands_.clear();
+    highlight_edge_commands_.clear();
 }
 
 ResultVoid RenderRenderer::compile(const RenderRequest& request) {
-    if (!request.world) {
+    if (!request.sceneWorld && !request.overlayWorld) {
         clearCompiledCommands();
         return {};
     }
 
-    workload_.build(*request.world, request.options);
+    if (request.sceneWorld) {
+        scene_workload_.build(*request.sceneWorld, request.options);
+    } else {
+        scene_workload_.clear();
+    }
+    if (request.overlayWorld) {
+        overlay_workload_.build(*request.overlayWorld, request.options);
+    } else {
+        overlay_workload_.clear();
+    }
     if (auto result = prepareFrameResources(request); !result) {
         return std::unexpected(result.error());
     }
@@ -389,38 +404,75 @@ ResultVoid RenderRenderer::compile(const RenderRequest& request) {
         .highlightSurfaceTangentPipeline = highlight_stage_ ? highlight_stage_->surfaceTangentPipeline() : nullptr,
         .highlightEdgePipeline = highlight_stage_ ? highlight_stage_->edgePipeline() : nullptr,
     };
-    compiler_.compile(*request.world, workload_, compileContext);
+    if (request.sceneWorld) {
+        scene_compiler_.compile(*request.sceneWorld, scene_workload_, compileContext);
+    } else {
+        scene_compiler_.clear();
+    }
+    if (request.overlayWorld) {
+        overlay_compiler_.compile(*request.overlayWorld, overlay_workload_, compileContext);
+    } else {
+        overlay_compiler_.clear();
+    }
+
+    const auto mergeCommands = [](std::vector<MeshDrawCommand>& destination,
+                                  std::span<const MeshDrawCommand> sceneCommands,
+                                  std::span<const MeshDrawCommand> overlayCommands) {
+        destination.clear();
+        destination.reserve(sceneCommands.size() + overlayCommands.size());
+        destination.insert(destination.end(), sceneCommands.begin(), sceneCommands.end());
+        destination.insert(destination.end(), overlayCommands.begin(), overlayCommands.end());
+    };
+    mergeCommands(surface_commands_, scene_compiler_.surfaceCommands(), overlay_compiler_.surfaceCommands());
+    mergeCommands(edge_commands_, scene_compiler_.edgeCommands(), overlay_compiler_.edgeCommands());
+    mergeCommands(highlight_surface_commands_, scene_compiler_.highlightSurfaceCommands(),
+                  overlay_compiler_.highlightSurfaceCommands());
+    mergeCommands(highlight_edge_commands_, scene_compiler_.highlightEdgeCommands(),
+                  overlay_compiler_.highlightEdgeCommands());
 
     const std::span<const MeshDrawCommand> emptyCommands;
     if (face_stage_) {
-        face_stage_->setDrawCommands(!compiler_.surfaceCommands().empty() ? compiler_.surfaceCommands()
-                                                                          : emptyCommands);
+        face_stage_->setDrawCommands(!surface_commands_.empty() ? std::span<const MeshDrawCommand>(surface_commands_)
+                                                                : emptyCommands);
     }
     if (edge_stage_) {
-        edge_stage_->setDrawCommands(!compiler_.edgeCommands().empty() ? compiler_.edgeCommands() : emptyCommands);
+        edge_stage_->setDrawCommands(!edge_commands_.empty() ? std::span<const MeshDrawCommand>(edge_commands_)
+                                                             : emptyCommands);
     }
     if (highlight_stage_) {
-        highlight_stage_->setSurfaceDrawCommands(
-                !compiler_.highlightSurfaceCommands().empty() ? compiler_.highlightSurfaceCommands() : emptyCommands);
-        highlight_stage_->setEdgeDrawCommands(
-                !compiler_.highlightEdgeCommands().empty() ? compiler_.highlightEdgeCommands() : emptyCommands);
+        highlight_stage_->setSurfaceDrawCommands(!highlight_surface_commands_.empty()
+                                                         ? std::span<const MeshDrawCommand>(highlight_surface_commands_)
+                                                         : emptyCommands);
+        highlight_stage_->setEdgeDrawCommands(!highlight_edge_commands_.empty()
+                                                      ? std::span<const MeshDrawCommand>(highlight_edge_commands_)
+                                                      : emptyCommands);
     }
     return {};
 }
 
 ResultVoid RenderRenderer::prepareFrameResources(const RenderRequest& request) {
-    if (!request.world || !asset_gpu_registry_)
+    if (!asset_gpu_registry_)
         return {};
 
-    if (request.options.surfaceTechnique == SurfaceTechnique::SurfacePBR) {
-        for (const auto& item : workload_.surfaces()) {
-            const auto* material = request.world->material(item.material);
+    const auto prepareWorld = [&](const RenderWorldSnapshot* world, const RenderWorkload& workload) -> ResultVoid {
+        if (!world || request.options.surfaceTechnique != SurfaceTechnique::SurfacePBR) {
+            return {};
+        }
+        for (const auto& item : workload.surfaces()) {
+            const auto* material = world->material(item.material);
             if (material) {
                 if (auto result = prepareMaterialTextures(*asset_gpu_registry_, material->desc); !result) {
                     return std::unexpected(result.error());
                 }
             }
         }
+        return {};
+    };
+    if (auto result = prepareWorld(request.sceneWorld, scene_workload_); !result) {
+        return std::unexpected(result.error());
+    }
+    if (auto result = prepareWorld(request.overlayWorld, overlay_workload_); !result) {
+        return std::unexpected(result.error());
     }
     return {};
 }

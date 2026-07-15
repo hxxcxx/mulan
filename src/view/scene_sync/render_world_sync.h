@@ -45,8 +45,13 @@ struct RenderWorldSyncStats {
 
 class RenderWorldSync {
 public:
-    void rebuild(const RenderScene& scene, const asset::AssetLibrary& assets, const PreviewLayer* preview,
-                 engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare = nullptr);
+    /// 重建稳定文档场景，不包含工具预览和选择视觉状态。
+    void rebuildScene(const RenderScene& scene, const asset::AssetLibrary& assets, engine::RenderWorld& world,
+                      engine::RenderResourcePrepareList* prepare = nullptr);
+
+    /// 重建高频覆盖层。预览引用复用 SceneWorld 已准备的资产几何，只管理预览自有几何资源。
+    void rebuildOverlay(const RenderScene* scene, const asset::AssetLibrary* assets, const PreviewLayer* preview,
+                        engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare = nullptr);
 
     /// 将空世界与已记录的 GPU 几何/贴图做差量同步，用于 scene 来源消失。
     void rebuildEmpty(engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare = nullptr);
@@ -57,7 +62,7 @@ public:
     /// GPU 执行域丢失后保留 CPU 差量基线，但下次 rebuild 必须完整重传当前存活资源。
     void invalidateResources() { force_full_prepare_ = true; }
 
-    /// PreviewLayer 指针换源时只使预览 key 的内容基线失效，不波及场景几何。
+    /// PreviewLayer 指针换源时只使当前同步器的预览 key 内容基线失效。
     void invalidatePreviewResources();
 
     /// 丢弃所有 world/resource 基线，仅用于上层整体 reset。

@@ -28,6 +28,10 @@ struct RenderSubmissionDiagnostics {
     uint64_t submissionCount = 0;
     uint64_t worldRebuildCount = 0;
     uint64_t worldReuseCount = 0;
+    uint64_t sceneWorldRebuildCount = 0;
+    uint64_t sceneWorldReuseCount = 0;
+    uint64_t overlayWorldRebuildCount = 0;
+    uint64_t overlayWorldReuseCount = 0;
     size_t lastResourceUpdateCount = 0;
     uint64_t lastSceneGeneration = 0;
     uint64_t lastGeometryGeneration = 0;
@@ -48,12 +52,15 @@ public:
     /// GPU 执行域重建或资产域切换后，强制从当前 CPU 场景重新生成资源批次。
     void invalidateResources();
 
-    const RenderWorldSyncStats& lastStats() const { return last_sync_stats_; }
+    const RenderWorldSyncStats& lastStats() const { return last_scene_sync_stats_; }
+    const RenderWorldSyncStats& lastOverlayStats() const { return last_overlay_sync_stats_; }
     const RenderSubmissionDiagnostics& diagnostics() const { return diagnostics_; }
 
 private:
-    bool needsRebuild() const;
-    void rebuild(RenderSubmission& submission);
+    bool needsSceneRebuild() const;
+    bool needsOverlayRebuild() const;
+    void rebuildScene(RenderSubmission& submission);
+    void rebuildOverlay(RenderSubmission& submission);
     void advanceResourceBatch();
 
     const RenderScene* scene_ = nullptr;
@@ -62,14 +69,19 @@ private:
 
     uint64_t last_scene_generation_ = 0;
     uint64_t last_preview_generation_ = 0;
+    uint64_t last_overlay_scene_generation_ = 0;
     uint64_t submission_generation_ = 0;
     bool scene_source_dirty_ = true;
     bool preview_source_dirty_ = true;
 
-    RenderWorldSync render_world_sync_;
-    engine::RenderWorld render_world_;
-    std::shared_ptr<const engine::RenderWorldSnapshot> world_snapshot_;
-    RenderWorldSyncStats last_sync_stats_;
+    RenderWorldSync scene_world_sync_;
+    RenderWorldSync overlay_world_sync_;
+    engine::RenderWorld scene_world_;
+    engine::RenderWorld overlay_world_;
+    std::shared_ptr<const engine::RenderWorldSnapshot> scene_world_snapshot_;
+    std::shared_ptr<const engine::RenderWorldSnapshot> overlay_world_snapshot_;
+    RenderWorldSyncStats last_scene_sync_stats_;
+    RenderWorldSyncStats last_overlay_sync_stats_;
     RenderSubmissionDiagnostics diagnostics_;
     engine::LightEnvironment light_environment_;
     engine::RenderResourcePrepareList pending_prepare_;

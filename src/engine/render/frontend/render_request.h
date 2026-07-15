@@ -81,7 +81,8 @@ struct RenderOutputDesc {
 };
 
 struct RenderRequest {
-    const RenderWorldSnapshot* world = nullptr;
+    const RenderWorldSnapshot* sceneWorld = nullptr;
+    const RenderWorldSnapshot* overlayWorld = nullptr;
     RenderViewDesc view;
     RenderOutputDesc output;
     RenderOptions options;

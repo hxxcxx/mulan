@@ -25,6 +25,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace mulan::engine {
 
@@ -54,8 +55,8 @@ public:
     void clearAssetResources(RHIDevice& device);
 
     bool isInitialized() const { return initialized_; }
-    const RenderWorkloadStats& lastWorkloadStats() const { return workload_.lastStats(); }
-    const RenderCompilerStats& lastCompilerStats() const { return compiler_.lastStats(); }
+    const RenderWorkloadStats& lastWorkloadStats() const { return scene_workload_.lastStats(); }
+    const RenderCompilerStats& lastCompilerStats() const { return scene_compiler_.lastStats(); }
 
 private:
     bool validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const;
@@ -73,8 +74,15 @@ private:
     std::unique_ptr<AssetGpuRegistry> asset_gpu_registry_;
     std::unique_ptr<GeometryDrawSharedResources> geometry_resources_;
 
-    RenderWorkload workload_;
-    RenderCompiler compiler_;
+    RenderWorkload scene_workload_;
+    RenderWorkload overlay_workload_;
+    RenderCompiler scene_compiler_;
+    RenderCompiler overlay_compiler_;
+    // Stage 持有 span，合并命令必须由 Renderer 保持到本帧执行结束。
+    std::vector<MeshDrawCommand> surface_commands_;
+    std::vector<MeshDrawCommand> edge_commands_;
+    std::vector<MeshDrawCommand> highlight_surface_commands_;
+    std::vector<MeshDrawCommand> highlight_edge_commands_;
 
     std::unique_ptr<FaceStage> face_stage_;
     std::unique_ptr<EdgeStage> edge_stage_;

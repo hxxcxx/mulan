@@ -58,7 +58,8 @@ engine::RenderSurfaceBinding bindSurface(RenderSurface& surface) {
 engine::RenderRequest buildRenderRequest(RenderSurface& surface, const RenderSubmission& submission) {
     const ViewState& viewState = submission.view;
     engine::RenderRequest request;
-    request.world = submission.world.get();
+    request.sceneWorld = submission.sceneWorld.get();
+    request.overlayWorld = submission.overlayWorld.get();
     request.view.viewMatrix = viewState.viewMatrix;
     request.view.projectionMatrix = viewState.projectionMatrix;
     request.view.cameraPosition = viewState.cameraPosition;

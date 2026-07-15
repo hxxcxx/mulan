@@ -115,7 +115,8 @@ public:
     void clear();
 
     const SyncStats& lastSyncStats() const { return last_sync_stats_; }
-    /// RenderScene 内容版本；实体可见性、变换、选择、材质、灯光等变化后递增。
+    /// SceneWorld 投影版本；实体可见性、变换、几何和材质等变化后递增。
+    /// 选择由 ViewState 独立下发，灯光由 LightEnvironment 独立下发，二者不推进此版本。
     uint64_t generation() const { return generation_; }
     /// 几何资源版本；仅在 GPU mesh 可能需要重新上传时递增。
     /// 几何代理身份或所引用资产内容变化的诊断世代；实际 GPU 上传由资源差量决定。

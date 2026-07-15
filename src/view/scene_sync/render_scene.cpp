@@ -268,7 +268,6 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
     }
     if (lightChanged) {
         collectLights(scene, lights_, light_entities_);
-        changed = true;
     }
 
     // 销毁记录保留发布时的完整 generation；先移除旧代理，再处理仍有效实体的最终状态。
@@ -289,7 +288,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
 
     const scene::EntityDirty proxyChangeMask = scene::EntityDirty::Created | scene::EntityDirty::Transform |
                                                scene::EntityDirty::Geometry | scene::EntityDirty::RenderState |
-                                               scene::EntityDirty::Material | scene::EntityDirty::Selection;
+                                               scene::EntityDirty::Material;
     for (const auto& [id, flags] : entityChanges) {
         if (scene::hasAnyDirty(flags, scene::EntityDirty::Destroyed) || !scene::hasAnyDirty(flags, proxyChangeMask)) {
             continue;

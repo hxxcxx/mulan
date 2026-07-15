@@ -338,8 +338,7 @@ void appendPreviewDrawables(const PreviewLayer& preview, engine::RenderWorld& wo
 }
 
 void appendPreviewReferences(const PreviewLayer& preview, const RenderScene& scene, const asset::AssetLibrary& assets,
-                             engine::RenderWorld& world, GeometryResourceCandidateMap& resources,
-                             AssetRevisionMap& revisions, RenderWorldSyncStats& stats,
+                             engine::RenderWorld& world, AssetRevisionMap& revisions, RenderWorldSyncStats& stats,
                              std::unordered_map<uint64_t, engine::GeometryHandle>& geometryHandles,
                              engine::RenderMaterialHandle toolMaterial, engine::RenderMaterialHandle snapMaterial,
                              engine::RenderMaterialHandle gripMaterial, engine::RenderMaterialHandle gripHotMaterial) {
@@ -397,7 +396,8 @@ void appendPreviewReferences(const PreviewLayer& preview, const RenderScene& sce
                 geometryDesc.topology = mesh.topology;
                 geometryDesc.vertexLayout = mesh.layout;
                 geometryDesc.empty = mesh.empty();
-                collectGeometryResource(resources, geometryDesc.resourceKey, mesh, 0, geometry->revision());
+                // 引用几何已经由 SceneWorld 的可靠资源批次持有。OverlayWorld 只借用同一稳定 key，
+                // 不能在预览结束时将仍被 SceneWorld 使用的资源误标记为退役。
                 geometryIt =
                         geometryHandles.emplace(item.geometryKey, world.addGeometry(std::move(geometryDesc))).first;
             }
@@ -421,7 +421,7 @@ void appendPreviewReferences(const PreviewLayer& preview, const RenderScene& sce
     }
 }
 
-void appendPreview(const RenderScene& scene, const asset::AssetLibrary& assets, const PreviewLayer* preview,
+void appendPreview(const RenderScene* scene, const asset::AssetLibrary* assets, const PreviewLayer* preview,
                    engine::RenderWorld& world, GeometryResourceCandidateMap& resources, AssetRevisionMap& revisions,
                    uint64_t previewSourceRevision, RenderWorldSyncStats& stats,
                    std::unordered_map<uint64_t, engine::GeometryHandle>& geometryHandles) {
@@ -437,8 +437,10 @@ void appendPreview(const RenderScene& scene, const asset::AssetLibrary& assets, 
 
     appendPreviewDrawables(*preview, world, resources, previewSourceRevision, stats, toolMaterial, snapMaterial,
                            gripMaterial, gripHotMaterial);
-    appendPreviewReferences(*preview, scene, assets, world, resources, revisions, stats, geometryHandles, toolMaterial,
-                            snapMaterial, gripMaterial, gripHotMaterial);
+    if (scene && assets) {
+        appendPreviewReferences(*preview, *scene, *assets, world, revisions, stats, geometryHandles, toolMaterial,
+                                snapMaterial, gripMaterial, gripHotMaterial);
+    }
 }
 
 void buildGeometryResourceDelta(const GeometryResourceCandidateMap& current,
@@ -550,8 +552,8 @@ void buildTextureResourceDelta(const TextureResourceCandidateMap& current, Textu
 
 }  // namespace
 
-void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrary& assets, const PreviewLayer* preview,
-                              engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare) {
+void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetLibrary& assets,
+                                   engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare) {
     last_stats_.reset();
     world.clear();
     if (prepare) {
@@ -592,7 +594,8 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
         object.worldTransform = proxy.worldTransform;
         object.worldBounds = proxy.worldBounds;
         object.visible = proxy.visible;
-        object.selected = proxy.selected;
+        // 选择高亮以 ViewState::selectionVisuals 为唯一渲染输入，不能污染稳定 SceneWorld。
+        object.selected = false;
 
         for (const RenderItem& item : renderItems) {
             const graphics::Mesh& mesh = *item.mesh;
@@ -631,11 +634,36 @@ void RenderWorldSync::rebuild(const RenderScene& scene, const asset::AssetLibrar
         }
     });
 
-    appendPreview(scene, assets, preview, world, geometryResources, referencedAssetRevisions, preview_source_revision_,
-                  last_stats_, geometryHandles);
     const bool forceFullPrepare = force_full_prepare_;
     buildGeometryResourceDelta(geometryResources, geometry_revisions_, forceFullPrepare, prepare);
     buildTextureResourceDelta(textureResources, texture_revisions_, forceFullPrepare, prepare);
+    if (prepare) {
+        force_full_prepare_ = false;
+    }
+    referenced_asset_revisions_ = std::move(referencedAssetRevisions);
+    last_stats_.worldObjectCount = world.objectCount();
+    last_stats_.worldGeometryCount = world.geometryCount();
+    last_stats_.worldMaterialCount = world.materialCount();
+}
+
+void RenderWorldSync::rebuildOverlay(const RenderScene* scene, const asset::AssetLibrary* assets,
+                                     const PreviewLayer* preview, engine::RenderWorld& world,
+                                     engine::RenderResourcePrepareList* prepare) {
+    last_stats_.reset();
+    world.clear();
+    if (prepare) {
+        prepare->clear();
+    }
+
+    std::unordered_map<uint64_t, engine::GeometryHandle> geometryHandles;
+    GeometryResourceCandidateMap geometryResources;
+    AssetRevisionMap referencedAssetRevisions;
+    appendPreview(scene, assets, preview, world, geometryResources, referencedAssetRevisions, preview_source_revision_,
+                  last_stats_, geometryHandles);
+
+    const bool forceFullPrepare = force_full_prepare_;
+    buildGeometryResourceDelta(geometryResources, geometry_revisions_, forceFullPrepare, prepare);
+    buildTextureResourceDelta({}, texture_revisions_, forceFullPrepare, prepare);
     if (prepare) {
         force_full_prepare_ = false;
     }
