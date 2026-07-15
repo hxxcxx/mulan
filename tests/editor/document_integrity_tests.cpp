@@ -370,3 +370,24 @@ TEST(DocumentCameraClipPlanes, CommittedOffAxisSmallCircleKeepsTheCurrentComposi
     EXPECT_LT(camera.nearPlane(), expandedDepth - expandedSphere.radius);
     EXPECT_GT(camera.farPlane(), expandedDepth + expandedSphere.radius);
 }
+
+TEST(DocumentCameraLifecycle, EmptyDocumentBindResetsThePreviousComposition) {
+    mulan::view::ViewContext view;
+    view.camera().setOrthographic(false);
+    view.camera().setTarget({ 12.0, -4.0, 8.0 });
+    view.camera().setDistance(42.0);
+    view.camera().setClipPlanes(3.0, 90.0);
+    view.camera().pan(100.0, -80.0);
+
+    auto document = std::make_unique<Document>("empty-camera-reset");
+    DocumentSession session(std::move(document));
+    mulan::editor::DocumentRenderBinding binding;
+    binding.bind(session, view);
+
+    EXPECT_TRUE(view.camera().isOrthographic());
+    EXPECT_EQ(view.camera().target(), mulan::math::Vec3(0.0, 0.0, 0.0));
+    EXPECT_DOUBLE_EQ(view.camera().distance(), 10.0);
+    EXPECT_DOUBLE_EQ(view.camera().orthoSize(), 5.0);
+    EXPECT_DOUBLE_EQ(view.camera().nearPlane(), 0.1);
+    EXPECT_DOUBLE_EQ(view.camera().farPlane(), 1000.0);
+}

@@ -51,6 +51,15 @@ void DocumentRenderBinding::refresh() {
     invalidateFrame();
 }
 
+void DocumentRenderBinding::refreshVisualState() {
+    if (!isBound()) {
+        return;
+    }
+    syncRenderCache();
+    injectRenderCache();
+    invalidateFrame();
+}
+
 void DocumentRenderBinding::fitAll() {
     if (!isBound()) {
         return;
@@ -121,6 +130,9 @@ void DocumentRenderBinding::applyViewPreferences() {
     }
 
     const auto& preferences = session_->renderPreferences();
+    // 文档是视图相机状态的生命周期边界。空文档也必须从确定状态开始，
+    // 不能继承上一个文档的 pan、zoom、裁剪面或观察方向。
+    view_->resetCamera();
     view_->camera().setOrthographic(preferences.preferOrthographic);
     // 每个新建、打开或切换到的文档都从世界 XY 正视图开始；后续 fit 只调整中心和距离。
     view_->setCameraToWorldXY();

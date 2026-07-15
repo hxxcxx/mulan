@@ -25,7 +25,7 @@ bool DocumentSelectionBridge::selectSingle(scene::EntityId entity) {
 
     const bool changed = session_->document()->scene()->selectSingle(entity);
     if (changed) {
-        render_binding_->refresh();
+        render_binding_->refreshVisualState();
     }
     return changed;
 }
@@ -37,7 +37,7 @@ bool DocumentSelectionBridge::clearSelection() {
 
     const bool changed = session_->document()->scene()->clearSelection();
     if (changed) {
-        render_binding_->refresh();
+        render_binding_->refreshVisualState();
     }
     return changed;
 }

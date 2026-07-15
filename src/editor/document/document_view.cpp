@@ -111,6 +111,16 @@ void DocumentView::fitAll() {
     impl_->editor_session.refreshGrips();
 }
 
+void DocumentView::setCameraToWorldXY() {
+    if (!impl_->view_context.isInitialized()) {
+        return;
+    }
+
+    impl_->view_context.setCameraToWorldXY();
+    impl_->editor_session.refreshGrips();
+    invalidateFrame();
+}
+
 void DocumentView::setFrameInvalidationCallback(std::function<void()> callback) {
     impl_->frame_invalidation_callback = std::move(callback);
 }

@@ -176,6 +176,17 @@ void ViewContext::setViewCubeCorner(engine::ViewCubeCorner corner) {
     view_cube_model_.setLayout(layout);
 }
 
+void ViewContext::resetCamera() {
+    engine::Camera camera{ engine::CameraMode::Trackball };
+    camera.setViewport(width_, height_);
+    camera.setOrthographic(true);
+    camera.setOrthoSize(5.0);
+    camera.setDistance(10.0);
+    camera.setClipPlanes(0.1, 1000.0);
+    camera_ = camera;
+    setCameraToWorldXY();
+}
+
 void ViewContext::setCameraToWorldXY() {
     setCameraToViewCubePart(engine::ViewCubePart{ engine::ViewCubePartType::Face, 0, 0, 1, 0 });
 }

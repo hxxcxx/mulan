@@ -41,18 +41,19 @@ public:
     void setFrameInvalidationCallback(FrameInvalidationCallback callback);
 
     void refresh();
+    /// 仅同步选择、高亮等渲染状态，不使场景包围范围失效。
+    void refreshVisualState();
     void fitAll();
     /// 在构建帧快照前，按场景与相机深度版本统一更新裁剪面。
     void prepareFrame();
-    void syncRenderCache();
-    void injectRenderCache();
-    void fitCameraClipPlanesToSceneBounds();
-
     DocumentSession* session() const { return session_; }
     view::ViewContext* view() const { return view_; }
     const view::RenderScene* renderScene() const;
 
 private:
+    void syncRenderCache();
+    void injectRenderCache();
+    void fitCameraClipPlanesToSceneBounds();
     void applyViewPreferences();
     void invalidateFrame() const;
 

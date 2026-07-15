@@ -115,6 +115,8 @@ public:
     void setViewCubeSize(uint32_t size);
     void setViewCubeMargin(uint32_t margin);
     void setViewCubeCorner(engine::ViewCubeCorner corner);
+    /// 恢复文档视图的确定性默认相机，并保留当前视口尺寸。
+    void resetCamera();
     void setCameraToWorldXY();
 
     bool showOverlays() const { return show_overlays_; }

@@ -63,6 +63,8 @@ public:
     /// 在文档视图 owner 线程回收渲染资源 ACK 与异步失败。
     mulan::core::Result<void> pollRenderRuntime();
     void fitAll();
+    /// 切换到世界 XY 正视图，并统一刷新依赖屏幕位置的编辑器覆盖层。
+    void setCameraToWorldXY();
 
     /// 设置视图状态变化后的统一帧失效出口。
     void setFrameInvalidationCallback(std::function<void()> callback);

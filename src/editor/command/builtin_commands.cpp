@@ -129,7 +129,7 @@ CommandOutcome startDrawTool(CommandHost& host) {
     }
 
     if (DocumentView* view = host.documentView(); view && view->isInitialized()) {
-        view->viewContext().setCameraToWorldXY();
+        view->setCameraToWorldXY();
     }
     editor->setWorkPlane(mulan::engine::WorkPlane::worldXY());
     editor->startTool(std::make_unique<Tool>());
@@ -164,7 +164,7 @@ CommandOutcome startParametricCurveTool(CommandHost& host, ParametricCurveToolKi
     }
 
     if (DocumentView* view = host.documentView(); view && view->isInitialized()) {
-        view->viewContext().setCameraToWorldXY();
+        view->setCameraToWorldXY();
     }
     editor->setWorkPlane(mulan::engine::WorkPlane::worldXY());
     editor->startTool(std::make_unique<ParametricCurveTool>(kind));

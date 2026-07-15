@@ -36,13 +36,11 @@ std::optional<view::RenderScene::PickResult> DocumentPickBridge::pickAt(const en
         return std::nullopt;
     }
 
-    render_binding_->syncRenderCache();
     const view::RenderScene* scene = render_binding_->renderScene();
     if (!scene) {
         return std::nullopt;
     }
 
-    render_binding_->fitCameraClipPlanesToSceneBounds();
     return scene->pick(camera.screenRay(x, y), linePickToleranceWorld(camera));
 }
 
