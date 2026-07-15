@@ -29,6 +29,7 @@ struct RenderCompilerStats {
     size_t missingGeometryRecordCount = 0;
     size_t emptyGeometryCount = 0;
     size_t missingGpuGeometryCount = 0;
+    size_t missingGpuTextureCount = 0;
     size_t rejectedContractCount = 0;
     size_t missingPipelineCount = 0;
     size_t materialRegistrationFailureCount = 0;

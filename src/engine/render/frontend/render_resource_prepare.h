@@ -30,7 +30,7 @@ enum class RenderResourceOperation : uint8_t {
 };
 
 struct RenderGeometryPrepareDesc {
-    AssetGpuKey resourceKey;
+    RenderResourceKey resourceKey;
     /// 提交层拥有的不可变网格快照。渲染端可以跨线程读取，
     /// 不依赖 GeometryAsset 或 PreviewLayer 的生命周期。
     std::shared_ptr<const graphics::Mesh> mesh;
@@ -42,9 +42,9 @@ struct RenderGeometryPrepareDesc {
 };
 
 /// 持久贴图的完整 GPU 身份。同一资产在线性/sRGB 或 mip 意图不同时
-/// 会产生不同实例，退役时不得只使用 AssetGpuKey 误删另一实例。
+/// 会产生不同实例，退役时不得只使用资源来源字段误删另一实例。
 struct RenderTextureResourceKey {
-    AssetGpuKey resourceKey;
+    RenderResourceKey resourceKey;
     bool srgb = false;
     bool generateMips = true;
 
@@ -54,7 +54,7 @@ struct RenderTextureResourceKey {
 
 struct RenderTextureResourceKeyHash {
     size_t operator()(const RenderTextureResourceKey& key) const noexcept {
-        size_t value = std::hash<AssetGpuKey>{}(key.resourceKey);
+        size_t value = std::hash<RenderResourceKey>{}(key.resourceKey);
         value ^= static_cast<size_t>(key.srgb) + 0x9e3779b9u + (value << 6u) + (value >> 2u);
         value ^= static_cast<size_t>(key.generateMips) + 0x9e3779b9u + (value << 6u) + (value >> 2u);
         return value;
@@ -84,7 +84,7 @@ public:
     bool empty() const { return geometries_.empty() && textures_.empty(); }
     size_t size() const { return geometries_.size() + textures_.size(); }
 
-    void addGeometry(AssetGpuKey resourceKey, const graphics::Mesh& mesh, bool forceUpdate = false) {
+    void addGeometry(RenderResourceKey resourceKey, const graphics::Mesh& mesh, bool forceUpdate = false) {
         if (!resourceKey || mesh.empty()) {
             return;
         }
@@ -97,7 +97,7 @@ public:
     }
 
     /// 将持久几何从执行域退役；不存在的键按幂等空操作处理。
-    void retireGeometry(AssetGpuKey resourceKey) {
+    void retireGeometry(RenderResourceKey resourceKey) {
         if (!resourceKey) {
             return;
         }
@@ -217,7 +217,7 @@ public:
 
 private:
     std::vector<RenderGeometryPrepareDesc> geometries_;
-    std::unordered_map<AssetGpuKey, size_t> geometry_indices_;
+    std::unordered_map<RenderResourceKey, size_t> geometry_indices_;
     std::vector<RenderTexturePrepareDesc> textures_;
     std::unordered_map<RenderTextureResourceKey, size_t, RenderTextureResourceKeyHash> texture_indices_;
 };

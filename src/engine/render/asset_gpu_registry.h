@@ -7,8 +7,8 @@
  * 设计：
  *  - 只管"资产派生 + 创建后不可变 + 独立 GPU 资源对象"（几何缓冲、贴图）。
  *    材质参数由渲染命令按需写入瞬态 Uniform，不属于资产资源。
- *  - key 使用 AssetGpuKey 强类型封装：由 view 层（RenderWorldSync）按资产身份或
- *    临时预览角色槽位生成，engine 只校验有效性并透传，不依赖 asset 层。
+ *  - key 使用 RenderResourceKey 结构化封装：由 view 层显式提供资源域、来源、子资源和类型；
+ *    engine 校验资源类型并透传，不依赖 asset 层。
  *  - 懒加载：acquire 命中即返，miss 才上传。
  *  - 生命周期绑资产域：资产域切换时整体清理；普通场景差量按 key 退役。
  *    退役资源以最近一次 submission token 延迟销毁，不与 GPU 在途访问竞争。
@@ -51,29 +51,30 @@ public:
     /// 几何：按 key 查询，命中即返；miss 才用 mesh 上传（mesh 仅 miss 时被读）。
     /// key 由调用方（view 层）按资产身份或稳定临时槽位生成，本层只校验有效性，不解释其语义。
     /// mesh 指向资产持有的稳定存储（文档存活期有效），上传后本层不持有该指针。
-    Result<const GpuGeometry*> acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh, bool forceUpdate = false);
+    Result<const GpuGeometry*> acquireGeometry(RenderResourceKey key, const graphics::Mesh& mesh,
+                                               bool forceUpdate = false);
 
     /// 按 key 移除几何并延迟到最近一次 GPU 提交完成后销毁。
     /// 返回 false 表示 key 本就不存在，该情况是幂等成功。
-    Result<bool> retireGeometry(AssetGpuKey key);
+    Result<bool> retireGeometry(RenderResourceKey key);
 
     /// 贴图：按资产身份 + 加载意图 + 内容版本去重。
     /// 同 key/options 且版本相同时复用；版本变化时上传新实例并延迟退役旧实例。
-    Result<Texture*> acquireTexture(AssetGpuKey key, const core::Image& image, const TextureLoadOptions& options = {},
-                                    uint64_t contentRevision = 0);
+    Result<Texture*> acquireTexture(RenderResourceKey key, const core::Image& image,
+                                    const TextureLoadOptions& options = {}, uint64_t contentRevision = 0);
 
     /// 按资产键与加载意图移除单个贴图实例，并延迟到最近一次 GPU 提交完成后销毁。
     /// 返回 false 表示完整身份本就不存在，该情况是幂等成功。
-    Result<bool> retireTexture(AssetGpuKey key, const TextureLoadOptions& options = {});
+    Result<bool> retireTexture(RenderResourceKey key, const TextureLoadOptions& options = {});
 
     /// 上传批次同步结束后释放失败路径保活对象；调用前必须保证批次已经 flush 成功。
     void releaseUploadFailureKeepalives();
 
     /// 查询已准备好的几何资源；不会触发 GPU 创建或上传。
-    const GpuGeometry* findGeometry(AssetGpuKey key) const;
+    const GpuGeometry* findGeometry(RenderResourceKey key) const;
 
     /// 查询已准备好的贴图资源；不会触发 GPU 创建或上传。
-    Texture* findTexture(AssetGpuKey key, const TextureLoadOptions& options = {});
+    Texture* findTexture(RenderResourceKey key, const TextureLoadOptions& options = {});
 
     /// 创建由 registry 持有的独立 GPU 贴图，主要用于资产派生的程序化资源。
     Texture* createTexture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage,
@@ -104,14 +105,14 @@ private:
     Result<GpuGeometry> createGpuBuffer(const graphics::Mesh& mesh);
     ResultVoid retireGeometryResource(GpuGeometry geometry);
     ResultVoid retireTextureResource(std::unique_ptr<Texture> texture);
-    static std::string textureKey(AssetGpuKey resourceKey, const TextureLoadOptions& options);
+    static std::string textureKey(RenderResourceKey resourceKey, const TextureLoadOptions& options);
     static TextureFormat toRHITextureFormat(core::PixelFormat pixelFmt, bool sRGB);
 
     Result<std::unique_ptr<Texture>> createRHITexture(const core::Image& image, TextureUsageFlags usage, bool sRGB,
                                                       bool generateMips);
 
     RHIDevice& device_;
-    std::unordered_map<AssetGpuKey, GpuGeometry> geometries_;
+    std::unordered_map<RenderResourceKey, GpuGeometry> geometries_;
     std::unordered_map<std::string, GpuTextureResource> textures_;
     std::optional<GpuGeometry> retirement_failure_keepalive_;
     std::shared_ptr<Texture> retirement_failure_texture_keepalive_;

@@ -1,9 +1,18 @@
 #include "asset_library.h"
 
+#include <atomic>
 #include <limits>
 #include <stdexcept>
 
 namespace mulan::asset {
+
+AssetLibrary::AssetLibrary() {
+    static std::atomic<uint64_t> nextDomain{ 1 };
+    domain_id_ = nextDomain.fetch_add(1, std::memory_order_relaxed);
+    if (domain_id_ == 0) {
+        domain_id_ = nextDomain.fetch_add(1, std::memory_order_relaxed);
+    }
+}
 
 AssetId AssetLibrary::allocateId() {
     return AssetId{ next_id_++ };

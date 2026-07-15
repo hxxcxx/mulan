@@ -61,7 +61,6 @@ public:
 private:
     bool validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const;
     void clearCompiledCommands();
-    ResultVoid prepareFrameResources(const RenderRequest& request);
     ResultVoid compile(const RenderRequest& request);
     DrawExecutionContext buildDrawContext(CommandList& cmd, const RenderFrame& frame) const;
     Result<CommandList*> beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,

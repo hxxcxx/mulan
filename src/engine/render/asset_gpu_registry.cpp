@@ -24,9 +24,9 @@ AssetGpuRegistry::GpuTextureResource::GpuTextureResource(std::unique_ptr<Texture
     }
 }
 
-Result<const GpuGeometry*> AssetGpuRegistry::acquireGeometry(AssetGpuKey key, const graphics::Mesh& mesh,
+Result<const GpuGeometry*> AssetGpuRegistry::acquireGeometry(RenderResourceKey key, const graphics::Mesh& mesh,
                                                              bool forceUpdate) {
-    if (!key) {
+    if (!isGeometryResourceKey(key)) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "GPU geometry resource key is invalid."));
     }
 
@@ -57,8 +57,8 @@ Result<const GpuGeometry*> AssetGpuRegistry::acquireGeometry(AssetGpuKey key, co
     return &inserted->second;
 }
 
-Result<bool> AssetGpuRegistry::retireGeometry(AssetGpuKey key) {
-    if (!key) {
+Result<bool> AssetGpuRegistry::retireGeometry(RenderResourceKey key) {
+    if (!isGeometryResourceKey(key)) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "GPU geometry resource key is invalid."));
     }
 
@@ -76,9 +76,9 @@ Result<bool> AssetGpuRegistry::retireGeometry(AssetGpuKey key) {
     return true;
 }
 
-Result<Texture*> AssetGpuRegistry::acquireTexture(AssetGpuKey key, const core::Image& image,
+Result<Texture*> AssetGpuRegistry::acquireTexture(RenderResourceKey key, const core::Image& image,
                                                   const TextureLoadOptions& options, uint64_t contentRevision) {
-    if (!key || !image.valid()) {
+    if (!isTextureResourceKey(key) || !image.valid()) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "GPU texture resource input is invalid."));
     }
 
@@ -97,7 +97,7 @@ Result<Texture*> AssetGpuRegistry::acquireTexture(AssetGpuKey key, const core::I
         }
 
         GpuTextureResource oldResource = std::move(it->second);
-        it->second = GpuTextureResource{ std::move(*texture), std::to_string(key.value), contentRevision };
+        it->second = GpuTextureResource{ std::move(*texture), cacheKey, contentRevision };
         if (oldResource.texture) {
             if (auto retired = retireTextureResource(std::move(oldResource.texture)); !retired) {
                 return std::unexpected(retired.error());
@@ -113,13 +113,13 @@ Result<Texture*> AssetGpuRegistry::acquireTexture(AssetGpuKey key, const core::I
         return std::unexpected(texture.error());
     }
 
-    auto [inserted, _] = textures_.emplace(
-            cacheKey, GpuTextureResource{ std::move(*texture), std::to_string(key.value), contentRevision });
+    auto [inserted, _] =
+            textures_.emplace(cacheKey, GpuTextureResource{ std::move(*texture), cacheKey, contentRevision });
     return inserted->second.get();
 }
 
-Result<bool> AssetGpuRegistry::retireTexture(AssetGpuKey key, const TextureLoadOptions& options) {
-    if (!key) {
+Result<bool> AssetGpuRegistry::retireTexture(RenderResourceKey key, const TextureLoadOptions& options) {
+    if (!isTextureResourceKey(key)) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "GPU texture resource key is invalid."));
     }
 
@@ -144,16 +144,16 @@ void AssetGpuRegistry::releaseUploadFailureKeepalives() {
     failed_upload_texture_.reset();
 }
 
-const GpuGeometry* AssetGpuRegistry::findGeometry(AssetGpuKey key) const {
-    if (!key) {
+const GpuGeometry* AssetGpuRegistry::findGeometry(RenderResourceKey key) const {
+    if (!isGeometryResourceKey(key)) {
         return nullptr;
     }
     auto it = geometries_.find(key);
     return it != geometries_.end() && it->second.isValid() ? &it->second : nullptr;
 }
 
-Texture* AssetGpuRegistry::findTexture(AssetGpuKey key, const TextureLoadOptions& options) {
-    if (!key) {
+Texture* AssetGpuRegistry::findTexture(RenderResourceKey key, const TextureLoadOptions& options) {
+    if (!isTextureResourceKey(key)) {
         return nullptr;
     }
     const auto cacheKey = textureKey(key, options);
@@ -267,11 +267,17 @@ ResultVoid AssetGpuRegistry::retireTextureResource(std::unique_ptr<Texture> text
     return {};
 }
 
-std::string AssetGpuRegistry::textureKey(AssetGpuKey resourceKey, const TextureLoadOptions& options) {
+std::string AssetGpuRegistry::textureKey(RenderResourceKey resourceKey, const TextureLoadOptions& options) {
     std::string key;
     key.reserve(64);
     key.append("asset:");
-    key.append(std::to_string(resourceKey.value));
+    key.append(std::to_string(resourceKey.domain.value));
+    key.push_back(':');
+    key.append(std::to_string(resourceKey.source));
+    key.push_back(':');
+    key.append(std::to_string(resourceKey.subresource));
+    key.push_back(':');
+    key.append(std::to_string(static_cast<uint8_t>(resourceKey.kind)));
     key.append("|srgb=");
     key.push_back(options.sRGB ? '1' : '0');
     key.append("|mips=");

@@ -119,6 +119,66 @@ TEST(RenderResourcePrepareListTests, MergeUsesLastOperationForCompleteTextureIde
     EXPECT_EQ(restored.image, image);
 }
 
+TEST(RenderResourceDomainTests, EqualAssetIdsFromDifferentLibrariesProduceDifferentGpuKeys) {
+    asset::AssetLibrary firstAssets;
+    asset::AssetLibrary secondAssets;
+    auto* firstMesh = firstAssets.create<asset::MeshAsset>("FirstMesh");
+    auto* secondMesh = secondAssets.create<asset::MeshAsset>("SecondMesh");
+    ASSERT_EQ(firstMesh->id(), secondMesh->id());
+    firstMesh->addPrimitive(makeSurfaceMesh());
+    secondMesh->addPrimitive(makeSurfaceMesh());
+
+    scene::Scene firstScene;
+    scene::Scene secondScene;
+    const scene::EntityId firstEntity = firstScene.createEntity("First");
+    const scene::EntityId secondEntity = secondScene.createEntity("Second");
+    ASSERT_TRUE(firstScene.setGeometry(firstEntity, firstMesh->id()));
+    ASSERT_TRUE(secondScene.setGeometry(secondEntity, secondMesh->id()));
+    RenderScene firstRenderScene;
+    RenderScene secondRenderScene;
+    firstRenderScene.sync(firstScene, firstAssets);
+    secondRenderScene.sync(secondScene, secondAssets);
+
+    RenderSubmissionBuilder firstBuilder;
+    RenderSubmissionBuilder secondBuilder;
+    firstBuilder.setScene(&firstRenderScene, &firstAssets);
+    secondBuilder.setScene(&secondRenderScene, &secondAssets);
+    const ViewState view;
+    const RenderSubmission first = firstBuilder.build(view);
+    const RenderSubmission second = secondBuilder.build(view);
+    ASSERT_EQ(first.prepare.geometries().size(), 1u);
+    ASSERT_EQ(second.prepare.geometries().size(), 1u);
+    const engine::RenderResourceKey firstKey = first.prepare.geometries().front().resourceKey;
+    const engine::RenderResourceKey secondKey = second.prepare.geometries().front().resourceKey;
+    EXPECT_NE(firstKey, secondKey);
+    EXPECT_NE(firstKey.domain, secondKey.domain);
+    EXPECT_EQ(firstKey.source, secondKey.source);
+    EXPECT_EQ(firstKey.subresource, secondKey.subresource);
+    EXPECT_EQ(firstKey.kind, engine::RenderResourceKind::Geometry);
+    EXPECT_EQ(secondKey.kind, engine::RenderResourceKind::Geometry);
+}
+
+TEST(RenderResourceDomainTests, BuildersForTheSameAssetLibraryReuseTheDocumentDomain) {
+    asset::AssetLibrary assets;
+    auto* mesh = assets.create<asset::MeshAsset>("Mesh");
+    mesh->addPrimitive(makeSurfaceMesh());
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("Entity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, mesh->id()));
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder firstBuilder;
+    RenderSubmissionBuilder secondBuilder;
+    firstBuilder.setScene(&renderScene, &assets);
+    secondBuilder.setScene(&renderScene, &assets);
+    const ViewState view;
+    const RenderSubmission first = firstBuilder.build(view);
+    const RenderSubmission second = secondBuilder.build(view);
+    ASSERT_EQ(first.prepare.geometries().size(), 1u);
+    ASSERT_EQ(second.prepare.geometries().size(), 1u);
+    EXPECT_EQ(first.prepare.geometries().front().resourceKey, second.prepare.geometries().front().resourceKey);
+}
+
 TEST(RenderSubmissionBuilderTests, KeepsPendingResourcesUntilMatchingAck) {
     RenderScene scene;
     asset::AssetLibrary assets;

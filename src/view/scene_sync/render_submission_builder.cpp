@@ -16,9 +16,14 @@
 
 namespace mulan::view {
 
+RenderSubmissionBuilder::RenderSubmissionBuilder()
+    : preview_resource_domain_(engine::allocateTransientResourceDomain()) {
+}
+
 void RenderSubmissionBuilder::reset() {
     scene_ = nullptr;
     assets_ = nullptr;
+    asset_resource_domain_ = {};
     preview_ = nullptr;
     last_scene_generation_ = 0;
     last_preview_generation_ = 0;
@@ -48,6 +53,8 @@ void RenderSubmissionBuilder::setScene(const RenderScene* scene, const asset::As
     const bool assetDomainChanged = assets_ != assets;
     scene_ = scene;
     assets_ = assets;
+    asset_resource_domain_ =
+            assets ? engine::resourceDomainForAssetLibrary(assets->domainId()) : engine::ResourceDomainId{};
     if (assetDomainChanged) {
         invalidateResources();
     } else {
@@ -185,7 +192,7 @@ void RenderSubmissionBuilder::rebuildScene(RenderSubmission& submission) {
         scene_world_snapshot_.reset();
         last_scene_sync_stats_ = scene_world_sync_.lastStats();
     } else {
-        scene_world_sync_.rebuildScene(*scene_, *assets_, scene_world_, &prepare);
+        scene_world_sync_.rebuildScene(*scene_, *assets_, asset_resource_domain_, scene_world_, &prepare);
         scene_world_snapshot_ = std::make_shared<engine::RenderWorldSnapshot>(scene_world_.snapshot());
         last_scene_sync_stats_ = scene_world_sync_.lastStats();
     }
@@ -200,7 +207,8 @@ void RenderSubmissionBuilder::rebuildOverlay(RenderSubmission& submission) {
     const uint64_t previewGeneration = preview_ ? preview_->generation() : 0;
     engine::RenderResourcePrepareList prepare;
 
-    overlay_world_sync_.rebuildOverlay(scene_, assets_, preview_, overlay_world_, &prepare);
+    overlay_world_sync_.rebuildOverlay(scene_, assets_, asset_resource_domain_, preview_resource_domain_, preview_,
+                                       overlay_world_, &prepare);
     if (overlay_world_.objectCount() == 0) {
         overlay_world_snapshot_.reset();
     } else {

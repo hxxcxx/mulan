@@ -58,12 +58,14 @@ public:
     RenderWorldSync& operator=(const RenderWorldSync&) = delete;
 
     /// 重建稳定文档场景，不包含工具预览和选择视觉状态。
-    void rebuildScene(const RenderScene& scene, const asset::AssetLibrary& assets, engine::RenderWorld& world,
-                      engine::RenderResourcePrepareList* prepare = nullptr);
+    void rebuildScene(const RenderScene& scene, const asset::AssetLibrary& assets, engine::ResourceDomainId assetDomain,
+                      engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare = nullptr);
 
     /// 重建高频覆盖层。预览引用复用 SceneWorld 已准备的资产几何，只管理预览自有几何资源。
-    void rebuildOverlay(const RenderScene* scene, const asset::AssetLibrary* assets, const PreviewLayer* preview,
-                        engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare = nullptr);
+    void rebuildOverlay(const RenderScene* scene, const asset::AssetLibrary* assets,
+                        engine::ResourceDomainId assetDomain, engine::ResourceDomainId previewDomain,
+                        const PreviewLayer* preview, engine::RenderWorld& world,
+                        engine::RenderResourcePrepareList* prepare = nullptr);
 
     /// 将空世界与已记录的 GPU 几何/贴图做差量同步，用于 scene 来源消失。
     void rebuildEmpty(engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare = nullptr);
@@ -88,7 +90,7 @@ private:
 
     RenderWorldSyncStats last_stats_;
     // [0]=内容域（0=资产，非 0=预览换源世代），[1]=源版本，[2..3]=mesh 内容指纹。
-    std::unordered_map<engine::AssetGpuKey, std::array<uint64_t, 4>> geometry_revisions_;
+    std::unordered_map<engine::RenderResourceKey, std::array<uint64_t, 4>> geometry_revisions_;
     std::unordered_map<engine::RenderTextureResourceKey, uint64_t, engine::RenderTextureResourceKeyHash>
             texture_revisions_;
     std::unordered_map<asset::AssetId, uint64_t> referenced_asset_revisions_;

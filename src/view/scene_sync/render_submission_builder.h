@@ -40,6 +40,8 @@ struct RenderSubmissionDiagnostics {
 
 class RenderSubmissionBuilder {
 public:
+    RenderSubmissionBuilder();
+
     void reset();
     void setScene(const RenderScene* scene, const asset::AssetLibrary* assets);
     void setPreviewLayer(const PreviewLayer* preview);
@@ -86,6 +88,8 @@ private:
     engine::LightEnvironment light_environment_;
     engine::RenderResourcePrepareList pending_prepare_;
     uint64_t resource_batch_id_ = 0;
+    engine::ResourceDomainId asset_resource_domain_;
+    engine::ResourceDomainId preview_resource_domain_;
 };
 
 }  // namespace mulan::view

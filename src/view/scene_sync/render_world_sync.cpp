@@ -30,7 +30,7 @@ struct GeometryResourceCandidate {
     uint64_t sourceRevision = 0;
 };
 
-using GeometryResourceCandidateMap = std::unordered_map<engine::AssetGpuKey, GeometryResourceCandidate>;
+using GeometryResourceCandidateMap = std::unordered_map<engine::RenderResourceKey, GeometryResourceCandidate>;
 
 struct TextureResourceCandidate {
     std::shared_ptr<const core::Image> image;
@@ -102,7 +102,7 @@ void observeAsset(const asset::Asset* source, AssetRevisionMap& revisions) {
     }
 }
 
-void collectGeometryResource(GeometryResourceCandidateMap& resources, engine::AssetGpuKey key,
+void collectGeometryResource(GeometryResourceCandidateMap& resources, engine::RenderResourceKey key,
                              const graphics::Mesh& mesh, uint64_t contentDomain, uint64_t sourceRevision) {
     if (!key || mesh.empty()) {
         return;
@@ -144,7 +144,8 @@ void collectMaterialTextureResources(TextureResourceCandidateMap& resources,
 
 engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::AssetId materialId,
                                       asset::AssetId (asset::MaterialAsset::*texGetter)() const,
-                                      bool (asset::MaterialAsset::*srgbGetter)() const, AssetRevisionMap& revisions) {
+                                      bool (asset::MaterialAsset::*srgbGetter)() const,
+                                      engine::ResourceDomainId assetDomain, AssetRevisionMap& revisions) {
     if (!materialId)
         return {};
 
@@ -164,7 +165,7 @@ engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::
         return {};
 
     engine::RenderTextureDesc desc;
-    desc.resourceKey = engine::makeAssetGpuKey(textureId.value);
+    desc.resourceKey = engine::makeRenderResourceKey(assetDomain, textureId.value, engine::RenderResourceKind::Texture);
     desc.image = texture->image();
     desc.contentRevision = texture->revision();
     desc.srgb = (material->*srgbGetter)();
@@ -172,7 +173,7 @@ engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::
 }
 
 engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset::AssetId materialId,
-                                        AssetRevisionMap& revisions) {
+                                        engine::ResourceDomainId assetDomain, AssetRevisionMap& revisions) {
     engine::RenderMaterialDesc desc;
     // 无材质或材质资产失效时统一回退到稳定的内置身份，避免 world generation 污染缓存键。
     desc.resourceKey = engine::defaultRenderMaterialResourceKey();
@@ -186,7 +187,8 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
     }
     observeAsset(material, revisions);
 
-    desc.resourceKey = engine::makeAssetGpuKey(materialId.value);
+    desc.resourceKey =
+            engine::makeRenderResourceKey(assetDomain, materialId.value, engine::RenderResourceKind::Material);
     desc.material = engine::Material::defaultPBR();
     desc.material.name = material->name();
     const auto& color = material->baseColorFactor();
@@ -199,15 +201,16 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
     desc.material.alphaMode = material->alphaMode();
     desc.material.doubleSided = material->doubleSided();
     desc.baseColorTexture = textureDesc(assets, materialId, &asset::MaterialAsset::baseColorTexture,
-                                        &asset::MaterialAsset::baseColorTextureSrgb, revisions);
+                                        &asset::MaterialAsset::baseColorTextureSrgb, assetDomain, revisions);
     desc.normalTexture = textureDesc(assets, materialId, &asset::MaterialAsset::normalTexture,
-                                     &asset::MaterialAsset::normalTextureSrgb, revisions);
-    desc.metallicRoughnessTexture = textureDesc(assets, materialId, &asset::MaterialAsset::metallicRoughnessTexture,
-                                                &asset::MaterialAsset::metallicRoughnessTextureSrgb, revisions);
+                                     &asset::MaterialAsset::normalTextureSrgb, assetDomain, revisions);
+    desc.metallicRoughnessTexture =
+            textureDesc(assets, materialId, &asset::MaterialAsset::metallicRoughnessTexture,
+                        &asset::MaterialAsset::metallicRoughnessTextureSrgb, assetDomain, revisions);
     desc.emissiveTexture = textureDesc(assets, materialId, &asset::MaterialAsset::emissiveTexture,
-                                       &asset::MaterialAsset::emissiveTextureSrgb, revisions);
+                                       &asset::MaterialAsset::emissiveTextureSrgb, assetDomain, revisions);
     desc.ambientOcclusionTexture = textureDesc(assets, materialId, &asset::MaterialAsset::occlusionTexture,
-                                               &asset::MaterialAsset::occlusionTextureSrgb, revisions);
+                                               &asset::MaterialAsset::occlusionTextureSrgb, assetDomain, revisions);
 
     // 点亮 Material::textureSlots —— MaterialGPU::fromMaterial 据此生成 textureFlags 位掩码，
     // shader 用 (flags & TF_*) 决定是否采样。未点亮则纹理虽绑定到 descriptor 但被跳过。
@@ -237,9 +240,10 @@ void accumulate(RenderItemDiagnostics& dst, const RenderItemDiagnostics& src) {
     dst.rejectedLayout += src.rejectedLayout;
 }
 
-engine::RenderMaterialDesc previewMaterialDesc(PreviewVisualRole role) {
+engine::RenderMaterialDesc previewMaterialDesc(PreviewVisualRole role, engine::ResourceDomainId previewDomain) {
     engine::RenderMaterialDesc desc;
-    desc.resourceKey = engine::makeAssetGpuKey(RenderItemBuilder::previewMaterialKey(role));
+    desc.resourceKey = engine::makeRenderResourceKey(previewDomain, RenderItemBuilder::previewMaterialKey(role),
+                                                     engine::RenderResourceKind::PreviewMaterial);
     switch (role) {
     case PreviewVisualRole::Tool:
         desc.material = engine::Material::unlit(math::Vec3(0.0, 0.58, 1.0));
@@ -287,10 +291,10 @@ std::optional<engine::RenderBucket> overlayBucketForReference(engine::RenderBuck
 }
 
 void appendPreviewDrawables(const PreviewLayer& preview, engine::RenderWorld& world,
-                            GeometryResourceCandidateMap& resources, uint64_t previewSourceRevision,
-                            RenderWorldSyncStats& stats, engine::RenderMaterialHandle toolMaterial,
-                            engine::RenderMaterialHandle snapMaterial, engine::RenderMaterialHandle gripMaterial,
-                            engine::RenderMaterialHandle gripHotMaterial) {
+                            GeometryResourceCandidateMap& resources, engine::ResourceDomainId previewDomain,
+                            uint64_t previewSourceRevision, RenderWorldSyncStats& stats,
+                            engine::RenderMaterialHandle toolMaterial, engine::RenderMaterialHandle snapMaterial,
+                            engine::RenderMaterialHandle gripMaterial, engine::RenderMaterialHandle gripHotMaterial) {
     const auto& drawables = preview.drawables();
     if (drawables.empty()) {
         return;
@@ -312,7 +316,8 @@ void appendPreviewDrawables(const PreviewLayer& preview, engine::RenderWorld& wo
         const graphics::Mesh& mesh = *item.mesh;
 
         engine::RenderGeometryDesc geometryDesc;
-        geometryDesc.resourceKey = engine::makeAssetGpuKey(item.geometryKey);
+        geometryDesc.resourceKey = engine::makeRenderResourceKey(previewDomain, item.geometryKey,
+                                                                 engine::RenderResourceKind::PreviewGeometry);
         geometryDesc.topology = mesh.topology;
         geometryDesc.vertexLayout = mesh.layout;
         geometryDesc.empty = mesh.empty();
@@ -338,7 +343,8 @@ void appendPreviewDrawables(const PreviewLayer& preview, engine::RenderWorld& wo
 }
 
 void appendPreviewReferences(const PreviewLayer& preview, const RenderScene& scene, const asset::AssetLibrary& assets,
-                             engine::RenderWorld& world, AssetRevisionMap& revisions, RenderWorldSyncStats& stats,
+                             engine::ResourceDomainId assetDomain, engine::RenderWorld& world,
+                             AssetRevisionMap& revisions, RenderWorldSyncStats& stats,
                              std::unordered_map<uint64_t, engine::GeometryHandle>& geometryHandles,
                              engine::RenderMaterialHandle toolMaterial, engine::RenderMaterialHandle snapMaterial,
                              engine::RenderMaterialHandle gripMaterial, engine::RenderMaterialHandle gripHotMaterial) {
@@ -392,7 +398,9 @@ void appendPreviewReferences(const PreviewLayer& preview, const RenderScene& sce
             auto geometryIt = geometryHandles.find(item.geometryKey);
             if (geometryIt == geometryHandles.end()) {
                 engine::RenderGeometryDesc geometryDesc;
-                geometryDesc.resourceKey = engine::makeAssetGpuKey(item.geometryKey);
+                geometryDesc.resourceKey = engine::makeRenderResourceKey(
+                        assetDomain, proxy->geometry.value, engine::RenderResourceKind::Geometry,
+                        static_cast<uint32_t>(item.sourceDrawableIndex));
                 geometryDesc.topology = mesh.topology;
                 geometryDesc.vertexLayout = mesh.layout;
                 geometryDesc.empty = mesh.empty();
@@ -422,6 +430,7 @@ void appendPreviewReferences(const PreviewLayer& preview, const RenderScene& sce
 }
 
 void appendPreview(const RenderScene* scene, const asset::AssetLibrary* assets, const PreviewLayer* preview,
+                   engine::ResourceDomainId assetDomain, engine::ResourceDomainId previewDomain,
                    engine::RenderWorld& world, GeometryResourceCandidateMap& resources, AssetRevisionMap& revisions,
                    uint64_t previewSourceRevision, RenderWorldSyncStats& stats,
                    std::unordered_map<uint64_t, engine::GeometryHandle>& geometryHandles) {
@@ -429,28 +438,44 @@ void appendPreview(const RenderScene* scene, const asset::AssetLibrary* assets, 
         return;
     }
 
-    const engine::RenderMaterialHandle toolMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Tool));
-    const engine::RenderMaterialHandle snapMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Snap));
-    const engine::RenderMaterialHandle gripMaterial = world.addMaterial(previewMaterialDesc(PreviewVisualRole::Grip));
+    const engine::RenderMaterialHandle toolMaterial =
+            world.addMaterial(previewMaterialDesc(PreviewVisualRole::Tool, previewDomain));
+    const engine::RenderMaterialHandle snapMaterial =
+            world.addMaterial(previewMaterialDesc(PreviewVisualRole::Snap, previewDomain));
+    const engine::RenderMaterialHandle gripMaterial =
+            world.addMaterial(previewMaterialDesc(PreviewVisualRole::Grip, previewDomain));
     const engine::RenderMaterialHandle gripHotMaterial =
-            world.addMaterial(previewMaterialDesc(PreviewVisualRole::GripHot));
+            world.addMaterial(previewMaterialDesc(PreviewVisualRole::GripHot, previewDomain));
 
-    appendPreviewDrawables(*preview, world, resources, previewSourceRevision, stats, toolMaterial, snapMaterial,
-                           gripMaterial, gripHotMaterial);
+    appendPreviewDrawables(*preview, world, resources, previewDomain, previewSourceRevision, stats, toolMaterial,
+                           snapMaterial, gripMaterial, gripHotMaterial);
     if (scene && assets) {
-        appendPreviewReferences(*preview, *scene, *assets, world, revisions, stats, geometryHandles, toolMaterial,
-                                snapMaterial, gripMaterial, gripHotMaterial);
+        appendPreviewReferences(*preview, *scene, *assets, assetDomain, world, revisions, stats, geometryHandles,
+                                toolMaterial, snapMaterial, gripMaterial, gripHotMaterial);
     }
 }
 
+bool resourceKeyLess(const engine::RenderResourceKey& lhs, const engine::RenderResourceKey& rhs) {
+    if (lhs.domain.value != rhs.domain.value) {
+        return lhs.domain.value < rhs.domain.value;
+    }
+    if (lhs.source != rhs.source) {
+        return lhs.source < rhs.source;
+    }
+    if (lhs.subresource != rhs.subresource) {
+        return lhs.subresource < rhs.subresource;
+    }
+    return lhs.kind < rhs.kind;
+}
+
 void buildGeometryResourceDelta(const GeometryResourceCandidateMap& current,
-                                std::unordered_map<engine::AssetGpuKey, GeometryContentRevision>& previous,
+                                std::unordered_map<engine::RenderResourceKey, GeometryContentRevision>& previous,
                                 bool forceFullPrepare, engine::RenderResourcePrepareList* prepare) {
     if (!prepare) {
         return;
     }
 
-    std::vector<engine::AssetGpuKey> retiredKeys;
+    std::vector<engine::RenderResourceKey> retiredKeys;
     retiredKeys.reserve(previous.size());
     for (const auto& [key, revision] : previous) {
         (void) revision;
@@ -458,22 +483,22 @@ void buildGeometryResourceDelta(const GeometryResourceCandidateMap& current,
             retiredKeys.push_back(key);
         }
     }
-    std::ranges::sort(retiredKeys, {}, &engine::AssetGpuKey::value);
-    for (const engine::AssetGpuKey key : retiredKeys) {
+    std::ranges::sort(retiredKeys, resourceKeyLess);
+    for (const engine::RenderResourceKey key : retiredKeys) {
         prepare->retireGeometry(key);
     }
 
-    std::vector<engine::AssetGpuKey> currentKeys;
+    std::vector<engine::RenderResourceKey> currentKeys;
     currentKeys.reserve(current.size());
     for (const auto& [key, resource] : current) {
         (void) resource;
         currentKeys.push_back(key);
     }
-    std::ranges::sort(currentKeys, {}, &engine::AssetGpuKey::value);
+    std::ranges::sort(currentKeys, resourceKeyLess);
 
-    std::unordered_map<engine::AssetGpuKey, GeometryContentRevision> next;
+    std::unordered_map<engine::RenderResourceKey, GeometryContentRevision> next;
     next.reserve(current.size());
-    for (const engine::AssetGpuKey key : currentKeys) {
+    for (const engine::RenderResourceKey key : currentKeys) {
         const GeometryResourceCandidate& resource = current.at(key);
         const auto previousIt = previous.find(key);
         const bool existed = previousIt != previous.end();
@@ -500,8 +525,17 @@ void buildGeometryResourceDelta(const GeometryResourceCandidateMap& current,
 }
 
 bool textureKeyLess(const engine::RenderTextureResourceKey& lhs, const engine::RenderTextureResourceKey& rhs) {
-    if (lhs.resourceKey.value != rhs.resourceKey.value) {
-        return lhs.resourceKey.value < rhs.resourceKey.value;
+    if (lhs.resourceKey.domain.value != rhs.resourceKey.domain.value) {
+        return lhs.resourceKey.domain.value < rhs.resourceKey.domain.value;
+    }
+    if (lhs.resourceKey.source != rhs.resourceKey.source) {
+        return lhs.resourceKey.source < rhs.resourceKey.source;
+    }
+    if (lhs.resourceKey.subresource != rhs.resourceKey.subresource) {
+        return lhs.resourceKey.subresource < rhs.resourceKey.subresource;
+    }
+    if (lhs.resourceKey.kind != rhs.resourceKey.kind) {
+        return lhs.resourceKey.kind < rhs.resourceKey.kind;
     }
     if (lhs.srgb != rhs.srgb) {
         return lhs.srgb < rhs.srgb;
@@ -586,7 +620,8 @@ RenderWorldSync::RenderWorldSync() : scene_state_(std::make_unique<SceneState>()
 RenderWorldSync::~RenderWorldSync() = default;
 
 void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetLibrary& assets,
-                                   engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare) {
+                                   engine::ResourceDomainId assetDomain, engine::RenderWorld& world,
+                                   engine::RenderResourcePrepareList* prepare) {
     last_stats_.reset();
     if (prepare) {
         prepare->clear();
@@ -683,7 +718,9 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
         for (const RenderItem& item : renderItems) {
             const graphics::Mesh& mesh = *item.mesh;
             engine::RenderGeometryDesc geometryDesc;
-            geometryDesc.resourceKey = engine::makeAssetGpuKey(item.geometryKey);
+            geometryDesc.resourceKey = engine::makeRenderResourceKey(assetDomain, proxy->geometry.value,
+                                                                     engine::RenderResourceKind::Geometry,
+                                                                     static_cast<uint32_t>(item.sourceDrawableIndex));
             geometryDesc.topology = mesh.topology;
             geometryDesc.vertexLayout = mesh.layout;
             geometryDesc.empty = mesh.empty();
@@ -696,7 +733,8 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
             const uint64_t materialKey = item.material.value;
             if (!pending.materials.contains(materialKey)) {
                 AssetRevisionMap materialDependencies;
-                engine::RenderMaterialDesc desc = materialDesc(assets, item.material, materialDependencies);
+                engine::RenderMaterialDesc desc =
+                        materialDesc(assets, item.material, assetDomain, materialDependencies);
                 for (const auto& [id, revision] : materialDependencies) {
                     (void) revision;
                     pending.dependencies.insert(id);
@@ -819,7 +857,8 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
 
     GeometryResourceCandidateMap geometryResources;
     for (const auto& [key, entry] : state.geometries) {
-        geometryResources.emplace(engine::makeAssetGpuKey(key), entry.resource);
+        (void) key;
+        geometryResources.emplace(entry.desc.resourceKey, entry.resource);
     }
     TextureResourceCandidateMap textureResources;
     for (const auto& [key, entry] : state.materials) {
@@ -849,6 +888,7 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
 }
 
 void RenderWorldSync::rebuildOverlay(const RenderScene* scene, const asset::AssetLibrary* assets,
+                                     engine::ResourceDomainId assetDomain, engine::ResourceDomainId previewDomain,
                                      const PreviewLayer* preview, engine::RenderWorld& world,
                                      engine::RenderResourcePrepareList* prepare) {
     last_stats_.reset();
@@ -860,8 +900,8 @@ void RenderWorldSync::rebuildOverlay(const RenderScene* scene, const asset::Asse
     std::unordered_map<uint64_t, engine::GeometryHandle> geometryHandles;
     GeometryResourceCandidateMap geometryResources;
     AssetRevisionMap referencedAssetRevisions;
-    appendPreview(scene, assets, preview, world, geometryResources, referencedAssetRevisions, preview_source_revision_,
-                  last_stats_, geometryHandles);
+    appendPreview(scene, assets, preview, assetDomain, previewDomain, world, geometryResources,
+                  referencedAssetRevisions, preview_source_revision_, last_stats_, geometryHandles);
 
     const bool forceFullPrepare = force_full_prepare_;
     buildGeometryResourceDelta(geometryResources, geometry_revisions_, forceFullPrepare, prepare);

@@ -30,7 +30,7 @@ using AssetLibraryRevision = uint64_t;
 
 class AssetLibrary {
 public:
-    AssetLibrary() = default;
+    AssetLibrary();
 
     AssetLibrary(const AssetLibrary&) = delete;
     AssetLibrary& operator=(const AssetLibrary&) = delete;
@@ -55,6 +55,8 @@ public:
 
     /// 资产集合版本：仅 create、成功 remove、非空 clear 时递增。
     AssetLibraryRevision membershipRevision() const noexcept { return membership_revision_; }
+    /// 进程内唯一的资产域身份；用于隔离不同文档中数值相同的 AssetId。
+    uint64_t domainId() const noexcept { return domain_id_; }
     std::optional<AssetRevision> contentRevision(AssetId id) const;
 
     /// 只读遍历不暴露容器或 unique_ptr，回调不能绕过资产 mutator 修改内容。
@@ -75,6 +77,7 @@ private:
     void touch();
 
     AssetIdValue next_id_ = 1;
+    uint64_t domain_id_ = 0;
     AssetLibraryRevision membership_revision_ = 0;
     std::unordered_map<AssetId, std::unique_ptr<Asset>> assets_;
 };

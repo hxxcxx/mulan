@@ -4,6 +4,7 @@ add_library(render STATIC
     camera/camera.cpp
     camera/turntable_rotation.cpp
     camera/trackball_rotation.cpp
+    asset_gpu_key.cpp
     asset_gpu_registry.cpp
     environment_map.cpp
     mesh_draw_command.cpp

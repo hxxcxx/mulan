@@ -33,7 +33,7 @@ enum class RenderBucket : uint8_t {
 };
 
 struct RenderTextureDesc {
-    AssetGpuKey resourceKey;                   ///< 资产身份 key，用作 GPU 贴图去重键
+    RenderResourceKey resourceKey;             ///< 结构化资源身份，用作 GPU 贴图去重键
     std::shared_ptr<const core::Image> image;  ///< 解码后的图片共享视图
     uint64_t contentRevision = 0;              ///< 资产内容版本，同 key 版本变化时替换 GPU 贴图
     bool srgb = false;                         ///< sRGB 意图，由 material slot 决定
@@ -41,12 +41,12 @@ struct RenderTextureDesc {
 };
 
 /// 无显式材质时的内置资源身份；不依赖 RenderWorld generation，可跨重建稳定复用。
-inline constexpr AssetGpuKey defaultRenderMaterialResourceKey() {
-    return makeAssetGpuKey(0xF000000000000001ull);
+inline constexpr RenderResourceKey defaultRenderMaterialResourceKey() {
+    return makeRenderResourceKey(builtinResourceDomain(), 1, RenderResourceKind::Builtin);
 }
 
 struct RenderMaterialDesc {
-    AssetGpuKey resourceKey;
+    RenderResourceKey resourceKey;
     Material material = Material::defaultPBR();
     RenderTextureDesc baseColorTexture;
     RenderTextureDesc normalTexture;
@@ -58,7 +58,7 @@ struct RenderMaterialDesc {
 struct RenderGeometryDesc {
     /// 资产身份 key（由 view 层 RenderWorldSync 按资产身份生成，engine 只校验有效性并透传）。
     /// 用作 AssetGpuRegistry 的去重/查表 key，跨帧稳定。
-    AssetGpuKey resourceKey;
+    RenderResourceKey resourceKey;
 
     /// 冗余标量：渲染端常用，避免每次都解引用 mesh。snapshot 拷贝的是这些标量，零成本。
     graphics::PrimitiveTopology topology = graphics::PrimitiveTopology::TriangleList;

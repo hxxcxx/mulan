@@ -24,7 +24,9 @@ std::optional<uint32_t> materialIndex(const RenderWorldSnapshot& snapshot, Rende
     }
 
     const std::string name = record->desc.resourceKey
-                                     ? "render-material:" + std::to_string(record->desc.resourceKey.value)
+                                     ? "render-material:" + std::to_string(record->desc.resourceKey.domain.value) +
+                                               ":" + std::to_string(record->desc.resourceKey.source) + ":" +
+                                               std::to_string(record->desc.resourceKey.subresource)
                                      : "render-material-handle:" + std::to_string(handle.generation) + ":" +
                                                std::to_string(handle.index);
     const MaterialHandle registered = cache.registerMaterial(name, record->desc.material);
@@ -34,7 +36,7 @@ std::optional<uint32_t> materialIndex(const RenderWorldSnapshot& snapshot, Rende
     return static_cast<uint32_t>(registered);
 }
 
-Texture* loadTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
+Texture* loadTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc, RenderCompilerStats& stats) {
     if (!desc.resourceKey || !desc.image || !desc.image->valid())
         return nullptr;
 
@@ -42,7 +44,11 @@ Texture* loadTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
     options.sRGB = desc.srgb;
     options.generateMips = desc.generateMips;
 
-    return assets.findTexture(desc.resourceKey, options);
+    Texture* texture = assets.findTexture(desc.resourceKey, options);
+    if (!texture) {
+        ++stats.missingGpuTextureCount;
+    }
+    return texture;
 }
 
 bool hasTangentLayout(const GpuGeometry& geometry) {
@@ -50,16 +56,16 @@ bool hasTangentLayout(const GpuGeometry& geometry) {
 }
 
 void populateSurfaceTextures(const RenderWorldSnapshot& snapshot, const RenderWorkItem& item, AssetGpuRegistry& assets,
-                             MeshDrawCommand& command) {
+                             RenderCompilerStats& stats, MeshDrawCommand& command) {
     const auto* material = snapshot.material(item.material);
     if (!material)
         return;
 
-    command.albedoTex = loadTexture(assets, material->desc.baseColorTexture);
-    command.normalTex = loadTexture(assets, material->desc.normalTexture);
-    command.mrTex = loadTexture(assets, material->desc.metallicRoughnessTexture);
-    command.emissiveTex = loadTexture(assets, material->desc.emissiveTexture);
-    command.aoTex = loadTexture(assets, material->desc.ambientOcclusionTexture);
+    command.albedoTex = loadTexture(assets, material->desc.baseColorTexture, stats);
+    command.normalTex = loadTexture(assets, material->desc.normalTexture, stats);
+    command.mrTex = loadTexture(assets, material->desc.metallicRoughnessTexture, stats);
+    command.emissiveTex = loadTexture(assets, material->desc.emissiveTexture, stats);
+    command.aoTex = loadTexture(assets, material->desc.ambientOcclusionTexture, stats);
 }
 
 MeshDrawCommand makeCommand(const RenderWorkItem& item, const RenderGeometryRecord& geometryRecord,
@@ -132,7 +138,7 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
         auto command = makeCommand(item, *geometryRecord, *gpuGeometry, pipeline, *resolvedMaterial, isEdge, selected,
                                    hovered);
         if (populateTextures) {
-            populateSurfaceTextures(snapshot, item, context.assets, command);
+            populateSurfaceTextures(snapshot, item, context.assets, stats_, command);
         }
         out.push_back(std::move(command));
         return CompileItemStatus::Accepted;

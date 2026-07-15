@@ -17,38 +17,6 @@
 #include <span>
 
 namespace mulan::engine {
-namespace {
-
-ResultVoid prepareTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
-    if (!desc.resourceKey || !desc.image || !desc.image->valid())
-        return {};
-
-    TextureLoadOptions options;
-    options.sRGB = desc.srgb;
-    options.generateMips = desc.generateMips;
-    auto texture = assets.acquireTexture(desc.resourceKey, *desc.image, options, desc.contentRevision);
-    if (!texture) {
-        return std::unexpected(texture.error());
-    }
-    return {};
-}
-
-ResultVoid prepareMaterialTextures(AssetGpuRegistry& assets, const RenderMaterialDesc& material) {
-    if (auto result = prepareTexture(assets, material.baseColorTexture); !result)
-        return std::unexpected(result.error());
-    if (auto result = prepareTexture(assets, material.normalTexture); !result)
-        return std::unexpected(result.error());
-    if (auto result = prepareTexture(assets, material.metallicRoughnessTexture); !result)
-        return std::unexpected(result.error());
-    if (auto result = prepareTexture(assets, material.emissiveTexture); !result)
-        return std::unexpected(result.error());
-    if (auto result = prepareTexture(assets, material.ambientOcclusionTexture); !result)
-        return std::unexpected(result.error());
-    return {};
-}
-
-}  // namespace
-
 RenderRenderer::RenderRenderer() = default;
 RenderRenderer::~RenderRenderer() = default;
 
@@ -247,19 +215,10 @@ ResultVoid RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding&
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render output is invalid."));
     }
 
-    if (auto result = device.beginUploadBatch(); !result) {
-        LOG_ERROR("[RenderRenderer] Upload batch begin failed: {}", result.error().message);
-        return std::unexpected(result.error());
-    }
     auto compiled = compile(request);
-    if (auto result = device.flushUploadBatch(); !result) {
-        LOG_ERROR("[RenderRenderer] Upload batch flush failed: {}", result.error().message);
-        return std::unexpected(result.error());
-    }
-    asset_gpu_registry_->releaseUploadFailureKeepalives();
     if (!compiled) {
         clearCompiledCommands();
-        LOG_ERROR("[RenderRenderer] Frame resource preparation failed: {}", compiled.error().message);
+        LOG_ERROR("[RenderRenderer] Frame compilation failed: {}", compiled.error().message);
         return std::unexpected(compiled.error());
     }
 
@@ -384,10 +343,6 @@ ResultVoid RenderRenderer::compile(const RenderRequest& request) {
     } else {
         overlay_workload_.clear();
     }
-    if (auto result = prepareFrameResources(request); !result) {
-        return std::unexpected(result.error());
-    }
-
     if (face_stage_) {
         face_stage_->setSurfaceTechnique(request.options.surfaceTechnique);
     }
@@ -413,6 +368,16 @@ ResultVoid RenderRenderer::compile(const RenderRequest& request) {
         overlay_compiler_.compile(*request.overlayWorld, overlay_workload_, compileContext);
     } else {
         overlay_compiler_.clear();
+    }
+
+    const auto persistentResourcesMissing = [](const RenderCompilerStats& stats) {
+        return stats.missingGpuGeometryCount != 0 || stats.missingGpuTextureCount != 0;
+    };
+    if (persistentResourcesMissing(scene_compiler_.lastStats()) ||
+        persistentResourcesMissing(overlay_compiler_.lastStats())) {
+        clearCompiledCommands();
+        return std::unexpected(
+                Error::make(ErrorCode::NotFound, "Frame references persistent resources that have not been prepared."));
     }
 
     const auto mergeCommands = [](std::vector<MeshDrawCommand>& destination,
@@ -446,33 +411,6 @@ ResultVoid RenderRenderer::compile(const RenderRequest& request) {
         highlight_stage_->setEdgeDrawCommands(!highlight_edge_commands_.empty()
                                                       ? std::span<const MeshDrawCommand>(highlight_edge_commands_)
                                                       : emptyCommands);
-    }
-    return {};
-}
-
-ResultVoid RenderRenderer::prepareFrameResources(const RenderRequest& request) {
-    if (!asset_gpu_registry_)
-        return {};
-
-    const auto prepareWorld = [&](const RenderWorldSnapshot* world, const RenderWorkload& workload) -> ResultVoid {
-        if (!world || request.options.surfaceTechnique != SurfaceTechnique::SurfacePBR) {
-            return {};
-        }
-        for (const auto& item : workload.surfaces()) {
-            const auto* material = world->material(item.material);
-            if (material) {
-                if (auto result = prepareMaterialTextures(*asset_gpu_registry_, material->desc); !result) {
-                    return std::unexpected(result.error());
-                }
-            }
-        }
-        return {};
-    };
-    if (auto result = prepareWorld(request.sceneWorld, scene_workload_); !result) {
-        return std::unexpected(result.error());
-    }
-    if (auto result = prepareWorld(request.overlayWorld, overlay_workload_); !result) {
-        return std::unexpected(result.error());
     }
     return {};
 }
