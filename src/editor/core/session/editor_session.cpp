@@ -229,7 +229,10 @@ void EditorSession::popToolOperators() {
     if (!view_) {
         return;
     }
-    // 弹出栈顶所有 EditorToolOperator（正常只有一个，防御性循环）。
+    // 弹出栈顶所有非 default Operator（正常只有一个 EditorToolOperator，防御性循环）。
+    // 注意：若未来栈上出现非 EditorToolOperator 的模态 Operator（如 ViewCubeOperator），
+    // 此循环会把它们一并弹出。当前栈上只可能有 EditorToolOperator，故安全；
+    // 引入新 Operator 类型时需复查此处——应改为按类型/标记选择性弹出。
     while (view_->activeOperator() != view_->defaultOperator()) {
         view_->popOperator();
     }

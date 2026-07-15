@@ -75,11 +75,6 @@ EditorAction& EditorAction::clearPreviewOnApply() {
     return *this;
 }
 
-EditorAction& EditorAction::finishTool() {
-    lifecycle_ = ToolLifecycle::Finished;
-    return *this;
-}
-
 EditorAction& EditorAction::cancelTool() {
     lifecycle_ = ToolLifecycle::Cancelled;
     return *this;

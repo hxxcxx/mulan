@@ -57,7 +57,6 @@ public:
 
     EditorAction& consume();
     EditorAction& clearPreviewOnApply();
-    EditorAction& finishTool();
     EditorAction& cancelTool();
 
 private:
