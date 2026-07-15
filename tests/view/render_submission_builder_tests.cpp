@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 namespace mulan::view {
@@ -783,7 +784,7 @@ TEST(RenderItemBuilderTests, PreviewGeometryKeysUseStableRoleLocalSlots) {
     EXPECT_NE(mixedItems[0].geometryKey, snapItems[0].geometryKey);
 }
 
-TEST(RenderSubmissionBuilderTests, MaterialLessDrawableKeepsStableDefaultIdentityAcrossWorldRebuilds) {
+TEST(RenderSubmissionBuilderTests, MaterialLessDrawableKeepsStableDefaultIdentityAndHandleAcrossPatches) {
     asset::AssetLibrary assets;
     auto* meshAsset = assets.create<asset::MeshAsset>("MaterialLessMesh");
     meshAsset->addPrimitive(makeSurfaceMesh());
@@ -804,7 +805,7 @@ TEST(RenderSubmissionBuilderTests, MaterialLessDrawableKeepsStableDefaultIdentit
     ASSERT_EQ(first.sceneWorld->materials().size(), 1u);
     const engine::AssetGpuKey stableKey = first.sceneWorld->materials().front().desc.resourceKey;
     ASSERT_EQ(stableKey, engine::defaultRenderMaterialResourceKey());
-    uint32_t previousHandleGeneration = first.sceneWorld->materials().front().handle.generation;
+    const engine::RenderMaterialHandle stableHandle = first.sceneWorld->materials().front().handle;
 
     for (size_t rebuild = 0; rebuild < 32u; ++rebuild) {
         ASSERT_TRUE(sourceScene.setWorldTransform(
@@ -817,9 +818,192 @@ TEST(RenderSubmissionBuilderTests, MaterialLessDrawableKeepsStableDefaultIdentit
         ASSERT_EQ(submission.sceneWorld->materials().size(), 1u);
         const auto& material = submission.sceneWorld->materials().front();
         EXPECT_EQ(material.desc.resourceKey, stableKey);
-        EXPECT_NE(material.handle.generation, previousHandleGeneration);
-        previousHandleGeneration = material.handle.generation;
+        EXPECT_EQ(material.handle, stableHandle);
+        EXPECT_FALSE(submission.sceneSyncStats.fullRebuild);
+        EXPECT_EQ(submission.sceneSyncStats.patchedObjectCount, 1u);
+        EXPECT_EQ(submission.sceneSyncStats.updatedObjectCount, 1u);
     }
+}
+
+TEST(RenderSubmissionBuilderTests, SingleTransformPatchesOneObjectAndPreservesAllStableIds) {
+    asset::AssetLibrary assets;
+    auto* meshAsset = assets.create<asset::MeshAsset>("SharedMesh");
+    meshAsset->addPrimitive(makeSurfaceMesh());
+
+    scene::Scene sourceScene;
+    std::vector<scene::EntityId> entities;
+    for (size_t index = 0; index < 128u; ++index) {
+        const scene::EntityId entity = sourceScene.createEntity("Entity");
+        ASSERT_TRUE(sourceScene.setGeometry(entity, meshAsset->id()));
+        entities.push_back(entity);
+    }
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_TRUE(first.sceneWorld);
+    ASSERT_EQ(first.sceneWorld->objects().size(), entities.size());
+
+    std::unordered_map<uint32_t, engine::RenderObjectId> stableIds;
+    for (const auto& object : first.sceneWorld->objects()) {
+        stableIds.emplace(object.desc.pickId.value, object.id);
+    }
+    const math::Point3 originalFirstPosition =
+            math::Point3::origin().transformedBy(first.sceneWorld->objects().front().desc.worldTransform);
+
+    ASSERT_TRUE(sourceScene.setWorldTransform(entities[73], math::Mat4::translate(math::Vec3(9.0, 2.0, 0.0))));
+    renderScene.sync(sourceScene, assets);
+    const RenderSubmission patched = builder.build(view);
+    ASSERT_TRUE(patched.sceneWorld);
+    EXPECT_FALSE(patched.sceneSyncStats.fullRebuild);
+    EXPECT_EQ(patched.sceneSyncStats.patchedObjectCount, 1u);
+    EXPECT_EQ(patched.sceneSyncStats.updatedObjectCount, 1u);
+    EXPECT_EQ(patched.sceneWorld->objects().size(), entities.size());
+    for (const auto& object : patched.sceneWorld->objects()) {
+        EXPECT_EQ(object.id, stableIds.at(object.desc.pickId.value));
+    }
+    // 新快照由 COW 存储生成，旧快照必须继续保持原值。
+    EXPECT_EQ(math::Point3::origin().transformedBy(first.sceneWorld->objects().front().desc.worldTransform),
+              originalFirstPosition);
+}
+
+TEST(RenderSubmissionBuilderTests, RemoveAndAddKeepUnrelatedObjectIdsStable) {
+    asset::AssetLibrary assets;
+    auto* meshAsset = assets.create<asset::MeshAsset>("SharedMesh");
+    meshAsset->addPrimitive(makeSurfaceMesh());
+    scene::Scene sourceScene;
+    const scene::EntityId firstEntity = sourceScene.createEntity("First");
+    const scene::EntityId removedEntity = sourceScene.createEntity("Removed");
+    ASSERT_TRUE(sourceScene.setGeometry(firstEntity, meshAsset->id()));
+    ASSERT_TRUE(sourceScene.setGeometry(removedEntity, meshAsset->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    const engine::PickId firstPick = renderScene.proxy(firstEntity)->pickId;
+    const auto firstRecord = std::ranges::find_if(first.sceneWorld->objects(),
+                                                  [&](const auto& object) { return object.desc.pickId == firstPick; });
+    ASSERT_NE(firstRecord, first.sceneWorld->objects().end());
+    const engine::RenderObjectId stableId = firstRecord->id;
+
+    sourceScene.destroyEntity(removedEntity);
+    const scene::EntityId addedEntity = sourceScene.createEntity("Added");
+    ASSERT_TRUE(sourceScene.setGeometry(addedEntity, meshAsset->id()));
+    renderScene.sync(sourceScene, assets);
+    const RenderSubmission patched = builder.build(view);
+    ASSERT_TRUE(patched.sceneWorld);
+    EXPECT_EQ(patched.sceneSyncStats.patchedObjectCount, 2u);
+    EXPECT_EQ(patched.sceneSyncStats.removedObjectCount, 1u);
+    EXPECT_EQ(patched.sceneSyncStats.addedObjectCount, 1u);
+    const auto stableRecord = std::ranges::find_if(patched.sceneWorld->objects(),
+                                                   [&](const auto& object) { return object.desc.pickId == firstPick; });
+    ASSERT_NE(stableRecord, patched.sceneWorld->objects().end());
+    EXPECT_EQ(stableRecord->id, stableId);
+}
+
+TEST(RenderSubmissionBuilderTests, VisibilityUsesAnObjectPatchWithoutChangingIdentity) {
+    asset::AssetLibrary assets;
+    auto* meshAsset = assets.create<asset::MeshAsset>("Mesh");
+    meshAsset->addPrimitive(makeSurfaceMesh());
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("Entity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, meshAsset->id()));
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_EQ(first.sceneWorld->objects().size(), 1u);
+    const engine::RenderObjectId stableId = first.sceneWorld->objects().front().id;
+
+    ASSERT_TRUE(sourceScene.setVisible(entity, false));
+    renderScene.sync(sourceScene, assets);
+    const RenderSubmission hidden = builder.build(view);
+    ASSERT_EQ(hidden.sceneWorld->objects().size(), 1u);
+    EXPECT_EQ(hidden.sceneWorld->objects().front().id, stableId);
+    EXPECT_FALSE(hidden.sceneWorld->objects().front().desc.visible);
+    EXPECT_EQ(hidden.sceneSyncStats.updatedObjectCount, 1u);
+    EXPECT_EQ(hidden.sceneSyncStats.removedObjectCount, 0u);
+}
+
+TEST(RenderSubmissionBuilderTests, IncrementalProjectionMatchesFreshFullProjection) {
+    asset::AssetLibrary assets;
+    auto* meshAsset = assets.create<asset::MeshAsset>("Mesh");
+    meshAsset->addPrimitive(makeSurfaceMesh());
+    scene::Scene sourceScene;
+    const scene::EntityId firstEntity = sourceScene.createEntity("First");
+    const scene::EntityId secondEntity = sourceScene.createEntity("Second");
+    ASSERT_TRUE(sourceScene.setGeometry(firstEntity, meshAsset->id()));
+    ASSERT_TRUE(sourceScene.setGeometry(secondEntity, meshAsset->id()));
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder incrementalBuilder;
+    incrementalBuilder.setScene(&renderScene, &assets);
+    const ViewState view;
+    ASSERT_TRUE(incrementalBuilder.build(view).sceneWorld);
+
+    ASSERT_TRUE(sourceScene.setWorldTransform(secondEntity, math::Mat4::translate(math::Vec3(4.0, 5.0, 0.0))));
+    renderScene.sync(sourceScene, assets);
+    const RenderSubmission incremental = incrementalBuilder.build(view);
+    RenderSubmissionBuilder fullBuilder;
+    fullBuilder.setScene(&renderScene, &assets);
+    const RenderSubmission full = fullBuilder.build(view);
+    ASSERT_TRUE(incremental.sceneWorld);
+    ASSERT_TRUE(full.sceneWorld);
+    ASSERT_EQ(incremental.sceneWorld->objects().size(), full.sceneWorld->objects().size());
+    for (const auto& incrementalObject : incremental.sceneWorld->objects()) {
+        const auto fullObject = std::ranges::find_if(full.sceneWorld->objects(), [&](const auto& candidate) {
+            return candidate.desc.pickId == incrementalObject.desc.pickId;
+        });
+        ASSERT_NE(fullObject, full.sceneWorld->objects().end());
+        EXPECT_EQ(math::Point3::origin().transformedBy(incrementalObject.desc.worldTransform),
+                  math::Point3::origin().transformedBy(fullObject->desc.worldTransform));
+        ASSERT_EQ(incrementalObject.desc.drawables.size(), fullObject->desc.drawables.size());
+        for (size_t drawable = 0; drawable < incrementalObject.desc.drawables.size(); ++drawable) {
+            const auto* incrementalGeometry =
+                    incremental.sceneWorld->geometry(incrementalObject.desc.drawables[drawable].geometry);
+            const auto* fullGeometry = full.sceneWorld->geometry(fullObject->desc.drawables[drawable].geometry);
+            ASSERT_NE(incrementalGeometry, nullptr);
+            ASSERT_NE(fullGeometry, nullptr);
+            EXPECT_EQ(incrementalGeometry->desc.resourceKey, fullGeometry->desc.resourceKey);
+        }
+    }
+}
+
+TEST(RenderSubmissionBuilderTests, ProjectionJournalOverflowRecoversWithFullResync) {
+    asset::AssetLibrary assets;
+    auto* meshAsset = assets.create<asset::MeshAsset>("Mesh");
+    meshAsset->addPrimitive(makeSurfaceMesh());
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("Entity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, meshAsset->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+    const ViewState view;
+    ASSERT_TRUE(builder.build(view).sceneWorld);
+
+    for (size_t revision = 0; revision < 4100u; ++revision) {
+        ASSERT_TRUE(sourceScene.setWorldTransform(
+                entity, math::Mat4::translate(math::Vec3(static_cast<double>(revision + 1u), 0.0, 0.0))));
+        renderScene.sync(sourceScene, assets);
+    }
+    const RenderSubmission recovered = builder.build(view);
+    ASSERT_TRUE(recovered.sceneWorld);
+    EXPECT_TRUE(recovered.sceneSyncStats.fullRebuild);
+    EXPECT_EQ(recovered.sceneSyncStats.patchedObjectCount, 1u);
+    ASSERT_EQ(recovered.sceneWorld->objects().size(), 1u);
+    EXPECT_EQ(math::Point3::origin().transformedBy(recovered.sceneWorld->objects().front().desc.worldTransform),
+              math::Point3(4100.0, 0.0, 0.0));
 }
 
 TEST(RenderSubmissionBuilderTests, SelectionChangesOnlyViewVisualState) {

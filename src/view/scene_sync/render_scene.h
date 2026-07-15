@@ -14,6 +14,7 @@
 #include <mulan/scene/scene_change.h>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -44,6 +45,33 @@ struct PickQueryStats {
     size_t leafBoundsTestCount = 0;  ///< BVH 叶条目 AABB 测试次数。
     size_t candidateProxyCount = 0;  ///< 宽阶段输出的代理数量（含 fallback）。
     size_t exactAssetTestCount = 0;  ///< 实际进入资产级精确拾取的代理数量。
+};
+
+/// RenderScene 派生对象 journal 的独立消费者游标。
+struct RenderSceneChangeCursor {
+    uint64_t domain = 0;
+    uint64_t revision = 0;
+};
+
+enum class RenderSceneChangeStatus : uint8_t {
+    UpToDate,
+    Changes,
+    FullResyncRequired,
+};
+
+struct RenderSceneChange {
+    uint64_t revision = 0;
+    scene::EntityId entity;
+};
+
+struct RenderSceneChangeSet {
+    RenderSceneChangeStatus status = RenderSceneChangeStatus::UpToDate;
+    uint64_t domain = 0;
+    uint64_t toRevision = 0;
+    std::vector<RenderSceneChange> changes;
+
+    bool requiresFullResync() const { return status == RenderSceneChangeStatus::FullResyncRequired; }
+    RenderSceneChangeCursor cursorAfterApply() const { return { domain, toRevision }; }
 };
 
 class RenderScene {
@@ -132,6 +160,10 @@ public:
     const math::Sphere3& sceneBoundsSphere() const { return scene_bounds_sphere_; }
     const std::vector<engine::Light>& lights() const { return lights_; }
 
+    /// 非破坏读取 SceneProxy 投影变化；每个 RenderWorldSync 持有自己的游标。
+    RenderSceneChangeSet readChanges(const RenderSceneChangeCursor& cursor) const;
+    RenderSceneChangeCursor currentChangeCursor() const { return { change_domain_, change_revision_ }; }
+
     template <typename Func>
     void forEachProxy(Func&& fn) const {
         for (const auto& [id, proxy] : proxies_)
@@ -143,6 +175,8 @@ private:
 
     void rebuildSpatialIndex();
     engine::PickId pickIdForEntity(scene::EntityId entity);
+    void resetChangeJournal();
+    void appendChanges(const std::unordered_set<scene::EntityId>& entities);
 
     SyncStats last_sync_stats_;
     math::AABB3 scene_bounds_;
@@ -161,6 +195,9 @@ private:
     uint64_t next_pick_id_ = 1;
     uint64_t generation_ = 1;
     uint64_t geometry_generation_ = 1;
+    std::deque<RenderSceneChange> change_journal_;
+    uint64_t change_domain_ = 0;
+    uint64_t change_revision_ = 0;
     bool initialized_ = false;  // 首次 sync 全量，之后增量
 };
 

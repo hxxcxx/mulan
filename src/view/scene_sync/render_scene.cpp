@@ -13,6 +13,7 @@
 #include <mulan/scene/entity_dirty.h>
 #include <mulan/scene/scene.h>
 
+#include <atomic>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -23,6 +24,15 @@
 namespace mulan::view {
 
 namespace {
+
+uint64_t allocateRenderSceneChangeDomain() {
+    static std::atomic<uint64_t> next{ 1 };
+    uint64_t domain = next.fetch_add(1, std::memory_order_relaxed);
+    if (domain == 0) {
+        domain = next.fetch_add(1, std::memory_order_relaxed);
+    }
+    return domain;
+}
 
 template <typename... T>
 struct Overloaded : T... {
@@ -148,7 +158,8 @@ private:
 
 }  // namespace
 
-RenderScene::RenderScene() : spatial_index_(std::make_unique<detail::SceneSpatialIndex>()) {
+RenderScene::RenderScene()
+    : spatial_index_(std::make_unique<detail::SceneSpatialIndex>()), change_domain_(allocateRenderSceneChangeDomain()) {
 }
 
 RenderScene::~RenderScene() = default;
@@ -223,6 +234,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         initialized_ = true;
         ++generation_;
         ++geometry_generation_;
+        resetChangeJournal();
     };
 
     if (!initialized_) {
@@ -252,6 +264,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
     bool geometryChanged = false;
     bool spatialChanged = false;
     bool lightChanged = false;
+    std::unordered_set<scene::EntityId> changedEntities;
 
     const scene::EntityDirty lightChangeMask = scene::EntityDirty::Created | scene::EntityDirty::Destroyed |
                                                scene::EntityDirty::Transform | scene::EntityDirty::Light;
@@ -283,6 +296,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
             changed = true;
             geometryChanged = true;
             spatialChanged = true;
+            changedEntities.insert(id);
         }
     }
 
@@ -311,6 +325,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
                 changed = true;
                 geometryChanged = true;
                 spatialChanged = true;
+                changedEntities.insert(id);
             }
             continue;
         }
@@ -330,6 +345,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         spatialChanged = spatialChanged || proxySpatialChanged;
         geometry_asset_revisions_[id] = currentRevision;
         proxies_[id] = std::move(*proxy);
+        changedEntities.insert(id);
     }
 
     // Scene journal 记录实体关系；资产对象内部的原地修改由逐资产 revision 补齐。
@@ -365,6 +381,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         }
         changed = true;
         geometryChanged = true;
+        changedEntities.insert(id);
     }
 
     // 仅空间内容变化时重算全局 bounds/BVH。Selection、Material 等非空间修改
@@ -393,6 +410,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
     if (geometryChanged) {
         ++geometry_generation_;
     }
+    appendChanges(changedEntities);
     // 只有上述投影更新全部成功后才确认 journal 进度；若中途抛出，下一次 sync
     // 仍会从旧 cursor 重放，避免“游标已前进、派生状态未更新”的永久漏变更。
     scene_change_cursor_ = changeSet.cursorAfterApply();
@@ -417,6 +435,60 @@ void RenderScene::clear() {
     initialized_ = false;
     ++generation_;
     ++geometry_generation_;
+    resetChangeJournal();
+}
+
+void RenderScene::resetChangeJournal() {
+    change_journal_.clear();
+    change_domain_ = allocateRenderSceneChangeDomain();
+    change_revision_ = 1;
+}
+
+void RenderScene::appendChanges(const std::unordered_set<scene::EntityId>& entities) {
+    if (entities.empty()) {
+        return;
+    }
+    ++change_revision_;
+    if (change_revision_ == 0) {
+        resetChangeJournal();
+        return;
+    }
+    constexpr size_t MaxJournalEntries = 4096;
+    for (scene::EntityId entity : entities) {
+        change_journal_.push_back(RenderSceneChange{ change_revision_, entity });
+    }
+    while (change_journal_.size() > MaxJournalEntries) {
+        // revision 是一次 RenderScene 同步的原子批次；容量不足时必须整批丢弃，
+        // 否则消费者可能只读到同一 revision 的后半段而无法发现漏变更。
+        const uint64_t discardedRevision = change_journal_.front().revision;
+        while (!change_journal_.empty() && change_journal_.front().revision == discardedRevision) {
+            change_journal_.pop_front();
+        }
+    }
+}
+
+RenderSceneChangeSet RenderScene::readChanges(const RenderSceneChangeCursor& cursor) const {
+    RenderSceneChangeSet result;
+    result.domain = change_domain_;
+    result.toRevision = change_revision_;
+    if (cursor.domain != change_domain_ || cursor.revision > change_revision_) {
+        result.status = RenderSceneChangeStatus::FullResyncRequired;
+        return result;
+    }
+    if (cursor.revision == change_revision_) {
+        return result;
+    }
+    if (change_journal_.empty() || cursor.revision < change_journal_.front().revision - 1) {
+        result.status = RenderSceneChangeStatus::FullResyncRequired;
+        return result;
+    }
+    result.status = RenderSceneChangeStatus::Changes;
+    for (const RenderSceneChange& change : change_journal_) {
+        if (change.revision > cursor.revision) {
+            result.changes.push_back(change);
+        }
+    }
+    return result;
 }
 
 const SceneProxy* RenderScene::proxy(scene::EntityId id) const {

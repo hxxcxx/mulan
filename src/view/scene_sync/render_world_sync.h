@@ -16,6 +16,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <unordered_map>
 
 namespace mulan::asset {
@@ -30,6 +31,11 @@ class PreviewLayer;
 namespace mulan::view {
 
 struct RenderWorldSyncStats {
+    bool fullRebuild = false;
+    size_t patchedObjectCount = 0;
+    size_t addedObjectCount = 0;
+    size_t updatedObjectCount = 0;
+    size_t removedObjectCount = 0;
     size_t sceneProxyCount = 0;
     size_t missingGeometryAssetCount = 0;
     size_t sceneObjectCount = 0;
@@ -45,6 +51,12 @@ struct RenderWorldSyncStats {
 
 class RenderWorldSync {
 public:
+    RenderWorldSync();
+    ~RenderWorldSync();
+
+    RenderWorldSync(const RenderWorldSync&) = delete;
+    RenderWorldSync& operator=(const RenderWorldSync&) = delete;
+
     /// 重建稳定文档场景，不包含工具预览和选择视觉状态。
     void rebuildScene(const RenderScene& scene, const asset::AssetLibrary& assets, engine::RenderWorld& world,
                       engine::RenderResourcePrepareList* prepare = nullptr);
@@ -72,6 +84,8 @@ public:
     void clearStats() { last_stats_.reset(); }
 
 private:
+    struct SceneState;
+
     RenderWorldSyncStats last_stats_;
     // [0]=内容域（0=资产，非 0=预览换源世代），[1]=源版本，[2..3]=mesh 内容指纹。
     std::unordered_map<engine::AssetGpuKey, std::array<uint64_t, 4>> geometry_revisions_;
@@ -80,6 +94,7 @@ private:
     std::unordered_map<asset::AssetId, uint64_t> referenced_asset_revisions_;
     uint64_t preview_source_revision_ = 1;
     bool force_full_prepare_ = true;
+    std::unique_ptr<SceneState> scene_state_;
 };
 
 }  // namespace mulan::view

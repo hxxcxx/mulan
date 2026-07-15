@@ -552,87 +552,285 @@ void buildTextureResourceDelta(const TextureResourceCandidateMap& current, Textu
 
 }  // namespace
 
+struct RenderWorldSync::SceneState {
+    struct GeometryEntry {
+        engine::GeometryHandle handle;
+        engine::RenderGeometryDesc desc;
+        GeometryResourceCandidate resource;
+        size_t referenceCount = 0;
+    };
+
+    struct MaterialEntry {
+        engine::RenderMaterialHandle handle;
+        engine::RenderMaterialDesc desc;
+        size_t referenceCount = 0;
+    };
+
+    struct ObjectEntry {
+        engine::RenderObjectId id;
+        std::unordered_set<uint64_t> geometryKeys;
+        std::unordered_set<uint64_t> materialKeys;
+        std::unordered_set<asset::AssetId> dependencies;
+    };
+
+    RenderSceneChangeCursor cursor;
+    std::unordered_map<scene::EntityId, ObjectEntry> objects;
+    std::unordered_map<uint64_t, GeometryEntry> geometries;
+    std::unordered_map<uint64_t, MaterialEntry> materials;
+    std::unordered_map<asset::AssetId, std::unordered_set<scene::EntityId>> assetUsers;
+};
+
+RenderWorldSync::RenderWorldSync() : scene_state_(std::make_unique<SceneState>()) {
+}
+
+RenderWorldSync::~RenderWorldSync() = default;
+
 void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetLibrary& assets,
                                    engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare) {
     last_stats_.reset();
-    world.clear();
     if (prepare) {
         prepare->clear();
     }
 
-    std::unordered_map<uint64_t, engine::GeometryHandle> geometryHandles;
-    std::unordered_map<uint64_t, engine::RenderMaterialHandle> materialHandles;
-    GeometryResourceCandidateMap geometryResources;
-    TextureResourceCandidateMap textureResources;
-    AssetRevisionMap referencedAssetRevisions;
-    std::vector<asset::Drawable> drawables;
-    std::vector<RenderItem> renderItems;
-    scene.forEachProxy([&](const SceneProxy& proxy) {
-        if (!proxy.visible || !proxy.geometry) {
-            return;
-        }
-        ++last_stats_.sceneProxyCount;
+    SceneState& state = *scene_state_;
+    const RenderSceneChangeSet changes = scene.readChanges(state.cursor);
+    const bool fullRebuild = changes.requiresFullResync();
+    last_stats_.fullRebuild = fullRebuild;
+    if (fullRebuild) {
+        world.clear();
+        state = {};
+    }
 
-        const auto* asset = assets.asset(proxy.geometry);
-        const auto* geometry = dynamic_cast<const asset::GeometryAsset*>(asset);
+    struct PendingDrawable {
+        uint64_t geometryKey = 0;
+        uint64_t materialKey = 0;
+        engine::RenderBucket bucket = engine::RenderBucket::Surface;
+        size_t sourceDrawableIndex = 0;
+    };
+    struct PendingProjection {
+        engine::RenderObjectDesc object;
+        std::vector<PendingDrawable> drawables;
+        std::unordered_map<uint64_t, engine::RenderGeometryDesc> geometries;
+        std::unordered_map<uint64_t, GeometryResourceCandidate> geometryResources;
+        std::unordered_map<uint64_t, engine::RenderMaterialDesc> materials;
+        std::unordered_set<asset::AssetId> dependencies;
+    };
+
+    auto removeDependencyLinks = [&](scene::EntityId entity, const SceneState::ObjectEntry& entry) {
+        for (asset::AssetId dependency : entry.dependencies) {
+            auto users = state.assetUsers.find(dependency);
+            if (users == state.assetUsers.end()) {
+                continue;
+            }
+            users->second.erase(entity);
+            if (users->second.empty()) {
+                state.assetUsers.erase(users);
+            }
+        }
+    };
+
+    auto removeProjection = [&](scene::EntityId entity, SceneState::ObjectEntry& entry) {
+        world.removeObject(entry.id);
+        ++last_stats_.removedObjectCount;
+        for (uint64_t key : entry.geometryKeys) {
+            auto resource = state.geometries.find(key);
+            if (resource != state.geometries.end() && --resource->second.referenceCount == 0) {
+                world.removeGeometry(resource->second.handle);
+                state.geometries.erase(resource);
+            }
+        }
+        for (uint64_t key : entry.materialKeys) {
+            auto material = state.materials.find(key);
+            if (material != state.materials.end() && --material->second.referenceCount == 0) {
+                world.removeMaterial(material->second.handle);
+                state.materials.erase(material);
+            }
+        }
+        removeDependencyLinks(entity, entry);
+    };
+
+    auto patchEntity = [&](scene::EntityId entity) {
+        ++last_stats_.patchedObjectCount;
+        auto previous = state.objects.find(entity);
+        const SceneProxy* proxy = scene.proxy(entity);
+        const auto* geometry = proxy && proxy->geometry
+                                       ? dynamic_cast<const asset::GeometryAsset*>(assets.asset(proxy->geometry))
+                                       : nullptr;
         if (!geometry) {
-            ++last_stats_.missingGeometryAssetCount;
+            if (previous != state.objects.end()) {
+                removeProjection(entity, previous->second);
+                state.objects.erase(previous);
+            }
             return;
         }
-        observeAsset(geometry, referencedAssetRevisions);
 
-        drawables.clear();
+        PendingProjection pending;
+        pending.object.pickId = proxy->pickId;
+        pending.object.worldTransform = proxy->worldTransform;
+        pending.object.worldBounds = proxy->worldBounds;
+        pending.object.visible = proxy->visible;
+        pending.object.selected = false;
+        pending.dependencies.insert(geometry->id());
+
+        std::vector<asset::Drawable> drawables;
+        std::vector<RenderItem> renderItems;
         geometry->collectDrawables(drawables);
         RenderItemDiagnostics diagnostics;
-        RenderItemBuilder::buildSceneItems(proxy.geometry,
+        RenderItemBuilder::buildSceneItems(proxy->geometry,
                                            std::span<const asset::Drawable>{ drawables.data(), drawables.size() },
                                            renderItems, &diagnostics);
         accumulate(last_stats_.sceneItems, diagnostics);
-
-        engine::RenderObjectDesc object;
-        object.pickId = proxy.pickId;
-        object.worldTransform = proxy.worldTransform;
-        object.worldBounds = proxy.worldBounds;
-        object.visible = proxy.visible;
-        // 选择高亮以 ViewState::selectionVisuals 为唯一渲染输入，不能污染稳定 SceneWorld。
-        object.selected = false;
-
         for (const RenderItem& item : renderItems) {
             const graphics::Mesh& mesh = *item.mesh;
-
-            const uint64_t geometryKey = item.geometryKey;
-            auto geometryIt = geometryHandles.find(geometryKey);
-            if (geometryIt == geometryHandles.end()) {
-                engine::RenderGeometryDesc geometryDesc;
-                geometryDesc.resourceKey = engine::makeAssetGpuKey(geometryKey);  // 资产身份 key，跨帧稳定
-                geometryDesc.topology = mesh.topology;                            // 冗余标量，避免渲染端解引用
-                geometryDesc.vertexLayout = mesh.layout;
-                geometryDesc.empty = mesh.empty();
-                collectGeometryResource(geometryResources, geometryDesc.resourceKey, mesh, 0, geometry->revision());
-                geometryIt = geometryHandles.emplace(geometryKey, world.addGeometry(std::move(geometryDesc))).first;
-            }
+            engine::RenderGeometryDesc geometryDesc;
+            geometryDesc.resourceKey = engine::makeAssetGpuKey(item.geometryKey);
+            geometryDesc.topology = mesh.topology;
+            geometryDesc.vertexLayout = mesh.layout;
+            geometryDesc.empty = mesh.empty();
+            pending.geometries.insert_or_assign(item.geometryKey, geometryDesc);
+            pending.geometryResources.insert_or_assign(
+                    item.geometryKey, GeometryResourceCandidate{ .mesh = &mesh,
+                                                                 .contentDomain = 0,
+                                                                 .sourceRevision = geometry->revision() });
 
             const uint64_t materialKey = item.material.value;
-            auto materialIt = materialHandles.find(materialKey);
-            if (materialIt == materialHandles.end()) {
-                engine::RenderMaterialDesc desc = materialDesc(assets, item.material, referencedAssetRevisions);
-                collectMaterialTextureResources(textureResources, desc);
-                materialIt = materialHandles.emplace(materialKey, world.addMaterial(std::move(desc))).first;
+            if (!pending.materials.contains(materialKey)) {
+                AssetRevisionMap materialDependencies;
+                engine::RenderMaterialDesc desc = materialDesc(assets, item.material, materialDependencies);
+                for (const auto& [id, revision] : materialDependencies) {
+                    (void) revision;
+                    pending.dependencies.insert(id);
+                }
+                pending.materials.emplace(materialKey, std::move(desc));
             }
+            pending.drawables.push_back(
+                    PendingDrawable{ item.geometryKey, materialKey, item.bucket, item.sourceDrawableIndex });
+        }
 
-            object.drawables.push_back(engine::RenderObjectDrawable{
-                    .geometry = geometryIt->second,
-                    .material = materialIt->second,
-                    .bucket = item.bucket,
-                    .sourceDrawableIndex = item.sourceDrawableIndex,
+        if (pending.drawables.empty()) {
+            if (previous != state.objects.end()) {
+                removeProjection(entity, previous->second);
+                state.objects.erase(previous);
+            }
+            return;
+        }
+
+        SceneState::ObjectEntry nextEntry;
+        if (previous != state.objects.end()) {
+            nextEntry.id = previous->second.id;
+        }
+        for (const auto& [key, desc] : pending.geometries) {
+            nextEntry.geometryKeys.insert(key);
+            auto known = state.geometries.find(key);
+            if (known == state.geometries.end()) {
+                const engine::GeometryHandle handle = world.addGeometry(desc);
+                state.geometries.emplace(
+                        key, SceneState::GeometryEntry{ handle, desc, pending.geometryResources.at(key), 1 });
+            } else {
+                known->second.desc = desc;
+                known->second.resource = pending.geometryResources.at(key);
+                world.updateGeometry(known->second.handle, desc);
+                if (previous == state.objects.end() || !previous->second.geometryKeys.contains(key)) {
+                    ++known->second.referenceCount;
+                }
+            }
+        }
+        for (const auto& [key, desc] : pending.materials) {
+            nextEntry.materialKeys.insert(key);
+            auto known = state.materials.find(key);
+            if (known == state.materials.end()) {
+                const engine::RenderMaterialHandle handle = world.addMaterial(desc);
+                state.materials.emplace(key, SceneState::MaterialEntry{ handle, desc, 1 });
+            } else {
+                known->second.desc = desc;
+                world.updateMaterial(known->second.handle, desc);
+                if (previous == state.objects.end() || !previous->second.materialKeys.contains(key)) {
+                    ++known->second.referenceCount;
+                }
+            }
+        }
+
+        if (previous != state.objects.end()) {
+            for (uint64_t key : previous->second.geometryKeys) {
+                if (nextEntry.geometryKeys.contains(key)) {
+                    continue;
+                }
+                auto resource = state.geometries.find(key);
+                if (resource != state.geometries.end() && --resource->second.referenceCount == 0) {
+                    world.removeGeometry(resource->second.handle);
+                    state.geometries.erase(resource);
+                }
+            }
+            for (uint64_t key : previous->second.materialKeys) {
+                if (nextEntry.materialKeys.contains(key)) {
+                    continue;
+                }
+                auto material = state.materials.find(key);
+                if (material != state.materials.end() && --material->second.referenceCount == 0) {
+                    world.removeMaterial(material->second.handle);
+                    state.materials.erase(material);
+                }
+            }
+            removeDependencyLinks(entity, previous->second);
+        }
+        nextEntry.dependencies = std::move(pending.dependencies);
+        for (asset::AssetId dependency : nextEntry.dependencies) {
+            state.assetUsers[dependency].insert(entity);
+        }
+        for (const PendingDrawable& drawable : pending.drawables) {
+            pending.object.drawables.push_back(engine::RenderObjectDrawable{
+                    .geometry = state.geometries.at(drawable.geometryKey).handle,
+                    .material = state.materials.at(drawable.materialKey).handle,
+                    .bucket = drawable.bucket,
+                    .sourceDrawableIndex = drawable.sourceDrawableIndex,
             });
         }
-
-        if (!object.drawables.empty()) {
-            world.addObject(std::move(object));
-            ++last_stats_.sceneObjectCount;
+        if (previous == state.objects.end()) {
+            nextEntry.id = world.addObject(std::move(pending.object));
+            state.objects.emplace(entity, std::move(nextEntry));
+            ++last_stats_.addedObjectCount;
+        } else {
+            world.updateObject(nextEntry.id, std::move(pending.object));
+            previous->second = std::move(nextEntry);
+            ++last_stats_.updatedObjectCount;
         }
-    });
+    };
+
+    std::unordered_set<scene::EntityId> entitiesToPatch;
+    if (fullRebuild) {
+        scene.forEachProxy([&](const SceneProxy& proxy) { entitiesToPatch.insert(proxy.entity); });
+    } else {
+        for (const RenderSceneChange& change : changes.changes) {
+            entitiesToPatch.insert(change.entity);
+        }
+        for (const auto& [assetId, revision] : referenced_asset_revisions_) {
+            const asset::Asset* current = assets.asset(assetId);
+            if (current && current->revision() == revision) {
+                continue;
+            }
+            if (const auto users = state.assetUsers.find(assetId); users != state.assetUsers.end()) {
+                entitiesToPatch.insert(users->second.begin(), users->second.end());
+            }
+        }
+    }
+    for (scene::EntityId entity : entitiesToPatch) {
+        patchEntity(entity);
+    }
+
+    GeometryResourceCandidateMap geometryResources;
+    for (const auto& [key, entry] : state.geometries) {
+        geometryResources.emplace(engine::makeAssetGpuKey(key), entry.resource);
+    }
+    TextureResourceCandidateMap textureResources;
+    for (const auto& [key, entry] : state.materials) {
+        (void) key;
+        collectMaterialTextureResources(textureResources, entry.desc);
+    }
+    AssetRevisionMap referencedAssetRevisions;
+    for (const auto& [assetId, users] : state.assetUsers) {
+        (void) users;
+        observeAsset(assets.asset(assetId), referencedAssetRevisions);
+    }
 
     const bool forceFullPrepare = force_full_prepare_;
     buildGeometryResourceDelta(geometryResources, geometry_revisions_, forceFullPrepare, prepare);
@@ -641,6 +839,10 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
         force_full_prepare_ = false;
     }
     referenced_asset_revisions_ = std::move(referencedAssetRevisions);
+    state.cursor = scene.currentChangeCursor();
+    last_stats_.sceneProxyCount = scene.proxyCount();
+    last_stats_.missingGeometryAssetCount = scene.lastSyncStats().missingGeometryCount;
+    last_stats_.sceneObjectCount = state.objects.size();
     last_stats_.worldObjectCount = world.objectCount();
     last_stats_.worldGeometryCount = world.geometryCount();
     last_stats_.worldMaterialCount = world.materialCount();
@@ -686,6 +888,7 @@ void RenderWorldSync::rebuildEmpty(engine::RenderWorld& world, engine::RenderRes
         force_full_prepare_ = false;
     }
     referenced_asset_revisions_.clear();
+    *scene_state_ = {};
 }
 
 bool RenderWorldSync::referencedAssetsChanged(const asset::AssetLibrary& assets) const {
@@ -708,6 +911,7 @@ void RenderWorldSync::reset() {
     referenced_asset_revisions_.clear();
     preview_source_revision_ = 1;
     force_full_prepare_ = true;
+    *scene_state_ = {};
 }
 
 void RenderWorldSync::invalidatePreviewResources() {
