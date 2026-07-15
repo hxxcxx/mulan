@@ -301,6 +301,158 @@ flowchart TD
 
 固定的 `Workload → Compiler → Stage` 管线完全可以继续使用。当前最需要的不是更多抽象，而是把变化频率、状态所有权和资源作用域对齐。
 
+## 专题说明：渲染执行域的作用域为什么不统一
+
+### 什么是渲染执行域
+
+渲染执行域不是单指“渲染线程”。它表示一组必须共同遵守以下规则的对象：
+
+- 由谁串行调度；
+- 在哪个线程或上下文访问；
+- 使用哪一条 GPU 提交时间线；
+- 资源上传和普通帧如何排序；
+- DeviceLost 时哪些对象一起失效；
+- 重建时哪些资源必须重新准备；
+- 销毁时依据哪一个 submission token 延迟退役。
+
+一个完整的执行域通常包括：
+
+- Device、Queue 或 immediate context；
+- 渲染调度器；
+- Pipeline cache；
+- 默认纹理、采样器和字体资源；
+- GPU 资产注册表；
+- 延迟销毁队列；
+- 若干 Surface mailbox。
+
+### 当前代码中的三个不同作用域
+
+当前实现同时存在三套边界：
+
+1. **视图级执行边界**
+   - 每个 `DocumentView` 创建自己的 `RenderSession`；
+   - 每个线程模式 Session 创建自己的 `RenderWorker`；
+   - 每个 Worker 独占一个 `RenderExecutor`；
+   - 每个 Executor 独占一个 `RenderRenderer`；
+   - Renderer 内部独占 GPU registry、材质缓存、管线、默认纹理、字体和 IBL。
+
+2. **设备级提交边界**
+   - Vulkan、DX11、DX12 的不同 Executor 可以共享同一个 `RenderDeviceContext`；
+   - Context 内只有一份 `RHIDevice`；
+   - 所有 Executor 最终通过同一把 `device_mutex_` 访问 Device。
+
+3. **文档资产边界**
+   - `AssetGpuKey` 只保证在当前文档/资产库语境内有效；
+   - 文档切换时由某个视图的 Session 清空其 Renderer 内的 GPU 资产缓存；
+   - 同一个文档如果以后出现多个视图，每个视图仍会各自上传一份相同资产。
+
+也就是说：线程、Renderer 和资源缓存按视图划分，但真正的 GPU 提交和故障域却按 Device 划分；资源身份又按文档划分。这就是“作用域不统一”。
+
+### 两个文档时的实际结构
+
+```mermaid
+flowchart TD
+    A["Document/View A"] --> WA["Worker A"]
+    WA --> RA["Renderer A<br/>Registry A / PSO A / Default Resources A"]
+
+    B["Document/View B"] --> WB["Worker B"]
+    WB --> RB["Renderer B<br/>Registry B / PSO B / Default Resources B"]
+
+    RA --> M["共享 Device Mutex"]
+    RB --> M
+    M --> D["同一个 RHIDevice / GPU Timeline"]
+```
+
+Worker A 和 Worker B 看起来是两个独立渲染线程，但它们一旦进入真正的 RHI/GPU 操作，就必须竞争同一把 Device 锁。因此它们不能同时执行 GPU 工作，只是拥有了两个生产者线程和两套资源状态。
+
+### 当前为什么仍然是安全的
+
+当前实现并没有因此形成直接竞态：
+
+- Device mutex 串行化了共享 Device 的访问；
+- 每个 Renderer 使用独立 registry，避免了不同文档原始 AssetId 的碰撞；
+- 每个 Worker 内部仍然维持可靠资源队列和 latest-frame 语义；
+- Session 关闭时只销毁自己拥有的 Renderer 和 Surface。
+
+所以这个问题不要求立即重写。它是工业化扩展问题，而不是当前运行路径上的崩溃隐患。
+
+### 扩展后会出现什么代价
+
+1. **线程数量随视图数量增长**
+
+   打开 N 个文档会产生 N 个 Worker。它们多数时间等待，但仍增加生命周期、关闭顺序和故障处理复杂度。
+
+2. **设备级资源重复创建**
+
+   每个 Renderer 都可能创建一套相同 Shader、PSO、默认纹理、采样器、字体 atlas 和 IBL 结果。文档越多，重复 GPU 内存越明显。
+
+3. **同一文档多视图无法共享 GPU 资产**
+
+   如果以后给一个文档创建两个视口，两边会分别上传完全相同的几何和贴图。
+
+4. **调度没有全局公平性**
+
+   不同 Worker 只是在 mutex 上竞争。设备层不知道哪个 Surface 可见、哪个是交互中的高优先级视口，也无法按 Surface 做明确的 round-robin 或优先级调度。
+
+5. **DeviceLost 的故障域和通知域不一致**
+
+   Device 是共享的，一个 Executor 将 Context 标记为失败后，其他视图只能在自己的下一次执行或健康检查中分别发现失败。缺少一次设备故障对应一次全局状态转换的协调器。
+
+6. **资源退役归属不直观**
+
+   submission token 属于共享 Device 时间线，但资源由各 Renderer 独立持有和退役。现有实现能够保证安全，却很难形成统一的显存预算、资源统计和回收策略。
+
+### 工业级目标不是“只有一个全局 Renderer”
+
+正确做法是拆分共享状态与 Surface 私有状态：
+
+**设备执行域持有：**
+
+- Device 和统一调度线程；
+- GPU 提交时间线；
+- Pipeline library；
+- 默认纹理、采样器、字体等设备级资源；
+- 带 `ResourceDomainId` 的 GPU 资产注册表；
+- 延迟退役和设备故障状态机。
+
+**每个 Surface/Viewport 持有：**
+
+- SwapChain 或 RenderTarget；
+- width、height、surface generation；
+- latest-frame mailbox；
+- ViewState；
+- 依赖目标格式和 MSAA 的少量 Surface pipeline state；
+- 截图和 resize 控制状态。
+
+```mermaid
+flowchart TD
+    A["Viewport A<br/>Surface A + Mailbox A"] --> S["GpuExecutionDomain<br/>单一调度与故障域"]
+    B["Viewport B<br/>Surface B + Mailbox B"] --> S
+    C["ResourceDomain A"] --> S
+    D["ResourceDomain B"] --> S
+    S --> R["Shared Registry / Pipeline Library / Retirement"]
+    R --> G["RHIDevice"]
+```
+
+### 不同后端的策略
+
+- **DX11**：immediate context 天然适合一个设备级串行执行线程。
+- **Vulkan / DX12**：当前 RHI 使用串行执行路径时也可以先采用一个设备级调度器；将来若需要并行命令录制，再在执行域内部扩展，不向 View 暴露多个 Worker。
+- **OpenGL**：原生上下文具有线程亲和性。在没有共享上下文资源服务前，应继续保持每上下文独立执行域，不能为了形式统一强行合并。
+
+### 这项调整的前置条件
+
+不能现在直接把 `AssetGpuRegistry` 移到 `RenderDeviceContext`，否则不同文档从相同 AssetId 开始分配时会发生资源键碰撞。
+
+正确顺序是：
+
+1. 先建立 `ResourceDomainId + RenderResourceKey`；
+2. 再区分设备共享资源和 Surface 私有资源；
+3. 然后把共享 registry、pipeline 和默认资源提升到设备执行域；
+4. 最后将每视图 Worker 收敛为每设备调度器和每 Surface mailbox。
+
+因此它属于 M4、M5，而不是当前第一步。当前应先完成 Scene/Overlay 热路径分离和文档变更闭环。
+
 ## 最终判断
 
 当前架构已经越过了“需要推倒重来”的阶段。
