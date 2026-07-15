@@ -3,7 +3,6 @@
 #include "command_history.h"
 #include "geometry_edit_service.h"
 #include "document/document_session.h"
-#include "document/document_view_binding.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/curve_asset.h>
@@ -67,15 +66,13 @@ bool containsDistinctValidEntities(const io::Document& document, const std::vect
 
 }  // namespace
 
-void DocumentOperationExecutor::bind(DocumentSession* session, DocumentViewBinding* binding) {
+void DocumentOperationExecutor::bind(DocumentSession* session) {
     session_ = session;
-    binding_ = binding;
     history_ = session_ ? &session_->commandHistory() : nullptr;
 }
 
 void DocumentOperationExecutor::unbind() {
     session_ = nullptr;
-    binding_ = nullptr;
     history_ = nullptr;
 }
 
@@ -96,7 +93,7 @@ bool DocumentOperationExecutor::execute(DocumentOperation operation) {
         // Boolean/Delete 等当前没有可靠逆操作。它们仍是成功事务，但历史不得越过该边界。
         history_->recordIrreversibleChange();
     }
-    return refreshAfterChange(true);
+    return publish(result);
 }
 
 bool DocumentOperationExecutor::undo() {
@@ -109,13 +106,14 @@ bool DocumentOperationExecutor::undo() {
         return false;
     }
 
-    if (!applyWithoutRecording(entry->undoOperation)) {
+    const ApplyResult result = apply(entry->undoOperation);
+    if (!result.changed) {
         history_->restoreUndo(std::move(*entry));
         return false;
     }
 
     history_->pushRedo(std::move(*entry));
-    return refreshAfterChange(true);
+    return publish(result);
 }
 
 bool DocumentOperationExecutor::redo() {
@@ -140,7 +138,7 @@ bool DocumentOperationExecutor::redo() {
         // 已成功重做但无法再生成逆操作时，清空过期历史，保留当前文档结果。
         history_->recordIrreversibleChange();
     }
-    return refreshAfterChange(true);
+    return publish(result);
 }
 
 void DocumentOperationExecutor::clearHistory() {
@@ -172,6 +170,7 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
                                    editor.createCurve(std::move(create.name), std::move(create.primitive));
                            result.changed = static_cast<bool>(created);
                            if (result.changed) {
+                               result.changes = DocumentChangeKind::Scene | DocumentChangeKind::Assets;
                                result.undoOperation = DocumentOperation::removeEntities({ created.entity }, true);
                            }
                        },
@@ -180,6 +179,7 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
                                    editor.createFace(std::move(create.name), std::move(create.face));
                            result.changed = static_cast<bool>(entity);
                            if (result.changed) {
+                               result.changes = DocumentChangeKind::Scene | DocumentChangeKind::Assets;
                                result.undoOperation = DocumentOperation::removeEntities({ entity }, true);
                            }
                        },
@@ -188,6 +188,7 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
                                    editor.createMesh(std::move(create.name), std::move(create.primitives));
                            result.changed = static_cast<bool>(entity);
                            if (result.changed) {
+                               result.changes = DocumentChangeKind::Scene | DocumentChangeKind::Assets;
                                result.undoOperation = DocumentOperation::removeEntities({ entity }, true);
                            }
                        },
@@ -206,12 +207,16 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
                                    editor.createBody(std::move(op.name), std::move(*shapeResult));
                            result.changed = static_cast<bool>(entity);
                            if (result.changed) {
+                               result.changes = DocumentChangeKind::Scene | DocumentChangeKind::Assets;
                                result.undoOperation = DocumentOperation::removeEntities({ entity }, true);
                            }
                        },
                        [&editor, &result](BooleanOperation& op) {
                            // Boolean 当前没有可靠逆操作；execute 会把它登记为不可逆历史边界。
                            result.changed = editor.booleanSubtract(op.target, op.tool, op.op);
+                           if (result.changed) {
+                               result.changes = DocumentChangeKind::Scene | DocumentChangeKind::Assets;
+                           }
                        },
                        [&document, &result](UpdateCurveOperation& update) {
                            GeometryEditRequest request{
@@ -225,6 +230,9 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
                            GeometryEditService service(document);
                            const GeometryEditResult edit = service.apply(std::move(request));
                            result.changed = edit.changed;
+                           if (edit.changed) {
+                               result.changes = DocumentChangeKind::Scene | DocumentChangeKind::Assets;
+                           }
                            if (edit.changed && edit.previousMutation) {
                                result.undoOperation = DocumentOperation::updateGeometry(GeometryEditRequest{
                                        .entity = update.entity,
@@ -241,6 +249,9 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
                            GeometryEditService service(document);
                            const GeometryEditResult edit = service.apply(std::move(update.request));
                            result.changed = edit.changed;
+                           if (edit.changed) {
+                               result.changes = DocumentChangeKind::Scene | DocumentChangeKind::Assets;
+                           }
                            if (edit.changed && edit.previousMutation) {
                                result.undoOperation = DocumentOperation::updateGeometry(GeometryEditRequest{
                                        .entity = entity,
@@ -279,6 +290,7 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
                                        editor.updateEntityTransform(item.entity, item.worldTransform) || result.changed;
                            }
                            if (result.changed && !previous.empty()) {
+                               result.changes = DocumentChangeKind::Scene;
                                result.undoOperation = DocumentOperation::updateEntityTransforms(std::move(previous));
                            }
                        },
@@ -322,6 +334,7 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
                            }
                            if (!created.empty()) {
                                result.changed = true;
+                               result.changes = DocumentChangeKind::Scene;
                                result.undoOperation = DocumentOperation::removeEntities(std::move(created), false);
                            }
                        },
@@ -337,6 +350,10 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
                                }
                            }
                            result.changed = true;
+                           result.changes = DocumentChangeKind::Scene;
+                           if (remove.removeGeometryAssets) {
+                               result.changes |= DocumentChangeKind::Assets;
+                           }
                        },
                },
                operation.data());
@@ -344,15 +361,11 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
     return result;
 }
 
-bool DocumentOperationExecutor::applyWithoutRecording(DocumentOperation operation) const {
-    return apply(std::move(operation)).changed;
-}
-
-bool DocumentOperationExecutor::refreshAfterChange(bool changed) const {
-    if (changed && binding_) {
-        binding_->refresh();
+bool DocumentOperationExecutor::publish(const ApplyResult& result) const {
+    if (!result.changed || !session_ || result.changes == DocumentChangeKind::None) {
+        return false;
     }
-    return changed;
+    return session_->publishChange(result.changes).valid();
 }
 
 }  // namespace mulan::editor

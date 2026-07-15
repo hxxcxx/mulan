@@ -13,20 +13,17 @@ class DocumentSession;
 
 namespace mulan::editor {
 
-class DocumentRenderBinding;
-
 class DocumentSelectionBridge {
 public:
-    void bind(DocumentSession& session, DocumentRenderBinding& renderBinding);
+    void bind(DocumentSession& session);
     void unbind();
-    bool isBound() const { return session_ && render_binding_; }
+    bool isBound() const { return session_ != nullptr; }
 
     bool selectSingle(scene::EntityId entity);
     bool clearSelection();
 
 private:
     DocumentSession* session_ = nullptr;
-    DocumentRenderBinding* render_binding_ = nullptr;
 };
 
 }  // namespace mulan::editor

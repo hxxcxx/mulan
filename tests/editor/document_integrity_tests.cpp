@@ -13,6 +13,7 @@
 #include "core/operation/document_operation.h"
 #include "core/operation/document_operation_executor.h"
 #include "document/document_render_binding.h"
+#include "document/document_view_binding.h"
 
 #include <mulan/editor/document/document_session.h>
 #include <mulan/io/document.h>
@@ -25,6 +26,7 @@
 #include <memory>
 #include <string>
 #include <variant>
+#include <vector>
 
 namespace {
 
@@ -206,7 +208,7 @@ TEST(DocumentOperationTransactions, IrreversibleChangeInvalidatesBothHistoryBran
     Document* documentPtr = document.get();
     DocumentSession session(std::move(document));
     DocumentOperationExecutor executor;
-    executor.bind(&session, nullptr);
+    executor.bind(&session);
 
     ASSERT_TRUE(executor.execute(DocumentOperation::createCurve("Recorded", segment(1.0))));
     ASSERT_TRUE(executor.canUndo());
@@ -228,7 +230,7 @@ TEST(DocumentOperationHistoryOwnership, SurvivesUnbindRebindAndExecutorReplaceme
     DocumentSession session(std::move(document));
 
     DocumentOperationExecutor firstExecutor;
-    firstExecutor.bind(&session, nullptr);
+    firstExecutor.bind(&session);
     ASSERT_TRUE(firstExecutor.execute(DocumentOperation::createCurve("Recorded", segment(1.0))));
     ASSERT_EQ(documentPtr->scene()->entityCount(), 1u);
     ASSERT_TRUE(firstExecutor.canUndo());
@@ -240,7 +242,7 @@ TEST(DocumentOperationHistoryOwnership, SurvivesUnbindRebindAndExecutorReplaceme
     EXPECT_FALSE(firstExecutor.undo());
     EXPECT_EQ(documentPtr->scene()->entityCount(), 1u);
 
-    firstExecutor.bind(&session, nullptr);
+    firstExecutor.bind(&session);
     ASSERT_TRUE(firstExecutor.canUndo());
     ASSERT_TRUE(firstExecutor.undo());
     EXPECT_EQ(documentPtr->scene()->entityCount(), 0u);
@@ -249,7 +251,7 @@ TEST(DocumentOperationHistoryOwnership, SurvivesUnbindRebindAndExecutorReplaceme
     // executor 不拥有历史；换一个执行器后仍能继续同一会话的 redo 分支。
     firstExecutor.unbind();
     DocumentOperationExecutor replacementExecutor;
-    replacementExecutor.bind(&session, nullptr);
+    replacementExecutor.bind(&session);
     ASSERT_TRUE(replacementExecutor.canRedo());
     ASSERT_TRUE(replacementExecutor.redo());
     EXPECT_EQ(documentPtr->scene()->entityCount(), 1u);
@@ -266,25 +268,25 @@ TEST(DocumentOperationHistoryOwnership, DifferentDocumentSessionsRemainIsolated)
     DocumentSession secondSession(std::move(secondDocument));
 
     DocumentOperationExecutor executor;
-    executor.bind(&firstSession, nullptr);
+    executor.bind(&firstSession);
     ASSERT_TRUE(executor.execute(DocumentOperation::createCurve("First", segment(1.0))));
     ASSERT_TRUE(executor.canUndo());
     ASSERT_EQ(firstDocumentPtr->scene()->entityCount(), 1u);
 
     // 直接换绑定不清空原会话，也不得把原会话的历史带入新会话。
-    executor.bind(&secondSession, nullptr);
+    executor.bind(&secondSession);
     EXPECT_FALSE(executor.canUndo());
     ASSERT_TRUE(executor.execute(DocumentOperation::createCurve("Second", segment(2.0))));
     ASSERT_TRUE(executor.canUndo());
     ASSERT_EQ(secondDocumentPtr->scene()->entityCount(), 1u);
 
-    executor.bind(&firstSession, nullptr);
+    executor.bind(&firstSession);
     ASSERT_TRUE(executor.canUndo());
     ASSERT_TRUE(executor.undo());
     EXPECT_EQ(firstDocumentPtr->scene()->entityCount(), 0u);
     EXPECT_EQ(secondDocumentPtr->scene()->entityCount(), 1u);
 
-    executor.bind(&secondSession, nullptr);
+    executor.bind(&secondSession);
     ASSERT_TRUE(executor.canUndo());
     ASSERT_TRUE(executor.undo());
     EXPECT_EQ(secondDocumentPtr->scene()->entityCount(), 0u);
@@ -302,7 +304,7 @@ TEST(DocumentOperationTransactions, InvalidBatchRemovalDoesNotPartiallyCommit) {
 
     DocumentSession session(std::move(document));
     DocumentOperationExecutor executor;
-    executor.bind(&session, nullptr);
+    executor.bind(&session);
 
     EXPECT_FALSE(executor.execute(DocumentOperation::removeEntities({ first.entity, EntityId::invalid() }, true)));
     EXPECT_TRUE(documentPtr->scene()->isValid(first.entity));
@@ -336,6 +338,65 @@ TEST(DocumentRenderInvalidation, BindingReportsFrameDemandThroughSingleCallback)
     binding.refresh();
     binding.prepareFrame();
     EXPECT_EQ(invalidationCount, 2u);
+}
+
+TEST(DocumentRenderInvalidation, SuccessfulTransactionsPublishOnceAndRefreshAutomatically) {
+    auto document = std::make_unique<Document>("transaction-invalidation");
+    DocumentSession session(std::move(document));
+    mulan::view::ViewContext view;
+    mulan::editor::DocumentRenderBinding binding;
+    size_t invalidationCount = 0;
+    std::vector<mulan::editor::DocumentChangeStamp> changes;
+    binding.setFrameInvalidationCallback([&invalidationCount]() { ++invalidationCount; });
+    binding.bind(session, view);
+    const auto subscription = session.subscribeChanges(
+            [&changes](const mulan::editor::DocumentChangeStamp& change) { changes.push_back(change); });
+
+    DocumentOperationExecutor executor;
+    executor.bind(&session);
+    ASSERT_TRUE(executor.execute(DocumentOperation::createCurve("Line", segment(1.0))));
+    ASSERT_EQ(changes.size(), 1u);
+    EXPECT_EQ(changes.front().revision, 1u);
+    EXPECT_TRUE(changes.front().affectsContent());
+    EXPECT_EQ(invalidationCount, 1u);
+
+    EXPECT_FALSE(executor.execute(DocumentOperation::removeEntities({ EntityId::invalid() }, true)));
+    EXPECT_EQ(changes.size(), 1u);
+    EXPECT_EQ(invalidationCount, 1u);
+
+    ASSERT_TRUE(executor.undo());
+    ASSERT_EQ(changes.size(), 2u);
+    EXPECT_EQ(changes.back().revision, 2u);
+    EXPECT_TRUE(changes.back().affectsContent());
+    EXPECT_EQ(invalidationCount, 2u);
+
+    session.unsubscribeChanges(subscription);
+}
+
+TEST(DocumentRenderInvalidation, SelectionPublishesVisualStateWithoutManualRefresh) {
+    auto document = std::make_unique<Document>("selection-invalidation");
+    DocumentEditor editor(*document);
+    const auto created = editor.createCurve("Line", segment(1.0));
+    ASSERT_TRUE(created);
+
+    DocumentSession session(std::move(document));
+    mulan::view::ViewContext view;
+    DocumentViewBinding binding;
+    size_t invalidationCount = 0;
+    binding.setFrameInvalidationCallback([&invalidationCount]() { ++invalidationCount; });
+    binding.bind(session, view);
+
+    ASSERT_TRUE(binding.selectSingle(created.entity));
+    EXPECT_EQ(invalidationCount, 1u);
+    EXPECT_EQ(session.changeRevision(), 1u);
+
+    EXPECT_FALSE(binding.selectSingle(created.entity));
+    EXPECT_EQ(invalidationCount, 1u);
+    EXPECT_EQ(session.changeRevision(), 1u);
+
+    ASSERT_TRUE(binding.clearSelection());
+    EXPECT_EQ(invalidationCount, 2u);
+    EXPECT_EQ(session.changeRevision(), 2u);
 }
 
 TEST(DocumentCameraClipPlanes, CommittedOffAxisSmallCircleKeepsTheCurrentCompositionVisible) {

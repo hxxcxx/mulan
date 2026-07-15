@@ -12,7 +12,7 @@ void DocumentViewBinding::bind(DocumentSession& session, mulan::view::ViewContex
     unbind();
     render_binding_.bind(session, view);
     pick_bridge_.bind(render_binding_);
-    selection_bridge_.bind(session, render_binding_);
+    selection_bridge_.bind(session);
 }
 
 void DocumentViewBinding::unbind() {

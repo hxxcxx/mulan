@@ -1,6 +1,5 @@
 #include "document_selection_bridge.h"
 
-#include "document_render_binding.h"
 #include "document_session.h"
 
 #include <mulan/io/document.h>
@@ -8,14 +7,12 @@
 
 namespace mulan::editor {
 
-void DocumentSelectionBridge::bind(DocumentSession& session, DocumentRenderBinding& renderBinding) {
+void DocumentSelectionBridge::bind(DocumentSession& session) {
     session_ = &session;
-    render_binding_ = &renderBinding;
 }
 
 void DocumentSelectionBridge::unbind() {
     session_ = nullptr;
-    render_binding_ = nullptr;
 }
 
 bool DocumentSelectionBridge::selectSingle(scene::EntityId entity) {
@@ -25,7 +22,7 @@ bool DocumentSelectionBridge::selectSingle(scene::EntityId entity) {
 
     const bool changed = session_->document()->scene()->selectSingle(entity);
     if (changed) {
-        render_binding_->refreshVisualState();
+        session_->publishChange(DocumentChangeKind::VisualState);
     }
     return changed;
 }
@@ -37,7 +34,7 @@ bool DocumentSelectionBridge::clearSelection() {
 
     const bool changed = session_->document()->scene()->clearSelection();
     if (changed) {
-        render_binding_->refreshVisualState();
+        session_->publishChange(DocumentChangeKind::VisualState);
     }
     return changed;
 }

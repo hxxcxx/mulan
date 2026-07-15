@@ -53,7 +53,7 @@ void EditorSession::bind(DocumentSession* session, view::ViewContext* view, Docu
     binding_ = binding;
     pick_service_.bind(session_, view_, binding_);
     overlay_service_.bind(view_);
-    operation_executor_.bind(session_, binding_);
+    operation_executor_.bind(session_);
     grip_controller_.bind(session_, view_, &overlay_service_);
     selection_service_.bind(view_);
     refreshGrips();

@@ -7,11 +7,11 @@
 #pragma once
 
 #include "document_operation.h"
+#include "document/document_change.h"
 
 #include <optional>
 
 class DocumentSession;
-class DocumentViewBinding;
 
 namespace mulan::editor {
 
@@ -19,7 +19,7 @@ class CommandHistory;
 
 class DocumentOperationExecutor {
 public:
-    void bind(DocumentSession* session, DocumentViewBinding* binding);
+    void bind(DocumentSession* session);
     void unbind();
 
     bool isBound() const { return session_ != nullptr; }
@@ -33,15 +33,14 @@ public:
 private:
     struct ApplyResult {
         bool changed = false;
+        DocumentChangeKind changes = DocumentChangeKind::None;
         std::optional<DocumentOperation> undoOperation;
     };
 
     ApplyResult apply(DocumentOperation operation) const;
-    bool applyWithoutRecording(DocumentOperation operation) const;
-    bool refreshAfterChange(bool changed) const;
+    bool publish(const ApplyResult& result) const;
 
     DocumentSession* session_ = nullptr;
-    DocumentViewBinding* binding_ = nullptr;
     /// 非拥有指针：由当前 DocumentSession 持有，unbind 只解除借用。
     CommandHistory* history_ = nullptr;
 };

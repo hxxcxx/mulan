@@ -67,6 +67,7 @@ mulan_copy_public_headers(editor editor
     command/command_manager.h
     command/builtin_commands.h
     document/document_session.h
+    document/document_change.h
     document/document_view.h
 )
 

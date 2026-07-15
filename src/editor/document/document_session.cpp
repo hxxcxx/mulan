@@ -5,6 +5,7 @@
 #include <mulan/core/log/log.h>
 
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -53,6 +54,47 @@ DocumentSession::~DocumentSession() {
 
 mulan::editor::CommandHistory& DocumentSession::commandHistory() noexcept {
     return *command_history_;
+}
+
+DocumentSession::ChangeSubscriptionId DocumentSession::subscribeChanges(ChangeCallback callback) {
+    if (!callback) {
+        return 0;
+    }
+    ChangeSubscriptionId id = next_change_subscription_++;
+    if (id == 0) {
+        id = next_change_subscription_++;
+    }
+    change_callbacks_.emplace(id, std::move(callback));
+    return id;
+}
+
+void DocumentSession::unsubscribeChanges(ChangeSubscriptionId subscription) {
+    if (subscription != 0) {
+        change_callbacks_.erase(subscription);
+    }
+}
+
+mulan::editor::DocumentChangeStamp DocumentSession::publishChange(mulan::editor::DocumentChangeKind kinds) {
+    if (kinds == mulan::editor::DocumentChangeKind::None) {
+        return {};
+    }
+    ++change_revision_;
+    if (change_revision_ == 0) {
+        change_revision_ = 1;
+    }
+    const mulan::editor::DocumentChangeStamp stamp{ .revision = change_revision_, .kinds = kinds };
+
+    // 回调允许在通知过程中解除自身订阅，因此先复制当前回调集合。
+    std::vector<ChangeCallback> callbacks;
+    callbacks.reserve(change_callbacks_.size());
+    for (const auto& [id, callback] : change_callbacks_) {
+        (void) id;
+        callbacks.push_back(callback);
+    }
+    for (const auto& callback : callbacks) {
+        callback(stamp);
+    }
+    return stamp;
 }
 
 const std::string& DocumentSession::displayName() const {

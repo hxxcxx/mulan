@@ -7,6 +7,7 @@
  */
 #pragma once
 
+#include "document_change.h"
 #include "document_render_cache.h"
 
 #include <mulan/render/camera/camera.h>
@@ -62,6 +63,7 @@ private:
     math::Sphere3 cameraBoundsSphere() const;
     void applyViewPreferences();
     void invalidateFrame() const;
+    void handleDocumentChange(const DocumentChangeStamp& change);
 
     DocumentSession* session_ = nullptr;
     view::ViewContext* view_ = nullptr;
@@ -71,6 +73,7 @@ private:
     uint64_t prepared_preview_generation_ = 0;
     bool scene_bounds_dirty_ = false;
     bool clip_tightening_pending_ = false;
+    uint64_t change_subscription_ = 0;
 };
 
 }  // namespace mulan::editor

@@ -42,9 +42,15 @@ void DocumentRenderBinding::bind(DocumentSession& session, view::ViewContext& vi
     prepared_preview_generation_ = view_->previewLayer().generation();
     scene_bounds_dirty_ = false;
     clip_tightening_pending_ = false;
+    change_subscription_ =
+            session_->subscribeChanges([this](const DocumentChangeStamp& change) { handleDocumentChange(change); });
 }
 
 void DocumentRenderBinding::unbind() {
+    if (session_ && change_subscription_ != 0) {
+        session_->unsubscribeChanges(change_subscription_);
+    }
+    change_subscription_ = 0;
     if (view_) {
         view_->setRenderScene(nullptr, nullptr);
         view_->setSceneLights(std::span<const engine::Light>{});
@@ -217,6 +223,19 @@ void DocumentRenderBinding::applyViewPreferences() {
 void DocumentRenderBinding::invalidateFrame() const {
     if (frame_invalidation_callback_) {
         frame_invalidation_callback_();
+    }
+}
+
+void DocumentRenderBinding::handleDocumentChange(const DocumentChangeStamp& change) {
+    if (!isBound() || !change.valid()) {
+        return;
+    }
+    if (change.affectsContent()) {
+        refresh();
+        return;
+    }
+    if (change.affectsVisualState()) {
+        refreshVisualState();
     }
 }
 
