@@ -4,7 +4,6 @@
 
 #include <string_view>
 #include <utility>
-#include <variant>
 
 namespace mulan::view {
 namespace {
@@ -12,14 +11,6 @@ namespace {
 core::Error runtimeError(core::ErrorCode code, std::string_view message) {
     return core::Error::make(code, message);
 }
-
-template <typename... T>
-struct Overloaded : T... {
-    using T::operator()...;
-};
-
-template <typename... T>
-Overloaded(T...) -> Overloaded<T...>;
 
 }  // namespace
 
@@ -112,81 +103,8 @@ core::Result<void> RenderRuntime::initOffscreen(int width, int height) {
 }
 
 void RenderRuntime::shutdown() {
-    execute(ShutdownRendererCommand{});
-}
-
-RenderRuntimeCommandResult RenderRuntime::execute(RenderRuntimeCommand command) {
     std::scoped_lock runtimeLock(runtime_mutex_);
-    return std::visit(Overloaded{
-                              [this](const ResizeSurfaceCommand& resize) {
-                                  RenderRuntimeCommandResult result;
-                                  if (!device_context_ || !initialized_ || resize.width <= 0 || resize.height <= 0) {
-                                      return result;
-                                  }
-                                  auto deviceLock = device_context_->lock();
-                                  surface_.resize(device_context_->device(), resize.width, resize.height);
-                                  result.succeeded = true;
-                                  return result;
-                              },
-                              [this](const EnableIblCommand& ibl) {
-                                  RenderRuntimeCommandResult result;
-                                  if (!device_context_ || ibl.hdrPath.empty()) {
-                                      return result;
-                                  }
-                                  auto deviceLock = device_context_->lock();
-                                  renderer_.enableIBL(device_context_->device(), ibl.hdrPath);
-                                  result.succeeded = true;
-                                  return result;
-                              },
-                              [this](const ConfigureCaptureSurfaceCommand& configure) {
-                                  RenderRuntimeCommandResult result;
-                                  if (!device_context_ || configure.width == 0 || configure.height == 0) {
-                                      return result;
-                                  }
-                                  auto deviceLock = device_context_->lock();
-                                  result.succeeded = configureDedicatedCaptureSurface(
-                                          configure.capture, configure.width, configure.height);
-                                  return result;
-                              },
-                              [this](const ConfigureOffscreenSurfaceCommand& configure) {
-                                  RenderRuntimeCommandResult result;
-                                  if (!device_context_ || !surface_.isOffscreen()) {
-                                      return result;
-                                  }
-                                  auto deviceLock = device_context_->lock();
-                                  result.succeeded = surface_.configureOffscreenSurface(device_context_->device(),
-                                                                                        configure.surface);
-                                  return result;
-                              },
-                              [this](const ReadbackPixelsCommand&) {
-                                  RenderRuntimeCommandResult result;
-                                  if (!device_context_) {
-                                      return result;
-                                  }
-                                  auto deviceLock = device_context_->lock();
-                                  RenderSurface& target = surface_.isOffscreen() ? surface_ : capture_surface_;
-                                  result.succeeded = target.readbackPixels(device_context_->device(), result.pixels);
-                                  if (!result.succeeded) {
-                                      result.pixels.clear();
-                                  }
-                                  return result;
-                              },
-                              [this](const ClearAssetResourcesCommand&) {
-                                  RenderRuntimeCommandResult result;
-                                  if (!device_context_) {
-                                      return result;
-                                  }
-                                  auto deviceLock = device_context_->lock();
-                                  renderer_.clearAssetResources(device_context_->device());
-                                  result.succeeded = true;
-                                  return result;
-                              },
-                              [this](const ShutdownRendererCommand&) {
-                                  shutdownNow();
-                                  return RenderRuntimeCommandResult{ .succeeded = true };
-                              },
-                      },
-                      std::move(command));
+    shutdownNow();
 }
 
 void RenderRuntime::shutdownNow() {
@@ -252,38 +170,30 @@ core::Result<engine::RenderCaptureResult> RenderRuntime::capture(const RenderSub
 }
 
 void RenderRuntime::resize(int width, int height) {
-    execute(ResizeSurfaceCommand{ .width = width, .height = height });
+    std::scoped_lock runtimeLock(runtime_mutex_);
+    if (!device_context_ || !initialized_ || width <= 0 || height <= 0) {
+        return;
+    }
+    auto deviceLock = device_context_->lock();
+    surface_.resize(device_context_->device(), width, height);
 }
 
 void RenderRuntime::enableIBL(const std::string& hdrPath) {
-    execute(EnableIblCommand{ .hdrPath = hdrPath });
-}
-
-bool RenderRuntime::readbackPixels(std::vector<uint8_t>& pixels) {
-    auto result = execute(ReadbackPixelsCommand{});
-    if (!result.succeeded) {
-        return false;
-    }
-    pixels = std::move(result.pixels);
-    return true;
-}
-
-bool RenderRuntime::configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height) {
-    return execute(ConfigureCaptureSurfaceCommand{
-                           .capture = desc,
-                           .width = width,
-                           .height = height,
-                   })
-            .succeeded;
-}
-
-bool RenderRuntime::configureOffscreenSurface(const RenderSurfaceDesc& desc) {
-    return execute(ConfigureOffscreenSurfaceCommand{ .surface = desc }).succeeded;
-}
-
-std::optional<RenderSurfaceDesc> RenderRuntime::offscreenSurfaceDesc() const {
     std::scoped_lock runtimeLock(runtime_mutex_);
-    return surface_.offscreenDesc();
+    if (!device_context_ || hdrPath.empty()) {
+        return;
+    }
+    auto deviceLock = device_context_->lock();
+    renderer_.enableIBL(device_context_->device(), hdrPath);
+}
+
+void RenderRuntime::clearAssetResources() {
+    std::scoped_lock runtimeLock(runtime_mutex_);
+    if (!device_context_) {
+        return;
+    }
+    auto deviceLock = device_context_->lock();
+    renderer_.clearAssetResources(device_context_->device());
 }
 
 core::Result<void> RenderRuntime::initRendering() {

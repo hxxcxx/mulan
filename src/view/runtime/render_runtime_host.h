@@ -47,14 +47,9 @@ public:
     void resize(int width, int height);
     void enableIBL(const std::string& hdrPath);
 
-    bool isOffscreenSurface() const;
     uint32_t surfaceWidth() const;
     uint32_t surfaceHeight() const;
 
-    bool readbackPixels(std::vector<uint8_t>& pixels);
-    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
-    bool configureOffscreenSurface(const RenderSurfaceDesc& desc);
-    std::optional<RenderSurfaceDesc> offscreenSurfaceDesc() const;
     const RenderWorldSyncStats& lastWorldSyncStats() const;
     const RenderSubmissionDiagnostics& renderSubmissionDiagnostics() const;
     const engine::RenderWorkloadStats& lastRenderWorkloadStats() const;
@@ -64,7 +59,6 @@ private:
     RenderSubmissionBuilder submission_builder_;
     std::shared_ptr<RenderRuntime> runtime_ = std::make_shared<RenderRuntime>();
     std::unique_ptr<ThreadedRenderRuntime> threaded_runtime_;
-    RenderExecutionMode execution_mode_ = RenderExecutionMode::Synchronous;
     const asset::AssetLibrary* asset_source_ = nullptr;
 };
 

@@ -10,7 +10,6 @@
 
 #include <mulan/view/scene_sync/render_surface.h>
 #include <mulan/view/runtime/render_device_context.h>
-#include <mulan/view/runtime/render_runtime_command.h>
 #include <mulan/view/scene_sync/renderer.h>
 #include <mulan/view/core/view_config.h>
 #include <mulan/view/core/view_state.h>
@@ -23,9 +22,7 @@
 #include <expected>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <string>
-#include <vector>
 
 namespace mulan::view {
 
@@ -46,19 +43,13 @@ public:
 
     bool isInitialized() const { return initialized_; }
 
-    /// 同步执行生命周期命令。未来线程化时，此入口将改为投递有序命令并等待结果。
-    RenderRuntimeCommandResult execute(RenderRuntimeCommand command);
-
     void render(const RenderSubmission& submission);
     core::Result<engine::RenderCaptureResult> capture(const RenderSubmission& submission,
                                                       const engine::RenderCaptureDesc& desc);
     void resize(int width, int height);
     void enableIBL(const std::string& hdrPath);
 
-    bool readbackPixels(std::vector<uint8_t>& pixels);
-    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
-    bool configureOffscreenSurface(const RenderSurfaceDesc& desc);
-    std::optional<RenderSurfaceDesc> offscreenSurfaceDesc() const;
+    void clearAssetResources();
 
     RenderSurface& surface() { return surface_; }
     const RenderSurface& surface() const { return surface_; }

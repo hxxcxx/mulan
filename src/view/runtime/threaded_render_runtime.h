@@ -35,11 +35,7 @@ public:
     void resize(int width, int height);
     void enableIBL(std::string hdrPath);
     void clearAssetResources();
-    bool readbackPixels(std::vector<uint8_t>& pixels);
-    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
-    bool configureOffscreenSurface(const RenderSurfaceDesc& desc);
 
-    bool isOffscreenSurface() const;
     uint32_t surfaceWidth() const;
     uint32_t surfaceHeight() const;
     uint64_t surfaceGeneration() const;
@@ -68,7 +64,6 @@ private:
     bool closing_ = false;
     uint32_t surface_width_ = 0;
     uint32_t surface_height_ = 0;
-    bool offscreen_ = false;
     uint64_t surface_generation_ = 0;
 };
 

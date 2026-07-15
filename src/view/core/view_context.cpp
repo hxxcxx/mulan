@@ -173,7 +173,6 @@ void ViewContext::renderFrame(const ViewState& viewState) {
         return;
 
     runtime_host_.render(viewState);
-    onFrameEnd();
 }
 
 ViewState ViewContext::snapshotViewState() const {
@@ -213,9 +212,6 @@ ViewState ViewContext::snapshotViewState(const engine::Camera& camera, const Cap
         break;
     }
     return state;
-}
-
-void ViewContext::onFrameEnd() {
 }
 
 void ViewContext::resize(int width, int height) {
@@ -348,44 +344,12 @@ engine::Operator* ViewContext::activeOperator() const {
     return default_op_.get();
 }
 
-bool ViewContext::readbackPixels(std::vector<uint8_t>& pixels) {
-    return runtime_host_.readbackPixels(pixels);
-}
-
-bool ViewContext::isOffscreenSurface() const {
-    return runtime_host_.isOffscreenSurface();
-}
-
 uint32_t ViewContext::surfaceWidth() const {
     return runtime_host_.surfaceWidth();
 }
 
 uint32_t ViewContext::surfaceHeight() const {
     return runtime_host_.surfaceHeight();
-}
-
-bool ViewContext::configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height) {
-    if (!runtime_host_.configureCaptureSurface(desc, width, height)) {
-        return false;
-    }
-    width_ = static_cast<int>(runtime_host_.surfaceWidth());
-    height_ = static_cast<int>(runtime_host_.surfaceHeight());
-    camera_.setViewport(width_, height_);
-    return true;
-}
-
-std::optional<RenderSurfaceDesc> ViewContext::captureSurfaceSnapshot() const {
-    return runtime_host_.offscreenSurfaceDesc();
-}
-
-bool ViewContext::restoreCaptureSurface(const RenderSurfaceDesc& desc) {
-    if (!runtime_host_.configureOffscreenSurface(desc)) {
-        return false;
-    }
-    width_ = static_cast<int>(runtime_host_.surfaceWidth());
-    height_ = static_cast<int>(runtime_host_.surfaceHeight());
-    camera_.setViewport(width_, height_);
-    return true;
 }
 
 core::Result<engine::RenderCaptureResult> ViewContext::capture(const engine::RenderCaptureDesc& desc) {

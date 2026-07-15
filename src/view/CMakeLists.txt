@@ -6,11 +6,9 @@ add_library(view STATIC
     capture/capture_image_encoder.cpp
     capture/capture_request.cpp
     capture/capture_service.cpp
-    runtime/render_queue.cpp
     runtime/render_device_context.cpp
     runtime/render_runtime.cpp
     runtime/render_runtime_host.cpp
-    runtime/render_thread.cpp
     runtime/threaded_render_runtime.cpp
     scene_sync/render_item_builder.cpp
     scene_sync/render_submission_builder.cpp

@@ -166,44 +166,7 @@ void ThreadedRenderRuntime::enableIBL(std::string hdrPath) {
     enqueue({ [path = std::move(hdrPath)](RenderRuntime& runtime) { runtime.enableIBL(path); } });
 }
 void ThreadedRenderRuntime::clearAssetResources() {
-    enqueue({ [](RenderRuntime& runtime) { runtime.execute(ClearAssetResourcesCommand{}); } });
-}
-bool ThreadedRenderRuntime::readbackPixels(std::vector<uint8_t>& pixels) {
-    auto promise = std::make_shared<std::promise<std::vector<uint8_t>>>();
-    auto future = promise->get_future();
-    if (!enqueue({ [promise](RenderRuntime& runtime) {
-                      std::vector<uint8_t> result;
-                      runtime.readbackPixels(result);
-                      promise->set_value(std::move(result));
-                  },
-                   true, [promise] { promise->set_value({}); } })) {
-        return false;
-    }
-    pixels = future.get();
-    return !pixels.empty();
-}
-bool ThreadedRenderRuntime::configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width,
-                                                    uint32_t height) {
-    auto promise = std::make_shared<std::promise<bool>>();
-    auto future = promise->get_future();
-    if (!enqueue({ [desc, width, height, promise](RenderRuntime& runtime) {
-                      promise->set_value(runtime.configureCaptureSurface(desc, width, height));
-                  },
-                   false, [promise] { promise->set_value(false); } })) {
-        return false;
-    }
-    return future.get();
-}
-bool ThreadedRenderRuntime::configureOffscreenSurface(const RenderSurfaceDesc& desc) {
-    auto promise = std::make_shared<std::promise<bool>>();
-    auto future = promise->get_future();
-    if (!enqueue({ [desc, promise](RenderRuntime& runtime) {
-                      promise->set_value(runtime.configureOffscreenSurface(desc));
-                  },
-                   false, [promise] { promise->set_value(false); } })) {
-        return false;
-    }
-    return future.get();
+    enqueue({ [](RenderRuntime& runtime) { runtime.clearAssetResources(); } });
 }
 void ThreadedRenderRuntime::shutdown() {
     const bool hadWorker = worker_.joinable() || initialized_.load();
@@ -228,10 +191,6 @@ void ThreadedRenderRuntime::shutdown() {
         LOG_INFO("[ThreadedRenderRuntime] Shut down");
     }
 }
-bool ThreadedRenderRuntime::isOffscreenSurface() const {
-    std::scoped_lock lock(mutex_);
-    return offscreen_;
-}
 uint32_t ThreadedRenderRuntime::surfaceWidth() const {
     std::scoped_lock lock(mutex_);
     return surface_width_;
@@ -248,7 +207,6 @@ void ThreadedRenderRuntime::publishSurfaceState(const RenderRuntime& runtime) {
     std::scoped_lock lock(mutex_);
     surface_width_ = runtime.surface().width();
     surface_height_ = runtime.surface().height();
-    offscreen_ = runtime.surface().isOffscreen();
     surface_generation_ = runtime.surface().generation();
 }
 

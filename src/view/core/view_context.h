@@ -23,7 +23,6 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
-#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -129,18 +128,12 @@ private:
     ViewState snapshotViewState() const;
     ViewState snapshotViewState(const engine::Camera& camera, const CaptureVisual& visual, uint32_t width,
                                 uint32_t height) const;
-    void onFrameEnd();
     bool handleViewCubeInput(const engine::InputEvent& event);
     void updateViewCubeHover(const engine::InputEvent& event);
     void setCameraToViewCubePart(const engine::ViewCubePart& part);
 
-    bool isOffscreenSurface() const;
     uint32_t surfaceWidth() const;
     uint32_t surfaceHeight() const;
-    bool readbackPixels(std::vector<uint8_t>& pixels);
-    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
-    std::optional<RenderSurfaceDesc> captureSurfaceSnapshot() const;
-    bool restoreCaptureSurface(const RenderSurfaceDesc& desc);
     core::Result<engine::RenderCaptureResult> captureFrame(const ViewState& viewState,
                                                            const engine::RenderCaptureDesc& desc);
 

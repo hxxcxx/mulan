@@ -260,13 +260,6 @@ bool RenderSurface::readbackPixels(engine::RHIDevice& device, std::vector<uint8_
     return true;
 }
 
-std::optional<RenderSurfaceDesc> RenderSurface::offscreenDesc() const {
-    if (!isOffscreen()) {
-        return std::nullopt;
-    }
-    return offscreen_desc_;
-}
-
 bool RenderSurface::createReadbackBuffer(engine::RHIDevice& device) {
     staging_buffer_.reset();
     if (!offscreen_desc_.readback)
