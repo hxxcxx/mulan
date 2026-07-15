@@ -8,11 +8,6 @@ add_library(core SHARED
     ini/config_file.cpp
     log/log.cpp
     result/error.cpp
-    serialization/archive.cpp
-    serialization/binary_archive.cpp
-    serialization/version_block.cpp
-    reflection/object.cpp
-    reflection/type_registry.cpp
 )
 
 # 构建时将头文件复制到 build/include/mulan/core/...
