@@ -121,6 +121,8 @@ public:
 
     void pan(double dx, double dy);
     void zoom(double delta);
+    /// 以屏幕光标为锚点缩放；正交投影对任意深度精确保持，透视投影保持目标平面锚点。
+    void zoomAt(double delta, double screenX, double screenY);
     void fitToBox(const math::AABB3& box, double padding = 1.2);
     void fitToSphere(const math::Sphere3& sphere, double padding = 1.2);
     void fitClipPlanesToBox(const math::AABB3& box, double padding = 1.2,

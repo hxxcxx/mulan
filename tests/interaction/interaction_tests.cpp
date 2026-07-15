@@ -24,6 +24,15 @@ Camera& sharedCam() {
     static Camera c{ CameraMode::Trackball };
     return c;
 }
+
+mulan::math::Point3 cursorPointOnTargetPlane(const Camera& camera, double x, double y) {
+    const auto ray = camera.screenRay(x, y);
+    const auto normal = camera.forward();
+    const mulan::math::Point3 planePoint(camera.target().x, camera.target().y, camera.target().z);
+    const double denominator = ray.direction.dot(normal);
+    const double distance = (planePoint - ray.origin).dot(normal) / denominator;
+    return ray.pointAt(distance);
+}
 }  // namespace
 
 // ============================================================
@@ -122,6 +131,40 @@ TEST_F(CameraManipulatorTest, MoveRequiresDrag) {
 TEST_F(CameraManipulatorTest, WheelZooms) {
     InputEvent wheel = InputEvent::wheel(100, 100, 1.0f);
     EXPECT_TRUE(manip.onWheel(wheel, cam));
+}
+
+TEST(CameraZoomTest, OrthographicZoomKeepsCursorWorldPointFixed) {
+    Camera camera{ CameraMode::Trackball };
+    camera.setViewport(800, 600);
+    camera.setOrthographic(true);
+    camera.setOrthoSize(5.0);
+    constexpr double cursorX = 620.0;
+    constexpr double cursorY = 170.0;
+    const auto before = cursorPointOnTargetPlane(camera, cursorX, cursorY);
+
+    camera.zoomAt(-2.0, cursorX, cursorY);
+
+    const auto after = cursorPointOnTargetPlane(camera, cursorX, cursorY);
+    EXPECT_NEAR(after.x, before.x, 1.0e-9);
+    EXPECT_NEAR(after.y, before.y, 1.0e-9);
+    EXPECT_NEAR(after.z, before.z, 1.0e-9);
+}
+
+TEST(CameraZoomTest, PerspectiveZoomKeepsCursorTargetPlanePointFixed) {
+    Camera camera{ CameraMode::Trackball };
+    camera.setViewport(800, 600);
+    camera.setOrthographic(false);
+    camera.setDistance(10.0);
+    constexpr double cursorX = 610.0;
+    constexpr double cursorY = 180.0;
+    const auto before = cursorPointOnTargetPlane(camera, cursorX, cursorY);
+
+    camera.zoomAt(-2.0, cursorX, cursorY);
+
+    const auto after = cursorPointOnTargetPlane(camera, cursorX, cursorY);
+    EXPECT_NEAR(after.x, before.x, 1.0e-9);
+    EXPECT_NEAR(after.y, before.y, 1.0e-9);
+    EXPECT_NEAR(after.z, before.z, 1.0e-9);
 }
 
 // cancel 幂等：重复调用不崩溃，清理 dragging_ 状态。

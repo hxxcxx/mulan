@@ -207,26 +207,50 @@ void Camera::pan(double dx, double dy) {
 }
 
 void Camera::zoom(double delta) {
-    if (!std::isfinite(delta)) {
+    zoomAt(delta, static_cast<double>(width_) * 0.5, static_cast<double>(height_) * 0.5);
+}
+
+void Camera::zoomAt(double delta, double screenX, double screenY) {
+    if (!std::isfinite(delta) || !std::isfinite(screenX) || !std::isfinite(screenY)) {
         return;
     }
+
+    const double factor = std::pow(zoom_speed_, delta);
+    if (!std::isfinite(factor)) {
+        return;
+    }
+
+    const double ndcX = 2.0 * screenX / static_cast<double>(width_) - 1.0;
+    const double ndcY = 1.0 - 2.0 * screenY / static_cast<double>(height_);
+    const double oldHalfHeight = ortho_ ? ortho_size_ : distance_ * std::tan(fov_y_ * 0.5);
+    double nextHalfHeight = oldHalfHeight;
+    double nextOrthoSize = ortho_size_;
+    double nextDistance = distance_;
+
     if (ortho_) {
-        double factor = std::pow(zoom_speed_, delta);
-        if (std::isfinite(factor)) {
-            const double nextSize = ortho_size_ * factor;
-            if (std::isfinite(nextSize)) {
-                ortho_size_ = std::max(nextSize, kMinOrthoSize);
-            }
-        }
+        nextOrthoSize = std::max(ortho_size_ * factor, kMinOrthoSize);
+        nextHalfHeight = nextOrthoSize;
     } else {
-        double factor = std::pow(zoom_speed_, delta);
-        if (std::isfinite(factor)) {
-            const double nextDistance = distance_ * factor;
-            if (std::isfinite(nextDistance)) {
-                distance_ = std::max(nextDistance, kMinOrbitDistance);
-                markDepthChanged();
-            }
-        }
+        nextDistance = std::max(distance_ * factor, kMinOrbitDistance);
+        nextHalfHeight = nextDistance * std::tan(fov_y_ * 0.5);
+    }
+
+    // 缩放改变光标处对应的视图平面坐标；用等量 pan 补偿，使该锚点保持在原像素。
+    const double halfHeightDelta = nextHalfHeight - oldHalfHeight;
+    const double nextPanX = pan_offset_.x + ndcX * halfHeightDelta * aspect();
+    const double nextPanY = pan_offset_.y + ndcY * halfHeightDelta;
+    if (!std::isfinite(nextOrthoSize) || !std::isfinite(nextDistance) || !std::isfinite(nextPanX) ||
+        !std::isfinite(nextPanY)) {
+        return;
+    }
+
+    pan_offset_.x = nextPanX;
+    pan_offset_.y = nextPanY;
+    if (ortho_) {
+        ortho_size_ = nextOrthoSize;
+    } else {
+        distance_ = nextDistance;
+        markDepthChanged();
     }
 }
 

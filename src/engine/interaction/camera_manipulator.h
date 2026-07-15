@@ -102,7 +102,7 @@ public:
 
     bool onWheel(const InputEvent& e, Camera& cam) override {
         double delta = static_cast<double>(e.wheelDelta) * config.zoomFactor;
-        cam.zoom(-delta);
+        cam.zoomAt(-delta, static_cast<double>(e.x), static_cast<double>(e.y));
         return true;
     }
 
