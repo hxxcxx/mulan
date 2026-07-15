@@ -306,6 +306,8 @@ core::Result<std::unique_ptr<BindGroup>> GLDevice::createBindGroup(const BindGro
 
 core::Result<void> GLDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     assertResourceOwned(dst);
+    if (auto wait = waitForResourceLastUse(dst); !wait)
+        return std::unexpected(wait.error());
     const uint32_t bpp = textureFormatBytesPerPixel(upload.format);
     const uint32_t rowPitch = upload.sourceRowPitch ? upload.sourceRowPitch : upload.width * bpp;
     auto* texture = static_cast<GLTexture*>(dst);
@@ -348,27 +350,41 @@ core::Result<SubmissionToken> GLDevice::executeCommandLists(CommandList** cmdLis
     if (fence)
         assertResourceOwned(fence);
     auto submissionLock = lockSubmissionQueue();
+    std::optional<core::Error> externalFenceError;
     if (fence) {
         if (auto signal = fence->signal(fenceValue); !signal)
-            return std::unexpected(signal.error());
+            externalFenceError = signal.error();
     }
 
     const SubmissionToken token = reserveSubmissionToken();
     auto* completionFence = static_cast<GLFence*>(submissionFence());
-    if (!token || !completionFence)
+    if (!token || !completionFence) {
+        (void) waitIdle();
+        for (uint32_t i = 0; i < count; ++i)
+            cmdLists[i]->markSubmitted({});
         return std::unexpected(
                 makeError(EngineErrorCode::SubmissionFailed, "OpenGL submission timeline is unavailable"));
-    if (auto signal = completionFence->signal(token.value); !signal)
+    }
+    if (auto signal = completionFence->signal(token.value); !signal) {
+        (void) waitIdle();
+        for (uint32_t i = 0; i < count; ++i)
+            cmdLists[i]->markSubmitted({});
         return std::unexpected(signal.error());
+    }
     glFlush();
     if (!completionFence->isValid()) {
         LOG_ERROR("[OpenGL] Standalone submission timeline signal failed");
+        (void) waitIdle();
+        for (uint32_t i = 0; i < count; ++i)
+            cmdLists[i]->markSubmitted({});
         return std::unexpected(
                 makeError(EngineErrorCode::SubmissionFailed, "OpenGL submission timeline signal failed"));
     }
     for (uint32_t i = 0; i < count; ++i)
         cmdLists[i]->markSubmitted(token);
     commitSubmission(token);
+    if (externalFenceError)
+        return std::unexpected(*externalFenceError);
     return token;
 }
 

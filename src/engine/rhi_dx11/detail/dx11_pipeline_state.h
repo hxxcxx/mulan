@@ -21,7 +21,7 @@ namespace mulan::engine {
 class DX11PipelineState final : public PipelineState {
 public:
     DX11PipelineState(const GraphicsPipelineDesc& desc, ID3D11Device* device);
-    ~DX11PipelineState() = default;
+    ~DX11PipelineState();
 
     const GraphicsPipelineDesc& desc() const override { return m_desc; }
 

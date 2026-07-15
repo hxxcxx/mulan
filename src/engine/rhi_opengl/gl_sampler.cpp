@@ -86,6 +86,7 @@ GLSampler::GLSampler(const SamplerDesc& desc) : desc_(desc) {
 }
 
 GLSampler::~GLSampler() {
+    waitForLastUseBeforeDestruction();
     if (handle_) {
         glDeleteSamplers(1, &handle_);
         handle_ = 0;

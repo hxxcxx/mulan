@@ -4,8 +4,17 @@
 #include <mulan/core/log/log.h>
 
 #include <string>
+#include <algorithm>
+#include <atomic>
 
 namespace mulan::engine {
+
+namespace {
+std::atomic<uint64_t> g_next_descriptor_scope_id{ 1 };
+}
+
+CommandList::CommandList() : descriptor_scope_id_(g_next_descriptor_scope_id.fetch_add(1, std::memory_order_relaxed)) {
+}
 
 core::Result<void> CommandList::begin() {
     if (state_ == State::Recording) {
@@ -26,7 +35,10 @@ core::Result<void> CommandList::begin() {
     render_pass_active_ = false;
     pipeline_kind_ = PipelineKind::None;
     push_constant_size_ = 0;
-    active_bind_group_layout_ = nullptr;
+    active_bind_group_layout_.reset();
+    active_graphics_pipeline_desc_.reset();
+    active_render_pass_info_ = {};
+    referenced_resources_.clear();
     if (auto result = doBegin(); !result) {
         const auto error = makeError(EngineErrorCode::CommandRecordingFailed, result.error().message);
         invalidate(error);
@@ -124,16 +136,40 @@ bool CommandList::validateResource(const RHITrackedResource* resource, std::stri
         rejectRecording(std::string(operation) + " received a resource from a different device");
         return false;
     }
+    recordResource(resource);
     return true;
+}
+
+void CommandList::recordResource(const RHITrackedResource* resource) {
+    if (!resource || !resource->lifetimeState())
+        return;
+    const auto& lifetime = resource->lifetimeState();
+    const auto duplicate = std::find_if(referenced_resources_.begin(), referenced_resources_.end(),
+                                        [&](const auto& current) { return current.get() == lifetime.get(); });
+    if (duplicate == referenced_resources_.end())
+        referenced_resources_.push_back(lifetime);
+}
+
+core::Result<void> CommandList::validateReferencedResources() const {
+    for (const auto& resource : referenced_resources_) {
+        if (!resource || !resource->alive.load(std::memory_order_acquire)) {
+            return std::unexpected(makeError(EngineErrorCode::SubmissionFailed,
+                                             "CommandList references a resource destroyed after recording"));
+        }
+    }
+    return {};
 }
 
 void CommandList::setPipelineState(PipelineState* pso) {
     if (!requireRecording("setPipelineState") || !validateResource(pso, "setPipelineState"))
         return;
+    if (render_pass_active_ && !validateGraphicsPipelineRenderPass(pso->desc(), active_render_pass_info_))
+        return;
     doSetPipelineState(pso);
     if (recording_error_)
         return;
     pipeline_kind_ = PipelineKind::Graphics;
+    active_graphics_pipeline_desc_ = pso->desc();
     push_constant_size_ = pso->desc().pushConstantSize;
     activateBindGroupLayout(pso->bindGroupLayout());
 }
@@ -150,6 +186,7 @@ void CommandList::setComputePipelineState(ComputePipelineState* pso) {
     if (recording_error_)
         return;
     pipeline_kind_ = PipelineKind::Compute;
+    active_graphics_pipeline_desc_.reset();
     push_constant_size_ = pso->desc().pushConstantSize;
     activateBindGroupLayout(pso->bindGroupLayout());
 }
@@ -351,12 +388,15 @@ void CommandList::beginRenderPass(const RenderPassBeginInfo& info) {
          !validateResource(info.depthAttachment.resolveTarget, "beginRenderPass"))) {
         return;
     }
+    if (active_graphics_pipeline_desc_ && !validateGraphicsPipelineRenderPass(*active_graphics_pipeline_desc_, info))
+        return;
     assertRenderPassCompatible(info);
     if (auto result = doBeginRenderPass(info); !result) {
         invalidate(result.error());
         return;
     }
     render_pass_active_ = true;
+    active_render_pass_info_ = info;
 }
 
 void CommandList::endRenderPass() {
@@ -366,6 +406,50 @@ void CommandList::endRenderPass() {
     }
     doEndRenderPass();
     render_pass_active_ = false;
+    active_render_pass_info_ = {};
+}
+
+bool CommandList::validateGraphicsPipelineRenderPass(const GraphicsPipelineDesc& desc,
+                                                     const RenderPassBeginInfo& info) {
+    if (desc.colorTargetCount != info.colorCount) {
+        rejectRecording("Graphics pipeline color target count does not match the active render pass");
+        return false;
+    }
+    uint32_t sampleCount = 0;
+    for (uint8_t i = 0; i < info.colorCount; ++i) {
+        const Texture* target = info.colorAttachments[i].target;
+        if (!target || desc.colorFormats[i] != target->format()) {
+            rejectRecording("Graphics pipeline color format does not match the active render pass");
+            return false;
+        }
+        if (sampleCount == 0)
+            sampleCount = target->desc().sampleCount;
+        else if (sampleCount != target->desc().sampleCount) {
+            rejectRecording("Render pass attachments use different sample counts");
+            return false;
+        }
+    }
+    const Texture* depthTarget = info.depthAttachment.target;
+    const TextureFormat depthFormat = depthTarget ? depthTarget->format() : TextureFormat::Unknown;
+    if (desc.depthStencilFormat != depthFormat) {
+        rejectRecording("Graphics pipeline depth format does not match the active render pass");
+        return false;
+    }
+    if (depthTarget) {
+        if (sampleCount == 0)
+            sampleCount = depthTarget->desc().sampleCount;
+        else if (sampleCount != depthTarget->desc().sampleCount) {
+            rejectRecording("Render pass color and depth attachments use different sample counts");
+            return false;
+        }
+    }
+    if (sampleCount == 0)
+        sampleCount = 1;
+    if (desc.sampleCount != sampleCount) {
+        rejectRecording("Graphics pipeline sample count does not match the active render pass");
+        return false;
+    }
+    return true;
 }
 
 void CommandList::invalidate(core::Error error) {
@@ -379,7 +463,7 @@ void CommandList::rejectRecording(std::string_view reason) {
 }
 
 void CommandList::activateBindGroupLayout(const BindGroupLayout& layout) {
-    active_bind_group_layout_ = &layout;
+    active_bind_group_layout_ = layout;
 }
 
 bool CommandList::validateBindGroupCompatible(const BindGroup& group) {
@@ -426,6 +510,14 @@ core::Result<UniformSlice> CommandList::doWriteUniformBytes(std::span<const std:
 
 void CommandList::markSubmitted(SubmissionToken token) {
     assert(state_ == State::Executable);
+    for (const auto& resource : referenced_resources_) {
+        if (!resource)
+            continue;
+        uint64_t observed = resource->lastSubmissionValue.load(std::memory_order_relaxed);
+        while (observed < token.value &&
+               !resource->lastSubmissionValue.compare_exchange_weak(observed, token.value, std::memory_order_release,
+                                                                    std::memory_order_relaxed)) {}
+    }
     doMarkSubmitted();
     last_submission_ = token;
     state_ = State::Submitted;

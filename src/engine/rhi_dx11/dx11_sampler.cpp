@@ -99,6 +99,8 @@ DX11Sampler::DX11Sampler(const SamplerDesc& desc, ID3D11Device* device) : m_desc
         return;
 }
 
-DX11Sampler::~DX11Sampler() = default;
+DX11Sampler::~DX11Sampler() {
+    waitForLastUseBeforeDestruction();
+}
 
 }  // namespace mulan::engine

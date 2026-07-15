@@ -18,6 +18,10 @@ uint32_t alignUp(uint32_t value, uint32_t alignment) {
 
 namespace mulan::engine {
 
+DX11Buffer::~DX11Buffer() {
+    waitForLastUseBeforeDestruction();
+}
+
 DX11Buffer::DX11Buffer(uint32_t transientUniformPageSize, ID3D11Device* device, ID3D11DeviceContext* ctx)
     : m_desc(BufferDesc::uniform(transientUniformPageSize, "DX11TransientUniformPage")),
       m_ctx(ctx),
@@ -140,6 +144,8 @@ DX11Buffer::DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11Devic
 }
 
 core::Result<void> DX11Buffer::write(uint32_t offset, uint32_t size, const void* data) {
+    if (auto wait = waitForLastUse(); !wait)
+        return std::unexpected(wait.error());
     if (!m_buffer || !data || size == 0 || offset > m_desc.size || size > m_desc.size - offset) {
         return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed, "DX11 buffer write range is invalid"));
     }
@@ -195,6 +201,8 @@ const void* DX11Buffer::uniformData(uint32_t offset, uint32_t size) const {
 }
 
 core::Result<void> DX11Buffer::readback(uint32_t offset, uint32_t size, void* outData) {
+    if (auto wait = waitForLastUse(); !wait)
+        return std::unexpected(wait.error());
     if (m_nativeUsage != D3D11_USAGE_STAGING || !m_buffer || !outData || size == 0 || offset > m_desc.size ||
         size > m_desc.size - offset)
         return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,

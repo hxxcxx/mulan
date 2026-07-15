@@ -305,9 +305,10 @@ void DX12CommandList::bindStaticGroup(DX12BindGroup& group) {
 
     // --- 跨帧失效：per-frame heap reset 已回收上一帧的 descriptor 区段，
     // 若 BindGroup 缓存的 descriptor handles 不属于当前帧则丢弃并强制本帧完整重写。
-    if (dx12Group->frameToken() != frame_token_) {
+    const DescriptorCacheEpoch epoch = descriptorCacheEpoch(frame_token_);
+    if (dx12Group->cacheEpoch() != epoch) {
         dx12Group->clearCachedTextureHandles();
-        dx12Group->setFrameToken(frame_token_);
+        dx12Group->setCacheEpoch(epoch);
         dx12Group->markAllDirty();
     }
 

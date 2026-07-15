@@ -495,9 +495,10 @@ void VKCommandList::doBindGroup(BindGroup& group) {
 
     // --- 跨帧失效：per-frame pool reset 已销毁上一帧的 descriptor set，
     // 若 BindGroup 缓存句柄不属于当前帧则丢弃并强制本帧完整重写。
-    if (vkGroup->frameToken() != frame_token_) {
+    const DescriptorCacheEpoch epoch = descriptorCacheEpoch(frame_token_);
+    if (vkGroup->cacheEpoch() != epoch) {
         vkGroup->setCachedSet(nullptr);
-        vkGroup->setFrameToken(frame_token_);
+        vkGroup->setCacheEpoch(epoch);
         vkGroup->markAllDirty();
     }
 

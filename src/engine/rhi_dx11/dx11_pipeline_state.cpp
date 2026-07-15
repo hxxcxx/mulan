@@ -25,6 +25,10 @@ DX11PipelineState::DX11PipelineState(const GraphicsPipelineDesc& desc, ID3D11Dev
     m_desc.discardShaderReferences();
 }
 
+DX11PipelineState::~DX11PipelineState() {
+    waitForLastUseBeforeDestruction();
+}
+
 void DX11PipelineState::createInputLayout() {
     if (!m_device || !m_desc.vs) {
         LOG_ERROR("[DX11] Pipeline initialization rejected: missing device or vertex shader");

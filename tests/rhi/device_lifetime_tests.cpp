@@ -56,6 +56,9 @@ public:
 
     void complete(SubmissionToken token) { ASSERT_TRUE(fence_->signal(token.value)); }
     GPUDeviceCapabilities& mutableCapabilities() { return capabilities_; }
+    core::Result<void> validateBatch(CommandList** lists, uint32_t count) const {
+        return validateCommandListsForSubmission(lists, count);
+    }
 
     GraphicsBackend backend() const override { return GraphicsBackend::Vulkan; }
     const GPUDeviceCapabilities& capabilities() const override { return capabilities_; }
@@ -92,8 +95,12 @@ public:
     core::Result<void> uploadTextureData(Texture*, const TextureUploadDesc&) override { return {}; }
     core::Result<void> beginUploadBatch() override { return {}; }
     core::Result<void> flushUploadBatch() override { return {}; }
-    core::Result<SubmissionToken> executeCommandLists(CommandList**, uint32_t, Fence*, uint64_t) override {
-        return issueSubmission();
+    core::Result<SubmissionToken> executeCommandLists(CommandList** lists, uint32_t count, Fence*, uint64_t) override {
+        if (auto validation = validateCommandListsForSubmission(lists, count); !validation)
+            return std::unexpected(validation.error());
+        const SubmissionToken token = issueSubmission();
+        lists[0]->markSubmitted(token);
+        return token;
     }
     core::Result<void> waitIdle() override { return {}; }
     core::Result<CommandList*> beginFrame(SwapChain*) override { return static_cast<CommandList*>(nullptr); }
@@ -124,6 +131,7 @@ private:
 class TestBuffer final : public Buffer {
 public:
     TestBuffer() { desc_ = BufferDesc::dynamicVertex(64, "TestBuffer"); }
+    ~TestBuffer() override { waitForLastUseBeforeDestruction(); }
     const BufferDesc& desc() const override { return desc_; }
     core::Result<void> write(uint32_t, uint32_t, const void*) override { return {}; }
     core::Result<void> readback(uint32_t, uint32_t, void*) override { return {}; }
@@ -135,16 +143,19 @@ private:
 
 class TestTexture final : public Texture {
 public:
+    TestTexture(TextureFormat format = TextureFormat::RGBA8_UNorm, uint32_t sampleCount = 1)
+        : desc_(TextureDesc::renderTarget(1, 1, format, "TestTexture", sampleCount)) {}
     const TextureDesc& desc() const override { return desc_; }
     void attach(RHIDevice& device) { trackResource(device, RHIResourceKind::Texture, "TestTexture"); }
 
 private:
-    TextureDesc desc_ = TextureDesc::renderTarget(1, 1, TextureFormat::RGBA8_UNorm, "TestTexture");
+    TextureDesc desc_;
 };
 
 class TestPipeline final : public PipelineState {
 public:
     const GraphicsPipelineDesc& desc() const override { return desc_; }
+    GraphicsPipelineDesc& mutableDesc() { return desc_; }
     void attach(RHIDevice& device) { trackResource(device, RHIResourceKind::PipelineState, "TestPipeline"); }
 
 private:
@@ -168,6 +179,7 @@ class TestCommandList final : public CommandList {
 public:
     void attach(RHIDevice& device) { trackResource(device, RHIResourceKind::CommandList, "TestCommandList"); }
     uint32_t drawCount() const { return draw_count_; }
+    DescriptorCacheEpoch epoch(uint64_t generation) const { return descriptorCacheEpoch(generation); }
 
     core::Result<void> doBegin() override { return {}; }
     core::Result<void> doEnd() override { return {}; }
@@ -288,6 +300,98 @@ TEST(CommandListContractTest, RejectsResourcesFromAnotherDevice) {
     command.setVertexBuffer(0, &buffer);
     EXPECT_EQ(command.state(), CommandList::State::Invalid);
     EXPECT_FALSE(command.end());
+}
+
+TEST(CommandListContractTest, DescriptorEpochIncludesCommandListIdentity) {
+    TestCommandList first;
+    TestCommandList second;
+
+    EXPECT_NE(first.epoch(1), second.epoch(1));
+    EXPECT_NE(first.epoch(1), first.epoch(2));
+    EXPECT_EQ(first.epoch(7), first.epoch(7));
+}
+
+TEST(CommandListContractTest, RejectsMultiListSubmissionUntilStateMergingExists) {
+    TestDevice device;
+    TestCommandList first;
+    TestCommandList second;
+    first.attach(device);
+    second.attach(device);
+    ASSERT_TRUE(first.begin());
+    ASSERT_TRUE(first.end());
+    ASSERT_TRUE(second.begin());
+    ASSERT_TRUE(second.end());
+    CommandList* lists[] = { &first, &second };
+
+    const auto result = device.validateBatch(lists, 2);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, static_cast<int32_t>(EngineErrorCode::SubmissionFailed));
+}
+
+TEST(CommandListContractTest, RejectsAResourceDestroyedAfterRecording) {
+    TestDevice device;
+    TestCommandList command;
+    command.attach(device);
+    auto buffer = std::make_unique<TestBuffer>();
+    buffer->attach(device);
+    ASSERT_TRUE(command.begin());
+    command.setVertexBuffer(0, buffer.get());
+    ASSERT_TRUE(command.end());
+    buffer.reset();
+    CommandList* list = &command;
+
+    const auto result = device.validateBatch(&list, 1);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, static_cast<int32_t>(EngineErrorCode::SubmissionFailed));
+}
+
+TEST(CommandListContractTest, ResourceDestructionWaitsForItsLastSubmission) {
+    TestDevice device;
+    TestCommandList command;
+    command.attach(device);
+    auto buffer = std::make_unique<TestBuffer>();
+    buffer->attach(device);
+    ASSERT_TRUE(command.begin());
+    command.setVertexBuffer(0, buffer.get());
+    ASSERT_TRUE(command.end());
+    auto submission = device.executeCommandList(&command);
+    ASSERT_TRUE(submission);
+    ASSERT_FALSE(device.isSubmissionComplete(*submission));
+
+    buffer.reset();
+
+    EXPECT_TRUE(device.isSubmissionComplete(*submission));
+}
+
+TEST(CommandListContractTest, RejectsPipelineAndRenderPassFormatMismatchInEitherOrder) {
+    TestDevice device;
+    TestTexture color(TextureFormat::RGBA8_UNorm);
+    TestPipeline pipeline;
+    TestCommandList pipelineFirst;
+    TestCommandList passFirst;
+    color.attach(device);
+    pipeline.attach(device);
+    pipelineFirst.attach(device);
+    passFirst.attach(device);
+    pipeline.mutableDesc().colorTargetCount = 1;
+    pipeline.mutableDesc().colorFormats[0] = TextureFormat::BGRA8_UNorm;
+    RenderPassBeginInfo pass;
+    pass.width = 1;
+    pass.height = 1;
+    pass.colorCount = 1;
+    pass.colorAttachments[0].target = &color;
+
+    ASSERT_TRUE(pipelineFirst.begin());
+    pipelineFirst.setPipelineState(&pipeline);
+    pipelineFirst.beginRenderPass(pass);
+    EXPECT_EQ(pipelineFirst.state(), CommandList::State::Invalid);
+
+    ASSERT_TRUE(passFirst.begin());
+    passFirst.beginRenderPass(pass);
+    passFirst.setPipelineState(&pipeline);
+    EXPECT_EQ(passFirst.state(), CommandList::State::Invalid);
 }
 
 TEST(PipelineValidationTest, AcceptsAConsistentGraphicsContract) {

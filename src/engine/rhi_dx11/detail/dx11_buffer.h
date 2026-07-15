@@ -17,7 +17,7 @@ namespace mulan::engine {
 class DX11Buffer final : public Buffer {
 public:
     DX11Buffer(const BufferDesc& desc, ID3D11Device* device, ID3D11DeviceContext* ctx);
-    ~DX11Buffer() = default;
+    ~DX11Buffer();
 
     const BufferDesc& desc() const override { return m_desc; }
     core::Result<void> write(uint32_t offset, uint32_t size, const void* data) override;

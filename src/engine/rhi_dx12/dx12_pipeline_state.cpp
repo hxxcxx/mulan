@@ -53,7 +53,9 @@ DX12PipelineState::DX12PipelineState(const GraphicsPipelineDesc& desc, ID3D12Dev
     desc_.discardShaderReferences();
 }
 
-DX12PipelineState::~DX12PipelineState() = default;
+DX12PipelineState::~DX12PipelineState() {
+    waitForLastUseBeforeDestruction();
+}
 
 void DX12PipelineState::createRootSignature() {
     // 根据 canonical binding 顺序构建 root parameters。BindGroupLayout 会按

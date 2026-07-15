@@ -67,6 +67,11 @@ core::Result<void> RHIDevice::validateCommandListsForSubmission(CommandList** co
         return std::unexpected(
                 makeError(EngineErrorCode::SubmissionFailed, "CommandList submission requires at least one list"));
     }
+    if (count != 1) {
+        return std::unexpected(makeError(
+                EngineErrorCode::SubmissionFailed,
+                "Multi-CommandList submission is disabled until cross-list resource state merging is implemented"));
+    }
     for (uint32_t i = 0; i < count; ++i) {
         const CommandList* commandList = commandLists[i];
         if (!commandList) {
@@ -83,6 +88,8 @@ core::Result<void> RHIDevice::validateCommandListsForSubmission(CommandList** co
                     makeError(EngineErrorCode::SubmissionFailed,
                               recordingError ? recordingError->message : "CommandList has not completed recording"));
         }
+        if (auto resources = commandList->validateReferencedResources(); !resources)
+            return std::unexpected(resources.error());
     }
     return {};
 }

@@ -97,6 +97,7 @@ core::Result<void> DX12Buffer::initialize(ID3D12Device* device) {
 }
 
 DX12Buffer::~DX12Buffer() {
+    waitForLastUseBeforeDestruction();
     if (mapped_data_) {
         D3D12_RANGE range = { 0, 0 };
         resource_->Unmap(0, &range);
@@ -105,6 +106,8 @@ DX12Buffer::~DX12Buffer() {
 }
 
 core::Result<void> DX12Buffer::write(uint32_t offset, uint32_t size, const void* data) {
+    if (auto wait = waitForLastUse(); !wait)
+        return std::unexpected(wait.error());
     if (desc_.usage != BufferUsage::Dynamic || !mapped_data_ || !data || size == 0 || offset > desc_.size ||
         size > desc_.size - offset) {
         return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed,
@@ -115,6 +118,8 @@ core::Result<void> DX12Buffer::write(uint32_t offset, uint32_t size, const void*
 }
 
 core::Result<void> DX12Buffer::readback(uint32_t offset, uint32_t size, void* outData) {
+    if (auto wait = waitForLastUse(); !wait)
+        return std::unexpected(wait.error());
     if (desc_.usage != BufferUsage::Staging || !resource_ || !outData || offset > desc_.size ||
         size > desc_.size - offset)
         return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,

@@ -72,6 +72,7 @@ core::Result<std::unique_ptr<VKSampler>> VKSampler::create(const SamplerDesc& de
 }
 
 VKSampler::~VKSampler() {
+    waitForLastUseBeforeDestruction();
     if (sampler_) {
         device_.destroySampler(sampler_);
         sampler_ = nullptr;

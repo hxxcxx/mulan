@@ -192,6 +192,9 @@ protected:
     }
     void assertNoLiveResources() const;
     void detachLiveResources();
+    core::Result<void> waitForResourceLastUse(RHITrackedResource* resource) {
+        return resource ? resource->waitForLastUse() : core::Result<void>{};
+    }
 
     void initializeSubmissionTracking(std::unique_ptr<Fence> fence);
     void shutdownSubmissionTracking();

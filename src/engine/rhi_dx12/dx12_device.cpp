@@ -438,6 +438,8 @@ core::Result<std::unique_ptr<BindGroup>> DX12Device::createBindGroup(const BindG
 
 core::Result<void> DX12Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     assertResourceOwned(dst);
+    if (auto wait = waitForResourceLastUse(dst); !wait)
+        return std::unexpected(wait.error());
     return upload_context_->uploadTexture(static_cast<DX12Texture*>(dst), upload);
 }
 
@@ -486,22 +488,30 @@ core::Result<SubmissionToken> DX12Device::executeCommandLists(CommandList** cmdL
     }
     command_queue_->ExecuteCommandLists(count, lists.data());
 
+    std::optional<core::Error> externalFenceError;
     if (fence) {
         auto* dx12Fence = static_cast<DX12Fence*>(fence);
         if (!checkDX12(command_queue_->Signal(dx12Fence->fence(), fenceValue),
-                       "ID3D12CommandQueue::Signal(external fence)"))
-            return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX12 external fence signal failed"));
+                       "ID3D12CommandQueue::Signal(external fence)")) {
+            externalFenceError = makeError(EngineErrorCode::SubmissionFailed, "DX12 external fence signal failed");
+        }
     }
 
     const SubmissionToken token = reserveSubmissionToken();
     auto* completionFence = static_cast<DX12Fence*>(submissionFence());
     if (!token || !completionFence ||
         !checkDX12(command_queue_->Signal(completionFence->fence(), token.value),
-                   "ID3D12CommandQueue::Signal(submission timeline)"))
+                   "ID3D12CommandQueue::Signal(submission timeline)")) {
+        (void) waitIdle();
+        for (uint32_t i = 0; i < count; ++i)
+            cmdLists[i]->markSubmitted({});
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX12 submission timeline signal failed"));
+    }
     for (uint32_t i = 0; i < count; ++i)
         cmdLists[i]->markSubmitted(token);
     commitSubmission(token);
+    if (externalFenceError)
+        return std::unexpected(*externalFenceError);
     return token;
 }
 

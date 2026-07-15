@@ -24,6 +24,14 @@
 
 namespace mulan::engine {
 
+struct DescriptorCacheEpoch {
+    uint64_t scope = 0;
+    uint64_t generation = 0;
+
+    constexpr explicit operator bool() const noexcept { return scope != 0 && generation != 0; }
+    friend constexpr bool operator==(const DescriptorCacheEpoch&, const DescriptorCacheEpoch&) = default;
+};
+
 class Buffer;
 class Texture;
 class Sampler;
@@ -160,13 +168,10 @@ public:
     // ─── Frame token（descriptor 句柄版本化）────────────────────
     // 缓存的 descriptor 句柄（VK VkDescriptorSet / DX12 GPU handle）所属的
     // frame token。后端 per-frame 会 reset descriptor pool/heap，使旧句柄失效；
-    // 命令缓冲区 bindGroup 入口比对 token，跨帧即丢弃缓存句柄并 markAllDirty，
-    // 同帧内复用命中（commit "对象化 BindGroup" 的优化本意）。
-    // token 单调递增不复用；0 表示无效（未分配过句柄）。
-    static constexpr uint64_t kInvalidFrameToken = 0;
-
-    uint64_t frameToken() const { return frame_token_; }
-    void setFrameToken(uint64_t token) { frame_token_ = token; }
+    // 命令缓冲区 bindGroup 入口同时比对分配器作用域与复用代次。
+    // 任一部分变化都必须丢弃缓存句柄；相同 epoch 内允许零分配复用。
+    DescriptorCacheEpoch cacheEpoch() const noexcept { return cache_epoch_; }
+    void setCacheEpoch(DescriptorCacheEpoch epoch) noexcept { cache_epoch_ = epoch; }
 
 protected:
     explicit BindGroup(BindGroupValidationLimits limits = {}) : validation_limits_(limits) {}
@@ -178,7 +183,7 @@ protected:
     bool validateResourceUpdate(const RHITrackedResource* resource) const;
 
     uint16_t dirty_mask_ = 0xFFFF;  // 初次 bind 视为整体脏，确保首帧完整写入
-    uint64_t frame_token_ = kInvalidFrameToken;
+    DescriptorCacheEpoch cache_epoch_{};
     BindGroupValidationLimits validation_limits_{};
 };
 

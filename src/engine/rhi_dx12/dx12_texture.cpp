@@ -115,6 +115,8 @@ core::Result<void> DX12Texture::createSRVIfNeeded(ID3D12Device* device) {
     return {};
 }
 
-DX12Texture::~DX12Texture() = default;
+DX12Texture::~DX12Texture() {
+    waitForLastUseBeforeDestruction();
+}
 
 }  // namespace mulan::engine

@@ -321,6 +321,60 @@ TEST_P(BackendContractTest, SafelyDestroysACommandListImmediatelyAfterSubmission
     ASSERT_TRUE(device->waitIdle());
 }
 
+TEST_P(BackendContractTest, ResourceDestructionWaitsForSubmittedGpuUse) {
+    ContractWindow window;
+    ASSERT_TRUE(window.valid());
+    auto deviceResult = createDevice(window);
+    ASSERT_TRUE(deviceResult) << deviceResult.error().message;
+    auto device = std::move(*deviceResult);
+    const std::array<std::byte, 64> initialData{};
+    auto bufferResult = device->createBuffer(
+            BufferDesc::vertex(static_cast<uint32_t>(initialData.size()), initialData.data(), "InFlightBuffer"));
+    ASSERT_TRUE(bufferResult) << bufferResult.error().message;
+    auto buffer = std::move(*bufferResult);
+    auto commandResult = device->createCommandList();
+    ASSERT_TRUE(commandResult) << commandResult.error().message;
+    auto command = std::move(*commandResult);
+    ASSERT_TRUE(command->begin());
+    command->setVertexBuffer(0, buffer.get());
+    ASSERT_TRUE(command->end()) << command->recordingError()->message;
+    auto submission = device->executeCommandList(command.get());
+    ASSERT_TRUE(submission) << submission.error().message;
+
+    buffer.reset();
+
+    EXPECT_TRUE(device->isSubmissionComplete(*submission));
+    command.reset();
+    ASSERT_TRUE(device->waitIdle());
+}
+
+TEST_P(BackendContractTest, RejectsResourceDestroyedBetweenRecordingAndSubmission) {
+    ContractWindow window;
+    ASSERT_TRUE(window.valid());
+    auto deviceResult = createDevice(window);
+    ASSERT_TRUE(deviceResult) << deviceResult.error().message;
+    auto device = std::move(*deviceResult);
+    const std::array<std::byte, 64> initialData{};
+    auto bufferResult = device->createBuffer(
+            BufferDesc::vertex(static_cast<uint32_t>(initialData.size()), initialData.data(), "DestroyedBuffer"));
+    ASSERT_TRUE(bufferResult) << bufferResult.error().message;
+    auto buffer = std::move(*bufferResult);
+    auto commandResult = device->createCommandList();
+    ASSERT_TRUE(commandResult) << commandResult.error().message;
+    auto command = std::move(*commandResult);
+    ASSERT_TRUE(command->begin());
+    command->setVertexBuffer(0, buffer.get());
+    ASSERT_TRUE(command->end()) << command->recordingError()->message;
+    buffer.reset();
+
+    const auto submission = device->executeCommandList(command.get());
+
+    ASSERT_FALSE(submission);
+    EXPECT_EQ(submission.error().code, static_cast<int32_t>(EngineErrorCode::SubmissionFailed));
+    command.reset();
+    ASSERT_TRUE(device->waitIdle());
+}
+
 TEST_P(BackendContractTest, RecordsAndSubmitsAnOffscreenRenderPass) {
     ContractWindow window;
     ASSERT_TRUE(window.valid());

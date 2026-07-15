@@ -120,6 +120,8 @@ core::Result<std::unique_ptr<BindGroup>> VKDevice::createBindGroup(const BindGro
 
 core::Result<void> VKDevice::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     assertResourceOwned(dst);
+    if (auto wait = waitForResourceLastUse(dst); !wait)
+        return std::unexpected(wait.error());
     return upload_context_->uploadTexture(static_cast<VKTexture*>(dst), upload);
 }
 

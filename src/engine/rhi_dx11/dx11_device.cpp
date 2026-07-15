@@ -379,6 +379,8 @@ core::Result<std::unique_ptr<BindGroup>> DX11Device::createBindGroup(const BindG
 
 core::Result<void> DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {
     assertResourceOwned(dst);
+    if (auto wait = waitForResourceLastUse(dst); !wait)
+        return std::unexpected(wait.error());
     auto* texture = static_cast<DX11Texture*>(dst);
     if (!texture || !texture->resource() || !m_immediateCtx || upload.data.empty()) {
         return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed,
@@ -427,6 +429,7 @@ core::Result<SubmissionToken> DX11Device::executeCommandLists(CommandList** cmdL
         assertResourceOwned(fence);
     auto submissionLock = lockSubmissionQueue();
     // CommandList 直接包装 immediate context，命令在录制时已经进入同一条队列。
+    std::optional<core::Error> externalFenceError;
     if (fence) {
         auto* dx11Fence = static_cast<DX11Fence*>(fence);
         if (!dx11Fence) {
@@ -434,18 +437,28 @@ core::Result<SubmissionToken> DX11Device::executeCommandLists(CommandList** cmdL
             return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 external fence type is invalid"));
         }
         if (auto signal = dx11Fence->signal(value); !signal)
-            return std::unexpected(signal.error());
+            externalFenceError = signal.error();
     }
 
     const SubmissionToken token = reserveSubmissionToken();
     auto* completionFence = static_cast<DX11Fence*>(submissionFence());
-    if (!token || !completionFence)
+    if (!token || !completionFence) {
+        (void) waitIdle();
+        for (uint32_t i = 0; i < count; ++i)
+            cmdLists[i]->markSubmitted({});
         return std::unexpected(makeError(EngineErrorCode::SubmissionFailed, "DX11 submission timeline is unavailable"));
-    if (auto signal = completionFence->signal(token.value); !signal)
+    }
+    if (auto signal = completionFence->signal(token.value); !signal) {
+        (void) waitIdle();
+        for (uint32_t i = 0; i < count; ++i)
+            cmdLists[i]->markSubmitted({});
         return std::unexpected(signal.error());
+    }
     for (uint32_t i = 0; i < count; ++i)
         cmdLists[i]->markSubmitted(token);
     commitSubmission(token);
+    if (externalFenceError)
+        return std::unexpected(*externalFenceError);
     return token;
 }
 

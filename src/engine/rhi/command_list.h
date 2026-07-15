@@ -22,8 +22,10 @@
 #include <cassert>
 #include <span>
 #include <optional>
+#include <memory>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 namespace mulan::engine {
 
@@ -138,11 +140,14 @@ public:
     void markSubmitted(SubmissionToken token);
 
 protected:
-    CommandList() = default;
+    CommandList();
     CommandList(const CommandList&) = delete;
     CommandList& operator=(const CommandList&) = delete;
 
     core::Result<void> waitForPreviousSubmission();
+    DescriptorCacheEpoch descriptorCacheEpoch(uint64_t generation) const noexcept {
+        return { descriptor_scope_id_, generation };
+    }
     virtual core::Result<void> doBegin() = 0;
     virtual core::Result<void> doEnd() = 0;
     virtual void doMarkSubmitted() {}
@@ -175,6 +180,7 @@ protected:
     bool requireGraphicsDraw(std::string_view operation);
     bool requireComputeDispatch(std::string_view operation);
     bool validateResource(const RHITrackedResource* resource, std::string_view operation);
+    bool validateGraphicsPipelineRenderPass(const GraphicsPipelineDesc& desc, const RenderPassBeginInfo& info);
     void assertResourceCompatible(const RHITrackedResource* resource) const noexcept {
 #ifndef NDEBUG
         if (!resource)
@@ -222,6 +228,8 @@ protected:
     }
 
 private:
+    friend class RHIDevice;
+
     enum class PipelineKind : uint8_t {
         None,
         Graphics,
@@ -229,13 +237,20 @@ private:
     };
 
     SubmissionToken last_submission_;
+    uint64_t descriptor_scope_id_ = 0;
     State state_ = State::Initial;
     bool backend_recording_ = false;
     bool render_pass_active_ = false;
     PipelineKind pipeline_kind_ = PipelineKind::None;
     uint32_t push_constant_size_ = 0;
-    const BindGroupLayout* active_bind_group_layout_ = nullptr;
+    std::optional<BindGroupLayout> active_bind_group_layout_;
+    std::optional<GraphicsPipelineDesc> active_graphics_pipeline_desc_;
+    RenderPassBeginInfo active_render_pass_info_{};
+    std::vector<std::shared_ptr<RHIResourceLifetimeState>> referenced_resources_;
     std::optional<core::Error> recording_error_;
+
+    void recordResource(const RHITrackedResource* resource);
+    core::Result<void> validateReferencedResources() const;
 };
 
 }  // namespace mulan::engine

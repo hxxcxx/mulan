@@ -3,6 +3,10 @@
 
 namespace mulan::engine {
 
+DX11Texture::~DX11Texture() {
+    waitForLastUseBeforeDestruction();
+}
+
 DX11Texture::DX11Texture(const TextureDesc& desc, ID3D11Device* device) : m_desc(desc) {
     if (!device || desc.dimension != TextureDimension::Texture2D || desc.width == 0 || desc.height == 0 ||
         desc.mipLevels == 0 || desc.arraySize != 1 || desc.sampleCount == 0 ||

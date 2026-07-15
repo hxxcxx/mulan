@@ -19,6 +19,7 @@ core::Result<std::unique_ptr<VKComputePipelineState>> VKComputePipelineState::cr
 }
 
 VKComputePipelineState::~VKComputePipelineState() {
+    waitForLastUseBeforeDestruction();
     if (pipeline_)
         device_.destroyPipeline(pipeline_);
     if (layout_)

@@ -94,6 +94,7 @@ std::unique_ptr<GLBuffer> GLBuffer::createTransientUniformPage(uint32_t size) {
 }
 
 GLBuffer::~GLBuffer() {
+    waitForLastUseBeforeDestruction();
     if (buffer_ != 0) {
         if (mapped_data_)
             glUnmapNamedBuffer(buffer_);
@@ -134,6 +135,8 @@ void GLBuffer::createBuffer() {
 }
 
 core::Result<void> GLBuffer::write(uint32_t offset, uint32_t size, const void* data) {
+    if (auto wait = waitForLastUse(); !wait)
+        return std::unexpected(wait.error());
     if (!isValid() || !data || size == 0 || offset > desc_.size || size > desc_.size - offset)
         return std::unexpected(
                 makeError(EngineErrorCode::ResourceUploadFailed, "OpenGL buffer write range is invalid"));
@@ -173,6 +176,8 @@ core::Result<void> GLBuffer::updateDynamic(uint32_t offset, uint32_t size, const
 }
 
 core::Result<void> GLBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
+    if (auto wait = waitForLastUse(); !wait)
+        return std::unexpected(wait.error());
     if (!isValid() || !outData)
         return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
                                          "OpenGL buffer readback requires a valid destination"));

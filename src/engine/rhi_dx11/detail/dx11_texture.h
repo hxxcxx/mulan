@@ -16,7 +16,7 @@ public:
     DX11Texture(const TextureDesc& desc, ID3D11Device* device);
     /// 从已有资源包装（SwapChain back buffer）
     DX11Texture(const TextureDesc& desc, ID3D11Texture2D* existing);
-    ~DX11Texture() = default;
+    ~DX11Texture();
 
     const TextureDesc& desc() const override { return m_desc; }
 

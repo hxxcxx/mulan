@@ -130,6 +130,7 @@ GLPipelineState::GLPipelineState(const GraphicsPipelineDesc& desc) : desc_(desc)
 }
 
 GLPipelineState::~GLPipelineState() {
+    waitForLastUseBeforeDestruction();
     if (program_ != 0) {
         glDeleteProgram(program_);
         program_ = 0;

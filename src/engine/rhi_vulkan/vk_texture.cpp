@@ -83,6 +83,7 @@ VKTexture::VKTexture(const TextureDesc& desc, vk::Device device, vk::Image exist
 }
 
 VKTexture::~VKTexture() {
+    waitForLastUseBeforeDestruction();
     if (owns_resources_) {
         if (view_)
             device_.destroyImageView(view_);

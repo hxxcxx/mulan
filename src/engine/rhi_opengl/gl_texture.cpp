@@ -101,6 +101,7 @@ GLTexture::GLTexture(const TextureDesc& desc, GLuint existingHandle) : desc_(des
 }
 
 GLTexture::~GLTexture() {
+    waitForLastUseBeforeDestruction();
     if (handle_) {
         glDeleteTextures(1, &handle_);
         handle_ = 0;

@@ -24,6 +24,7 @@ core::Result<std::unique_ptr<VKPipelineState>> VKPipelineState::create(const Gra
 }
 
 VKPipelineState::~VKPipelineState() {
+    waitForLastUseBeforeDestruction();
     if (pipeline_)
         device_.destroyPipeline(pipeline_);
     if (layout_)

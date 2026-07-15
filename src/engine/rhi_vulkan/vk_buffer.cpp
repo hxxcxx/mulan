@@ -67,12 +67,15 @@ core::Result<std::unique_ptr<VKBuffer>> VKBuffer::create(const BufferDesc& desc,
 }
 
 VKBuffer::~VKBuffer() {
+    waitForLastUseBeforeDestruction();
     if (buffer_ && allocator_) {
         vmaDestroyBuffer(allocator_, VkBuffer(buffer_), allocation_);
     }
 }
 
 core::Result<void> VKBuffer::write(uint32_t offset, uint32_t size, const void* data) {
+    if (auto wait = waitForLastUse(); !wait)
+        return std::unexpected(wait.error());
     if (desc_.usage != BufferUsage::Dynamic || !mapped_data_ || !data || size == 0 || offset > desc_.size ||
         size > desc_.size - offset) {
         return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed,
@@ -86,6 +89,8 @@ core::Result<void> VKBuffer::write(uint32_t offset, uint32_t size, const void* d
 }
 
 core::Result<void> VKBuffer::readback(uint32_t offset, uint32_t size, void* outData) {
+    if (auto wait = waitForLastUse(); !wait)
+        return std::unexpected(wait.error());
     if (desc_.usage != BufferUsage::Staging || !mapped_data_ || !outData || offset > desc_.size ||
         size > desc_.size - offset) {
         return std::unexpected(makeError(EngineErrorCode::ResourceReadbackFailed,
