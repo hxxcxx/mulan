@@ -45,6 +45,10 @@ public:
     scene::EntityId addSceneInstance(std::string name, asset::AssetId geometry,
                                      std::vector<asset::AssetId> materialSlots = {});
     bool markGeometryChanged(scene::EntityId entity, const math::AABB3& bounds);
+    /// 返回当前场景中直接引用指定几何资产的实体数量。
+    size_t geometryReferenceCount(asset::AssetId geometry) const;
+    /// 仅在没有场景实体引用时删除几何资产。
+    bool removeGeometryAssetIfUnreferenced(asset::AssetId geometry);
     bool removeEntity(scene::EntityId entity, bool removeGeometryAsset = true);
 
     scene::Scene* scene() { return scene_.get(); }

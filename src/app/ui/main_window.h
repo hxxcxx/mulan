@@ -20,6 +20,7 @@ class DocumentArea;
 class DocumentSession;
 class DocWidget;
 class EngineSettingsDialog;
+class QCloseEvent;
 
 class MainWindow : public SARibbonMainWindow {
     Q_OBJECT
@@ -54,6 +55,7 @@ private:
 
     void dragEnterEvent(QDragEnterEvent* e) override;
     void dropEvent(QDropEvent* e) override;
+    void closeEvent(QCloseEvent* e) override;
 
     // --- 核心组件 ---
     DocumentArea* doc_area_ = nullptr;

@@ -7,6 +7,7 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QStackedWidget>
+#include <QMessageBox>
 
 //===================================================
 // DocumentArea
@@ -112,17 +113,58 @@ DocWidget* DocumentArea::addDocument(DocumentSession* session, const QString& ti
     return docWidget;
 }
 
-void DocumentArea::closeCurrentDocument() {
+bool DocumentArea::closeCurrentDocument() {
     const int idx = document_tab_bar_->currentIndex();
-    if (idx >= 0)
-        closeDocument(idx);
+    return idx < 0 || closeDocument(idx);
 }
 
-void DocumentArea::closeDocument(int index) {
+bool DocumentArea::closeDocument(int index) {
+    if (!confirmDiscard(index)) {
+        return false;
+    }
+    return closeDocumentUnchecked(index);
+}
+
+bool DocumentArea::closeAllDocuments() {
+    // 先完成全部确认，再开始销毁。否则用户在后一个文档选择取消时，前面的文档已经无法恢复。
+    for (int index = 0; index < document_stack_->count(); ++index) {
+        if (!confirmDiscard(index)) {
+            return false;
+        }
+    }
+
+    while (document_stack_->count() > 0) {
+        if (!closeDocumentUnchecked(document_stack_->count() - 1)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool DocumentArea::confirmDiscard(int index) {
+    auto* docWidget = qobject_cast<DocWidget*>(document_stack_->widget(index));
+    if (!docWidget) {
+        return true;
+    }
+
+    const auto it = docs_.find(docWidget);
+    if (it == docs_.end() || !it->second || !it->second->document() || !it->second->document()->isDirty()) {
+        return true;
+    }
+
+    const QString displayName = QString::fromStdString(it->second->displayName());
+    const auto choice = QMessageBox::warning(
+            this, tr("Discard unsaved changes?"),
+            tr("\"%1\" has unsaved changes. Closing it will discard those changes.").arg(displayName),
+            QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Cancel);
+    return choice == QMessageBox::Discard;
+}
+
+bool DocumentArea::closeDocumentUnchecked(int index) {
     auto* w = document_stack_->widget(index);
     auto* docWidget = qobject_cast<DocWidget*>(w);
     if (!docWidget)
-        return;
+        return false;
 
     // Unbind the view before deleting the session; the widget itself is deleted later.
     auto it = docs_.find(docWidget);
@@ -147,6 +189,7 @@ void DocumentArea::closeDocument(int index) {
         document_tab_bar_->hide();
         stack_->setCurrentIndex(0);  // 切回欢迎页
     }
+    return true;
 }
 
 DocWidget* DocumentArea::currentDocWidget() const {

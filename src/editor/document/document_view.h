@@ -16,7 +16,32 @@
 #include <mulan/view/core/view_config.h>
 #include <mulan/view/core/view_context.h>
 
+#include <cstdint>
+
 class DocumentSession;
+
+/// 文档输入最终由哪一层处理。该枚举是 app 层可依赖的稳定边界，避免把
+/// ViewContext/EditorSession 的内部 bool 组合逻辑泄漏到 DocWidget。
+enum class DocumentInputDisposition : uint8_t {
+    Ignored = 0,
+    ViewNavigation,
+    ViewOverlay,
+    ModalInteraction,
+    EditorTool,
+    Selection,
+    Cancelled,
+};
+
+/// DocumentView 对一次输入的完整处理结果。
+struct DocumentInputOutcome {
+    DocumentInputDisposition disposition = DocumentInputDisposition::Ignored;
+    bool frameInvalidated = false;
+    bool commandStateInvalidated = false;
+
+    [[nodiscard]] bool handled() const { return disposition != DocumentInputDisposition::Ignored; }
+    [[nodiscard]] bool needsFrame() const { return frameInvalidated; }
+    [[nodiscard]] bool needsCommandStateRefresh() const { return commandStateInvalidated; }
+};
 
 class DocumentView {
 public:
@@ -42,18 +67,18 @@ public:
     DocumentViewBinding& binding() { return binding_; }
     const DocumentViewBinding& binding() const { return binding_; }
 
-    bool handleInput(const mulan::engine::InputEvent& event);
+    DocumentInputOutcome handleInput(const mulan::engine::InputEvent& event);
 
     /// 取消当前所有临时交互（工具 / grip / camera drag / ViewCube press）。
     /// 供 DocWidget 在 FocusOut / UngrabMouse / WindowDeactivate / leaveEvent 调用。
-    void cancelInteraction();
+    DocumentInputOutcome cancelInteraction();
 
     // ── 编辑器交互（转发，app 层不直接接触 EditorSession）──
 
     bool isEditorReady() const { return editor_session_.isReady(); }
     bool hasActiveEditorTool() const { return editor_session_.hasActiveTool(); }
     std::string_view activeEditorToolId() const { return editor_session_.activeToolId(); }
-    void cancelActiveEditorTool() { editor_session_.cancelActiveTool(); }
+    void cancelActiveEditorTool();
     void clearEditorHover() { editor_session_.clearHover(); }
     bool canEditorUndo() const { return editor_session_.canUndo(); }
     bool canEditorRedo() const { return editor_session_.canRedo(); }
@@ -67,7 +92,8 @@ public:
 private:
     /// 在 handleInput 内部跟踪左键 press，release 时据此判定 click-vs-drag 选择。
     void trackPressEvent(const mulan::engine::InputEvent& event);
-    void maybeSelectOnRelease(const mulan::engine::InputEvent& event, bool editorConsumed);
+    bool maybeSelectOnRelease(const mulan::engine::InputEvent& event, bool allowSelection);
+    void clearClickTracking();
     bool isLeftDragExceedingThreshold(const mulan::engine::InputEvent& event) const;
 
     DocumentSession* session_ = nullptr;

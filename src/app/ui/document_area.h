@@ -24,11 +24,14 @@ public:
     /// 添加一个文档标签，返回对应的 DocWidget
     DocWidget* addDocument(DocumentSession* session, const QString& title);
 
-    /// 关闭当前激活的文档标签
-    void closeCurrentDocument();
+    /// 关闭当前激活的文档标签；用户取消丢弃未保存修改时返回 false。
+    bool closeCurrentDocument();
 
-    /// 关闭指定索引的标签
-    void closeDocument(int index);
+    /// 关闭指定索引的标签；用户取消丢弃未保存修改时返回 false。
+    bool closeDocument(int index);
+
+    /// 在应用退出前统一确认全部 dirty 文档；确认完成后再集中关闭，避免只关闭一半。
+    bool closeAllDocuments();
 
     /// 获取当前激活的 DocWidget（可能为 nullptr）
     DocWidget* currentDocWidget() const;
@@ -64,6 +67,9 @@ private slots:
     void onCurrentTabChanged(int index);
 
 private:
+    bool confirmDiscard(int index);
+    bool closeDocumentUnchecked(int index);
+
     QStackedWidget* stack_ = nullptr;
     QWidget* document_page_ = nullptr;
     SARibbonTabBar* document_tab_bar_ = nullptr;

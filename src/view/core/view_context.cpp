@@ -5,6 +5,7 @@
 #include "runtime/detail/render_session.h"
 
 #include <algorithm>
+#include <iterator>
 #include <utility>
 
 namespace mulan::view {
@@ -245,23 +246,40 @@ void ViewContext::resize(int width, int height) {
 }
 
 bool ViewContext::handleInput(const engine::InputEvent& event) {
-    if (handleViewCubeInput(event))
-        return true;
+    return dispatchInput(event).handled();
+}
+
+engine::InputOutcome ViewContext::dispatchInput(const engine::InputEvent& event) {
+    // 生命周期取消必须同时终止 ViewCube 的 press/release 事务；它不一定会收到
+    // 后续 MouseRelease，不能只清悬停标记而保留 consuming_view_cube_click_。
+    if (event.isCancelEvent()) {
+        clearViewCubeInteraction();
+    }
+
+    if (handleViewCubeInput(event)) {
+        return engine::InputOutcome::handledBy(engine::InputDisposition::ViewOverlay);
+    }
 
     engine::Operator* op = activeOperator();
-    if (!op)
-        return false;
+    if (!op) {
+        return event.isCancelEvent() ? engine::InputOutcome::handledBy(engine::InputDisposition::Cancelled)
+                                     : engine::InputOutcome::ignored();
+    }
 
-    const bool consumed = op->handleEvent(event, camera_);
+    const engine::InputOutcome outcome = op->dispatchEvent(event, camera_);
 
     if (op->isFinished() && !op_stack_.empty()) {
         auto finishedHook = op->finishHook();
         if (finishedHook)
             finishedHook(*op);
-        popOperator();
+        // 完成回调可以调整外部所有权记录；只有该 Operator 仍是栈顶时才弹出，
+        // 避免回调移除/替换 Operator 后误弹新的栈顶对象。
+        if (activeOperator() == op) {
+            popOperator();
+        }
     }
 
-    return consumed;
+    return outcome;
 }
 
 bool ViewContext::handleViewCubeInput(const engine::InputEvent& event) {
@@ -345,16 +363,36 @@ void ViewContext::popOperator() {
     if (op_stack_.empty())
         return;
 
-    auto top = std::move(op_stack_.back());
-    op_stack_.pop_back();
-    top->setState(engine::Operator::State::Inactive);
-    top->onDeactivate(camera_);
-    top.reset();
+    removeOperator(op_stack_.back().get());
+}
 
-    if (auto* next = activeOperator()) {
-        next->setState(engine::Operator::State::Active);
-        next->onActivate(camera_);
+bool ViewContext::removeOperator(const engine::Operator* op) {
+    if (!op) {
+        return false;
     }
+
+    const auto it =
+            std::find_if(op_stack_.begin(), op_stack_.end(),
+                         [op](const std::unique_ptr<engine::Operator>& candidate) { return candidate.get() == op; });
+    if (it == op_stack_.end()) {
+        return false;
+    }
+
+    const bool wasActive = std::next(it) == op_stack_.end();
+    if (wasActive) {
+        (*it)->setState(engine::Operator::State::Inactive);
+        (*it)->onDeactivate(camera_);
+    }
+
+    op_stack_.erase(it);
+
+    if (wasActive) {
+        if (auto* next = activeOperator()) {
+            next->setState(engine::Operator::State::Active);
+            next->onActivate(camera_);
+        }
+    }
+    return true;
 }
 
 engine::Operator* ViewContext::activeOperator() const {

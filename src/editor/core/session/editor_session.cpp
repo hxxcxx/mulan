@@ -83,13 +83,13 @@ bool EditorSession::isReady() const {
 }
 
 void EditorSession::startTool(std::unique_ptr<EditorTool> tool) {
+    // Operator 与工具是一一对应关系。先精确移除旧适配器，再让 ToolController
+    // 以 Replaced 结束旧工具，避免栈中残留仍引用当前 Session 的 ghost operator。
+    removeToolOperator();
     overlay_service_.clear(EditorOverlayRole::Snap);
     clearGrips();
     applyAction(tool_controller_.start(std::move(tool)));
-    // 工具激活 → push EditorToolOperator 到 view 栈顶，接管工具事件 + 相机穿透。
-    if (tool_controller_.hasActiveTool() && view_) {
-        view_->pushOperator(std::make_unique<EditorToolOperator>(*this));
-    }
+    installToolOperator();
 }
 
 bool EditorSession::startTransformTool(TransformEditCommitMode commitMode) {
@@ -199,42 +199,67 @@ bool EditorSession::handleInput(const engine::InputEvent& event) {
     return tryStartGripDrag(event);
 }
 
-bool EditorSession::driveActiveTool(const engine::InputEvent& event) {
+EditorToolDispatchResult EditorSession::driveActiveTool(const engine::InputEvent& event) {
+    EditorToolDispatchResult result;
     if (!view_ || !tool_controller_.hasActiveTool()) {
-        return false;
+        return result;
     }
+    result.hadActiveTool = true;
 
     EditorInput input = makeEditorInput(event);
     updateSnapPreview(input);
 
     EditorAction action = tool_controller_.handleInput(input);
-    const ToolLifecycle lifecycle = action.lifecycle();
-    const bool consumed = applyAction(std::move(action));
-    if (lifecycle != ToolLifecycle::Running && view_) {
+    result.lifecycle = action.lifecycle();
+    result.consumed = applyAction(std::move(action));
+    if (result.lifecycle != ToolLifecycle::Running && view_) {
         overlay_service_.clear(EditorOverlayRole::Snap);
         refreshGrips();
     }
-    return consumed;
+    return result;
 }
 
 void EditorSession::cancelActiveTool() {
+    cancelToolState();
+    removeToolOperator();
+}
+
+void EditorSession::cancelToolState() {
     applyAction(tool_controller_.cancel());
     overlay_service_.clearAll();
     refreshGrips();
-    // 工具取消后，清理 view 栈上的 EditorToolOperator（若存在）。
-    popToolOperators();
 }
 
-void EditorSession::popToolOperators() {
-    if (!view_) {
+void EditorSession::cancelActiveToolFromOperator() {
+    cancelToolState();
+}
+
+void EditorSession::installToolOperator() {
+    if (!tool_controller_.hasActiveTool() || !view_) {
         return;
     }
-    // 弹出栈顶所有非 default Operator（正常只有一个 EditorToolOperator，防御性循环）。
-    // 注意：若未来栈上出现非 EditorToolOperator 的模态 Operator（如 ViewCubeOperator），
-    // 此循环会把它们一并弹出。当前栈上只可能有 EditorToolOperator，故安全；
-    // 引入新 Operator 类型时需复查此处——应改为按类型/标记选择性弹出。
-    while (view_->activeOperator() != view_->defaultOperator()) {
-        view_->popOperator();
+
+    // 防御性维护一工具一 Operator 不变量；正常路径在 startTool 前已移除旧对象。
+    removeToolOperator();
+    auto op = std::make_unique<EditorToolOperator>(*this);
+    tool_operator_ = op.get();
+    op->onFinish([this](engine::Operator& finished) {
+        if (tool_operator_ == &finished) {
+            tool_operator_ = nullptr;
+        }
+    });
+    view_->pushOperator(std::move(op));
+}
+
+void EditorSession::removeToolOperator() {
+    EditorToolOperator* installed = std::exchange(tool_operator_, nullptr);
+    if (!installed || !view_) {
+        return;
+    }
+
+    // 只撤销本 Session 安装的对象，不再清空所有非默认 Operator。
+    if (!view_->removeOperator(installed)) {
+        LOG_WARN("[Editor] Tool operator ownership was already released");
     }
 }
 
@@ -356,9 +381,7 @@ bool EditorSession::tryStartGripDrag(const engine::InputEvent& event) {
     overlay_service_.clear(EditorOverlayRole::Snap);
 
     applyAction(tool_controller_.start(std::make_unique<GripDragTool>(*grip, dragStart)));
-    if (tool_controller_.hasActiveTool() && view_) {
-        view_->pushOperator(std::make_unique<EditorToolOperator>(*this));
-    }
+    installToolOperator();
     return true;
 }
 

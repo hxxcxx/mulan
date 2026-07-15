@@ -113,13 +113,26 @@ public:
         return false;
     }
 
+    void onActivate(Camera& cam) override { active_camera_ = &cam; }
+
+    void onDeactivate(Camera& cam) override {
+        if (dragging_) {
+            cam.endOrbit();
+        }
+        dragging_ = false;
+        press_button_ = MouseButton::None;
+        active_camera_ = nullptr;
+    }
+
     bool onCancel() override {
         // 焦点丢失 / 系统取消时清理 drag 状态（幂等）
-        if (dragging_) {
-            dragging_ = false;
-            press_button_ = MouseButton::None;
+        const bool wasDragging = dragging_;
+        if (wasDragging && active_camera_) {
+            active_camera_->endOrbit();
         }
-        return false;
+        dragging_ = false;
+        press_button_ = MouseButton::None;
+        return wasDragging;
     }
 
 private:
@@ -127,6 +140,10 @@ private:
     int last_y_ = 0;
     bool dragging_ = false;
     MouseButton press_button_ = MouseButton::None;  ///< 启动本次 drag 的按钮
+    Camera* active_camera_ = nullptr;               ///< 仅在 Active 生命周期内有效
+
+protected:
+    InputDisposition handledDisposition() const override { return InputDisposition::ViewNavigation; }
 };
 
 }  // namespace mulan::engine

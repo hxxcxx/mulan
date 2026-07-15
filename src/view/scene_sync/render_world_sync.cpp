@@ -46,6 +46,8 @@ engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::
 
 engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset::AssetId materialId) {
     engine::RenderMaterialDesc desc;
+    // 无材质或材质资产失效时统一回退到稳定的内置身份，避免 world generation 污染缓存键。
+    desc.resourceKey = engine::defaultRenderMaterialResourceKey();
     if (!materialId) {
         return desc;
     }

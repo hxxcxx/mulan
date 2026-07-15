@@ -7,8 +7,10 @@
  * 编辑副作用（operation / preview）在 editor 层闭环（经 EditorSession::driveActiveTool
  * → applyAction），engine 层只见 bool（handled），不认识 DocumentOperation。
  *
- * 相机穿透：工具激活期间，中键/右键/滚轮经 isCameraEvent/handleCameraEvent
+ * 相机穿透：工具激活期间，中键/滚轮经 isCameraEvent/handleCameraEvent
  * 钩子转发给内部持有的 CameraManipulator，使导航手势不打断绘制。
+ * 右键明确保留给 EditorTool 的结束/取消语义；无活动工具时，默认相机
+ * CameraManipulator 仍可使用右键平移。
  *
  * @author hxxcxx
  * @date 2026-07-14
@@ -32,8 +34,13 @@ public:
     explicit EditorToolOperator(EditorSession& session);
 
     bool handleEvent(const engine::InputEvent& e, engine::Camera& cam) override;
+    engine::InputOutcome dispatchEvent(const engine::InputEvent& e, engine::Camera& cam) override;
 
-    /// 工具激活期间，中键/右键/滚轮判定为相机事件，穿透给内部 CameraManipulator。
+    /// 同步内部 CameraManipulator 的 Active/Inactive 生命周期。
+    void onActivate(engine::Camera& cam) override;
+    void onDeactivate(engine::Camera& cam) override;
+
+    /// 工具激活期间，仅中键/滚轮判定为相机事件；右键保留给编辑工具。
     /// 注意 button/buttons 语义：press/release 查 button（本次变化），
     /// move 查 buttons（按住集合，move 的 button 恒为 None）。
     bool isCameraEvent(const engine::InputEvent& e) const override;
@@ -41,7 +48,7 @@ public:
     /// 相机事件转发给内部 CameraManipulator。
     bool handleCameraEvent(const engine::InputEvent& e, engine::Camera& cam) override;
 
-    /// 取消：经 EditorSession 取消活动工具并清理。幂等。
+    /// 取消：只清理 EditorSession 工具状态并标记自身结束，不在自身调用栈内弹栈。
     bool onCancel() override;
 
 private:

@@ -4,6 +4,7 @@
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/brep_asset.h>
+#include <mulan/asset/tessellated_asset.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/components/name_component.h>
 #include <mulan/scene/components/render_component.h>
@@ -65,41 +66,67 @@ scene::EntityId DocumentEditor::createBody(std::string name, modeling::Shape sha
 
 bool DocumentEditor::booleanSubtract(scene::EntityId target, scene::EntityId tool, modeling::BooleanOp op) {
     auto* ops = modeling::ShapeOpsRegistry::instance().ops();
-    if (!ops || !document_.assets() || !document_.scene())
+    if (!ops || !document_.assets() || !document_.scene() || target == tool || !document_.scene()->isValid(target) ||
+        !document_.scene()->isValid(tool)) {
         return false;
+    }
 
-    // 解析两个实体的 BRepAsset shape。
-    auto resolveShape = [&](scene::EntityId entity) -> std::optional<modeling::Shape> {
+    // 在修改任何文档状态前解析并计算结果，建模失败不会留下部分提交。
+    auto resolveBRep = [&](scene::EntityId entity) -> asset::BRepAsset* {
         asset::AssetId geometryId = geometryAssetForEntity(entity);
         if (!geometryId)
-            return std::nullopt;
+            return nullptr;
         auto* asset = document_.assets()->asset(geometryId);
-        auto* brep = dynamic_cast<asset::BRepAsset*>(asset);
-        if (!brep)
-            return std::nullopt;
-        return brep->shape();
+        return dynamic_cast<asset::BRepAsset*>(asset);
     };
 
-    auto targetShape = resolveShape(target);
-    auto toolShape = resolveShape(tool);
-    if (!targetShape || !toolShape)
+    asset::BRepAsset* targetBRep = resolveBRep(target);
+    asset::BRepAsset* toolBRep = resolveBRep(tool);
+    if (!targetBRep || !toolBRep) {
         return false;
+    }
 
-    auto result = ops->boolean(*targetShape, *toolShape, op);
-    if (!result)
+    const modeling::Shape previousTargetShape = targetBRep->shape();
+    auto result = ops->boolean(previousTargetShape, toolBRep->shape(), op);
+    if (!result) {
         return false;
+    }
 
-    // 结果更新到 target 的 BRepAsset;删除 tool 实体。
-    asset::AssetId targetGeometry = geometryAssetForEntity(target);
-    if (targetGeometry) {
-        if (auto* asset = document_.assets()->asset(targetGeometry)) {
-            if (auto* brep = dynamic_cast<asset::BRepAsset*>(asset)) {
-                brep->setShape(std::move(*result));
-                document_.markGeometryChanged(target, brep->localBounds());
+    const asset::AssetId previousTargetGeometry = targetBRep->id();
+    asset::AssetId editedTargetGeometry = previousTargetGeometry;
+    bool createdUniqueGeometry = false;
+
+    // target 与副本（包括 tool）共享资产时必须先分离，否则原地 setShape 会篡改所有实例。
+    if (geometryReferenceCount(previousTargetGeometry) > 1) {
+        editedTargetGeometry = duplicateGeometryAsset(previousTargetGeometry, " Boolean");
+        if (!editedTargetGeometry || !setEntityGeometry(target, editedTargetGeometry)) {
+            if (editedTargetGeometry) {
+                removeGeometryAsset(editedTargetGeometry);
             }
+            return false;
+        }
+        createdUniqueGeometry = true;
+        targetBRep = dynamic_cast<asset::BRepAsset*>(document_.assets()->asset(editedTargetGeometry));
+        if (!targetBRep) {
+            setEntityGeometry(target, previousTargetGeometry);
+            removeGeometryAsset(editedTargetGeometry);
+            return false;
         }
     }
-    document_.removeEntity(tool, true);
+
+    targetBRep->setShape(std::move(*result));
+    if (!document_.markGeometryChanged(target, targetBRep->localBounds()) || !document_.removeEntity(tool, true)) {
+        // 理论上只有外部并发破坏实体时才会走到这里；仍恢复到调用前的几何状态。
+        if (createdUniqueGeometry) {
+            setEntityGeometry(target, previousTargetGeometry);
+            removeGeometryAsset(editedTargetGeometry);
+        } else {
+            targetBRep->setShape(previousTargetShape);
+            document_.markGeometryChanged(target, targetBRep->localBounds());
+        }
+        return false;
+    }
+
     document_.markDirty();
     return true;
 }
@@ -110,8 +137,26 @@ bool DocumentEditor::updateCurve(scene::EntityId entity, asset::CurveElementId e
         return false;
     }
 
-    asset::CurveAsset* curve = curveAssetFor(entity);
+    const asset::AssetId previousGeometry = geometryAssetForEntity(entity);
+    asset::AssetId editedGeometry = previousGeometry;
+    bool createdUniqueGeometry = false;
+    if (geometryReferenceCount(previousGeometry) > 1) {
+        editedGeometry = duplicateGeometryAsset(previousGeometry, " Edit");
+        if (!editedGeometry || !setEntityGeometry(entity, editedGeometry)) {
+            if (editedGeometry) {
+                removeGeometryAsset(editedGeometry);
+            }
+            return false;
+        }
+        createdUniqueGeometry = true;
+    }
+
+    asset::CurveAsset* curve = curveAsset(editedGeometry);
     if (!curve || !curve->update(element, std::move(primitive))) {
+        if (createdUniqueGeometry) {
+            setEntityGeometry(entity, previousGeometry);
+            removeGeometryAsset(editedGeometry);
+        }
         return false;
     }
 
@@ -120,7 +165,7 @@ bool DocumentEditor::updateCurve(scene::EntityId entity, asset::CurveElementId e
 
 bool DocumentEditor::updateCurveAsset(scene::EntityId entity, asset::AssetId geometry, asset::CurveElementId element,
                                       asset::CurvePrimitive primitive) {
-    if (!element.valid()) {
+    if (!element.valid() || geometryAssetForEntity(entity) != geometry) {
         return false;
     }
 
@@ -133,6 +178,10 @@ bool DocumentEditor::updateCurveAsset(scene::EntityId entity, asset::AssetId geo
 }
 
 bool DocumentEditor::updateFaceAsset(scene::EntityId entity, asset::AssetId geometry, asset::FaceDefinition face) {
+    if (geometryAssetForEntity(entity) != geometry) {
+        return false;
+    }
+
     asset::FaceAsset* faceAsset = this->faceAsset(geometry);
     if (!faceAsset) {
         return false;
@@ -204,18 +253,7 @@ asset::AssetId DocumentEditor::geometryAssetForEntity(scene::EntityId entity) co
 }
 
 size_t DocumentEditor::geometryReferenceCount(asset::AssetId geometry) const {
-    if (!document_.scene() || !geometry) {
-        return 0;
-    }
-
-    size_t count = 0;
-    document_.scene()->forEachEntity([&](scene::EntityId entity) {
-        const auto* component = document_.scene()->geometry(entity);
-        if (component && component->geometry == geometry) {
-            ++count;
-        }
-    });
-    return count;
+    return document_.geometryReferenceCount(geometry);
 }
 
 asset::AssetId DocumentEditor::duplicateGeometryAsset(asset::AssetId geometry, std::string nameSuffix) {
@@ -243,11 +281,31 @@ asset::AssetId DocumentEditor::duplicateGeometryAsset(asset::AssetId geometry, s
         return copy ? copy->id() : asset::AssetId::invalid();
     }
 
+    if (const auto* mesh = dynamic_cast<const asset::MeshAsset*>(source)) {
+        auto* copy = document_.assets()->create<asset::MeshAsset>(name, mesh->primitives());
+        return copy ? copy->id() : asset::AssetId::invalid();
+    }
+
+    if (const auto* tessellated = dynamic_cast<const asset::TessellatedAsset*>(source)) {
+        auto* copy = document_.assets()->create<asset::TessellatedAsset>(name);
+        if (!copy) {
+            return asset::AssetId::invalid();
+        }
+        copy->setRenderMeshes(tessellated->solidMesh(), tessellated->wireMesh());
+        return copy->id();
+    }
+
+    if (const auto* brep = dynamic_cast<const asset::BRepAsset*>(source)) {
+        auto* copy = document_.assets()->create<asset::BRepAsset>(name, brep->shape());
+        return copy ? copy->id() : asset::AssetId::invalid();
+    }
+
     return asset::AssetId::invalid();
 }
 
 bool DocumentEditor::setEntityGeometry(scene::EntityId entity, asset::AssetId geometry) {
-    if (!document_.scene() || !document_.assets() || !document_.scene()->isValid(entity)) {
+    if (!document_.scene() || !document_.assets() || !document_.scene()->isValid(entity) || !geometry ||
+        !document_.assets()->contains(geometry)) {
         return false;
     }
 
@@ -263,13 +321,7 @@ bool DocumentEditor::setEntityGeometry(scene::EntityId entity, asset::AssetId ge
 }
 
 bool DocumentEditor::removeGeometryAsset(asset::AssetId geometry) {
-    if (!document_.assets() || !geometry) {
-        return false;
-    }
-
-    document_.assets()->remove(geometry);
-    document_.markDirty();
-    return true;
+    return document_.removeGeometryAssetIfUnreferenced(geometry);
 }
 
 asset::CurveAsset* DocumentEditor::curveAssetFor(scene::EntityId entity) const {

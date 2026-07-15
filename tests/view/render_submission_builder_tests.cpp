@@ -9,6 +9,7 @@
 #include "scene_sync/render_item_builder.h"
 
 #include <mulan/asset/asset_library.h>
+#include <mulan/scene/scene.h>
 #include <mulan/view/core/preview_layer.h>
 #include <mulan/view/scene_sync/render_scene.h>
 
@@ -25,6 +26,15 @@ graphics::Mesh makePreviewMesh() {
     mesh.layout = graphics::layouts::surface();
     mesh.topology = graphics::PrimitiveTopology::LineList;
     mesh.vertices.resize(static_cast<size_t>(mesh.layout.stride()) * 2u);
+    return mesh;
+}
+
+graphics::Mesh makeSurfaceMesh() {
+    graphics::Mesh mesh;
+    mesh.layout = graphics::layouts::surface();
+    mesh.topology = graphics::PrimitiveTopology::TriangleList;
+    mesh.vertices.resize(static_cast<size_t>(mesh.layout.stride()) * 3u);
+    mesh.computeBounds();
     return mesh;
 }
 
@@ -128,6 +138,46 @@ TEST(RenderItemBuilderTests, PreviewGeometryKeysUseStableRoleLocalSlots) {
 
     EXPECT_EQ(mixedItems[1].geometryKey, snapItems[0].geometryKey);
     EXPECT_NE(mixedItems[0].geometryKey, snapItems[0].geometryKey);
+}
+
+TEST(RenderSubmissionBuilderTests, MaterialLessDrawableKeepsStableDefaultIdentityAcrossWorldRebuilds) {
+    asset::AssetLibrary assets;
+    auto* meshAsset = assets.create<asset::MeshAsset>("MaterialLessMesh");
+    meshAsset->addPrimitive(makeSurfaceMesh());
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("MaterialLessEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, meshAsset->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_TRUE(first.world);
+    ASSERT_EQ(first.world->materials().size(), 1u);
+    const engine::AssetGpuKey stableKey = first.world->materials().front().desc.resourceKey;
+    ASSERT_EQ(stableKey, engine::defaultRenderMaterialResourceKey());
+    uint32_t previousHandleGeneration = first.world->materials().front().handle.generation;
+
+    bool selected = false;
+    for (size_t rebuild = 0; rebuild < 32u; ++rebuild) {
+        selected = !selected;
+        ASSERT_TRUE(sourceScene.setSelected(entity, selected));
+        renderScene.sync(sourceScene, assets);
+
+        const RenderSubmission submission = builder.build(view);
+        ASSERT_TRUE(submission.rebuiltWorld);
+        ASSERT_TRUE(submission.world);
+        ASSERT_EQ(submission.world->materials().size(), 1u);
+        const auto& material = submission.world->materials().front();
+        EXPECT_EQ(material.desc.resourceKey, stableKey);
+        EXPECT_NE(material.handle.generation, previousHandleGeneration);
+        previousHandleGeneration = material.handle.generation;
+    }
 }
 
 }  // namespace

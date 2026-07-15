@@ -30,6 +30,10 @@ scene::EntityId Document::addBody(modeling::Shape shape, std::string name) {
     }
 
     const auto sceneId = addSceneInstance(bodyName, brep->id());
+    if (!sceneId) {
+        assets_->remove(brep->id());
+        return scene::EntityId::invalid();
+    }
     scene_->setWorldBounds(sceneId, brep->localBounds());
     return sceneId;
 }
@@ -46,6 +50,10 @@ scene::EntityId Document::addFace(std::string name, asset::FaceDefinition face) 
     }
 
     const auto sceneId = addSceneInstance(faceName, faceAsset->id());
+    if (!sceneId) {
+        assets_->remove(faceAsset->id());
+        return scene::EntityId::invalid();
+    }
     scene_->setWorldBounds(sceneId, faceAsset->localBounds());
     return sceneId;
 }
@@ -71,13 +79,17 @@ scene::EntityId Document::addMesh(std::string name, std::vector<asset::MeshPrimi
     }
 
     const auto sceneId = addSceneInstance(meshName, mesh->id(), std::move(materialSlots));
+    if (!sceneId) {
+        assets_->remove(mesh->id());
+        return scene::EntityId::invalid();
+    }
     scene_->setWorldBounds(sceneId, bounds);
     return sceneId;
 }
 
 scene::EntityId Document::addSceneInstance(std::string name, asset::AssetId geometry,
                                            std::vector<asset::AssetId> materialSlots) {
-    if (!scene_)
+    if (!scene_ || !assets_ || !geometry || !assets_->contains(geometry))
         return scene::EntityId::invalid();
 
     scene::EntityId id = scene_->createEntity(std::move(name));
@@ -97,6 +109,31 @@ bool Document::markGeometryChanged(scene::EntityId entity, const math::AABB3& bo
     return true;
 }
 
+size_t Document::geometryReferenceCount(asset::AssetId geometry) const {
+    if (!scene_ || !geometry) {
+        return 0;
+    }
+
+    size_t count = 0;
+    scene_->forEachEntity([&](scene::EntityId entity) {
+        const auto* component = scene_->geometry(entity);
+        if (component && component->geometry == geometry) {
+            ++count;
+        }
+    });
+    return count;
+}
+
+bool Document::removeGeometryAssetIfUnreferenced(asset::AssetId geometry) {
+    if (!assets_ || !geometry || !assets_->contains(geometry) || geometryReferenceCount(geometry) != 0) {
+        return false;
+    }
+
+    assets_->remove(geometry);
+    markDirty();
+    return true;
+}
+
 bool Document::removeEntity(scene::EntityId entity, bool removeGeometryAsset) {
     if (!scene_ || !assets_ || !scene_->isValid(entity)) {
         return false;
@@ -108,7 +145,7 @@ bool Document::removeEntity(scene::EntityId entity, bool removeGeometryAsset) {
     }
 
     scene_->destroyEntity(entity);
-    if (removeGeometryAsset && geometryId) {
+    if (removeGeometryAsset && geometryId && geometryReferenceCount(geometryId) == 0) {
         assets_->remove(geometryId);
     }
     markDirty();

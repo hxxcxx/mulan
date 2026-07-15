@@ -1,6 +1,8 @@
 find_package(GTest CONFIG REQUIRED)
 
 add_executable(ViewRuntimeTests
+    material_cache_tests.cpp
+    operator_routing_tests.cpp
     render_submission_builder_tests.cpp
 )
 

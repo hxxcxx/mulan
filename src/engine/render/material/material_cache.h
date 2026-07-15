@@ -13,11 +13,14 @@
 #pragma once
 
 #include "material.h"
+
 #include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <limits>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <functional>
 
 namespace mulan::engine {
 
@@ -42,10 +45,10 @@ public:
 
     // --- 材质注册 ---
 
-    /// 注册一个新材质，返回句柄（vector index）
+    /// 注册一个新材质，返回句柄（vector index）；容量耗尽时返回无效句柄。
     MaterialHandle registerMaterial(Material material);
 
-    /// 注册材质并指定名称（同名覆盖，句柄不变）
+    /// 注册材质并指定名称（同名覆盖，句柄不变）；容量耗尽时返回无效句柄。
     MaterialHandle registerMaterial(const std::string& name, Material material);
 
     // --- 材质查找 ---
@@ -86,7 +89,8 @@ public:
     /// 是否为空
     bool empty() const { return materials_.empty(); }
 
-    static constexpr uint32_t kMaxMaterials = 256;
+    /// MeshDrawCommand 使用 uint32_t 材质索引，因此只保留真实的可表示边界。
+    static constexpr size_t kMaxMaterials = static_cast<size_t>(std::numeric_limits<uint32_t>::max());
 
 private:
     void rebuildNameIndex();

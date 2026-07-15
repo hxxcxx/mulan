@@ -22,6 +22,7 @@
 #include <QMenu>
 #include <QActionGroup>
 #include <QCryptographicHash>
+#include <QCloseEvent>
 #include <QDir>
 #include <QImage>
 #include <QPainter>
@@ -117,6 +118,14 @@ MainWindow::MainWindow(QWidget* parent) : SARibbonMainWindow(parent) {
 }
 
 MainWindow::~MainWindow() = default;
+
+void MainWindow::closeEvent(QCloseEvent* e) {
+    if (!doc_area_ || doc_area_->closeAllDocuments()) {
+        e->accept();
+        return;
+    }
+    e->ignore();
+}
 
 //===================================================
 // Ribbon 构建

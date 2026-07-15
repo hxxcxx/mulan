@@ -7,7 +7,7 @@ namespace mulan::engine {
 // ============================================================
 
 MaterialCache::MaterialCache() {
-    // 注册默认材质：index 0 = DefaultPBR（也是无效句柄的回退目标）
+    // 注册默认材质：index 0 = DefaultPBR（也是渲染端的回退目标）
     registerMaterial("DefaultPBR", Material::defaultPBR());             // index 0
     registerMaterial("DefaultPhong", Material::defaultPhong());         // index 1
     registerMaterial("Wireframe", Material::unlit({ 0.2, 0.2, 0.8 }));  // index 2
@@ -18,7 +18,7 @@ MaterialHandle MaterialCache::registerMaterial(Material material) {
         material.name = "Material_" + std::to_string(materials_.size());
     }
     if (materials_.size() >= kMaxMaterials) {
-        return 0;
+        return kInvalidMaterialHandle;
     }
     const auto handle = materials_.size();
     name_to_index_[material.name] = handle;
@@ -40,7 +40,7 @@ MaterialHandle MaterialCache::registerMaterial(const std::string& name, Material
     }
     // 新增
     if (materials_.size() >= kMaxMaterials) {
-        return 0;
+        return kInvalidMaterialHandle;
     }
     material.name = name;
     const auto handle = materials_.size();

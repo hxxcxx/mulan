@@ -10,8 +10,6 @@
 #pragma once
 
 #include <QWidget>
-#include <QPoint>
-#include <QPointF>
 
 #include <mulan/interaction/input_event.h>
 #include <mulan/view/core/view_config.h>
@@ -61,9 +59,8 @@ protected:
     bool event(QEvent* e) override;
 
 private:
-    /// 把 handleInput 结果转换为 frame/commandState 通知。
-    void applyResult(bool consumed);
-    void updateHoverAtFramebuffer(const QPointF& framebufferPos);
+    /// 严格执行 DocumentView 返回的结果，不再根据 consumed/activeTool 猜测状态。
+    void applyResult(const DocumentInputOutcome& result);
     void clearPreview(bool refresh = true);
 
     DocumentView document_view_;

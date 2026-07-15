@@ -59,10 +59,14 @@ public:
     void renderFrame();
     void resize(int width, int height);
 
+    /// 兼容入口：仅返回是否处理。需要判断导航/覆盖层/模态语义时使用 dispatchInput。
     bool handleInput(const engine::InputEvent& event);
+    engine::InputOutcome dispatchInput(const engine::InputEvent& event);
 
     void pushOperator(std::unique_ptr<engine::Operator> op);
     void popOperator();
+    /// 精确移除指定 Operator；用于外部所有者撤销自己安装的模态交互。
+    bool removeOperator(const engine::Operator* op);
 
     engine::Operator* activeOperator() const;
     engine::Operator* defaultOperator() const { return default_op_.get(); }
@@ -96,7 +100,10 @@ public:
     bool showViewCube() const { return show_view_cube_; }
     void setShowViewCube(bool show) { show_view_cube_ = show; }
     bool hasHoveredViewCubeFace() const { return view_cube_interaction_.hasHoveredPart; }
-    void clearViewCubeInteraction() { view_cube_interaction_ = {}; }
+    void clearViewCubeInteraction() {
+        consuming_view_cube_click_ = false;
+        view_cube_interaction_ = {};
+    }
 
     const engine::ViewCubeLayout& viewCubeLayout() const { return view_cube_model_.layout(); }
     void setViewCubeLayout(const engine::ViewCubeLayout& layout);

@@ -68,71 +68,49 @@ void DocWidget::paintEvent(QPaintEvent*) {
 }
 
 void DocWidget::mousePressEvent(QMouseEvent* e) {
-    const bool consumed = document_view_.handleInput(input_adapter_.mousePress(*e));
-    applyResult(consumed);
+    applyResult(document_view_.handleInput(input_adapter_.mousePress(*e)));
 }
 
 void DocWidget::mouseReleaseEvent(QMouseEvent* e) {
-    const bool consumed = document_view_.handleInput(input_adapter_.mouseRelease(*e));
-    applyResult(consumed);
+    applyResult(document_view_.handleInput(input_adapter_.mouseRelease(*e)));
 }
 
 void DocWidget::mouseMoveEvent(QMouseEvent* e) {
-    const bool consumed = document_view_.handleInput(input_adapter_.mouseMove(*e));
-
-    // 无按钮按下且事件未消费时更新 hover（ViewCube hover 优先排除）。
-    if (e->buttons() == Qt::NoButton && !consumed) {
-        if (!document_view_.viewContext().hasHoveredViewCubeFace()) {
-            updateHoverAtFramebuffer(input_adapter_.framebufferPosition(e->pos()));
-        } else {
-            document_view_.clearEditorHover();
-        }
-    }
-    requestFrame();
+    applyResult(document_view_.handleInput(input_adapter_.mouseMove(*e)));
 }
 
 void DocWidget::mouseDoubleClickEvent(QMouseEvent* e) {
-    const bool consumed = document_view_.handleInput(input_adapter_.mouseDoubleClick(*e));
-    applyResult(consumed);
+    applyResult(document_view_.handleInput(input_adapter_.mouseDoubleClick(*e)));
 }
 
 void DocWidget::wheelEvent(QWheelEvent* e) {
-    document_view_.handleInput(input_adapter_.wheel(*e));
-    requestFrame();
+    applyResult(document_view_.handleInput(input_adapter_.wheel(*e)));
 }
 
 void DocWidget::keyPressEvent(QKeyEvent* e) {
-    const bool consumed = document_view_.handleInput(input_adapter_.keyPress(*e));
-    applyResult(consumed);
+    applyResult(document_view_.handleInput(input_adapter_.keyPress(*e)));
 }
 
 void DocWidget::keyReleaseEvent(QKeyEvent* e) {
-    const bool consumed = document_view_.handleInput(input_adapter_.keyRelease(*e));
-    applyResult(consumed);
+    applyResult(document_view_.handleInput(input_adapter_.keyRelease(*e)));
 }
 
 void DocWidget::leaveEvent(QEvent* e) {
     QWidget::leaveEvent(e);
-    // 离开视口：取消临时交互 + 清理 hover（统一入口，不再分散调用子系统）。
-    document_view_.cancelInteraction();
-    document_view_.clearEditorHover();
-    document_view_.viewContext().clearHoveredPickId();
-    requestFrame();
+    // 离开视口：所有临时状态在 DocumentView 的统一取消边界内清理。
+    applyResult(document_view_.cancelInteraction());
 }
 
 void DocWidget::focusOutEvent(QFocusEvent* e) {
-    document_view_.cancelInteraction();
+    applyResult(document_view_.cancelInteraction());
     QWidget::focusOutEvent(e);
 }
 
 bool DocWidget::event(QEvent* e) {
     switch (e->type()) {
     case QEvent::WindowDeactivate:
-    case QEvent::UngrabMouse:
-        document_view_.cancelInteraction();
-        break;
-    default:
-        break;
+    case QEvent::UngrabMouse: applyResult(document_view_.cancelInteraction()); break;
+    default: break;
     }
     return QWidget::event(e);
 }
@@ -150,17 +128,13 @@ void DocWidget::requestFrame() {
     }
 }
 
-void DocWidget::applyResult(bool consumed) {
-    requestFrame();
-    // 仅在事件确实改变编辑状态时刷新命令 UI，而非每个事件无条件刷新。
-    // 活动工具存在或事件被消费时，可能改变工具/选择/历史状态。
-    if (consumed || document_view_.hasActiveEditorTool()) {
+void DocWidget::applyResult(const DocumentInputOutcome& result) {
+    if (result.needsFrame()) {
+        requestFrame();
+    }
+    if (result.needsCommandStateRefresh()) {
         emit commandStateInvalidated();
     }
-}
-
-void DocWidget::updateHoverAtFramebuffer(const QPointF& framebufferPos) {
-    document_view_.updateHoverAtFramebuffer(framebufferPos.x(), framebufferPos.y());
 }
 
 void DocWidget::clearPreview(bool refresh) {

@@ -14,6 +14,11 @@ void CommandHistory::record(DocumentOperation redoOperation, DocumentOperation u
     redo_stack_.clear();
 }
 
+void CommandHistory::recordIrreversibleChange() {
+    // 仅清 redo 仍允许旧 undo 越过不可逆修改，可能把过期实体 ID 重放到新文档状态。
+    clear();
+}
+
 std::optional<CommandHistory::Entry> CommandHistory::takeUndo() {
     if (undo_stack_.empty()) {
         return std::nullopt;

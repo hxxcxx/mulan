@@ -11,33 +11,61 @@
 
 namespace mulan::editor {
 
-EditorToolOperator::EditorToolOperator(EditorSession& session) : session_(session) {}
+EditorToolOperator::EditorToolOperator(EditorSession& session) : session_(session) {
+    // 活动工具期间左键与右键都属于工具；相机委托只接受中键平移和滚轮缩放。
+    camera_delegate_.config.orbitButton = engine::MouseButton::None;
+    camera_delegate_.config.panAltButton = engine::MouseButton::None;
+}
 
 bool EditorToolOperator::handleEvent(const engine::InputEvent& e, engine::Camera& cam) {
+    return dispatchEvent(e, cam).handled();
+}
+
+engine::InputOutcome EditorToolOperator::dispatchEvent(const engine::InputEvent& e, engine::Camera& cam) {
     if (!isActive()) {
-        return false;
+        return engine::InputOutcome::ignored();
     }
 
-    // 1. 生命周期取消优先（修 P7：cancel 不依赖 worldPoint）
+    // 1. 生命周期取消优先；onCancel 只标记完成，由 ViewContext 在本调用返回后弹栈。
     if (e.isCancelEvent()) {
-        return onCancel();
+        cancel(engine::CancelReason::System);
+        return engine::InputOutcome::handledBy(engine::InputDisposition::Cancelled);
     }
 
-    // 2. 相机穿透：中键/右键/滚轮先尝试给相机
+    // 2. 相机穿透：中键/滚轮先尝试给相机。右键不会进入此分支，明确交给工具。
     if (isCameraEvent(e)) {
-        if (bool r = handleCameraEvent(e, cam))
-            return r;
+        const engine::InputOutcome cameraOutcome = camera_delegate_.dispatchEvent(e, cam);
+        if (cameraOutcome.handled()) {
+            return cameraOutcome;
+        }
     }
 
     // 3. 驱动活动工具（makeEditorInput → snap → tool dispatch → applyAction）
-    const bool consumed = session_.driveActiveTool(e);
+    const EditorToolDispatchResult result = session_.driveActiveTool(e);
 
-    // 4. 工具结束 → Operator finish，外部（ViewContext）将 pop
-    if (!session_.hasActiveTool()) {
-        finish(true);
+    // 4. 工具结束 → Operator finish，外部（ViewContext）将 pop。
+    // 必须使用 ToolLifecycle 区分正常完成和取消，不能仅凭 activeTool==nullptr 猜测。
+    if (!result.hadActiveTool) {
+        finish(false);
+        return engine::InputOutcome::handledBy(engine::InputDisposition::ModalInteraction);
+    }
+    if (result.lifecycle != ToolLifecycle::Running) {
+        finish(result.lifecycle == ToolLifecycle::Finished);
     }
 
-    return consumed;
+    // 模态工具拥有本次事件，即使具体工具返回 ignored，也不能让 release 落回选择逻辑。
+    return engine::InputOutcome::handledBy(engine::InputDisposition::ModalInteraction);
+}
+
+void EditorToolOperator::onActivate(engine::Camera& cam) {
+    camera_delegate_.setState(engine::Operator::State::Active);
+    camera_delegate_.onActivate(cam);
+}
+
+void EditorToolOperator::onDeactivate(engine::Camera& cam) {
+    camera_delegate_.cancel(engine::CancelReason::System);
+    camera_delegate_.onDeactivate(cam);
+    camera_delegate_.setState(engine::Operator::State::Inactive);
 }
 
 bool EditorToolOperator::isCameraEvent(const engine::InputEvent& e) const {
@@ -47,11 +75,11 @@ bool EditorToolOperator::isCameraEvent(const engine::InputEvent& e) const {
     }
     if (e.type == T::MousePress || e.type == T::MouseRelease) {
         // press/release 查 button（本次变化的按钮）
-        return e.button & (engine::MouseButton::Middle | engine::MouseButton::Right);
+        return e.button == engine::MouseButton::Middle;
     }
     if (e.type == T::MouseMove) {
         // move 查 buttons（当前按住的集合），因为 move 的 button 恒为 None
-        return e.buttons & (engine::MouseButton::Middle | engine::MouseButton::Right);
+        return e.buttons & engine::MouseButton::Middle;
     }
     return false;
 }
@@ -61,7 +89,8 @@ bool EditorToolOperator::handleCameraEvent(const engine::InputEvent& e, engine::
 }
 
 bool EditorToolOperator::onCancel() {
-    session_.cancelActiveTool();
+    camera_delegate_.cancel(engine::CancelReason::System);
+    session_.cancelActiveToolFromOperator();
     finish(false);
     return true;
 }

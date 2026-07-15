@@ -38,6 +38,11 @@ struct RenderTextureDesc {
     bool srgb = false;                         ///< sRGB 意图，由 material slot 决定
 };
 
+/// 无显式材质时的内置资源身份；不依赖 RenderWorld generation，可跨重建稳定复用。
+inline constexpr AssetGpuKey defaultRenderMaterialResourceKey() {
+    return makeAssetGpuKey(0xF000000000000001ull);
+}
+
 struct RenderMaterialDesc {
     AssetGpuKey resourceKey;
     Material material = Material::defaultPBR();

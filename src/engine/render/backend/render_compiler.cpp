@@ -5,21 +5,33 @@
 #include "../material/material_cache.h"
 #include "../render_geometry.h"
 
+#include <limits>
+#include <optional>
 #include <string>
 
 namespace mulan::engine {
 namespace {
 
-uint32_t materialIndex(const RenderWorldSnapshot& snapshot, RenderMaterialHandle handle, MaterialCache& cache) {
+std::optional<uint32_t> materialIndex(const RenderWorldSnapshot& snapshot, RenderMaterialHandle handle,
+                                      MaterialCache& cache) {
     const auto* record = snapshot.material(handle);
     if (!record)
-        return 0;
+        return uint32_t{ 0 };
+
+    // 默认材质有固定资源身份，直接复用 MaterialCache 的内置 0 号材质。
+    if (record->desc.resourceKey == defaultRenderMaterialResourceKey()) {
+        return uint32_t{ 0 };
+    }
 
     const std::string name = record->desc.resourceKey
                                      ? "render-material:" + std::to_string(record->desc.resourceKey.value)
                                      : "render-material-handle:" + std::to_string(handle.generation) + ":" +
                                                std::to_string(handle.index);
-    return static_cast<uint32_t>(cache.registerMaterial(name, record->desc.material));
+    const MaterialHandle registered = cache.registerMaterial(name, record->desc.material);
+    if (registered == kInvalidMaterialHandle || registered > std::numeric_limits<uint32_t>::max()) {
+        return std::nullopt;
+    }
+    return static_cast<uint32_t>(registered);
 }
 
 Texture* loadTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
@@ -110,9 +122,14 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
             return CompileItemStatus::Skipped;
         }
 
-        auto command =
-                makeCommand(item, *geometryRecord, *gpuGeometry, pipeline,
-                            materialIndex(snapshot, item.material, context.materials), isEdge, selected, hovered);
+        const std::optional<uint32_t> resolvedMaterial = materialIndex(snapshot, item.material, context.materials);
+        if (!resolvedMaterial) {
+            ++stats_.materialRegistrationFailureCount;
+            return CompileItemStatus::Skipped;
+        }
+
+        auto command = makeCommand(item, *geometryRecord, *gpuGeometry, pipeline, *resolvedMaterial, isEdge, selected,
+                                   hovered);
         if (populateTextures) {
             populateSurfaceTextures(snapshot, item, context.assets, command);
         }

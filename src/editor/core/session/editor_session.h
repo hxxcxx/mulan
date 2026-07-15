@@ -33,6 +33,15 @@ class ViewContext;
 
 namespace mulan::editor {
 
+class EditorToolOperator;
+
+/// EditorToolOperator 驱动一次活动工具后的完整结果。
+struct EditorToolDispatchResult {
+    bool consumed = false;
+    bool hadActiveTool = false;
+    ToolLifecycle lifecycle = ToolLifecycle::Running;
+};
+
 class EditorSession {
 public:
     EditorSession();
@@ -64,8 +73,9 @@ public:
 
     /// 驱动当前活动工具处理一次输入（供 EditorToolOperator 适配器使用）。
     /// 完成 makeEditorInput → snap preview → tool dispatch → applyAction 全流程。
-    /// 返回 consumed 标志；工具若已结束，hasActiveTool() 在返回后为 false。
-    bool driveActiveTool(const engine::InputEvent& event);
+    /// 同时返回 consumed 与生命周期；Operator 据此区分正常完成和取消，不能再用
+    /// “工具是否还存在”猜测 finish(true/false)。
+    EditorToolDispatchResult driveActiveTool(const engine::InputEvent& event);
 
     /// 取消当前活动工具（供 EditorToolOperator 在 cancel 时调用）。
     void cancelActiveTool();
@@ -82,11 +92,18 @@ public:
     const engine::WorkPlane& workPlane() const;
 
 private:
+    friend class EditorToolOperator;
+
     EditorInput makeEditorInput(const engine::InputEvent& event) const;
     void updateSnapPreview(const EditorInput& input);
     bool tryStartGripDrag(const engine::InputEvent& event);
     bool applyAction(EditorAction action);
-    void popToolOperators();  ///< 弹出 view 栈上所有 EditorToolOperator
+    void installToolOperator();
+    void removeToolOperator();
+    void cancelToolState();
+    /// 由正在分发事件的 EditorToolOperator 调用：只取消工具状态，不在其成员函数
+    /// 尚未返回时销毁 Operator；随后由 ViewContext 按 finished 状态安全弹栈。
+    void cancelActiveToolFromOperator();
 
     DocumentSession* session_ = nullptr;
     view::ViewContext* view_ = nullptr;
@@ -98,6 +115,8 @@ private:
     EditorGripController grip_controller_;
     EditorSelectionService selection_service_;
     ToolController tool_controller_;
+    /// 非拥有指针；对象所有权属于 ViewContext，完成回调会在弹栈前清空本字段。
+    EditorToolOperator* tool_operator_ = nullptr;
 };
 
 }  // namespace mulan::editor

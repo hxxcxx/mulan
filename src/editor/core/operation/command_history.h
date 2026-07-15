@@ -25,6 +25,8 @@ public:
     void clear();
 
     void record(DocumentOperation redoOperation, DocumentOperation undoOperation);
+    /// 文档已发生不可撤销的修改，禁止撤销/重做跨越这个事务边界。
+    void recordIrreversibleChange();
 
     std::optional<Entry> takeUndo();
     void restoreUndo(Entry entry);

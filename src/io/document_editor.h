@@ -43,8 +43,7 @@ public:
     scene::EntityId createMesh(std::string name, std::vector<asset::MeshPrimitive> primitives);
     /// 拉伸/布尔等建模操作产出的 Shape 落成 BRepAsset 实体。
     scene::EntityId createBody(std::string name, modeling::Shape shape);
-    /// 两体布尔:target ⊕ tool。结果更新到 target 的 BRepAsset,删除 tool 实体。
-    /// 本轮不捕获 target 旧 Shape(undo 待后续完善)。
+    /// 两体布尔:target ⊕ tool。共享 target 先执行 COW，再删除 tool 实体。
     bool booleanSubtract(scene::EntityId target, scene::EntityId tool, modeling::BooleanOp op);
     bool updateCurve(scene::EntityId entity, asset::CurveElementId element, asset::CurvePrimitive primitive);
     bool updateCurveAsset(scene::EntityId entity, asset::AssetId geometry, asset::CurveElementId element,

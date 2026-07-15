@@ -268,6 +268,10 @@ core::Result<void> RenderRenderer::render(RHIDevice& device, const RenderSurface
 
 void RenderRenderer::clearAssetResources(RHIDevice& device) {
     clearCompiledCommands();
+    if (material_cache_) {
+        // AssetGpuKey 只在当前文档资产域内有效，切换域时同步清理派生材质。
+        material_cache_->clear();
+    }
     if (!asset_gpu_registry_)
         return;
 

@@ -2,11 +2,12 @@
  * @file operator.h
  * @brief 交互操作器抽象基类 — 显式状态机 + 完成回调
  * @author hxxcxx
- * @date 2026-04-17 (原始) / 2026-06-29 (状态机重构) / 2026-07-15 (返回 bool 精简)
+ * @date 2026-04-17 (原始) / 2026-06-29 (状态机重构) / 2026-07-15 (结构化分发结果)
  *
  * 设计思路：
  *  - Operator 是纯虚基类，继承者通过覆盖事件方法参与输入处理。
- *  - 事件方法返回 bool：true 表示已消费（handled），false 表示忽略（交由下层）。
+ *  - 具体事件方法仍返回 bool；统一分发入口额外返回 InputOutcome，明确事件最终
+ *    由导航、模态交互还是生命周期取消处理，避免上层根据 bool 猜测语义。
  *  - 显式状态机：Inactive → Active → (Finished | Cancelled)。
  *    由子类在事件中调用 finish() 结束交互，状态完全由 Operator 自身决定。
  *  - finish() 只翻状态、不触发回调；回调由 Viewport 在 handleInput 返回后
@@ -20,8 +21,8 @@
  *  - 模态工具 Operator：push 入栈 → 处理事件 → finish() → 自动 pop。
  *    模态工具可覆盖 handleCameraEvent() 让中键/右键/滚轮在交互期间仍操控相机。
  *
- * 2026-07-15：曾尝试用 HandlerResult（disposition + capture + invalidation 位）取代 bool，
- * 但 capture/invalidation 字段从未被消费，属于死代码。现回退到 bool，需要时再加。
+ * InputOutcome 只表达实际被消费的路由，不携带无人消费的 capture/invalidation 位；
+ * UI 是否重绘、是否刷新命令状态由更上层的文档输入结果决定。
  */
 #pragma once
 
@@ -41,6 +42,28 @@ enum class CancelReason : uint8_t {
     Escape,          ///< 用户按 Escape
     RightClick,      ///< 用户右键取消
     Replaced,        ///< 被新交互替换
+};
+
+/// 输入最终由哪类交互处理。
+///
+/// 该类型只描述 engine/view 层能够确定的路由，不包含编辑器领域概念。
+/// DocumentView 会把 ModalInteraction 进一步解释为编辑工具或其他文档交互。
+enum class InputDisposition : uint8_t {
+    Ignored = 0,       ///< 当前路由未处理
+    ViewNavigation,    ///< 相机旋转、平移或缩放
+    ViewOverlay,       ///< ViewCube 等视图覆盖层
+    ModalInteraction,  ///< 栈顶模态 Operator 独占本次事件
+    Cancelled,         ///< 生命周期取消事件已完成清理
+};
+
+/// Operator / ViewContext 的强类型输入结果。
+struct InputOutcome {
+    InputDisposition disposition = InputDisposition::Ignored;
+
+    [[nodiscard]] constexpr bool handled() const { return disposition != InputDisposition::Ignored; }
+
+    static constexpr InputOutcome ignored() { return {}; }
+    static constexpr InputOutcome handledBy(InputDisposition value) { return InputOutcome{ value }; }
 };
 
 class Operator {
@@ -135,9 +158,7 @@ public:
     /// 被宿主取消（FocusLost / PointerCancel / 文档切换 / 控件销毁）。
     /// 子类应清理临时交互状态（drag、preview handle 等）。必须幂等。
     /// 默认实现调用 onCancel()，子类通常覆盖 onCancel 而非本方法。
-    virtual bool cancel(CancelReason) {
-        return onCancel();
-    }
+    virtual bool cancel(CancelReason) { return onCancel(); }
 
     /// 取消钩子：子类覆盖以清理状态。必须幂等（可被多次调用）。
     virtual bool onCancel() { return false; }
@@ -177,10 +198,23 @@ public:
         case InputEvent::Type::KeyPress: return onKeyPress(e, cam);
         case InputEvent::Type::KeyRelease: return onKeyRelease(e, cam);
         case InputEvent::Type::PointerCancel:
-        case InputEvent::Type::FocusLost:
-            return cancel(CancelReason::System);  // isCancelEvent 已在上方处理，此处兜底
+        case InputEvent::Type::FocusLost: return cancel(CancelReason::System);  // isCancelEvent 已在上方处理，此处兜底
         }
         return false;
+    }
+
+    /// 带强类型路由信息的统一入口。保留 handleEvent(bool) 供已有调用方兼容，
+    /// ViewContext 与需要区分导航/模态语义的上层应调用本方法。
+    virtual InputOutcome dispatchEvent(const InputEvent& e, Camera& cam) {
+        const bool handled = handleEvent(e, cam);
+        if (e.isCancelEvent()) {
+            // 生命周期事件即使没有可清理状态，也已经在本层完成处理。
+            return InputOutcome::handledBy(InputDisposition::Cancelled);
+        }
+        if (!handled) {
+            return InputOutcome::ignored();
+        }
+        return InputOutcome::handledBy(handledDisposition());
     }
 
 protected:
@@ -212,6 +246,10 @@ protected:
         (void) cam;
         return false;
     }
+
+    /// 普通 handleEvent 返回 true 时对应的强类型路由。模态 Operator 使用默认值；
+    /// CameraManipulator 覆盖为 ViewNavigation。
+    virtual InputDisposition handledDisposition() const { return InputDisposition::ModalInteraction; }
 
     State state_ = State::Inactive;
     FinishCallback on_finish_;
