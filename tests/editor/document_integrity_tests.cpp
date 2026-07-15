@@ -317,7 +317,7 @@ TEST(DocumentRenderInvalidation, BindingReportsFrameDemandThroughSingleCallback)
     EXPECT_EQ(invalidationCount, 1u);
 
     // 仅更新裁剪面不会自行提交新帧；由实际输入结果决定是否失效。
-    binding.updateCameraClipPlanes();
+    binding.prepareFrame();
     EXPECT_EQ(invalidationCount, 1u);
 
     binding.fitAll();
@@ -325,6 +325,7 @@ TEST(DocumentRenderInvalidation, BindingReportsFrameDemandThroughSingleCallback)
 
     binding.unbind();
     binding.refresh();
+    binding.prepareFrame();
     EXPECT_EQ(invalidationCount, 2u);
 }
 
@@ -363,6 +364,7 @@ TEST(DocumentCameraClipPlanes, CommittedOffAxisSmallCircleKeepsTheCurrentComposi
 
     ASSERT_TRUE(editor.createCurve("FollowingLine", segment(1.0)));
     binding.refresh();
+    binding.prepareFrame();
     const auto& expandedSphere = renderScene->sceneBoundsSphere();
     const double expandedDepth = (expandedSphere.center.asVec() - camera.eyePosition()).dot(camera.forward());
     EXPECT_LT(camera.nearPlane(), expandedDepth - expandedSphere.radius);

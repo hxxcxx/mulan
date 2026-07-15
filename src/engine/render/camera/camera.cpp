@@ -66,6 +66,7 @@ void Camera::copyFrom(const Camera& other) {
     min_distance_ = other.min_distance_;
     pan_speed_ = other.pan_speed_;
     zoom_speed_ = other.zoom_speed_;
+    depth_revision_ = other.depth_revision_;
     active_->setOrbitSpeed(other.active_->orbitSpeed());
     if (mode_ == CameraMode::Turntable) {
         active_->setYawPitch(other.active_->yaw(), other.active_->pitch());
@@ -79,6 +80,7 @@ void Camera::setMode(CameraMode mode) {
         return;
     mode_ = mode;
     createRotation(mode);
+    markDepthChanged();
 }
 
 // ============================================================
@@ -93,6 +95,7 @@ double Camera::pitch() const {
 }
 void Camera::setYawPitch(double yaw, double pitch) {
     active_->setYawPitch(yaw, pitch);
+    markDepthChanged();
 }
 
 math::Quat Camera::rotation() const {
@@ -100,6 +103,7 @@ math::Quat Camera::rotation() const {
 }
 void Camera::setRotation(const math::Quat& q) {
     active_->setRotation(q);
+    markDepthChanged();
 }
 
 // ============================================================
@@ -108,6 +112,7 @@ void Camera::setRotation(const math::Quat& q) {
 
 void Camera::orbitDelta(double dx, double dy) {
     active_->orbitDelta(dx, dy);
+    markDepthChanged();
 }
 
 void Camera::beginOrbit(int x, int y) {
@@ -116,6 +121,7 @@ void Camera::beginOrbit(int x, int y) {
 
 void Camera::orbitToPoint(int x, int y) {
     active_->orbitToPoint(x, y, width_, height_);
+    markDepthChanged();
 }
 
 void Camera::endOrbit() {
@@ -142,6 +148,7 @@ void Camera::zoom(double delta) {
     } else {
         double factor = std::pow(zoom_speed_, delta);
         distance_ = std::max(distance_ * factor, min_distance_);
+        markDepthChanged();
     }
 }
 
@@ -169,6 +176,7 @@ void Camera::fitToSphere(const math::Sphere3& sphere, double padding) {
     if (distance_ < min_distance_)
         distance_ = radius * 5.0 + 1.0;
 
+    markDepthChanged();
     fitClipPlanesToSphere(sphere, padding);
 }
 

@@ -94,6 +94,7 @@ void DocumentView::resize(int width, int height) {
 void DocumentView::renderFrame() {
     // ViewContext 会先泵出 worker ACK/Failure。这里不能以 Ready 状态前置短路，
     // 否则异步失败事件和最后一个资源批次的 ACK 都可能无人消费。
+    impl_->binding.prepareFrame();
     impl_->view_context.renderFrame();
 }
 
@@ -216,7 +217,6 @@ DocumentInputOutcome DocumentView::handleInput(const mulan::engine::InputEvent& 
 
         if (viewOutcome.disposition == mulan::engine::InputDisposition::ViewNavigation ||
             viewOutcome.disposition == mulan::engine::InputDisposition::ViewOverlay) {
-            impl_->binding.updateCameraClipPlanes();
             impl_->editor_session.refreshGrips();
         }
 

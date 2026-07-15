@@ -12,6 +12,7 @@
 #include <mulan/render/light_environment.h>
 
 #include <functional>
+#include <cstdint>
 #include <span>
 
 class DocumentSession;
@@ -41,8 +42,8 @@ public:
 
     void refresh();
     void fitAll();
-    /// 相机移动后只读取已缓存的世界包围球更新投影裁剪面，不同步或修改场景范围。
-    void updateCameraClipPlanes();
+    /// 在构建帧快照前，按场景与相机深度版本统一更新裁剪面。
+    void prepareFrame();
     void syncRenderCache();
     void injectRenderCache();
     void fitCameraClipPlanesToSceneBounds();
@@ -59,6 +60,8 @@ private:
     view::ViewContext* view_ = nullptr;
     DocumentRenderCache render_cache_;
     FrameInvalidationCallback frame_invalidation_callback_;
+    uint64_t prepared_camera_depth_revision_ = 0;
+    bool scene_bounds_dirty_ = false;
 };
 
 }  // namespace mulan::editor

@@ -20,6 +20,8 @@ void DocumentRenderBinding::bind(DocumentSession& session, view::ViewContext& vi
     syncRenderCache();
     injectRenderCache();
     applyViewPreferences();
+    prepared_camera_depth_revision_ = view_->camera().depthRevision();
+    scene_bounds_dirty_ = false;
 }
 
 void DocumentRenderBinding::unbind() {
@@ -30,6 +32,8 @@ void DocumentRenderBinding::unbind() {
     session_ = nullptr;
     view_ = nullptr;
     render_cache_.clear();
+    prepared_camera_depth_revision_ = 0;
+    scene_bounds_dirty_ = false;
 }
 
 void DocumentRenderBinding::setFrameInvalidationCallback(FrameInvalidationCallback callback) {
@@ -41,8 +45,8 @@ void DocumentRenderBinding::refresh() {
         return;
     }
     syncRenderCache();
-    // 实体变化只更新世界包围球与投影裁剪面，绝不改用户的视图中心或 zoom。
-    fitCameraClipPlanesToSceneBounds();
+    // 场景变化只标记深度范围失效；裁剪面在下一帧快照前统一求值。
+    scene_bounds_dirty_ = true;
     injectRenderCache();
     invalidateFrame();
 }
@@ -56,12 +60,25 @@ void DocumentRenderBinding::fitAll() {
     if (sphere.isValid()) {
         view_->camera().fitToSphere(sphere);
     }
+    prepared_camera_depth_revision_ = view_->camera().depthRevision();
+    scene_bounds_dirty_ = false;
     injectRenderCache();
     invalidateFrame();
 }
 
-void DocumentRenderBinding::updateCameraClipPlanes() {
+void DocumentRenderBinding::prepareFrame() {
+    if (!isBound()) {
+        return;
+    }
+
+    const uint64_t cameraRevision = view_->camera().depthRevision();
+    if (!scene_bounds_dirty_ && prepared_camera_depth_revision_ == cameraRevision) {
+        return;
+    }
+
     fitCameraClipPlanesToSceneBounds();
+    prepared_camera_depth_revision_ = cameraRevision;
+    scene_bounds_dirty_ = false;
 }
 
 void DocumentRenderBinding::syncRenderCache() {

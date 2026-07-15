@@ -68,7 +68,12 @@ public:
         near_z_ = nearZ;
         far_z_ = farZ;
     }
-    void setOrthographic(bool ortho) { ortho_ = ortho; }
+    void setOrthographic(bool ortho) {
+        if (ortho_ != ortho) {
+            ortho_ = ortho;
+            markDepthChanged();
+        }
+    }
 
     double fieldOfView() const { return fov_y_; }
     bool isOrthographic() const { return ortho_; }
@@ -77,14 +82,23 @@ public:
 
     // ==================== 轨道参数 ====================
 
-    void setTarget(const math::Vec3& target) { target_ = target; }
+    void setTarget(const math::Vec3& target) {
+        target_ = target;
+        markDepthChanged();
+    }
     const math::Vec3& target() const { return target_; }
 
-    void setDistance(double dist) { distance_ = dist; }
+    void setDistance(double dist) {
+        distance_ = dist;
+        markDepthChanged();
+    }
     double distance() const { return distance_; }
 
     double orthoSize() const { return ortho_size_; }
     void setOrthoSize(double s) { ortho_size_ = s; }
+
+    /// 仅统计会改变场景沿视线深度范围的相机变化，供帧协调层按需更新裁剪面。
+    uint64_t depthRevision() const { return depth_revision_; }
 
     // ==================== 模式专用访问 ====================
 
@@ -183,6 +197,11 @@ private:
     /// 根据模式创建对应的 RotationMode 实例
     void createRotation(CameraMode mode);
     void copyFrom(const Camera& other);
+    void markDepthChanged() {
+        if (++depth_revision_ == 0) {
+            ++depth_revision_;
+        }
+    }
 
     CameraMode mode_ = CameraMode::Trackball;
 
@@ -205,6 +224,7 @@ private:
     double pan_speed_ = 1.0;
     double zoom_speed_ = 1.08;
     double min_distance_ = 0.001;
+    uint64_t depth_revision_ = 1;
 };
 
 }  // namespace mulan::engine

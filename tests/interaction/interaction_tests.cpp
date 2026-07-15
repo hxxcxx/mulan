@@ -170,6 +170,24 @@ TEST(CameraClipPlanesTest, InvalidCandidatesKeepLastGoodRange) {
     EXPECT_DOUBLE_EQ(camera.farPlane(), initialFar);
 }
 
+TEST(CameraDepthRevisionTest, OnlyDepthRelevantChangesAdvanceRevision) {
+    Camera camera{ CameraMode::Trackball };
+    const uint64_t initial = camera.depthRevision();
+
+    camera.pan(10.0, 5.0);
+    camera.setOrthoSize(2.0);
+    camera.zoom(-1.0);
+    EXPECT_EQ(camera.depthRevision(), initial);
+
+    camera.setTarget({ 1.0, 0.0, 0.0 });
+    const uint64_t afterTarget = camera.depthRevision();
+    EXPECT_GT(afterTarget, initial);
+
+    camera.setOrthographic(false);
+    camera.zoom(-1.0);
+    EXPECT_GT(camera.depthRevision(), afterTarget);
+}
+
 // ============================================================
 // Operator 状态机
 // ============================================================
