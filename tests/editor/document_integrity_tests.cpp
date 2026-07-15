@@ -10,9 +10,10 @@
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/brep_asset.h>
 #include <mulan/asset/curve_asset.h>
-#include <mulan/editor/core/operation/document_operation.h>
-#include <mulan/editor/core/operation/document_operation_executor.h>
-#include <mulan/editor/document/document_render_binding.h>
+#include "core/operation/document_operation.h"
+#include "core/operation/document_operation_executor.h"
+#include "document/document_render_binding.h"
+
 #include <mulan/editor/document/document_session.h>
 #include <mulan/io/document.h>
 #include <mulan/io/document_editor.h>
@@ -210,6 +211,75 @@ TEST(DocumentOperationTransactions, IrreversibleChangeInvalidatesBothHistoryBran
 
     EXPECT_FALSE(executor.canUndo());
     EXPECT_FALSE(executor.canRedo());
+}
+
+TEST(DocumentOperationHistoryOwnership, SurvivesUnbindRebindAndExecutorReplacement) {
+    auto document = std::make_unique<Document>("session-owned-history");
+    Document* documentPtr = document.get();
+    DocumentSession session(std::move(document));
+
+    DocumentOperationExecutor firstExecutor;
+    firstExecutor.bind(&session, nullptr);
+    ASSERT_TRUE(firstExecutor.execute(DocumentOperation::createCurve("Recorded", segment(1.0))));
+    ASSERT_EQ(documentPtr->scene()->entityCount(), 1u);
+    ASSERT_TRUE(firstExecutor.canUndo());
+
+    firstExecutor.unbind();
+    EXPECT_FALSE(firstExecutor.isBound());
+    EXPECT_FALSE(firstExecutor.canUndo());
+    EXPECT_FALSE(firstExecutor.canRedo());
+    EXPECT_FALSE(firstExecutor.undo());
+    EXPECT_EQ(documentPtr->scene()->entityCount(), 1u);
+
+    firstExecutor.bind(&session, nullptr);
+    ASSERT_TRUE(firstExecutor.canUndo());
+    ASSERT_TRUE(firstExecutor.undo());
+    EXPECT_EQ(documentPtr->scene()->entityCount(), 0u);
+    ASSERT_TRUE(firstExecutor.canRedo());
+
+    // executor 不拥有历史；换一个执行器后仍能继续同一会话的 redo 分支。
+    firstExecutor.unbind();
+    DocumentOperationExecutor replacementExecutor;
+    replacementExecutor.bind(&session, nullptr);
+    ASSERT_TRUE(replacementExecutor.canRedo());
+    ASSERT_TRUE(replacementExecutor.redo());
+    EXPECT_EQ(documentPtr->scene()->entityCount(), 1u);
+    EXPECT_TRUE(replacementExecutor.canUndo());
+}
+
+TEST(DocumentOperationHistoryOwnership, DifferentDocumentSessionsRemainIsolated) {
+    auto firstDocument = std::make_unique<Document>("first-history");
+    Document* firstDocumentPtr = firstDocument.get();
+    DocumentSession firstSession(std::move(firstDocument));
+
+    auto secondDocument = std::make_unique<Document>("second-history");
+    Document* secondDocumentPtr = secondDocument.get();
+    DocumentSession secondSession(std::move(secondDocument));
+
+    DocumentOperationExecutor executor;
+    executor.bind(&firstSession, nullptr);
+    ASSERT_TRUE(executor.execute(DocumentOperation::createCurve("First", segment(1.0))));
+    ASSERT_TRUE(executor.canUndo());
+    ASSERT_EQ(firstDocumentPtr->scene()->entityCount(), 1u);
+
+    // 直接换绑定不清空原会话，也不得把原会话的历史带入新会话。
+    executor.bind(&secondSession, nullptr);
+    EXPECT_FALSE(executor.canUndo());
+    ASSERT_TRUE(executor.execute(DocumentOperation::createCurve("Second", segment(2.0))));
+    ASSERT_TRUE(executor.canUndo());
+    ASSERT_EQ(secondDocumentPtr->scene()->entityCount(), 1u);
+
+    executor.bind(&firstSession, nullptr);
+    ASSERT_TRUE(executor.canUndo());
+    ASSERT_TRUE(executor.undo());
+    EXPECT_EQ(firstDocumentPtr->scene()->entityCount(), 0u);
+    EXPECT_EQ(secondDocumentPtr->scene()->entityCount(), 1u);
+
+    executor.bind(&secondSession, nullptr);
+    ASSERT_TRUE(executor.canUndo());
+    ASSERT_TRUE(executor.undo());
+    EXPECT_EQ(secondDocumentPtr->scene()->entityCount(), 0u);
+    EXPECT_FALSE(executor.canUndo());
 }
 
 TEST(DocumentOperationTransactions, InvalidBatchRemovalDoesNotPartiallyCommit) {

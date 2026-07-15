@@ -62,16 +62,25 @@ target_include_directories(editor PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-mulan_copy_public_headers(editor editor)
+mulan_copy_public_headers(editor editor
+    command/command.h
+    command/command_manager.h
+    command/builtin_commands.h
+    document/document_session.h
+    document/document_view.h
+)
 
-target_link_libraries(editor PUBLIC
-    view
-    render
-    interaction
-    asset
-    scene
-    io
-    modeling_core
+target_link_libraries(editor
+    PUBLIC
+        core
+        io
+    PRIVATE
+        view
+        render
+        interaction
+        asset
+        scene
+        modeling_core
 )
 
 target_precompile_headers(editor PRIVATE

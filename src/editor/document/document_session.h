@@ -14,6 +14,11 @@
 #include <memory>
 #include <string>
 
+namespace mulan::editor {
+class CommandHistory;
+class DocumentOperationExecutor;
+}  // namespace mulan::editor
+
 enum class DocumentSessionKind : uint8_t {
     Draft,
     Imported,
@@ -47,7 +52,14 @@ public:
     bool allowsDrawingCommands() const { return kind_ == DocumentSessionKind::Draft; }
 
 private:
+    friend class mulan::editor::DocumentOperationExecutor;
+
+    /// 历史只向文档操作执行器开放，不对会话外部暴露可变容器。
+    mulan::editor::CommandHistory& commandHistory() noexcept;
+
     std::unique_ptr<mulan::io::Document> document_;
+    /// 命令历史属于文档会话，视图/executor 重绑定不会改变其生命周期。
+    std::unique_ptr<mulan::editor::CommandHistory> command_history_;
     DocumentRenderPreferences preferences_;
     DocumentSessionKind kind_ = DocumentSessionKind::Draft;
 };

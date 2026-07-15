@@ -2,11 +2,13 @@
  * @file document_area.h
  * @brief 多文档标签管理区 — 封装 SARibbonTabBar + SARibbonStackedWidget + 启动页 + 文档生命周期
  * @author hxxcxx
- * @date 2026-04-23
+ * @date 2026-04-23 (原始) / 2026-07-15 (文档会话所有权收口)
  */
 #pragma once
 
 #include <QStackedWidget>
+
+#include <memory>
 #include <unordered_map>
 
 class DocWidget;
@@ -21,8 +23,8 @@ public:
     explicit DocumentArea(QWidget* parent = nullptr);
     ~DocumentArea();
 
-    /// 添加一个文档标签，返回对应的 DocWidget
-    DocWidget* addDocument(DocumentSession* session, const QString& title);
+    /// 接管文档会话的唯一所有权并添加标签；初始化失败时销毁会话并返回 nullptr。
+    DocWidget* addDocument(std::unique_ptr<DocumentSession> session, const QString& title);
 
     /// 关闭当前激活的文档标签；用户取消丢弃未保存修改时返回 false。
     bool closeCurrentDocument();
@@ -76,6 +78,6 @@ private:
     SARibbonStackedWidget* document_stack_ = nullptr;
     StartupPage* startup_page_ = nullptr;
 
-    // DocWidget 到 DocumentSession 的映射，管理会话生命周期。
-    std::unordered_map<DocWidget*, DocumentSession*> docs_;
+    // DocumentArea 唯一持有会话；DocWidget/DocumentView 只借用指针，销毁会话前必须先 shutdown。
+    std::unordered_map<DocWidget*, std::unique_ptr<DocumentSession>> docs_;
 };

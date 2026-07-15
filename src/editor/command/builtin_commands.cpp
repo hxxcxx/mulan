@@ -21,6 +21,8 @@
 #include "document/document_session.h"
 #include "document/document_view.h"
 
+#include <mulan/view/core/view_context.h>
+
 #include <memory>
 #include <string>
 #include <utility>

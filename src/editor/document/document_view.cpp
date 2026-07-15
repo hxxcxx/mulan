@@ -8,11 +8,30 @@
 
 #include "document_view.h"
 
+#include "document_view_binding.h"
 #include "document_session.h"
+#include "../core/session/editor_session.h"
 
 #include <mulan/core/log/log.h>
+#include <mulan/interaction/input_event.h>
+#include <mulan/view/core/view_config.h>
+#include <mulan/view/core/view_context.h>
 
 #include <utility>
+
+struct DocumentView::Impl {
+    DocumentSession* session = nullptr;
+    DocumentViewBinding binding;
+    mulan::view::ViewContext view_context;
+    mulan::editor::EditorSession editor_session;
+    std::function<void()> frame_invalidation_callback;
+
+    // 左键 click/drag/select 跟踪（从 DocWidget 下移；用 QApplication::startDragDistance 风格阈值）。
+    int left_press_x = 0;
+    int left_press_y = 0;
+    bool left_press_pending = false;
+    bool left_press_dragged = false;
+};
 
 namespace {
 
@@ -31,41 +50,43 @@ DocumentInputDisposition documentDisposition(mulan::engine::InputDisposition dis
 
 }  // namespace
 
-DocumentView::DocumentView() {
-    binding_.setFrameInvalidationCallback([this]() { invalidateFrame(); });
+DocumentView::DocumentView() : impl_(std::make_unique<Impl>()) {
+    impl_->binding.setFrameInvalidationCallback([this]() { invalidateFrame(); });
 }
 
 DocumentView::~DocumentView() {
-    editor_session_.unbind();
-    view_context_.clearPreview();
-    binding_.unbind();
+    impl_->editor_session.unbind();
+    impl_->view_context.clearPreview();
+    impl_->binding.unbind();
 }
 
 bool DocumentView::init(const mulan::view::ViewConfig& config, int width, int height) {
-    if (view_context_.isInitialized()) {
+    if (impl_->view_context.isInitialized()) {
         return true;
     }
 
-    if (!view_context_.init(config, width, height)) {
+    if (!impl_->view_context.init(config, width, height)) {
         LOG_ERROR("[Editor] Document view initialization failed: name={}, size={}x{}",
-                  session_ ? std::string_view(session_->displayName()) : std::string_view("<unbound>"), width, height);
+                  impl_->session ? std::string_view(impl_->session->displayName()) : std::string_view("<unbound>"),
+                  width, height);
         return false;
     }
 
-    if (session_) {
-        binding_.bind(*session_, view_context_);
-        editor_session_.bind(session_, &view_context_, &binding_);
+    if (impl_->session) {
+        impl_->binding.bind(*impl_->session, impl_->view_context);
+        impl_->editor_session.bind(impl_->session, &impl_->view_context, &impl_->binding);
     }
     LOG_INFO("[Editor] Document view initialized: name={}, size={}x{}",
-             session_ ? std::string_view(session_->displayName()) : std::string_view("<unbound>"), width, height);
+             impl_->session ? std::string_view(impl_->session->displayName()) : std::string_view("<unbound>"), width,
+             height);
     invalidateFrame();
     return true;
 }
 
 void DocumentView::resize(int width, int height) {
-    if (view_context_.isInitialized()) {
-        view_context_.resize(width, height);
-        editor_session_.refreshGrips();
+    if (impl_->view_context.isInitialized()) {
+        impl_->view_context.resize(width, height);
+        impl_->editor_session.refreshGrips();
         invalidateFrame();
     }
 }
@@ -73,45 +94,89 @@ void DocumentView::resize(int width, int height) {
 void DocumentView::renderFrame() {
     // ViewContext 会先泵出 worker ACK/Failure。这里不能以 Ready 状态前置短路，
     // 否则异步失败事件和最后一个资源批次的 ACK 都可能无人消费。
-    view_context_.renderFrame();
+    impl_->view_context.renderFrame();
 }
 
 mulan::core::Result<void> DocumentView::pollRenderRuntime() {
-    return view_context_.pollRuntime();
+    return impl_->view_context.pollRuntime();
 }
 
 void DocumentView::fitAll() {
-    if (!view_context_.isInitialized()) {
+    if (!impl_->view_context.isInitialized()) {
         return;
     }
 
-    binding_.fitAll();
-    editor_session_.refreshGrips();
+    impl_->binding.fitAll();
+    impl_->editor_session.refreshGrips();
 }
 
 void DocumentView::setFrameInvalidationCallback(std::function<void()> callback) {
-    frame_invalidation_callback_ = std::move(callback);
+    impl_->frame_invalidation_callback = std::move(callback);
+}
+
+bool DocumentView::isInitialized() const {
+    return impl_->view_context.isInitialized();
+}
+
+DocumentSession* DocumentView::session() const {
+    return impl_->session;
+}
+
+mulan::view::ViewContext& DocumentView::viewContext() {
+    return impl_->view_context;
+}
+
+const mulan::view::ViewContext& DocumentView::viewContext() const {
+    return impl_->view_context;
+}
+
+bool DocumentView::isEditorReady() const {
+    return impl_->editor_session.isReady();
+}
+
+bool DocumentView::hasActiveEditorTool() const {
+    return impl_->editor_session.hasActiveTool();
+}
+
+std::string_view DocumentView::activeEditorToolId() const {
+    return impl_->editor_session.activeToolId();
+}
+
+void DocumentView::clearEditorHover() {
+    impl_->editor_session.clearHover();
+}
+
+bool DocumentView::canEditorUndo() const {
+    return impl_->editor_session.canUndo();
+}
+
+bool DocumentView::canEditorRedo() const {
+    return impl_->editor_session.canRedo();
+}
+
+mulan::editor::CommandHost DocumentView::commandHost() {
+    return mulan::editor::CommandHost(this, &impl_->editor_session);
 }
 
 void DocumentView::setDocumentSession(DocumentSession* session) {
     clearClickTracking();
-    editor_session_.unbind();
-    view_context_.clearPreview();
-    binding_.unbind();
-    session_ = session;
+    impl_->editor_session.unbind();
+    impl_->view_context.clearPreview();
+    impl_->binding.unbind();
+    impl_->session = session;
     LOG_DEBUG("[Editor] Document view session changed: name={}",
-              session_ ? std::string_view(session_->displayName()) : std::string_view("<none>"));
+              impl_->session ? std::string_view(impl_->session->displayName()) : std::string_view("<none>"));
 
-    if (view_context_.isInitialized() && session_) {
-        binding_.bind(*session_, view_context_);
-        editor_session_.bind(session_, &view_context_, &binding_);
+    if (impl_->view_context.isInitialized() && impl_->session) {
+        impl_->binding.bind(*impl_->session, impl_->view_context);
+        impl_->editor_session.bind(impl_->session, &impl_->view_context, &impl_->binding);
     }
     invalidateFrame();
 }
 
 DocumentInputOutcome DocumentView::handleInput(const mulan::engine::InputEvent& event) {
     DocumentInputOutcome result;
-    const bool hadActiveTool = editor_session_.hasActiveTool();
+    const bool hadActiveTool = impl_->editor_session.hasActiveTool();
 
     // 取消事件优先：统一通知 editor 与 view 两端清理临时交互。
     if (event.isCancelEvent()) {
@@ -119,11 +184,11 @@ DocumentInputOutcome DocumentView::handleInput(const mulan::engine::InputEvent& 
 
         // 先让栈顶 Operator 在自身调用栈内完成“标记结束”，ViewContext 会在返回后
         // 安全弹栈。若工具与 Operator 状态意外失配，再由 Session 做幂等兜底清理。
-        view_context_.dispatchInput(event);
-        if (editor_session_.hasActiveTool()) {
-            editor_session_.cancelActiveTool();
+        impl_->view_context.dispatchInput(event);
+        if (impl_->editor_session.hasActiveTool()) {
+            impl_->editor_session.cancelActiveTool();
         }
-        editor_session_.clearHover();
+        impl_->editor_session.clearHover();
 
         result.disposition = DocumentInputDisposition::Cancelled;
         result.frameInvalidated = true;
@@ -137,7 +202,7 @@ DocumentInputOutcome DocumentView::handleInput(const mulan::engine::InputEvent& 
         trackPressEvent(event);
     }
 
-    const bool editorInteractionStarted = editor_session_.handleInput(event);
+    const bool editorInteractionStarted = impl_->editor_session.handleInput(event);
     mulan::engine::InputOutcome viewOutcome = mulan::engine::InputOutcome::ignored();
     if (editorInteractionStarted) {
         // Grip press 已转交给新工具，原左键事务不能在后续 release 时退化成选择。
@@ -146,16 +211,16 @@ DocumentInputOutcome DocumentView::handleInput(const mulan::engine::InputEvent& 
         result.commandStateInvalidated = true;
     } else {
         // 视图段：栈顶可能是 EditorToolOperator 或默认 CameraManipulator。
-        viewOutcome = view_context_.dispatchInput(event);
+        viewOutcome = impl_->view_context.dispatchInput(event);
         result.disposition = documentDisposition(viewOutcome.disposition, hadActiveTool);
 
         if (viewOutcome.disposition == mulan::engine::InputDisposition::ViewNavigation ||
             viewOutcome.disposition == mulan::engine::InputDisposition::ViewOverlay) {
-            binding_.updateCameraClipPlanes();
-            editor_session_.refreshGrips();
+            impl_->binding.updateCameraClipPlanes();
+            impl_->editor_session.refreshGrips();
         }
 
-        const bool toolEnded = hadActiveTool && !editor_session_.hasActiveTool();
+        const bool toolEnded = hadActiveTool && !impl_->editor_session.hasActiveTool();
         result.commandStateInvalidated = result.disposition == DocumentInputDisposition::EditorTool || toolEnded;
 
         // 未拖动的默认相机左键 press/release 仍应形成选择；模态工具与 ViewCube
@@ -174,10 +239,10 @@ DocumentInputOutcome DocumentView::handleInput(const mulan::engine::InputEvent& 
 
     // Hover 也属于文档交互，不再由 DocWidget 根据 consumed 猜测是否执行。
     if (event.type == mulan::engine::InputEvent::Type::MouseMove && event.buttons == mulan::engine::MouseButton::None) {
-        if (view_context_.hasHoveredViewCubeFace() || editor_session_.hasActiveTool()) {
-            editor_session_.clearHover();
+        if (impl_->view_context.hasHoveredViewCubeFace() || impl_->editor_session.hasActiveTool()) {
+            impl_->editor_session.clearHover();
         } else {
-            editor_session_.updateHoverAtFramebuffer(static_cast<double>(event.x), static_cast<double>(event.y));
+            impl_->editor_session.updateHoverAtFramebuffer(static_cast<double>(event.x), static_cast<double>(event.y));
         }
         result.frameInvalidated = true;
     }
@@ -189,24 +254,26 @@ DocumentInputOutcome DocumentView::handleInput(const mulan::engine::InputEvent& 
 
 void DocumentView::trackPressEvent(const mulan::engine::InputEvent& event) {
     if (event.type == mulan::engine::InputEvent::Type::MousePress && event.button == mulan::engine::MouseButton::Left) {
-        left_press_x_ = event.x;
-        left_press_y_ = event.y;
-        left_press_pending_ = true;
-        left_press_dragged_ = false;
-    } else if (event.type == mulan::engine::InputEvent::Type::MouseMove && left_press_pending_) {
+        impl_->left_press_x = event.x;
+        impl_->left_press_y = event.y;
+        impl_->left_press_pending = true;
+        impl_->left_press_dragged = false;
+    } else if (event.type == mulan::engine::InputEvent::Type::MouseMove && impl_->left_press_pending) {
         if (isLeftDragExceedingThreshold(event)) {
-            left_press_dragged_ = true;
+            impl_->left_press_dragged = true;
         }
     }
 }
 
 bool DocumentView::maybeSelectOnRelease(const mulan::engine::InputEvent& event, bool allowSelection) {
     using T = mulan::engine::InputEvent::Type;
-    if (event.type != T::MouseRelease || event.button != mulan::engine::MouseButton::Left || !left_press_pending_) {
+    if (event.type != T::MouseRelease || event.button != mulan::engine::MouseButton::Left ||
+        !impl_->left_press_pending) {
         return false;
     }
 
-    const bool shouldSelect = allowSelection && !left_press_dragged_ && !view_context_.hasHoveredViewCubeFace();
+    const bool shouldSelect =
+            allowSelection && !impl_->left_press_dragged && !impl_->view_context.hasHoveredViewCubeFace();
     clearClickTracking();
     if (shouldSelect) {
         selectAtFramebuffer(static_cast<double>(event.x), static_cast<double>(event.y));
@@ -217,29 +284,29 @@ bool DocumentView::maybeSelectOnRelease(const mulan::engine::InputEvent& event, 
 }
 
 void DocumentView::clearClickTracking() {
-    left_press_pending_ = false;
-    left_press_dragged_ = false;
+    impl_->left_press_pending = false;
+    impl_->left_press_dragged = false;
 }
 
 bool DocumentView::isLeftDragExceedingThreshold(const mulan::engine::InputEvent& event) const {
     // 阈值使用 framebuffer 坐标；4 像素对应原 DocWidget logical 阈值在 DPR=1 下的行为。
     // 后续可改为从 QtViewportInputAdapter 传入 QApplication::startDragDistance()。
-    const int dx = event.x - left_press_x_;
-    const int dy = event.y - left_press_y_;
+    const int dx = event.x - impl_->left_press_x;
+    const int dy = event.y - impl_->left_press_y;
     const int threshold = 4;
     return (dx * dx + dy * dy) > (threshold * threshold);
 }
 
 void DocumentView::updateHoverAtFramebuffer(double x, double y) {
-    editor_session_.updateHoverAtFramebuffer(x, y);
+    impl_->editor_session.updateHoverAtFramebuffer(x, y);
 }
 
 void DocumentView::selectAtFramebuffer(double x, double y) {
-    editor_session_.selectAtFramebuffer(x, y);
+    impl_->editor_session.selectAtFramebuffer(x, y);
 }
 
 void DocumentView::cancelActiveEditorTool() {
-    editor_session_.cancelActiveTool();
+    impl_->editor_session.cancelActiveTool();
     clearClickTracking();
     invalidateFrame();
 }
@@ -251,7 +318,7 @@ DocumentInputOutcome DocumentView::cancelInteraction() {
 }
 
 void DocumentView::invalidateFrame() const {
-    if (frame_invalidation_callback_) {
-        frame_invalidation_callback_();
+    if (impl_->frame_invalidation_callback) {
+        impl_->frame_invalidation_callback();
     }
 }

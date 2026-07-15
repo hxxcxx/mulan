@@ -1,5 +1,6 @@
 #include "document_operation_executor.h"
 
+#include "command_history.h"
 #include "geometry_edit_service.h"
 #include "document/document_session.h"
 #include "document/document_view_binding.h"
@@ -69,16 +70,20 @@ bool containsDistinctValidEntities(const io::Document& document, const std::vect
 void DocumentOperationExecutor::bind(DocumentSession* session, DocumentViewBinding* binding) {
     session_ = session;
     binding_ = binding;
-    clearHistory();
+    history_ = session_ ? &session_->commandHistory() : nullptr;
 }
 
 void DocumentOperationExecutor::unbind() {
-    clearHistory();
     session_ = nullptr;
     binding_ = nullptr;
+    history_ = nullptr;
 }
 
 bool DocumentOperationExecutor::execute(DocumentOperation operation) {
+    if (!history_) {
+        return false;
+    }
+
     DocumentOperation redoOperation = operation;
     ApplyResult result = apply(std::move(operation));
     if (!result.changed) {
@@ -86,52 +91,70 @@ bool DocumentOperationExecutor::execute(DocumentOperation operation) {
     }
 
     if (result.undoOperation) {
-        history_.record(std::move(redoOperation), std::move(*result.undoOperation));
+        history_->record(std::move(redoOperation), std::move(*result.undoOperation));
     } else {
         // Boolean/Delete 等当前没有可靠逆操作。它们仍是成功事务，但历史不得越过该边界。
-        history_.recordIrreversibleChange();
+        history_->recordIrreversibleChange();
     }
     return refreshAfterChange(true);
 }
 
 bool DocumentOperationExecutor::undo() {
-    std::optional<CommandHistory::Entry> entry = history_.takeUndo();
+    if (!history_) {
+        return false;
+    }
+
+    std::optional<CommandHistory::Entry> entry = history_->takeUndo();
     if (!entry) {
         return false;
     }
 
     if (!applyWithoutRecording(entry->undoOperation)) {
-        history_.restoreUndo(std::move(*entry));
+        history_->restoreUndo(std::move(*entry));
         return false;
     }
 
-    history_.pushRedo(std::move(*entry));
+    history_->pushRedo(std::move(*entry));
     return refreshAfterChange(true);
 }
 
 bool DocumentOperationExecutor::redo() {
-    std::optional<CommandHistory::Entry> entry = history_.takeRedo();
+    if (!history_) {
+        return false;
+    }
+
+    std::optional<CommandHistory::Entry> entry = history_->takeRedo();
     if (!entry) {
         return false;
     }
 
     ApplyResult result = apply(entry->redoOperation);
     if (!result.changed) {
-        history_.restoreRedo(std::move(*entry));
+        history_->restoreRedo(std::move(*entry));
         return false;
     }
     if (result.undoOperation) {
         entry->undoOperation = std::move(*result.undoOperation);
-        history_.pushUndo(std::move(*entry));
+        history_->pushUndo(std::move(*entry));
     } else {
         // 已成功重做但无法再生成逆操作时，清空过期历史，保留当前文档结果。
-        history_.recordIrreversibleChange();
+        history_->recordIrreversibleChange();
     }
     return refreshAfterChange(true);
 }
 
 void DocumentOperationExecutor::clearHistory() {
-    history_.clear();
+    if (history_) {
+        history_->clear();
+    }
+}
+
+bool DocumentOperationExecutor::canUndo() const {
+    return history_ && history_->canUndo();
+}
+
+bool DocumentOperationExecutor::canRedo() const {
+    return history_ && history_->canRedo();
 }
 
 DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(DocumentOperation operation) const {

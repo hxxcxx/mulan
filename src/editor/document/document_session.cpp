@@ -1,5 +1,7 @@
 #include "document_session.h"
 
+#include "core/operation/command_history.h"
+
 #include <mulan/core/log/log.h>
 
 #include <utility>
@@ -28,12 +30,18 @@ DocumentRenderPreferences makePreferences(const mulan::io::ImportReport& report)
 }  // namespace
 
 DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc)
-    : document_(std::move(doc)), preferences_(makePreferences({})), kind_(DocumentSessionKind::Draft) {
+    : document_(std::move(doc)),
+      command_history_(std::make_unique<mulan::editor::CommandHistory>()),
+      preferences_(makePreferences({})),
+      kind_(DocumentSessionKind::Draft) {
     LOG_INFO("[Editor] Draft document session created: name={}", displayName());
 }
 
 DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc, mulan::io::ImportReport report)
-    : document_(std::move(doc)), preferences_(makePreferences(report)), kind_(DocumentSessionKind::Imported) {
+    : document_(std::move(doc)),
+      command_history_(std::make_unique<mulan::editor::CommandHistory>()),
+      preferences_(makePreferences(report)),
+      kind_(DocumentSessionKind::Imported) {
     LOG_INFO("[Editor] Imported document session created: name={}, entities={}, meshes={}, breps={}, warnings={}",
              displayName(), report.entityCount, report.meshAssetCount, report.brepAssetCount, report.warnings.size());
 }
@@ -41,6 +49,10 @@ DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc, mulan
 DocumentSession::~DocumentSession() {
     LOG_INFO("[Editor] Document session closed: name={}, dirty={}", displayName(),
              document_ ? document_->isDirty() : false);
+}
+
+mulan::editor::CommandHistory& DocumentSession::commandHistory() noexcept {
+    return *command_history_;
 }
 
 const std::string& DocumentSession::displayName() const {

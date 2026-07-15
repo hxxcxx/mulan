@@ -9,12 +9,13 @@
 
 #include <gtest/gtest.h>
 
-#include <mulan/editor/core/operation/editor_action.h>
-#include <mulan/editor/core/operation/document_operation.h>
-#include <mulan/editor/core/tools/editor_tool.h>
-#include <mulan/editor/core/tools/tool_controller.h>
-#include <mulan/editor/core/selection/editor_input.h>
-#include <mulan/editor/core/session/editor_session.h>
+#include "core/operation/document_operation.h"
+#include "core/operation/editor_action.h"
+#include "core/selection/editor_input.h"
+#include "core/session/editor_session.h"
+#include "core/tools/editor_tool.h"
+#include "core/tools/tool_controller.h"
+
 #include <mulan/editor/document/document_view.h>
 #include <mulan/view/core/view_context.h>
 #include <mulan/scene/entity_id.h>

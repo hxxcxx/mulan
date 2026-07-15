@@ -6,7 +6,6 @@
  */
 #pragma once
 
-#include "command_history.h"
 #include "document_operation.h"
 
 #include <optional>
@@ -15,6 +14,8 @@ class DocumentSession;
 class DocumentViewBinding;
 
 namespace mulan::editor {
+
+class CommandHistory;
 
 class DocumentOperationExecutor {
 public:
@@ -25,8 +26,8 @@ public:
     bool execute(DocumentOperation operation);
     bool undo();
     bool redo();
-    bool canUndo() const { return history_.canUndo(); }
-    bool canRedo() const { return history_.canRedo(); }
+    bool canUndo() const;
+    bool canRedo() const;
     void clearHistory();
 
 private:
@@ -41,7 +42,8 @@ private:
 
     DocumentSession* session_ = nullptr;
     DocumentViewBinding* binding_ = nullptr;
-    CommandHistory history_;
+    /// 非拥有指针：由当前 DocumentSession 持有，unbind 只解除借用。
+    CommandHistory* history_ = nullptr;
 };
 
 }  // namespace mulan::editor

@@ -3,23 +3,27 @@
  * @brief 管理一个文档视图的会话绑定、视口运行时和文档渲染连接。
  *
  * @author hxxcxx
- * @date 2026-07-07
+ * @date 2026-07-07 (原始) / 2026-07-15 (PImpl 与公开依赖收口)
  */
 #pragma once
 
-#include "document_view_binding.h"
-
 #include "../command/command.h"
-#include "../core/session/editor_session.h"
-
-#include <mulan/interaction/input_event.h>
-#include <mulan/view/core/view_config.h>
-#include <mulan/view/core/view_context.h>
 
 #include <cstdint>
 #include <functional>
+#include <memory>
+#include <string_view>
 
 class DocumentSession;
+
+namespace mulan::engine {
+struct InputEvent;
+}
+
+namespace mulan::view {
+struct ViewConfig;
+class ViewContext;
+}  // namespace mulan::view
 
 /// 文档输入最终由哪一层处理。该枚举是 app 层可依赖的稳定边界，避免把
 /// ViewContext/EditorSession 的内部 bool 组合逻辑泄漏到 DocWidget。
@@ -63,16 +67,13 @@ public:
     /// 设置视图状态变化后的统一帧失效出口。
     void setFrameInvalidationCallback(std::function<void()> callback);
 
-    bool isInitialized() const { return view_context_.isInitialized(); }
+    bool isInitialized() const;
 
     void setDocumentSession(DocumentSession* session);
-    DocumentSession* session() const { return session_; }
+    DocumentSession* session() const;
 
-    mulan::view::ViewContext& viewContext() { return view_context_; }
-    const mulan::view::ViewContext& viewContext() const { return view_context_; }
-
-    DocumentViewBinding& binding() { return binding_; }
-    const DocumentViewBinding& binding() const { return binding_; }
+    mulan::view::ViewContext& viewContext();
+    const mulan::view::ViewContext& viewContext() const;
 
     DocumentInputOutcome handleInput(const mulan::engine::InputEvent& event);
 
@@ -82,21 +83,23 @@ public:
 
     // ── 编辑器交互（转发，app 层不直接接触 EditorSession）──
 
-    bool isEditorReady() const { return editor_session_.isReady(); }
-    bool hasActiveEditorTool() const { return editor_session_.hasActiveTool(); }
-    std::string_view activeEditorToolId() const { return editor_session_.activeToolId(); }
+    bool isEditorReady() const;
+    bool hasActiveEditorTool() const;
+    std::string_view activeEditorToolId() const;
     void cancelActiveEditorTool();
-    void clearEditorHover() { editor_session_.clearHover(); }
-    bool canEditorUndo() const { return editor_session_.canUndo(); }
-    bool canEditorRedo() const { return editor_session_.canRedo(); }
+    void clearEditorHover();
+    bool canEditorUndo() const;
+    bool canEditorRedo() const;
 
     /// 构造命令宿主，供 CommandManager 执行命令。
-    mulan::editor::CommandHost commandHost() { return mulan::editor::CommandHost(this, &editor_session_); }
+    mulan::editor::CommandHost commandHost();
 
     void updateHoverAtFramebuffer(double x, double y);
     void selectAtFramebuffer(double x, double y);
 
 private:
+    struct Impl;
+
     /// 在 handleInput 内部跟踪左键 press，release 时据此判定 click-vs-drag 选择。
     void trackPressEvent(const mulan::engine::InputEvent& event);
     bool maybeSelectOnRelease(const mulan::engine::InputEvent& event, bool allowSelection);
@@ -104,15 +107,5 @@ private:
     bool isLeftDragExceedingThreshold(const mulan::engine::InputEvent& event) const;
     void invalidateFrame() const;
 
-    DocumentSession* session_ = nullptr;
-    DocumentViewBinding binding_;
-    mulan::view::ViewContext view_context_;
-    mulan::editor::EditorSession editor_session_;
-    std::function<void()> frame_invalidation_callback_;
-
-    // 左键 click/drag/select 跟踪（从 DocWidget 下移；用 QApplication::startDragDistance 风格阈值）。
-    int left_press_x_ = 0;
-    int left_press_y_ = 0;
-    bool left_press_pending_ = false;
-    bool left_press_dragged_ = false;
+    std::unique_ptr<Impl> impl_;
 };

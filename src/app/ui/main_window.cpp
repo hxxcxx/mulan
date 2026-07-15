@@ -528,8 +528,8 @@ void MainWindow::onNewDocument() {
 
     const QString title = tr("Untitled %1").arg(untitledIndex++);
     auto doc = std::make_unique<mulan::io::Document>(title.toStdString());
-    auto* session = new DocumentSession(std::move(doc));
-    DocWidget* docWidget = doc_area_->addDocument(session, title);
+    auto session = std::make_unique<DocumentSession>(std::move(doc));
+    DocWidget* docWidget = doc_area_->addDocument(std::move(session), title);
     if (!docWidget) {
         LOG_ERROR("[App] New document view initialization failed: title={}", title.toStdString());
         statusBar()->showMessage(tr("Failed to initialize document view"));
@@ -573,8 +573,8 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
     logImportReport(opened->import.report);
     auto doc = std::move(opened->document);
     QString title = QString::fromStdString(doc->displayName());
-    auto* session = new DocumentSession(std::move(doc), std::move(opened->import.report));
-    DocWidget* docWidget = doc_area_->addDocument(session, title);
+    auto session = std::make_unique<DocumentSession>(std::move(doc), std::move(opened->import.report));
+    DocWidget* docWidget = doc_area_->addDocument(std::move(session), title);
     if (!docWidget) {
         LOG_ERROR("[App] Document view initialization failed after import: path={}", filePath.toStdString());
         QMessageBox::warning(this, tr("Rendering Error"), tr("Failed to initialize the document rendering view."));

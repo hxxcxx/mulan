@@ -9,6 +9,9 @@
 #include <QStackedWidget>
 #include <QMessageBox>
 
+#include <memory>
+#include <utility>
+
 //===================================================
 // DocumentArea
 //===================================================
@@ -56,19 +59,27 @@ DocumentArea::DocumentArea(QWidget* parent) : QWidget(parent) {
 }
 
 DocumentArea::~DocumentArea() {
-    for (auto& [w, doc] : docs_) {
-        if (w) {
-            w->shutdown();
+    // 先让全部视图停止并解除借用，再统一销毁会话。
+    for (const auto& entry : docs_) {
+        if (entry.first) {
+            entry.first->shutdown();
         }
-        delete doc;
     }
     docs_.clear();
 }
 
-DocWidget* DocumentArea::addDocument(DocumentSession* session, const QString& title) {
-    auto* docWidget = new DocWidget(this);
-    docs_[docWidget] = session;
-    docWidget->setDocumentSession(session);
+DocWidget* DocumentArea::addDocument(std::unique_ptr<DocumentSession> session, const QString& title) {
+    if (!session) {
+        return nullptr;
+    }
+
+    auto pendingWidget = std::make_unique<DocWidget>(this);
+    auto* docWidget = pendingWidget.get();
+    const auto [sessionIt, inserted] = docs_.emplace(docWidget, std::move(session));
+    if (!inserted) {
+        return nullptr;
+    }
+    docWidget->setDocumentSession(sessionIt->second.get());
     connect(docWidget, &DocWidget::commandStateInvalidated, this, [this, docWidget]() {
         if (currentDocWidget() == docWidget) {
             emit currentDocumentCommandStateInvalidated();
@@ -99,8 +110,6 @@ DocWidget* DocumentArea::addDocument(DocumentSession* session, const QString& ti
         docs_.erase(docWidget);
         document_stack_->removeWidget(docWidget);
         document_tab_bar_->removeTab(idx);
-        delete session;
-        delete docWidget;
         if (document_stack_->count() == 0) {
             document_tab_bar_->hide();
             stack_->setCurrentIndex(0);
@@ -108,6 +117,7 @@ DocWidget* DocumentArea::addDocument(DocumentSession* session, const QString& ti
         return nullptr;
     }
 
+    pendingWidget.release();
     emit documentOpened(title);
     emit currentDocumentChanged(title);
     return docWidget;
@@ -166,16 +176,15 @@ bool DocumentArea::closeDocumentUnchecked(int index) {
     if (!docWidget)
         return false;
 
-    // Unbind the view before deleting the session; the widget itself is deleted later.
+    // 会话销毁前先停止视图并解除借用；控件交给 Qt 事件循环延迟销毁。
     auto it = docs_.find(docWidget);
     if (it != docs_.end()) {
-        const auto* document = it->second->document();
+        const auto* document = it->second ? it->second->document() : nullptr;
         const QString filePath = document ? QString::fromStdString(document->filePath()) : QString{};
         if (!filePath.isEmpty()) {
             emit documentClosing(docWidget, filePath);
         }
         docWidget->shutdown();
-        delete it->second;
         docs_.erase(it);
     }
 

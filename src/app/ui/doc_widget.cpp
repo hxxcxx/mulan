@@ -3,6 +3,8 @@
 #include "qt_viewport_input_adapter.h"
 #include "engine_settings.h"
 
+#include <mulan/view/core/view_context.h>
+
 #include <QShowEvent>
 #include <QResizeEvent>
 #include <QMouseEvent>
