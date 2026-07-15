@@ -188,6 +188,49 @@ TEST(CameraDepthRevisionTest, OnlyDepthRelevantChangesAdvanceRevision) {
     EXPECT_GT(camera.depthRevision(), afterTarget);
 }
 
+TEST(CameraFitTest, NarrowViewportUsesHorizontalConstraint) {
+    const mulan::math::Sphere3 sphere{ mulan::math::Point3::origin(), 2.0 };
+
+    Camera orthographic{ CameraMode::Trackball };
+    orthographic.setViewport(400, 800);
+    orthographic.fitToSphere(sphere, 1.2);
+    EXPECT_DOUBLE_EQ(orthographic.orthoSize(), 4.8);
+
+    Camera widePerspective{ CameraMode::Trackball };
+    widePerspective.setOrthographic(false);
+    widePerspective.setViewport(800, 400);
+    widePerspective.fitToSphere(sphere, 1.2);
+
+    Camera narrowPerspective{ CameraMode::Trackball };
+    narrowPerspective.setOrthographic(false);
+    narrowPerspective.setViewport(400, 800);
+    narrowPerspective.fitToSphere(sphere, 1.2);
+    EXPECT_GT(narrowPerspective.distance(), widePerspective.distance());
+}
+
+TEST(CameraInvariantTest, InvalidPublicParametersKeepLastGoodState) {
+    Camera camera{ CameraMode::Trackball };
+    const double infinity = std::numeric_limits<double>::infinity();
+    const auto target = camera.target();
+    const double distance = camera.distance();
+    const double orthoSize = camera.orthoSize();
+    const double fov = camera.fieldOfView();
+
+    camera.setViewport(0, -1);
+    camera.setTarget({ infinity, 0.0, 0.0 });
+    camera.setDistance(-1.0);
+    camera.setOrthoSize(0.0);
+    camera.setFieldOfView(infinity);
+    camera.setRotation({ infinity, 0.0, 0.0, 0.0 });
+
+    EXPECT_EQ(camera.width(), 1);
+    EXPECT_EQ(camera.height(), 1);
+    EXPECT_EQ(camera.target(), target);
+    EXPECT_DOUBLE_EQ(camera.distance(), distance);
+    EXPECT_DOUBLE_EQ(camera.orthoSize(), orthoSize);
+    EXPECT_DOUBLE_EQ(camera.fieldOfView(), fov);
+}
+
 // ============================================================
 // Operator 状态机
 // ============================================================

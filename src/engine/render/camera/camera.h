@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -49,10 +48,7 @@ public:
 
     // ==================== 视口 ====================
 
-    void setViewport(int width, int height) {
-        width_ = width;
-        height_ = height;
-    }
+    void setViewport(int width, int height);
 
     int width() const { return width_; }
     int height() const { return height_; }
@@ -60,14 +56,8 @@ public:
 
     // ==================== 投影参数 ====================
 
-    void setFieldOfView(double fovY) { fov_y_ = fovY; }
-    void setClipPlanes(double nearZ, double farZ) {
-        if (!std::isfinite(nearZ) || !std::isfinite(farZ) || nearZ <= 0.0 || farZ <= nearZ) {
-            return;
-        }
-        near_z_ = nearZ;
-        far_z_ = farZ;
-    }
+    void setFieldOfView(double fovY);
+    void setClipPlanes(double nearZ, double farZ);
     void setOrthographic(bool ortho) {
         if (ortho_ != ortho) {
             ortho_ = ortho;
@@ -82,20 +72,14 @@ public:
 
     // ==================== 轨道参数 ====================
 
-    void setTarget(const math::Vec3& target) {
-        target_ = target;
-        markDepthChanged();
-    }
+    void setTarget(const math::Vec3& target);
     const math::Vec3& target() const { return target_; }
 
-    void setDistance(double dist) {
-        distance_ = dist;
-        markDepthChanged();
-    }
+    void setDistance(double dist);
     double distance() const { return distance_; }
 
     double orthoSize() const { return ortho_size_; }
-    void setOrthoSize(double s) { ortho_size_ = s; }
+    void setOrthoSize(double s);
 
     /// 仅统计会改变场景沿视线深度范围的相机变化，供帧协调层按需更新裁剪面。
     uint64_t depthRevision() const { return depth_revision_; }
@@ -141,8 +125,8 @@ public:
     void setOrbitSpeed(double s);
     double orbitSpeed() const;
 
-    void setPanSpeed(double s) { pan_speed_ = s; }
-    void setZoomSpeed(double s) { zoom_speed_ = s; }
+    void setPanSpeed(double s);
+    void setZoomSpeed(double s);
 
     double panSpeed() const { return pan_speed_; }
     double zoomSpeed() const { return zoom_speed_; }
@@ -223,8 +207,12 @@ private:
     // 交互速度
     double pan_speed_ = 1.0;
     double zoom_speed_ = 1.08;
-    double min_distance_ = 0.001;
     uint64_t depth_revision_ = 1;
+
+    static constexpr double kMinOrbitDistance = 0.001;
+    static constexpr double kMinOrthoSize = 0.001;
+    static constexpr double kMinNearPlane = 0.001;
+    static constexpr double kMinClipSpan = 0.001;
 };
 
 }  // namespace mulan::engine

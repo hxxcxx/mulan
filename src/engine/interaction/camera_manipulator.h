@@ -33,7 +33,6 @@ public:
         MouseButton panAltButton = MouseButton::Right;  ///< 可选的第二平移按钮
 
         double zoomFactor = 1.0;                        ///< 每滚轮档位缩放百分比
-        double minDistance = 0.001;
     };
 
     Config config;
