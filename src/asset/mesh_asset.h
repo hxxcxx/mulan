@@ -26,16 +26,14 @@ class MeshAsset : public GeometryAsset {
 public:
     MeshAsset(AssetId id, std::string name, graphics::Mesh mesh = {})
         : GeometryAsset(id, AssetKind::Mesh, std::move(name)) {
-        if (!mesh.empty()) {
-            addPrimitive(std::move(mesh));
-        }
+        if (!mesh.empty())
+            primitives_.push_back(MeshPrimitive{ std::move(mesh), AssetId::invalid(), {} });
     }
 
     MeshAsset(AssetId id, std::string name, std::vector<MeshPrimitive> primitives)
         : GeometryAsset(id, AssetKind::Mesh, std::move(name)), primitives_(std::move(primitives)) {}
 
     const std::vector<MeshPrimitive>& primitives() const { return primitives_; }
-    std::vector<MeshPrimitive>& primitives() { return primitives_; }
 
     bool empty() const { return primitives_.empty(); }
     size_t primitiveCount() const { return primitives_.size(); }
@@ -58,22 +56,14 @@ public:
         return b;
     }
 
-    MeshPrimitive& addPrimitive(graphics::Mesh mesh, AssetId material = AssetId::invalid(), std::string name = {}) {
+    const MeshPrimitive& addPrimitive(graphics::Mesh mesh, AssetId material = AssetId::invalid(),
+                                      std::string name = {}) {
+        touch();
         primitives_.push_back(MeshPrimitive{ std::move(mesh), material, std::move(name) });
         return primitives_.back();
     }
 
-    const graphics::Mesh& mesh() const { return primitives_.front().mesh; }
-    graphics::Mesh& mesh() { return ensureDefaultPrimitive().mesh; }
-
 private:
-    MeshPrimitive& ensureDefaultPrimitive() {
-        if (primitives_.empty()) {
-            primitives_.push_back({});
-        }
-        return primitives_.front();
-    }
-
     std::vector<MeshPrimitive> primitives_;
 };
 

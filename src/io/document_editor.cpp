@@ -30,7 +30,7 @@ CurveCreateResult DocumentEditor::createCurve(std::string name, asset::CurvePrim
         return {};
     }
 
-    document_.markGeometryChanged(entity, curve->localBounds());
+    document_.markGeometryChanged(entity);
     return { entity, element };
 }
 
@@ -52,15 +52,8 @@ scene::EntityId DocumentEditor::createMesh(std::string name, std::vector<asset::
 
 scene::EntityId DocumentEditor::createBody(std::string name, modeling::Shape shape) {
     const scene::EntityId entity = document_.addBody(std::move(shape), std::move(name));
-    if (entity) {
-        if (const asset::AssetId geometry = geometryAssetForEntity(entity); geometry) {
-            if (const auto* brep = dynamic_cast<const asset::BRepAsset*>(document_.assets()->asset(geometry))) {
-                // 让 RenderScene 重建代理并据新实体的世界包围盒重算相机近远裁剪面。
-                document_.markGeometryChanged(entity, brep->localBounds());
-            }
-        }
+    if (entity)
         document_.markDirty();
-    }
     return entity;
 }
 
@@ -115,14 +108,14 @@ bool DocumentEditor::booleanSubtract(scene::EntityId target, scene::EntityId too
     }
 
     targetBRep->setShape(std::move(*result));
-    if (!document_.markGeometryChanged(target, targetBRep->localBounds()) || !document_.removeEntity(tool, true)) {
+    if (!document_.markGeometryChanged(target) || !document_.removeEntity(tool, true)) {
         // 理论上只有外部并发破坏实体时才会走到这里；仍恢复到调用前的几何状态。
         if (createdUniqueGeometry) {
             setEntityGeometry(target, previousTargetGeometry);
             removeGeometryAsset(editedTargetGeometry);
         } else {
             targetBRep->setShape(previousTargetShape);
-            document_.markGeometryChanged(target, targetBRep->localBounds());
+            document_.markGeometryChanged(target);
         }
         return false;
     }
@@ -160,7 +153,7 @@ bool DocumentEditor::updateCurve(scene::EntityId entity, asset::CurveElementId e
         return false;
     }
 
-    return document_.markGeometryChanged(entity, curve->localBounds());
+    return document_.markGeometryChanged(entity);
 }
 
 bool DocumentEditor::updateCurveAsset(scene::EntityId entity, asset::AssetId geometry, asset::CurveElementId element,
@@ -174,7 +167,7 @@ bool DocumentEditor::updateCurveAsset(scene::EntityId entity, asset::AssetId geo
         return false;
     }
 
-    return document_.markGeometryChanged(entity, curve->localBounds());
+    return document_.markGeometryChanged(entity);
 }
 
 bool DocumentEditor::updateFaceAsset(scene::EntityId entity, asset::AssetId geometry, asset::FaceDefinition face) {
@@ -188,7 +181,7 @@ bool DocumentEditor::updateFaceAsset(scene::EntityId entity, asset::AssetId geom
     }
 
     faceAsset->setFace(std::move(face));
-    return document_.markGeometryChanged(entity, faceAsset->localBounds());
+    return document_.markGeometryChanged(entity);
 }
 
 bool DocumentEditor::updateEntityTransform(scene::EntityId entity, const math::Mat4& worldTransform) {
@@ -313,11 +306,7 @@ bool DocumentEditor::setEntityGeometry(scene::EntityId entity, asset::AssetId ge
         return false;
     }
 
-    math::AABB3 bounds = math::AABB3::empty();
-    if (const auto* asset = dynamic_cast<const asset::GeometryAsset*>(document_.assets()->asset(geometry))) {
-        bounds = asset->localBounds();
-    }
-    return document_.markGeometryChanged(entity, bounds);
+    return document_.markGeometryChanged(entity);
 }
 
 bool DocumentEditor::removeGeometryAsset(asset::AssetId geometry) {

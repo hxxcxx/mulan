@@ -89,7 +89,6 @@ public:
     CurveElementKind kind() const;
 
     const CurvePrimitiveData& data() const { return data_; }
-    CurvePrimitiveData& data() { return data_; }
 
 private:
     explicit CurvePrimitive(CurvePrimitiveData data) : data_(std::move(data)) {}

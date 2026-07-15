@@ -21,7 +21,6 @@ void RenderSubmissionBuilder::reset() {
     assets_ = nullptr;
     preview_ = nullptr;
     last_scene_generation_ = 0;
-    last_geometry_generation_ = 0;
     last_preview_generation_ = 0;
     submission_generation_ = 0;
     scene_source_dirty_ = true;
@@ -33,6 +32,7 @@ void RenderSubmissionBuilder::reset() {
     light_environment_ = {};
     pending_prepare_.clear();
     resource_batch_id_ = 0;
+    render_world_sync_.reset();
 }
 
 void RenderSubmissionBuilder::setScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
@@ -40,9 +40,15 @@ void RenderSubmissionBuilder::setScene(const RenderScene* scene, const asset::As
         return;
     }
 
+    const bool assetDomainChanged = assets_ != assets;
     scene_ = scene;
     assets_ = assets;
-    invalidateResources();
+    if (assetDomainChanged) {
+        invalidateResources();
+    } else {
+        // 同一资产域内切换 scene 时保留 key/revision 基线，仅对真实差量上传或退役。
+        scene_source_dirty_ = true;
+    }
 }
 
 void RenderSubmissionBuilder::setPreviewLayer(const PreviewLayer* preview) {
@@ -51,7 +57,10 @@ void RenderSubmissionBuilder::setPreviewLayer(const PreviewLayer* preview) {
     }
 
     preview_ = preview;
-    invalidateResources();
+    // PreviewLayer 不定义 GPU 执行域；换源由稳定预览 key 生成差量，
+    // 不应连带强制重传全部场景几何。
+    render_world_sync_.invalidatePreviewResources();
+    preview_source_dirty_ = true;
 }
 
 void RenderSubmissionBuilder::setLightEnvironment(const engine::LightEnvironment& lightEnvironment) {
@@ -91,7 +100,7 @@ RenderSubmission RenderSubmissionBuilder::build(const ViewState& viewState) {
     } else {
         ++diagnostics_.worldReuseCount;
     }
-    diagnostics_.lastResourceUpdateCount = submission.prepare.geometries().size();
+    diagnostics_.lastResourceUpdateCount = submission.prepare.size();
     diagnostics_.lastSceneGeneration = submission.sceneGeneration;
     diagnostics_.lastGeometryGeneration = submission.geometryGeneration;
     diagnostics_.lastPreviewGeneration = submission.previewGeneration;
@@ -108,6 +117,7 @@ void RenderSubmissionBuilder::acknowledgeResources(uint64_t batchId) {
 void RenderSubmissionBuilder::invalidateResources() {
     pending_prepare_.clear();
     advanceResourceBatch();
+    render_world_sync_.invalidateResources();
     scene_source_dirty_ = true;
     preview_source_dirty_ = true;
 }
@@ -119,28 +129,27 @@ bool RenderSubmissionBuilder::needsRebuild() const {
 
     const uint64_t sceneGeneration = scene_ ? scene_->generation() : 0;
     const uint64_t previewGeneration = preview_ ? preview_->generation() : 0;
-    return sceneGeneration != last_scene_generation_ || previewGeneration != last_preview_generation_;
+    if (sceneGeneration != last_scene_generation_ || previewGeneration != last_preview_generation_) {
+        return true;
+    }
+    return scene_ && assets_ && render_world_sync_.referencedAssetsChanged(*assets_);
 }
 
 void RenderSubmissionBuilder::rebuild(RenderSubmission& submission) {
     const uint64_t sceneGeneration = scene_ ? scene_->generation() : 0;
-    const uint64_t geometryGeneration = scene_ ? scene_->geometryGeneration() : 0;
     const uint64_t previewGeneration = preview_ ? preview_->generation() : 0;
 
     if (!scene_ || !assets_) {
-        render_world_.clear();
+        render_world_sync_.rebuildEmpty(render_world_, &submission.prepare);
         world_snapshot_.reset();
-        last_sync_stats_ = {};
+        last_sync_stats_ = render_world_sync_.lastStats();
     } else {
-        const bool sceneGeometryChanged = scene_source_dirty_ || geometryGeneration != last_geometry_generation_;
-        render_world_sync_.rebuild(*scene_, *assets_, preview_, render_world_, &submission.prepare,
-                                   sceneGeometryChanged, sceneGeometryChanged);
+        render_world_sync_.rebuild(*scene_, *assets_, preview_, render_world_, &submission.prepare);
         world_snapshot_ = std::make_shared<engine::RenderWorldSnapshot>(render_world_.snapshot());
         last_sync_stats_ = render_world_sync_.lastStats();
     }
 
     last_scene_generation_ = sceneGeneration;
-    last_geometry_generation_ = geometryGeneration;
     last_preview_generation_ = previewGeneration;
     scene_source_dirty_ = false;
     preview_source_dirty_ = false;

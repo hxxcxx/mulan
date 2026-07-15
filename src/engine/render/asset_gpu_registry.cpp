@@ -15,8 +15,9 @@ namespace mulan::engine {
 AssetGpuRegistry::AssetGpuRegistry(RHIDevice& device) : device_(device) {
 }
 
-AssetGpuRegistry::GpuTextureResource::GpuTextureResource(std::unique_ptr<Texture> texture, std::string source)
-    : texture(std::move(texture)), source(std::move(source)) {
+AssetGpuRegistry::GpuTextureResource::GpuTextureResource(std::unique_ptr<Texture> texture, std::string source,
+                                                         uint64_t contentRevision)
+    : texture(std::move(texture)), source(std::move(source)), contentRevision(contentRevision) {
     if (this->texture) {
         width = this->texture->width();
         height = this->texture->height();
@@ -41,7 +42,7 @@ core::Result<const GpuGeometry*> AssetGpuRegistry::acquireGeometry(AssetGpuKey k
         GpuGeometry oldGeometry = std::move(it->second);
         it->second = std::move(*result);
         if (oldGeometry.isValid()) {
-            if (auto retired = retireGeometry(std::move(oldGeometry)); !retired) {
+            if (auto retired = retireGeometryResource(std::move(oldGeometry)); !retired) {
                 return std::unexpected(retired.error());
             }
         }
@@ -56,8 +57,27 @@ core::Result<const GpuGeometry*> AssetGpuRegistry::acquireGeometry(AssetGpuKey k
     return &inserted->second;
 }
 
+core::Result<bool> AssetGpuRegistry::retireGeometry(AssetGpuKey key) {
+    if (!key) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "GPU geometry resource key is invalid."));
+    }
+
+    auto node = geometries_.extract(key);
+    if (node.empty()) {
+        return false;
+    }
+
+    GpuGeometry geometry = std::move(node.mapped());
+    if (geometry.isValid()) {
+        if (auto retired = retireGeometryResource(std::move(geometry)); !retired) {
+            return std::unexpected(retired.error());
+        }
+    }
+    return true;
+}
+
 core::Result<Texture*> AssetGpuRegistry::acquireTexture(AssetGpuKey key, const core::Image& image,
-                                                        const TextureLoadOptions& options) {
+                                                        const TextureLoadOptions& options, uint64_t contentRevision) {
     if (!key || !image.valid()) {
         return std::unexpected(
                 core::Error::make(core::ErrorCode::InvalidArg, "GPU texture resource input is invalid."));
@@ -65,6 +85,25 @@ core::Result<Texture*> AssetGpuRegistry::acquireTexture(AssetGpuKey key, const c
 
     const auto cacheKey = textureKey(key, options);
     if (auto it = textures_.find(cacheKey); it != textures_.end()) {
+        if (it->second.contentRevision == contentRevision) {
+            return it->second.get();
+        }
+
+        const TextureUsageFlags usage =
+                TextureUsageFlags::ShaderResource | TextureUsageFlags::TransferDst |
+                (options.generateMips ? TextureUsageFlags::GenerateMips : TextureUsageFlags::None);
+        auto texture = createRHITexture(image, usage, options.sRGB, options.generateMips);
+        if (!texture) {
+            return std::unexpected(texture.error());
+        }
+
+        GpuTextureResource oldResource = std::move(it->second);
+        it->second = GpuTextureResource{ std::move(*texture), std::to_string(key.value), contentRevision };
+        if (oldResource.texture) {
+            if (auto retired = retireTextureResource(std::move(oldResource.texture)); !retired) {
+                return std::unexpected(retired.error());
+            }
+        }
         return it->second.get();
     }
 
@@ -75,9 +114,30 @@ core::Result<Texture*> AssetGpuRegistry::acquireTexture(AssetGpuKey key, const c
         return std::unexpected(texture.error());
     }
 
-    auto [inserted, _] =
-            textures_.emplace(cacheKey, GpuTextureResource{ std::move(*texture), std::to_string(key.value) });
+    auto [inserted, _] = textures_.emplace(
+            cacheKey, GpuTextureResource{ std::move(*texture), std::to_string(key.value), contentRevision });
     return inserted->second.get();
+}
+
+core::Result<bool> AssetGpuRegistry::retireTexture(AssetGpuKey key, const TextureLoadOptions& options) {
+    if (!key) {
+        return std::unexpected(core::Error::make(core::ErrorCode::InvalidArg, "GPU texture resource key is invalid."));
+    }
+
+    const auto cacheKey = textureKey(key, options);
+    auto it = textures_.find(cacheKey);
+    if (it == textures_.end()) {
+        return false;
+    }
+
+    GpuTextureResource resource = std::move(it->second);
+    textures_.erase(it);
+    if (resource.texture) {
+        if (auto retired = retireTextureResource(std::move(resource.texture)); !retired) {
+            return std::unexpected(retired.error());
+        }
+    }
+    return true;
 }
 
 void AssetGpuRegistry::releaseUploadFailureKeepalives() {
@@ -128,6 +188,7 @@ void AssetGpuRegistry::clear() {
     geometries_.clear();
     textures_.clear();
     retirement_failure_keepalive_.reset();
+    retirement_failure_texture_keepalive_.reset();
     failed_upload_geometry_.reset();
     failed_upload_texture_.reset();
 }
@@ -170,7 +231,7 @@ core::Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(const graphics::Mesh
     return geo;
 }
 
-core::Result<void> AssetGpuRegistry::retireGeometry(GpuGeometry geometry) {
+core::Result<void> AssetGpuRegistry::retireGeometryResource(GpuGeometry geometry) {
     const SubmissionToken token = device_.lastSubmissionToken();
     if (!token) {
         return {};
@@ -182,6 +243,26 @@ core::Result<void> AssetGpuRegistry::retireGeometry(GpuGeometry geometry) {
         // 理论上同一 device 产生的 token 不应被拒绝；保守保活并让上层 fail-stop，
         // 避免退役登记异常退化为旧帧仍在使用的 GPU 对象提前析构。
         retirement_failure_keepalive_.emplace(std::move(*keepalive));
+        return std::unexpected(retired.error());
+    }
+    return {};
+}
+
+core::Result<void> AssetGpuRegistry::retireTextureResource(std::unique_ptr<Texture> texture) {
+    if (!texture) {
+        return {};
+    }
+    const SubmissionToken token = device_.lastSubmissionToken();
+    if (!token) {
+        return {};
+    }
+
+    auto keepalive = std::shared_ptr<Texture>(std::move(texture));
+    auto retired = device_.retire(token, [keepalive] {});
+    if (!retired) {
+        // 与几何退役一样，token 异常时宁可 fail-stop 并保活，
+        // 也不允许旧帧正在采样的贴图提前析构。
+        retirement_failure_texture_keepalive_ = std::move(keepalive);
         return std::unexpected(retired.error());
     }
     return {};

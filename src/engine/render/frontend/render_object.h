@@ -35,7 +35,9 @@ enum class RenderBucket : uint8_t {
 struct RenderTextureDesc {
     AssetGpuKey resourceKey;                   ///< 资产身份 key，用作 GPU 贴图去重键
     std::shared_ptr<const core::Image> image;  ///< 解码后的图片共享视图
+    uint64_t contentRevision = 0;              ///< 资产内容版本，同 key 版本变化时替换 GPU 贴图
     bool srgb = false;                         ///< sRGB 意图，由 material slot 决定
+    bool generateMips = true;                  ///< 是否生成 mip 链，属于 GPU 资源身份的一部分
 };
 
 /// 无显式材质时的内置资源身份；不依赖 RenderWorld generation，可跨重建稳定复用。

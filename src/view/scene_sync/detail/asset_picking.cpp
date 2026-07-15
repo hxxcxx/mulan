@@ -243,7 +243,7 @@ RenderScene::PickResult pickResultFromMeshHit(scene::EntityId id, const ScenePro
                                               const MeshPickResult& meshHit, double lineToleranceWorld) {
     return RenderScene::PickResult{
         .entity = id,
-        .pickId = engine::PickId::fromValue(proxy.entity.index()),
+        .pickId = proxy.pickId,
         .distance = meshHit.distance.value_or(0.0),
         .kind = meshHit.kind,
         .worldPoint = meshHit.worldPoint,

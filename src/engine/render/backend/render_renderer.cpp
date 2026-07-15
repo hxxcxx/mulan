@@ -25,7 +25,8 @@ core::Result<void> prepareTexture(AssetGpuRegistry& assets, const RenderTextureD
 
     TextureLoadOptions options;
     options.sRGB = desc.srgb;
-    auto texture = assets.acquireTexture(desc.resourceKey, *desc.image, options);
+    options.generateMips = desc.generateMips;
+    auto texture = assets.acquireTexture(desc.resourceKey, *desc.image, options, desc.contentRevision);
     if (!texture) {
         return std::unexpected(texture.error());
     }
@@ -181,6 +182,14 @@ core::Result<void> RenderRenderer::preparePersistentResources(RHIDevice& device,
 
     std::optional<core::Error> prepareFailure;
     for (const auto& geometry : prepare.geometries()) {
+        if (geometry.isRetire()) {
+            auto retired = asset_gpu_registry_->retireGeometry(geometry.resourceKey);
+            if (!retired) {
+                prepareFailure = retired.error();
+                break;
+            }
+            continue;
+        }
         if (!geometry.mesh || geometry.mesh->empty()) {
             continue;
         }
@@ -189,6 +198,31 @@ core::Result<void> RenderRenderer::preparePersistentResources(RHIDevice& device,
         if (!acquired) {
             prepareFailure = acquired.error();
             break;
+        }
+    }
+    if (!prepareFailure) {
+        for (const auto& texture : prepare.textures()) {
+            TextureLoadOptions options;
+            options.sRGB = texture.identity.srgb;
+            options.generateMips = texture.identity.generateMips;
+
+            if (texture.isRetire()) {
+                auto retired = asset_gpu_registry_->retireTexture(texture.identity.resourceKey, options);
+                if (!retired) {
+                    prepareFailure = retired.error();
+                    break;
+                }
+                continue;
+            }
+            if (!texture.image || !texture.image->valid()) {
+                continue;
+            }
+            auto acquired = asset_gpu_registry_->acquireTexture(texture.identity.resourceKey, *texture.image, options,
+                                                                texture.contentRevision);
+            if (!acquired) {
+                prepareFailure = acquired.error();
+                break;
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 /**
  * @file render_submission_builder_tests.cpp
- * @brief 验证 GPU 资源批次确认语义与预览资源键的稳定性。
+ * @brief 验证 GPU 资源差量、批次确认语义与预览资源键的稳定性。
  * @author hxxcxx
  * @date 2026-07-15
  */
@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace mulan::view {
@@ -29,13 +30,92 @@ graphics::Mesh makePreviewMesh() {
     return mesh;
 }
 
-graphics::Mesh makeSurfaceMesh() {
+graphics::Mesh makeSurfaceMesh(uint8_t marker = 0) {
     graphics::Mesh mesh;
     mesh.layout = graphics::layouts::surface();
     mesh.topology = graphics::PrimitiveTopology::TriangleList;
     mesh.vertices.resize(static_cast<size_t>(mesh.layout.stride()) * 3u);
+    mesh.vertices.back() = static_cast<std::byte>(marker);
     mesh.computeBounds();
     return mesh;
+}
+
+graphics::Mesh makeWireMesh(uint8_t marker = 0) {
+    graphics::Mesh mesh;
+    // 当前 edge pass 的公开合同使用 surface layout + LineList。
+    mesh.layout = graphics::layouts::surface();
+    mesh.topology = graphics::PrimitiveTopology::LineList;
+    mesh.vertices.resize(static_cast<size_t>(mesh.layout.stride()) * 2u);
+    mesh.vertices.back() = static_cast<std::byte>(marker);
+    mesh.computeBounds();
+    return mesh;
+}
+
+TEST(RenderResourcePrepareListTests, MergeUsesLastOperationForSameGeometryKey) {
+    const engine::AssetGpuKey key = engine::makeAssetGpuKey(42);
+
+    engine::RenderResourcePrepareList addThenRetire;
+    addThenRetire.addGeometry(key, makeSurfaceMesh());
+    engine::RenderResourcePrepareList retire;
+    retire.retireGeometry(key);
+    addThenRetire.merge(retire);
+
+    ASSERT_EQ(addThenRetire.size(), 1u);
+    EXPECT_TRUE(addThenRetire.geometries().front().isRetire());
+    EXPECT_FALSE(addThenRetire.geometries().front().mesh);
+
+    engine::RenderResourcePrepareList retireThenAdd;
+    retireThenAdd.retireGeometry(key);
+    engine::RenderResourcePrepareList add;
+    add.addGeometry(key, makeSurfaceMesh(1));
+    retireThenAdd.merge(add);
+
+    ASSERT_EQ(retireThenAdd.size(), 1u);
+    const engine::RenderGeometryPrepareDesc& final = retireThenAdd.geometries().front();
+    EXPECT_TRUE(final.isUpsert());
+    EXPECT_TRUE(final.forceUpdate);
+    ASSERT_TRUE(final.mesh);
+    EXPECT_EQ(final.mesh->vertices.back(), std::byte{ 1 });
+}
+
+TEST(RenderResourcePrepareListTests, MergeUsesLastOperationForCompleteTextureIdentity) {
+    const auto image = core::Image::create(1, 1, core::PixelFormat::RGBA8);
+    ASSERT_TRUE(image);
+    const engine::RenderTextureResourceKey linearKey{
+        .resourceKey = engine::makeAssetGpuKey(43),
+        .srgb = false,
+        .generateMips = true,
+    };
+    const engine::RenderTextureResourceKey srgbKey{
+        .resourceKey = linearKey.resourceKey,
+        .srgb = true,
+        .generateMips = true,
+    };
+
+    engine::RenderResourcePrepareList addThenRetire;
+    addThenRetire.addTexture(linearKey, image, 7);
+    engine::RenderResourcePrepareList retire;
+    retire.retireTexture(linearKey);
+    addThenRetire.merge(retire);
+
+    ASSERT_EQ(addThenRetire.textures().size(), 1u);
+    EXPECT_TRUE(addThenRetire.textures().front().isRetire());
+    EXPECT_FALSE(addThenRetire.textures().front().image);
+
+    engine::RenderResourcePrepareList retireThenAdd;
+    retireThenAdd.retireTexture(linearKey);
+    engine::RenderResourcePrepareList add;
+    add.addTexture(linearKey, image, 8);
+    // 同 AssetGpuKey 的 sRGB 实例是独立资源，不应被线性实例的操作覆盖。
+    add.addTexture(srgbKey, image, 8);
+    retireThenAdd.merge(add);
+
+    ASSERT_EQ(retireThenAdd.textures().size(), 2u);
+    const engine::RenderTexturePrepareDesc& restored = retireThenAdd.textures().front();
+    EXPECT_EQ(restored.identity, linearKey);
+    EXPECT_TRUE(restored.isUpsert());
+    EXPECT_EQ(restored.contentRevision, 8u);
+    EXPECT_EQ(restored.image, image);
 }
 
 TEST(RenderSubmissionBuilderTests, KeepsPendingResourcesUntilMatchingAck) {
@@ -72,7 +152,9 @@ TEST(RenderSubmissionBuilderTests, NewPreviewRevisionSupersedesPendingBatch) {
     RenderScene scene;
     asset::AssetLibrary assets;
     PreviewLayer preview;
-    preview.setMesh(makePreviewMesh());
+    graphics::Mesh updatedMesh = makePreviewMesh();
+    updatedMesh.vertices.back() = std::byte{ 1 };
+    preview.setMesh(std::move(updatedMesh));
 
     RenderSubmissionBuilder builder;
     builder.setScene(&scene, &assets);
@@ -98,6 +180,59 @@ TEST(RenderSubmissionBuilderTests, NewPreviewRevisionSupersedesPendingBatch) {
     EXPECT_FALSE(builder.build(view).hasResourceUpdates());
 }
 
+TEST(RenderSubmissionBuilderTests, PreviewReferenceOnlyRevisionDoesNotUploadUnchangedPreviewGeometry) {
+    RenderScene scene;
+    asset::AssetLibrary assets;
+    PreviewLayer preview;
+    preview.setMesh(makePreviewMesh());
+
+    RenderSubmissionBuilder builder;
+    builder.setScene(&scene, &assets);
+    builder.setPreviewLayer(&preview);
+
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_EQ(first.prepare.size(), 1u);
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    // references 变化会推进 PreviewLayer generation，但不应让未变的直接预览 mesh 重传。
+    preview.setReferences({ PreviewReference{} });
+    const RenderSubmission referencesChanged = builder.build(view);
+    EXPECT_TRUE(referencesChanged.rebuiltWorld);
+    EXPECT_TRUE(referencesChanged.prepare.empty());
+}
+
+TEST(RenderSubmissionBuilderTests, ReplacingPreviewSourceWithSameGenerationUpdatesOnlyPreviewGeometry) {
+    RenderScene scene;
+    asset::AssetLibrary assets;
+    PreviewLayer firstPreview;
+    PreviewLayer secondPreview;
+    firstPreview.setMesh(makePreviewMesh());
+    graphics::Mesh replacement = makePreviewMesh();
+    replacement.vertices.back() = std::byte{ 1 };
+    secondPreview.setMesh(std::move(replacement));
+    ASSERT_EQ(firstPreview.generation(), secondPreview.generation());
+
+    RenderSubmissionBuilder builder;
+    builder.setScene(&scene, &assets);
+    builder.setPreviewLayer(&firstPreview);
+
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_EQ(first.prepare.size(), 1u);
+    const engine::AssetGpuKey key = first.prepare.geometries().front().resourceKey;
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    builder.setPreviewLayer(&secondPreview);
+    const RenderSubmission replaced = builder.build(view);
+
+    ASSERT_EQ(replaced.prepare.size(), 1u);
+    const engine::RenderGeometryPrepareDesc& update = replaced.prepare.geometries().front();
+    EXPECT_EQ(update.resourceKey, key);
+    EXPECT_TRUE(update.isUpsert());
+    EXPECT_TRUE(update.forceUpdate);
+}
+
 TEST(RenderSubmissionBuilderTests, InvalidatingGpuDomainRebuildsCurrentResources) {
     RenderScene scene;
     asset::AssetLibrary assets;
@@ -118,6 +253,439 @@ TEST(RenderSubmissionBuilderTests, InvalidatingGpuDomainRebuildsCurrentResources
     const RenderSubmission rebuilt = builder.build(view);
     EXPECT_TRUE(rebuilt.hasResourceUpdates());
     EXPECT_NE(rebuilt.resourceBatchId, first.resourceBatchId);
+}
+
+TEST(RenderSubmissionBuilderTests, TransformOnlyWorldRebuildDoesNotUploadGeometryAgain) {
+    asset::AssetLibrary assets;
+    auto* geometry = assets.create<asset::TessellatedAsset>("TransformOnly");
+    geometry->setRenderMeshes(makeSurfaceMesh(), {});
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("TransformOnlyEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_EQ(first.prepare.size(), 1u);
+    builder.acknowledgeResources(first.resourceBatchId);
+    ASSERT_FALSE(builder.build(view).hasResourceUpdates());
+
+    ASSERT_TRUE(sourceScene.setWorldTransform(entity, math::Mat4::translate(math::Vec3(2.0, 0.0, 0.0))));
+    renderScene.sync(sourceScene, assets);
+    const RenderSubmission transformed = builder.build(view);
+
+    EXPECT_TRUE(transformed.rebuiltWorld);
+    EXPECT_TRUE(transformed.prepare.empty());
+}
+
+TEST(RenderSubmissionBuilderTests, UpdatingOneAssetOnlyUpsertsItsGeometryKey) {
+    asset::AssetLibrary assets;
+    auto* changedAsset = assets.create<asset::TessellatedAsset>("Changed");
+    changedAsset->setRenderMeshes(makeSurfaceMesh(), {});
+    auto* stableAsset = assets.create<asset::TessellatedAsset>("Stable");
+    stableAsset->setRenderMeshes(makeSurfaceMesh(1), {});
+
+    scene::Scene sourceScene;
+    const scene::EntityId changedEntity = sourceScene.createEntity("ChangedEntity");
+    const scene::EntityId stableEntity = sourceScene.createEntity("StableEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(changedEntity, changedAsset->id()));
+    ASSERT_TRUE(sourceScene.setGeometry(stableEntity, stableAsset->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_EQ(first.prepare.size(), 2u);
+    builder.acknowledgeResources(first.resourceBatchId);
+    ASSERT_FALSE(builder.build(view).hasResourceUpdates());
+
+    // 不修改 Scene，验证 builder 能直接观察被引用资产的内容版本。
+    changedAsset->setRenderMeshes(makeSurfaceMesh(2), {});
+    const RenderSubmission updated = builder.build(view);
+
+    EXPECT_TRUE(updated.rebuiltWorld);
+    ASSERT_EQ(updated.prepare.size(), 1u);
+    EXPECT_TRUE(updated.prepare.geometries().front().isUpsert());
+    EXPECT_TRUE(updated.prepare.geometries().front().forceUpdate);
+}
+
+TEST(RenderSubmissionBuilderTests, RemovingOneDrawableOnlyRetiresItsKey) {
+    asset::AssetLibrary assets;
+    auto* geometry = assets.create<asset::TessellatedAsset>("TwoDrawables");
+    geometry->setRenderMeshes(makeSurfaceMesh(), makeWireMesh());
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("TwoDrawableEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_EQ(first.prepare.size(), 2u);
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    geometry->setRenderMeshes(makeSurfaceMesh(), {});
+    const RenderSubmission reduced = builder.build(view);
+
+    ASSERT_EQ(reduced.prepare.size(), 1u);
+    EXPECT_TRUE(reduced.prepare.geometries().front().isRetire());
+}
+
+TEST(RenderSubmissionBuilderTests, RemovingLastSceneReferenceRetiresGeometryKey) {
+    asset::AssetLibrary assets;
+    auto* geometry = assets.create<asset::TessellatedAsset>("Retired");
+    geometry->setRenderMeshes(makeSurfaceMesh(), {});
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("RetiredEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_EQ(first.prepare.size(), 1u);
+    const engine::AssetGpuKey key = first.prepare.geometries().front().resourceKey;
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    sourceScene.destroyEntity(entity);
+    renderScene.sync(sourceScene, assets);
+    const RenderSubmission removed = builder.build(view);
+
+    ASSERT_EQ(removed.prepare.size(), 1u);
+    EXPECT_TRUE(removed.prepare.geometries().front().isRetire());
+    EXPECT_EQ(removed.prepare.geometries().front().resourceKey, key);
+}
+
+TEST(RenderSubmissionBuilderTests, ClearingPreviewRetiresItsStableGeometryKey) {
+    RenderScene scene;
+    asset::AssetLibrary assets;
+    PreviewLayer preview;
+    preview.setMesh(makePreviewMesh());
+
+    RenderSubmissionBuilder builder;
+    builder.setScene(&scene, &assets);
+    builder.setPreviewLayer(&preview);
+
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_EQ(first.prepare.size(), 1u);
+    const engine::AssetGpuKey key = first.prepare.geometries().front().resourceKey;
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    preview.clear();
+    const RenderSubmission cleared = builder.build(view);
+
+    ASSERT_EQ(cleared.prepare.size(), 1u);
+    EXPECT_TRUE(cleared.prepare.geometries().front().isRetire());
+    EXPECT_EQ(cleared.prepare.geometries().front().resourceKey, key);
+}
+
+TEST(RenderSubmissionBuilderTests, MaterialRevisionRebuildsWorldWithoutGeometryUpload) {
+    asset::AssetLibrary assets;
+    auto* material = assets.create<asset::MaterialAsset>("MutableMaterial");
+    auto* geometry = assets.create<asset::MeshAsset>("MaterialGeometry");
+    geometry->addPrimitive(makeSurfaceMesh(), material->id());
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("MaterialEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_EQ(first.prepare.size(), 1u);
+    builder.acknowledgeResources(first.resourceBatchId);
+    ASSERT_FALSE(builder.build(view).hasResourceUpdates());
+
+    material->setRoughness(0.25);
+    const RenderSubmission materialChanged = builder.build(view);
+
+    EXPECT_TRUE(materialChanged.rebuiltWorld);
+    EXPECT_TRUE(materialChanged.prepare.empty());
+}
+
+TEST(RenderSubmissionBuilderTests, TextureRevisionFlowsIntoWorldWithoutGeometryUpload) {
+    asset::AssetLibrary assets;
+    auto* texture = assets.create<asset::TextureAsset>("MutableTexture");
+    texture->setImage(core::Image::create(1, 1, core::PixelFormat::RGBA8));
+    auto* material = assets.create<asset::MaterialAsset>("TexturedMaterial");
+    material->setBaseColorTexture(texture->id());
+    auto* geometry = assets.create<asset::MeshAsset>("TexturedGeometry");
+    geometry->addPrimitive(makeSurfaceMesh(), material->id());
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("TexturedEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_TRUE(first.world);
+    ASSERT_EQ(first.world->materials().size(), 1u);
+    ASSERT_EQ(first.world->materials().front().desc.baseColorTexture.contentRevision, texture->revision());
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    texture->setImage(core::Image::create(1, 1, core::PixelFormat::RGBA8));
+    const RenderSubmission textureChanged = builder.build(view);
+
+    EXPECT_TRUE(textureChanged.rebuiltWorld);
+    EXPECT_TRUE(textureChanged.prepare.geometries().empty());
+    ASSERT_EQ(textureChanged.prepare.textures().size(), 1u);
+    EXPECT_TRUE(textureChanged.prepare.textures().front().isUpsert());
+    EXPECT_EQ(textureChanged.prepare.textures().front().contentRevision, texture->revision());
+    ASSERT_TRUE(textureChanged.world);
+    ASSERT_EQ(textureChanged.world->materials().size(), 1u);
+    EXPECT_EQ(textureChanged.world->materials().front().desc.baseColorTexture.contentRevision, texture->revision());
+}
+
+TEST(RenderSubmissionBuilderTests, RemovingLastTextureReferenceEmitsReliableRetire) {
+    asset::AssetLibrary assets;
+    auto* texture = assets.create<asset::TextureAsset>("RetiredTexture");
+    texture->setImage(core::Image::create(1, 1, core::PixelFormat::RGBA8));
+    auto* material = assets.create<asset::MaterialAsset>("TexturedMaterial");
+    material->setBaseColorTexture(texture->id());
+    auto* geometry = assets.create<asset::MeshAsset>("TexturedGeometry");
+    geometry->addPrimitive(makeSurfaceMesh(), material->id());
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("TexturedEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    const ViewState view;
+    const RenderSubmission initial = builder.build(view);
+    ASSERT_EQ(initial.prepare.textures().size(), 1u);
+    const engine::RenderTextureResourceKey identity = initial.prepare.textures().front().identity;
+    EXPECT_TRUE(initial.prepare.textures().front().isUpsert());
+    builder.acknowledgeResources(initial.resourceBatchId);
+
+    material->setBaseColorTexture(asset::AssetId::invalid());
+    const RenderSubmission removed = builder.build(view);
+
+    EXPECT_TRUE(removed.rebuiltWorld);
+    EXPECT_TRUE(removed.prepare.geometries().empty());
+    ASSERT_EQ(removed.prepare.textures().size(), 1u);
+    EXPECT_TRUE(removed.prepare.textures().front().isRetire());
+    EXPECT_EQ(removed.prepare.textures().front().identity, identity);
+}
+
+TEST(RenderSubmissionBuilderTests, RemovingReferencedTextureAssetEmitsReliableRetire) {
+    asset::AssetLibrary assets;
+    auto* texture = assets.create<asset::TextureAsset>("DeletedTexture");
+    texture->setImage(core::Image::create(1, 1, core::PixelFormat::RGBA8));
+    const asset::AssetId textureId = texture->id();
+    auto* material = assets.create<asset::MaterialAsset>("TexturedMaterial");
+    material->setBaseColorTexture(textureId);
+    auto* geometry = assets.create<asset::MeshAsset>("TexturedGeometry");
+    geometry->addPrimitive(makeSurfaceMesh(), material->id());
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("TexturedEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    const ViewState view;
+    const RenderSubmission initial = builder.build(view);
+    ASSERT_EQ(initial.prepare.textures().size(), 1u);
+    const engine::RenderTextureResourceKey identity = initial.prepare.textures().front().identity;
+    builder.acknowledgeResources(initial.resourceBatchId);
+
+    ASSERT_TRUE(assets.remove(textureId));
+    const RenderSubmission removed = builder.build(view);
+
+    EXPECT_TRUE(removed.rebuiltWorld);
+    ASSERT_EQ(removed.prepare.textures().size(), 1u);
+    EXPECT_TRUE(removed.prepare.textures().front().isRetire());
+    EXPECT_EQ(removed.prepare.textures().front().identity, identity);
+}
+
+TEST(RenderSubmissionBuilderTests, PendingTextureRetireIsSupersededWhenReferenceReappears) {
+    asset::AssetLibrary assets;
+    auto* texture = assets.create<asset::TextureAsset>("RestoredTexture");
+    texture->setImage(core::Image::create(1, 1, core::PixelFormat::RGBA8));
+    const asset::AssetId textureId = texture->id();
+    auto* material = assets.create<asset::MaterialAsset>("TexturedMaterial");
+    material->setBaseColorTexture(textureId);
+    auto* geometry = assets.create<asset::MeshAsset>("TexturedGeometry");
+    geometry->addPrimitive(makeSurfaceMesh(), material->id());
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("TexturedEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    const ViewState view;
+    const RenderSubmission initial = builder.build(view);
+    ASSERT_EQ(initial.prepare.textures().size(), 1u);
+    builder.acknowledgeResources(initial.resourceBatchId);
+
+    material->setBaseColorTexture(asset::AssetId::invalid());
+    const RenderSubmission retired = builder.build(view);
+    ASSERT_EQ(retired.prepare.textures().size(), 1u);
+    ASSERT_TRUE(retired.prepare.textures().front().isRetire());
+
+    material->setBaseColorTexture(textureId);
+    const RenderSubmission restored = builder.build(view);
+    ASSERT_NE(restored.resourceBatchId, retired.resourceBatchId);
+    ASSERT_EQ(restored.prepare.textures().size(), 1u);
+    EXPECT_TRUE(restored.prepare.textures().front().isUpsert());
+    EXPECT_EQ(restored.prepare.textures().front().contentRevision, texture->revision());
+    EXPECT_TRUE(restored.prepare.textures().front().image);
+
+    // 迟到的旧 retire ACK 不得清除已覆盖它的新 upsert 批次。
+    builder.acknowledgeResources(retired.resourceBatchId);
+    const RenderSubmission afterStaleAck = builder.build(view);
+    EXPECT_EQ(afterStaleAck.resourceBatchId, restored.resourceBatchId);
+    ASSERT_EQ(afterStaleAck.prepare.textures().size(), 1u);
+    EXPECT_TRUE(afterStaleAck.prepare.textures().front().isUpsert());
+}
+
+TEST(RenderSubmissionBuilderTests, TextureOptionChangeRetiresOnlyOldIdentityAndUpsertsNewIdentity) {
+    asset::AssetLibrary assets;
+    auto* texture = assets.create<asset::TextureAsset>("ColorTexture");
+    texture->setImage(core::Image::create(1, 1, core::PixelFormat::RGBA8));
+    auto* material = assets.create<asset::MaterialAsset>("TexturedMaterial");
+    material->setBaseColorTexture(texture->id());
+    auto* geometry = assets.create<asset::MeshAsset>("TexturedGeometry");
+    geometry->addPrimitive(makeSurfaceMesh(), material->id());
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("TexturedEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    const ViewState view;
+    const RenderSubmission initial = builder.build(view);
+    ASSERT_EQ(initial.prepare.textures().size(), 1u);
+    const engine::RenderTextureResourceKey oldIdentity = initial.prepare.textures().front().identity;
+    ASSERT_TRUE(oldIdentity.srgb);
+    builder.acknowledgeResources(initial.resourceBatchId);
+
+    material->setBaseColorTextureSrgb(false);
+    const RenderSubmission changed = builder.build(view);
+
+    ASSERT_EQ(changed.prepare.textures().size(), 2u);
+    size_t retireCount = 0;
+    size_t upsertCount = 0;
+    for (const engine::RenderTexturePrepareDesc& texturePrepare : changed.prepare.textures()) {
+        if (texturePrepare.isRetire()) {
+            ++retireCount;
+            EXPECT_EQ(texturePrepare.identity, oldIdentity);
+        } else {
+            ++upsertCount;
+            EXPECT_EQ(texturePrepare.identity.resourceKey, oldIdentity.resourceKey);
+            EXPECT_FALSE(texturePrepare.identity.srgb);
+        }
+    }
+    EXPECT_EQ(retireCount, 1u);
+    EXPECT_EQ(upsertCount, 1u);
+}
+
+TEST(RenderSubmissionBuilderTests, InvalidatingExecutionDomainRestoresEveryLiveTextureIdentity) {
+    asset::AssetLibrary assets;
+    auto* texture = assets.create<asset::TextureAsset>("RestoredTexture");
+    texture->setImage(core::Image::create(1, 1, core::PixelFormat::RGBA8));
+    auto* material = assets.create<asset::MaterialAsset>("TexturedMaterial");
+    material->setBaseColorTexture(texture->id());
+    auto* geometry = assets.create<asset::MeshAsset>("TexturedGeometry");
+    geometry->addPrimitive(makeSurfaceMesh(), material->id());
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("TexturedEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    const ViewState view;
+    const RenderSubmission initial = builder.build(view);
+    ASSERT_EQ(initial.prepare.textures().size(), 1u);
+    const engine::RenderTextureResourceKey identity = initial.prepare.textures().front().identity;
+    builder.acknowledgeResources(initial.resourceBatchId);
+    ASSERT_FALSE(builder.build(view).hasResourceUpdates());
+
+    builder.invalidateResources();
+    const RenderSubmission restored = builder.build(view);
+
+    ASSERT_EQ(restored.prepare.textures().size(), 1u);
+    EXPECT_TRUE(restored.prepare.textures().front().isUpsert());
+    EXPECT_EQ(restored.prepare.textures().front().identity, identity);
+    EXPECT_EQ(restored.prepare.textures().front().contentRevision, texture->revision());
+}
+
+TEST(RenderSubmissionBuilderTests, InvalidatingExecutionDomainFullyRestoresAllLiveGeometry) {
+    asset::AssetLibrary assets;
+    auto* firstAsset = assets.create<asset::TessellatedAsset>("First");
+    firstAsset->setRenderMeshes(makeSurfaceMesh(), {});
+    auto* secondAsset = assets.create<asset::TessellatedAsset>("Second");
+    secondAsset->setRenderMeshes(makeSurfaceMesh(1), {});
+
+    scene::Scene sourceScene;
+    const scene::EntityId firstEntity = sourceScene.createEntity("FirstEntity");
+    const scene::EntityId secondEntity = sourceScene.createEntity("SecondEntity");
+    ASSERT_TRUE(sourceScene.setGeometry(firstEntity, firstAsset->id()));
+    ASSERT_TRUE(sourceScene.setGeometry(secondEntity, secondAsset->id()));
+
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+
+    const ViewState view;
+    const RenderSubmission initial = builder.build(view);
+    ASSERT_EQ(initial.prepare.size(), 2u);
+    builder.acknowledgeResources(initial.resourceBatchId);
+    ASSERT_FALSE(builder.build(view).hasResourceUpdates());
+
+    builder.invalidateResources();
+    const RenderSubmission restored = builder.build(view);
+    ASSERT_EQ(restored.prepare.size(), 2u);
+    for (const engine::RenderGeometryPrepareDesc& geometryPrepare : restored.prepare.geometries()) {
+        EXPECT_TRUE(geometryPrepare.isUpsert());
+        EXPECT_TRUE(geometryPrepare.forceUpdate);
+    }
 }
 
 TEST(RenderItemBuilderTests, PreviewGeometryKeysUseStableRoleLocalSlots) {

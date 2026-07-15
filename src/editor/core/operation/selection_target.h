@@ -78,12 +78,8 @@ struct SelectionTarget {
     bool curveElementSelection() const {
         return domain == EditorSelectionDomain::Curve && subObject.curveElementSelection();
     }
-    engine::PickId renderPickId() const {
-        if (pickId.valid()) {
-            return pickId;
-        }
-        return entity ? engine::PickId::fromValue(entity.index()) : engine::PickId::invalid();
-    }
+    /// PickId 由 RenderScene 单调分配，不能从可复用的 EntityId::index() 重新推导。
+    engine::PickId renderPickId() const { return pickId; }
 
     friend bool operator==(const SelectionTarget& lhs, const SelectionTarget& rhs) {
         return lhs.entity == rhs.entity && lhs.pickId == rhs.pickId && lhs.domain == rhs.domain &&

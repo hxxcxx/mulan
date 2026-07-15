@@ -40,6 +40,7 @@ Texture* loadTexture(AssetGpuRegistry& assets, const RenderTextureDesc& desc) {
 
     TextureLoadOptions options;
     options.sRGB = desc.srgb;
+    options.generateMips = desc.generateMips;
 
     return assets.findTexture(desc.resourceKey, options);
 }

@@ -1,5 +1,8 @@
 #include "asset_library.h"
 
+#include <limits>
+#include <stdexcept>
+
 namespace mulan::asset {
 
 AssetId AssetLibrary::allocateId() {
@@ -20,12 +23,31 @@ bool AssetLibrary::contains(AssetId id) const {
     return assets_.find(id) != assets_.end();
 }
 
-void AssetLibrary::remove(AssetId id) {
-    assets_.erase(id);
+bool AssetLibrary::remove(AssetId id) {
+    if (assets_.erase(id) == 0)
+        return false;
+    touch();
+    return true;
 }
 
 void AssetLibrary::clear() {
+    if (assets_.empty())
+        return;
     assets_.clear();
+    touch();
+}
+
+std::optional<AssetRevision> AssetLibrary::contentRevision(AssetId id) const {
+    const Asset* value = asset(id);
+    if (!value)
+        return std::nullopt;
+    return value->revision();
+}
+
+void AssetLibrary::touch() {
+    if (membership_revision_ == std::numeric_limits<AssetLibraryRevision>::max())
+        throw std::overflow_error("AssetLibrary revision exhausted");
+    ++membership_revision_;
 }
 
 size_t AssetLibrary::count(AssetKind kind) const {

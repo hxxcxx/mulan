@@ -231,14 +231,11 @@ void ParsedSceneLoader::loadNode(size_t nodeIndex, const ParsedScene& scene, sce
                 }
             }
         }
-        // 包围盒:按节点 world 变换计算。
-        applyWorldBounds(entity, meshId, nodeWorld);
     }
 
     if (node.hasBRep() && node.brepIndex < brepIds_.size() && brepIds_[node.brepIndex]) {
         const asset::AssetId brepId = brepIds_[node.brepIndex];
         scn->setGeometry(entity, brepId);
-        applyWorldBounds(entity, brepId, nodeWorld);
     }
 
     if (node.hasLight() && node.lightIndex < scene.lights.size()) {
@@ -261,21 +258,6 @@ void ParsedSceneLoader::loadNode(size_t nodeIndex, const ParsedScene& scene, sce
     for (size_t i = 0; i < scene.nodes.size(); ++i) {
         if (scene.nodes[i].parent == nodeIndex)
             loadNode(i, scene, entity, nodeWorld, rootUnitScale, options, result);
-    }
-}
-
-void ParsedSceneLoader::applyWorldBounds(scene::EntityId entity, asset::AssetId geometryId,
-                                         const math::Mat4& worldTransform) {
-    auto* scn = document_.scene();
-    auto* library = document_.assets();
-    if (!scn || !library)
-        return;
-    if (auto* asset = library->asset(geometryId)) {
-        if (const auto* geom = dynamic_cast<const asset::GeometryAsset*>(asset)) {
-            const math::AABB3 localBounds = geom->localBounds();
-            if (!localBounds.isEmpty())
-                scn->setWorldBounds(entity, localBounds.transformed(worldTransform));
-        }
     }
 }
 

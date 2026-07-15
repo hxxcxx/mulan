@@ -22,11 +22,9 @@ enum class EntityDirty : uint64_t {
     RenderState = 1ull << 6,
     Material = 1ull << 7,
     Selection = 1ull << 8,
-    Bounds = 1ull << 9,
-    Light = 1ull << 10,
+    Light = 1ull << 9,
 
-    RenderRelated = (1ull << 3) | (1ull << 5) | (1ull << 6) | (1ull << 7) | (1ull << 8) | (1ull << 10),
-    BoundsRelated = (1ull << 3) | (1ull << 5),
+    RenderRelated = (1ull << 3) | (1ull << 5) | (1ull << 6) | (1ull << 7) | (1ull << 8) | (1ull << 9),
 };
 
 inline EntityDirty operator|(EntityDirty a, EntityDirty b) {

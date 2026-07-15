@@ -5,10 +5,10 @@
  * @date 2026-07-10
  *
  * 统一的"装文档"步骤:先建资源资产(纹理/材质/网格/B-Rep),再递归建节点图
- * (实体 + 父子 + 本地变换 + 资源绑定 + 包围盒)。策略在此统一:
+ * (实体 + 父子 + 本地变换 + 资源绑定)。策略在此统一:
  *   - 变换统一用 setLocalTransform(从节点 local 链算 world)
  *   - unitScale 应用到根节点,不烤进解析数据
- *   - 包围盒对每个网格节点按 world 变换计算
+ *   - 包围盒由 RenderScene 从 GeometryAsset + world transform 唯一派生
  */
 #pragma once
 
@@ -40,8 +40,6 @@ private:
     void loadNode(size_t nodeIndex, const ParsedScene& scene, scene::EntityId parentEntity,
                   const math::Mat4& parentWorld, const math::Mat4& rootUnitScale, const ImportOptions& options,
                   ImportResult& result);
-    void applyWorldBounds(scene::EntityId entity, asset::AssetId geometryId, const math::Mat4& worldTransform);
-
     asset::AssetId textureAssetId(size_t parsedIndex) const;
     asset::AssetId materialAssetId(size_t parsedIndex) const;
     asset::AssetId meshAssetId(size_t parsedIndex) const;

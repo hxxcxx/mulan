@@ -108,6 +108,18 @@ FaceDefinition cleanFace(FaceDefinition face) {
     return face;
 }
 
+bool sameFace(const FaceDefinition& a, const FaceDefinition& b) {
+    if (a.frame.origin != b.frame.origin || a.frame.x != b.frame.x || a.frame.y != b.frame.y ||
+        a.frame.normal != b.frame.normal || a.outer.points != b.outer.points || a.holes.size() != b.holes.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < a.holes.size(); ++i) {
+        if (a.holes[i].points != b.holes[i].points)
+            return false;
+    }
+    return true;
+}
+
 void appendLoopLines(std::vector<LinePointPair>& lines, std::span<const math::Point3> points) {
     if (points.size() < 2) {
         return;
@@ -313,12 +325,16 @@ FaceRenderMeshes buildFaceRenderMeshes(const FaceDefinition& face) {
 }
 
 FaceAsset::FaceAsset(AssetId id, std::string name, FaceDefinition face)
-    : GeometryAsset(id, AssetKind::Face, std::move(name)) {
-    setFace(std::move(face));
+    : GeometryAsset(id, AssetKind::Face, std::move(name)), face_(cleanFace(std::move(face))) {
+    rebuildRenderMeshes();
 }
 
 void FaceAsset::setFace(FaceDefinition face) {
-    face_ = cleanFace(std::move(face));
+    FaceDefinition clean = cleanFace(std::move(face));
+    if (sameFace(face_, clean))
+        return;
+    touch();
+    face_ = std::move(clean);
     rebuildRenderMeshes();
 }
 

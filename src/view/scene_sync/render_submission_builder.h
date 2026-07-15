@@ -61,7 +61,6 @@ private:
     const PreviewLayer* preview_ = nullptr;
 
     uint64_t last_scene_generation_ = 0;
-    uint64_t last_geometry_generation_ = 0;
     uint64_t last_preview_generation_ = 0;
     uint64_t submission_generation_ = 0;
     bool scene_source_dirty_ = true;

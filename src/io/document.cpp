@@ -34,7 +34,6 @@ scene::EntityId Document::addBody(modeling::Shape shape, std::string name) {
         assets_->remove(brep->id());
         return scene::EntityId::invalid();
     }
-    scene_->setWorldBounds(sceneId, brep->localBounds());
     return sceneId;
 }
 
@@ -54,7 +53,6 @@ scene::EntityId Document::addFace(std::string name, asset::FaceDefinition face) 
         assets_->remove(faceAsset->id());
         return scene::EntityId::invalid();
     }
-    scene_->setWorldBounds(sceneId, faceAsset->localBounds());
     return sceneId;
 }
 
@@ -65,15 +63,11 @@ scene::EntityId Document::addMesh(std::string name, std::vector<asset::MeshPrimi
     if (!mesh)
         return scene::EntityId::invalid();
 
-    math::AABB3 bounds = math::AABB3::empty();
     std::vector<asset::AssetId> materialSlots;
     materialSlots.reserve(primitives.size());
 
     for (auto& primitive : primitives) {
         primitive.mesh.computeBounds();
-        if (!primitive.mesh.bounds.isEmpty()) {
-            bounds.expand(primitive.mesh.bounds);
-        }
         materialSlots.push_back(primitive.material);
         mesh->addPrimitive(std::move(primitive.mesh), primitive.material, std::move(primitive.name));
     }
@@ -83,7 +77,6 @@ scene::EntityId Document::addMesh(std::string name, std::vector<asset::MeshPrimi
         assets_->remove(mesh->id());
         return scene::EntityId::invalid();
     }
-    scene_->setWorldBounds(sceneId, bounds);
     return sceneId;
 }
 
@@ -98,13 +91,13 @@ scene::EntityId Document::addSceneInstance(std::string name, asset::AssetId geom
     return id;
 }
 
-bool Document::markGeometryChanged(scene::EntityId entity, const math::AABB3& bounds) {
+bool Document::markGeometryChanged(scene::EntityId entity) {
     if (!scene_ || !scene_->isValid(entity)) {
         return false;
     }
 
-    scene_->setWorldBounds(entity, bounds);
-    scene_->markDirty(entity, scene::EntityDirty::RenderRelated | scene::EntityDirty::Bounds);
+    // GeometryAsset 的受控 mutator 已推进内容 revision；RenderScene/RenderWorldSync
+    // 直接观察资产版本，不需要伪造 Scene 生命周期或维护第二份 bounds。
     markDirty();
     return true;
 }

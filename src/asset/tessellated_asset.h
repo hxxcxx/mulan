@@ -29,6 +29,9 @@ public:
     const graphics::Mesh& wireMesh() const { return wire_mesh_; }
 
     void setRenderMeshes(graphics::Mesh solidMesh, graphics::Mesh wireMesh) {
+        if (sameMesh(solid_mesh_, solidMesh) && sameMesh(wire_mesh_, wireMesh))
+            return;
+        touch();
         solid_mesh_ = std::move(solidMesh);
         wire_mesh_ = std::move(wireMesh);
     }
@@ -52,6 +55,19 @@ public:
     }
 
 private:
+    static bool sameMesh(const graphics::Mesh& a, const graphics::Mesh& b) {
+        if (a.layout.stride() != b.layout.stride() || a.layout.attrCount() != b.layout.attrCount() ||
+            a.layout.bufferCount() != b.layout.bufferCount()) {
+            return false;
+        }
+        for (uint8_t i = 0; i < a.layout.attrCount(); ++i) {
+            if (!(a.layout[i] == b.layout[i]))
+                return false;
+        }
+        return a.vertices == b.vertices && a.indices == b.indices && a.indexType == b.indexType &&
+               a.topology == b.topology && a.bounds.min == b.bounds.min && a.bounds.max == b.bounds.max;
+    }
+
     graphics::Mesh solid_mesh_;
     graphics::Mesh wire_mesh_;
 };

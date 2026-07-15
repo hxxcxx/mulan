@@ -7,6 +7,9 @@ BRepAsset::BRepAsset(AssetId id, std::string name, modeling::Shape shape)
 }
 
 void BRepAsset::setShape(modeling::Shape shape) {
+    if (modeling::storageOf(shape_) == modeling::storageOf(shape))
+        return;
+    touch();
     shape_ = std::move(shape);
     geometry_dirty_ = true;
 }

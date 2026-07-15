@@ -1,8 +1,42 @@
 #include "scene.h"
 
+#include <atomic>
+#include <limits>
+#include <stdexcept>
 #include <utility>
 
 namespace mulan::scene {
+namespace {
+
+bool sameMatrix(const math::Mat4& a, const math::Mat4& b) {
+    for (int column = 0; column < 4; ++column) {
+        if (a[column] != b[column])
+            return false;
+    }
+    return true;
+}
+
+bool sameLight(const LightComponent& a, const LightComponent& b) {
+    return a.kind == b.kind && a.color == b.color && a.intensity == b.intensity && a.range == b.range &&
+           a.innerConeAngle == b.innerConeAngle && a.outerConeAngle == b.outerConeAngle;
+}
+
+SceneChangeDomain allocateChangeDomain() {
+    static std::atomic<SceneChangeDomain> nextDomain{ 1 };
+    SceneChangeDomain candidate = nextDomain.load(std::memory_order_relaxed);
+    for (;;) {
+        if (candidate == 0 || candidate == std::numeric_limits<SceneChangeDomain>::max())
+            throw std::overflow_error("Scene change domain exhausted");
+        if (nextDomain.compare_exchange_weak(candidate, candidate + 1, std::memory_order_relaxed))
+            return candidate;
+    }
+}
+
+}  // namespace
+
+Scene::Scene(size_t changeJournalCapacity)
+    : change_journal_capacity_(changeJournalCapacity), change_domain_(allocateChangeDomain()) {
+}
 
 EntityId Scene::allocateId() {
     uint32_t index = 0;
@@ -10,6 +44,8 @@ EntityId Scene::allocateId() {
         index = free_indices_.back().index();
         free_indices_.pop_back();
     } else {
+        if (slots_.size() > EntityId::INDEX_MASK)
+            throw std::overflow_error("Scene entity index exhausted");
         index = static_cast<uint32_t>(slots_.size());
         slots_.emplace_back();
     }
@@ -29,8 +65,6 @@ EntityId Scene::createEntity(std::string name) {
     geometries_.emplace(id, GeometryComponent{});
     renders_.emplace(id, RenderComponent{});
     selections_.emplace(id, SelectionComponent{});
-    bounds_.emplace(id, BoundsComponent{});
-
     markDirty(id, EntityDirty::Created);
     return id;
 }
@@ -46,7 +80,8 @@ void Scene::destroyEntity(EntityId id) {
         for (auto childId : children) {
             if (auto* h = mutableHierarchy(childId)) {
                 h->parent = EntityId::invalid();
-                markDirty(childId, EntityDirty::Hierarchy | EntityDirty::Transform);
+                markDirty(childId, EntityDirty::Hierarchy);
+                updateWorldRecursive(childId);
             }
         }
     }
@@ -62,8 +97,11 @@ void Scene::destroyEntity(EntityId id) {
 
     Slot& slot = slots_[indexOf(id)];
     slot.alive = false;
-    ++slot.generation;
-    free_indices_.push_back(EntityId{ static_cast<uint64_t>(indexOf(id)) });
+    // generation 到顶后永久退休槽位，避免回绕后旧 EntityId 再次变为有效（ABA）。
+    if (slot.generation != std::numeric_limits<uint32_t>::max()) {
+        ++slot.generation;
+        free_indices_.push_back(EntityId{ static_cast<uint64_t>(indexOf(id)) });
+    }
 }
 
 bool Scene::isValid(EntityId id) const {
@@ -85,9 +123,12 @@ bool Scene::setParent(EntityId child, EntityId parent) {
         return false;
 
     if (!parent) {
-        if (h->parent)
-            removeChild(h->parent, child);
+        if (!h->parent)
+            return true;
+
+        removeChild(h->parent, child);
         h->parent = EntityId::invalid();
+        markDirty(child, EntityDirty::Hierarchy);
         // 脱离父级后 world = local（按根节点重算子树）
         updateWorldRecursive(child);
         return true;
@@ -96,11 +137,15 @@ bool Scene::setParent(EntityId child, EntityId parent) {
     if (!isValid(parent) || detectCycle(child, parent))
         return false;
 
+    if (h->parent == parent)
+        return true;
+
     if (h->parent)
         removeChild(h->parent, child);
 
     h->parent = parent;
     addChild(parent, child);
+    markDirty(child, EntityDirty::Hierarchy);
     // parent 变化后，该子树的 world 矩阵需按新父级重算
     updateWorldRecursive(child);
     return true;
@@ -142,11 +187,6 @@ const SelectionComponent* Scene::selection(EntityId id) const {
     return it != selections_.end() ? &it->second : nullptr;
 }
 
-const BoundsComponent* Scene::bounds(EntityId id) const {
-    auto it = bounds_.find(id);
-    return it != bounds_.end() ? &it->second : nullptr;
-}
-
 const LightComponent* Scene::light(EntityId id) const {
     auto it = lights_.find(id);
     return it != lights_.end() ? &it->second : nullptr;
@@ -169,8 +209,11 @@ bool Scene::setLocalTransform(EntityId id, const math::Mat4& transform) {
     if (!c)
         return false;
 
+    if (sameMatrix(c->local, transform))
+        return true;
+
     c->local = transform;
-    updateWorldRecursive(id);
+    updateWorldRecursive(id, false, true);
     return true;
 }
 
@@ -179,17 +222,21 @@ bool Scene::setWorldTransform(EntityId id, const math::Mat4& transform) {
     if (!c)
         return false;
 
-    c->world = transform;
     // 由 world 反推 local：local = parent.world⁻¹ * world（根节点 local = world）
+    math::Mat4 local = transform;
     auto* h = mutableHierarchy(id);
     if (h && h->parent) {
         const auto* pt = this->transform(h->parent);
-        c->local = pt ? pt->world.inverse() * transform : transform;
-    } else {
-        c->local = transform;
+        local = pt ? pt->world.inverse() * transform : transform;
     }
+
+    if (sameMatrix(c->world, transform) && sameMatrix(c->local, local))
+        return true;
+
+    c->world = transform;
+    c->local = std::move(local);
     // world 已直接给定，子树仍需级联（本节点 world 是权威，子节点重算）
-    updateWorldRecursive(id, /*selfWorldFixed=*/true);
+    updateWorldRecursive(id, /*selfWorldFixed=*/true, /*forceSelfDirty=*/true);
     return true;
 }
 
@@ -201,7 +248,7 @@ bool Scene::setGeometry(EntityId id, asset::AssetId geometry) {
         return true;
 
     c->geometry = geometry;
-    markDirty(id, EntityDirty::Geometry | EntityDirty::Bounds);
+    markDirty(id, EntityDirty::Geometry);
     return true;
 }
 
@@ -254,37 +301,30 @@ bool Scene::clearSelection() {
 }
 
 bool Scene::selectSingle(EntityId id) {
-    bool changed = clearSelection();
     if (!isValid(id)) {
-        return changed;
+        return clearSelection();
     }
 
-    auto* c = mutableSelection(id);
-    if (!c) {
-        return changed;
-    }
-
-    if (!c->selected) {
-        c->selected = true;
-        markDirty(id, EntityDirty::Selection);
-        changed = true;
+    bool changed = false;
+    for (auto entity : entities_) {
+        auto* c = mutableSelection(entity);
+        const bool shouldSelect = entity == id;
+        if (c && c->selected != shouldSelect) {
+            c->selected = shouldSelect;
+            markDirty(entity, EntityDirty::Selection);
+            changed = true;
+        }
     }
     return changed;
-}
-
-bool Scene::setWorldBounds(EntityId id, const math::AABB3& bounds) {
-    auto* c = mutableBounds(id);
-    if (!c)
-        return false;
-
-    c->world_bounds = bounds;
-    markDirty(id, EntityDirty::Bounds);
-    return true;
 }
 
 bool Scene::setLight(EntityId id, const LightComponent& light) {
     if (!isValid(id))
         return false;
+
+    auto it = lights_.find(id);
+    if (it != lights_.end() && sameLight(it->second, light))
+        return true;
 
     lights_[id] = light;
     markDirty(id, EntityDirty::Light);
@@ -303,10 +343,13 @@ bool Scene::removeLight(EntityId id) {
 }
 
 void Scene::markDirty(EntityId id, EntityDirty dirty) {
-    dirty_[id] |= dirtyValue(dirty);
+    if (!isValid(id) || dirty == EntityDirty::None)
+        return;
+
+    appendChange(id, dirty);
 }
 
-void Scene::updateWorldRecursive(EntityId id, bool selfWorldFixed) {
+void Scene::updateWorldRecursive(EntityId id, bool selfWorldFixed, bool forceSelfDirty) {
     if (!isValid(id))
         return;
     auto* c = mutableTransform(id);
@@ -314,6 +357,7 @@ void Scene::updateWorldRecursive(EntityId id, bool selfWorldFixed) {
         return;
 
     // 本节点 world = parent.world * local（selfWorldFixed 时本节点 world 已是权威）
+    const math::Mat4 previousWorld = c->world;
     if (!selfWorldFixed) {
         auto* h = mutableHierarchy(id);
         if (h && h->parent) {
@@ -323,9 +367,17 @@ void Scene::updateWorldRecursive(EntityId id, bool selfWorldFixed) {
             c->world = c->local;
         }
     }
-    markDirty(id, EntityDirty::Transform | EntityDirty::Bounds);
+    // selfWorldFixed 表示调用方已在进入前写入新 world，无法再由当前值回看旧值；
+    // 此路径只会在 setter 已确认实际变化后进入，因此必须级联更新子树。
+    const bool worldChanged = selfWorldFixed ? forceSelfDirty : !sameMatrix(previousWorld, c->world);
+    if (worldChanged || forceSelfDirty)
+        markDirty(id, EntityDirty::Transform);
 
-    // 递归子节点：它们的 world 依赖本节点 world
+    // 父节点 world 未变化时，子节点结果也不会变化，无需制造伪增量。
+    if (!worldChanged)
+        return;
+
+    // 递归子节点：它们的 world 依赖本节点 world。
     auto childIt = children_.find(id);
     if (childIt != children_.end()) {
         // 拷贝一份，递归过程中 children_ 不会被改动（仅读）
@@ -335,20 +387,51 @@ void Scene::updateWorldRecursive(EntityId id, bool selfWorldFixed) {
     }
 }
 
-uint64_t Scene::dirtyFlags(EntityId id) const {
-    auto it = dirty_.find(id);
-    return it != dirty_.end() ? it->second : 0;
+void Scene::appendChange(EntityId id, EntityDirty dirty) {
+    if (revision_ == std::numeric_limits<SceneRevision>::max())
+        throw std::overflow_error("Scene revision exhausted");
+
+    ++revision_;
+    if (change_journal_capacity_ == 0)
+        return;
+
+    change_journal_.push_back(SceneChange{ revision_, id, dirty });
+    while (change_journal_.size() > change_journal_capacity_)
+        change_journal_.pop_front();
 }
 
-void Scene::clearDirty(EntityDirty mask) {
-    uint64_t keep = ~dirtyValue(mask);
-    for (auto it = dirty_.begin(); it != dirty_.end();) {
-        it->second &= keep;
-        if (it->second == 0)
-            it = dirty_.erase(it);
-        else
-            ++it;
+SceneChangeSet Scene::readChanges(const SceneChangeCursor& cursor) const {
+    SceneChangeSet result;
+    result.domain = change_domain_;
+    result.fromRevision = cursor.revision;
+    result.toRevision = revision_;
+
+    const bool foreignDomain = cursor.domain != 0 && cursor.domain != change_domain_;
+    const bool unboundNonzeroRevision = cursor.domain == 0 && cursor.revision != 0;
+    if (foreignDomain || unboundNonzeroRevision) {
+        result.status = SceneChangeStatus::FullResyncRequired;
+        return result;
     }
+
+    if (cursor.revision == revision_) {
+        result.status = SceneChangeStatus::UpToDate;
+        return result;
+    }
+
+    const bool cursorAhead = cursor.revision > revision_;
+    const bool journalMissing = change_journal_.empty();
+    const bool cursorTooOld = !journalMissing && cursor.revision < change_journal_.front().revision - 1;
+    if (cursorAhead || journalMissing || cursorTooOld) {
+        result.status = SceneChangeStatus::FullResyncRequired;
+        return result;
+    }
+
+    result.status = SceneChangeStatus::Changes;
+    for (const SceneChange& change : change_journal_) {
+        if (change.revision > cursor.revision)
+            result.changes.push_back(change);
+    }
+    return result;
 }
 
 bool Scene::detectCycle(EntityId child, EntityId parent) const {
@@ -397,11 +480,6 @@ SelectionComponent* Scene::mutableSelection(EntityId id) {
     return it != selections_.end() ? &it->second : nullptr;
 }
 
-BoundsComponent* Scene::mutableBounds(EntityId id) {
-    auto it = bounds_.find(id);
-    return it != bounds_.end() ? &it->second : nullptr;
-}
-
 LightComponent* Scene::mutableLight(EntityId id) {
     auto it = lights_.find(id);
     return it != lights_.end() ? &it->second : nullptr;
@@ -429,7 +507,6 @@ void Scene::eraseComponents(EntityId id) {
     geometries_.erase(id);
     renders_.erase(id);
     selections_.erase(id);
-    bounds_.erase(id);
     lights_.erase(id);
 }
 

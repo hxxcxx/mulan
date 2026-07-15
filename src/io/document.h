@@ -12,7 +12,6 @@
 #include <mulan/asset/asset_id.h>
 #include <mulan/asset/face_asset.h>
 #include <mulan/asset/mesh_asset.h>
-#include <mulan/math/math.h>
 #include <mulan/modeling/core/shape.h>
 #include <mulan/scene/entity_id.h>
 
@@ -44,7 +43,9 @@ public:
 
     scene::EntityId addSceneInstance(std::string name, asset::AssetId geometry,
                                      std::vector<asset::AssetId> materialSlots = {});
-    bool markGeometryChanged(scene::EntityId entity, const math::AABB3& bounds);
+    /// 确认受控几何资产 mutator 已完成，并把文档标为已修改。
+    /// 渲染 bounds 由 GeometryAsset + 实体 world transform 唯一派生，不在 Scene 重复缓存。
+    bool markGeometryChanged(scene::EntityId entity);
     /// 返回当前场景中直接引用指定几何资产的实体数量。
     size_t geometryReferenceCount(asset::AssetId geometry) const;
     /// 仅在没有场景实体引用时删除几何资产。
