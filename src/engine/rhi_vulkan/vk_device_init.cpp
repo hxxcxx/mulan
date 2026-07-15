@@ -3,8 +3,11 @@
 // VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE 和 VMA_IMPLEMENTATION
 // 由 VKDevice.cpp 提供，此文件不再重复定义。
 
-#include <set>
+#include <algorithm>
 #include <cstdlib>
+#include <cstring>
+#include <set>
+#include <span>
 
 namespace mulan::engine {
 
@@ -54,6 +57,18 @@ static RenderConfig::MSAALevel toMsaaLevel(uint32_t samples) {
     case 2: return RenderConfig::MSAALevel::x2;
     default: return RenderConfig::MSAALevel::None;
     }
+}
+
+static bool hasInstanceLayer(std::span<const vk::LayerProperties> layers, const char* name) {
+    return std::any_of(layers.begin(), layers.end(), [name](const vk::LayerProperties& layer) {
+        return std::strcmp(layer.layerName.data(), name) == 0;
+    });
+}
+
+static bool hasInstanceExtension(std::span<const vk::ExtensionProperties> extensions, const char* name) {
+    return std::any_of(extensions.begin(), extensions.end(), [name](const vk::ExtensionProperties& extension) {
+        return std::strcmp(extension.extensionName.data(), name) == 0;
+    });
 }
 
 // ============================================================
@@ -277,10 +292,29 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #endif
 
+    constexpr const char* validationLayerName = "VK_LAYER_KHRONOS_validation";
+    bool validationEnabled = false;
+    bool debugUtilsEnabled = false;
     std::vector<const char*> instanceLayers;
     if (ci.enableValidation) {
-        instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
-        instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        const auto availableLayers = vk::enumerateInstanceLayerProperties();
+        validationEnabled = hasInstanceLayer(availableLayers, validationLayerName);
+        if (validationEnabled) {
+            instanceLayers.push_back(validationLayerName);
+            const auto availableExtensions = vk::enumerateInstanceExtensionProperties();
+            debugUtilsEnabled = hasInstanceExtension(availableExtensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            if (debugUtilsEnabled) {
+                instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            } else {
+                LOG_WARN(
+                        "[Vulkan] VK_EXT_debug_utils is unavailable; validation remains enabled without a debug "
+                        "messenger");
+            }
+        } else {
+            // 与 DX11 Debug Layer 语义一致：验证是开发辅助能力，不应因 CI/用户机器未安装
+            // Vulkan SDK Layer 而阻止正式 RHI Device 创建。
+            LOG_WARN("[Vulkan] {} is unavailable; validation was disabled for this device", validationLayerName);
+        }
     }
 
     vk::InstanceCreateInfo instanceCI;
@@ -294,7 +328,7 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     VULKAN_HPP_DEFAULT_DISPATCHER.init(instance_);
 
     // --- 调试回调（使用 C API 避免 vulkan-hpp 回调类型不匹配）---
-    if (ci.enableValidation) {
+    if (validationEnabled && debugUtilsEnabled) {
         VkDebugUtilsMessengerCreateInfoEXT dbgCI{};
         dbgCI.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         dbgCI.messageSeverity =
@@ -323,7 +357,7 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     pickPhysicalDevice(devices);
 
     // --- Device ---
-    createLogicalDevice(ci.enableValidation);
+    createLogicalDevice(validationEnabled);
 
     // --- VMA ---
     VmaVulkanFunctions vkFuncs{};
@@ -375,7 +409,7 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     initializeSubmissionTracking(std::move(*submissionFenceResult));
     LOG_INFO("[Vulkan] Device initialized: gpu={}, api={}.{}.{}, maxMSAA={}, validation={}", props.deviceName.data(),
              VK_API_VERSION_MAJOR(props.apiVersion), VK_API_VERSION_MINOR(props.apiVersion),
-             VK_API_VERSION_PATCH(props.apiVersion), caps_.maxSampleCount, ci.enableValidation);
+             VK_API_VERSION_PATCH(props.apiVersion), caps_.maxSampleCount, validationEnabled);
 }
 
 // ============================================================
