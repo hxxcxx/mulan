@@ -245,58 +245,245 @@ flowchart TD
 
 不能再让预览或选择变化推动整份 Scene world 重建。
 
-## 推荐里程碑
+## 本轮修复范围
 
-### M0：闭环 Vulkan 多 SwapChain 呈现同步（条件性）
+本轮目标不是增加渲染功能，而是把现有 Document → Scene → View → Render → RHI 链路中的变化频率、修改边界、资源身份和执行域对齐，使现有功能具备可验证的工业级架构不变量。
 
-仅当当前产品要求多个 Vulkan 窗口同时渲染时，放在其他里程碑之前完成；如果当前只承诺单窗口，则可在启用该能力前完成。
+### 纳入本轮
 
-- render-finished semaphore 改为每 SwapChain、每 image 所有；
-- Device FrameScheduler 不再用 Device 全局 `acquired_image_index` 映射呈现同步对象；
-- 验证同 Device 双 SwapChain 交替提交、相同 image index 和独立 present queue；
-- 验证 resize、窗口关闭和 DeviceLost 时各 SwapChain 同步资源的销毁顺序。
+1. Vulkan 多 SwapChain 呈现同步的正确性闭环；
+2. Scene、Overlay、View 三类变化的独立快照和独立失效；
+3. 选择渲染状态收口，禁止选择和预览推动 SceneWorld 全量重建；
+4. Document 成功修改与渲染失效自动闭环；
+5. RenderWorld 使用稳定身份和增量 patch，不再默认 `world.clear()`；
+6. 引入跨文档安全的资源域和结构化 GPU 资源键；
+7. 持久 GPU 资源只允许通过可靠 prepare 协议创建、更新和退役；
+8. 将设备共享资源与 Surface 私有状态分开；
+9. Vulkan/DX 收敛到设备级执行域，OpenGL 保持上下文级隔离；
+10. 统一设备故障传播、关闭顺序和相关压力验证。
 
-### M1：拆开 Scene 与 Overlay 热路径
+### 明确不纳入本轮
 
-最高优先级，也是收益最大的一步。
+- 不新增渲染特性、显示模式、材质能力或编辑工具；
+- 不修改相机、裁剪、包围体和几何算法；
+- 不重写 RHI，不引入通用 FrameGraph 或 ECS；
+- 不实现 Vulkan/DX12 多线程命令录制和多 Queue 并行调度；
+- 不做多 GPU、跨 Adapter 或跨进程资源共享；
+- 不做跨文档内容寻址去重，只保证身份隔离和同域复用；
+- 不为了目录或命名整齐进行无关重构；
+- 不要求透明无感的 DeviceLost 自动恢复，只建立统一失败状态、资源失效和可控重建边界；
+- 按当前约定，不把 Release 构建作为本轮里程碑验收项。
 
-- `RenderSubmission` 分成 `sceneWorld`、`overlayWorld`、`view`。
-- Scene 和 Preview 使用独立 generation、独立 snapshot。
-- 预览变化只重建 OverlayWorld。
-- 选择高亮只通过 ViewState 下发。
-- Scene 不再因为编辑器选择而重建 RenderWorld。
-- 添加诊断测试，确保 preview-only、selection-only、camera-only 都不会重建 SceneWorld。
+### 实施约束
 
-### M2：关闭文档修改边界
+- 保持当前视觉输出、工具语义和公开功能不变；
+- 保留 Scene journal、不可变提交、可靠资源序列、latest-frame mailbox 和延迟释放机制；
+- 每个里程碑必须包含对应测试、Debug 编译验证和独立提交；
+- 新增头文件保持项目头注释规范，架构注释和提交信息以中文为主；
+- 新发现的问题只有在阻断本里程碑正确性时才纳入，其他问题记录后暂缓，避免范围持续膨胀；
+- 一个里程碑验收并提交后再进入下一个，禁止跨多个里程碑堆积未提交改动。
 
-- 建立唯一 `DocumentMutationGateway` 或事务入口。
-- 成功事务返回统一 `DocumentChangeStamp`。
-- 文档变化自动触发 RenderIndex 同步和帧失效。
-- 逐步收紧公开的可变 `Scene*`、`AssetLibrary*`。
-- `DocumentOperationExecutor` 不再直接知道 RenderBinding。
+## 实施里程碑
 
-### M3：RenderWorld 真正增量化
+### M0：Vulkan 多 Surface 正确性闭环
 
-- RenderWorld 保留稳定 object/material/geometry handle。
-- Transform、visibility、material 修改使用 patch。
-- 不再对任何 Scene generation 都执行 `world.clear()`。
-- snapshot 使用版本化存储或结构共享。
+**目的：** 先消除共享 Device 下已经确认的呈现同步隐患，不让后续设备级执行域建立在错误基础上。
 
-### M4：资源域与设备级资源服务
+**修改范围：**
 
-- 引入 `ResourceDomainId` 和结构化 `RenderResourceKey`。
-- 将 PSO、默认纹理和资产 GPU registry 提升到设备执行域。
-- 每视图 Renderer 只保留表面和帧局部状态。
-- 明确文档关闭、资源引用计数与延迟退役。
+- `VKSwapChain` 持有本 SwapChain、每 image 的 render-finished semaphore；
+- create、resize、shutdown 统一创建和销毁这些同步对象；
+- `VKFrameScheduler` 只持有当前帧临时引用，不再拥有全局 render-finished 数组；
+- 删除 Device 全局 `acquired_image_index_` 和 `ensureSwapchainImageSync()`；
+- 保留 FrameContext、image-available semaphore、命令缓冲和提交 timeline 的设备级所有权。
 
-### M5：统一渲染调度与故障恢复
+**验收条件：**
 
-- Vulkan/DX 使用每设备一个调度线程，按 Surface 保留 latest-frame mailbox。
-- Vulkan 呈现同步严格保持 Surface/SwapChain 私有，不能因设备级调度再次上移为 Device 全局图像下标状态。
-- OpenGL 根据上下文能力保持隔离。
-- DeviceLost 由统一运行时广播。
-- 支持执行域重建、Surface 重建和资源重新准备。
-- 增加多 Surface、关闭竞争、设备失败、队列压力测试。
+- 单窗口与离屏路径保持通过；
+- 同一 Vulkan Device 可创建两个 SwapChain 并交替渲染；
+- resize、关闭一个窗口不会破坏另一个窗口；
+- Vulkan Validation 不报告二值信号量重复 signal、错误销毁或仍在使用；
+- 独立 present queue 测试在硬件支持时执行，硬件不支持时保留结构化所有权测试。
+
+**里程碑提交：** `fix(vulkan): 隔离多SwapChain呈现同步对象`
+
+### M1：Scene、Overlay、View 热路径分层
+
+**目的：** 让变化频率不同的数据不再共享同一个 RenderWorld 重建开关。
+
+**修改范围：**
+
+- `RenderSubmission` 拆为稳定 SceneWorld snapshot、OverlayWorld snapshot 和 ViewState；
+- Scene generation 与 Preview/Overlay generation 独立维护；
+- `RenderWorldSync` 不再追加 preview drawable，Overlay 使用独立同步器；
+- camera、hover、display mode 只更新 ViewState；
+- 选择高亮只进入视觉状态，不再成为 SceneWorld 重建条件；
+- 保留 Scene 中业务需要的选择语义，但渲染选择只有一个规范化输入。
+
+**验收条件：**
+
+- preview-only 变化只重建 OverlayWorld；
+- selection-only 和 camera-only 变化不重建 SceneWorld；
+- Scene 修改只重建 SceneWorld，不错误清空 Overlay；
+- 绘制预览、捕捉、夹点、选择和现有显示模式视觉结果不变；
+- 同步统计测试能直接证明各变化域的重建次数。
+
+**里程碑提交：** `refactor(view): 分离场景覆盖层与视图提交域`
+
+### M2：Document 修改与失效闭环
+
+**目的：** 将“修改后记得调用 refresh”升级为不可绕过的架构规则。
+
+**修改范围：**
+
+- 建立唯一 Document mutation/transaction 入口；
+- 成功事务发布结构化 `DocumentChangeStamp`，区分 Scene、Asset 和视觉状态变化；
+- DocumentSession/RenderBinding 消费变更并自动安排同步和帧失效；
+- `DocumentOperationExecutor` 不再直接调用 `binding_->refresh()`；
+- 应用层写路径全部迁移到统一入口；
+- 逐步收紧公开可变 `Scene*`、`AssetLibrary*`，只读访问不受影响。
+
+**验收条件：**
+
+- 每次成功事务发布一次准确变更，失败和空事务不发布；
+- 新增、删除、变换、材质、资产和撤销/重做都能自动刷新；
+- 删除应用层手工 refresh 后现有行为保持一致；
+- 测试能够证明不存在“数据已修改但渲染未失效”的正常写路径。
+
+**里程碑提交：** `refactor(document): 建立文档修改与渲染失效闭环`
+
+### M3：RenderWorld 稳定身份与增量同步
+
+**目的：** 将 Scene 更新成本从默认 O(N) 全量重建收敛到与实际变化量相关。
+
+**修改范围：**
+
+- 为 SceneProxy → RenderObject 建立稳定映射；
+- add/remove/transform/visibility/material/geometry 使用明确 patch；
+- Asset revision 只触发引用该资产的对象和资源变化；
+- 仅在首次同步、journal 溢出、domain 不匹配或显式恢复时全量 rebuild；
+- snapshot 使用版本化存储、copy-on-write 或等价结构共享，保持跨线程不可变；
+- 保留可靠资源 prepare 列表，但只生成实际变化资源的 delta。
+
+**验收条件：**
+
+- 单对象 transform 不遍历重建全部 RenderObject；
+- 删除和新增不会改变无关对象的稳定 handle；
+- journal 要求 full resync 时能够正确恢复；
+- 增量结果与强制全量重建结果一致；
+- 大量静态对象加少量变化的回归测试中，patch 数量与变化量相关。
+
+**里程碑提交：** `refactor(view): 实现RenderWorld稳定身份与增量同步`
+
+### M4：资源身份与可靠准备协议闭环
+
+**目的：** 在任何设备级 GPU 缓存共享之前，先保证资源键跨文档绝不碰撞，并关闭持久资源双入口。
+
+**修改范围：**
+
+- 引入 `ResourceDomainId`；
+- 用 `RenderResourceKey{domain, asset, subresource, kind}` 替代裸 `uint64_t AssetGpuKey` 语义；
+- 文档、预览和内置资源使用明确不同的资源域；
+- prepare 阶段是持久资源创建、更新和退役的唯一入口；
+- frame compile 只能查询已经 ACK 的持久资源，缺失时返回受控合同错误；
+- 文档关闭和资源替换继续使用 submission token 延迟退役。
+
+**验收条件：**
+
+- 两个文档具有相同 AssetId 时资源键仍然不同；
+- 同一资源域内稳定复用，内容 revision 变化能正确更新；
+- 普通视觉帧无法偷偷创建持久纹理或几何；
+- frame 不会越过其依赖的资源序号；
+- 资源清理和延迟释放测试通过。
+
+**里程碑提交：** `refactor(render): 引入资源域并收口持久资源准备协议`
+
+### M5：设备级 GPU 资源服务
+
+**目的：** 消除每视图 Renderer 重复创建的设备级资源，同时保持文档资源隔离。
+
+**修改范围：**
+
+- 在 `RenderDeviceContext` 上建立 DeviceResourceService；
+- 提升 Pipeline library、默认纹理、采样器和可共享字体资源；
+- 将 Asset GPU registry 提升到设备服务，并以结构化资源键隔离 domain；
+- 目标格式、MSAA、shader variant 等进入完整 pipeline key；
+- Renderer 只保留帧编排、Surface 相关阶段状态和短生命周期编译结果；
+- 通过 domain lease/reference 明确文档关闭后的资源退役。
+
+**验收条件：**
+
+- 同一 Device 上默认资源和相同 pipeline 不按视图重复创建；
+- 同域资源可复用，跨域同 AssetId 不会串用；
+- 关闭一个文档不会释放另一个文档仍在使用的资源；
+- Device 销毁前所有共享资源按正确顺序退役；
+- GPU 资源统计能够区分 Device、Domain 和 Surface。
+
+**里程碑提交：** `refactor(render): 建立设备级GPU资源服务`
+
+### M6：统一 GpuExecutionDomain 调度
+
+**目的：** 让线程、提交时间线、资源服务和故障域都以兼容 Device 为边界。
+
+**修改范围：**
+
+- Vulkan、DX11、DX12 每个兼容 `RenderDeviceContext` 使用一个调度线程；
+- 每个 Surface 保留独立 latest-frame mailbox、generation、resize 和关闭状态；
+- 资源批次继续可靠有序，普通视觉帧继续只保留最新一帧；
+- 调度器在多个 Surface 间提供明确公平性和交互优先级；
+- `RenderSession` 变成执行域客户端，不再为每视图拥有完整 Worker/Executor；
+- OpenGL 保持每 Context 独立执行域，通过相同客户端协议接入；
+- 不在本里程碑引入并行命令录制。
+
+**验收条件：**
+
+- N 个兼容 Vulkan/DX 视图只产生一个设备调度线程；
+- 不再由 N 个 Worker 在 Device mutex 上竞争完整帧执行；
+- 任一 Surface 的高频帧不会饿死其他可见 Surface；
+- resize/close/capture 与资源 ACK 顺序保持正确；
+- OpenGL 原有上下文亲和路径不退化。
+
+**里程碑提交：** `refactor(view): 统一设备级渲染执行域调度`
+
+### M7：故障域、生命周期与压力收尾
+
+**目的：** 将前六个里程碑形成的结构闭合成可长期运行、可诊断的运行时。
+
+**修改范围：**
+
+- 设备执行域统一维护 Healthy、Failed、Rebuilding、Stopped 状态；
+- DeviceLost 一次广播给全部 Surface 和资源域；
+- 失败后禁止旧队列继续接收提交，明确资源重新准备边界；
+- shutdown 按 Surface → Domain lease → Device resources → Device 的顺序执行；
+- 增加多文档交替渲染、反复 resize、快速关闭、资源替换、队列压力和故障注入测试；
+- 增加必要的 Debug 统计和不变量断言，不扩张为新的用户功能。
+
+**验收条件：**
+
+- 单个共享 Device 失败不会让各视图进入互相矛盾的局部状态；
+- 关闭、失败和重建期间不接受陈旧 submission；
+- 延迟退役资源不会早释放或永久滞留；
+- 所有相关 Debug 测试和既有测试通过；
+- 完整代码复查确认不存在新的双重真相和反向依赖。
+
+**里程碑提交：** `refactor(view): 收口设备故障域与渲染生命周期`
+
+## 里程碑依赖与停靠点
+
+```mermaid
+flowchart LR
+    M0["M0 Vulkan正确性"] --> M6["M6 设备级调度"]
+    M1["M1 变化域分层"] --> M3["M3 RenderWorld增量化"]
+    M2["M2 修改失效闭环"] --> M3
+    M3 --> M4["M4 资源身份与协议"]
+    M4 --> M5["M5 设备资源服务"]
+    M5 --> M6
+    M6 --> M7["M7 故障与压力收尾"]
+```
+
+推荐实际执行顺序固定为：`M0 → M1 → M2 → M3 → M4 → M5 → M6 → M7`。
+
+每个里程碑都是一个可停靠点：完成验收并提交后，当前产品应保持可运行。若后续里程碑暂缓，已经完成的部分仍然独立成立，不要求为了等待最终架构而长期维护半迁移状态。
 
 ## 暂时不应该做的事情
 
@@ -561,10 +748,10 @@ flowchart TD
 3. 然后把共享 registry、pipeline 和默认资源提升到设备执行域；
 4. 最后将每视图 Worker 收敛为每设备调度器和每 Surface mailbox。
 
-因此它属于 M4、M5，而不是当前第一步。当前应先完成 Scene/Overlay 热路径分离和文档变更闭环。
+因此资源身份、设备资源服务和统一调度分别属于 M4、M5、M6，不能提前混在一起实施。除独立的 M0 正确性修复外，当前应先完成 Scene/Overlay 热路径分离和文档变更闭环。
 
 ## 最终判断
 
 当前架构已经越过了“需要推倒重来”的阶段。
 
-如果要正式承诺多窗口 Vulkan，先完成条件性 M0；再完成 M1、M2，架构清晰度和大模型交互稳定性会提升一个明显等级；M3、M4、M5 则决定它能否真正达到多文档、大场景、长期运行的工业级渲染运行时。
+本轮先以 M0 闭环多窗口 Vulkan 正确性；M1、M2 负责变化域和修改边界；M3 至 M6 完成增量同步、资源身份、设备资源服务和统一调度；M7 负责故障域与压力收尾。八个里程碑完成后，当前架构才形成面向多文档、大场景和长期运行的完整工业级闭环。
