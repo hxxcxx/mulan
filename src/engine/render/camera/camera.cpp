@@ -7,6 +7,21 @@
 #include <limits>
 
 namespace mulan::engine {
+namespace {
+
+bool finitePoint(const math::Point3& point) {
+    return std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z);
+}
+
+bool finiteBounds(const math::AABB3& box) {
+    return finitePoint(box.min) && finitePoint(box.max);
+}
+
+bool finiteSphere(const math::Sphere3& sphere) {
+    return sphere.isValid() && finitePoint(sphere.center) && std::isfinite(sphere.radius);
+}
+
+}  // namespace
 
 // ============================================================
 // 构造 / 模式切换
@@ -135,7 +150,7 @@ void Camera::fitToBox(const math::AABB3& box, double padding) {
 }
 
 void Camera::fitToSphere(const math::Sphere3& sphere, double padding) {
-    if (!sphere.isValid()) {
+    if (!finiteSphere(sphere) || !std::isfinite(padding) || padding <= 0.0) {
         return;
     }
 
@@ -158,7 +173,7 @@ void Camera::fitToSphere(const math::Sphere3& sphere, double padding) {
 }
 
 void Camera::fitClipPlanesToBox(const math::AABB3& box, double padding) {
-    if (box.isEmpty()) {
+    if (box.isEmpty() || !finiteBounds(box) || !std::isfinite(padding)) {
         return;
     }
 
@@ -188,15 +203,21 @@ void Camera::fitClipPlanesToBox(const math::AABB3& box, double padding) {
 }
 
 void Camera::fitClipPlanesToSphere(const math::Sphere3& sphere, double padding) {
-    if (!sphere.isValid()) {
+    if (!finiteSphere(sphere) || !std::isfinite(padding)) {
         return;
     }
 
-    const double centerDistance = (sphere.center.asVec() - eyePosition()).length();
+    // 裁剪面垂直于视线，必须使用沿前向的投影深度。欧氏距离会把离轴小图元
+    // 误判得更远，使 near 越过图元并造成整个场景突然消失。
+    const double centerDepth = (sphere.center.asVec() - eyePosition()).dot(forward());
     const double radius = std::max(sphere.radius, min_distance_);
     const double margin = std::max(radius * (std::max(1.0, padding) - 1.0), min_distance_);
-    const double nearZ = std::max(min_distance_, centerDistance - radius - margin);
-    const double farZ = std::max({ nearZ + min_distance_, centerDistance + radius + margin, nearZ * 2.0 });
+    if (!std::isfinite(centerDepth) || !std::isfinite(radius) || !std::isfinite(margin)) {
+        return;
+    }
+
+    const double nearZ = std::max(min_distance_, centerDepth - radius - margin);
+    const double farZ = std::max({ nearZ + min_distance_, centerDepth + radius + margin, nearZ * 2.0 });
     setClipPlanes(nearZ, farZ);
 }
 

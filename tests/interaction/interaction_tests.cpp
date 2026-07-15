@@ -13,12 +13,15 @@
 #include <mulan/interaction/camera_manipulator.h>
 #include <mulan/render/camera/camera.h>
 
+#include <cmath>
+#include <limits>
+
 using namespace mulan::engine;
 
 namespace {
 // 状态机测试不需要真实相机操作，提供一个共享占位实例。
 Camera& sharedCam() {
-    static Camera c{CameraMode::Trackball};
+    static Camera c{ CameraMode::Trackball };
     return c;
 }
 }  // namespace
@@ -72,12 +75,10 @@ TEST(InputEventPredicateTest, CancelEvents) {
 
 class CameraManipulatorTest : public ::testing::Test {
 protected:
-    Camera cam{CameraMode::Trackball};
+    Camera cam{ CameraMode::Trackball };
     CameraManipulator manip;
 
-    void SetUp() override {
-        manip.setState(Operator::State::Active);
-    }
+    void SetUp() override { manip.setState(Operator::State::Active); }
 };
 
 // 修复 P2：非导航按钮（左键）press 不应抢占。
@@ -134,6 +135,39 @@ TEST_F(CameraManipulatorTest, CancelIsIdempotent) {
     // cancel 后 move 应被忽略（dragging_ 已清）
     InputEvent move = InputEvent::mouseMove(200, 200, MouseButton::Middle);
     EXPECT_FALSE(manip.onMouseMove(move, cam));
+}
+
+TEST(CameraClipPlanesTest, OffAxisSmallSphereUsesForwardDepth) {
+    Camera camera{ CameraMode::Trackball };
+    camera.setDistance(10.0);
+    camera.setClipPlanes(0.1, 1000.0);
+
+    // 小图元位于屏幕边缘时，欧氏距离明显大于沿视线的真实深度。
+    // near/far 必须按前向投影深度计算，否则 near 会越过整个图元。
+    const mulan::math::Sphere3 sphere{ mulan::math::Point3(5.0, 0.0, 0.0), 0.01 };
+    const double depth = (sphere.center.asVec() - camera.eyePosition()).dot(camera.forward());
+
+    camera.fitClipPlanesToSphere(sphere);
+
+    EXPECT_LT(camera.nearPlane(), depth - sphere.radius);
+    EXPECT_GT(camera.farPlane(), depth + sphere.radius);
+    EXPECT_TRUE(std::isfinite(camera.nearPlane()));
+    EXPECT_TRUE(std::isfinite(camera.farPlane()));
+}
+
+TEST(CameraClipPlanesTest, InvalidCandidatesKeepLastGoodRange) {
+    Camera camera{ CameraMode::Trackball };
+    camera.setClipPlanes(0.25, 250.0);
+    const double initialNear = camera.nearPlane();
+    const double initialFar = camera.farPlane();
+    const double infinity = std::numeric_limits<double>::infinity();
+
+    camera.setClipPlanes(infinity, infinity);
+    camera.fitClipPlanesToSphere(mulan::math::Sphere3{ mulan::math::Point3(infinity, 0.0, 0.0), 1.0 });
+    camera.fitClipPlanesToSphere(mulan::math::Sphere3{ mulan::math::Point3::origin(), infinity });
+
+    EXPECT_DOUBLE_EQ(camera.nearPlane(), initialNear);
+    EXPECT_DOUBLE_EQ(camera.farPlane(), initialFar);
 }
 
 // ============================================================

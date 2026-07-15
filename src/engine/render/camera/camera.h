@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -61,6 +62,9 @@ public:
 
     void setFieldOfView(double fovY) { fov_y_ = fovY; }
     void setClipPlanes(double nearZ, double farZ) {
+        if (!std::isfinite(nearZ) || !std::isfinite(farZ) || nearZ <= 0.0 || farZ <= nearZ) {
+            return;
+        }
         near_z_ = nearZ;
         far_z_ = farZ;
     }

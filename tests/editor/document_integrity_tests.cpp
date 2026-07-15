@@ -327,3 +327,44 @@ TEST(DocumentRenderInvalidation, BindingReportsFrameDemandThroughSingleCallback)
     binding.refresh();
     EXPECT_EQ(invalidationCount, 2u);
 }
+
+TEST(DocumentCameraClipPlanes, CommittedOffAxisSmallCircleKeepsTheCurrentCompositionVisible) {
+    auto document = std::make_unique<Document>("off-axis-small-circle");
+    Document* documentPtr = document.get();
+    DocumentSession session(std::move(document));
+    mulan::view::ViewContext view;
+    mulan::editor::DocumentRenderBinding binding;
+    binding.bind(session, view);
+
+    auto& camera = view.camera();
+    camera.setTarget({ 0.0, 0.0, 0.0 });
+    camera.setDistance(10.0);
+    camera.setOrthoSize(5.0);
+    camera.setClipPlanes(0.1, 1000.0);
+    const auto initialTarget = camera.target();
+    const double initialDistance = camera.distance();
+    const double initialOrthoSize = camera.orthoSize();
+
+    DocumentEditor editor(*documentPtr);
+    ASSERT_TRUE(editor.createCurve("SmallCircle",
+                                   CurvePrimitive::circle(mulan::math::Circle3{ Point3{ 5.0, 0.0, 0.0 }, 0.01 })));
+    binding.refresh();
+
+    const auto* renderScene = binding.renderScene();
+    ASSERT_NE(renderScene, nullptr);
+    const auto& sphere = renderScene->sceneBoundsSphere();
+    ASSERT_TRUE(sphere.isValid());
+    const double depth = (sphere.center.asVec() - camera.eyePosition()).dot(camera.forward());
+    EXPECT_LT(camera.nearPlane(), depth - sphere.radius);
+    EXPECT_GT(camera.farPlane(), depth + sphere.radius);
+    EXPECT_EQ(camera.target(), initialTarget);
+    EXPECT_DOUBLE_EQ(camera.distance(), initialDistance);
+    EXPECT_DOUBLE_EQ(camera.orthoSize(), initialOrthoSize);
+
+    ASSERT_TRUE(editor.createCurve("FollowingLine", segment(1.0)));
+    binding.refresh();
+    const auto& expandedSphere = renderScene->sceneBoundsSphere();
+    const double expandedDepth = (expandedSphere.center.asVec() - camera.eyePosition()).dot(camera.forward());
+    EXPECT_LT(camera.nearPlane(), expandedDepth - expandedSphere.radius);
+    EXPECT_GT(camera.farPlane(), expandedDepth + expandedSphere.radius);
+}
