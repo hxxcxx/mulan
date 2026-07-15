@@ -316,6 +316,9 @@ void Camera::fitClipPlanesToBox(const math::AABB3& box, double padding, ClipPlan
     const double radius = std::max((box.max - box.min).length() * 0.5, kMinOrbitDistance);
     const double pad = std::max(1.0, padding);
     const double margin = std::max(radius * (pad - 1.0), kMinClipSpan);
+    const double depthShift = moveOrthographicEyeInFront(minDepth - margin, std::max(kMinNearPlane, radius * 0.01));
+    minDepth += depthShift;
+    maxDepth += depthShift;
     const double nearZ = std::max(kMinNearPlane, minDepth - margin);
     const double farZ = std::max(nearZ + kMinClipSpan, maxDepth + margin);
     applyFittedClipPlanes(nearZ, farZ, mode);
@@ -328,13 +331,14 @@ void Camera::fitClipPlanesToSphere(const math::Sphere3& sphere, double padding, 
 
     // 裁剪面垂直于视线，必须使用沿前向的投影深度。欧氏距离会把离轴小图元
     // 误判得更远，使 near 越过图元并造成整个场景突然消失。
-    const double centerDepth = (sphere.center.asVec() - eyePosition()).dot(forward());
+    double centerDepth = (sphere.center.asVec() - eyePosition()).dot(forward());
     const double radius = std::max(sphere.radius, kMinOrbitDistance);
     const double margin = std::max(radius * (std::max(1.0, padding) - 1.0), kMinClipSpan);
     if (!std::isfinite(centerDepth) || !std::isfinite(radius) || !std::isfinite(margin)) {
         return;
     }
 
+    centerDepth += moveOrthographicEyeInFront(centerDepth - radius - margin, std::max(kMinNearPlane, radius * 0.01));
     const double nearZ = std::max(kMinNearPlane, centerDepth - radius - margin);
     const double farZ = std::max(nearZ + kMinClipSpan, centerDepth + radius + margin);
     applyFittedClipPlanes(nearZ, farZ, mode);
@@ -346,6 +350,23 @@ void Camera::applyFittedClipPlanes(double nearZ, double farZ, ClipPlaneFitMode m
         farZ = std::max(far_z_, farZ);
     }
     setClipPlanes(nearZ, farZ);
+}
+
+double Camera::moveOrthographicEyeInFront(double paddedMinDepth, double safetyNear) {
+    if (!ortho_ || !std::isfinite(paddedMinDepth) || !std::isfinite(safetyNear) || paddedMinDepth >= safetyNear) {
+        return 0.0;
+    }
+
+    const double shift = safetyNear - paddedMinDepth;
+    const double nextDistance = distance_ + shift;
+    if (!std::isfinite(nextDistance) || nextDistance < kMinOrbitDistance) {
+        return 0.0;
+    }
+
+    // 仅沿视线后移眼点。正交投影的 x/y 构图完全不变，但旋转后的大型图元不再穿过相机。
+    distance_ = nextDistance;
+    markDepthChanged();
+    return shift;
 }
 
 // ============================================================

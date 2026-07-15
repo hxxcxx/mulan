@@ -59,7 +59,7 @@ public:
 private:
     void syncRenderCache();
     void injectRenderCache();
-    void fitCameraClipPlanesToSceneBounds(engine::ClipPlaneFitMode mode);
+    math::Sphere3 cameraBoundsSphere() const;
     void applyViewPreferences();
     void invalidateFrame() const;
 
@@ -68,6 +68,7 @@ private:
     DocumentRenderCache render_cache_;
     FrameInvalidationCallback frame_invalidation_callback_;
     uint64_t prepared_camera_depth_revision_ = 0;
+    uint64_t prepared_preview_generation_ = 0;
     bool scene_bounds_dirty_ = false;
     bool clip_tightening_pending_ = false;
 };

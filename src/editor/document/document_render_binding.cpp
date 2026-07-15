@@ -2,11 +2,29 @@
 
 #include "document_session.h"
 
+#include <mulan/asset/asset_library.h>
+#include <mulan/asset/geometry_asset.h>
 #include <mulan/view/core/view_context.h>
 
+#include <cmath>
 #include <utility>
 
 namespace mulan::editor {
+namespace {
+
+bool finiteBounds(const math::AABB3& bounds) {
+    return !bounds.isEmpty() && std::isfinite(bounds.min.x) && std::isfinite(bounds.min.y) &&
+           std::isfinite(bounds.min.z) && std::isfinite(bounds.max.x) && std::isfinite(bounds.max.y) &&
+           std::isfinite(bounds.max.z);
+}
+
+void expandFinite(math::AABB3& destination, const math::AABB3& candidate) {
+    if (finiteBounds(candidate)) {
+        destination.expand(candidate);
+    }
+}
+
+}  // namespace
 
 DocumentRenderBinding::~DocumentRenderBinding() {
     unbind();
@@ -21,6 +39,7 @@ void DocumentRenderBinding::bind(DocumentSession& session, view::ViewContext& vi
     injectRenderCache();
     applyViewPreferences();
     prepared_camera_depth_revision_ = view_->camera().depthRevision();
+    prepared_preview_generation_ = view_->previewLayer().generation();
     scene_bounds_dirty_ = false;
     clip_tightening_pending_ = false;
 }
@@ -34,6 +53,7 @@ void DocumentRenderBinding::unbind() {
     view_ = nullptr;
     render_cache_.clear();
     prepared_camera_depth_revision_ = 0;
+    prepared_preview_generation_ = 0;
     scene_bounds_dirty_ = false;
     clip_tightening_pending_ = false;
 }
@@ -71,7 +91,12 @@ void DocumentRenderBinding::fitAll() {
     if (sphere.isValid()) {
         view_->camera().fitToSphere(sphere);
     }
+    const auto clipSphere = cameraBoundsSphere();
+    if (clipSphere.isValid()) {
+        view_->camera().fitClipPlanesToSphere(clipSphere);
+    }
     prepared_camera_depth_revision_ = view_->camera().depthRevision();
+    prepared_preview_generation_ = view_->previewLayer().generation();
     scene_bounds_dirty_ = false;
     clip_tightening_pending_ = false;
     injectRenderCache();
@@ -84,17 +109,23 @@ void DocumentRenderBinding::prepareFrame(ClipUpdateMode mode) {
     }
 
     const uint64_t cameraRevision = view_->camera().depthRevision();
+    const uint64_t previewGeneration = view_->previewLayer().generation();
     const bool mayTighten = mode == ClipUpdateMode::Settled;
     if (!scene_bounds_dirty_ && prepared_camera_depth_revision_ == cameraRevision &&
-        !(mayTighten && clip_tightening_pending_)) {
+        prepared_preview_generation_ == previewGeneration && !(mayTighten && clip_tightening_pending_)) {
         return;
     }
 
-    fitCameraClipPlanesToSceneBounds(mayTighten ? engine::ClipPlaneFitMode::Tight
-                                                : engine::ClipPlaneFitMode::ExpandOnly);
-    prepared_camera_depth_revision_ = cameraRevision;
+    const auto sphere = cameraBoundsSphere();
+    if (sphere.isValid()) {
+        view_->camera().fitClipPlanesToSphere(
+                sphere, 1.2, mayTighten ? engine::ClipPlaneFitMode::Tight : engine::ClipPlaneFitMode::ExpandOnly);
+    }
+    // 裁剪适配可能在正交模式下后移眼点，必须记录适配后的最终版本。
+    prepared_camera_depth_revision_ = view_->camera().depthRevision();
+    prepared_preview_generation_ = previewGeneration;
     scene_bounds_dirty_ = false;
-    clip_tightening_pending_ = !mayTighten && render_cache_.sceneBoundsSphere().isValid();
+    clip_tightening_pending_ = !mayTighten && sphere.isValid();
 }
 
 void DocumentRenderBinding::syncRenderCache() {
@@ -113,15 +144,43 @@ void DocumentRenderBinding::injectRenderCache() {
     view_->setRenderScene(render_cache_.renderScene(), render_cache_.assets());
 }
 
-void DocumentRenderBinding::fitCameraClipPlanesToSceneBounds(engine::ClipPlaneFitMode mode) {
+math::Sphere3 DocumentRenderBinding::cameraBoundsSphere() const {
     if (!isBound()) {
-        return;
+        return {};
     }
 
-    const auto& sphere = render_cache_.sceneBoundsSphere();
-    if (sphere.isValid()) {
-        view_->camera().fitClipPlanesToSphere(sphere, 1.2, mode);
+    math::AABB3 bounds = math::AABB3::empty();
+    expandFinite(bounds, render_cache_.sceneBounds());
+
+    const auto& preview = view_->previewLayer();
+    for (const view::PreviewDrawable& drawable : preview.drawables()) {
+        expandFinite(bounds, drawable.mesh.bounds);
     }
+
+    const view::RenderScene* scene = render_cache_.renderScene();
+    const asset::AssetLibrary* assets = render_cache_.assets();
+    if (scene && assets) {
+        for (const view::PreviewReference& reference : preview.references()) {
+            if (!reference.valid()) {
+                continue;
+            }
+            const view::SceneProxy* proxy = scene->proxy(reference.entity);
+            if (!proxy || !proxy->visible) {
+                continue;
+            }
+            if (!reference.overrideWorldTransform) {
+                expandFinite(bounds, proxy->worldBounds);
+                continue;
+            }
+
+            const auto* geometry = dynamic_cast<const asset::GeometryAsset*>(assets->asset(proxy->geometry));
+            if (geometry) {
+                expandFinite(bounds, geometry->localBounds().transformed(reference.worldTransform));
+            }
+        }
+    }
+
+    return math::Sphere3::fromAABB(bounds);
 }
 
 const view::RenderScene* DocumentRenderBinding::renderScene() const {

@@ -192,6 +192,8 @@ private:
     void createRotation(CameraMode mode);
     void copyFrom(const Camera& other);
     void applyFittedClipPlanes(double nearZ, double farZ, ClipPlaneFitMode mode);
+    /// 正交投影移动相机不会改变屏幕构图；必要时后移相机，确保包围范围位于眼前。
+    double moveOrthographicEyeInFront(double paddedMinDepth, double safetyNear);
     void markDepthChanged() {
         if (++depth_revision_ == 0) {
             ++depth_revision_;

@@ -233,6 +233,22 @@ TEST(CameraClipPlanesTest, InteractiveFitExpandsButNeverShrinks) {
     EXPECT_GT(camera.farPlane(), 11.0);
 }
 
+TEST(CameraClipPlanesTest, OrthographicFitMovesEyeBehindLargeBoundsWithoutChangingScale) {
+    Camera camera{ CameraMode::Trackball };
+    camera.setOrthographic(true);
+    camera.setOrthoSize(150.0);
+    camera.setDistance(10.0);
+    const double originalOrthoSize = camera.orthoSize();
+    const mulan::math::Sphere3 sphere{ mulan::math::Point3::origin(), 100.0 };
+
+    camera.fitClipPlanesToSphere(sphere, 1.2, ClipPlaneFitMode::ExpandOnly);
+
+    const double centerDepth = (sphere.center.asVec() - camera.eyePosition()).dot(camera.forward());
+    EXPECT_GT(centerDepth - sphere.radius, camera.nearPlane());
+    EXPECT_GT(camera.distance(), sphere.radius);
+    EXPECT_DOUBLE_EQ(camera.orthoSize(), originalOrthoSize);
+}
+
 TEST(CameraDepthRevisionTest, OnlyDepthRelevantChangesAdvanceRevision) {
     Camera camera{ CameraMode::Trackball };
     const uint64_t initial = camera.depthRevision();

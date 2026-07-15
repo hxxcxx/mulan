@@ -422,3 +422,40 @@ TEST(DocumentCameraClipPlanes, InteractiveRangeTightensOnlyAfterTheInteractionSe
     EXPECT_GT(view.camera().nearPlane(), 0.1);
     EXPECT_LT(view.camera().farPlane(), 1000.0);
 }
+
+TEST(DocumentCameraClipPlanes, PreviewAndCommittedLargeCircleStayInFrontDuringOrbit) {
+    auto document = std::make_unique<Document>("large-circle-orbit");
+    Document* documentPtr = document.get();
+    DocumentSession session(std::move(document));
+    mulan::view::ViewContext view;
+    mulan::editor::DocumentRenderBinding binding;
+    binding.bind(session, view);
+
+    auto& camera = view.camera();
+    camera.setOrthoSize(150.0);
+    camera.setDistance(10.0);
+    const auto circle = CurvePrimitive::circle(mulan::math::Circle3{ Point3::origin(), 100.0 });
+    view.previewLayer().setCurve(circle);
+
+    binding.prepareFrame(mulan::editor::ClipUpdateMode::Interactive);
+    ASSERT_FALSE(view.previewLayer().drawables().empty());
+    const auto previewSphere = mulan::math::Sphere3::fromAABB(view.previewLayer().drawables().front().mesh.bounds);
+    ASSERT_TRUE(previewSphere.isValid());
+    double depth = (previewSphere.center.asVec() - camera.eyePosition()).dot(camera.forward());
+    EXPECT_GT(depth - previewSphere.radius, camera.nearPlane());
+    EXPECT_GT(camera.farPlane(), depth + previewSphere.radius);
+
+    DocumentEditor editor(*documentPtr);
+    ASSERT_TRUE(editor.createCurve("LargeCircle", circle));
+    view.previewLayer().clearToolGeometry();
+    binding.refresh();
+    binding.prepareFrame(mulan::editor::ClipUpdateMode::Settled);
+
+    camera.setRotation(mulan::math::Quat::fromAxisAngle(mulan::math::Vec3::unitY(), mulan::math::kPi * 0.5));
+    binding.prepareFrame(mulan::editor::ClipUpdateMode::Interactive);
+    const auto& sceneSphere = binding.renderScene()->sceneBoundsSphere();
+    ASSERT_TRUE(sceneSphere.isValid());
+    depth = (sceneSphere.center.asVec() - camera.eyePosition()).dot(camera.forward());
+    EXPECT_GT(depth - sceneSphere.radius, camera.nearPlane());
+    EXPECT_GT(camera.farPlane(), depth + sceneSphere.radius);
+}
