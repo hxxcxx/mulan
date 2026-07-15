@@ -22,7 +22,6 @@
 #include "../../rhi/bind_group.h"
 #include "../../rhi/pipeline_state.h"
 #include "../../rhi/render_types.h"
-#include "../../rhi/shader.h"
 #include <mulan/math/math.h>
 
 #include <cstdint>
@@ -31,9 +30,12 @@
 
 namespace mulan::engine {
 
+class DevicePipelineLibrary;
+
 class GeometryDrawExecutor : public DrawExecutor {
 public:
-    GeometryDrawExecutor(RHIDevice& device, GeometryDrawSharedResources& sharedResources, RenderTechnique technique);
+    GeometryDrawExecutor(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
+                         DevicePipelineLibrary& pipelineLibrary, RenderTechnique technique);
 
     const char* name() const override { return technique_.debugName; }
 
@@ -42,7 +44,7 @@ public:
 
     void setDrawCommands(std::span<const MeshDrawCommand> cmds) { commands_ = cmds; }
 
-    PipelineState* pipelineState() const { return pso_.get(); }
+    PipelineState* pipelineState() const { return pso_; }
 
     /// 全局默认白纹理（无材质模型退化用，1×1 RGBA=(255,255,255,255)）。
     /// 仅 sampleTextures=true 时非 null。
@@ -59,17 +61,14 @@ public:
     }
 
 private:
-    bool loadShaders();
-    bool createPSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth, uint32_t sampleCount);
     bool createFrameBindGroup(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth);
 
     RHIDevice& device_;
     GeometryDrawSharedResources& shared_resources_;
+    DevicePipelineLibrary& pipeline_library_;
     const TechniqueDesc& technique_;
 
-    std::unique_ptr<Shader> vs_;
-    std::unique_ptr<Shader> fs_;
-    std::unique_ptr<PipelineState> pso_;
+    PipelineState* pso_ = nullptr;
 
     /// 保存纹理与采样器等静态资源；Uniform 在提交 draw 时通过切片绑定。
     std::unique_ptr<BindGroup> frame_bg_;

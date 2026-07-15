@@ -110,9 +110,8 @@ std::unique_ptr<Texture> createDefaultEnvironmentIBLTexture(RHIDevice& device) {
 
 }  // namespace
 
-GeometryDrawSharedResources::GeometryDrawSharedResources(RHIDevice& device, MaterialCache& materialCache,
-                                                         const LightEnvironment& lightEnv)
-    : device_(device), material_cache_(materialCache), light_env_(lightEnv) {
+GeometryDrawSharedResources::GeometryDrawSharedResources(RHIDevice& device, MaterialCache& materialCache)
+    : device_(device), material_cache_(materialCache) {
 }
 
 bool GeometryDrawSharedResources::init() {
@@ -187,10 +186,10 @@ bool GeometryDrawSharedResources::createDefaultResources() {
     return true;
 }
 
-void GeometryDrawSharedResources::uploadFrameData(const DrawExecutionContext& ctx) {
+void GeometryDrawSharedResources::uploadFrameData(const DrawExecutionContext& ctx, const LightEnvironment& lightEnv) {
     material_uniforms_.clear();
     scene_uniform_ = {};
-    const auto result = ctx.cmd->writeUniform(buildSceneUniforms(ctx));
+    const auto result = ctx.cmd->writeUniform(buildSceneUniforms(ctx, lightEnv));
     if (!result) {
         LOG_ERROR("[GeometryDrawSharedResources] Scene uniform allocation failed: {}", result.error().message);
         return;
@@ -217,14 +216,15 @@ std::optional<UniformSlice> GeometryDrawSharedResources::materialUniform(Command
     return *result;
 }
 
-SceneUniforms GeometryDrawSharedResources::buildSceneUniforms(const DrawExecutionContext& ctx) const {
+SceneUniforms GeometryDrawSharedResources::buildSceneUniforms(const DrawExecutionContext& ctx,
+                                                              const LightEnvironment& lightEnv) const {
     math::Mat4 clip = device_.clipSpaceCorrectionMatrix();
     math::Mat4 view = ctx.camera.viewMatrix;
     math::Mat4 proj = ctx.camera.projectionMatrix;
     math::Mat4 vp = clip * proj * view;
     math::Vec3 eye = ctx.camera.eyePosition;
 
-    auto* dl = light_env_.primaryDirectional();
+    auto* dl = lightEnv.primaryDirectional();
     math::Vec3 ldir;
     math::Vec3 lightColor;
     if (dl) {
@@ -239,7 +239,7 @@ SceneUniforms GeometryDrawSharedResources::buildSceneUniforms(const DrawExecutio
         lightColor = math::Vec3(0.95, 0.94, 0.92);
     }
 
-    math::Vec3 ambientColor = light_env_.ambientColor * light_env_.ambientIntensity;
+    math::Vec3 ambientColor = lightEnv.ambientColor * lightEnv.ambientIntensity;
     if (ambientColor.lengthSq() <= 1.0e-12) {
         ambientColor = math::Vec3(0.35);
     }

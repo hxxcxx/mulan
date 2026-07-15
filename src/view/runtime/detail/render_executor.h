@@ -62,6 +62,7 @@ private:
     // RenderRenderer 的资源对象持有此成员引用，因此 LightEnvironment 必须比 renderer_ 更晚析构。
     engine::LightEnvironment light_environment_;
     engine::RenderRenderer renderer_;
+    engine::DeviceResourceClientId resource_client_ = 0;
     mutable std::mutex mutex_;
     bool initialized_ = false;
 };

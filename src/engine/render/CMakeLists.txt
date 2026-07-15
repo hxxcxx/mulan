@@ -6,6 +6,8 @@ add_library(render STATIC
     camera/trackball_rotation.cpp
     asset_gpu_key.cpp
     asset_gpu_registry.cpp
+    device_resource_service.cpp
+    device_pipeline_library.cpp
     environment_map.cpp
     mesh_draw_command.cpp
     technique/render_technique.cpp

@@ -75,6 +75,9 @@ Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::acquire(const 
     }
 
     auto context = std::shared_ptr<RenderDeviceContext>(new RenderDeviceContext(std::move(*device), config.backend));
+    if (!context->resource_service_->init()) {
+        return std::unexpected(Error::make(ErrorCode::Internal, "Failed to initialize device resource service."));
+    }
     context->render_config_ = renderConfig;
     context->validation_enabled_ = config.enableValidation;
     if (canShare(config.backend)) {

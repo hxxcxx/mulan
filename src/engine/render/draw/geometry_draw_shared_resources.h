@@ -26,13 +26,13 @@ class RHIDevice;
 
 class GeometryDrawSharedResources {
 public:
-    GeometryDrawSharedResources(RHIDevice& device, MaterialCache& materialCache, const LightEnvironment& lightEnv);
+    GeometryDrawSharedResources(RHIDevice& device, MaterialCache& materialCache);
 
     GeometryDrawSharedResources(const GeometryDrawSharedResources&) = delete;
     GeometryDrawSharedResources& operator=(const GeometryDrawSharedResources&) = delete;
 
     bool init();
-    void uploadFrameData(const DrawExecutionContext& ctx);
+    void uploadFrameData(const DrawExecutionContext& ctx, const LightEnvironment& lightEnv);
 
     const UniformSlice& sceneUniform() const { return scene_uniform_; }
     std::optional<UniformSlice> materialUniform(CommandList& commandList, uint32_t materialIndex);
@@ -47,12 +47,10 @@ public:
 
 private:
     bool createDefaultResources();
-    SceneUniforms buildSceneUniforms(const DrawExecutionContext& ctx) const;
+    SceneUniforms buildSceneUniforms(const DrawExecutionContext& ctx, const LightEnvironment& lightEnv) const;
 
     RHIDevice& device_;
     MaterialCache& material_cache_;
-    const LightEnvironment& light_env_;
-
     UniformSlice scene_uniform_;
     std::unordered_map<uint32_t, UniformSlice> material_uniforms_;
     std::unique_ptr<Sampler> default_sampler_;

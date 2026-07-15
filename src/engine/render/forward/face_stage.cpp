@@ -2,11 +2,12 @@
 
 namespace mulan::engine {
 
-FaceStage::FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources)
-    : solid_executor_(device, sharedResources, RenderTechnique::SolidLit),
-      pbr_executor_(device, sharedResources, RenderTechnique::SurfacePBR),
-      pbr_tangent_executor_(device, sharedResources, RenderTechnique::SurfacePBRTangent),
-      view_cube_executor_(device, sharedResources, RenderTechnique::ViewCube) {
+FaceStage::FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
+                     DevicePipelineLibrary& pipelineLibrary)
+    : solid_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::SolidLit),
+      pbr_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::SurfacePBR),
+      pbr_tangent_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::SurfacePBRTangent),
+      view_cube_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::ViewCube) {
 }
 
 ResultVoid FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {

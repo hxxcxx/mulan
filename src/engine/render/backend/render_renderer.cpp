@@ -20,17 +20,16 @@ namespace mulan::engine {
 RenderRenderer::RenderRenderer() = default;
 RenderRenderer::~RenderRenderer() = default;
 
-bool RenderRenderer::init(RHIDevice& device, LightEnvironment& lightEnv, TextureFormat colorFmt, TextureFormat depthFmt,
-                          uint32_t sampleCount) {
+bool RenderRenderer::init(RHIDevice& device, DeviceResourceService& resources, LightEnvironment& lightEnv,
+                          TextureFormat colorFmt, TextureFormat depthFmt, uint32_t sampleCount) {
     if (initialized_)
         return true;
 
-    material_cache_ = std::make_unique<MaterialCache>();
-    asset_gpu_registry_ = std::make_unique<AssetGpuRegistry>(device);
-    geometry_resources_ = std::make_unique<GeometryDrawSharedResources>(device, *material_cache_, lightEnv);
-    if (!geometry_resources_->init()) {
-        return false;
-    }
+    device_resources_ = &resources;
+    material_cache_ = &resources.materials();
+    asset_gpu_registry_ = &resources.assets();
+    geometry_resources_ = &resources.geometryDrawResources();
+    light_environment_ = &lightEnv;
 
     RenderTargetInfo targetInfo;
     targetInfo.colorFormat = colorFmt;
@@ -38,17 +37,17 @@ bool RenderRenderer::init(RHIDevice& device, LightEnvironment& lightEnv, Texture
     targetInfo.hasDepth = true;
     targetInfo.sampleCount = sampleCount;
 
-    face_stage_ = std::make_unique<FaceStage>(device, *geometry_resources_);
+    face_stage_ = std::make_unique<FaceStage>(device, *geometry_resources_, resources.pipelines());
     if (!face_stage_->init(device, targetInfo)) {
         return false;
     }
 
-    edge_stage_ = std::make_unique<EdgeStage>(device, *geometry_resources_);
+    edge_stage_ = std::make_unique<EdgeStage>(device, *geometry_resources_, resources.pipelines());
     if (!edge_stage_->init(device, targetInfo)) {
         return false;
     }
 
-    highlight_stage_ = std::make_unique<HighlightStage>(device, *geometry_resources_);
+    highlight_stage_ = std::make_unique<HighlightStage>(device, *geometry_resources_, resources.pipelines());
     if (!highlight_stage_->init(device, targetInfo)) {
         return false;
     }
@@ -80,19 +79,13 @@ void RenderRenderer::shutdown(RHIDevice& device) {
 
     auto releaseResources = [textStage = std::move(text_stage_), viewCubeStage = std::move(view_cube_stage_),
                              highlightStage = std::move(highlight_stage_), edgeStage = std::move(edge_stage_),
-                             faceStage = std::move(face_stage_), ibl = std::move(ibl_),
-                             geometryResources = std::move(geometry_resources_),
-                             assetRegistry = std::move(asset_gpu_registry_),
-                             materialCache = std::move(material_cache_)]() mutable {
+                             faceStage = std::move(face_stage_), ibl = std::move(ibl_)]() mutable {
         textStage.reset();
         viewCubeStage.reset();
         highlightStage.reset();
         edgeStage.reset();
         faceStage.reset();
         ibl.reset();
-        geometryResources.reset();
-        assetRegistry.reset();
-        materialCache.reset();
     };
 
     const SubmissionToken token = device.lastSubmissionToken();
@@ -103,6 +96,11 @@ void RenderRenderer::shutdown(RHIDevice& device) {
     } else {
         releaseResources();
     }
+    geometry_resources_ = nullptr;
+    asset_gpu_registry_ = nullptr;
+    material_cache_ = nullptr;
+    device_resources_ = nullptr;
+    light_environment_ = nullptr;
     initialized_ = false;
 }
 
@@ -134,76 +132,12 @@ void RenderRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
     }
 }
 
-ResultVoid RenderRenderer::preparePersistentResources(RHIDevice& device, const RenderResourcePrepareList& prepare) {
-    if (!initialized_ || !asset_gpu_registry_) {
+ResultVoid RenderRenderer::preparePersistentResources(DeviceResourceClientId client,
+                                                      const RenderResourcePrepareList& prepare) {
+    if (!initialized_ || !device_resources_) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render renderer is not initialized."));
     }
-    if (prepare.empty()) {
-        return {};
-    }
-
-    if (auto result = device.beginUploadBatch(); !result) {
-        LOG_ERROR("[RenderRenderer] Persistent upload batch begin failed: {}", result.error().message);
-        return std::unexpected(result.error());
-    }
-
-    std::optional<Error> prepareFailure;
-    for (const auto& geometry : prepare.geometries()) {
-        if (geometry.isRetire()) {
-            auto retired = asset_gpu_registry_->retireGeometry(geometry.resourceKey);
-            if (!retired) {
-                prepareFailure = retired.error();
-                break;
-            }
-            continue;
-        }
-        if (!geometry.mesh || geometry.mesh->empty()) {
-            continue;
-        }
-        auto acquired =
-                asset_gpu_registry_->acquireGeometry(geometry.resourceKey, *geometry.mesh, geometry.forceUpdate);
-        if (!acquired) {
-            prepareFailure = acquired.error();
-            break;
-        }
-    }
-    if (!prepareFailure) {
-        for (const auto& texture : prepare.textures()) {
-            TextureLoadOptions options;
-            options.sRGB = texture.identity.srgb;
-            options.generateMips = texture.identity.generateMips;
-
-            if (texture.isRetire()) {
-                auto retired = asset_gpu_registry_->retireTexture(texture.identity.resourceKey, options);
-                if (!retired) {
-                    prepareFailure = retired.error();
-                    break;
-                }
-                continue;
-            }
-            if (!texture.image || !texture.image->valid()) {
-                continue;
-            }
-            auto acquired = asset_gpu_registry_->acquireTexture(texture.identity.resourceKey, *texture.image, options,
-                                                                texture.contentRevision);
-            if (!acquired) {
-                prepareFailure = acquired.error();
-                break;
-            }
-        }
-    }
-
-    // 即使单个资源创建失败，也要结束已开启的批次，避免后端停留在半开启状态。
-    if (auto result = device.flushUploadBatch(); !result) {
-        LOG_ERROR("[RenderRenderer] Persistent upload batch flush failed: {}", result.error().message);
-        return std::unexpected(result.error());
-    }
-    asset_gpu_registry_->releaseUploadFailureKeepalives();
-    if (prepareFailure) {
-        LOG_ERROR("[RenderRenderer] Persistent resource preparation failed: {}", prepareFailure->message);
-        return std::unexpected(std::move(*prepareFailure));
-    }
-    return {};
+    return device_resources_->preparePersistentResources(client, prepare);
 }
 
 ResultVoid RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surface,
@@ -248,34 +182,14 @@ ResultVoid RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding&
     frameTargetInfo.presentable = request.output.mode == RenderTargetMode::Present;
 
     RenderFrame frame{ *cmd, renderView, frameTargetInfo };
-    if (geometry_resources_) {
-        geometry_resources_->uploadFrameData(buildDrawContext(*cmd, frame));
+    if (geometry_resources_ && light_environment_) {
+        geometry_resources_->uploadFrameData(buildDrawContext(*cmd, frame), *light_environment_);
     }
     executeStages(frame, request.textDraws);
 
     cmd->endRenderPass();
 
     return endFrame(device, surface, request);
-}
-
-void RenderRenderer::clearAssetResources(RHIDevice& device) {
-    clearCompiledCommands();
-    if (material_cache_) {
-        // AssetGpuKey 只在当前文档资产域内有效，切换域时同步清理派生材质。
-        material_cache_->clear();
-    }
-    if (!asset_gpu_registry_)
-        return;
-
-    auto retiredRegistry = std::move(asset_gpu_registry_);
-    asset_gpu_registry_ = std::make_unique<AssetGpuRegistry>(device);
-
-    const SubmissionToken token = device.lastSubmissionToken();
-    if (!token)
-        return;
-    auto retireResult = device.retire(token, [registry = std::move(retiredRegistry)]() mutable { registry.reset(); });
-    if (!retireResult)
-        LOG_ERROR("[RenderRenderer] Asset resource retirement failed: {}", retireResult.error().message);
 }
 
 bool RenderRenderer::validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const {

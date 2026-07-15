@@ -6,6 +6,7 @@
  */
 
 #include <mulan/render/asset_gpu_registry.h>
+#include <mulan/render/device_resource_service.h>
 #include <mulan/rhi/device.h>
 
 #include <gtest/gtest.h>
@@ -46,6 +47,24 @@ private:
     size_t& live_count_;
 };
 
+class RegistryTestShader final : public Shader {
+public:
+    explicit RegistryTestShader(const ShaderDesc& desc) : desc_(desc) { desc_.discardCreationData(); }
+    const ShaderDesc& desc() const override { return desc_; }
+
+private:
+    ShaderDesc desc_;
+};
+
+class RegistryTestPipeline final : public PipelineState {
+public:
+    explicit RegistryTestPipeline(const GraphicsPipelineDesc& desc) : desc_(desc) { desc_.discardShaderReferences(); }
+    const GraphicsPipelineDesc& desc() const override { return desc_; }
+
+private:
+    GraphicsPipelineDesc desc_;
+};
+
 class RegistryTestDevice final : public RHIDevice {
 public:
     RegistryTestDevice() {
@@ -69,6 +88,7 @@ public:
     size_t createCount() const { return create_count_; }
     size_t uploadCount() const { return upload_count_; }
     size_t liveTextureCount() const { return live_texture_count_; }
+    size_t pipelineCreateCount() const { return pipeline_create_count_; }
 
     GraphicsBackend backend() const override { return GraphicsBackend::Vulkan; }
     const GPUDeviceCapabilities& capabilities() const override { return capabilities_; }
@@ -81,9 +101,14 @@ public:
         std::unique_ptr<Texture> texture = std::make_unique<RegistryTestTexture>(desc, live_texture_count_);
         return std::move(texture);
     }
-    Result<std::unique_ptr<Shader>> createShader(const ShaderDesc&) override { return std::unique_ptr<Shader>{}; }
-    Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc&) override {
-        return std::unique_ptr<PipelineState>{};
+    Result<std::unique_ptr<Shader>> createShader(const ShaderDesc& desc) override {
+        std::unique_ptr<Shader> shader = std::make_unique<RegistryTestShader>(desc);
+        return std::move(shader);
+    }
+    Result<std::unique_ptr<PipelineState>> createPipelineState(const GraphicsPipelineDesc& desc) override {
+        ++pipeline_create_count_;
+        std::unique_ptr<PipelineState> pipeline = std::make_unique<RegistryTestPipeline>(desc);
+        return std::move(pipeline);
     }
     Result<std::unique_ptr<ComputePipelineState>> createComputePipelineState(const ComputePipelineDesc&) override {
         return std::unique_ptr<ComputePipelineState>{};
@@ -121,6 +146,7 @@ private:
     size_t create_count_ = 0;
     size_t upload_count_ = 0;
     size_t live_texture_count_ = 0;
+    size_t pipeline_create_count_ = 0;
 };
 
 TEST(AssetGpuRegistryTests, TextureRevisionReusesSameVersionAndDefersReplacedTextureDestruction) {
@@ -230,6 +256,100 @@ TEST(AssetGpuRegistryTests, ReplacedThenRetiredTextureOwnsEachInstanceExactlyOnc
         EXPECT_EQ(device.liveTextureCount(), 0u);
     }
     EXPECT_EQ(device.liveTextureCount(), 0u);
+}
+
+TEST(DeviceResourceServiceTests, SharedClientOwnershipRetiresOnlyAfterTheLastClient) {
+    RegistryTestDevice device;
+    DeviceResourceService resources(device);
+    ASSERT_TRUE(resources.init());
+    const size_t defaultResourceCreateCount = device.createCount();
+    ASSERT_TRUE(resources.init());
+    EXPECT_EQ(device.createCount(), defaultResourceCreateCount);
+
+    const DeviceResourceClientId firstClient = resources.registerClient();
+    const DeviceResourceClientId secondClient = resources.registerClient();
+    const ResourceDomainId domain = resourceDomainForAssetLibrary(42);
+    const RenderResourceKey key = makeRenderResourceKey(domain, 7, RenderResourceKind::Texture);
+    const auto image = core::Image::create(1, 1, core::PixelFormat::RGBA8);
+    ASSERT_TRUE(image);
+    RenderResourcePrepareList prepare;
+    prepare.addTexture(RenderTextureResourceKey{ .resourceKey = key }, image, 1);
+    ASSERT_TRUE(resources.preparePersistentResources(firstClient, prepare));
+    ASSERT_TRUE(resources.preparePersistentResources(secondClient, prepare));
+    EXPECT_EQ(resources.stats().clientCount, 2u);
+    EXPECT_EQ(resources.stats().domainCount, 1u);
+    EXPECT_EQ(resources.stats().textureCount, 1u);
+
+    ASSERT_TRUE(resources.releaseClient(firstClient));
+    EXPECT_EQ(resources.stats().clientCount, 1u);
+    EXPECT_EQ(resources.stats().textureCount, 1u);
+    EXPECT_NE(resources.assets().findTexture(key), nullptr);
+
+    const SubmissionToken inFlight = device.issueSubmission();
+    ASSERT_TRUE(resources.releaseClient(secondClient));
+    EXPECT_EQ(resources.stats().clientCount, 0u);
+    EXPECT_EQ(resources.stats().domainCount, 0u);
+    EXPECT_EQ(resources.stats().textureCount, 0u);
+    EXPECT_EQ(resources.assets().findTexture(key), nullptr);
+    device.collectGarbage();
+    EXPECT_GT(device.liveTextureCount(), 0u);
+    device.complete(inFlight);
+    device.collectGarbage();
+}
+
+TEST(DeviceResourceServiceTests, EqualSourcesInDifferentDomainsRemainIndependent) {
+    RegistryTestDevice device;
+    DeviceResourceService resources(device);
+    ASSERT_TRUE(resources.init());
+    const DeviceResourceClientId firstClient = resources.registerClient();
+    const DeviceResourceClientId secondClient = resources.registerClient();
+    const RenderResourceKey firstKey =
+            makeRenderResourceKey(resourceDomainForAssetLibrary(1), 9, RenderResourceKind::Texture);
+    const RenderResourceKey secondKey =
+            makeRenderResourceKey(resourceDomainForAssetLibrary(2), 9, RenderResourceKind::Texture);
+    const auto image = core::Image::create(1, 1, core::PixelFormat::RGBA8);
+    RenderResourcePrepareList firstPrepare;
+    RenderResourcePrepareList secondPrepare;
+    firstPrepare.addTexture(RenderTextureResourceKey{ .resourceKey = firstKey }, image, 1);
+    secondPrepare.addTexture(RenderTextureResourceKey{ .resourceKey = secondKey }, image, 1);
+    ASSERT_TRUE(resources.preparePersistentResources(firstClient, firstPrepare));
+    ASSERT_TRUE(resources.preparePersistentResources(secondClient, secondPrepare));
+    EXPECT_EQ(resources.stats().domainCount, 2u);
+    EXPECT_EQ(resources.stats().textureCount, 2u);
+    ASSERT_TRUE(resources.releaseClient(firstClient));
+    EXPECT_EQ(resources.stats().textureCount, 1u);
+    EXPECT_EQ(resources.assets().findTexture(firstKey), nullptr);
+    EXPECT_NE(resources.assets().findTexture(secondKey), nullptr);
+    ASSERT_TRUE(resources.releaseClient(secondClient));
+}
+
+TEST(DeviceResourceServiceTests, PipelineLibraryUsesTheCompleteTargetSignature) {
+    RegistryTestDevice device;
+    DeviceResourceService resources(device);
+    ASSERT_TRUE(resources.init());
+    DevicePipelineKey key{
+        .technique = RenderTechnique::SolidLit,
+        .colorFormat = TextureFormat::BGRA8_UNorm,
+        .depthFormat = TextureFormat::D24_UNorm_S8_UInt,
+        .sampleCount = 1,
+        .hasDepth = true,
+    };
+
+    PipelineState* first = resources.pipelines().acquire(key);
+    ASSERT_NE(first, nullptr);
+    EXPECT_EQ(resources.pipelines().acquire(key), first);
+    EXPECT_EQ(device.pipelineCreateCount(), 1u);
+
+    key.sampleCount = 4;
+    PipelineState* multisampled = resources.pipelines().acquire(key);
+    ASSERT_NE(multisampled, nullptr);
+    EXPECT_NE(multisampled, first);
+    key.hasDepth = false;
+    PipelineState* depthless = resources.pipelines().acquire(key);
+    ASSERT_NE(depthless, nullptr);
+    EXPECT_NE(depthless, multisampled);
+    EXPECT_EQ(device.pipelineCreateCount(), 3u);
+    EXPECT_EQ(resources.stats().pipelineCount, 3u);
 }
 
 }  // namespace

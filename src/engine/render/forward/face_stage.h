@@ -17,10 +17,11 @@
 namespace mulan::engine {
 
 class GeometryDrawSharedResources;
+class DevicePipelineLibrary;
 
 class FaceStage final : public RenderStage {
 public:
-    FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources);
+    FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources, DevicePipelineLibrary& pipelineLibrary);
 
     std::string_view name() const override { return "Face"; }
 

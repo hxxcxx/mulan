@@ -1,5 +1,5 @@
 #include "geometry_draw_executor.h"
-#include "../shader/shader_loader.h"
+#include "../device_pipeline_library.h"
 #include "../../rhi/bind_group.h"
 #include "../../rhi/render_types.h"
 #include "../../rhi/render_state.h"
@@ -14,120 +14,28 @@ namespace mulan::engine {
 // ─── 构造 / init ───────────────────────────────────────────────
 
 GeometryDrawExecutor::GeometryDrawExecutor(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
-                                           RenderTechnique technique)
-    : device_(device), shared_resources_(sharedResources), technique_(TechniqueRegistry::builtin(technique)) {
+                                           DevicePipelineLibrary& pipelineLibrary, RenderTechnique technique)
+    : device_(device),
+      shared_resources_(sharedResources),
+      pipeline_library_(pipelineLibrary),
+      technique_(TechniqueRegistry::builtin(technique)) {
 }
 
 bool GeometryDrawExecutor::init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth, uint32_t sampleCount) {
-    if (!loadShaders())
-        return false;
-    if (!createPSO(colorFmt, depthFmt, hasDepth, sampleCount))
+    pso_ = pipeline_library_.acquire(DevicePipelineKey{
+            .technique = technique_.technique,
+            .colorFormat = colorFmt,
+            .depthFormat = depthFmt,
+            .sampleCount = sampleCount,
+            .hasDepth = hasDepth,
+    });
+    if (!pso_)
         return false;
 
     if (!createFrameBindGroup(colorFmt, depthFmt, hasDepth))
         return false;
 
     initialized_ = true;
-    return true;
-}
-
-// ─── Shader ────────────────────────────────────────────────────
-
-bool GeometryDrawExecutor::loadShaders() {
-    auto vs = loadShader(device_, ShaderType::Vertex, technique_.shader.vertex);
-    auto fs = loadShader(device_, ShaderType::Pixel, technique_.shader.pixel);
-    if (!vs) {
-        return false;
-    }
-    if (!fs) {
-        return false;
-    }
-    vs_ = std::move(*vs);
-    fs_ = std::move(*fs);
-    return true;
-}
-
-// ─── PSO ───────────────────────────────────────────────────────
-
-bool GeometryDrawExecutor::createPSO(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth,
-                                     uint32_t sampleCount) {
-    GraphicsPipelineDesc desc{};
-    desc.name = technique_.debugName;
-    desc.vs = vs_.get();
-    desc.ps = fs_.get();
-    desc.vertexLayout = technique_.vertexLayout;
-    desc.topology = technique_.topology;
-    desc.cullMode = CullMode::None;
-    desc.frontFace = FrontFace::CounterClockwise;
-    desc.fillMode = FillMode::Solid;
-    desc.depthStencil.depthEnable = technique_.depthTest;
-    desc.depthStencil.depthWrite = technique_.depthWrite;
-    desc.depthStencil.depthFunc = technique_.depthFunc;
-    desc.blend = technique_.blend;
-
-    using PB = PipelineBinding;
-    desc.descriptorBindings[0] = { .binding = 0,
-                                   .count = 1,
-                                   .type = DescriptorType::UniformBuffer,
-                                   .stages = PB::kStageVertex | PB::kStageFragment,
-                                   .mode = BindingMode::Dynamic };
-    desc.descriptorBindings[1] = { .binding = 1,
-                                   .count = 1,
-                                   .type = DescriptorType::UniformBuffer,
-                                   .stages = PB::kStageVertex | PB::kStageFragment,
-                                   .mode = BindingMode::Dynamic };
-    desc.descriptorBindings[2] = { .binding = 2,
-                                   .count = 1,
-                                   .type = DescriptorType::UniformBuffer,
-                                   .stages = PB::kStageFragment,
-                                   .mode = BindingMode::Dynamic };
-    uint8_t bindingCount = 3;
-
-    // 纹理 + sampler（仅 sampleTextures=true 的 pass 声明）
-    if (technique_.sampleTextures) {
-        desc.descriptorBindings[bindingCount++] = {
-            .binding = 3, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
-        };
-        desc.descriptorBindings[bindingCount++] = {
-            .binding = 4, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
-        };
-        desc.descriptorBindings[bindingCount++] = {
-            .binding = 5, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
-        };
-        desc.descriptorBindings[bindingCount++] = {
-            .binding = 6, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
-        };
-        desc.descriptorBindings[bindingCount++] = {
-            .binding = 7, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
-        };
-        desc.descriptorBindings[bindingCount++] = {
-            .binding = 8, .count = 1, .type = DescriptorType::Sampler, .stages = PB::kStageFragment
-        };
-        // IBL 三件套：binding 9=irradiance, 10=prefilter, 11=brdf LUT
-        desc.descriptorBindings[bindingCount++] = {
-            .binding = 9, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
-        };
-        desc.descriptorBindings[bindingCount++] = {
-            .binding = 10, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
-        };
-        desc.descriptorBindings[bindingCount++] = {
-            .binding = 11, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
-        };
-    }
-    desc.descriptorBindingCount = bindingCount;
-
-    desc.colorFormats[0] = colorFmt;
-    desc.colorTargetCount = 1;
-    desc.depthStencilFormat = depthFmt;
-    if (!hasDepth)
-        desc.depthStencilFormat = TextureFormat::Unknown;
-    desc.sampleCount = sampleCount;
-
-    auto psoResult = device_.createPipelineState(desc);
-    if (!psoResult) {
-        return false;
-    }
-    pso_ = std::move(*psoResult);
     return true;
 }
 

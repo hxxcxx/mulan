@@ -2,10 +2,11 @@
 
 namespace mulan::engine {
 
-HighlightStage::HighlightStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources)
-    : surface_executor_(device, sharedResources, RenderTechnique::HighlightSurface),
-      surface_tangent_executor_(device, sharedResources, RenderTechnique::HighlightSurfaceTangent),
-      edge_executor_(device, sharedResources, RenderTechnique::HighlightEdge) {
+HighlightStage::HighlightStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
+                               DevicePipelineLibrary& pipelineLibrary)
+    : surface_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::HighlightSurface),
+      surface_tangent_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::HighlightSurfaceTangent),
+      edge_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::HighlightEdge) {
 }
 
 ResultVoid HighlightStage::init(RHIDevice&, const RenderTargetInfo& target) {

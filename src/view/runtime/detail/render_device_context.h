@@ -11,6 +11,7 @@
 
 #include <mulan/core/result/error.h>
 #include <mulan/rhi/device.h>
+#include <mulan/render/device_resource_service.h>
 #include <mulan/view/core/view_config.h>
 
 #include <atomic>
@@ -29,6 +30,8 @@ public:
 
     engine::RHIDevice& device() { return *device_; }
     const engine::RHIDevice& device() const { return *device_; }
+    engine::DeviceResourceService& resources() { return *resource_service_; }
+    const engine::DeviceResourceService& resources() const { return *resource_service_; }
 
     /// 录制/提交命令及修改此 Device 的 RHI 资源时，必须持有此锁。
     std::unique_lock<std::mutex> lock() { return std::unique_lock(device_mutex_); }
@@ -41,12 +44,16 @@ public:
 
 private:
     RenderDeviceContext(std::unique_ptr<engine::RHIDevice> device, engine::GraphicsBackend backend)
-        : device_(std::move(device)), backend_(backend) {}
+        : device_(std::move(device)),
+          resource_service_(std::make_unique<engine::DeviceResourceService>(*device_)),
+          backend_(backend) {}
 
     static bool canShare(engine::GraphicsBackend backend);
     static bool matches(const RenderDeviceContext& context, const ViewConfig& config);
 
     std::unique_ptr<engine::RHIDevice> device_;
+    // 声明在 Device 之后，析构时先释放所有共享 GPU 资源，再销毁 Device。
+    std::unique_ptr<engine::DeviceResourceService> resource_service_;
     engine::GraphicsBackend backend_ = engine::GraphicsBackend::Vulkan;
     engine::RenderConfig render_config_;
     bool validation_enabled_ = true;

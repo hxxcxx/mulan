@@ -2,9 +2,10 @@
 
 namespace mulan::engine {
 
-EdgeStage::EdgeStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources)
-    : draw_executor_(device, sharedResources, RenderTechnique::EdgeLine),
-      view_cube_executor_(device, sharedResources, RenderTechnique::ViewCubeLine) {
+EdgeStage::EdgeStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
+                     DevicePipelineLibrary& pipelineLibrary)
+    : draw_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::EdgeLine),
+      view_cube_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::ViewCubeLine) {
 }
 
 ResultVoid EdgeStage::init(RHIDevice&, const RenderTargetInfo& target) {

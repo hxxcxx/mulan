@@ -15,10 +15,11 @@
 namespace mulan::engine {
 
 class GeometryDrawSharedResources;
+class DevicePipelineLibrary;
 
 class EdgeStage final : public RenderStage {
 public:
-    EdgeStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources);
+    EdgeStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources, DevicePipelineLibrary& pipelineLibrary);
 
     std::string_view name() const override { return "Edge"; }
 

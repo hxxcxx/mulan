@@ -219,7 +219,7 @@ ResultVoid RenderExecutor::prepareResources(const engine::RenderResourcePrepareL
     if (!device_context_->isHealthy()) {
         return std::unexpected(unavailableDeviceError());
     }
-    auto prepared = renderer_.preparePersistentResources(device_context_->device(), prepare);
+    auto prepared = renderer_.preparePersistentResources(resource_client_, prepare);
     if (!prepared && isDeviceExecutionError(prepared.error())) {
         device_context_->markFailed();
     }
@@ -349,7 +349,13 @@ void RenderExecutor::clearAssetResources() {
     if (!device_context_->isHealthy()) {
         return;
     }
-    renderer_.clearAssetResources(device_context_->device());
+    if (resource_client_ != 0) {
+        auto released = device_context_->resources().releaseClient(resource_client_);
+        if (!released) {
+            LOG_ERROR("[RenderExecutor] Device resource client release failed: {}", released.error().message);
+        }
+    }
+    resource_client_ = device_context_->resources().registerClient();
 }
 
 ResultVoid RenderExecutor::initRenderer() {
@@ -359,8 +365,11 @@ ResultVoid RenderExecutor::initRenderer() {
     }
 
     auto& device = device_context_->device();
-    if (!renderer_.init(device, light_environment_, surface_.colorFormat(device), surface_.depthFormat(device),
-                        surface_.sampleCount())) {
+    if (resource_client_ == 0) {
+        resource_client_ = device_context_->resources().registerClient();
+    }
+    if (!renderer_.init(device, device_context_->resources(), light_environment_, surface_.colorFormat(device),
+                        surface_.depthFormat(device), surface_.sampleCount())) {
         return std::unexpected(executorError(ErrorCode::Internal, "Failed to initialize renderer."));
     }
     return {};
@@ -400,10 +409,18 @@ void RenderExecutor::shutdownLocked() {
         auto& device = device_context_->device();
         // 即使初始化只完成了一部分，也必须让 RenderRenderer 无条件清理已创建资源。
         renderer_.shutdown(device);
+        if (resource_client_ != 0) {
+            auto released = device_context_->resources().releaseClient(resource_client_);
+            if (!released) {
+                LOG_ERROR("[RenderExecutor] Device resource client shutdown failed: {}", released.error().message);
+            }
+            resource_client_ = 0;
+        }
         capture_surface_.shutdown(device);
         surface_.shutdown(device);
     }
     device_context_.reset();
+    resource_client_ = 0;
     initialized_ = false;
     if (hadResources) {
         LOG_INFO("[RenderExecutor] Executor shut down");
