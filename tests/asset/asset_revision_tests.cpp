@@ -132,5 +132,37 @@ TEST(AssetContentRevision, GeometryMutatorsPublishExactlyOncePerRealChange) {
     EXPECT_EQ(tessellated.revision(), 2u);
 }
 
+TEST(AssetChangeJournal, SupportsIndependentConsumersAndDetectsOverflow) {
+    AssetLibrary library(2);
+    const AssetChangeCursor firstStart = library.currentChangeCursor();
+    const AssetChangeCursor secondStart = library.currentChangeCursor();
+    MaterialAsset* material = library.create<MaterialAsset>("Material");
+    ASSERT_NE(material, nullptr);
+
+    const AssetChangeSet firstCreate = library.readChanges(firstStart);
+    const AssetChangeSet secondCreate = library.readChanges(secondStart);
+    ASSERT_TRUE(firstCreate.hasChanges());
+    ASSERT_TRUE(secondCreate.hasChanges());
+    ASSERT_EQ(firstCreate.changes.size(), 1u);
+    EXPECT_EQ(firstCreate.changes.front().asset, material->id());
+    EXPECT_EQ(secondCreate.changes.front().asset, material->id());
+
+    const AssetChangeCursor firstCursor = firstCreate.cursorAfterApply();
+    material->setRoughness(0.25);
+    const AssetChangeSet firstContent = library.readChanges(firstCursor);
+    ASSERT_TRUE(firstContent.hasChanges());
+    ASSERT_EQ(firstContent.changes.size(), 1u);
+    EXPECT_EQ(firstContent.changes.front().asset, material->id());
+
+    // 第二个消费者没有被第一个消费者推进，仍能读到创建和内容修改两条记录。
+    const AssetChangeSet secondContent = library.readChanges(secondStart);
+    ASSERT_TRUE(secondContent.hasChanges());
+    EXPECT_EQ(secondContent.changes.size(), 2u);
+
+    material->setMetallic(0.5);
+    material->setDoubleSided(true);
+    EXPECT_TRUE(library.readChanges(firstCursor).requiresFullResync());
+}
+
 }  // namespace
 }  // namespace mulan::asset

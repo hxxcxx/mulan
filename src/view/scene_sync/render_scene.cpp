@@ -13,6 +13,7 @@
 #include <mulan/scene/entity_dirty.h>
 #include <mulan/scene/scene.h>
 
+#include <algorithm>
 #include <atomic>
 #include <limits>
 #include <memory>
@@ -195,6 +196,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         initialized_ = false;
         proxies_.clear();
         geometry_asset_revisions_.clear();
+        geometry_asset_users_.clear();
         missing_geometry_entities_.clear();
         last_sync_stats_ = {};
         scene_bounds_.reset();
@@ -215,6 +217,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
                 scene_bounds_.expand(proxy->worldBounds);
             }
             geometry_asset_revisions_[id] = geometryAssetRevision(assets, proxy->geometry);
+            geometry_asset_users_[proxy->geometry].insert(id);
             proxies_[id] = std::move(*proxy);
         });
 
@@ -230,6 +233,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         scene_bounds_sphere_ = math::Sphere3::fromAABB(scene_bounds_);
         rebuildSpatialIndex();
         scene_change_cursor_ = scene.currentChangeCursor();
+        asset_change_cursor_ = assets.currentChangeCursor();
         assets_membership_revision_ = assetsMembershipRevision;
         initialized_ = true;
         ++generation_;
@@ -247,6 +251,15 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         rebuildAll();
         return;
     }
+    const asset::AssetChangeSet assetChangeSet = assets.readChanges(asset_change_cursor_);
+    if (assetChangeSet.requiresFullResync()) {
+        rebuildAll();
+        return;
+    }
+    if (std::ranges::any_of(assetChangeSet.changes, [](const asset::AssetChange& change) { return !change.asset; })) {
+        rebuildAll();
+        return;
+    }
 
     IncrementalSyncGuard syncGuard(initialized_);
     const size_t previousVisibleProxyCount = last_sync_stats_.visibleProxyCount;
@@ -259,12 +272,31 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
     for (const scene::SceneChange& change : changeSet.changes) {
         entityChanges[change.entity] |= scene::dirtyValue(change.dirty);
     }
+    for (const asset::AssetChange& change : assetChangeSet.changes) {
+        const auto users = geometry_asset_users_.find(change.asset);
+        if (users == geometry_asset_users_.end()) {
+            continue;
+        }
+        for (scene::EntityId entity : users->second) {
+            entityChanges[entity] |= scene::dirtyValue(scene::EntityDirty::Geometry);
+        }
+    }
 
     bool changed = false;
     bool geometryChanged = false;
     bool spatialChanged = false;
     bool lightChanged = false;
     std::unordered_set<scene::EntityId> changedEntities;
+    std::unordered_set<scene::EntityId> spatialEntities;
+
+    const auto unlinkGeometryAsset = [&](scene::EntityId entity, asset::AssetId geometry) {
+        auto users = geometry_asset_users_.find(geometry);
+        if (users == geometry_asset_users_.end())
+            return;
+        users->second.erase(entity);
+        if (users->second.empty())
+            geometry_asset_users_.erase(users);
+    };
 
     const scene::EntityDirty lightChangeMask = scene::EntityDirty::Created | scene::EntityDirty::Destroyed |
                                                scene::EntityDirty::Transform | scene::EntityDirty::Light;
@@ -288,7 +320,12 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         if (!scene::hasAnyDirty(flags, scene::EntityDirty::Destroyed)) {
             continue;
         }
-        const bool removed = proxies_.erase(id) > 0;
+        const auto old = proxies_.find(id);
+        const bool removed = old != proxies_.end();
+        if (removed) {
+            unlinkGeometryAsset(id, old->second.geometry);
+            proxies_.erase(old);
+        }
         geometry_asset_revisions_.erase(id);
         entity_pick_ids_.erase(id);
         missing_geometry_entities_.erase(id);
@@ -296,6 +333,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
             changed = true;
             geometryChanged = true;
             spatialChanged = true;
+            spatialEntities.insert(id);
             changedEntities.insert(id);
         }
     }
@@ -314,7 +352,11 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         const auto oldProxy = proxies_.find(id);
         auto proxy = buildProxy(scene, assets, id);
         if (!proxy) {
-            const bool removed = proxies_.erase(id) > 0;
+            const bool removed = oldProxy != proxies_.end();
+            if (removed) {
+                unlinkGeometryAsset(id, oldProxy->second.geometry);
+                proxies_.erase(oldProxy);
+            }
             geometry_asset_revisions_.erase(id);
             entity_pick_ids_.erase(id);
             if (hasGeometryReference(scene, id))
@@ -325,6 +367,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
                 changed = true;
                 geometryChanged = true;
                 spatialChanged = true;
+                spatialEntities.insert(id);
                 changedEntities.insert(id);
             }
             continue;
@@ -343,61 +386,29 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         geometryChanged = geometryChanged || newProxy || assetRevisionChanged ||
                           scene::hasAnyDirty(flags, scene::EntityDirty::Created | scene::EntityDirty::Geometry);
         spatialChanged = spatialChanged || proxySpatialChanged;
+        if (proxySpatialChanged)
+            spatialEntities.insert(id);
+        if (!newProxy && oldProxy->second.geometry != proxy->geometry)
+            unlinkGeometryAsset(id, oldProxy->second.geometry);
+        geometry_asset_users_[proxy->geometry].insert(id);
         geometry_asset_revisions_[id] = currentRevision;
         proxies_[id] = std::move(*proxy);
         changedEntities.insert(id);
     }
 
-    // Scene journal 记录实体关系；资产对象内部的原地修改由逐资产 revision 补齐。
-    // Material/Texture revision 由 RenderWorldSync 观察，不会误触碰场景空间索引。
-    std::vector<scene::EntityId> revisionChanged;
-    revisionChanged.reserve(proxies_.size());
-    for (const auto& [id, proxy] : proxies_) {
-        const uint64_t currentRevision = geometryAssetRevision(assets, proxy.geometry);
-        const auto known = geometry_asset_revisions_.find(id);
-        if (known == geometry_asset_revisions_.end() || known->second != currentRevision) {
-            revisionChanged.push_back(id);
-        }
-    }
-    for (scene::EntityId id : revisionChanged) {
-        const auto oldProxy = proxies_.find(id);
-        auto proxy = buildProxy(scene, assets, id);
-        if (!proxy) {
-            const bool removed = proxies_.erase(id) > 0;
-            geometry_asset_revisions_.erase(id);
-            entity_pick_ids_.erase(id);
-            if (hasGeometryReference(scene, id))
-                missing_geometry_entities_.insert(id);
-            else
-                missing_geometry_entities_.erase(id);
-            spatialChanged = spatialChanged || removed;
-        } else {
-            proxy->pickId = pickIdForEntity(id);
-            missing_geometry_entities_.erase(id);
-            spatialChanged =
-                    spatialChanged || oldProxy == proxies_.end() || !sameSpatialProxy(oldProxy->second, *proxy);
-            geometry_asset_revisions_[id] = geometryAssetRevision(assets, proxy->geometry);
-            proxies_[id] = std::move(*proxy);
-        }
-        changed = true;
-        geometryChanged = true;
-        changedEntities.insert(id);
-    }
-
-    // 仅空间内容变化时重算全局 bounds/BVH。Selection、Material 等非空间修改
-    // 复用上次结果，避免每次交互都线性扫描全部代理。
+    // 动态空间索引只更新真正改变的实体；根节点缓存的 subtree bounds 同时给出
+    // 场景总 bounds，不再为一次变换重新扫描全部代理或重建整棵树。
     if (spatialChanged) {
-        scene_bounds_.reset();
-        size_t visibleCount = 0;
-        for (const auto& [id, proxy] : proxies_) {
-            if (proxy.visible) {
-                scene_bounds_.expand(proxy.worldBounds);
-                ++visibleCount;
+        for (scene::EntityId id : spatialEntities) {
+            spatial_index_->remove(id);
+            const auto proxy = proxies_.find(id);
+            if (proxy != proxies_.end() && proxy->second.visible) {
+                spatial_index_->upsert(id, proxy->second.worldBounds);
             }
         }
-        last_sync_stats_.visibleProxyCount = visibleCount;
+        scene_bounds_ = spatial_index_->bounds();
+        last_sync_stats_.visibleProxyCount = spatial_index_->indexedCount() + spatial_index_->fallbackCount();
         scene_bounds_sphere_ = math::Sphere3::fromAABB(scene_bounds_);
-        rebuildSpatialIndex();
     } else {
         last_sync_stats_.visibleProxyCount = previousVisibleProxyCount;
     }
@@ -414,6 +425,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
     // 只有上述投影更新全部成功后才确认 journal 进度；若中途抛出，下一次 sync
     // 仍会从旧 cursor 重放，避免“游标已前进、派生状态未更新”的永久漏变更。
     scene_change_cursor_ = changeSet.cursorAfterApply();
+    asset_change_cursor_ = assetChangeSet.cursorAfterApply();
     syncGuard.commit();
 }
 
@@ -423,6 +435,7 @@ void RenderScene::clear() {
     scene_bounds_sphere_.reset();
     proxies_.clear();
     geometry_asset_revisions_.clear();
+    geometry_asset_users_.clear();
     entity_pick_ids_.clear();
     missing_geometry_entities_.clear();
     lights_.clear();
@@ -431,6 +444,7 @@ void RenderScene::clear() {
     scene_ = nullptr;
     assets_ = nullptr;
     scene_change_cursor_ = {};
+    asset_change_cursor_ = {};
     assets_membership_revision_ = 0;
     initialized_ = false;
     ++generation_;

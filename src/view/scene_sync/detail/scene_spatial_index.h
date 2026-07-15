@@ -1,16 +1,14 @@
 /**
  * @file scene_spatial_index.h
- * @brief RenderScene 可见代理的场景级三维 BVH 空间索引。
+ * @brief RenderScene 可见代理的可增量更新空间索引。
  * @author hxxcxx
  * @date 2026-07-15
  *
- * 本索引只承担保守的宽阶段裁剪：有限且非空的世界包围盒进入 BVH，空或
- * 非有限包围盒进入 fallback 列表并始终交给资产级精确拾取。查询容差会
- * 同时扩展内部节点和叶条目，避免线框容差命中被提前裁掉。
- *
- * 该文件是 scene_sync 内部实现，不属于公开 View API。实现保持 header-only，
- * 以免把内部类型加入库的公开安装面。
+ * 索引采用按包围盒中心排序的确定性 Treap。每个节点缓存整棵子树的 AABB，单实体
+ * 插入、删除和移动只更新一条期望 O(log N) 路径，根节点同时给出场景总 bounds。
+ * 空或非有限包围盒进入 fallback 集合，继续交给资产级精确拾取，保证宽阶段保守。
  */
+
 #pragma once
 
 #include <mulan/math/algo/intersect.h>
@@ -21,7 +19,9 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
+#include <memory>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -48,80 +48,76 @@ public:
                std::isfinite(bounds.max.z);
     }
 
-    /// 以当前可见代理快照重建索引。空或非有限 bounds 会被保守地放入 fallback。
     void rebuild(std::vector<SpatialIndexEntry> entries) {
-        entries_.clear();
-        fallback_entities_.clear();
-        nodes_.clear();
-
-        entries_.reserve(entries.size());
-        fallback_entities_.reserve(entries.size());
+        clear();
         for (SpatialIndexEntry& entry : entries) {
-            if (!isIndexableBounds(entry.bounds)) {
-                fallback_entities_.push_back(entry.entity);
-            } else {
-                entries_.push_back(std::move(entry));
-            }
+            upsert(entry.entity, entry.bounds);
         }
+    }
 
-        const auto byEntity = [](scene::EntityId lhs, scene::EntityId rhs) {
-            return lhs.value < rhs.value;
-        };
-        std::sort(fallback_entities_.begin(), fallback_entities_.end(), byEntity);
-        std::sort(entries_.begin(), entries_.end(), [](const SpatialIndexEntry& lhs, const SpatialIndexEntry& rhs) {
-            return lhs.entity.value < rhs.entity.value;
-        });
-
-        if (!entries_.empty()) {
-            nodes_.reserve(entries_.size() * 2u);
-            buildNode(0u, entries_.size());
+    void upsert(scene::EntityId entity, const math::AABB3& bounds) {
+        remove(entity);
+        if (!isIndexableBounds(bounds)) {
+            fallback_entities_.insert(entity);
+            return;
         }
+        const Key key = makeKey(entity, bounds);
+        keys_.emplace(entity, key);
+        root_ = insert(std::move(root_), std::make_unique<Node>(entity, bounds, key));
+    }
+
+    bool remove(scene::EntityId entity) {
+        if (fallback_entities_.erase(entity) != 0) {
+            return true;
+        }
+        const auto known = keys_.find(entity);
+        if (known == keys_.end()) {
+            return false;
+        }
+        root_ = erase(std::move(root_), known->second);
+        keys_.erase(known);
+        return true;
     }
 
     void clear() {
-        entries_.clear();
+        root_.reset();
+        keys_.clear();
         fallback_entities_.clear();
-        nodes_.clear();
     }
 
-    /// 返回宽阶段候选。结果按 EntityId 排序，便于诊断和确定性测试。
+    const math::AABB3& bounds() const {
+        static const math::AABB3 empty;
+        return root_ ? root_->subtreeBounds : empty;
+    }
+
+    size_t indexedCount() const { return keys_.size(); }
+    size_t fallbackCount() const { return fallback_entities_.size(); }
+
     void queryRay(const math::Ray3& ray, double toleranceWorld, std::vector<scene::EntityId>& out,
                   SpatialIndexQueryStats* stats = nullptr) const {
         out.clear();
-
         SpatialIndexQueryStats localStats;
-        localStats.indexedProxyCount = entries_.size();
+        localStats.indexedProxyCount = keys_.size();
         localStats.fallbackProxyCount = fallback_entities_.size();
         const double tolerance = std::max(0.0, toleranceWorld);
 
-        if (!nodes_.empty()) {
-            std::vector<uint32_t> stack;
-            stack.reserve(64u);
-            stack.push_back(0u);
+        if (root_) {
+            std::vector<const Node*> stack{ root_.get() };
             while (!stack.empty()) {
-                const uint32_t nodeIndex = stack.back();
+                const Node* node = stack.back();
                 stack.pop_back();
-                const Node& node = nodes_[nodeIndex];
-
                 ++localStats.nodeBoundsTestCount;
-                if (!math::intersect(ray, expanded(node.bounds, tolerance)).hit) {
+                if (!math::intersect(ray, expanded(node->subtreeBounds, tolerance)).hit) {
                     continue;
                 }
-
-                if (node.isLeaf()) {
-                    for (size_t i = node.first; i < node.first + node.count; ++i) {
-                        ++localStats.leafBoundsTestCount;
-                        const SpatialIndexEntry& entry = entries_[i];
-                        if (math::intersect(ray, expanded(entry.bounds, tolerance)).hit) {
-                            out.push_back(entry.entity);
-                        }
-                    }
-                    continue;
+                ++localStats.leafBoundsTestCount;
+                if (math::intersect(ray, expanded(node->entry.bounds, tolerance)).hit) {
+                    out.push_back(node->entry.entity);
                 }
-
-                // 后压入左节点，使遍历顺序在相同树结构下保持稳定。
-                stack.push_back(node.right);
-                stack.push_back(node.left);
+                if (node->right)
+                    stack.push_back(node->right.get());
+                if (node->left)
+                    stack.push_back(node->left.get());
             }
         }
 
@@ -130,29 +126,117 @@ public:
                   [](scene::EntityId lhs, scene::EntityId rhs) { return lhs.value < rhs.value; });
         out.erase(std::unique(out.begin(), out.end()), out.end());
         localStats.candidateProxyCount = out.size();
-        if (stats) {
+        if (stats)
             *stats = localStats;
-        }
     }
 
 private:
-    static constexpr uint32_t kInvalidNode = std::numeric_limits<uint32_t>::max();
-    static constexpr size_t kLeafCapacity = 4u;
-
-    struct Node {
-        math::AABB3 bounds;
-        size_t first = 0;
-        size_t count = 0;
-        uint32_t left = kInvalidNode;
-        uint32_t right = kInvalidNode;
-
-        bool isLeaf() const { return count != 0; }
+    struct Key {
+        math::Point3 center;
+        uint64_t entity = 0;
     };
 
-    static math::AABB3 expanded(const math::AABB3& bounds, double amount) {
-        if (amount <= 0.0 || bounds.isEmpty()) {
-            return bounds;
+    struct Node {
+        Node(scene::EntityId entity, math::AABB3 bounds, Key nodeKey)
+            : entry{ entity, std::move(bounds) },
+              key(nodeKey),
+              priority(priorityFor(entity)),
+              subtreeBounds(entry.bounds) {}
+
+        SpatialIndexEntry entry;
+        Key key;
+        uint64_t priority = 0;
+        math::AABB3 subtreeBounds;
+        std::unique_ptr<Node> left;
+        std::unique_ptr<Node> right;
+    };
+
+    static Key makeKey(scene::EntityId entity, const math::AABB3& bounds) { return { bounds.center(), entity.value }; }
+
+    static bool less(const Key& lhs, const Key& rhs) {
+        if (lhs.center.x != rhs.center.x)
+            return lhs.center.x < rhs.center.x;
+        if (lhs.center.y != rhs.center.y)
+            return lhs.center.y < rhs.center.y;
+        if (lhs.center.z != rhs.center.z)
+            return lhs.center.z < rhs.center.z;
+        return lhs.entity < rhs.entity;
+    }
+
+    static uint64_t priorityFor(scene::EntityId entity) {
+        uint64_t value = entity.value + 0x9e3779b97f4a7c15ull;
+        value = (value ^ (value >> 30u)) * 0xbf58476d1ce4e5b9ull;
+        value = (value ^ (value >> 27u)) * 0x94d049bb133111ebull;
+        return value ^ (value >> 31u);
+    }
+
+    static void refresh(Node& node) {
+        node.subtreeBounds = node.entry.bounds;
+        if (node.left)
+            node.subtreeBounds.expand(node.left->subtreeBounds);
+        if (node.right)
+            node.subtreeBounds.expand(node.right->subtreeBounds);
+    }
+
+    static std::unique_ptr<Node> rotateRight(std::unique_ptr<Node> root) {
+        auto next = std::move(root->left);
+        root->left = std::move(next->right);
+        refresh(*root);
+        next->right = std::move(root);
+        refresh(*next);
+        return next;
+    }
+
+    static std::unique_ptr<Node> rotateLeft(std::unique_ptr<Node> root) {
+        auto next = std::move(root->right);
+        root->right = std::move(next->left);
+        refresh(*root);
+        next->left = std::move(root);
+        refresh(*next);
+        return next;
+    }
+
+    static std::unique_ptr<Node> insert(std::unique_ptr<Node> root, std::unique_ptr<Node> node) {
+        if (!root)
+            return node;
+        if (less(node->key, root->key)) {
+            root->left = insert(std::move(root->left), std::move(node));
+            if (root->left->priority < root->priority)
+                root = rotateRight(std::move(root));
+        } else {
+            root->right = insert(std::move(root->right), std::move(node));
+            if (root->right->priority < root->priority)
+                root = rotateLeft(std::move(root));
         }
+        refresh(*root);
+        return root;
+    }
+
+    static std::unique_ptr<Node> erase(std::unique_ptr<Node> root, const Key& key) {
+        if (!root)
+            return nullptr;
+        if (less(key, root->key)) {
+            root->left = erase(std::move(root->left), key);
+        } else if (less(root->key, key)) {
+            root->right = erase(std::move(root->right), key);
+        } else if (!root->left) {
+            return std::move(root->right);
+        } else if (!root->right) {
+            return std::move(root->left);
+        } else if (root->left->priority < root->right->priority) {
+            root = rotateRight(std::move(root));
+            root->right = erase(std::move(root->right), key);
+        } else {
+            root = rotateLeft(std::move(root));
+            root->left = erase(std::move(root->left), key);
+        }
+        refresh(*root);
+        return root;
+    }
+
+    static math::AABB3 expanded(const math::AABB3& bounds, double amount) {
+        if (amount <= 0.0 || bounds.isEmpty())
+            return bounds;
         math::AABB3 result = bounds;
         const math::Vec3 padding(amount, amount, amount);
         result.min -= padding;
@@ -160,56 +244,9 @@ private:
         return result;
     }
 
-    uint32_t buildNode(size_t first, size_t count) {
-        Node node;
-        node.first = first;
-        for (size_t i = first; i < first + count; ++i) {
-            node.bounds.expand(entries_[i].bounds);
-        }
-
-        const uint32_t nodeIndex = static_cast<uint32_t>(nodes_.size());
-        nodes_.push_back(node);
-        if (count <= kLeafCapacity) {
-            nodes_[nodeIndex].count = count;
-            return nodeIndex;
-        }
-
-        math::AABB3 centroidBounds;
-        for (size_t i = first; i < first + count; ++i) {
-            centroidBounds.expand(entries_[i].bounds.center());
-        }
-        const math::Vec3 centroidSize = centroidBounds.size();
-        int axis = 0;
-        if (centroidSize.y > centroidSize.x) {
-            axis = 1;
-        }
-        if (centroidSize.z > centroidSize[axis]) {
-            axis = 2;
-        }
-
-        const size_t middle = first + count / 2u;
-        std::nth_element(entries_.begin() + static_cast<std::ptrdiff_t>(first),
-                         entries_.begin() + static_cast<std::ptrdiff_t>(middle),
-                         entries_.begin() + static_cast<std::ptrdiff_t>(first + count),
-                         [axis](const SpatialIndexEntry& lhs, const SpatialIndexEntry& rhs) {
-                             const double lhsCenter = lhs.bounds.center()[axis];
-                             const double rhsCenter = rhs.bounds.center()[axis];
-                             if (lhsCenter != rhsCenter) {
-                                 return lhsCenter < rhsCenter;
-                             }
-                             return lhs.entity.value < rhs.entity.value;
-                         });
-
-        const uint32_t left = buildNode(first, middle - first);
-        const uint32_t right = buildNode(middle, first + count - middle);
-        nodes_[nodeIndex].left = left;
-        nodes_[nodeIndex].right = right;
-        return nodeIndex;
-    }
-
-    std::vector<SpatialIndexEntry> entries_;
-    std::vector<scene::EntityId> fallback_entities_;
-    std::vector<Node> nodes_;
+    std::unique_ptr<Node> root_;
+    std::unordered_map<scene::EntityId, Key> keys_;
+    std::unordered_set<scene::EntityId> fallback_entities_;
 };
 
 }  // namespace mulan::view::detail

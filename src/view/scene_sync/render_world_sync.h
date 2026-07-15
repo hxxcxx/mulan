@@ -10,6 +10,7 @@
 #include "scene_sync/render_item_builder.h"
 
 #include <mulan/asset/asset_id.h>
+#include <mulan/asset/asset_change.h>
 #include <mulan/render/frontend/render_world.h>
 #include <mulan/render/frontend/render_resource_prepare.h>
 
@@ -94,6 +95,7 @@ private:
     std::unordered_map<engine::RenderTextureResourceKey, uint64_t, engine::RenderTextureResourceKeyHash>
             texture_revisions_;
     std::unordered_map<asset::AssetId, uint64_t> referenced_asset_revisions_;
+    asset::AssetChangeCursor asset_change_cursor_;
     uint64_t preview_source_revision_ = 1;
     bool force_full_prepare_ = true;
     std::unique_ptr<SceneState> scene_state_;

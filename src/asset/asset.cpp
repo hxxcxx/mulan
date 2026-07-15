@@ -17,6 +17,9 @@ void Asset::touch() {
     if (revision_ == std::numeric_limits<AssetRevision>::max())
         throw std::overflow_error("Asset revision exhausted");
     ++revision_;
+    if (change_callback_) {
+        change_callback_(id_);
+    }
 }
 
 }  // namespace mulan::asset

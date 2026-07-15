@@ -10,10 +10,13 @@
 #include "asset_id.h"
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <utility>
 
 namespace mulan::asset {
+
+class AssetLibrary;
 
 using AssetRevision = uint64_t;
 
@@ -57,10 +60,14 @@ protected:
     }
 
 private:
+    friend class AssetLibrary;
+    void bindChangeCallback(std::function<void(AssetId)> callback) { change_callback_ = std::move(callback); }
+
     AssetId id_;
     AssetKind kind_ = AssetKind::Unknown;
     std::string name_;
     AssetRevision revision_ = 1;
+    std::function<void(AssetId)> change_callback_;
 };
 
 }  // namespace mulan::asset

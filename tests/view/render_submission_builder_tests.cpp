@@ -1093,5 +1093,38 @@ TEST(RenderSubmissionBuilderTests, SelectionChangesOnlyViewVisualState) {
     EXPECT_EQ(selected.sceneWorld, first.sceneWorld);
 }
 
+TEST(RenderWorldSnapshotTests, PublishedSnapshotRemainsImmutableAcrossSparseUpdates) {
+    engine::RenderWorld world;
+    engine::RenderObjectDesc firstDesc;
+    firstDesc.visible = true;
+    firstDesc.worldBounds = math::AABB3{ math::Point3{ -1.0, -1.0, -1.0 }, math::Point3{ 1.0, 1.0, 1.0 } };
+    const engine::RenderObjectId first = world.addObject(firstDesc);
+    engine::RenderObjectDesc removedDesc;
+    removedDesc.visible = true;
+    removedDesc.worldBounds = math::AABB3{ math::Point3{ 10.0, 10.0, 10.0 }, math::Point3{ 11.0, 11.0, 11.0 } };
+    const engine::RenderObjectId removed = world.addObject(removedDesc);
+    const engine::RenderWorldSnapshot published = world.snapshot();
+
+    firstDesc.worldTransform = math::Mat4::translate(math::Vec3{ 4.0, 0.0, 0.0 });
+    firstDesc.worldBounds = math::AABB3{ math::Point3{ 3.0, -1.0, -1.0 }, math::Point3{ 5.0, 1.0, 1.0 } };
+    ASSERT_TRUE(world.updateObject(first, firstDesc));
+    ASSERT_TRUE(world.removeObject(removed));
+    const engine::RenderObjectId added = world.addObject({});
+    const engine::RenderWorldSnapshot current = world.snapshot();
+
+    ASSERT_EQ(published.objects().size(), 2u);
+    EXPECT_EQ(published.objects().front().id, first);
+    EXPECT_EQ(published.bounds().max.x, 11.0);
+    ASSERT_EQ(current.objects().size(), 2u);
+    const auto currentFirst =
+            std::ranges::find_if(current.objects(), [&](const auto& record) { return record.id == first; });
+    ASSERT_NE(currentFirst, current.objects().end());
+    const math::Point3 expectedPosition{ 4.0, 0.0, 0.0 };
+    EXPECT_EQ(math::Point3::origin().transformedBy(currentFirst->desc.worldTransform), expectedPosition);
+    EXPECT_NE(std::ranges::find_if(current.objects(), [&](const auto& record) { return record.id == added; }),
+              current.objects().end());
+    EXPECT_EQ(current.bounds().max.x, 5.0);
+}
+
 }  // namespace
 }  // namespace mulan::view

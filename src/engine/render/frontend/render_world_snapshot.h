@@ -7,42 +7,46 @@
 
 #pragma once
 
+#include "persistent_record_store.h"
 #include "render_object.h"
 
 #include <memory>
-#include <span>
-#include <unordered_map>
-#include <vector>
+#include <mutex>
 
 namespace mulan::engine {
 
-/// RenderWorld 与其不可变快照共享的版本化存储。写入方在修改前执行 copy-on-write。
+/// RenderWorld 的持久化根集合；复制本对象只共享固定数量的不可变树根。
 struct RenderWorldStorage {
-    std::vector<RenderGeometryRecord> geometries;
-    std::vector<RenderMaterialRecord> materials;
-    std::vector<RenderObjectRecord> objects;
-    std::unordered_map<uint64_t, size_t> geometryPositions;
-    std::unordered_map<uint64_t, size_t> materialPositions;
-    std::unordered_map<uint64_t, size_t> objectPositions;
+    detail::PersistentRecordStore<RenderGeometryRecord> geometries;
+    detail::PersistentRecordStore<RenderMaterialRecord> materials;
+    detail::PersistentRecordStore<RenderObjectRecord> objects;
 };
 
 class RenderWorldSnapshot {
 public:
     RenderWorldSnapshot();
 
-    explicit RenderWorldSnapshot(std::shared_ptr<const RenderWorldStorage> storage);
+    explicit RenderWorldSnapshot(RenderWorldStorage storage);
 
-    std::span<const RenderGeometryRecord> geometries() const { return storage_->geometries; }
-    std::span<const RenderMaterialRecord> materials() const { return storage_->materials; }
-    std::span<const RenderObjectRecord> objects() const { return storage_->objects; }
-    const math::AABB3& bounds() const { return bounds_; }
+    const auto& geometries() const { return geometry_range_; }
+    const auto& materials() const { return material_range_; }
+    const auto& objects() const { return object_range_; }
+    const math::AABB3& bounds() const;
 
     const RenderGeometryRecord* geometry(GeometryHandle handle) const;
     const RenderMaterialRecord* material(RenderMaterialHandle handle) const;
 
 private:
-    std::shared_ptr<const RenderWorldStorage> storage_;
-    math::AABB3 bounds_;
+    struct BoundsCache {
+        std::once_flag once;
+        math::AABB3 value;
+    };
+
+    RenderWorldStorage storage_;
+    detail::PersistentRecordStore<RenderGeometryRecord>::Range geometry_range_;
+    detail::PersistentRecordStore<RenderMaterialRecord>::Range material_range_;
+    detail::PersistentRecordStore<RenderObjectRecord>::Range object_range_;
+    std::shared_ptr<BoundsCache> bounds_cache_;
 };
 
 }  // namespace mulan::engine

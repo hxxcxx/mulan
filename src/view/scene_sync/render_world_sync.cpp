@@ -629,11 +629,13 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
 
     SceneState& state = *scene_state_;
     const RenderSceneChangeSet changes = scene.readChanges(state.cursor);
-    const bool fullRebuild = changes.requiresFullResync();
+    const asset::AssetChangeSet assetChanges = assets.readChanges(asset_change_cursor_);
+    const bool fullRebuild = changes.requiresFullResync() || assetChanges.requiresFullResync();
     last_stats_.fullRebuild = fullRebuild;
     if (fullRebuild) {
         world.clear();
         state = {};
+        referenced_asset_revisions_.clear();
     }
 
     struct PendingDrawable {
@@ -651,6 +653,8 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
         std::unordered_set<asset::AssetId> dependencies;
     };
 
+    bool resourceStateChanged = fullRebuild || force_full_prepare_;
+
     auto removeDependencyLinks = [&](scene::EntityId entity, const SceneState::ObjectEntry& entry) {
         for (asset::AssetId dependency : entry.dependencies) {
             auto users = state.assetUsers.find(dependency);
@@ -660,6 +664,7 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
             users->second.erase(entity);
             if (users->second.empty()) {
                 state.assetUsers.erase(users);
+                referenced_asset_revisions_.erase(dependency);
             }
         }
     };
@@ -672,6 +677,7 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
             if (resource != state.geometries.end() && --resource->second.referenceCount == 0) {
                 world.removeGeometry(resource->second.handle);
                 state.geometries.erase(resource);
+                resourceStateChanged = true;
             }
         }
         for (uint64_t key : entry.materialKeys) {
@@ -679,6 +685,7 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
             if (material != state.materials.end() && --material->second.referenceCount == 0) {
                 world.removeMaterial(material->second.handle);
                 state.materials.erase(material);
+                resourceStateChanged = true;
             }
         }
         removeDependencyLinks(entity, entry);
@@ -764,6 +771,7 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
                 const engine::GeometryHandle handle = world.addGeometry(desc);
                 state.geometries.emplace(
                         key, SceneState::GeometryEntry{ handle, desc, pending.geometryResources.at(key), 1 });
+                resourceStateChanged = true;
             } else {
                 known->second.desc = desc;
                 known->second.resource = pending.geometryResources.at(key);
@@ -779,6 +787,7 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
             if (known == state.materials.end()) {
                 const engine::RenderMaterialHandle handle = world.addMaterial(desc);
                 state.materials.emplace(key, SceneState::MaterialEntry{ handle, desc, 1 });
+                resourceStateChanged = true;
             } else {
                 known->second.desc = desc;
                 world.updateMaterial(known->second.handle, desc);
@@ -797,6 +806,7 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
                 if (resource != state.geometries.end() && --resource->second.referenceCount == 0) {
                     world.removeGeometry(resource->second.handle);
                     state.geometries.erase(resource);
+                    resourceStateChanged = true;
                 }
             }
             for (uint64_t key : previous->second.materialKeys) {
@@ -807,6 +817,7 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
                 if (material != state.materials.end() && --material->second.referenceCount == 0) {
                     world.removeMaterial(material->second.handle);
                     state.materials.erase(material);
+                    resourceStateChanged = true;
                 }
             }
             removeDependencyLinks(entity, previous->second);
@@ -814,6 +825,7 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
         nextEntry.dependencies = std::move(pending.dependencies);
         for (asset::AssetId dependency : nextEntry.dependencies) {
             state.assetUsers[dependency].insert(entity);
+            observeAsset(assets.asset(dependency), referenced_asset_revisions_);
         }
         for (const PendingDrawable& drawable : pending.drawables) {
             pending.object.drawables.push_back(engine::RenderObjectDrawable{
@@ -841,13 +853,15 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
         for (const RenderSceneChange& change : changes.changes) {
             entitiesToPatch.insert(change.entity);
         }
-        for (const auto& [assetId, revision] : referenced_asset_revisions_) {
-            const asset::Asset* current = assets.asset(assetId);
-            if (current && current->revision() == revision) {
+        for (const asset::AssetChange& assetChange : assetChanges.changes) {
+            if (!assetChange.asset) {
+                scene.forEachProxy([&](const SceneProxy& proxy) { entitiesToPatch.insert(proxy.entity); });
+                resourceStateChanged = true;
                 continue;
             }
-            if (const auto users = state.assetUsers.find(assetId); users != state.assetUsers.end()) {
+            if (const auto users = state.assetUsers.find(assetChange.asset); users != state.assetUsers.end()) {
                 entitiesToPatch.insert(users->second.begin(), users->second.end());
+                resourceStateChanged = true;
             }
         }
     }
@@ -855,29 +869,25 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
         patchEntity(entity);
     }
 
-    GeometryResourceCandidateMap geometryResources;
-    for (const auto& [key, entry] : state.geometries) {
-        (void) key;
-        geometryResources.emplace(entry.desc.resourceKey, entry.resource);
-    }
-    TextureResourceCandidateMap textureResources;
-    for (const auto& [key, entry] : state.materials) {
-        (void) key;
-        collectMaterialTextureResources(textureResources, entry.desc);
-    }
-    AssetRevisionMap referencedAssetRevisions;
-    for (const auto& [assetId, users] : state.assetUsers) {
-        (void) users;
-        observeAsset(assets.asset(assetId), referencedAssetRevisions);
-    }
-
     const bool forceFullPrepare = force_full_prepare_;
-    buildGeometryResourceDelta(geometryResources, geometry_revisions_, forceFullPrepare, prepare);
-    buildTextureResourceDelta(textureResources, texture_revisions_, forceFullPrepare, prepare);
+    if (resourceStateChanged) {
+        GeometryResourceCandidateMap geometryResources;
+        for (const auto& [key, entry] : state.geometries) {
+            (void) key;
+            geometryResources.emplace(entry.desc.resourceKey, entry.resource);
+        }
+        TextureResourceCandidateMap textureResources;
+        for (const auto& [key, entry] : state.materials) {
+            (void) key;
+            collectMaterialTextureResources(textureResources, entry.desc);
+        }
+        buildGeometryResourceDelta(geometryResources, geometry_revisions_, forceFullPrepare, prepare);
+        buildTextureResourceDelta(textureResources, texture_revisions_, forceFullPrepare, prepare);
+    }
     if (prepare) {
         force_full_prepare_ = false;
     }
-    referenced_asset_revisions_ = std::move(referencedAssetRevisions);
+    asset_change_cursor_ = assets.currentChangeCursor();
     state.cursor = scene.currentChangeCursor();
     last_stats_.sceneProxyCount = scene.proxyCount();
     last_stats_.missingGeometryAssetCount = scene.lastSyncStats().missingGeometryCount;
@@ -910,6 +920,7 @@ void RenderWorldSync::rebuildOverlay(const RenderScene* scene, const asset::Asse
         force_full_prepare_ = false;
     }
     referenced_asset_revisions_ = std::move(referencedAssetRevisions);
+    asset_change_cursor_ = assets ? assets->currentChangeCursor() : asset::AssetChangeCursor{};
     last_stats_.worldObjectCount = world.objectCount();
     last_stats_.worldGeometryCount = world.geometryCount();
     last_stats_.worldMaterialCount = world.materialCount();
@@ -928,6 +939,7 @@ void RenderWorldSync::rebuildEmpty(engine::RenderWorld& world, engine::RenderRes
         force_full_prepare_ = false;
     }
     referenced_asset_revisions_.clear();
+    asset_change_cursor_ = {};
     *scene_state_ = {};
 }
 
@@ -935,9 +947,12 @@ bool RenderWorldSync::referencedAssetsChanged(const asset::AssetLibrary& assets)
     if (force_full_prepare_) {
         return true;
     }
-    for (const auto& [id, revision] : referenced_asset_revisions_) {
-        const asset::Asset* current = assets.asset(id);
-        if (!current || current->revision() != revision) {
+    const asset::AssetChangeSet changes = assets.readChanges(asset_change_cursor_);
+    if (changes.requiresFullResync()) {
+        return true;
+    }
+    for (const asset::AssetChange& change : changes.changes) {
+        if (!change.asset || referenced_asset_revisions_.contains(change.asset)) {
             return true;
         }
     }
@@ -949,6 +964,7 @@ void RenderWorldSync::reset() {
     geometry_revisions_.clear();
     texture_revisions_.clear();
     referenced_asset_revisions_.clear();
+    asset_change_cursor_ = {};
     preview_source_revision_ = 1;
     force_full_prepare_ = true;
     *scene_state_ = {};

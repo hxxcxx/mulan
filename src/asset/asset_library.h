@@ -8,6 +8,7 @@
 #pragma once
 
 #include "asset.h"
+#include "asset_change.h"
 #include "curve_asset.h"
 #include "face_asset.h"
 #include "tessellated_asset.h"
@@ -17,6 +18,7 @@
 #include "texture_asset.h"
 
 #include <concepts>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
@@ -30,7 +32,9 @@ using AssetLibraryRevision = uint64_t;
 
 class AssetLibrary {
 public:
-    AssetLibrary();
+    static constexpr size_t DefaultChangeJournalCapacity = 4096;
+
+    explicit AssetLibrary(size_t changeJournalCapacity = DefaultChangeJournalCapacity);
 
     AssetLibrary(const AssetLibrary&) = delete;
     AssetLibrary& operator=(const AssetLibrary&) = delete;
@@ -41,8 +45,10 @@ public:
         AssetId id = allocateId();
         auto asset = std::make_unique<T>(id, std::move(name), std::forward<Args>(args)...);
         T* ptr = asset.get();
+        asset->bindChangeCallback([this](AssetId changed) { appendChange(changed); });
         assets_[id] = std::move(asset);
         touch();
+        appendChange(id);
         return ptr;
     }
 
@@ -58,6 +64,8 @@ public:
     /// 进程内唯一的资产域身份；用于隔离不同文档中数值相同的 AssetId。
     uint64_t domainId() const noexcept { return domain_id_; }
     std::optional<AssetRevision> contentRevision(AssetId id) const;
+    AssetChangeCursor currentChangeCursor() const { return { change_domain_, change_revision_ }; }
+    AssetChangeSet readChanges(const AssetChangeCursor& cursor) const;
 
     /// 只读遍历不暴露容器或 unique_ptr，回调不能绕过资产 mutator 修改内容。
     template <typename Func>
@@ -75,10 +83,15 @@ public:
 private:
     AssetId allocateId();
     void touch();
+    void appendChange(AssetId id);
 
     AssetIdValue next_id_ = 1;
     uint64_t domain_id_ = 0;
     AssetLibraryRevision membership_revision_ = 0;
+    size_t change_journal_capacity_ = DefaultChangeJournalCapacity;
+    AssetChangeDomain change_domain_ = 0;
+    AssetChangeRevision change_revision_ = 0;
+    std::deque<AssetChange> change_journal_;
     std::unordered_map<AssetId, std::unique_ptr<Asset>> assets_;
 };
 

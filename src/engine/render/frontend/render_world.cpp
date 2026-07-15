@@ -1,154 +1,118 @@
 #include "render_world.h"
 
+#include <mutex>
 #include <utility>
 
 namespace mulan::engine {
 namespace {
 
 template <typename Handle>
-uint64_t handleKey(Handle handle) {
-    return (static_cast<uint64_t>(handle.generation) << 32u) | handle.index;
-}
-
-template <typename Record, typename Handle>
-bool eraseRecord(std::vector<Record>& records, std::unordered_map<uint64_t, size_t>& positions, Handle handle) {
-    const auto position = positions.find(handleKey(handle));
-    if (position == positions.end()) {
-        return false;
-    }
-    const size_t index = position->second;
-    const size_t last = records.size() - 1;
-    if (index != last) {
-        records[index] = std::move(records[last]);
-        positions[handleKey(records[index].handle)] = index;
-    }
-    records.pop_back();
-    positions.erase(position);
-    return true;
-}
-
-template <typename Record, typename Handle, typename Desc>
-bool updateRecord(std::vector<Record>& records, const std::unordered_map<uint64_t, size_t>& positions, Handle handle,
-                  Desc desc) {
-    const auto position = positions.find(handleKey(handle));
-    if (position == positions.end()) {
-        return false;
-    }
-    records[position->second].desc = std::move(desc);
-    return true;
-}
-
-std::shared_ptr<const RenderWorldStorage> emptyStorage() {
-    static const auto empty = std::make_shared<const RenderWorldStorage>();
-    return empty;
+bool sameHandle(Handle lhs, Handle rhs) {
+    return lhs.index == rhs.index && lhs.generation == rhs.generation;
 }
 
 }  // namespace
 
-RenderWorldSnapshot::RenderWorldSnapshot() : storage_(emptyStorage()) {
+RenderWorldSnapshot::RenderWorldSnapshot()
+    : geometry_range_(storage_.geometries.records()),
+      material_range_(storage_.materials.records()),
+      object_range_(storage_.objects.records()),
+      bounds_cache_(std::make_shared<BoundsCache>()) {
 }
 
-RenderWorldSnapshot::RenderWorldSnapshot(std::shared_ptr<const RenderWorldStorage> storage)
-    : storage_(storage ? std::move(storage) : emptyStorage()) {
-    for (const RenderObjectRecord& object : storage_->objects) {
-        if (object.desc.visible) {
-            bounds_.expand(object.desc.worldBounds);
+RenderWorldSnapshot::RenderWorldSnapshot(RenderWorldStorage storage)
+    : storage_(std::move(storage)),
+      geometry_range_(storage_.geometries.records()),
+      material_range_(storage_.materials.records()),
+      object_range_(storage_.objects.records()),
+      bounds_cache_(std::make_shared<BoundsCache>()) {
+}
+
+const math::AABB3& RenderWorldSnapshot::bounds() const {
+    std::call_once(bounds_cache_->once, [&]() {
+        for (const RenderObjectRecord& object : storage_.objects.records()) {
+            if (object.desc.visible) {
+                bounds_cache_->value.expand(object.desc.worldBounds);
+            }
         }
-    }
+    });
+    return bounds_cache_->value;
 }
 
 const RenderGeometryRecord* RenderWorldSnapshot::geometry(GeometryHandle handle) const {
-    const auto position = storage_->geometryPositions.find(handleKey(handle));
-    return position == storage_->geometryPositions.end() ? nullptr : &storage_->geometries[position->second];
+    const RenderGeometryRecord* record = storage_.geometries.find(handle.index);
+    return record && sameHandle(record->handle, handle) ? record : nullptr;
 }
 
 const RenderMaterialRecord* RenderWorldSnapshot::material(RenderMaterialHandle handle) const {
-    const auto position = storage_->materialPositions.find(handleKey(handle));
-    return position == storage_->materialPositions.end() ? nullptr : &storage_->materials[position->second];
+    const RenderMaterialRecord* record = storage_.materials.find(handle.index);
+    return record && sameHandle(record->handle, handle) ? record : nullptr;
 }
 
-RenderWorld::RenderWorld() : storage_(std::make_shared<RenderWorldStorage>()) {
-}
-
-void RenderWorld::ensureUniqueStorage() {
-    if (storage_.use_count() != 1) {
-        storage_ = std::make_shared<RenderWorldStorage>(*storage_);
-    }
-}
+RenderWorld::RenderWorld() = default;
 
 GeometryHandle RenderWorld::addGeometry(RenderGeometryDesc desc) {
-    ensureUniqueStorage();
     const GeometryHandle handle{ .index = next_geometry_index_++, .generation = generation_ };
-    storage_->geometryPositions.emplace(handleKey(handle), storage_->geometries.size());
-    storage_->geometries.push_back(RenderGeometryRecord{ handle, std::move(desc) });
+    storage_.geometries.set(handle.index, RenderGeometryRecord{ handle, std::move(desc) });
     return handle;
 }
 
 RenderMaterialHandle RenderWorld::addMaterial(RenderMaterialDesc desc) {
-    ensureUniqueStorage();
     const RenderMaterialHandle handle{ .index = next_material_index_++, .generation = generation_ };
-    storage_->materialPositions.emplace(handleKey(handle), storage_->materials.size());
-    storage_->materials.push_back(RenderMaterialRecord{ handle, std::move(desc) });
+    storage_.materials.set(handle.index, RenderMaterialRecord{ handle, std::move(desc) });
     return handle;
 }
 
 RenderObjectId RenderWorld::addObject(RenderObjectDesc desc) {
-    ensureUniqueStorage();
     const RenderObjectId id{ .index = next_object_index_++, .generation = generation_ };
-    storage_->objectPositions.emplace(handleKey(id), storage_->objects.size());
-    storage_->objects.push_back(RenderObjectRecord{ id, std::move(desc) });
+    storage_.objects.set(id.index, RenderObjectRecord{ id, std::move(desc) });
     return id;
 }
 
 bool RenderWorld::updateGeometry(GeometryHandle handle, RenderGeometryDesc desc) {
-    ensureUniqueStorage();
-    return updateRecord(storage_->geometries, storage_->geometryPositions, handle, std::move(desc));
+    const RenderGeometryRecord* record = storage_.geometries.find(handle.index);
+    if (!record || !sameHandle(record->handle, handle)) {
+        return false;
+    }
+    storage_.geometries.set(handle.index, RenderGeometryRecord{ handle, std::move(desc) });
+    return true;
 }
 
 bool RenderWorld::updateMaterial(RenderMaterialHandle handle, RenderMaterialDesc desc) {
-    ensureUniqueStorage();
-    return updateRecord(storage_->materials, storage_->materialPositions, handle, std::move(desc));
+    const RenderMaterialRecord* record = storage_.materials.find(handle.index);
+    if (!record || !sameHandle(record->handle, handle)) {
+        return false;
+    }
+    storage_.materials.set(handle.index, RenderMaterialRecord{ handle, std::move(desc) });
+    return true;
 }
 
 bool RenderWorld::updateObject(RenderObjectId id, RenderObjectDesc desc) {
-    ensureUniqueStorage();
-    const auto position = storage_->objectPositions.find(handleKey(id));
-    if (position == storage_->objectPositions.end()) {
+    const RenderObjectRecord* record = storage_.objects.find(id.index);
+    if (!record || !sameHandle(record->id, id)) {
         return false;
     }
-    storage_->objects[position->second].desc = std::move(desc);
+    storage_.objects.set(id.index, RenderObjectRecord{ id, std::move(desc) });
     return true;
 }
 
 bool RenderWorld::removeGeometry(GeometryHandle handle) {
-    ensureUniqueStorage();
-    return eraseRecord(storage_->geometries, storage_->geometryPositions, handle);
+    const RenderGeometryRecord* record = storage_.geometries.find(handle.index);
+    return record && sameHandle(record->handle, handle) && storage_.geometries.erase(handle.index);
 }
 
 bool RenderWorld::removeMaterial(RenderMaterialHandle handle) {
-    ensureUniqueStorage();
-    return eraseRecord(storage_->materials, storage_->materialPositions, handle);
+    const RenderMaterialRecord* record = storage_.materials.find(handle.index);
+    return record && sameHandle(record->handle, handle) && storage_.materials.erase(handle.index);
 }
 
 bool RenderWorld::removeObject(RenderObjectId id) {
-    ensureUniqueStorage();
-    const auto position = storage_->objectPositions.find(handleKey(id));
-    if (position == storage_->objectPositions.end()) {
-        return false;
-    }
-    const size_t index = position->second;
-    const size_t last = storage_->objects.size() - 1;
-    if (index != last) {
-        storage_->objects[index] = std::move(storage_->objects[last]);
-        storage_->objectPositions[handleKey(storage_->objects[index].id)] = index;
-    }
-    storage_->objects.pop_back();
-    storage_->objectPositions.erase(position);
-    return true;
+    const RenderObjectRecord* record = storage_.objects.find(id.index);
+    return record && sameHandle(record->id, id) && storage_.objects.erase(id.index);
 }
 
 void RenderWorld::clear() {
-    storage_ = std::make_shared<RenderWorldStorage>();
+    storage_ = {};
     next_geometry_index_ = 0;
     next_material_index_ = 0;
     next_object_index_ = 0;

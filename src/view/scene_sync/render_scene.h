@@ -9,6 +9,7 @@
 
 #include <mulan/view/scene_sync/scene_proxy.h>
 
+#include <mulan/asset/asset_change.h>
 #include <mulan/render/light_environment.h>
 #include <mulan/render/frontend/pick_identity.h>
 #include <mulan/scene/scene_change.h>
@@ -183,6 +184,7 @@ private:
     math::Sphere3 scene_bounds_sphere_;
     std::unordered_map<scene::EntityId, SceneProxy> proxies_;
     std::unordered_map<scene::EntityId, uint64_t> geometry_asset_revisions_;
+    std::unordered_map<asset::AssetId, std::unordered_set<scene::EntityId>> geometry_asset_users_;
     std::unordered_map<scene::EntityId, engine::PickId> entity_pick_ids_;
     std::unordered_set<scene::EntityId> missing_geometry_entities_;
     std::unordered_set<scene::EntityId> light_entities_;
@@ -191,6 +193,7 @@ private:
     const scene::Scene* scene_ = nullptr;
     const asset::AssetLibrary* assets_ = nullptr;
     scene::SceneChangeCursor scene_change_cursor_;
+    asset::AssetChangeCursor asset_change_cursor_;
     uint64_t assets_membership_revision_ = 0;
     uint64_t next_pick_id_ = 1;
     uint64_t generation_ = 1;
