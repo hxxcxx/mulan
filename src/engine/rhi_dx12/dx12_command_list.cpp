@@ -6,6 +6,7 @@
 #include "detail/dx12_bind_group.h"
 #include "detail/dx12_sampler.h"
 #include "detail/dx12_transient_uniform_arena.h"
+#include "detail/dx12_descriptor_allocator.h"
 
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"
@@ -46,6 +47,10 @@ DX12CommandList::DX12CommandList(ID3D12GraphicsCommandList* existingCmdList) : o
 }
 
 DX12CommandList::~DX12CommandList() {
+    if (owns_cmd_list_) {
+        if (auto wait = waitForPreviousSubmission(); !wait)
+            LOG_ERROR("[DX12] 销毁独立命令列表前等待提交失败：{}", wait.error().message);
+    }
     if (!owns_cmd_list_) {
         cmd_list_.Detach();  // 不 Release 外部的 cmd list
     }
@@ -65,6 +70,7 @@ core::Result<void> DX12CommandList::doBegin() {
         return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed, "DX12 command list is unavailable"));
     }
 
+    pending_texture_states_.clear();
     if (owns_cmd_list_) {
         // 独立命令列表由 create() 先关闭；begin() 负责复用 allocator 并重新打开。
         if (recording_ || !allocator_) {
@@ -81,6 +87,12 @@ core::Result<void> DX12CommandList::doBegin() {
         if (!checkDX12(cmd_list_->Reset(allocator_.Get(), nullptr), "ID3D12GraphicsCommandList::Reset")) {
             return std::unexpected(
                     makeError(EngineErrorCode::CommandRecordingFailed, "DX12 command list reset failed"));
+        }
+        if (owned_descriptor_arena_) {
+            // 上一次提交已经完成，可以安全复用独立命令列表私有的描述符 heap。
+            owned_descriptor_arena_->reset();
+            desc_alloc_count_ = 0;
+            ++frame_token_;
         }
     }
 
@@ -408,6 +420,35 @@ void DX12CommandList::setDescriptorHeap(ID3D12DescriptorHeap* heap, D3D12_CPU_DE
     bindDescriptorHeaps();
 }
 
+D3D12_RESOURCE_STATES DX12CommandList::textureState(DX12Texture* texture) const {
+    const auto it = pending_texture_states_.find(texture);
+    return it != pending_texture_states_.end() ? it->second : texture->state();
+}
+
+void DX12CommandList::setTextureState(DX12Texture* texture, D3D12_RESOURCE_STATES state) {
+    pending_texture_states_[texture] = state;
+}
+
+void DX12CommandList::doMarkSubmitted() {
+    for (const auto& [texture, state] : pending_texture_states_) {
+        if (texture)
+            texture->setState(state);
+    }
+    pending_texture_states_.clear();
+}
+
+void DX12CommandList::setOwnedDescriptorArena(std::unique_ptr<DX12DescriptorAllocator> arena,
+                                              ID3D12DescriptorHeap* samplerHeap) {
+    owned_descriptor_arena_ = std::move(arena);
+    if (!owned_descriptor_arena_ || !owned_descriptor_arena_->isValid()) {
+        setDescriptorHeap(nullptr, {}, {}, 0, samplerHeap, 0);
+        return;
+    }
+    auto* heap = owned_descriptor_arena_->heap();
+    setDescriptorHeap(heap, heap->GetCPUDescriptorHandleForHeapStart(), heap->GetGPUDescriptorHandleForHeapStart(),
+                      owned_descriptor_arena_->descriptorSize(), samplerHeap, owned_descriptor_arena_->capacity());
+}
+
 void DX12CommandList::bindDescriptorHeaps() {
     if (!cmd_list_ || !recording_)
         return;
@@ -430,7 +471,7 @@ void DX12CommandList::doTransitionResource(Texture* texture, ResourceState newSt
         return;
     }
 
-    const D3D12_RESOURCE_STATES before = dx12Tex->state();
+    const D3D12_RESOURCE_STATES before = textureState(dx12Tex);
     const D3D12_RESOURCE_STATES after = toDX12ResourceStates(newState);
     if (before == after)
         return;
@@ -442,7 +483,7 @@ void DX12CommandList::doTransitionResource(Texture* texture, ResourceState newSt
     barrier.Transition.StateAfter = after;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     cmd_list_->ResourceBarrier(1, &barrier);
-    dx12Tex->setState(after);
+    setTextureState(dx12Tex, after);
 }
 
 core::Result<void> DX12CommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
@@ -489,7 +530,7 @@ core::Result<void> DX12CommandList::doCopyTextureToBuffer(Texture* src, Buffer* 
         return rejectCopy("DX12 readback buffer is too small");
     }
 
-    const D3D12_RESOURCE_STATES originalTexState = dx12Tex->state();
+    const D3D12_RESOURCE_STATES originalTexState = textureState(dx12Tex);
     const D3D12_RESOURCE_STATES originalBufState = dx12Buf->state();
 
     if (originalBufState != D3D12_RESOURCE_STATE_COPY_DEST &&
@@ -508,7 +549,7 @@ core::Result<void> DX12CommandList::doCopyTextureToBuffer(Texture* src, Buffer* 
     texBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     if (originalTexState != D3D12_RESOURCE_STATE_COPY_SOURCE) {
         cmd_list_->ResourceBarrier(1, &texBarrier);
-        dx12Tex->setState(D3D12_RESOURCE_STATE_COPY_SOURCE);
+        setTextureState(dx12Tex, D3D12_RESOURCE_STATE_COPY_SOURCE);
     }
 
     // Readback heaps are created directly in COPY_DEST and must remain there;
@@ -549,7 +590,7 @@ core::Result<void> DX12CommandList::doCopyTextureToBuffer(Texture* src, Buffer* 
         texBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
         texBarrier.Transition.StateAfter = originalTexState;
         cmd_list_->ResourceBarrier(1, &texBarrier);
-        dx12Tex->setState(originalTexState);
+        setTextureState(dx12Tex, originalTexState);
     }
     return {};
 }
@@ -610,7 +651,7 @@ core::Result<void> DX12CommandList::doBeginRenderPass(const RenderPassBeginInfo&
         rp_color_textures_[i] = tex;
         rtvHandles[i] = tex->rtv();
 
-        D3D12_RESOURCE_STATES before = tex->state();
+        D3D12_RESOURCE_STATES before = textureState(tex);
         D3D12_RESOURCE_STATES after = D3D12_RESOURCE_STATE_RENDER_TARGET;
         if (tex->resource() && before != after) {
             D3D12_RESOURCE_BARRIER barrier = {};
@@ -620,7 +661,7 @@ core::Result<void> DX12CommandList::doBeginRenderPass(const RenderPassBeginInfo&
             barrier.Transition.StateAfter = after;
             barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
             cl->ResourceBarrier(1, &barrier);
-            tex->setState(after);
+            setTextureState(tex, after);
         }
 
         // Clear
@@ -631,7 +672,7 @@ core::Result<void> DX12CommandList::doBeginRenderPass(const RenderPassBeginInfo&
         if (info.colorAttachments[i].resolveTarget) {
             auto* resolveTex = static_cast<DX12Texture*>(info.colorAttachments[i].resolveTarget);
             rp_resolve_textures_[i] = resolveTex;
-            D3D12_RESOURCE_STATES resolveBefore = resolveTex->state();
+            D3D12_RESOURCE_STATES resolveBefore = textureState(resolveTex);
             D3D12_RESOURCE_STATES resolveAfter = D3D12_RESOURCE_STATE_RESOLVE_DEST;
             if (resolveTex->resource() && resolveBefore != resolveAfter) {
                 D3D12_RESOURCE_BARRIER barrier = {};
@@ -641,7 +682,7 @@ core::Result<void> DX12CommandList::doBeginRenderPass(const RenderPassBeginInfo&
                 barrier.Transition.StateAfter = resolveAfter;
                 barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
                 cl->ResourceBarrier(1, &barrier);
-                resolveTex->setState(resolveAfter);
+                setTextureState(resolveTex, resolveAfter);
             }
         }
     }
@@ -652,7 +693,7 @@ core::Result<void> DX12CommandList::doBeginRenderPass(const RenderPassBeginInfo&
     if (info.depthAttachment.target) {
         auto* depthTex = static_cast<DX12Texture*>(info.depthAttachment.target);
 
-        D3D12_RESOURCE_STATES before = depthTex->state();
+        D3D12_RESOURCE_STATES before = textureState(depthTex);
         D3D12_RESOURCE_STATES after = D3D12_RESOURCE_STATE_DEPTH_WRITE;
         if (depthTex->resource() && before != after) {
             D3D12_RESOURCE_BARRIER barrier = {};
@@ -662,7 +703,7 @@ core::Result<void> DX12CommandList::doBeginRenderPass(const RenderPassBeginInfo&
             barrier.Transition.StateAfter = after;
             barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
             cl->ResourceBarrier(1, &barrier);
-            depthTex->setState(after);
+            setTextureState(depthTex, after);
         }
 
         if (info.depthAttachment.loadAction == LoadAction::Clear) {
@@ -691,7 +732,7 @@ void DX12CommandList::doEndRenderPass() {
 
         DX12Texture* finalColorTexture = resolveTexture ? resolveTexture : colorTexture;
         if (resolveTexture) {
-            const D3D12_RESOURCE_STATES beforeResolve = colorTexture->state();
+            const D3D12_RESOURCE_STATES beforeResolve = textureState(colorTexture);
             if (beforeResolve != D3D12_RESOURCE_STATE_RESOLVE_SOURCE) {
                 D3D12_RESOURCE_BARRIER barrier = {};
                 barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -700,7 +741,7 @@ void DX12CommandList::doEndRenderPass() {
                 barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RESOLVE_SOURCE;
                 barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
                 cl->ResourceBarrier(1, &barrier);
-                colorTexture->setState(D3D12_RESOURCE_STATE_RESOLVE_SOURCE);
+                setTextureState(colorTexture, D3D12_RESOURCE_STATE_RESOLVE_SOURCE);
             }
             cl->ResolveSubresource(resolveTexture->resource(), 0, colorTexture->resource(), 0,
                                    toDXGIFormat(resolveTexture->format()));
@@ -709,7 +750,7 @@ void DX12CommandList::doEndRenderPass() {
         const D3D12_RESOURCE_STATES targetState = rp_present_source_ && i == 0
                                                           ? D3D12_RESOURCE_STATE_PRESENT
                                                           : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        const D3D12_RESOURCE_STATES before = finalColorTexture->state();
+        const D3D12_RESOURCE_STATES before = textureState(finalColorTexture);
         if (before != targetState) {
             D3D12_RESOURCE_BARRIER barrier = {};
             barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -718,7 +759,7 @@ void DX12CommandList::doEndRenderPass() {
             barrier.Transition.StateAfter = targetState;
             barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
             cl->ResourceBarrier(1, &barrier);
-            finalColorTexture->setState(targetState);
+            setTextureState(finalColorTexture, targetState);
         }
     }
 

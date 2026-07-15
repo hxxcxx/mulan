@@ -5,8 +5,9 @@
 
 namespace mulan::engine {
 
-DX12BindGroup::DX12BindGroup(const BindGroupLayout& layout, const BindGroupEntry* entries, uint8_t count)
-    : layout_(&layout), count_(count) {
+DX12BindGroup::DX12BindGroup(const BindGroupLayout& layout, const BindGroupEntry* entries, uint8_t count,
+                             BindGroupValidationLimits limits)
+    : BindGroup(limits), layout_(layout), count_(count) {
     for (uint8_t i = 0; i < count; ++i)
         entries_[i] = entries[i];
 
@@ -33,6 +34,8 @@ bool DX12BindGroup::updateUBO(uint32_t binding, Buffer* buf, uint32_t offset, ui
         if (entries_[i].binding == binding) {
             if (entries_[i].type != DescriptorType::UniformBuffer)
                 return false;
+            if (!validateUniformUpdate(buf, offset, size))
+                return false;
             entries_[i].buffer = buf;
             entries_[i].texture = nullptr;
             entries_[i].sampler = nullptr;
@@ -50,6 +53,8 @@ bool DX12BindGroup::updateTexture(uint32_t binding, Texture* tex) {
         if (entries_[i].binding == binding) {
             if (entries_[i].type != DescriptorType::TextureSRV)
                 return false;
+            if (!validateResourceUpdate(tex))
+                return false;
             if (entries_[i].texture == tex && !entries_[i].buffer && !entries_[i].sampler)
                 return true;
             entries_[i].texture = tex;
@@ -66,6 +71,8 @@ bool DX12BindGroup::updateSampler(uint32_t binding, Sampler* s) {
     for (uint8_t i = 0; i < count_; ++i) {
         if (entries_[i].binding == binding) {
             if (entries_[i].type != DescriptorType::Sampler)
+                return false;
+            if (!validateResourceUpdate(s))
                 return false;
             if (entries_[i].sampler == s && !entries_[i].buffer && !entries_[i].texture)
                 return true;

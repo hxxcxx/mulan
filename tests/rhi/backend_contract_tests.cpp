@@ -185,6 +185,44 @@ TEST_P(BackendContractTest, ReportsUsableCapabilities) {
     ASSERT_TRUE(device->waitIdle());
 }
 
+TEST_P(BackendContractTest, BindGroupOwnsLayoutAndRejectsInvalidUniformUpdates) {
+    ContractWindow window;
+    ASSERT_TRUE(window.valid());
+    auto deviceResult = createDevice(window);
+    ASSERT_TRUE(deviceResult) << deviceResult.error().message;
+    auto device = std::move(*deviceResult);
+
+    const uint32_t alignment = device->capabilities().minUniformBufferOffsetAlignment;
+    const uint32_t bufferSize = (std::max) (alignment * 2, 512u);
+    auto bufferResult = device->createBuffer(BufferDesc::uniform(bufferSize, "ContractUniformBuffer"));
+    ASSERT_TRUE(bufferResult) << bufferResult.error().message;
+    auto buffer = std::move(*bufferResult);
+
+    std::unique_ptr<BindGroup> bindGroup;
+    uint64_t expectedLayoutHash = 0;
+    {
+        const std::array entries{ BindGroupLayoutEntry{ 0, 1, DescriptorType::UniformBuffer,
+                                                        PipelineBinding::kStageVertex, BindingMode::Static } };
+        const BindGroupLayout layout = BindGroupLayout::fromBindings(entries);
+        expectedLayoutHash = layout.hash();
+        BindGroupDesc desc;
+        desc.addUniformBuffer(0, buffer.get(), 0, alignment);
+        auto bindGroupResult = device->createBindGroup(layout, desc);
+        ASSERT_TRUE(bindGroupResult) << bindGroupResult.error().message;
+        bindGroup = std::move(*bindGroupResult);
+    }
+
+    EXPECT_EQ(bindGroup->layout().hash(), expectedLayoutHash);
+    EXPECT_FALSE(bindGroup->updateUBO(0, nullptr, 0, alignment));
+    EXPECT_FALSE(bindGroup->updateUBO(0, buffer.get(), 1, alignment));
+    EXPECT_FALSE(bindGroup->updateUBO(0, buffer.get(), bufferSize, alignment));
+    EXPECT_TRUE(bindGroup->updateUBO(0, buffer.get(), alignment, alignment));
+
+    bindGroup.reset();
+    buffer.reset();
+    ASSERT_TRUE(device->waitIdle());
+}
+
 TEST_P(BackendContractTest, RejectsUnsupportedExplicitRenderTargetSamples) {
     ContractWindow window;
     ASSERT_TRUE(window.valid());
@@ -257,6 +295,30 @@ TEST_P(BackendContractTest, WaitIdleCollectsRetiredSubmissions) {
     EXPECT_TRUE(released);
 
     command.reset();
+}
+
+TEST_P(BackendContractTest, SafelyDestroysACommandListImmediatelyAfterSubmission) {
+    ContractWindow window;
+    ASSERT_TRUE(window.valid());
+    auto deviceResult = createDevice(window);
+    ASSERT_TRUE(deviceResult) << deviceResult.error().message;
+    auto device = std::move(*deviceResult);
+
+    auto commandResult = device->createCommandList();
+    ASSERT_TRUE(commandResult) << commandResult.error().message;
+    auto command = std::move(*commandResult);
+    ASSERT_TRUE(command->begin());
+    ASSERT_TRUE(command->end());
+    auto submission = device->executeCommandList(command.get());
+    ASSERT_TRUE(submission) << submission.error().message;
+
+    // 显式后端的命令池、描述符池都必须保留到该提交完成。
+    command.reset();
+    if (device->backend() == GraphicsBackend::D3D12 || device->backend() == GraphicsBackend::Vulkan)
+        EXPECT_TRUE(device->isSubmissionComplete(*submission));
+    else
+        ASSERT_TRUE(device->waitForSubmission(*submission));
+    ASSERT_TRUE(device->waitIdle());
 }
 
 TEST_P(BackendContractTest, RecordsAndSubmitsAnOffscreenRenderPass) {

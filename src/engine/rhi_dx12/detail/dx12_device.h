@@ -39,8 +39,8 @@ public:
     const RenderConfig& renderConfig() const override { return render_config_; }
     math::Mat4 clipSpaceCorrectionMatrix() const override;
     bool isInitialized() const {
-        return factory_ && device_ && command_queue_ && !frames_.empty() && upload_context_ && shader_visible_heap_ &&
-               sampler_heap_ && submissionFence() && shader_visible_heap_->isValid() && sampler_heap_->isValid();
+        return factory_ && device_ && command_queue_ && !frames_.empty() && upload_context_ && sampler_heap_ &&
+               submissionFence() && sampler_heap_->isValid();
     }
 
     // --- 资源创建 ---
@@ -108,8 +108,6 @@ private:
     // 帧命令列表包装（复用，避免每帧 new）
     std::unique_ptr<DX12CommandList> frame_cmd_wrapper_;
 
-    // Shader-visible descriptor heap for CBV/SRV/UAV
-    std::unique_ptr<DX12DescriptorAllocator> shader_visible_heap_;
     // 着色器可见的采样器描述符堆。
     // 采样器通过root signature中的描述符表进行绑定。
     std::unique_ptr<DX12DescriptorAllocator> sampler_heap_;

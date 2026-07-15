@@ -15,7 +15,7 @@ namespace mulan::engine {
 
 class GLBindGroup final : public BindGroup {
 public:
-    GLBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc);
+    GLBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc, BindGroupValidationLimits limits);
     ~GLBindGroup() override = default;
 
     const BindGroupLayout& layout() const override { return layout_; }

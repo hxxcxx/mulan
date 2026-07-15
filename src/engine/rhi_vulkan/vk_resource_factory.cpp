@@ -119,8 +119,10 @@ core::Result<std::unique_ptr<Fence>> VKResourceFactory::createFence(uint64_t ini
 }
 
 core::Result<std::unique_ptr<BindGroup>> VKResourceFactory::createBindGroup(const BindGroupLayout& layout,
-                                                                            const BindGroupDesc& desc) {
-    auto bindGroup = std::unique_ptr<BindGroup>(std::make_unique<VKBindGroup>(layout, desc.entries, desc.count));
+                                                                            const BindGroupDesc& desc,
+                                                                            BindGroupValidationLimits limits) {
+    auto bindGroup =
+            std::unique_ptr<BindGroup>(std::make_unique<VKBindGroup>(layout, desc.entries, desc.count, limits));
     bindGroup->trackResource(owner_, RHIResourceKind::BindGroup, "BindGroup");
     return bindGroup;
 }

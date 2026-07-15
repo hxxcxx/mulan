@@ -145,6 +145,7 @@ protected:
     core::Result<void> waitForPreviousSubmission();
     virtual core::Result<void> doBegin() = 0;
     virtual core::Result<void> doEnd() = 0;
+    virtual void doMarkSubmitted() {}
     virtual void doSetPipelineState(PipelineState* pso) = 0;
     virtual void doSetComputePipelineState(ComputePipelineState* pso) = 0;
     virtual void doBindGroup(BindGroup& group) = 0;

@@ -27,7 +27,8 @@ public:
     core::Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc& desc);
     core::Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc& desc);
     core::Result<std::unique_ptr<Fence>> createFence(uint64_t initialValue);
-    core::Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc);
+    core::Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc,
+                                                             BindGroupValidationLimits limits);
 
 private:
     RHIDevice& owner_;

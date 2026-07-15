@@ -112,6 +112,10 @@ struct BindGroupValidationLimits {
 std::string validateBindGroupDesc(const BindGroupLayout& layout, const BindGroupDesc& desc,
                                   const BindGroupValidationLimits& limits);
 
+/// 验证 BindGroup 更新时提供的静态 UniformBuffer 范围。
+std::string validateUniformBufferBinding(const Buffer* buffer, uint32_t offset, uint32_t size,
+                                         const BindGroupValidationLimits& limits);
+
 /// 验证 BindGroup 绑定时提供的动态 UniformBuffer 切片。
 std::string validateDynamicUniformBindings(const BindGroupLayout& layout,
                                            std::span<const DynamicUniformBinding> bindings,
@@ -165,12 +169,17 @@ public:
     void setFrameToken(uint64_t token) { frame_token_ = token; }
 
 protected:
-    BindGroup() = default;
+    explicit BindGroup(BindGroupValidationLimits limits = {}) : validation_limits_(limits) {}
     BindGroup(const BindGroup&) = delete;
     BindGroup& operator=(const BindGroup&) = delete;
 
+    /// 更新资源前执行公共范围与设备归属校验。
+    bool validateUniformUpdate(const Buffer* buffer, uint32_t offset, uint32_t size) const;
+    bool validateResourceUpdate(const RHITrackedResource* resource) const;
+
     uint16_t dirty_mask_ = 0xFFFF;  // 初次 bind 视为整体脏，确保首帧完整写入
     uint64_t frame_token_ = kInvalidFrameToken;
+    BindGroupValidationLimits validation_limits_{};
 };
 
 }  // namespace mulan::engine

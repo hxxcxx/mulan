@@ -19,6 +19,7 @@
 #include <expected>
 #include <memory>
 #include <vector>
+#include <unordered_map>
 
 namespace mulan::engine {
 
@@ -34,7 +35,6 @@ public:
     /// 独立模式：自建 command pool + buffer（可选 descriptor allocator）。
     /// 失败返回 CommandListCreateFailed。
     static core::Result<std::unique_ptr<VKCommandList>> create(vk::Device device, uint32_t queueFamilyIndex,
-                                                               VKDescriptorAllocator* allocator,
                                                                VmaAllocator memoryAllocator, uint32_t uniformAlignment,
                                                                uint32_t maxUniformSize);
 
@@ -52,6 +52,7 @@ public:
     // --- 生命周期 ---
     core::Result<void> doBegin() override;
     core::Result<void> doEnd() override;
+    void doMarkSubmitted() override;
 
     // --- 管线状态 ---
     void doSetPipelineState(PipelineState* pso) override;
@@ -98,8 +99,7 @@ public:
     vk::PipelineLayout currentLayout() const { return current_layout_; }
 
     // 注入当前帧的 frame token（由 VKDevice::frameCommandList 设置）。
-    // bindGroup 据此判断 BindGroup 缓存句柄是否跨帧失效。独立 cmd list 不调用，
-    // token 保持 0，BindGroup token 也初始为 0 → 视为同帧，不会误失效。
+    // bindGroup 据此判断 BindGroup 缓存句柄是否跨录制失效；独立命令列表每次安全复用时也会递增。
     void setFrameToken(uint64_t token) { frame_token_ = token; }
 
 private:
@@ -114,6 +114,8 @@ private:
 
     // 独立模式私有构造（create() 使用）
     VKCommandList(vk::Device device, vk::CommandPool pool, vk::CommandBuffer cmd);
+    vk::ImageLayout textureLayout(VKTexture* texture) const;
+    void setTextureLayout(VKTexture* texture, vk::ImageLayout layout);
 
     vk::Device device_;
     vk::CommandPool pool_;
@@ -123,6 +125,7 @@ private:
     vk::PipelineBindPoint current_bind_point_ = vk::PipelineBindPoint::eGraphics;
     uint32_t current_push_constant_size_ = 0;
     VKDescriptorAllocator* allocator_ = nullptr;
+    std::unique_ptr<VKDescriptorAllocator> owned_descriptor_allocator_;
     bool rp_present_source_ = false;
     VKTexture* swapchain_color_texture_ = nullptr;  // endRenderPass 时转 PRESENT_SRC_KHR
     bool owns_pool_;
@@ -130,6 +133,7 @@ private:
     std::unique_ptr<VKTransientUniformArena> owned_transient_uniform_arena_;
     VKTransientUniformArena* transient_uniform_arena_ = nullptr;
     std::vector<DynamicDescriptorSetCacheEntry> dynamic_set_cache_;
+    std::unordered_map<VKTexture*, vk::ImageLayout> pending_texture_layouts_;
 };
 
 }  // namespace mulan::engine

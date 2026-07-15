@@ -64,7 +64,6 @@ DX12Device::~DX12Device() {
     shutdownSubmissionTracking();
     upload_context_.reset();
     frames_.clear();
-    shader_visible_heap_.reset();
     sampler_heap_.reset();
     command_queue_.Reset();
     device_.Reset();
@@ -108,14 +107,11 @@ void DX12Device::init(const DeviceCreateInfo& ci) {
     frame_cmd_wrapper_->trackResource(*this, RHIResourceKind::CommandList, "DX12FrameCommandList");
     frame_cmd_wrapper_->setDrawIndirectSignature(drawIndirectSignature());
 
-    shader_visible_heap_ = std::make_unique<DX12DescriptorAllocator>(
-            device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 8192);
-
     // Sampler descriptor heap：sampler 会在创建时写入持久 descriptor，
     // 绘制时通过 root descriptor table 直接引用 GPU handle。
     sampler_heap_ = std::make_unique<DX12DescriptorAllocator>(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
-                                                              D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 64);
-    if (!shader_visible_heap_->isValid() || !sampler_heap_->isValid())
+                                                              D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 2048);
+    if (!sampler_heap_->isValid())
         return;
 
     auto submissionFenceResult = createFence(0);
@@ -366,12 +362,12 @@ core::Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
         return std::unexpected(result.error());
     auto& cmd = *result;
     cmd->setDrawIndirectSignature(drawIndirectSignature());
-    if (auto* heap = shader_visible_heap_->heap()) {
-        const auto cpuBase = heap->GetCPUDescriptorHandleForHeapStart();
-        const auto gpuBase = heap->GetGPUDescriptorHandleForHeapStart();
-        cmd->setDescriptorHeap(heap, cpuBase, gpuBase, shader_visible_heap_->descriptorSize(),
-                               sampler_heap_ ? sampler_heap_->heap() : nullptr, shader_visible_heap_->capacity());
-    }
+    auto descriptorArena = std::make_unique<DX12DescriptorAllocator>(
+            device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 8192);
+    if (!descriptorArena->isValid())
+        return std::unexpected(
+                makeError(EngineErrorCode::CommandListCreateFailed, "DX12 descriptor arena creation failed"));
+    cmd->setOwnedDescriptorArena(std::move(descriptorArena), sampler_heap_ ? sampler_heap_->heap() : nullptr);
     char nm[64];
     std::snprintf(nm, sizeof(nm), "CommandList@%p", cmd.get());
     setDebugName(cmd->commandList(), nm);
@@ -433,7 +429,9 @@ core::Result<std::unique_ptr<BindGroup>> DX12Device::createBindGroup(const BindG
             layout, desc, { caps_.minUniformBufferOffsetAlignment, caps_.maxUniformBufferBindingSize });
     if (!validationError.empty())
         return std::unexpected(makeError(EngineErrorCode::ResourceCreateFailed, validationError));
-    auto bindGroup = std::unique_ptr<BindGroup>(std::make_unique<DX12BindGroup>(layout, desc.entries, desc.count));
+    auto bindGroup = std::unique_ptr<BindGroup>(std::make_unique<DX12BindGroup>(
+            layout, desc.entries, desc.count,
+            BindGroupValidationLimits{ caps_.minUniformBufferOffsetAlignment, caps_.maxUniformBufferBindingSize }));
     bindGroup->trackResource(*this, RHIResourceKind::BindGroup, "BindGroup");
     return bindGroup;
 }
@@ -547,8 +545,8 @@ core::Result<CommandList*> DX12Device::beginFrame(SwapChain* swapchain) {
     if (auto resetResult = frame->resetCommandAllocator(); !resetResult)
         return std::unexpected(resetResult.error());
 
-    // 重置 shader-visible 描述符堆
-    shader_visible_heap_->reset();
+    // 当前 FrameContext 已等待完成，可以安全回收其私有描述符区段。
+    frame->descriptorArena()->reset();
 
     // 单调递增 frame token：heap reset 已回收上一帧的 descriptor 区段，
     // 自增后 BindGroup 缓存句柄的旧 token 必然失配，触发跨帧失效。
@@ -561,14 +559,15 @@ core::Result<CommandList*> DX12Device::beginFrame(SwapChain* swapchain) {
     frame_cmd_wrapper_->setFrameToken(frame_token_);
 
     // 设置当前帧的描述符堆（bindGroup 时分配 SRV 句柄用）
-    auto* heap = shader_visible_heap_->heap();
+    auto* descriptorArena = frame->descriptorArena();
+    auto* heap = descriptorArena->heap();
     if (heap) {
         D3D12_CPU_DESCRIPTOR_HANDLE cpuBase = heap->GetCPUDescriptorHandleForHeapStart();
         D3D12_GPU_DESCRIPTOR_HANDLE gpuBase = heap->GetGPUDescriptorHandleForHeapStart();
-        uint32_t descSize = shader_visible_heap_->descriptorSize();
+        uint32_t descSize = descriptorArena->descriptorSize();
         frame_cmd_wrapper_->setDescriptorHeap(heap, cpuBase, gpuBase, descSize,
                                               sampler_heap_ ? sampler_heap_->heap() : nullptr,
-                                              shader_visible_heap_->capacity());
+                                              descriptorArena->capacity());
     }
 
     if (auto result = frame_cmd_wrapper_->begin(); !result)

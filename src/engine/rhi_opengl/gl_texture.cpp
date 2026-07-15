@@ -31,9 +31,7 @@ GLenum GLTexture::toGLInternalFormat(TextureFormat fmt) {
     case TextureFormat::BC5_RG_UNorm: return GL_COMPRESSED_RG_RGTC2;
     case TextureFormat::BC7_RGBA_UNorm: return GL_COMPRESSED_RGBA_BPTC_UNORM;
     case TextureFormat::BC7_RGBA_sRGB: return GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM;
-    default:
-        LOG_WARN("[OpenGL] Unknown texture format {}; defaulting to GL_RGBA8", static_cast<int>(fmt));
-        return GL_RGBA8;
+    default: LOG_ERROR("[OpenGL] 不支持纹理格式 {}，拒绝静默降级", static_cast<int>(fmt)); return 0;
     }
 }
 
@@ -98,6 +96,8 @@ GLTexture::GLTexture(const TextureDesc& desc, GLuint existingHandle) : desc_(des
     // 从 target 推断（仅 Texture2D 路径供 GLRenderTarget 使用）
     target_ = desc_.sampleCount > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
     internal_format_ = toGLInternalFormat(desc_.format);
+    if (internal_format_ == 0)
+        return;
 }
 
 GLTexture::~GLTexture() {

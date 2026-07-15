@@ -17,9 +17,10 @@ class VKBindGroup : public BindGroup {
 public:
     static constexpr uint8_t kMaxEntries = 16;
 
-    VKBindGroup(const BindGroupLayout& layout, const BindGroupEntry* entries, uint8_t count);
+    VKBindGroup(const BindGroupLayout& layout, const BindGroupEntry* entries, uint8_t count,
+                BindGroupValidationLimits limits);
 
-    const BindGroupLayout& layout() const override { return *layout_; }
+    const BindGroupLayout& layout() const override { return layout_; }
     const BindGroupEntry* entries() const override { return entries_.data(); }
     uint8_t entryCount() const override { return count_; }
 
@@ -34,7 +35,7 @@ public:
     void setCachedSet(vk::DescriptorSet set) { cached_set_ = set; }
 
 private:
-    const BindGroupLayout* layout_;
+    BindGroupLayout layout_;
     std::array<BindGroupEntry, kMaxEntries> entries_{};
     uint8_t count_ = 0;
     vk::DescriptorSet cached_set_ = nullptr;

@@ -1,6 +1,7 @@
 #include "bind_group.h"
 
 #include "buffer.h"
+#include <mulan/core/log/log.h>
 
 #include <algorithm>
 #include <limits>
@@ -96,6 +97,38 @@ std::string validateBindGroupDesc(const BindGroupLayout& layout, const BindGroup
     }
 
     return {};
+}
+
+std::string validateUniformBufferBinding(const Buffer* buffer, uint32_t offset, uint32_t size,
+                                         const BindGroupValidationLimits& limits) {
+    if (!buffer)
+        return "uniform-buffer binding requires a valid buffer";
+    if (limits.minUniformBufferOffsetAlignment == 0)
+        return "uniform-buffer offset alignment capability must not be zero";
+    return validateUniformRange(*buffer, offset, size, limits);
+}
+
+bool BindGroup::validateResourceUpdate(const RHITrackedResource* resource) const {
+    if (!resource) {
+        LOG_ERROR("[RHI] BindGroup 更新被拒绝：资源为空");
+        return false;
+    }
+    if (trackingDevice() && resource->isTracked() && !resource->belongsTo(*trackingDevice())) {
+        LOG_ERROR("[RHI] BindGroup 更新被拒绝：资源属于另一个设备");
+        return false;
+    }
+    return true;
+}
+
+bool BindGroup::validateUniformUpdate(const Buffer* buffer, uint32_t offset, uint32_t size) const {
+    if (!validateResourceUpdate(buffer))
+        return false;
+    const std::string error = validateUniformBufferBinding(buffer, offset, size, validation_limits_);
+    if (!error.empty()) {
+        LOG_ERROR("[RHI] BindGroup UniformBuffer 更新被拒绝：{}", error);
+        return false;
+    }
+    return true;
 }
 
 std::string validateDynamicUniformBindings(const BindGroupLayout& layout,

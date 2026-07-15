@@ -27,7 +27,10 @@ void DX12DescriptorAllocator::reset() {
 }
 
 DX12Descriptor DX12DescriptorAllocator::allocate() {
-    assert(allocated_ < capacity_ && "Descriptor heap exhausted");
+    if (!heap_ || allocated_ >= capacity_) {
+        LOG_ERROR("[DX12] 描述符堆已耗尽：allocated={}, capacity={}", allocated_, capacity_);
+        return {};
+    }
 
     DX12Descriptor desc;
     desc.index = allocated_;

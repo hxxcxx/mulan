@@ -7,10 +7,14 @@
 
 #include "detail/gl_bind_group.h"
 
+#include "../rhi/buffer.h"
+#include "../rhi/sampler.h"
+#include "../rhi/texture.h"
+
 namespace mulan::engine {
 
-GLBindGroup::GLBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc)
-    : layout_(layout), entries_(desc.entries, desc.entries + desc.count) {
+GLBindGroup::GLBindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc, BindGroupValidationLimits limits)
+    : BindGroup(limits), layout_(layout), entries_(desc.entries, desc.entries + desc.count) {
 }
 
 int GLBindGroup::findEntry(uint32_t binding) const {
@@ -28,6 +32,8 @@ bool GLBindGroup::updateUBO(uint32_t binding, Buffer* buffer, uint32_t offset, u
     auto& entry = entries_[static_cast<size_t>(index)];
     if (entry.type != DescriptorType::UniformBuffer)
         return false;
+    if (!validateUniformUpdate(buffer, offset, size))
+        return false;
     entry.buffer = buffer;
     entry.texture = nullptr;
     entry.sampler = nullptr;
@@ -44,6 +50,8 @@ bool GLBindGroup::updateTexture(uint32_t binding, Texture* texture) {
     auto& entry = entries_[static_cast<size_t>(index)];
     if (entry.type != DescriptorType::TextureSRV)
         return false;
+    if (!validateResourceUpdate(texture))
+        return false;
     entry.buffer = nullptr;
     entry.texture = texture;
     entry.sampler = nullptr;
@@ -59,6 +67,8 @@ bool GLBindGroup::updateSampler(uint32_t binding, Sampler* sampler) {
         return false;
     auto& entry = entries_[static_cast<size_t>(index)];
     if (entry.type != DescriptorType::Sampler)
+        return false;
+    if (!validateResourceUpdate(sampler))
         return false;
     entry.buffer = nullptr;
     entry.texture = nullptr;

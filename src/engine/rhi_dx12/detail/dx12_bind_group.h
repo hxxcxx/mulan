@@ -19,9 +19,10 @@ public:
     static constexpr uint8_t kMaxEntries = 16;
     static constexpr uint32_t kInvalidRootIndex = 0xFFFFFFFFu;
 
-    DX12BindGroup(const BindGroupLayout& layout, const BindGroupEntry* entries, uint8_t count);
+    DX12BindGroup(const BindGroupLayout& layout, const BindGroupEntry* entries, uint8_t count,
+                  BindGroupValidationLimits limits);
 
-    const BindGroupLayout& layout() const override { return *layout_; }
+    const BindGroupLayout& layout() const override { return layout_; }
     const BindGroupEntry* entries() const override { return entries_.data(); }
     uint8_t entryCount() const override { return count_; }
 
@@ -49,7 +50,7 @@ public:
     void clearCachedTextureHandles() { cached_texture_handles_.fill({}); }
 
 private:
-    const BindGroupLayout* layout_;
+    BindGroupLayout layout_;
     std::array<BindGroupEntry, kMaxEntries> entries_{};
     uint8_t count_ = 0;
     // binding 号 → root parameter index 的查找表（线性扫描，条目数 ≤16）。

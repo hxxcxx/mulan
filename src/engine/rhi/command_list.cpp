@@ -426,6 +426,7 @@ core::Result<UniformSlice> CommandList::doWriteUniformBytes(std::span<const std:
 
 void CommandList::markSubmitted(SubmissionToken token) {
     assert(state_ == State::Executable);
+    doMarkSubmitted();
     last_submission_ = token;
     state_ = State::Submitted;
 }

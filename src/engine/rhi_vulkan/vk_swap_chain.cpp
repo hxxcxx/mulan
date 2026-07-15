@@ -160,9 +160,10 @@ core::Error VKSwapChain::createSwapChain() {
             extent.height = (std::min) (std::max(desc_.height, caps.minImageExtent.height), caps.maxImageExtent.height);
         }
 
-        uint32_t imageCount = desc_.bufferCount;
+        // Vulkan 要求请求数量至少为 surface 的 minImageCount；maxImageCount 为 0 表示不设上限。
+        uint32_t imageCount = (std::max) (desc_.bufferCount, caps.minImageCount);
         if (caps.maxImageCount > 0) {
-            imageCount = std::min(imageCount, caps.maxImageCount);
+            imageCount = (std::min) (imageCount, caps.maxImageCount);
         }
 
         uint32_t queueFamilyIndices[] = { params_.graphicsQueueFamily, params_.presentQueueFamily };
@@ -228,13 +229,17 @@ core::Error VKSwapChain::createSwapChain() {
         return e;
     }
 
-    TextureDesc depthDesc = TextureDesc::depthStencil(swapchain_extent_.width, swapchain_extent_.height,
-                                                      desc_.depthFormat, "DepthBuffer", desc_.sampleCount);
-    auto depthResult = VKTexture::create(depthDesc, params_.device, params_.allocator);
-    if (!depthResult) {
-        return depthResult.error();
+    if (desc_.hasDepth) {
+        TextureDesc depthDesc = TextureDesc::depthStencil(swapchain_extent_.width, swapchain_extent_.height,
+                                                          desc_.depthFormat, "DepthBuffer", desc_.sampleCount);
+        auto depthResult = VKTexture::create(depthDesc, params_.device, params_.allocator);
+        if (!depthResult) {
+            return depthResult.error();
+        }
+        depth_texture_ = std::move(*depthResult);
+    } else {
+        depth_texture_.reset();
     }
-    depth_texture_ = std::move(*depthResult);
 
     return {};
 }

@@ -2,6 +2,8 @@
 
 #include "detail/dx12_buffer.h"
 #include "detail/dx12_command_list.h"
+#include "detail/dx12_descriptor_allocator.h"
+#include "detail/dx12_texture.h"
 
 #include <array>
 #include <cstddef>
@@ -72,6 +74,64 @@ TEST(DX12TransientUniformTest, RejectsWritesOutsideCommandRecording) {
     ASSERT_TRUE(commandList.end());
     EXPECT_EQ(commandList.state(), CommandList::State::Executable);
     EXPECT_FALSE(commandList.writeUniform(value));
+}
+
+TEST(DX12DescriptorAllocatorTest, RejectsExhaustionWithoutReturningOutOfRangeHandles) {
+    DX12TestContext native;
+    ASSERT_TRUE(native.initialize());
+    DX12DescriptorAllocator allocator(native.device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+                                      D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 2);
+    ASSERT_TRUE(allocator.isValid());
+
+    EXPECT_NE(allocator.allocate().gpu.ptr, 0u);
+    EXPECT_NE(allocator.allocate().gpu.ptr, 0u);
+    const DX12Descriptor exhausted = allocator.allocate();
+    EXPECT_EQ(exhausted.cpu.ptr, 0u);
+    EXPECT_EQ(exhausted.gpu.ptr, 0u);
+    EXPECT_EQ(allocator.allocatedCount(), 2u);
+}
+
+TEST(DX12DescriptorAllocatorTest, StandaloneCommandListsUseIndependentShaderVisibleHeaps) {
+    DX12TestContext native;
+    ASSERT_TRUE(native.initialize());
+    ComPtr<ID3D12CommandAllocator> secondAllocator;
+    ASSERT_TRUE(SUCCEEDED(
+            native.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&secondAllocator))));
+    auto firstResult = DX12CommandList::create(native.device.Get(), native.allocator.Get());
+    auto secondResult = DX12CommandList::create(native.device.Get(), secondAllocator.Get());
+    ASSERT_TRUE(firstResult);
+    ASSERT_TRUE(secondResult);
+
+    auto firstArena = std::make_unique<DX12DescriptorAllocator>(
+            native.device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 8);
+    auto secondArena = std::make_unique<DX12DescriptorAllocator>(
+            native.device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 8);
+    (*firstResult)->setOwnedDescriptorArena(std::move(firstArena));
+    (*secondResult)->setOwnedDescriptorArena(std::move(secondArena));
+
+    ASSERT_NE((*firstResult)->descriptorHeap(), nullptr);
+    ASSERT_NE((*secondResult)->descriptorHeap(), nullptr);
+    EXPECT_NE((*firstResult)->descriptorHeap(), (*secondResult)->descriptorHeap());
+}
+
+TEST(DX12CommandStateTest, AbandonedRecordingDoesNotMutateTextureGlobalState) {
+    DX12TestContext native;
+    ASSERT_TRUE(native.initialize());
+    auto commandListResult = DX12CommandList::create(native.device.Get(), native.allocator.Get());
+    ASSERT_TRUE(commandListResult);
+    auto textureResult = DX12Texture::create(
+            TextureDesc::renderTarget(4, 4, TextureFormat::RGBA8_UNorm, "StateTrackingTexture"), native.device.Get());
+    ASSERT_TRUE(textureResult);
+
+    auto& commandList = **commandListResult;
+    auto& texture = **textureResult;
+    const D3D12_RESOURCE_STATES initialState = texture.state();
+    ASSERT_TRUE(commandList.begin());
+    commandList.transitionResource(&texture, ResourceState::CopySrc);
+    EXPECT_EQ(commandList.state(), CommandList::State::Recording);
+    EXPECT_EQ(texture.state(), initialState);
+    ASSERT_TRUE(commandList.end());
+    EXPECT_EQ(texture.state(), initialState);
 }
 
 }  // namespace

@@ -20,7 +20,7 @@ GLenum GLRenderTarget::toGLInternalFormat(TextureFormat fmt) {
     case TextureFormat::RG32_Float: return GL_RG32F;
     case TextureFormat::RGBA8_sRGB: return GL_SRGB8_ALPHA8;
     case TextureFormat::BGRA8_sRGB: return GL_SRGB8_ALPHA8;
-    default: return GL_RGBA8;
+    default: return 0;
     }
 }
 
@@ -51,6 +51,10 @@ GLRenderTarget::~GLRenderTarget() {
 // ============================================================
 
 core::Result<void> GLRenderTarget::createResources() {
+    const GLenum colorFormat = toGLInternalFormat(desc_.colorFormat);
+    if (colorFormat == 0) {
+        return std::unexpected(makeError(EngineErrorCode::RenderTargetCreateFailed, "OpenGL 不支持请求的颜色附件格式"));
+    }
     // --- Color 纹理 ---
     GLuint colorTex = 0;
     const GLenum colorTarget = desc_.sampleCount > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
@@ -61,11 +65,10 @@ core::Result<void> GLRenderTarget::createResources() {
                 makeError(EngineErrorCode::RenderTargetCreateFailed, "OpenGL color texture creation failed"));
     }
     if (desc_.sampleCount > 1) {
-        glTextureStorage2DMultisample(colorTex, static_cast<GLsizei>(desc_.sampleCount),
-                                      toGLInternalFormat(desc_.colorFormat), static_cast<GLsizei>(desc_.width),
-                                      static_cast<GLsizei>(desc_.height), GL_TRUE);
+        glTextureStorage2DMultisample(colorTex, static_cast<GLsizei>(desc_.sampleCount), colorFormat,
+                                      static_cast<GLsizei>(desc_.width), static_cast<GLsizei>(desc_.height), GL_TRUE);
     } else {
-        glTextureStorage2D(colorTex, 1, toGLInternalFormat(desc_.colorFormat), static_cast<GLsizei>(desc_.width),
+        glTextureStorage2D(colorTex, 1, colorFormat, static_cast<GLsizei>(desc_.width),
                            static_cast<GLsizei>(desc_.height));
         glTextureParameteri(colorTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTextureParameteri(colorTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

@@ -18,7 +18,7 @@ class DX11BindGroup final : public BindGroup {
 public:
     static constexpr uint8_t kMaxEntries = BindGroupDesc::kMaxEntries;
 
-    DX11BindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc);
+    DX11BindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc, BindGroupValidationLimits limits = {});
     ~DX11BindGroup() override = default;
 
     const BindGroupLayout& layout() const override { return layout_; }

@@ -52,8 +52,6 @@ private:
 
     std::vector<std::unique_ptr<VKFrameContext>> frame_contexts_;
     std::vector<std::unique_ptr<VKDescriptorAllocator>> descriptor_allocators_;
-    std::vector<std::unique_ptr<VKDescriptorAllocator>> standalone_allocators_;
-    std::vector<std::unique_ptr<VKDescriptorAllocator>> standalone_allocators_prev_;
     std::unique_ptr<VKCommandList> frame_cmd_list_;
 
     uint32_t frame_count_ = 2;

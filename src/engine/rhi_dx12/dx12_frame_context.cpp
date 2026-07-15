@@ -4,6 +4,12 @@
 namespace mulan::engine {
 
 DX12FrameContext::DX12FrameContext(ID3D12Device* device) : transient_uniform_arena_(device) {
+    // 每个 FrameContext 独占 shader-visible heap，避免仍在执行的帧被后续帧覆盖。
+    descriptor_arena_ = std::make_unique<DX12DescriptorAllocator>(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+                                                                  D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, 8192);
+    if (!descriptor_arena_->isValid())
+        return;
+
     HRESULT hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmd_allocator_));
     if (!checkDX12(hr, "ID3D12Device::CreateCommandAllocator"))
         return;

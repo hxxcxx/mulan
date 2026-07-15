@@ -53,15 +53,7 @@ void VKFrameScheduler::ensureSwapchainImageSync(uint32_t imageCount) {
 }
 
 core::Result<std::unique_ptr<CommandList>> VKFrameScheduler::createStandaloneCommandList() {
-    auto* allocator = new VKDescriptorAllocator(device_);
-    auto result = VKCommandList::create(device_, graphics_queue_family_, allocator, allocator_, uniform_alignment_,
-                                        max_uniform_size_);
-    if (!result) {
-        delete allocator;
-        return std::unexpected(result.error());
-    }
-    standalone_allocators_.emplace_back(allocator);
-    return result;
+    return VKCommandList::create(device_, graphics_queue_family_, allocator_, uniform_alignment_, max_uniform_size_);
 }
 
 core::Result<void> VKFrameScheduler::beginFrame(SwapChain* swapchain) {
@@ -76,10 +68,6 @@ core::Result<void> VKFrameScheduler::beginFrame(SwapChain* swapchain) {
 
         descriptor_allocators_[current_frame_]->resetPools();
         ++frame_token_;
-
-        standalone_allocators_prev_.clear();
-        standalone_allocators_prev_ = std::move(standalone_allocators_);
-        standalone_allocators_.clear();
 
         frame_cmd_list_ = std::make_unique<VKCommandList>(device_, frame.cmdBuffer(),
                                                           descriptor_allocators_[current_frame_].get(),

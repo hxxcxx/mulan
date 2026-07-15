@@ -1,10 +1,15 @@
 #include "detail/dx11_bind_group.h"
 
+#include "../rhi/buffer.h"
+#include "../rhi/sampler.h"
+#include "../rhi/texture.h"
+
 #include <algorithm>
 
 namespace mulan::engine {
 
-DX11BindGroup::DX11BindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc) : layout_(layout) {
+DX11BindGroup::DX11BindGroup(const BindGroupLayout& layout, const BindGroupDesc& desc, BindGroupValidationLimits limits)
+    : BindGroup(limits), layout_(layout) {
     count_ = (std::min) (desc.count, kMaxEntries);
     for (uint8_t i = 0; i < count_; ++i)
         entries_[i] = desc.entries[i];
@@ -26,6 +31,8 @@ bool DX11BindGroup::updateUBO(uint32_t binding, Buffer* buffer, uint32_t offset,
     auto& entry = entries_[static_cast<uint8_t>(index)];
     if (entry.type != DescriptorType::UniformBuffer)
         return false;
+    if (!validateUniformUpdate(buffer, offset, size))
+        return false;
     entry.buffer = buffer;
     entry.texture = nullptr;
     entry.sampler = nullptr;
@@ -43,6 +50,8 @@ bool DX11BindGroup::updateTexture(uint32_t binding, Texture* texture) {
     auto& entry = entries_[static_cast<uint8_t>(index)];
     if (entry.type != DescriptorType::TextureSRV)
         return false;
+    if (!validateResourceUpdate(texture))
+        return false;
     entry.buffer = nullptr;
     entry.texture = texture;
     entry.sampler = nullptr;
@@ -59,6 +68,8 @@ bool DX11BindGroup::updateSampler(uint32_t binding, Sampler* sampler) {
 
     auto& entry = entries_[static_cast<uint8_t>(index)];
     if (entry.type != DescriptorType::Sampler)
+        return false;
+    if (!validateResourceUpdate(sampler))
         return false;
     entry.buffer = nullptr;
     entry.texture = nullptr;

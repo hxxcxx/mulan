@@ -372,8 +372,9 @@ core::Result<std::unique_ptr<BindGroup>> DX11Device::createBindGroup(const BindG
         validationError = validateDX11BindGroup(layout, desc);
     if (!validationError.empty())
         return std::unexpected(makeError(EngineErrorCode::ResourceCreateFailed, validationError));
-    return createDX11Resource<BindGroup, DX11BindGroup>(*this, EngineErrorCode::ResourceCreateFailed,
-                                                        RHIResourceKind::BindGroup, "DX11BindGroup", layout, desc);
+    return createDX11Resource<BindGroup, DX11BindGroup>(
+            *this, EngineErrorCode::ResourceCreateFailed, RHIResourceKind::BindGroup, "DX11BindGroup", layout, desc,
+            BindGroupValidationLimits{ m_caps.minUniformBufferOffsetAlignment, m_caps.maxUniformBufferBindingSize });
 }
 
 core::Result<void> DX11Device::uploadTextureData(Texture* dst, const TextureUploadDesc& upload) {

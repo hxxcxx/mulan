@@ -71,7 +71,12 @@ core::Result<std::unique_ptr<DX12Sampler>> DX12Sampler::create(const SamplerDesc
     // 正常 DX12Device 路径传入 shader-visible sampler heap。
     if (!device)
         return std::unexpected(makeError(EngineErrorCode::SamplerCreateFailed, "DX12Sampler requires a device"));
-    return std::unique_ptr<DX12Sampler>(new DX12Sampler(desc, device, samplerHeap));
+    auto sampler = std::unique_ptr<DX12Sampler>(new DX12Sampler(desc, device, samplerHeap));
+    if (samplerHeap && !sampler->gpuHandle().ptr) {
+        return std::unexpected(
+                makeError(EngineErrorCode::SamplerCreateFailed, "DX12 shader-visible sampler heap is exhausted"));
+    }
+    return sampler;
 }
 
 DX12Sampler::DX12Sampler(const SamplerDesc& desc, ID3D12Device* device, DX12DescriptorAllocator* samplerHeap)
@@ -94,7 +99,8 @@ DX12Sampler::DX12Sampler(const SamplerDesc& desc, ID3D12Device* device, DX12Desc
 
     if (samplerHeap) {
         descriptor_ = samplerHeap->allocate();
-        device->CreateSampler(&d3dDesc, descriptor_.cpu);
+        if (descriptor_.cpu.ptr)
+            device->CreateSampler(&d3dDesc, descriptor_.cpu);
     }
     // samplerHeap 为空时 descriptor_ 保持零值；正常绘制路径会使用其 GPU handle。
 }

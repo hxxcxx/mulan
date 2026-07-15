@@ -105,7 +105,6 @@ vk::ImageAspectFlags aspectMaskForTexture(TextureFormat format) {
 }  // namespace
 
 core::Result<std::unique_ptr<VKCommandList>> VKCommandList::create(vk::Device device, uint32_t queueFamilyIndex,
-                                                                   VKDescriptorAllocator* allocator,
                                                                    VmaAllocator memoryAllocator,
                                                                    uint32_t uniformAlignment, uint32_t maxUniformSize) {
     vk::CommandPoolCreateInfo poolCI;
@@ -129,7 +128,9 @@ core::Result<std::unique_ptr<VKCommandList>> VKCommandList::create(vk::Device de
     }
 
     auto obj = std::unique_ptr<VKCommandList>(new VKCommandList(device, pool, cmd));
-    obj->allocator_ = allocator;
+    // 独立命令列表私有持有 descriptor allocator，避免其生命周期依赖帧轮换。
+    obj->owned_descriptor_allocator_ = std::make_unique<VKDescriptorAllocator>(device);
+    obj->allocator_ = obj->owned_descriptor_allocator_.get();
     obj->owned_transient_uniform_arena_ =
             std::make_unique<VKTransientUniformArena>(memoryAllocator, uniformAlignment, maxUniformSize);
     obj->transient_uniform_arena_ = obj->owned_transient_uniform_arena_.get();
@@ -155,6 +156,8 @@ VKCommandList::VKCommandList(vk::Device device, vk::CommandBuffer externalCmd, V
 
 VKCommandList::~VKCommandList() {
     if (owns_pool_ && pool_) {
+        if (auto wait = waitForPreviousSubmission(); !wait)
+            LOG_ERROR("[Vulkan] 销毁独立命令列表前等待提交失败：{}", wait.error().message);
         device_.freeCommandBuffers(pool_, cmd_buffer_);
         device_.destroyCommandPool(pool_);
     }
@@ -162,6 +165,7 @@ VKCommandList::~VKCommandList() {
 
 core::Result<void> VKCommandList::doBegin() {
     dynamic_set_cache_.clear();
+    pending_texture_layouts_.clear();
     current_layout_ = nullptr;
     current_desc_set_layout_ = nullptr;
     current_bind_point_ = vk::PipelineBindPoint::eGraphics;
@@ -172,6 +176,8 @@ core::Result<void> VKCommandList::doBegin() {
             return std::unexpected(previousSubmission.error());
         try {
             device_.resetCommandPool(pool_);
+            owned_descriptor_allocator_->resetPools();
+            ++frame_token_;
         } catch (const vk::Error& error) {
             return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed, error.what()));
         }
@@ -190,6 +196,23 @@ core::Result<void> VKCommandList::doBegin() {
         return std::unexpected(makeError(EngineErrorCode::CommandRecordingFailed, error.what()));
     }
     return {};
+}
+
+vk::ImageLayout VKCommandList::textureLayout(VKTexture* texture) const {
+    const auto it = pending_texture_layouts_.find(texture);
+    return it != pending_texture_layouts_.end() ? it->second : texture->currentLayout();
+}
+
+void VKCommandList::setTextureLayout(VKTexture* texture, vk::ImageLayout layout) {
+    pending_texture_layouts_[texture] = layout;
+}
+
+void VKCommandList::doMarkSubmitted() {
+    for (const auto& [texture, layout] : pending_texture_layouts_) {
+        if (texture)
+            texture->setCurrentLayout(layout);
+    }
+    pending_texture_layouts_.clear();
 }
 
 core::Result<void> VKCommandList::doEnd() {
@@ -394,7 +417,7 @@ void VKCommandList::doTransitionResource(Texture* texture, ResourceState newStat
         return;
     }
     auto* vkTex = static_cast<VKTexture*>(texture);
-    const vk::ImageLayout oldLayout = vkTex->currentLayout();
+    const vk::ImageLayout oldLayout = textureLayout(vkTex);
     const vk::ImageLayout newLayout = imageLayoutForState(newState);
     if (oldLayout == newLayout)
         return;
@@ -420,8 +443,8 @@ void VKCommandList::doTransitionResource(Texture* texture, ResourceState newStat
 
     cmd_buffer_.pipelineBarrier(srcInfo.stages, dstInfo.stages, {}, nullptr, nullptr, barrier);
 
-    // 更新纹理的布局跟踪
-    vkTex->setCurrentLayout(barrier.newLayout);
+    // 先更新命令列表本地布局；只有提交成功后才合并到纹理全局状态。
+    setTextureLayout(vkTex, barrier.newLayout);
 }
 
 core::Result<void> VKCommandList::doCopyTextureToBuffer(Texture* src, Buffer* dst) {
@@ -688,7 +711,7 @@ core::Result<void> VKCommandList::doBeginRenderPass(const RenderPassBeginInfo& i
     // Color attachment barriers: transition to COLOR_ATTACHMENT_OPTIMAL
     for (uint8_t i = 0; i < info.colorCount; ++i) {
         auto* tex = static_cast<VKTexture*>(info.colorAttachments[i].target);
-        const vk::ImageLayout oldLayout = tex->currentLayout();
+        const vk::ImageLayout oldLayout = textureLayout(tex);
         const vk::ImageLayout newLayout = vk::ImageLayout::eColorAttachmentOptimal;
         if (oldLayout != newLayout) {
             const auto srcInfo = accessInfoForLayout(oldLayout);
@@ -705,11 +728,11 @@ core::Result<void> VKCommandList::doBeginRenderPass(const RenderPassBeginInfo& i
 
             cmd_buffer_.pipelineBarrier(srcInfo.stages, dstInfo.stages, {}, nullptr, nullptr, barrier);
         }
-        tex->setCurrentLayout(vk::ImageLayout::eColorAttachmentOptimal);
+        setTextureLayout(tex, vk::ImageLayout::eColorAttachmentOptimal);
 
         if (info.colorAttachments[i].resolveTarget) {
             auto* resolveTex = static_cast<VKTexture*>(info.colorAttachments[i].resolveTarget);
-            const vk::ImageLayout resolveOldLayout = resolveTex->currentLayout();
+            const vk::ImageLayout resolveOldLayout = textureLayout(resolveTex);
             if (resolveOldLayout != vk::ImageLayout::eColorAttachmentOptimal) {
                 const auto srcInfo = accessInfoForLayout(resolveOldLayout);
                 const auto dstInfo = accessInfoForState(ResourceState::RenderTarget);
@@ -726,14 +749,14 @@ core::Result<void> VKCommandList::doBeginRenderPass(const RenderPassBeginInfo& i
 
                 cmd_buffer_.pipelineBarrier(srcInfo.stages, dstInfo.stages, {}, nullptr, nullptr, resolveBarrier);
             }
-            resolveTex->setCurrentLayout(vk::ImageLayout::eColorAttachmentOptimal);
+            setTextureLayout(resolveTex, vk::ImageLayout::eColorAttachmentOptimal);
         }
     }
 
     // Depth attachment barrier: transition to DEPTH_STENCIL_ATTACHMENT_OPTIMAL
     if (info.depthAttachment.target) {
         auto* depthTex = static_cast<VKTexture*>(info.depthAttachment.target);
-        const vk::ImageLayout oldLayout = depthTex->currentLayout();
+        const vk::ImageLayout oldLayout = textureLayout(depthTex);
         const vk::ImageLayout newLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
         if (oldLayout != newLayout) {
             const auto srcInfo = accessInfoForLayout(oldLayout);
@@ -751,7 +774,7 @@ core::Result<void> VKCommandList::doBeginRenderPass(const RenderPassBeginInfo& i
 
             cmd_buffer_.pipelineBarrier(srcInfo.stages, dstInfo.stages, {}, nullptr, nullptr, barrier);
         }
-        depthTex->setCurrentLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+        setTextureLayout(depthTex, vk::ImageLayout::eDepthStencilAttachmentOptimal);
     }
 
     // Build dynamic rendering attachments
@@ -807,7 +830,7 @@ void VKCommandList::doEndRenderPass() {
         auto* presentTexture = swapchain_color_texture_;
         vk::ImageMemoryBarrier barrier;
         barrier.image = presentTexture->image();
-        barrier.oldLayout = presentTexture->currentLayout();
+        barrier.oldLayout = textureLayout(presentTexture);
         barrier.newLayout = vk::ImageLayout::ePresentSrcKHR;
         const auto srcInfo = accessInfoForLayout(barrier.oldLayout);
         const auto dstInfo = accessInfoForState(ResourceState::Present);
@@ -820,7 +843,7 @@ void VKCommandList::doEndRenderPass() {
         if (barrier.oldLayout != barrier.newLayout) {
             cmd_buffer_.pipelineBarrier(srcInfo.stages, dstInfo.stages, {}, nullptr, nullptr, barrier);
         }
-        presentTexture->setCurrentLayout(vk::ImageLayout::ePresentSrcKHR);
+        setTextureLayout(presentTexture, vk::ImageLayout::ePresentSrcKHR);
 
         swapchain_color_texture_ = nullptr;
     }

@@ -294,7 +294,9 @@ core::Result<std::unique_ptr<BindGroup>> GLDevice::createBindGroup(const BindGro
     if (!validationError.empty())
         return std::unexpected(makeError(EngineErrorCode::ResourceCreateFailed, validationError));
     try {
-        auto bind_group = std::make_unique<GLBindGroup>(layout, desc);
+        auto bind_group = std::make_unique<GLBindGroup>(
+                layout, desc,
+                BindGroupValidationLimits{ caps_.minUniformBufferOffsetAlignment, caps_.maxUniformBufferBindingSize });
         bind_group->trackResource(*this, RHIResourceKind::BindGroup, "OpenGLBindGroup");
         return std::unique_ptr<BindGroup>(std::move(bind_group));
     } catch (const std::exception& e) {

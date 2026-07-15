@@ -14,12 +14,14 @@
 #include <expected>
 #include <array>
 #include <memory>
+#include <unordered_map>
 
 namespace mulan::engine {
 
 class DX12Texture;  // forward declaration
 class DX12BindGroup;
 class DX12TransientUniformArena;
+class DX12DescriptorAllocator;
 
 class DX12CommandList final : public CommandList {
 public:
@@ -33,6 +35,7 @@ public:
 
     core::Result<void> doBegin() override;
     core::Result<void> doEnd() override;
+    void doMarkSubmitted() override;
 
     void doSetPipelineState(PipelineState* pso) override;
     void doSetComputePipelineState(ComputePipelineState* pso) override;
@@ -66,6 +69,7 @@ public:
     void doEndRenderPass() override;
 
     ID3D12GraphicsCommandList* commandList() const { return cmd_list_.Get(); }
+    ID3D12DescriptorHeap* descriptorHeap() const { return desc_heap_; }
 
     /// 设置内部命令列表（帧循环中使用外部 cmd list）
     void setCommandList(ID3D12GraphicsCommandList* cmdList);
@@ -80,6 +84,10 @@ public:
                            D3D12_GPU_DESCRIPTOR_HANDLE gpuBase, uint32_t descriptorSize,
                            ID3D12DescriptorHeap* samplerHeap = nullptr, uint32_t descriptorCapacity = 0);
 
+    /// 为独立命令列表安装私有描述符 arena，生命周期与命令列表一致。
+    void setOwnedDescriptorArena(std::unique_ptr<DX12DescriptorAllocator> arena,
+                                 ID3D12DescriptorHeap* samplerHeap = nullptr);
+
     // 注入当前帧的 frame token（由 DX12Device::frameCommandList 设置）。
     // bindGroup 据此判断 BindGroup 缓存的 GPU descriptor handle 是否跨帧失效。
     void setFrameToken(uint64_t token) { frame_token_ = token; }
@@ -90,6 +98,8 @@ private:
     DX12CommandList(ID3D12Device* device, ID3D12CommandAllocator* allocator);
     void bindDescriptorHeaps();
     void bindStaticGroup(DX12BindGroup& group);
+    D3D12_RESOURCE_STATES textureState(DX12Texture* texture) const;
+    void setTextureState(DX12Texture* texture, D3D12_RESOURCE_STATES state);
 
     ComPtr<ID3D12CommandAllocator> allocator_;
     ComPtr<ID3D12GraphicsCommandList> cmd_list_;
@@ -100,6 +110,7 @@ private:
     uint8_t rp_color_count_ = 0;
     std::array<DX12Texture*, RenderPassBeginInfo::kMaxColorTargets> rp_color_textures_{};
     std::array<DX12Texture*, RenderPassBeginInfo::kMaxColorTargets> rp_resolve_textures_{};
+    std::unordered_map<DX12Texture*, D3D12_RESOURCE_STATES> pending_texture_states_;
 
     // 纹理绑定用：当前帧的描述符堆
     ID3D12DescriptorHeap* desc_heap_ = nullptr;
@@ -115,6 +126,7 @@ private:
     ID3D12CommandSignature* draw_indirect_sig_ = nullptr;
     std::unique_ptr<DX12TransientUniformArena> owned_transient_uniform_arena_;
     DX12TransientUniformArena* transient_uniform_arena_ = nullptr;
+    std::unique_ptr<DX12DescriptorAllocator> owned_descriptor_arena_;
 };
 
 }  // namespace mulan::engine
