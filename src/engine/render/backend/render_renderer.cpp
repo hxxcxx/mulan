@@ -58,10 +58,9 @@ bool RenderRenderer::init(RHIDevice& device, DeviceResourceService& resources, L
         view_cube_stage_.reset();
     }
 
-    text_stage_ = std::make_unique<TextStage>(device);
-    if (!text_stage_->init(device, targetInfo)) {
+    text_stage_ = resources.acquireTextStage(targetInfo);
+    if (!text_stage_) {
         LOG_WARN("[RenderRenderer] Text stage initialization failed; continuing without it");
-        text_stage_.reset();
     }
 
     initialized_ = true;
@@ -77,10 +76,11 @@ void RenderRenderer::shutdown(RHIDevice& device) {
     // 否则这些资源会在 device 析构时触发 assertNoLiveResources 断言。
     clearCompiledCommands();
 
-    auto releaseResources = [textStage = std::move(text_stage_), viewCubeStage = std::move(view_cube_stage_),
-                             highlightStage = std::move(highlight_stage_), edgeStage = std::move(edge_stage_),
-                             faceStage = std::move(face_stage_), ibl = std::move(ibl_)]() mutable {
-        textStage.reset();
+    // TextStage 属于 DeviceResourceService，不随单个 Surface/Renderer 退役。
+    text_stage_ = nullptr;
+    auto releaseResources = [viewCubeStage = std::move(view_cube_stage_), highlightStage = std::move(highlight_stage_),
+                             edgeStage = std::move(edge_stage_), faceStage = std::move(face_stage_),
+                             ibl = std::move(ibl_)]() mutable {
         viewCubeStage.reset();
         highlightStage.reset();
         edgeStage.reset();

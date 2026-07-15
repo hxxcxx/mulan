@@ -24,6 +24,8 @@ namespace mulan::engine {
 class GeometryDrawSharedResources;
 class MaterialCache;
 class RHIDevice;
+class TextStage;
+struct RenderTargetInfo;
 
 using DeviceResourceClientId = uint64_t;
 
@@ -33,6 +35,7 @@ struct DeviceResourceStats {
     size_t geometryCount = 0;
     size_t textureCount = 0;
     size_t pipelineCount = 0;
+    size_t textStageCount = 0;
 };
 
 class DeviceResourceService {
@@ -52,10 +55,26 @@ public:
     MaterialCache& materials() { return *material_cache_; }
     GeometryDrawSharedResources& geometryDrawResources() { return *geometry_resources_; }
     DevicePipelineLibrary& pipelines() { return pipeline_library_; }
+    /// TextStage 的字体图集、文本管线和动态缓冲均属于 Device 级串行执行资源。
+    /// 相同目标签名的 Renderer 只借用同一实例，不再按视图重复创建。
+    TextStage* acquireTextStage(const RenderTargetInfo& target);
     DeviceResourceStats stats() const;
 
 private:
     using ClientSet = std::unordered_set<DeviceResourceClientId>;
+
+    struct TextStageKey {
+        TextureFormat colorFormat = TextureFormat::Unknown;
+        TextureFormat depthFormat = TextureFormat::Unknown;
+        uint32_t sampleCount = 1;
+        bool hasDepth = true;
+
+        bool operator==(const TextStageKey&) const = default;
+    };
+
+    struct TextStageKeyHash {
+        size_t operator()(const TextStageKey& key) const noexcept;
+    };
 
     bool validClient(DeviceResourceClientId client) const;
     void rebuildDomainReferences();
@@ -65,6 +84,7 @@ private:
     DevicePipelineLibrary pipeline_library_;
     std::unique_ptr<MaterialCache> material_cache_;
     std::unique_ptr<GeometryDrawSharedResources> geometry_resources_;
+    std::unordered_map<TextStageKey, std::unique_ptr<TextStage>, TextStageKeyHash> text_stages_;
     std::unordered_set<DeviceResourceClientId> clients_;
     std::unordered_map<RenderResourceKey, ClientSet> geometry_owners_;
     std::unordered_map<RenderTextureResourceKey, ClientSet, RenderTextureResourceKeyHash> texture_owners_;

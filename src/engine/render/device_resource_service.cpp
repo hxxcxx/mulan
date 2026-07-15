@@ -8,7 +8,9 @@
 #include "device_resource_service.h"
 
 #include "draw/geometry_draw_shared_resources.h"
+#include "frame/render_target_info.h"
 #include "material/material_cache.h"
+#include "text/text_stage.h"
 #include "../rhi/device.h"
 
 #include <mulan/core/log/log.h>
@@ -38,6 +40,42 @@ bool DeviceResourceService::init() {
     geometry_resources_ = std::make_unique<GeometryDrawSharedResources>(device_, *material_cache_);
     initialized_ = geometry_resources_->init();
     return initialized_;
+}
+
+size_t DeviceResourceService::TextStageKeyHash::operator()(const TextStageKey& key) const noexcept {
+    size_t value = std::hash<uint16_t>{}(static_cast<uint16_t>(key.colorFormat));
+    const auto combine = [&value](size_t part) {
+        value ^= part + 0x9e3779b97f4a7c15ull + (value << 6u) + (value >> 2u);
+    };
+    combine(std::hash<uint16_t>{}(static_cast<uint16_t>(key.depthFormat)));
+    combine(std::hash<uint32_t>{}(key.sampleCount));
+    combine(std::hash<bool>{}(key.hasDepth));
+    return value;
+}
+
+TextStage* DeviceResourceService::acquireTextStage(const RenderTargetInfo& target) {
+    if (!initialized_ || target.colorFormat == TextureFormat::Unknown || target.sampleCount == 0) {
+        return nullptr;
+    }
+
+    const TextStageKey key{
+        .colorFormat = target.colorFormat,
+        .depthFormat = target.hasDepth ? target.depthFormat : TextureFormat::Unknown,
+        .sampleCount = target.sampleCount,
+        .hasDepth = target.hasDepth,
+    };
+    if (const auto known = text_stages_.find(key); known != text_stages_.end()) {
+        return known->second.get();
+    }
+
+    auto stage = std::make_unique<TextStage>(device_);
+    if (auto initialized = stage->init(device_, target); !initialized) {
+        LOG_WARN("[DeviceResourceService] Shared TextStage initialization failed: {}", initialized.error().message);
+        return nullptr;
+    }
+    TextStage* result = stage.get();
+    text_stages_.emplace(key, std::move(stage));
+    return result;
 }
 
 DeviceResourceClientId DeviceResourceService::registerClient() {
@@ -189,6 +227,7 @@ DeviceResourceStats DeviceResourceService::stats() const {
         .geometryCount = asset_registry_.geometryCount(),
         .textureCount = asset_registry_.textureCount(),
         .pipelineCount = pipeline_library_.size(),
+        .textStageCount = text_stages_.size(),
     };
 }
 

@@ -7,6 +7,7 @@
 
 #include <mulan/render/asset_gpu_registry.h>
 #include <mulan/render/device_resource_service.h>
+#include <mulan/render/frame/render_target_info.h>
 #include <mulan/rhi/device.h>
 
 #include <gtest/gtest.h>
@@ -350,6 +351,29 @@ TEST(DeviceResourceServiceTests, PipelineLibraryUsesTheCompleteTargetSignature) 
     EXPECT_NE(depthless, multisampled);
     EXPECT_EQ(device.pipelineCreateCount(), 3u);
     EXPECT_EQ(resources.stats().pipelineCount, 3u);
+}
+
+TEST(DeviceResourceServiceTests, TextStageIsSharedByCompleteTargetSignature) {
+    RegistryTestDevice device;
+    DeviceResourceService resources(device);
+    ASSERT_TRUE(resources.init());
+
+    RenderTargetInfo target;
+    target.colorFormat = TextureFormat::BGRA8_UNorm;
+    target.depthFormat = TextureFormat::D24_UNorm_S8_UInt;
+    target.hasDepth = true;
+    target.sampleCount = 1;
+
+    TextStage* first = resources.acquireTextStage(target);
+    ASSERT_NE(first, nullptr);
+    EXPECT_EQ(resources.acquireTextStage(target), first);
+    EXPECT_EQ(resources.stats().textStageCount, 1u);
+
+    target.sampleCount = 4;
+    TextStage* multisampled = resources.acquireTextStage(target);
+    ASSERT_NE(multisampled, nullptr);
+    EXPECT_NE(multisampled, first);
+    EXPECT_EQ(resources.stats().textStageCount, 2u);
 }
 
 }  // namespace
