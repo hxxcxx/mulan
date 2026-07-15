@@ -18,6 +18,7 @@
 #include <array>
 #include <expected>
 #include <memory>
+#include <vector>
 
 namespace mulan::engine {
 
@@ -63,6 +64,11 @@ public:
     // --- Vulkan 特有 ---
     uint32_t currentImageIndex() const { return current_image_index_; }
     uint32_t imageCount() const { return static_cast<uint32_t>(swapchain_images_.size()); }
+    vk::Semaphore currentRenderFinishedSemaphore() const {
+        return current_image_index_ < render_finished_semaphores_.size()
+                       ? render_finished_semaphores_[current_image_index_]
+                       : vk::Semaphore{};
+    }
     vk::Extent2D extent() const { return swapchain_extent_; }
 
 private:
@@ -82,6 +88,9 @@ private:
     vk::SwapchainKHR swapchain_;
     std::vector<vk::Image> swapchain_images_;
     std::vector<vk::ImageView> image_views_;
+    // 呈现完成信号量按 SwapChain image 隔离。image index 只在当前 SwapChain 内有意义，
+    // 不能放入 Device 全局数组，否则多窗口会把不同交换链的同号 image 映射到同一信号量。
+    std::vector<vk::Semaphore> render_finished_semaphores_;
     vk::Format swapchain_format_;
     vk::Extent2D swapchain_extent_;
 

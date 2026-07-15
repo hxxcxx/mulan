@@ -192,6 +192,9 @@ Error VKSwapChain::createSwapChain() {
         swapchain_ = params_.device.createSwapchainKHR(ci);
 
         swapchain_images_ = params_.device.getSwapchainImagesKHR(swapchain_);
+        render_finished_semaphores_.reserve(swapchain_images_.size());
+        for (size_t i = 0; i < swapchain_images_.size(); ++i)
+            render_finished_semaphores_.push_back(params_.device.createSemaphore({}));
         swapchain_format_ = surfaceFormat.format;
         swapchain_extent_ = extent;
         desc_.format = fromVkFormat(swapchain_format_);
@@ -245,6 +248,12 @@ Error VKSwapChain::createSwapChain() {
 }
 
 void VKSwapChain::cleanup() {
+    for (vk::Semaphore semaphore : render_finished_semaphores_) {
+        if (semaphore)
+            params_.device.destroySemaphore(semaphore);
+    }
+    render_finished_semaphores_.clear();
+
     for (auto& iv : image_views_)
         params_.device.destroyImageView(iv);
     image_views_.clear();

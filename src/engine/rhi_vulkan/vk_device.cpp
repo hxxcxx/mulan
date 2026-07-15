@@ -96,9 +96,6 @@ Result<std::unique_ptr<SwapChain>> VKDevice::createSwapChain(const SwapChainDesc
         instance_.destroySurfaceKHR(surface);
         return std::unexpected(result.error());
     }
-    auto& swapchain = *result;
-
-    frame_scheduler_->ensureSwapchainImageSync(swapchain->imageCount());
     (*result)->trackResource(*this, RHIResourceKind::SwapChain, "SwapChain");
     return result;
 }
@@ -134,7 +131,6 @@ ResultVoid VKDevice::flushUploadBatch() {
 Result<std::unique_ptr<RenderTarget>> VKDevice::createRenderTarget(const RenderTargetDesc& desc) {
     if (auto validation = validateRenderTargetDesc(desc, caps_); !validation)
         return std::unexpected(validation.error());
-    frame_scheduler_->ensureSwapchainImageSync(1);
     return resource_factory_->createRenderTarget(desc);
 }
 

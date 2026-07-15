@@ -17,12 +17,7 @@ VKFrameScheduler::VKFrameScheduler(vk::Device device, vk::Queue graphicsQueue, u
       max_uniform_size_(maxUniformSize) {
 }
 
-VKFrameScheduler::~VKFrameScheduler() {
-    for (vk::Semaphore semaphore : render_finished_semaphores_) {
-        if (semaphore)
-            device_.destroySemaphore(semaphore);
-    }
-}
+VKFrameScheduler::~VKFrameScheduler() = default;
 
 void VKFrameScheduler::initFrameContexts(uint32_t count) {
     frame_contexts_.clear();
@@ -41,15 +36,6 @@ void VKFrameScheduler::initFrameContexts(uint32_t count) {
     frame_cmd_list_ = std::make_unique<VKCommandList>(device_, currentFrameContext().cmdBuffer(),
                                                       descriptor_allocators_[current_frame_].get(),
                                                       currentFrameContext().transientUniformArena());
-}
-
-void VKFrameScheduler::ensureSwapchainImageSync(uint32_t imageCount) {
-    for (uint32_t i = static_cast<uint32_t>(render_finished_semaphores_.size()); i < imageCount; ++i) {
-        render_finished_semaphores_.push_back(device_.createSemaphore({}));
-    }
-    if (frame_contexts_.empty()) {
-        initFrameContexts(frame_count_);
-    }
 }
 
 Result<std::unique_ptr<CommandList>> VKFrameScheduler::createStandaloneCommandList() {
@@ -82,7 +68,11 @@ ResultVoid VKFrameScheduler::beginFrame(SwapChain* swapchain) {
             return std::unexpected(
                     makeError(EngineErrorCode::PresentationFailed, "Vulkan swapchain image acquisition failed"));
         }
-        acquired_image_index_ = sc->currentImageIndex();
+        pending_render_finished_ = sc->currentRenderFinishedSemaphore();
+        if (!pending_render_finished_) {
+            return std::unexpected(makeError(EngineErrorCode::PresentationFailed,
+                                             "Vulkan swapchain presentation semaphore is unavailable"));
+        }
     }
     frame_ready_ = true;
     return {};
@@ -108,8 +98,6 @@ bool VKFrameScheduler::submit(vk::Semaphore completionSemaphore, uint64_t comple
         return false;
     }
     auto& frame = currentFrameContext();
-    pending_render_finished_ = render_finished_semaphores_[acquired_image_index_];
-
     vk::SubmitInfo submitInfo;
     submitInfo.commandBufferCount = 1;
     vk::CommandBuffer cmdBuf = frame_cmd_list_->cmdBuffer();

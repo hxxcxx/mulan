@@ -27,7 +27,6 @@ public:
     VKFrameScheduler& operator=(const VKFrameScheduler&) = delete;
 
     void initFrameContexts(uint32_t count);
-    void ensureSwapchainImageSync(uint32_t imageCount);
 
     Result<std::unique_ptr<CommandList>> createStandaloneCommandList();
 
@@ -58,8 +57,7 @@ private:
     uint32_t current_frame_ = 0;
     uint64_t frame_token_ = 0;
 
-    std::vector<vk::Semaphore> render_finished_semaphores_;
-    uint32_t acquired_image_index_ = 0;
+    // 仅借用当前 SwapChain image 所有的呈现完成信号量，不参与其生命周期管理。
     vk::Semaphore pending_render_finished_ = nullptr;
     bool frame_ready_ = false;
     bool submitted_ = false;

@@ -127,6 +127,63 @@ protected:
     }
 };
 
+#if MULAN_TEST_HAS_RHI_VULKAN && defined(_WIN32)
+TEST(VulkanBackendContractTest, OneDeviceAlternatesTwoIndependentSwapChains) {
+    ContractWindow firstWindow;
+    ContractWindow secondWindow;
+    ASSERT_TRUE(firstWindow.valid());
+    ASSERT_TRUE(secondWindow.valid());
+
+    DeviceCreateInfo createInfo;
+    createInfo.backend = GraphicsBackend::Vulkan;
+    createInfo.enableValidation = true;
+    createInfo.renderConfig.msaa = RenderConfig::MSAALevel::None;
+    auto deviceResult = vulkanBackendModule().createDevice(createInfo);
+    ASSERT_TRUE(deviceResult) << deviceResult.error().message;
+    auto device = std::move(*deviceResult);
+
+    auto createSwapChain = [&device](const ContractWindow& window) {
+        SwapChainDesc desc;
+        desc.window = window.nativeHandle();
+        desc.width = 64;
+        desc.height = 64;
+        desc.bufferCount = 2;
+        desc.sampleCount = 1;
+        desc.vsync = false;
+        return device->createSwapChain(desc);
+    };
+
+    auto firstResult = createSwapChain(firstWindow);
+    auto secondResult = createSwapChain(secondWindow);
+    ASSERT_TRUE(firstResult) << firstResult.error().message;
+    ASSERT_TRUE(secondResult) << secondResult.error().message;
+    auto first = std::move(*firstResult);
+    auto second = std::move(*secondResult);
+
+    auto render = [&device](SwapChain& swapchain) {
+        auto commandResult = device->beginFrame(&swapchain);
+        ASSERT_TRUE(commandResult) << commandResult.error().message;
+        CommandList* command = *commandResult;
+        command->beginRenderPass(swapchain.renderPassBeginInfo());
+        ASSERT_EQ(command->state(), CommandList::State::Recording)
+                << (command->recordingError() ? command->recordingError()->message : "unknown recording error");
+        command->endRenderPass();
+        auto submission = device->endFrame(&swapchain);
+        ASSERT_TRUE(submission) << submission.error().message;
+    };
+
+    for (int frame = 0; frame < 8; ++frame) {
+        render(*first);
+        render(*second);
+    }
+
+    ASSERT_TRUE(device->waitIdle());
+    first.reset();
+    second.reset();
+    ASSERT_TRUE(device->waitIdle());
+}
+#endif
+
 TEST_P(BackendContractTest, CreatesTrackedResourcesAndSubmitsExecutableCommandLists) {
     ContractWindow window;
     ASSERT_TRUE(window.valid());
