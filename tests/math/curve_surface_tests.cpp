@@ -338,6 +338,17 @@ TEST(BSplineCurveTest, DomainAndEndpoints) {
     EXPECT_NEAR(c.evaluate(1.0).y, 2.0, 1e-12);
 }
 
+TEST(BSplineCurveTest, RejectsInvalidStructureInAllBuildTypes) {
+    BSplineCurve2d::PointList cp = { Point2(0, 0), Point2(1, 1), Point2(2, 0) };
+    EXPECT_THROW((BSplineCurve2d(0, cp)), std::invalid_argument);
+    EXPECT_THROW((BSplineCurve2d(3, cp)), std::invalid_argument);
+    EXPECT_THROW((BSplineCurve2d(2, cp, { 0, 0, 0, 1, 1 })), std::invalid_argument);
+    EXPECT_THROW((BSplineCurve2d(2, cp, { 0, 0, 0, 0.8, 0.2, 1 })), std::invalid_argument);
+
+    BSplineCurve2d curve(2, cp);
+    EXPECT_THROW(curve.insertKnot(0.5, 3), std::invalid_argument);
+}
+
 TEST(BSplineCurveTest, EquivalenceWithBezier) {
     // 4 控制点 3 次，节点 {0,0,0,0,1,1,1,1}
     BSplineCurve2d::PointList bezCp = { Point2(0, 0), Point2(1, 2), Point2(3, 2), Point2(4, 0) };

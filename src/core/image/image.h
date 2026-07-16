@@ -168,8 +168,10 @@ public:
     const float* data() const { return pixels_.data(); }
     size_t totalBytes() const { return pixels_.size() * sizeof(float); }
 
-    static std::shared_ptr<FloatImage> loadHDR(std::string_view path, int forceChannels = 4);
-    static Result<std::shared_ptr<FloatImage>> loadHDRExpected(std::string_view path, int forceChannels = 4);
+    static std::shared_ptr<FloatImage> loadHDR(std::string_view path, int forceChannels = 4,
+                                               const ImageDecodeOptions& options = {});
+    static Result<std::shared_ptr<FloatImage>> loadHDRExpected(std::string_view path, int forceChannels = 4,
+                                                               const ImageDecodeOptions& options = {});
 
 private:
     uint32_t width_ = 0;

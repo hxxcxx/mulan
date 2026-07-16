@@ -247,23 +247,45 @@ bool FloatImage::valid() const {
            pixels_.size() == static_cast<size_t>(width_) * height_ * channels_;
 }
 
-std::shared_ptr<FloatImage> FloatImage::loadHDR(std::string_view path, int forceChannels) {
-    auto result = loadHDRExpected(path, forceChannels);
+std::shared_ptr<FloatImage> FloatImage::loadHDR(std::string_view path, int forceChannels,
+                                                const ImageDecodeOptions& options) {
+    auto result = loadHDRExpected(path, forceChannels, options);
     return result ? *result : nullptr;
 }
 
-Result<std::shared_ptr<FloatImage>> FloatImage::loadHDRExpected(std::string_view path, int forceChannels) {
+Result<std::shared_ptr<FloatImage>> FloatImage::loadHDRExpected(std::string_view path, int forceChannels,
+                                                                const ImageDecodeOptions& options) {
     std::string p(path);
     int w = 0, h = 0, ch = 0;
+    if (forceChannels < 0 || forceChannels > 4 || stbi_info(p.c_str(), &w, &h, &ch) == 0) {
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Failed to inspect HDR image."));
+    }
+    const int inspectedChannels = forceChannels > 0 ? forceChannels : ch;
+    const bool dimensionsValid = w > 0 && h > 0 && inspectedChannels > 0 &&
+                                 static_cast<uint32_t>(w) <= options.maxWidth &&
+                                 static_cast<uint32_t>(h) <= options.maxHeight;
+    const uint64_t inspectedBytes = dimensionsValid ? static_cast<uint64_t>(w) * static_cast<uint64_t>(h) *
+                                                              static_cast<uint64_t>(inspectedChannels) * sizeof(float)
+                                                    : 0;
+    if (!dimensionsValid || inspectedBytes > options.maxDecodedBytes ||
+        inspectedBytes > std::numeric_limits<size_t>::max()) {
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Decoded HDR image exceeds configured limits."));
+    }
+
     float* raw = stbi_loadf(p.c_str(), &w, &h, &ch, forceChannels);
     if (!raw) {
         return std::unexpected(Error::make(ErrorCode::Io, "Failed to load HDR image."));
     }
 
     const int outCh = (forceChannels > 0) ? forceChannels : ch;
-    if (w <= 0 || h <= 0 || outCh <= 0) {
+    const uint64_t decodedBytes = w > 0 && h > 0 && outCh > 0 ? static_cast<uint64_t>(w) * static_cast<uint64_t>(h) *
+                                                                        static_cast<uint64_t>(outCh) * sizeof(float)
+                                                              : 0;
+    if (w <= 0 || h <= 0 || outCh <= 0 || static_cast<uint32_t>(w) > options.maxWidth ||
+        static_cast<uint32_t>(h) > options.maxHeight || decodedBytes > options.maxDecodedBytes ||
+        decodedBytes > std::numeric_limits<size_t>::max()) {
         stbi_image_free(raw);
-        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Loaded HDR image has invalid dimensions."));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Decoded HDR image exceeds configured limits."));
     }
     const size_t total = static_cast<size_t>(w) * h * outCh;
     std::vector<float> pixels(raw, raw + total);

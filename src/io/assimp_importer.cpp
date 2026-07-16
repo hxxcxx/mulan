@@ -1,10 +1,13 @@
 #include "assimp_importer.h"
 #include "import_builder.h"  // buildStandardMesh / StandardMeshSource
+#include "import_path_utils.h"
 #include "parsed_scene.h"
 
 #include <mulan/core/result/error.h>
 
 #include <assimp/Importer.hpp>
+#include <assimp/DefaultIOSystem.h>
+#include <assimp/IOStream.hpp>
 #include <assimp/GltfMaterial.h>
 #include <assimp/material.h>
 #include <assimp/postprocess.h>
@@ -18,6 +21,55 @@
 
 namespace mulan::io {
 namespace {
+
+class SandboxedAssimpIOSystem final : public Assimp::IOSystem {
+public:
+    SandboxedAssimpIOSystem(std::filesystem::path baseDirectory, uint64_t maxFileBytes)
+        : base_directory_(std::move(baseDirectory)), max_file_bytes_(maxFileBytes) {}
+
+    bool Exists(const char* file) const override {
+        const auto resolved = resolve(file);
+        return resolved && detail::importFileWithinLimit(*resolved, max_file_bytes_) &&
+               delegate_.Exists(resolved->string().c_str());
+    }
+
+    char getOsSeparator() const override { return delegate_.getOsSeparator(); }
+
+    Assimp::IOStream* Open(const char* file, const char* mode = "rb") override {
+        const auto resolved = resolve(file);
+        if (!resolved || !detail::importFileWithinLimit(*resolved, max_file_bytes_))
+            return nullptr;
+        return delegate_.Open(resolved->string().c_str(), mode);
+    }
+
+    void Close(Assimp::IOStream* file) override { delegate_.Close(file); }
+
+    bool ComparePaths(const char* one, const char* two) const override {
+        const auto first = resolve(one);
+        const auto second = resolve(two);
+        return first && second && delegate_.ComparePaths(first->string().c_str(), second->string().c_str());
+    }
+
+private:
+    std::optional<std::filesystem::path> resolve(const char* file) const {
+        if (!file || *file == '\0')
+            return std::nullopt;
+        std::filesystem::path requested(file);
+        if (requested.is_absolute()) {
+            std::error_code ec;
+            const auto relative = std::filesystem::weakly_canonical(requested, ec)
+                                          .lexically_relative(std::filesystem::weakly_canonical(base_directory_, ec));
+            if (ec)
+                return std::nullopt;
+            return detail::resolveContainedImportPath(base_directory_, relative);
+        }
+        return detail::resolveContainedImportPath(base_directory_, requested);
+    }
+
+    std::filesystem::path base_directory_;
+    uint64_t max_file_bytes_;
+    mutable Assimp::DefaultIOSystem delegate_;
+};
 
 constexpr std::array<const char*, 14> kSupportedExtensions = { "obj", "fbx",   "dae", "3ds", "ply", "stl", "gltf",
                                                                "glb", "blend", "x",   "ase", "lwo", "off", "dxf" };
@@ -116,7 +168,10 @@ size_t importTexture(const aiScene& scene, aiMaterial& material, aiTextureType t
             desc.mimeType = std::string("image/") + embedded.achFormatHint;
     } else {
         desc.name = texturePath.filename().string();
-        desc.sourcePath = texturePath.is_relative() ? (baseDirectory / texturePath).string() : texturePath.string();
+        const auto resolved = detail::resolveContainedImportPath(baseDirectory, texturePath);
+        if (!resolved)
+            return SIZE_MAX;
+        desc.sourcePath = resolved->string();
     }
 
     size_t idx = parsed.textures.size();
@@ -315,20 +370,25 @@ Result<ParsedScene> AssimpImporter::parse(const std::string& path, const ImportO
     ParsedScene scene;
     scene.unitScale = options.unitScale > 0.0 ? options.unitScale : 1.0;
 
+    std::error_code pathError;
+    const std::filesystem::path sourcePath = std::filesystem::weakly_canonical(path, pathError);
+    if (pathError)
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Invalid model path: " + path));
     Assimp::Importer importer;
+    const std::filesystem::path baseDirectory = sourcePath.parent_path();
+    importer.SetIOHandler(new SandboxedAssimpIOSystem(baseDirectory, options.maxExternalFileBytes));
     const unsigned int flags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices |
                                aiProcess_ImproveCacheLocality | aiProcess_RemoveRedundantMaterials |
                                aiProcess_FindInvalidData | aiProcess_GenUVCoords | aiProcess_TransformUVCoords |
                                aiProcess_SortByPType |
                                (options.generateMissingNormals ? aiProcess_GenSmoothNormals : 0u);
 
-    const aiScene* aiScene = importer.ReadFile(path, flags);
+    const aiScene* aiScene = importer.ReadFile(sourcePath.string(), flags);
     if (!aiScene || !aiScene->mRootNode) {
         return std::unexpected(
                 Error::make(ErrorCode::Io, std::string("Assimp failed to import model: ") + importer.GetErrorString()));
     }
 
-    const std::filesystem::path baseDirectory = std::filesystem::path(path).parent_path();
     auto materials = importMaterials(*aiScene, scene, baseDirectory, options);
     auto meshes = importMeshAssets(*aiScene, scene, materials);
 

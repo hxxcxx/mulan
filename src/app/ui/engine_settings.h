@@ -11,6 +11,7 @@
 #include <QColor>
 #include <QSettings>
 #include <QString>
+#include <mutex>
 
 class EngineSettings {
 public:
@@ -54,9 +55,11 @@ private:
     EngineSettings(const EngineSettings&) = delete;
     EngineSettings& operator=(const EngineSettings&) = delete;
 
-    void save();
+    /// 调用方必须持有 mutex_。
+    void saveLocked();
     void load();
 
+    mutable std::mutex mutex_;
     QSettings qsettings_{ "mulan", "Engine" };
 
     mulan::engine::GraphicsBackend backend_ = mulan::engine::GraphicsBackend::Vulkan;

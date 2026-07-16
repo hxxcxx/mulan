@@ -30,6 +30,7 @@ EngineSettings::EngineSettings() {
 // --- 后端 ---
 
 GraphicsBackend EngineSettings::backend() const {
+    std::scoped_lock lock(mutex_);
     const auto& factory = DeviceFactory::instance();
     if (!factory.find(backend_) && !factory.modules().empty())
         return factory.modules().front().backend;
@@ -37,76 +38,88 @@ GraphicsBackend EngineSettings::backend() const {
 }
 
 void EngineSettings::setBackend(GraphicsBackend b) {
+    std::scoped_lock lock(mutex_);
     if (backend_ != b) {
         LOG_INFO("[AppConfig] Rendering backend changed: {} -> {}", backendName(backend_), backendName(b));
         backend_ = b;
-        save();
+        saveLocked();
     }
 }
 
 // --- 抗锯齿 ---
 
 RenderConfig::MSAALevel EngineSettings::msaa() const {
+    std::scoped_lock lock(mutex_);
     return msaa_;
 }
 
 void EngineSettings::setMsaa(RenderConfig::MSAALevel level) {
+    std::scoped_lock lock(mutex_);
     if (msaa_ != level) {
         msaa_ = level;
-        save();
+        saveLocked();
     }
 }
 
 // --- VSync ---
 
 bool EngineSettings::vsync() const {
+    std::scoped_lock lock(mutex_);
     return vsync_;
 }
 
 void EngineSettings::setVsync(bool v) {
+    std::scoped_lock lock(mutex_);
     if (vsync_ != v) {
         vsync_ = v;
-        save();
+        saveLocked();
     }
 }
 
 // --- 背景色 ---
 
 QColor EngineSettings::backgroundColor() const {
+    std::scoped_lock lock(mutex_);
     return bgcolor_;
 }
 void EngineSettings::setBackgroundColor(const QColor& color) {
+    std::scoped_lock lock(mutex_);
     if (bgcolor_ != color) {
         bgcolor_ = color;
-        save();
+        saveLocked();
     }
 }
 
 // --- IBL 开关 / HDR 路径 ---
 
 bool EngineSettings::iblEnabled() const {
+    std::scoped_lock lock(mutex_);
     return ibl_enabled_;
 }
 void EngineSettings::setIblEnabled(bool enabled) {
+    std::scoped_lock lock(mutex_);
     if (ibl_enabled_ != enabled) {
         ibl_enabled_ = enabled;
-        save();
+        saveLocked();
     }
 }
 
 QString EngineSettings::hdrPath() const {
+    std::scoped_lock lock(mutex_);
     return hdr_path_;
 }
 void EngineSettings::setHdrPath(const QString& path) {
+    std::scoped_lock lock(mutex_);
     if (hdr_path_ != path) {
         hdr_path_ = path;
-        save();
+        saveLocked();
     }
 }
 
 // --- 批量应用 / 读取 ---
 
 void EngineSettings::applyTo(mulan::view::ViewConfig& cfg) const {
+    std::scoped_lock lock(mutex_);
     cfg.backend = backend_;
     cfg.msaa = msaa_;
     cfg.vsync = vsync_;
@@ -119,13 +132,14 @@ void EngineSettings::applyTo(mulan::view::ViewConfig& cfg) const {
 }
 
 void EngineSettings::loadFrom(const mulan::view::ViewConfig& cfg) {
+    std::scoped_lock lock(mutex_);
     backend_ = cfg.backend;
     msaa_ = cfg.msaa;
     vsync_ = cfg.vsync;
     bgcolor_ = QColor::fromRgbF(cfg.clearColor[0], cfg.clearColor[1], cfg.clearColor[2], cfg.clearColor[3]);
     ibl_enabled_ = cfg.iblEnabled;
     hdr_path_ = QString::fromStdString(cfg.hdrPath);
-    save();
+    saveLocked();
 }
 
 // --- 持久化 ---
@@ -156,7 +170,7 @@ static RenderConfig::MSAALevel intToMsaa(int v) {
     }
 }
 
-void EngineSettings::save() {
+void EngineSettings::saveLocked() {
     qsettings_.setValue("backend", backendToInt(backend_));
     qsettings_.setValue("msaa", msaaToInt(msaa_));
     qsettings_.setValue("vsync", vsync_);

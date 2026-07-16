@@ -13,6 +13,9 @@
 #include <QPalette>
 #include <QPushButton>
 
+#include <algorithm>
+#include <vector>
+
 using namespace mulan::engine;
 
 EngineSettingsDialog::EngineSettingsDialog(QWidget* parent) : QDialog(parent) {
@@ -23,7 +26,12 @@ EngineSettingsDialog::EngineSettingsDialog(QWidget* parent) : QDialog(parent) {
 
     // --- 渲染后端 ---
     combo_backend_ = new QComboBox(this);
-    for (const BackendModule& module : DeviceFactory::instance().modules()) {
+    const auto registeredModules = DeviceFactory::instance().modules();
+    std::vector<BackendModule> modules(registeredModules.begin(), registeredModules.end());
+    std::sort(modules.begin(), modules.end(), [](const BackendModule& lhs, const BackendModule& rhs) {
+        return static_cast<int>(lhs.backend) < static_cast<int>(rhs.backend);
+    });
+    for (const BackendModule& module : modules) {
         combo_backend_->addItem(QString::fromUtf8(module.name.data(), static_cast<qsizetype>(module.name.size())),
                                 static_cast<int>(module.backend));
     }
@@ -84,11 +92,17 @@ void EngineSettingsDialog::readSettings() {
 
 void EngineSettingsDialog::onAccept() {
     auto& s = EngineSettings::instance();
-    s.setBackend(static_cast<GraphicsBackend>(combo_backend_->currentData().toInt()));
-    s.setMsaa(static_cast<RenderConfig::MSAALevel>(combo_msaa_->currentData().toInt()));
-    s.setBackgroundColor(background_color_);
-    s.setIblEnabled(check_ibl_->isChecked());
-    s.setHdrPath(edit_hdr_path_->text().trimmed());
+    mulan::view::ViewConfig config;
+    s.applyTo(config);
+    config.backend = static_cast<GraphicsBackend>(combo_backend_->currentData().toInt());
+    config.msaa = static_cast<RenderConfig::MSAALevel>(combo_msaa_->currentData().toInt());
+    config.clearColor[0] = static_cast<float>(background_color_.redF());
+    config.clearColor[1] = static_cast<float>(background_color_.greenF());
+    config.clearColor[2] = static_cast<float>(background_color_.blueF());
+    config.clearColor[3] = static_cast<float>(background_color_.alphaF());
+    config.iblEnabled = check_ibl_->isChecked();
+    config.hdrPath = edit_hdr_path_->text().trimmed().toStdString();
+    s.loadFrom(config);
     accept();
 }
 

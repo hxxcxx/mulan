@@ -21,6 +21,8 @@
 #include <gp_Pnt.hxx>
 
 #include <algorithm>
+#include <cstring>
+#include <vector>
 
 namespace mulan::modeling::detail {
 namespace {
@@ -79,8 +81,7 @@ graphics::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bound
     mesh.indexType = graphics::IndexType::UInt32;
 
     graphics::VertexBufferBuilder vb(mesh.layout, totalVerts);
-    mesh.indices.resize(static_cast<size_t>(totalTris) * 3 * sizeof(uint32_t));
-    auto* idxOut = reinterpret_cast<uint32_t*>(mesh.indices.data());
+    std::vector<uint32_t> indices(static_cast<size_t>(totalTris) * 3);
 
     uint32_t baseVertex = 0;
     uint32_t idxSlot = 0;
@@ -120,9 +121,9 @@ graphics::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bound
         for (int i = 1; i <= nt; ++i) {
             int n1, n2, n3;
             tri->Triangle(i).Get(n1, n2, n3);
-            idxOut[idxSlot++] = baseVertex + static_cast<uint32_t>(n1 - 1);
-            idxOut[idxSlot++] = baseVertex + static_cast<uint32_t>(n2 - 1);
-            idxOut[idxSlot++] = baseVertex + static_cast<uint32_t>(n3 - 1);
+            indices[idxSlot++] = baseVertex + static_cast<uint32_t>(n1 - 1);
+            indices[idxSlot++] = baseVertex + static_cast<uint32_t>(n2 - 1);
+            indices[idxSlot++] = baseVertex + static_cast<uint32_t>(n3 - 1);
         }
 
         baseVertex += static_cast<uint32_t>(nv);
@@ -130,6 +131,8 @@ graphics::Mesh buildFaceMesh(const TopoDS_Shape& shape, const math::AABB3& bound
 
     auto vertBytes = vb.data();
     mesh.vertices.assign(vertBytes.begin(), vertBytes.end());
+    mesh.indices.resize(indices.size() * sizeof(uint32_t));
+    std::memcpy(mesh.indices.data(), indices.data(), mesh.indices.size());
     mesh.computeBounds();
     return mesh;
 }
@@ -161,8 +164,7 @@ graphics::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
     mesh.indexType = graphics::IndexType::UInt32;
 
     graphics::VertexBufferBuilder vb(mesh.layout, totalVerts);
-    mesh.indices.resize(static_cast<size_t>(totalIdx) * sizeof(uint32_t));
-    auto* idxOut = reinterpret_cast<uint32_t*>(mesh.indices.data());
+    std::vector<uint32_t> indices(totalIdx);
 
     uint32_t vi = 0;
     uint32_t idxSlot = 0;
@@ -182,8 +184,8 @@ graphics::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
                 vb.write(vi, graphics::VertexSemantic::TexCoord0, uv);
 
                 if (i > 1) {
-                    idxOut[idxSlot++] = vi - 1;
-                    idxOut[idxSlot++] = vi;
+                    indices[idxSlot++] = vi - 1;
+                    indices[idxSlot++] = vi;
                 }
                 ++vi;
             }
@@ -192,6 +194,8 @@ graphics::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
 
     auto vertBytes = vb.data();
     mesh.vertices.assign(vertBytes.begin(), vertBytes.end());
+    mesh.indices.resize(indices.size() * sizeof(uint32_t));
+    std::memcpy(mesh.indices.data(), indices.data(), mesh.indices.size());
     mesh.computeBounds();
     return mesh;
 }

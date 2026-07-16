@@ -39,6 +39,7 @@ private:
     void loadNodes(const ParsedScene& scene, const ImportOptions& options);
     void loadNode(size_t nodeIndex, const ParsedScene& scene, scene::EntityId parentEntity,
                   const math::Mat4& parentWorld, const math::Mat4& rootUnitScale, const ImportOptions& options,
+                  const std::vector<std::vector<size_t>>& children, std::vector<uint8_t>& visitState, size_t depth,
                   ImportResult& result);
     asset::AssetId textureAssetId(size_t parsedIndex) const;
     asset::AssetId materialAssetId(size_t parsedIndex) const;

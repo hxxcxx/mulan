@@ -35,6 +35,9 @@
 #include "../geom/point.h"
 
 #include <cassert>
+#include <algorithm>
+#include <cmath>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -54,7 +57,7 @@ public:
     BSplineCurveT(int degree, PointList controlPoints)
         : degree_(degree),
           control_points_(std::move(controlPoints)),
-          knots_(clampedKnotVector(degree, static_cast<int>(control_points_.size()))) {
+          knots_(makeClampedKnotVector(degree, control_points_)) {
         validateInvariants();
     }
 
@@ -81,8 +84,10 @@ public:
 
     /// 结构有效性（节点数 = 控制点数 + 次数 + 1）。
     bool isValid() const noexcept {
-        return degree_ >= 1 && !control_points_.empty() &&
-               static_cast<int>(knots_.size()) == controlPointCount() + degree_ + 1;
+        return degree_ >= 1 && controlPointCount() > degree_ &&
+               static_cast<int>(knots_.size()) == controlPointCount() + degree_ + 1 &&
+               std::all_of(knots_.begin(), knots_.end(), [](double knot) { return std::isfinite(knot); }) &&
+               std::is_sorted(knots_.begin(), knots_.end());
     }
 
     // ---------- 求值 ----------
@@ -123,7 +128,8 @@ public:
     /// 一阶导返回切向量；阶数超过次数时返回零向量。
     /// 前置条件：order ≥ 1。
     Vec derivative(double u, int order = 1) const {
-        assert(order >= 1 && "derivative: order must be >= 1");
+        if (order < 1)
+            throw std::invalid_argument("BSplineCurve::derivative: order must be >= 1");
         const auto [umin, umax] = domain();
         u = clampToDomain(u, umin, umax);
 
@@ -161,11 +167,17 @@ public:
     /// 原地修改本曲线，返回新的控制点引用。
     /// 前置条件：multiplicity ≥ 1，u 在定义域内。
     void insertKnot(double u, int multiplicity = 1) {
-        assert(multiplicity >= 1 && "insertKnot: multiplicity must be >= 1");
+        if (multiplicity < 1)
+            throw std::invalid_argument("BSplineCurve::insertKnot: multiplicity must be >= 1");
         const auto [umin, umax] = domain();
         u = clampToDomain(u, umin, umax);
 
         const int p = degree_;
+        const int existingMultiplicity = static_cast<int>(std::count_if(knots_.begin(), knots_.end(), [&](double knot) {
+            return std::abs(knot - u) <= Tolerance::defaultValue().paramEps;
+        }));
+        if (existingMultiplicity + multiplicity > p)
+            throw std::invalid_argument("BSplineCurve::insertKnot: knot multiplicity would exceed degree");
 
         for (int m = 0; m < multiplicity; ++m) {
             const int n = controlPointCount() - 1;
@@ -209,10 +221,15 @@ private:
     KnotVector knots_;
 
     void validateInvariants() const {
-        assert(degree_ >= 1 && "BSplineCurve: degree must be >= 1");
-        assert(controlPointCount() > degree_ && "BSplineCurve: control point count must be > degree");
-        assert(knotCount() == controlPointCount() + degree_ + 1 &&
-               "BSplineCurve: knot count must equal controlPointCount + degree + 1");
+        if (!isValid())
+            throw std::invalid_argument(
+                    "BSplineCurve: degree, control points, or nondecreasing finite knot vector is invalid");
+    }
+
+    static KnotVector makeClampedKnotVector(int degree, const PointList& controlPoints) {
+        if (degree < 1 || static_cast<int>(controlPoints.size()) <= degree)
+            throw std::invalid_argument("BSplineCurve: control point count must be greater than degree >= 1");
+        return clampedKnotVector(degree, static_cast<int>(controlPoints.size()));
     }
 
     static double clampToDomain(double u, double umin, double umax) noexcept {

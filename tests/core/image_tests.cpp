@@ -68,6 +68,10 @@ TEST(ImageTests, RejectsInvalidDataAndConfiguredLimits) {
     ImageDecodeOptions limits;
     limits.maxWidth = 1;
     EXPECT_FALSE(Image::load(path.string(), limits));
+
+    ImageDecodeOptions hdrLimits;
+    hdrLimits.maxDecodedBytes = 2 * 2 * 4 * sizeof(float) - 1;
+    EXPECT_FALSE(FloatImage::loadHDRExpected(path.string(), 4, hdrLimits));
     std::filesystem::remove(path);
 }
 

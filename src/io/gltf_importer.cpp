@@ -1,5 +1,6 @@
 #include "gltf_importer.h"
 #include "import_builder.h"  // buildStandardMesh / StandardMeshSource
+#include "import_path_utils.h"
 #include "parsed_scene.h"
 
 #include <mulan/asset/mesh_asset.h>
@@ -18,6 +19,7 @@
 #include <cmath>
 #include <cstddef>
 #include <map>
+#include <optional>
 #include <variant>
 
 namespace mulan::io {
@@ -25,6 +27,46 @@ namespace {
 
 std::string fileDirectory(const std::string& filePath) {
     return std::filesystem::path(filePath).parent_path().string();
+}
+
+std::optional<std::string> validateGltfResourceLimits(const fastgltf::Asset& gltf,
+                                                      const std::filesystem::path& sourceDirectory,
+                                                      const ImportOptions& options) {
+    if (gltf.nodes.size() > options.maxNodeCount)
+        return "glTF node count exceeds configured limit";
+
+    uint64_t totalAccessorBytes = 0;
+    for (const auto& accessor : gltf.accessors) {
+        if (accessor.count > options.maxAccessorElements)
+            return "glTF accessor element count exceeds configured limit";
+        const uint64_t elementBytes = fastgltf::getElementByteSize(accessor.type, accessor.componentType);
+        if (elementBytes != 0 && accessor.count > (options.maxTotalAccessorBytes - totalAccessorBytes) / elementBytes)
+            return "glTF accessor data exceeds configured limit";
+        totalAccessorBytes += static_cast<uint64_t>(accessor.count) * elementBytes;
+    }
+
+    const auto validateSource = [&](const fastgltf::DataSource& source) -> std::optional<std::string> {
+        const auto* uri = std::get_if<fastgltf::sources::URI>(&source);
+        if (!uri)
+            return std::nullopt;
+        if (!uri->uri.isLocalPath())
+            return "glTF external resource URI is not a local relative path";
+        const auto resolved = detail::resolveContainedImportPath(sourceDirectory, uri->uri.path());
+        if (!resolved)
+            return "glTF external resource escapes the model directory";
+        if (!detail::importFileWithinLimit(*resolved, options.maxExternalFileBytes))
+            return "glTF external resource exceeds configured file-size limit";
+        return std::nullopt;
+    };
+    for (const auto& buffer : gltf.buffers) {
+        if (auto error = validateSource(buffer.data))
+            return error;
+    }
+    for (const auto& image : gltf.images) {
+        if (auto error = validateSource(image.data))
+            return error;
+    }
+    return std::nullopt;
 }
 
 std::vector<uint32_t> readIndices(const fastgltf::Asset& asset, const fastgltf::Accessor& accessor) {
@@ -98,9 +140,9 @@ std::map<size_t, size_t> importTextures(const fastgltf::Asset& gltf, ParsedScene
                            [&](const fastgltf::sources::URI& uri) {
                                if (!uri.uri.isLocalPath())
                                    return;
-                               auto p = std::filesystem::path(uri.uri.path());
-                               desc.sourcePath =
-                                       p.is_relative() ? (std::filesystem::path(sourceDir) / p).string() : p.string();
+                               const auto resolved = detail::resolveContainedImportPath(sourceDir, uri.uri.path());
+                               if (resolved)
+                                   desc.sourcePath = resolved->string();
                            },
                            [&](const fastgltf::sources::BufferView& bv) {
                                if (bv.bufferViewIndex >= gltf.bufferViews.size())
@@ -402,16 +444,32 @@ Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOpt
     ParsedScene scene;
     scene.unitScale = options.unitScale > 0.0 ? options.unitScale : 1.0;
 
+    if (!detail::importFileWithinLimit(path, options.maxExternalFileBytes))
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "glTF source file exceeds configured size limit"));
     const std::string sourceDir = fileDirectory(path);
+
+    const std::filesystem::path sourceDirectory = std::filesystem::path(path).parent_path();
+    auto preflightStream = fastgltf::GltfFileStream(path);
+    if (!preflightStream.isOpen())
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Failed to open glTF file: " + path));
+
+    const auto extensions =
+            fastgltf::Extensions::KHR_lights_punctual | fastgltf::Extensions::KHR_materials_emissive_strength;
+    fastgltf::Parser preflightParser(extensions);
+    auto preflight = preflightParser.loadGltf(preflightStream, sourceDirectory, fastgltf::Options::None);
+    if (preflight.error() != fastgltf::Error::None) {
+        return std::unexpected(Error::make(ErrorCode::InvalidArg,
+                                           "Failed to parse glTF: " + std::string(getErrorMessage(preflight.error()))));
+    }
+    if (auto limitError = validateGltfResourceLimits(preflight.get(), sourceDirectory, options))
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, *limitError));
 
     auto fileStream = fastgltf::GltfFileStream(path);
     if (!fileStream.isOpen())
-        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Failed to open glTF file: " + path));
-
-    fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual |
-                            fastgltf::Extensions::KHR_materials_emissive_strength);
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Failed to reopen glTF file: " + path));
+    fastgltf::Parser parser(extensions);
     constexpr auto gltfOpts = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
-    auto assetResult = parser.loadGltf(fileStream, std::filesystem::path(path).parent_path(), gltfOpts);
+    auto assetResult = parser.loadGltf(fileStream, sourceDirectory, gltfOpts);
     if (assetResult.error() != fastgltf::Error::None) {
         return std::unexpected(Error::make(
                 ErrorCode::InvalidArg, "Failed to parse glTF: " + std::string(getErrorMessage(assetResult.error()))));

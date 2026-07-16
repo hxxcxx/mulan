@@ -41,14 +41,27 @@ ParsedSceneLoader::ParsedSceneLoader(Document& document) : document_(document) {
 }
 
 ImportResult ParsedSceneLoader::load(const ParsedScene& scene, const ImportOptions& options) {
+    report_ = {};
+    ImportResult result;
+    if (scene.nodes.size() > options.maxNodeCount) {
+        result.report.warnings.push_back("Scene node count exceeds configured import limit");
+        return result;
+    }
+
     loadTextures(scene);
     loadMaterials(scene);
     loadMeshes(scene);
     loadBreps(scene);
 
-    ImportResult result;
     result.report = report_;
     nodeEntities_.resize(scene.nodes.size());
+
+    std::vector<std::vector<size_t>> children(scene.nodes.size());
+    for (size_t i = 0; i < scene.nodes.size(); ++i) {
+        if (scene.nodes[i].parent < scene.nodes.size())
+            children[scene.nodes[i].parent].push_back(i);
+    }
+    std::vector<uint8_t> visitState(scene.nodes.size(), 0);
 
     const math::Mat4 unitScaleMat = math::Mat4::scale(math::Vec3(options.unitScale > 0.0 ? options.unitScale : 1.0));
 
@@ -57,7 +70,8 @@ ImportResult ParsedSceneLoader::load(const ParsedScene& scene, const ImportOptio
     for (size_t rootIdx : scene.rootNodes) {
         if (rootIdx >= scene.nodes.size())
             continue;
-        loadNode(rootIdx, scene, scene::EntityId::invalid(), math::Mat4{ 1.0 }, unitScaleMat, options, result);
+        loadNode(rootIdx, scene, scene::EntityId::invalid(), math::Mat4{ 1.0 }, unitScaleMat, options, children,
+                 visitState, 0, result);
     }
 
     return result;
@@ -199,7 +213,22 @@ void ParsedSceneLoader::loadBreps(const ParsedScene& scene) {
 
 void ParsedSceneLoader::loadNode(size_t nodeIndex, const ParsedScene& scene, scene::EntityId parentEntity,
                                  const math::Mat4& parentWorld, const math::Mat4& rootUnitScale,
-                                 const ImportOptions& options, ImportResult& result) {
+                                 const ImportOptions& options, const std::vector<std::vector<size_t>>& children,
+                                 std::vector<uint8_t>& visitState, size_t depth, ImportResult& result) {
+    if (nodeIndex >= scene.nodes.size())
+        return;
+    if (depth > options.maxNodeDepth) {
+        result.report.warnings.push_back("Scene node depth exceeds configured import limit");
+        return;
+    }
+    if (visitState[nodeIndex] == 1) {
+        result.report.warnings.push_back("Cycle detected in imported scene node hierarchy");
+        return;
+    }
+    if (visitState[nodeIndex] == 2)
+        return;
+    visitState[nodeIndex] = 1;
+
     const auto& node = scene.nodes[nodeIndex];
     auto* scn = document_.scene();
     if (!scn)
@@ -256,10 +285,9 @@ void ParsedSceneLoader::loadNode(size_t nodeIndex, const ParsedScene& scene, sce
     ++result.report.entityCount;
 
     // 递归子节点:子的 parentWorld = 本节点 world
-    for (size_t i = 0; i < scene.nodes.size(); ++i) {
-        if (scene.nodes[i].parent == nodeIndex)
-            loadNode(i, scene, entity, nodeWorld, rootUnitScale, options, result);
-    }
+    for (size_t child : children[nodeIndex])
+        loadNode(child, scene, entity, nodeWorld, rootUnitScale, options, children, visitState, depth + 1, result);
+    visitState[nodeIndex] = 2;
 }
 
 void ParsedSceneLoader::loadNodes(const ParsedScene& scene, const ImportOptions& options) {

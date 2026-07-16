@@ -9,6 +9,7 @@
 #include <mulan/scene/entity_id.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,11 @@ struct ImportOptions {
     bool importMaterials = true;
     bool importTextures = true;
     double unitScale = 1.0;
+    size_t maxAccessorElements = 50'000'000;
+    uint64_t maxTotalAccessorBytes = 1ull << 30;
+    uint64_t maxExternalFileBytes = 1ull << 30;
+    size_t maxNodeCount = 100'000;
+    size_t maxNodeDepth = 512;
 };
 
 struct ImportReport {

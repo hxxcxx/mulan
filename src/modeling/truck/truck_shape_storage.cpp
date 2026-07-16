@@ -112,16 +112,15 @@ graphics::Mesh buildTriangleWireMesh(const graphics::Mesh& surfaceMesh) {
     mesh.indexType = graphics::IndexType::UInt32;
     mesh.topology = graphics::PrimitiveTopology::LineList;
 
-    const auto* tris = reinterpret_cast<const uint32_t*>(surfaceMesh.indices.data());
     const size_t triIndexCount = surfaceMesh.indices.size() / sizeof(uint32_t);
-    mesh.indices.resize(triIndexCount * 2 * sizeof(uint32_t));
-    auto* lines = reinterpret_cast<uint32_t*>(mesh.indices.data());
+    std::vector<uint32_t> lines(triIndexCount * 2);
 
     size_t out = 0;
     for (size_t i = 0; i + 2 < triIndexCount; i += 3) {
-        const uint32_t a = tris[i + 0];
-        const uint32_t b = tris[i + 1];
-        const uint32_t c = tris[i + 2];
+        uint32_t a = 0, b = 0, c = 0;
+        std::memcpy(&a, surfaceMesh.indices.data() + (i + 0) * sizeof(uint32_t), sizeof(uint32_t));
+        std::memcpy(&b, surfaceMesh.indices.data() + (i + 1) * sizeof(uint32_t), sizeof(uint32_t));
+        std::memcpy(&c, surfaceMesh.indices.data() + (i + 2) * sizeof(uint32_t), sizeof(uint32_t));
         lines[out++] = a;
         lines[out++] = b;
         lines[out++] = b;
@@ -129,6 +128,9 @@ graphics::Mesh buildTriangleWireMesh(const graphics::Mesh& surfaceMesh) {
         lines[out++] = c;
         lines[out++] = a;
     }
+    lines.resize(out);
+    mesh.indices.resize(lines.size() * sizeof(uint32_t));
+    std::memcpy(mesh.indices.data(), lines.data(), mesh.indices.size());
     mesh.bounds = surfaceMesh.bounds;
     return mesh;
 }
