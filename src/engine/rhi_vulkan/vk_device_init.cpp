@@ -178,8 +178,10 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
     vk::PhysicalDeviceTimelineSemaphoreFeatures timelineSemaphoreSupport;
     vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingSupport;
     dynamicRenderingSupport.pNext = &timelineSemaphoreSupport;
+    vk::PhysicalDeviceVulkan11Features vulkan11Support;
+    vulkan11Support.pNext = &dynamicRenderingSupport;
     vk::PhysicalDeviceFeatures2 featureSupport;
-    featureSupport.pNext = &dynamicRenderingSupport;
+    featureSupport.pNext = &vulkan11Support;
     physical_device_.getFeatures2(&featureSupport);
 
     if (!dynamicRenderingSupport.dynamicRendering) {
@@ -187,6 +189,9 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
     }
     if (!timelineSemaphoreSupport.timelineSemaphore) {
         LOG_ERROR("[Vulkan] Required device feature is unavailable: timelineSemaphore");
+    }
+    if (!vulkan11Support.shaderDrawParameters) {
+        LOG_ERROR("[Vulkan] Required device feature is unavailable: shaderDrawParameters");
     }
 
     vk::PhysicalDeviceFeatures features;
@@ -199,6 +204,11 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
     vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature;
     dynamicRenderingFeature.dynamicRendering = true;
     dynamicRenderingFeature.pNext = &timelineSemaphoreFeature;
+    // Slang 为 SV_InstanceID 生成 BaseInstance/InstanceIndex，并在 SPIR-V 中声明
+    // DrawParameters；实例批处理管线创建前必须显式启用对应的 Vulkan 1.1 特性。
+    vk::PhysicalDeviceVulkan11Features vulkan11Feature;
+    vulkan11Feature.shaderDrawParameters = true;
+    vulkan11Feature.pNext = &dynamicRenderingFeature;
 
     vk::DeviceCreateInfo deviceCI;
     deviceCI.queueCreateInfoCount = static_cast<uint32_t>(queueCIs.size());
@@ -206,7 +216,7 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
     deviceCI.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     deviceCI.ppEnabledExtensionNames = deviceExtensions.data();
     deviceCI.pEnabledFeatures = &features;
-    deviceCI.pNext = &dynamicRenderingFeature;
+    deviceCI.pNext = &vulkan11Feature;
 
     device_ = physical_device_.createDevice(deviceCI);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(device_);

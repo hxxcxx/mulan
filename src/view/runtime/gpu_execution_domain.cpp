@@ -737,6 +737,11 @@ void GpuExecutionDomain::run(std::stop_token stopToken) {
     for (const auto& client : remaining) {
         client->executor->shutdown();
     }
+
+    // Device 及其共享 GPU 资源必须在执行线程上完成析构。尤其是 OpenGL，
+    // glFinish/glDelete* 依赖当前 WGL Context；若留到 GpuExecutionDomain 在
+    // UI 线程析构成员时再释放，关闭最后一个文档会稳定触发无 Context 的 GL 调用。
+    device_context_.reset();
 }
 
 }  // namespace mulan::view::detail
