@@ -75,9 +75,10 @@
 // 拓扑数据结构（DCEL 平面细分）
 #include "topology/dcel.h"
 
-// 空间索引（KD-Tree / Quadtree / R-Tree / BSP-Tree / BVH-Tree）
+// 空间索引（KD-Tree / Quadtree / R-Tree / BSP-Tree / BVH）
 #include "spatial/kdtree.h"
 #include "spatial/quadtree.h"
 #include "spatial/rtree.h"
 #include "spatial/bsptree.h"
 #include "spatial/bvhtree.h"
+#include "spatial/dynamic_bvh.h"

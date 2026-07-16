@@ -8,6 +8,7 @@ add_executable(MathTests
     triangulation_tests.cpp
     voronoi_dcel_tests.cpp
     spatial_tests.cpp
+    dynamic_bvh_tests.cpp
 )
 target_link_libraries(MathTests PRIVATE math GTest::gtest GTest::gtest_main)
 add_test(NAME MathTests COMMAND MathTests)
