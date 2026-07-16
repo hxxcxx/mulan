@@ -154,6 +154,8 @@ engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::
     desc.image = texture->image();
     desc.contentRevision = texture->revision();
     desc.srgb = (material->*srgbGetter)();
+    // 临时关闭资产纹理 Mip 生成，用于确认同步 CPU 降采样对模型打开耗时的影响。
+    desc.generateMips = false;
     return desc;
 }
 
