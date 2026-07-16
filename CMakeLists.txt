@@ -257,8 +257,8 @@ endif()
 endif()
 
 # ── Qt6 ──
-# 查找路径优先级: CMakePresets / -DCMAKE_PREFIX_PATH / Qt6_DIR 环境变量
-find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets Svg)
+# Qt 由 vcpkg manifest 统一提供；builtin-baseline 锁定当前使用的 6.11.1 版本。
+find_package(Qt6 6.11.1 EXACT REQUIRED COMPONENTS Core Gui Widgets Svg)
 message(STATUS "Qt version: ${Qt6_VERSION}")
 message(STATUS "MSVC version: ${MSVC_VERSION}")
 message(STATUS "Generator platform: ${CMAKE_GENERATOR_PLATFORM}")

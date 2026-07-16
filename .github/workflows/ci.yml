@@ -23,13 +23,6 @@ jobs:
         with:
           submodules: recursive
 
-      # ── Qt6 ──
-      - name: Install Qt6
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: "6.8.3"
-          cache: true
-
       # ── OpenCASCADE 7.9.3 ──
       # combined zip = OCCT + 3rdparty，无需单独下载 3rdparty
       - name: Cache OpenCASCADE

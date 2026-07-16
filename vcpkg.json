@@ -16,6 +16,11 @@
     "gtest",
     "shader-slang",
     {
+      "name": "qtbase",
+      "features": ["widgets", "windeployqt"]
+    },
+    "qtsvg",
+    {
       "name": "glslang",
       "features": ["tools"]
     }

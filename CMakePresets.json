@@ -10,14 +10,6 @@
             "binaryDir": "${sourceDir}/build/msvc",
             "toolchainFile": "$penv{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
-                "CMAKE_PREFIX_PATH": {
-                    "type": "PATH",
-                    "value": "$penv{QTDIR}"
-                },
-                "Qt6_DIR": {
-                    "type": "PATH",
-                    "value": "$penv{Qt6_DIR}"
-                },
                 "OCCT_ROOT": {
                     "type": "PATH",
                     "value": "$penv{OCCT_ROOT}"
