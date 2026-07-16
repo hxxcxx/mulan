@@ -34,12 +34,14 @@ bool GLBindGroup::updateUBO(uint32_t binding, Buffer* buffer, uint32_t offset, u
         return false;
     if (!validateUniformUpdate(buffer, offset, size))
         return false;
+    if (entry.buffer == buffer && entry.offset == offset && entry.size == size && !entry.texture && !entry.sampler)
+        return true;
     entry.buffer = buffer;
     entry.texture = nullptr;
     entry.sampler = nullptr;
     entry.offset = offset;
     entry.size = size;
-    markAllDirty();
+    dirty_mask_ |= static_cast<uint16_t>(uint16_t{ 1 } << static_cast<uint8_t>(index));
     return true;
 }
 
@@ -52,12 +54,14 @@ bool GLBindGroup::updateTexture(uint32_t binding, Texture* texture) {
         return false;
     if (!validateResourceUpdate(texture))
         return false;
+    if (entry.texture == texture && !entry.buffer && !entry.sampler)
+        return true;
     entry.buffer = nullptr;
     entry.texture = texture;
     entry.sampler = nullptr;
     entry.offset = 0;
     entry.size = 0;
-    markAllDirty();
+    dirty_mask_ |= static_cast<uint16_t>(uint16_t{ 1 } << static_cast<uint8_t>(index));
     return true;
 }
 
@@ -70,12 +74,14 @@ bool GLBindGroup::updateSampler(uint32_t binding, Sampler* sampler) {
         return false;
     if (!validateResourceUpdate(sampler))
         return false;
+    if (entry.sampler == sampler && !entry.buffer && !entry.texture)
+        return true;
     entry.buffer = nullptr;
     entry.texture = nullptr;
     entry.sampler = sampler;
     entry.offset = 0;
     entry.size = 0;
-    markAllDirty();
+    dirty_mask_ |= static_cast<uint16_t>(uint16_t{ 1 } << static_cast<uint8_t>(index));
     return true;
 }
 

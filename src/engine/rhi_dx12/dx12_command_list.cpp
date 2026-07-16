@@ -356,6 +356,7 @@ void DX12CommandList::bindStaticGroup(DX12BindGroup& group) {
                 return;
             }
             cmd_list_->SetGraphicsRootConstantBufferView(rootIdx, dx12Buf->gpuAddress() + e.offset);
+            written |= (uint16_t(1) << i);
         } else if (e.type == DescriptorType::TextureSRV && e.texture) {
             D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = dx12Group->cachedTextureHandle(i);
             const bool descriptorDirty = ((mask >> i) & 1u) != 0;

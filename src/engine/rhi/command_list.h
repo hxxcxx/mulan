@@ -19,12 +19,14 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 #include <cassert>
 #include <span>
 #include <optional>
 #include <memory>
 #include <string_view>
 #include <type_traits>
+#include <unordered_set>
 #include <vector>
 
 namespace mulan::engine {
@@ -44,6 +46,9 @@ class Texture;
 
 class CommandList : public RHITrackedResource {
 public:
+    /// 所有已支持后端共同保证的可移植顶点缓冲槽位数。
+    static constexpr uint32_t kMaxVertexBufferSlots = 16;
+
     enum class State : uint8_t {
         Initial,
         Recording,
@@ -236,6 +241,19 @@ private:
         Compute,
     };
 
+    struct VertexBufferBindingState {
+        Buffer* buffer = nullptr;
+        uint32_t offset = 0;
+        bool valid = false;
+    };
+
+    struct IndexBufferBindingState {
+        Buffer* buffer = nullptr;
+        uint32_t offset = 0;
+        IndexType type = IndexType::UInt32;
+        bool valid = false;
+    };
+
     SubmissionToken last_submission_;
     uint64_t descriptor_scope_id_ = 0;
     State state_ = State::Initial;
@@ -247,10 +265,21 @@ private:
     std::optional<GraphicsPipelineDesc> active_graphics_pipeline_desc_;
     RenderPassBeginInfo active_render_pass_info_{};
     std::vector<std::shared_ptr<RHIResourceLifetimeState>> referenced_resources_;
+    std::unordered_set<const RHIResourceLifetimeState*> referenced_resource_set_;
     std::optional<Error> recording_error_;
+
+    // 公共层状态缓存保证所有后端具有一致的去重语义。缓存只覆盖值语义明确、
+    // 不会被外部可变对象间接改变的绑定；BindGroup 仍由各后端依据 dirty/epoch 处理。
+    PipelineState* bound_graphics_pipeline_ = nullptr;
+    ComputePipelineState* bound_compute_pipeline_ = nullptr;
+    std::optional<Viewport> bound_viewport_;
+    std::optional<ScissorRect> bound_scissor_;
+    std::array<VertexBufferBindingState, kMaxVertexBufferSlots> bound_vertex_buffers_{};
+    IndexBufferBindingState bound_index_buffer_;
 
     void recordResource(const RHITrackedResource* resource);
     ResultVoid validateReferencedResources() const;
+    void resetCachedState() noexcept;
 };
 
 }  // namespace mulan::engine

@@ -19,6 +19,8 @@ bool VKBindGroup::updateUBO(uint32_t binding, Buffer* buf, uint32_t offset, uint
                 return false;
             if (!validateUniformUpdate(buf, offset, size))
                 return false;
+            if (entries_[i].buffer == buf && entries_[i].offset == offset && entries_[i].size == size)
+                return true;
             entries_[i].buffer = buf;
             entries_[i].offset = offset;
             entries_[i].size = size;
@@ -36,6 +38,8 @@ bool VKBindGroup::updateTexture(uint32_t binding, Texture* tex) {
                 return false;
             if (!validateResourceUpdate(tex))
                 return false;
+            if (entries_[i].texture == tex)
+                return true;
             entries_[i].texture = tex;
             dirty_mask_ |= (uint16_t(1) << i);
             return true;
@@ -51,6 +55,8 @@ bool VKBindGroup::updateSampler(uint32_t binding, Sampler* s) {
                 return false;
             if (!validateResourceUpdate(s))
                 return false;
+            if (entries_[i].sampler == s)
+                return true;
             entries_[i].sampler = s;
             dirty_mask_ |= (uint16_t(1) << i);
             return true;

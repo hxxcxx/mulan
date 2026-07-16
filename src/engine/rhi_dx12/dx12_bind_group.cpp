@@ -36,6 +36,9 @@ bool DX12BindGroup::updateUBO(uint32_t binding, Buffer* buf, uint32_t offset, ui
                 return false;
             if (!validateUniformUpdate(buf, offset, size))
                 return false;
+            if (entries_[i].buffer == buf && entries_[i].offset == offset && entries_[i].size == size &&
+                !entries_[i].texture && !entries_[i].sampler)
+                return true;
             entries_[i].buffer = buf;
             entries_[i].texture = nullptr;
             entries_[i].sampler = nullptr;

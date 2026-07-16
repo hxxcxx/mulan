@@ -270,13 +270,88 @@ TEST_P(BackendContractTest, BindGroupOwnsLayoutAndRejectsInvalidUniformUpdates) 
     }
 
     EXPECT_EQ(bindGroup->layout().hash(), expectedLayoutHash);
+    bindGroup->markClean();
+    EXPECT_TRUE(bindGroup->updateUBO(0, buffer.get(), 0, alignment));
+    EXPECT_FALSE(bindGroup->dirty());
     EXPECT_FALSE(bindGroup->updateUBO(0, nullptr, 0, alignment));
     EXPECT_FALSE(bindGroup->updateUBO(0, buffer.get(), 1, alignment));
     EXPECT_FALSE(bindGroup->updateUBO(0, buffer.get(), bufferSize, alignment));
+    EXPECT_FALSE(bindGroup->dirty());
     EXPECT_TRUE(bindGroup->updateUBO(0, buffer.get(), alignment, alignment));
+    EXPECT_TRUE(bindGroup->dirty());
+    const uint16_t changedMask = bindGroup->dirtyMask();
+    EXPECT_TRUE(bindGroup->updateUBO(0, buffer.get(), alignment, alignment));
+    EXPECT_EQ(bindGroup->dirtyMask(), changedMask);
 
     bindGroup.reset();
     buffer.reset();
+    ASSERT_TRUE(device->waitIdle());
+}
+
+TEST_P(BackendContractTest, IdenticalTextureAndSamplerUpdatesPreserveDescriptorCleanliness) {
+    ContractWindow window;
+    ASSERT_TRUE(window.valid());
+    auto deviceResult = createDevice(window);
+    ASSERT_TRUE(deviceResult) << deviceResult.error().message;
+    auto device = std::move(*deviceResult);
+
+    auto makeTexture = [&device](const char* name) {
+        TextureDesc desc;
+        desc.name = name;
+        desc.width = 1;
+        desc.height = 1;
+        desc.usage = TextureUsageFlags::ShaderResource | TextureUsageFlags::TransferDst;
+        return device->createTexture(desc);
+    };
+    auto firstTextureResult = makeTexture("ContractTextureA");
+    auto secondTextureResult = makeTexture("ContractTextureB");
+    ASSERT_TRUE(firstTextureResult) << firstTextureResult.error().message;
+    ASSERT_TRUE(secondTextureResult) << secondTextureResult.error().message;
+    auto firstTexture = std::move(*firstTextureResult);
+    auto secondTexture = std::move(*secondTextureResult);
+
+    SamplerDesc samplerDesc;
+    auto firstSamplerResult = device->createSampler(samplerDesc);
+    auto secondSamplerResult = device->createSampler(samplerDesc);
+    ASSERT_TRUE(firstSamplerResult) << firstSamplerResult.error().message;
+    ASSERT_TRUE(secondSamplerResult) << secondSamplerResult.error().message;
+    auto firstSampler = std::move(*firstSamplerResult);
+    auto secondSampler = std::move(*secondSamplerResult);
+
+    const std::array layoutEntries{
+        BindGroupLayoutEntry{ 3, 1, DescriptorType::TextureSRV, PipelineBinding::kStageFragment, BindingMode::Static },
+        BindGroupLayoutEntry{ 8, 1, DescriptorType::Sampler, PipelineBinding::kStageFragment, BindingMode::Static },
+    };
+    const BindGroupLayout layout = BindGroupLayout::fromBindings(layoutEntries);
+    BindGroupDesc groupDesc;
+    groupDesc.addTexture(3, firstTexture.get()).addSampler(8, firstSampler.get());
+    auto groupResult = device->createBindGroup(layout, groupDesc);
+    ASSERT_TRUE(groupResult) << groupResult.error().message;
+    auto group = std::move(*groupResult);
+
+    group->markClean();
+    EXPECT_TRUE(group->updateTexture(3, firstTexture.get()));
+    EXPECT_TRUE(group->updateSampler(8, firstSampler.get()));
+    EXPECT_FALSE(group->dirty());
+
+    EXPECT_TRUE(group->updateTexture(3, secondTexture.get()));
+    ASSERT_TRUE(group->dirty());
+    const uint16_t textureMask = group->dirtyMask();
+    EXPECT_TRUE(group->updateTexture(3, secondTexture.get()));
+    EXPECT_EQ(group->dirtyMask(), textureMask);
+
+    EXPECT_TRUE(group->updateSampler(8, secondSampler.get()));
+    EXPECT_NE(group->dirtyMask(), textureMask);
+    group->markClean();
+    EXPECT_FALSE(group->updateTexture(3, nullptr));
+    EXPECT_FALSE(group->updateSampler(8, nullptr));
+    EXPECT_FALSE(group->dirty());
+
+    group.reset();
+    secondSampler.reset();
+    firstSampler.reset();
+    secondTexture.reset();
+    firstTexture.reset();
     ASSERT_TRUE(device->waitIdle());
 }
 

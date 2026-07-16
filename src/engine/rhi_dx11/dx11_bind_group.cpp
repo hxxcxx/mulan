@@ -33,6 +33,8 @@ bool DX11BindGroup::updateUBO(uint32_t binding, Buffer* buffer, uint32_t offset,
         return false;
     if (!validateUniformUpdate(buffer, offset, size))
         return false;
+    if (entry.buffer == buffer && entry.offset == offset && entry.size == size && !entry.texture && !entry.sampler)
+        return true;
     entry.buffer = buffer;
     entry.texture = nullptr;
     entry.sampler = nullptr;
@@ -52,6 +54,8 @@ bool DX11BindGroup::updateTexture(uint32_t binding, Texture* texture) {
         return false;
     if (!validateResourceUpdate(texture))
         return false;
+    if (entry.texture == texture && !entry.buffer && !entry.sampler)
+        return true;
     entry.buffer = nullptr;
     entry.texture = texture;
     entry.sampler = nullptr;
@@ -71,6 +75,8 @@ bool DX11BindGroup::updateSampler(uint32_t binding, Sampler* sampler) {
         return false;
     if (!validateResourceUpdate(sampler))
         return false;
+    if (entry.sampler == sampler && !entry.buffer && !entry.texture)
+        return true;
     entry.buffer = nullptr;
     entry.texture = nullptr;
     entry.sampler = sampler;

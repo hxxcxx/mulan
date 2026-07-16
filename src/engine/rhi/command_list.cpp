@@ -11,9 +11,20 @@ namespace mulan::engine {
 
 namespace {
 std::atomic<uint64_t> g_next_descriptor_scope_id{ 1 };
+
+bool sameViewport(const Viewport& lhs, const Viewport& rhs) noexcept {
+    return lhs.x == rhs.x && lhs.y == rhs.y && lhs.width == rhs.width && lhs.height == rhs.height &&
+           lhs.minDepth == rhs.minDepth && lhs.maxDepth == rhs.maxDepth;
 }
 
+bool sameScissor(const ScissorRect& lhs, const ScissorRect& rhs) noexcept {
+    return lhs.x == rhs.x && lhs.y == rhs.y && lhs.width == rhs.width && lhs.height == rhs.height;
+}
+}  // namespace
+
 CommandList::CommandList() : descriptor_scope_id_(g_next_descriptor_scope_id.fetch_add(1, std::memory_order_relaxed)) {
+    referenced_resources_.reserve(64);
+    referenced_resource_set_.reserve(64);
 }
 
 ResultVoid CommandList::begin() {
@@ -38,7 +49,9 @@ ResultVoid CommandList::begin() {
     active_bind_group_layout_.reset();
     active_graphics_pipeline_desc_.reset();
     active_render_pass_info_ = {};
+    referenced_resource_set_.clear();
     referenced_resources_.clear();
+    resetCachedState();
     if (auto result = doBegin(); !result) {
         const auto error = makeError(EngineErrorCode::CommandRecordingFailed, result.error().message);
         invalidate(error);
@@ -144,9 +157,7 @@ void CommandList::recordResource(const RHITrackedResource* resource) {
     if (!resource || !resource->lifetimeState())
         return;
     const auto& lifetime = resource->lifetimeState();
-    const auto duplicate = std::find_if(referenced_resources_.begin(), referenced_resources_.end(),
-                                        [&](const auto& current) { return current.get() == lifetime.get(); });
-    if (duplicate == referenced_resources_.end())
+    if (referenced_resource_set_.insert(lifetime.get()).second)
         referenced_resources_.push_back(lifetime);
 }
 
@@ -165,10 +176,17 @@ void CommandList::setPipelineState(PipelineState* pso) {
         return;
     if (render_pass_active_ && !validateGraphicsPipelineRenderPass(pso->desc(), active_render_pass_info_))
         return;
+    if (pipeline_kind_ == PipelineKind::Graphics && bound_graphics_pipeline_ == pso)
+        return;
     doSetPipelineState(pso);
     if (recording_error_)
         return;
     pipeline_kind_ = PipelineKind::Graphics;
+    // DX11/DX12 在绑定 VB 时从当前 PSO 取得 stride；PSO 改变后，即使
+    // Buffer/offset 相同也必须重新下发，不能沿用上一输入布局的缓存。
+    bound_vertex_buffers_.fill({});
+    bound_graphics_pipeline_ = pso;
+    bound_compute_pipeline_ = nullptr;
     active_graphics_pipeline_desc_ = pso->desc();
     push_constant_size_ = pso->desc().pushConstantSize;
     activateBindGroupLayout(pso->bindGroupLayout());
@@ -182,10 +200,14 @@ void CommandList::setComputePipelineState(ComputePipelineState* pso) {
     }
     if (!validateResource(pso, "setComputePipelineState"))
         return;
+    if (pipeline_kind_ == PipelineKind::Compute && bound_compute_pipeline_ == pso)
+        return;
     doSetComputePipelineState(pso);
     if (recording_error_)
         return;
     pipeline_kind_ = PipelineKind::Compute;
+    bound_graphics_pipeline_ = nullptr;
+    bound_compute_pipeline_ = pso;
     active_graphics_pipeline_desc_.reset();
     push_constant_size_ = pso->desc().pushConstantSize;
     activateBindGroupLayout(pso->bindGroupLayout());
@@ -221,23 +243,45 @@ Result<UniformSlice> CommandList::writeUniformBytes(std::span<const std::byte> d
 }
 
 void CommandList::setViewport(const Viewport& vp) {
-    if (requireRecording("setViewport"))
-        doSetViewport(vp);
+    if (!requireRecording("setViewport"))
+        return;
+    if (bound_viewport_ && sameViewport(*bound_viewport_, vp))
+        return;
+    doSetViewport(vp);
+    if (!recording_error_)
+        bound_viewport_ = vp;
 }
 
 void CommandList::setScissorRect(const ScissorRect& rect) {
-    if (requireRecording("setScissorRect"))
-        doSetScissorRect(rect);
+    if (!requireRecording("setScissorRect"))
+        return;
+    if (bound_scissor_ && sameScissor(*bound_scissor_, rect))
+        return;
+    doSetScissorRect(rect);
+    if (!recording_error_)
+        bound_scissor_ = rect;
 }
 
 void CommandList::setVertexBuffer(uint32_t slot, Buffer* buffer, uint32_t offset) {
-    if (!requireRecording("setVertexBuffer") || !validateResource(buffer, "setVertexBuffer"))
+    if (!requireRecording("setVertexBuffer"))
+        return;
+    if (slot >= kMaxVertexBufferSlots) {
+        rejectRecording("setVertexBuffer slot exceeds the portable RHI limit");
+        return;
+    }
+    if (!validateResource(buffer, "setVertexBuffer"))
         return;
     if (!(buffer->bindFlags() & BufferBindFlags::VertexBuffer) || offset >= buffer->size()) {
         rejectRecording("setVertexBuffer requires a VertexBuffer with an in-range offset");
         return;
     }
+    const auto& current = bound_vertex_buffers_[slot];
+    if (current.valid && current.buffer == buffer && current.offset == offset)
+        return;
     doSetVertexBuffer(slot, buffer, offset);
+    if (recording_error_)
+        return;
+    bound_vertex_buffers_[slot] = { buffer, offset, true };
 }
 
 void CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** buffers, uint32_t* offsets) {
@@ -245,6 +289,10 @@ void CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** 
         return;
     if (!buffers || count == 0) {
         rejectRecording("setVertexBuffers requires at least one buffer");
+        return;
+    }
+    if (startSlot >= kMaxVertexBufferSlots || count > kMaxVertexBufferSlots - startSlot) {
+        rejectRecording("setVertexBuffers range exceeds the portable RHI limit");
         return;
     }
     for (uint32_t i = 0; i < count; ++i) {
@@ -256,7 +304,27 @@ void CommandList::setVertexBuffers(uint32_t startSlot, uint32_t count, Buffer** 
             return;
         }
     }
+
+    bool unchanged = true;
+    for (uint32_t i = 0; i < count; ++i) {
+        const size_t slot = static_cast<size_t>(startSlot) + i;
+        const uint32_t offset = offsets ? offsets[i] : 0;
+        if (!bound_vertex_buffers_[slot].valid || bound_vertex_buffers_[slot].buffer != buffers[i] ||
+            bound_vertex_buffers_[slot].offset != offset) {
+            unchanged = false;
+            break;
+        }
+    }
+    if (unchanged)
+        return;
+
     doSetVertexBuffers(startSlot, count, buffers, offsets);
+    if (recording_error_)
+        return;
+    for (uint32_t i = 0; i < count; ++i) {
+        const size_t slot = static_cast<size_t>(startSlot) + i;
+        bound_vertex_buffers_[slot] = { buffers[i], offsets ? offsets[i] : 0, true };
+    }
 }
 
 void CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type) {
@@ -266,7 +334,13 @@ void CommandList::setIndexBuffer(Buffer* buffer, uint32_t offset, IndexType type
         rejectRecording("setIndexBuffer requires an IndexBuffer with an in-range offset");
         return;
     }
+    if (bound_index_buffer_.valid && bound_index_buffer_.buffer == buffer && bound_index_buffer_.offset == offset &&
+        bound_index_buffer_.type == type) {
+        return;
+    }
     doSetIndexBuffer(buffer, offset, type);
+    if (!recording_error_)
+        bound_index_buffer_ = { buffer, offset, type, true };
 }
 
 void CommandList::draw(const DrawAttribs& attribs) {
@@ -536,6 +610,15 @@ ResultVoid CommandList::waitForPreviousSubmission() {
     if (device->isSubmissionComplete(token))
         return {};
     return device->waitForSubmission(token);
+}
+
+void CommandList::resetCachedState() noexcept {
+    bound_graphics_pipeline_ = nullptr;
+    bound_compute_pipeline_ = nullptr;
+    bound_viewport_.reset();
+    bound_scissor_.reset();
+    bound_vertex_buffers_.fill({});
+    bound_index_buffer_ = {};
 }
 
 }  // namespace mulan::engine

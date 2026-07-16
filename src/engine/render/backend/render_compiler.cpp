@@ -8,9 +8,92 @@
 #include <limits>
 #include <optional>
 #include <string>
+#include <algorithm>
+#include <functional>
 
 namespace mulan::engine {
 namespace {
+
+uint64_t mixSortKey(uint64_t seed, uint64_t value) noexcept {
+    value ^= value >> 30;
+    value *= 0xbf58476d1ce4e5b9ULL;
+    value ^= value >> 27;
+    value *= 0x94d049bb133111ebULL;
+    value ^= value >> 31;
+    return seed ^ (value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2));
+}
+
+uint64_t pointerSortKey(const void* pointer) noexcept {
+    return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(pointer));
+}
+
+void updateSortKey(MeshDrawCommand& command) noexcept {
+    uint64_t key = 0xcbf29ce484222325ULL;
+    key = mixSortKey(key, pointerSortKey(command.pipelineState));
+    key = mixSortKey(key, pointerSortKey(command.albedoTex));
+    key = mixSortKey(key, pointerSortKey(command.normalTex));
+    key = mixSortKey(key, pointerSortKey(command.mrTex));
+    key = mixSortKey(key, pointerSortKey(command.emissiveTex));
+    key = mixSortKey(key, pointerSortKey(command.aoTex));
+    key = mixSortKey(key, pointerSortKey(command.sampler));
+    key = mixSortKey(key, command.materialIndex);
+    key = mixSortKey(key, pointerSortKey(command.vertexBuffer));
+    key = mixSortKey(key, pointerSortKey(command.indexBuffer));
+    key = mixSortKey(key, static_cast<uint64_t>(command.indexType));
+    command.sortKey = key;
+}
+
+template <typename T>
+int compareValue(const T& lhs, const T& rhs) noexcept {
+    if (std::less<T>{}(lhs, rhs))
+        return -1;
+    if (std::less<T>{}(rhs, lhs))
+        return 1;
+    return 0;
+}
+
+bool opaqueCommandLess(const MeshDrawCommand& lhs, const MeshDrawCommand& rhs) noexcept {
+    // 绑定成本从高到低排列。指针只作为当前 Device 生命周期内的资源身份，
+    // std::less 对无关对象指针提供严格全序，不依赖未定义的原生指针比较。
+    if (const int order = compareValue(lhs.pipelineState, rhs.pipelineState); order != 0)
+        return order < 0;
+    if (const int order = compareValue(lhs.albedoTex, rhs.albedoTex); order != 0)
+        return order < 0;
+    if (const int order = compareValue(lhs.normalTex, rhs.normalTex); order != 0)
+        return order < 0;
+    if (const int order = compareValue(lhs.mrTex, rhs.mrTex); order != 0)
+        return order < 0;
+    if (const int order = compareValue(lhs.emissiveTex, rhs.emissiveTex); order != 0)
+        return order < 0;
+    if (const int order = compareValue(lhs.aoTex, rhs.aoTex); order != 0)
+        return order < 0;
+    if (const int order = compareValue(lhs.sampler, rhs.sampler); order != 0)
+        return order < 0;
+    if (lhs.materialIndex != rhs.materialIndex)
+        return lhs.materialIndex < rhs.materialIndex;
+    if (const int order = compareValue(lhs.vertexBuffer, rhs.vertexBuffer); order != 0)
+        return order < 0;
+    if (const int order = compareValue(lhs.indexBuffer, rhs.indexBuffer); order != 0)
+        return order < 0;
+    if (lhs.indexType != rhs.indexType)
+        return static_cast<uint8_t>(lhs.indexType) < static_cast<uint8_t>(rhs.indexType);
+    if (lhs.firstIndex != rhs.firstIndex)
+        return lhs.firstIndex < rhs.firstIndex;
+    if (lhs.baseVertex != rhs.baseVertex)
+        return lhs.baseVertex < rhs.baseVertex;
+    return lhs.pickId < rhs.pickId;
+}
+
+void sortDrawCommands(std::vector<MeshDrawCommand>& commands) {
+    for (auto& command : commands)
+        updateSortKey(command);
+
+    // 透明命令必须保留上层提供的深度顺序。当前管线尚未产生透明命令，
+    // 但在排序入口预先守住该契约，避免以后新增透明材质时出现视觉回归。
+    const auto opaqueEnd = std::stable_partition(commands.begin(), commands.end(),
+                                                 [](const auto& command) { return !command.translucent; });
+    std::sort(commands.begin(), opaqueEnd, opaqueCommandLess);
+}
 
 std::optional<uint32_t> materialIndex(const RenderWorldSnapshot& snapshot, RenderMaterialHandle handle,
                                       MaterialCache& cache) {
@@ -184,6 +267,14 @@ void RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderWo
         if (status == CompileItemStatus::Accepted)
             ++stats_.acceptedHighlightEdgeCommandCount;
     }
+
+    sortDrawCommands(surface_commands_);
+    sortDrawCommands(edge_commands_);
+    // Highlight pass 使用 alpha blend，覆盖顺序属于视觉语义；保持 workload 顺序。
+    for (auto& command : highlight_surface_commands_)
+        updateSortKey(command);
+    for (auto& command : highlight_edge_commands_)
+        updateSortKey(command);
 }
 
 void RenderCompiler::clear() {

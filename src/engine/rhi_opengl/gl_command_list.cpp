@@ -825,6 +825,11 @@ ResultVoid GLCommandList::doBeginRenderPass(const RenderPassBeginInfo& info) {
         glClear(clearBits);
         if (scissor_enabled)
             glEnable(GL_SCISSOR_TEST);
+
+        // clear 为绕过写掩码临时强制开启了 color/depth write。下一次 draw
+        // 必须重放当前 PSO 的渲染状态；否则连续 RenderPass 复用同一 PSO 时，
+        // depthWrite=false 等状态会被错误地留在开启状态。
+        pipeline_state_applied_ = false;
     }
 
     // Mark viewport dirty since we overrode it

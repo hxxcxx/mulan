@@ -125,7 +125,9 @@ private:
 
 class TestBuffer final : public Buffer {
 public:
-    TestBuffer() { desc_ = BufferDesc::dynamicVertex(64, "TestBuffer"); }
+    explicit TestBuffer(BufferBindFlags flags = BufferBindFlags::VertexBuffer) {
+        desc_ = { "TestBuffer", 64, BufferUsage::Dynamic, flags, nullptr };
+    }
     ~TestBuffer() override { waitForLastUseBeforeDestruction(); }
     const BufferDesc& desc() const override { return desc_; }
     ResultVoid write(uint32_t, uint32_t, const void*) override { return {}; }
@@ -174,18 +176,24 @@ class TestCommandList final : public CommandList {
 public:
     void attach(RHIDevice& device) { trackResource(device, RHIResourceKind::CommandList, "TestCommandList"); }
     uint32_t drawCount() const { return draw_count_; }
+    uint32_t pipelineBindCount() const { return pipeline_bind_count_; }
+    uint32_t viewportSetCount() const { return viewport_set_count_; }
+    uint32_t scissorSetCount() const { return scissor_set_count_; }
+    uint32_t vertexBufferBindCount() const { return vertex_buffer_bind_count_; }
+    uint32_t vertexBuffersBindCount() const { return vertex_buffers_bind_count_; }
+    uint32_t indexBufferBindCount() const { return index_buffer_bind_count_; }
     DescriptorCacheEpoch epoch(uint64_t generation) const { return descriptorCacheEpoch(generation); }
 
     ResultVoid doBegin() override { return {}; }
     ResultVoid doEnd() override { return {}; }
-    void doSetPipelineState(PipelineState*) override {}
+    void doSetPipelineState(PipelineState*) override { ++pipeline_bind_count_; }
     void doSetComputePipelineState(ComputePipelineState*) override {}
     void doBindGroup(BindGroup&) override {}
-    void doSetViewport(const Viewport&) override {}
-    void doSetScissorRect(const ScissorRect&) override {}
-    void doSetVertexBuffer(uint32_t, Buffer*, uint32_t) override {}
-    void doSetVertexBuffers(uint32_t, uint32_t, Buffer**, uint32_t*) override {}
-    void doSetIndexBuffer(Buffer*, uint32_t, IndexType) override {}
+    void doSetViewport(const Viewport&) override { ++viewport_set_count_; }
+    void doSetScissorRect(const ScissorRect&) override { ++scissor_set_count_; }
+    void doSetVertexBuffer(uint32_t, Buffer*, uint32_t) override { ++vertex_buffer_bind_count_; }
+    void doSetVertexBuffers(uint32_t, uint32_t, Buffer**, uint32_t*) override { ++vertex_buffers_bind_count_; }
+    void doSetIndexBuffer(Buffer*, uint32_t, IndexType) override { ++index_buffer_bind_count_; }
     void doDraw(const DrawAttribs&) override { ++draw_count_; }
     void doDrawIndexed(const DrawIndexedAttribs&) override { ++draw_count_; }
     void doDrawIndirect(Buffer*, uint32_t, uint32_t, uint32_t) override { ++draw_count_; }
@@ -199,6 +207,12 @@ public:
 
 private:
     uint32_t draw_count_ = 0;
+    uint32_t pipeline_bind_count_ = 0;
+    uint32_t viewport_set_count_ = 0;
+    uint32_t scissor_set_count_ = 0;
+    uint32_t vertex_buffer_bind_count_ = 0;
+    uint32_t vertex_buffers_bind_count_ = 0;
+    uint32_t index_buffer_bind_count_ = 0;
 };
 
 TEST(DeviceLifetimeTest, IdentifiesTheOwningDevice) {
@@ -261,6 +275,91 @@ TEST(CommandListContractTest, RecordsAValidGraphicsSequence) {
     command.endRenderPass();
     ASSERT_TRUE(command.end());
     EXPECT_EQ(command.drawCount(), 1u);
+}
+
+TEST(CommandListContractTest, DeduplicatesStableStateAndResetsTheCacheForEachRecording) {
+    TestDevice device;
+    TestPipeline pipeline;
+    TestPipeline alternatePipeline;
+    TestBuffer vertexBuffer;
+    TestBuffer indexBuffer(BufferBindFlags::IndexBuffer);
+    TestCommandList command;
+    pipeline.attach(device);
+    alternatePipeline.attach(device);
+    vertexBuffer.attach(device);
+    indexBuffer.attach(device);
+    command.attach(device);
+
+    const Viewport viewport{ 0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 1.0f };
+    const ScissorRect scissor{ 0, 0, 1280, 720 };
+
+    ASSERT_TRUE(command.begin());
+    command.setPipelineState(&pipeline);
+    command.setPipelineState(&pipeline);
+    command.setViewport(viewport);
+    command.setViewport(viewport);
+    command.setScissorRect(scissor);
+    command.setScissorRect(scissor);
+    command.setVertexBuffer(0, &vertexBuffer, 0);
+    command.setVertexBuffer(0, &vertexBuffer, 0);
+    Buffer* buffers[] = { &vertexBuffer };
+    uint32_t offsets[] = { 0 };
+    command.setVertexBuffers(0, 1, buffers, offsets);
+    command.setIndexBuffer(&indexBuffer, 0, IndexType::UInt16);
+    command.setIndexBuffer(&indexBuffer, 0, IndexType::UInt16);
+
+    command.setVertexBuffer(0, &vertexBuffer, 4);
+    command.setVertexBuffers(0, 1, buffers, offsets);
+    command.setVertexBuffers(0, 1, buffers, offsets);
+    command.setIndexBuffer(&indexBuffer, 0, IndexType::UInt32);
+
+    EXPECT_EQ(command.pipelineBindCount(), 1u);
+    EXPECT_EQ(command.viewportSetCount(), 1u);
+    EXPECT_EQ(command.scissorSetCount(), 1u);
+    EXPECT_EQ(command.vertexBufferBindCount(), 2u);
+    EXPECT_EQ(command.vertexBuffersBindCount(), 1u);
+    EXPECT_EQ(command.indexBufferBindCount(), 2u);
+
+    // 顶点 stride 属于 PSO 输入布局的一部分。切换 PSO 后，即使 VB 和 offset
+    // 不变，也必须重新下发绑定，避免 DX11/DX12 沿用旧 stride。
+    command.setPipelineState(&alternatePipeline);
+    command.setVertexBuffer(0, &vertexBuffer, 0);
+    EXPECT_EQ(command.pipelineBindCount(), 2u);
+    EXPECT_EQ(command.vertexBufferBindCount(), 3u);
+    ASSERT_TRUE(command.end());
+
+    ASSERT_TRUE(command.begin());
+    command.setPipelineState(&pipeline);
+    command.setViewport(viewport);
+    command.setScissorRect(scissor);
+    command.setVertexBuffer(0, &vertexBuffer, 0);
+    command.setIndexBuffer(&indexBuffer, 0, IndexType::UInt16);
+    EXPECT_EQ(command.pipelineBindCount(), 3u);
+    EXPECT_EQ(command.viewportSetCount(), 2u);
+    EXPECT_EQ(command.scissorSetCount(), 2u);
+    EXPECT_EQ(command.vertexBufferBindCount(), 4u);
+    EXPECT_EQ(command.indexBufferBindCount(), 3u);
+    EXPECT_TRUE(command.end());
+}
+
+TEST(CommandListContractTest, EnforcesThePortableVertexBufferSlotBoundary) {
+    TestDevice device;
+    TestBuffer vertexBuffer;
+    TestCommandList accepted;
+    TestCommandList rejected;
+    vertexBuffer.attach(device);
+    accepted.attach(device);
+    rejected.attach(device);
+
+    ASSERT_TRUE(accepted.begin());
+    accepted.setVertexBuffer(CommandList::kMaxVertexBufferSlots - 1, &vertexBuffer);
+    EXPECT_EQ(accepted.state(), CommandList::State::Recording);
+    EXPECT_TRUE(accepted.end());
+
+    ASSERT_TRUE(rejected.begin());
+    rejected.setVertexBuffer(CommandList::kMaxVertexBufferSlots, &vertexBuffer);
+    EXPECT_EQ(rejected.state(), CommandList::State::Invalid);
+    EXPECT_FALSE(rejected.end());
 }
 
 TEST(CommandListContractTest, RejectsTransferInsideRenderPass) {
