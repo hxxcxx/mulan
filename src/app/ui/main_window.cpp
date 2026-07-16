@@ -30,7 +30,6 @@
 #include <QSignalBlocker>
 #include <QStandardPaths>
 #include <QToolButton>
-#include <QTimer>
 
 #include <algorithm>
 #include <cstdlib>
@@ -584,7 +583,6 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
     observeDocumentRuntime(docWidget);
     if (recordRecent) {
         doc_area_->recordOpenedFile(filePath);
-        scheduleRecentThumbnailCapture(docWidget, filePath);
     }
     LOG_INFO("[App] Document opened: title={}", title.toStdString());
     LOG_DEBUG("[App] Document source: {}", filePath.toStdString());
@@ -592,20 +590,6 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
     updateDisplayActions();
     statusBar()->showMessage(QString("Loaded: %1").arg(title));
     return true;
-}
-
-void MainWindow::scheduleRecentThumbnailCapture(DocWidget* docWidget, const QString& filePath) {
-    if (!docWidget || filePath.isEmpty())
-        return;
-
-    const QPointer<DocWidget> guardedWidget(docWidget);
-
-    QTimer::singleShot(0, this, [this, guardedWidget, filePath]() {
-        if (!guardedWidget)
-            return;
-
-        captureRecentThumbnail(guardedWidget, filePath);
-    });
 }
 
 void MainWindow::captureRecentThumbnail(DocWidget* docWidget, const QString& filePath) {
