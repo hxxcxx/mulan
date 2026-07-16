@@ -98,4 +98,8 @@ jobs:
         run: cmake --build --preset release -- /maxcpucount
 
       - name: Test
+        # GitHub 托管的 Windows Runner 没有可用的 Vulkan ICD 和 OpenGL 图形上下文；
+        # 后端仍参与编译，运行时契约由该环境实际支持的 D3D11/D3D12 覆盖。
+        env:
+          GTEST_FILTER: "-*Vulkan*:*OpenGL*"
         run: ctest --test-dir build/msvc -C ${{ env.BUILD_TYPE }} --output-on-failure
