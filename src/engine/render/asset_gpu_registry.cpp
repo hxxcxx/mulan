@@ -6,31 +6,13 @@
 
 #include <mulan/core/log/log.h>
 
-#include <atomic>
 #include <cstddef>
 #include <cstdint>
-#include <exception>
-#include <limits>
 #include <span>
 #include <utility>
 
 namespace mulan::engine {
-namespace {
-
-std::atomic<AssetGpuChangeDomain> next_asset_gpu_change_domain{ 1 };
-
-AssetGpuChangeDomain allocateAssetGpuChangeDomain() {
-    const AssetGpuChangeDomain domain = next_asset_gpu_change_domain.fetch_add(1, std::memory_order_relaxed);
-    // 0 是未绑定游标的保留值；耗尽域空间后不能再保证跨 Registry 隔离。
-    if (domain == 0)
-        std::terminate();
-    return domain;
-}
-
-}  // namespace
-
-AssetGpuRegistry::AssetGpuRegistry(RHIDevice& device, size_t changeJournalCapacity)
-    : device_(device), change_journal_capacity_(changeJournalCapacity), change_domain_(allocateAssetGpuChangeDomain()) {
+AssetGpuRegistry::AssetGpuRegistry(RHIDevice& device) : device_(device) {
 }
 
 AssetGpuRegistry::GpuTextureResource::GpuTextureResource(std::unique_ptr<Texture> texture, std::string source,
@@ -61,7 +43,6 @@ Result<const GpuGeometry*> AssetGpuRegistry::acquireGeometry(RenderResourceKey k
         it->second = std::move(*result);
         // 新资源已经成为当前可观察对象；后续旧资源退役失败也不能回退版本。
         advanceRevision();
-        publishChange(AssetGpuChangeKind::GeometryUpserted, key);
         if (oldGeometry.isValid()) {
             if (auto retired = retireGeometryResource(std::move(oldGeometry)); !retired) {
                 return std::unexpected(retired.error());
@@ -77,7 +58,6 @@ Result<const GpuGeometry*> AssetGpuRegistry::acquireGeometry(RenderResourceKey k
     auto [inserted, didInsert] = geometries_.emplace(key, std::move(*result));
     if (didInsert) {
         advanceRevision();
-        publishChange(AssetGpuChangeKind::GeometryUpserted, key);
     }
     return &inserted->second;
 }
@@ -94,7 +74,6 @@ Result<bool> AssetGpuRegistry::retireGeometry(RenderResourceKey key) {
 
     // extract 后 key 已不再可见，必须在可能失败的 GPU 退役登记前推进版本。
     advanceRevision();
-    publishChange(AssetGpuChangeKind::GeometryRetired, key);
     GpuGeometry geometry = std::move(node.mapped());
     if (geometry.isValid()) {
         if (auto retired = retireGeometryResource(std::move(geometry)); !retired) {
@@ -128,7 +107,6 @@ Result<Texture*> AssetGpuRegistry::acquireTexture(RenderResourceKey key, const c
         it->second = GpuTextureResource{ std::move(*texture), cacheKey, contentRevision };
         // 替换一旦完成就是独立的可观察变化，不受旧资源退役结果影响。
         advanceRevision();
-        publishChange(AssetGpuChangeKind::TextureUpserted, key);
         if (oldResource.texture) {
             if (auto retired = retireTextureResource(std::move(oldResource.texture)); !retired) {
                 return std::unexpected(retired.error());
@@ -148,7 +126,6 @@ Result<Texture*> AssetGpuRegistry::acquireTexture(RenderResourceKey key, const c
             textures_.emplace(cacheKey, GpuTextureResource{ std::move(*texture), cacheKey, contentRevision });
     if (didInsert) {
         advanceRevision();
-        publishChange(AssetGpuChangeKind::TextureUpserted, key);
     }
     return inserted->second.get();
 }
@@ -168,7 +145,6 @@ Result<bool> AssetGpuRegistry::retireTexture(RenderResourceKey key, const Textur
     textures_.erase(it);
     // 容器中的资源身份已被抽取，退役失败时仍需向观察者暴露变化。
     advanceRevision();
-    publishChange(AssetGpuChangeKind::TextureRetired, key);
     if (resource.texture) {
         if (auto retired = retireTextureResource(std::move(resource.texture)); !retired) {
             return std::unexpected(retired.error());
@@ -234,8 +210,6 @@ void AssetGpuRegistry::clear() {
     failed_upload_texture_.reset();
     if (resourcesChanged) {
         advanceRevision();
-        // 内部纹理使用字符串身份，不能也无需枚举；单条失效事件覆盖完整清空。
-        publishChange(AssetGpuChangeKind::InvalidateAll);
     }
 }
 
@@ -243,52 +217,6 @@ void AssetGpuRegistry::advanceRevision() noexcept {
     if (++revision_ == 0) {
         ++revision_;
     }
-}
-
-void AssetGpuRegistry::publishChange(AssetGpuChangeKind kind, RenderResourceKey key) {
-    if (change_revision_ == std::numeric_limits<AssetGpuChangeRevision>::max()) {
-        // 轮换 domain 使所有旧游标显式进入 FullResyncRequired，避免 revision 回绕碰撞。
-        change_domain_ = allocateAssetGpuChangeDomain();
-        change_revision_ = 0;
-        change_journal_.clear();
-    }
-    ++change_revision_;
-    if (change_journal_capacity_ == 0)
-        return;
-    change_journal_.push_back({ change_revision_, kind, key });
-    while (change_journal_.size() > change_journal_capacity_)
-        change_journal_.pop_front();
-}
-
-AssetGpuChangeSet AssetGpuRegistry::readChanges(const AssetGpuChangeCursor& cursor) const {
-    AssetGpuChangeSet result;
-    result.domain = change_domain_;
-    result.fromRevision = cursor.revision;
-    result.toRevision = change_revision_;
-
-    const bool foreignDomain = cursor.domain != 0 && cursor.domain != change_domain_;
-    const bool unboundNonzeroRevision = cursor.domain == 0 && cursor.revision != 0;
-    if (foreignDomain || unboundNonzeroRevision) {
-        result.status = AssetGpuChangeStatus::FullResyncRequired;
-        return result;
-    }
-    if (cursor.revision == change_revision_)
-        return result;
-
-    const bool cursorAhead = cursor.revision > change_revision_;
-    const bool journalMissing = change_journal_.empty();
-    const bool cursorTooOld = !journalMissing && cursor.revision < change_journal_.front().revision - 1;
-    if (cursorAhead || journalMissing || cursorTooOld) {
-        result.status = AssetGpuChangeStatus::FullResyncRequired;
-        return result;
-    }
-
-    result.status = AssetGpuChangeStatus::Changes;
-    for (const AssetGpuChange& change : change_journal_) {
-        if (change.revision > cursor.revision)
-            result.changes.push_back(change);
-    }
-    return result;
 }
 
 Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(const graphics::Mesh& mesh) {

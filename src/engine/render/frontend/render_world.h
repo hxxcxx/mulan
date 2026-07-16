@@ -34,14 +34,15 @@ public:
     void clear();
     RenderWorldSnapshot snapshot() const;
 
-    size_t geometryCount() const { return storage_.geometries.size(); }
-    size_t materialCount() const { return storage_.materials.size(); }
-    size_t objectCount() const { return storage_.objects.size(); }
+    size_t geometryCount() const { return storage_->geometries.size(); }
+    size_t materialCount() const { return storage_->materials.size(); }
+    size_t objectCount() const { return storage_->objects.size(); }
 
 private:
+    void ensureWritable();
     void advanceRevision();
 
-    RenderWorldStorage storage_;
+    std::shared_ptr<RenderWorldStorage> storage_;
     RenderWorldVersion version_;
     uint32_t next_geometry_index_ = 0;
     uint32_t next_material_index_ = 0;

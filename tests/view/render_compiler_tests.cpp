@@ -270,7 +270,7 @@ TEST_F(RenderCompilerTests, ReusesEveryPacketForAnIdenticalSnapshot) {
                                     [](const auto& command) { return command.batchInstancingEligible; }));
 }
 
-TEST_F(RenderCompilerTests, SingleObjectUpdateRecompilesOnlyItsPacketAndKeepsBothCommands) {
+TEST_F(RenderCompilerTests, WorldChangeRebuildsPacketsAndKeepsBothCommands) {
     const RenderResourceKey key = makeAssetGpuKey(101);
     prepareGeometry(key);
     RenderWorld world;
@@ -289,10 +289,10 @@ TEST_F(RenderCompilerTests, SingleObjectUpdateRecompilesOnlyItsPacketAndKeepsBot
     ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
 
     const RenderPacketCacheStats& stats = compiler_.lastPacketCacheStats();
-    EXPECT_FALSE(stats.fullRebuild);
+    EXPECT_TRUE(stats.fullRebuild);
     EXPECT_FALSE(stats.cacheHit);
-    EXPECT_EQ(stats.recompiledPacketCount, 1u);
-    EXPECT_EQ(stats.reusedPacketCount, 1u);
+    EXPECT_EQ(stats.recompiledPacketCount, 2u);
+    EXPECT_EQ(stats.reusedPacketCount, 0u);
     ASSERT_EQ(compiler_.edgeCommands().size(), 2u);
     const MeshDrawCommand* updated = findCommandByPickId(compiler_.edgeCommands(), 12);
     ASSERT_NE(updated, nullptr);
@@ -413,7 +413,7 @@ TEST_F(RenderCompilerTests, OverlayCompilationNeverAppliesSceneFrustumCulling) {
                                      [](const auto& command) { return command.batchInstancingEligible; }));
 }
 
-TEST_F(RenderCompilerTests, GeometryResolutionObservesAssetChangesWithoutCurrentPacketUsers) {
+TEST_F(RenderCompilerTests, GeometryResourceRevisionInvalidatesWorldLevelCache) {
     const RenderResourceKey geometryKey = makeAssetGpuKey(108);
     RenderWorld world;
     const GeometryHandle geometry = world.addGeometry(makeEdgeGeometryDesc(geometryKey));
@@ -423,27 +423,26 @@ TEST_F(RenderCompilerTests, GeometryResolutionObservesAssetChangesWithoutCurrent
     options.showEdges = false;
     const RenderViewDesc view = identityView();
 
-    // 缺失资源在禁用 pass 中可以缓存；移除最后一个对象后 resolution 仍可能继续存活。
+    // 禁用 pass 时允许缓存缺失状态，资源版本变化后整体刷新缓存。
     ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
     ASSERT_TRUE(world.removeObject(firstObject));
     ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
 
     prepareGeometry(geometryKey);
-    // 当前没有 Packet 用户，但 journal 事件仍必须通过独立索引驱逐 MissingGpu 缓存。
     ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
-    EXPECT_FALSE(compiler_.lastPacketCacheStats().fullRebuild);
+    EXPECT_TRUE(compiler_.lastPacketCacheStats().fullRebuild);
     EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 0u);
 
     world.addObject(makeEdgeObjectDesc(geometry, 46, boundsAt(0.0)));
     options.showEdges = true;
     ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
-    EXPECT_FALSE(compiler_.lastPacketCacheStats().fullRebuild);
+    EXPECT_TRUE(compiler_.lastPacketCacheStats().fullRebuild);
     EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 1u);
     ASSERT_EQ(compiler_.edgeCommands().size(), 1u);
     EXPECT_EQ(compiler_.edgeCommands().front().pickId, 46u);
 }
 
-TEST_F(RenderCompilerTests, TextureResolutionObservesAssetChangesWithoutCurrentPacketUsers) {
+TEST_F(RenderCompilerTests, TextureResourceRevisionInvalidatesWorldLevelCache) {
     const ResourceDomainId domain = resourceDomainForAssetLibrary(9001);
     const RenderResourceKey geometryKey = makeRenderResourceKey(domain, 1, RenderResourceKind::Geometry);
     const RenderResourceKey materialKey = makeRenderResourceKey(domain, 2, RenderResourceKind::Material);
@@ -474,22 +473,21 @@ TEST_F(RenderCompilerTests, TextureResolutionObservesAssetChangesWithoutCurrentP
     ASSERT_TRUE(prepared) << prepared.error().message;
     ASSERT_NE(*prepared, nullptr);
     Texture* preparedTexture = *prepared;
-    // 与几何相同，零 Packet 用户期间的 TextureUpserted 也必须驱逐旧 MissingGpu 状态。
     ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
-    EXPECT_FALSE(compiler_.lastPacketCacheStats().fullRebuild);
+    EXPECT_TRUE(compiler_.lastPacketCacheStats().fullRebuild);
     EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 0u);
 
     world.addObject(makeSurfaceObjectDesc(geometry, material, 48, boundsAt(0.0)));
     options.showSurfaces = true;
     ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
-    EXPECT_FALSE(compiler_.lastPacketCacheStats().fullRebuild);
+    EXPECT_TRUE(compiler_.lastPacketCacheStats().fullRebuild);
     EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 1u);
     ASSERT_EQ(compiler_.surfaceCommands().size(), 1u);
     EXPECT_EQ(compiler_.surfaceCommands().front().pickId, 48u);
     EXPECT_EQ(compiler_.surfaceCommands().front().albedoTex, preparedTexture);
 }
 
-TEST_F(RenderCompilerTests, UnrelatedAssetChangesDoNotRecompileOrReassembleCommands) {
+TEST_F(RenderCompilerTests, AnyRegistryMutationConservativelyRebuildsWorldCache) {
     const RenderResourceKey usedKey = makeAssetGpuKey(109);
     const RenderResourceKey unrelatedKey = makeAssetGpuKey(110);
     prepareGeometry(usedKey);
@@ -502,21 +500,19 @@ TEST_F(RenderCompilerTests, UnrelatedAssetChangesDoNotRecompileOrReassembleComma
     const RenderViewDesc view = identityView();
 
     ASSERT_TRUE(compiler_.compile(snapshot, options, context, &view, true));
-    const uint64_t commandRevision = compiler_.commandRevision();
     prepareGeometry(unrelatedKey);
 
     ASSERT_TRUE(compiler_.compile(snapshot, options, context, &view, true));
     const RenderPacketCacheStats& stats = compiler_.lastPacketCacheStats();
-    EXPECT_FALSE(stats.fullRebuild);
-    EXPECT_TRUE(stats.cacheHit);
-    EXPECT_TRUE(stats.assemblyCacheHit);
-    EXPECT_EQ(stats.recompiledPacketCount, 0u);
-    EXPECT_EQ(compiler_.commandRevision(), commandRevision);
+    EXPECT_TRUE(stats.fullRebuild);
+    EXPECT_FALSE(stats.cacheHit);
+    EXPECT_FALSE(stats.assemblyCacheHit);
+    EXPECT_EQ(stats.recompiledPacketCount, 1u);
     ASSERT_EQ(compiler_.edgeCommands().size(), 1u);
     EXPECT_EQ(compiler_.edgeCommands().front().pickId, 49u);
 }
 
-TEST_F(RenderCompilerTests, GeometryAssetReplacementInvalidatesOnlyUsersForEveryConsumer) {
+TEST_F(RenderCompilerTests, GeometryAssetReplacementRebuildsEveryConsumer) {
     const RenderResourceKey replacedKey = makeAssetGpuKey(111);
     const RenderResourceKey stableKey = makeAssetGpuKey(112);
     prepareGeometry(replacedKey);
@@ -548,13 +544,13 @@ TEST_F(RenderCompilerTests, GeometryAssetReplacementInvalidatesOnlyUsersForEvery
     ASSERT_NE((*replaced)->vertexBuffer.get(), oldReplacedBuffer);
 
     ASSERT_TRUE(compiler_.compile(snapshot, options, context, &view, true));
-    EXPECT_FALSE(compiler_.lastPacketCacheStats().fullRebuild);
-    EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 1u);
-    EXPECT_EQ(compiler_.lastPacketCacheStats().reusedPacketCount, 1u);
+    EXPECT_TRUE(compiler_.lastPacketCacheStats().fullRebuild);
+    EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 2u);
+    EXPECT_EQ(compiler_.lastPacketCacheStats().reusedPacketCount, 0u);
     ASSERT_TRUE(secondCompiler.compile(snapshot, options, context, &view, true));
-    EXPECT_FALSE(secondCompiler.lastPacketCacheStats().fullRebuild);
-    EXPECT_EQ(secondCompiler.lastPacketCacheStats().recompiledPacketCount, 1u);
-    EXPECT_EQ(secondCompiler.lastPacketCacheStats().reusedPacketCount, 1u);
+    EXPECT_TRUE(secondCompiler.lastPacketCacheStats().fullRebuild);
+    EXPECT_EQ(secondCompiler.lastPacketCacheStats().recompiledPacketCount, 2u);
+    EXPECT_EQ(secondCompiler.lastPacketCacheStats().reusedPacketCount, 0u);
 
     for (RenderCompiler* consumer : { &compiler_, &secondCompiler }) {
         const MeshDrawCommand* changed = findCommandByPickId(consumer->edgeCommands(), 61);
@@ -589,7 +585,7 @@ TEST_F(RenderCompilerTests, MissingGeometryIsDeferredWhilePassIsDisabledAndFails
 
     prepareGeometry(missingKey);
     ASSERT_TRUE(compiler_.compile(snapshot, options, context, &view, true));
-    EXPECT_FALSE(compiler_.lastPacketCacheStats().fullRebuild);
+    EXPECT_TRUE(compiler_.lastPacketCacheStats().fullRebuild);
     EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 1u);
     ASSERT_EQ(compiler_.edgeCommands().size(), 1u);
     EXPECT_EQ(compiler_.edgeCommands().front().pickId, 63u);
@@ -617,12 +613,13 @@ TEST_F(RenderCompilerTests, MissingGeometryIsDeferredOutsideFrustumAndFailsOnEnt
 
     prepareGeometry(missingKey);
     ASSERT_TRUE(compiler_.compile(snapshot, options, context, &view, true));
+    EXPECT_TRUE(compiler_.lastPacketCacheStats().fullRebuild);
     EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 1u);
     ASSERT_EQ(compiler_.edgeCommands().size(), 1u);
     EXPECT_EQ(compiler_.edgeCommands().front().pickId, 64u);
 }
 
-TEST_F(RenderCompilerTests, RemovingObjectRetiresOnlyItsPacketAndCommand) {
+TEST_F(RenderCompilerTests, RemovingObjectRebuildsWorldCacheAndCommandList) {
     const RenderResourceKey key = makeAssetGpuKey(115);
     prepareGeometry(key);
     RenderWorld world;
@@ -638,15 +635,15 @@ TEST_F(RenderCompilerTests, RemovingObjectRetiresOnlyItsPacketAndCommand) {
     ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
 
     const RenderPacketCacheStats& stats = compiler_.lastPacketCacheStats();
-    EXPECT_FALSE(stats.fullRebuild);
+    EXPECT_TRUE(stats.fullRebuild);
     EXPECT_FALSE(stats.cacheHit);
-    EXPECT_EQ(stats.recompiledPacketCount, 0u);
-    EXPECT_EQ(stats.reusedPacketCount, 1u);
+    EXPECT_EQ(stats.recompiledPacketCount, 1u);
+    EXPECT_EQ(stats.reusedPacketCount, 0u);
     ASSERT_EQ(compiler_.edgeCommands().size(), 1u);
     EXPECT_EQ(compiler_.edgeCommands().front().pickId, 66u);
 }
 
-TEST_F(RenderCompilerTests, MissingGpuGeometryDoesNotPublishPartialPacketState) {
+TEST_F(RenderCompilerTests, MissingGpuGeometryClearsCommandsAndRecoversAfterResourceUpdate) {
     const RenderResourceKey readyKey = makeAssetGpuKey(105);
     const RenderResourceKey missingKey = makeAssetGpuKey(106);
     prepareGeometry(readyKey);
@@ -654,47 +651,27 @@ TEST_F(RenderCompilerTests, MissingGpuGeometryDoesNotPublishPartialPacketState) 
     const GeometryHandle readyGeometry = world.addGeometry(makeEdgeGeometryDesc(readyKey));
     RenderObjectDesc readyDesc = makeEdgeObjectDesc(readyGeometry, 51, boundsAt(0.0));
     const RenderObjectId readyObject = world.addObject(readyDesc);
-    const RenderWorldSnapshot committedSnapshot = world.snapshot();
     RenderCompileContext context = makeContext();
     const RenderOptions options;
     const RenderViewDesc view = identityView();
-    ASSERT_TRUE(compiler_.compile(committedSnapshot, options, context, &view, true));
+    ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
 
     // 先编译一个合法替换，再命中缺失资源，可以验证失败不会发布前半段更新。
     readyDesc.worldTransform = math::Mat4::translate(math::Vec3(0.75, 0.0, 0.0));
     ASSERT_TRUE(world.updateObject(readyObject, readyDesc));
     const GeometryHandle missingGeometry = world.addGeometry(makeEdgeGeometryDesc(missingKey));
-    const RenderObjectId missingObject = world.addObject(makeEdgeObjectDesc(missingGeometry, 52, boundsAt(0.25)));
+    world.addObject(makeEdgeObjectDesc(missingGeometry, 52, boundsAt(0.25)));
     const RenderWorldSnapshot failedSnapshot = world.snapshot();
-    ASSERT_NE(failedSnapshot.object(missingObject), nullptr);
-    size_t objectDifferenceCount = 0;
-    failedSnapshot.forEachObjectDifference(
-            committedSnapshot,
-            [&](uint32_t, const RenderObjectRecord*, const RenderObjectRecord*) { ++objectDifferenceCount; });
-    ASSERT_EQ(objectDifferenceCount, 2u);
 
     const ResultVoid failed = compiler_.compile(failedSnapshot, options, context, &view, true);
     EXPECT_FALSE(failed);
     EXPECT_EQ(compiler_.lastStats().missingGpuGeometryCount, 1u);
-    EXPECT_FALSE(compiler_.lastPacketCacheStats().fullRebuild);
-
-    ASSERT_TRUE(compiler_.compile(committedSnapshot, options, context, &view, true));
-    const RenderPacketCacheStats& rollbackStats = compiler_.lastPacketCacheStats();
-    EXPECT_TRUE(rollbackStats.cacheHit);
-    EXPECT_EQ(rollbackStats.recompiledPacketCount, 0u);
-    EXPECT_EQ(compiler_.lastStats().missingGpuGeometryCount, 0u);
-    EXPECT_EQ(compiler_.lastStats().missingGpuTextureCount, 0u);
-    EXPECT_EQ(compiler_.lastStats().acceptedEdgeCommandCount, 1u);
-    EXPECT_EQ(compiler_.lastWorkloadStats().visibleObjectCount, 1u);
-    EXPECT_EQ(compiler_.lastWorkloadStats().edgeItemCount, 1u);
-    ASSERT_EQ(compiler_.edgeCommands().size(), 1u);
-    const MeshDrawCommand* committed = findCommandByPickId(compiler_.edgeCommands(), 51);
-    ASSERT_NE(committed, nullptr);
-    EXPECT_DOUBLE_EQ(committed->worldTransform[3].x, 0.0);
+    EXPECT_TRUE(compiler_.lastPacketCacheStats().fullRebuild);
+    EXPECT_TRUE(compiler_.edgeCommands().empty());
 
     prepareGeometry(missingKey);
     ASSERT_TRUE(compiler_.compile(failedSnapshot, options, context, &view, true));
-    EXPECT_FALSE(compiler_.lastPacketCacheStats().fullRebuild);
+    EXPECT_TRUE(compiler_.lastPacketCacheStats().fullRebuild);
     EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 2u);
     EXPECT_EQ(compiler_.edgeCommands().size(), 2u);
     const MeshDrawCommand* recovered = findCommandByPickId(compiler_.edgeCommands(), 51);

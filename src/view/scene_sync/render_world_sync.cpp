@@ -4,6 +4,7 @@
 #include <mulan/asset/geometry_asset.h>
 #include <mulan/asset/material_asset.h>
 #include <mulan/asset/texture_asset.h>
+#include <mulan/view/core/preview_layer.h>
 #include <mulan/view/scene_sync/render_scene.h>
 #include <mulan/view/scene_sync/scene_proxy.h>
 
@@ -11,6 +12,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <unordered_map>
 #include <utility>
@@ -221,6 +223,158 @@ void accumulate(RenderItemDiagnostics& dst, const RenderItemDiagnostics& src) {
     dst.rejectedEmpty += src.rejectedEmpty;
     dst.rejectedTopology += src.rejectedTopology;
     dst.rejectedLayout += src.rejectedLayout;
+}
+
+engine::RenderMaterialDesc previewMaterialDesc(PreviewVisualRole role, engine::ResourceDomainId previewDomain) {
+    engine::RenderMaterialDesc desc;
+    desc.resourceKey = engine::makeRenderResourceKey(previewDomain, RenderItemBuilder::previewMaterialKey(role),
+                                                     engine::RenderResourceKind::PreviewMaterial);
+    switch (role) {
+    case PreviewVisualRole::Tool:
+        desc.material = engine::Material::unlit(math::Vec3(0.0, 0.58, 1.0));
+        desc.material.name = "ToolPreview";
+        break;
+    case PreviewVisualRole::Snap:
+        desc.material = engine::Material::unlit(math::Vec3(1.0, 0.74, 0.16));
+        desc.material.name = "SnapPreview";
+        break;
+    case PreviewVisualRole::Grip:
+        desc.material = engine::Material::unlit(math::Vec3(0.2, 1.0, 0.38));
+        desc.material.name = "GripPreview";
+        break;
+    case PreviewVisualRole::GripHot:
+        desc.material = engine::Material::unlit(math::Vec3(1.0, 0.95, 0.25));
+        desc.material.name = "GripHotPreview";
+        break;
+    }
+    return desc;
+}
+
+engine::RenderMaterialHandle previewMaterialForRole(PreviewVisualRole role,
+                                                    const std::array<engine::RenderMaterialHandle, 4>& materials) {
+    return materials[previewVisualRoleIndex(role)];
+}
+
+std::optional<engine::RenderBucket> overlayBucketForReference(engine::RenderBucket bucket) {
+    switch (bucket) {
+    case engine::RenderBucket::Surface: return engine::RenderBucket::OverlaySurface;
+    case engine::RenderBucket::Edge: return engine::RenderBucket::OverlayEdge;
+    case engine::RenderBucket::OverlaySurface:
+    case engine::RenderBucket::OverlayEdge:
+    case engine::RenderBucket::Gizmo:
+    case engine::RenderBucket::Text: return std::nullopt;
+    }
+    return std::nullopt;
+}
+
+void appendPreviewDrawables(const PreviewLayer& preview, engine::ResourceDomainId previewDomain,
+                            engine::RenderWorld& world, GeometryResourceCandidateMap& resources,
+                            const std::array<engine::RenderMaterialHandle, 4>& materials, RenderWorldSyncStats& stats) {
+    const auto& drawables = preview.drawables();
+    if (drawables.empty())
+        return;
+
+    std::vector<RenderItem> items;
+    RenderItemDiagnostics diagnostics;
+    RenderItemBuilder::buildPreviewItems(std::span<const PreviewDrawable>{ drawables.data(), drawables.size() }, items,
+                                         &diagnostics);
+    accumulate(stats.previewItems, diagnostics);
+
+    engine::RenderObjectDesc object;
+    object.pickId = engine::PickId::invalid();
+    object.worldBounds = math::AABB3::empty();
+    for (const RenderItem& item : items) {
+        const graphics::Mesh& mesh = *item.mesh;
+        engine::RenderGeometryDesc desc;
+        desc.resourceKey = engine::makeRenderResourceKey(previewDomain, item.geometryKey,
+                                                         engine::RenderResourceKind::PreviewGeometry);
+        desc.topology = mesh.topology;
+        desc.vertexLayout = mesh.layout;
+        desc.empty = mesh.empty();
+        resources.try_emplace(desc.resourceKey,
+                              GeometryResourceCandidate{ .mesh = &mesh, .sourceRevision = preview.generation() });
+        if (!mesh.bounds.isEmpty())
+            object.worldBounds.expand(mesh.bounds);
+        object.drawables.push_back(engine::RenderObjectDrawable{
+                .geometry = world.addGeometry(std::move(desc)),
+                .material = previewMaterialForRole(item.previewRole, materials),
+                .bucket = item.bucket,
+                .sourceDrawableIndex = item.sourceDrawableIndex,
+        });
+    }
+    if (!object.drawables.empty()) {
+        world.addObject(std::move(object));
+        ++stats.previewObjectCount;
+        ++stats.addedObjectCount;
+        ++stats.patchedObjectCount;
+    }
+}
+
+void appendPreviewReferences(const PreviewLayer& preview, const RenderScene& scene, const asset::AssetLibrary& assets,
+                             engine::ResourceDomainId assetDomain, engine::RenderWorld& world,
+                             const std::array<engine::RenderMaterialHandle, 4>& materials,
+                             AssetRevisionMap& referencedAssets, RenderWorldSyncStats& stats) {
+    std::unordered_map<uint64_t, engine::GeometryHandle> geometryHandles;
+    std::vector<asset::Drawable> drawables;
+    std::vector<RenderItem> items;
+    for (const PreviewReference& reference : preview.references()) {
+        if (!reference.valid())
+            continue;
+        const SceneProxy* proxy = scene.proxy(reference.entity);
+        if (!proxy || !proxy->visible || !proxy->geometry)
+            continue;
+        const auto* geometry = dynamic_cast<const asset::GeometryAsset*>(assets.asset(proxy->geometry));
+        observeAssetReference(proxy->geometry, geometry, referencedAssets);
+        if (!geometry) {
+            ++stats.missingGeometryAssetCount;
+            continue;
+        }
+
+        drawables.clear();
+        geometry->collectDrawables(drawables);
+        RenderItemDiagnostics diagnostics;
+        RenderItemBuilder::buildSceneItems(proxy->geometry,
+                                           std::span<const asset::Drawable>{ drawables.data(), drawables.size() },
+                                           items, &diagnostics);
+        accumulate(stats.previewItems, diagnostics);
+
+        engine::RenderObjectDesc object;
+        object.pickId = engine::PickId::invalid();
+        object.worldTransform = reference.overrideWorldTransform ? reference.worldTransform : proxy->worldTransform;
+        object.worldBounds = math::AABB3::empty();
+        object.visible = reference.visible;
+        for (const RenderItem& item : items) {
+            const std::optional<engine::RenderBucket> bucket = overlayBucketForReference(item.bucket);
+            if (!bucket)
+                continue;
+            const graphics::Mesh& mesh = *item.mesh;
+            auto known = geometryHandles.find(item.geometryKey);
+            if (known == geometryHandles.end()) {
+                engine::RenderGeometryDesc desc;
+                desc.resourceKey = engine::makeRenderResourceKey(assetDomain, proxy->geometry.value,
+                                                                 engine::RenderResourceKind::Geometry,
+                                                                 static_cast<uint32_t>(item.sourceDrawableIndex));
+                desc.topology = mesh.topology;
+                desc.vertexLayout = mesh.layout;
+                desc.empty = mesh.empty();
+                known = geometryHandles.emplace(item.geometryKey, world.addGeometry(std::move(desc))).first;
+            }
+            if (!mesh.bounds.isEmpty())
+                object.worldBounds.expand(mesh.bounds.transformed(object.worldTransform));
+            object.drawables.push_back(engine::RenderObjectDrawable{
+                    .geometry = known->second,
+                    .material = previewMaterialForRole(reference.role, materials),
+                    .bucket = *bucket,
+                    .sourceDrawableIndex = item.sourceDrawableIndex,
+            });
+        }
+        if (!object.drawables.empty()) {
+            world.addObject(std::move(object));
+            ++stats.previewObjectCount;
+            ++stats.addedObjectCount;
+            ++stats.patchedObjectCount;
+        }
+    }
 }
 
 bool resourceKeyLess(const engine::RenderResourceKey& lhs, const engine::RenderResourceKey& rhs) {
@@ -691,6 +845,42 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
     last_stats_.sceneProxyCount = scene.proxyCount();
     last_stats_.missingGeometryAssetCount = scene.lastSyncStats().missingGeometryCount;
     last_stats_.sceneObjectCount = state.objects.size();
+    last_stats_.worldObjectCount = world.objectCount();
+    last_stats_.worldGeometryCount = world.geometryCount();
+    last_stats_.worldMaterialCount = world.materialCount();
+}
+
+void RenderWorldSync::rebuildOverlay(const RenderScene* scene, const asset::AssetLibrary* assets,
+                                     engine::ResourceDomainId assetDomain, engine::ResourceDomainId previewDomain,
+                                     const PreviewLayer* preview, engine::RenderWorld& world,
+                                     engine::RenderResourcePrepareList* prepare) {
+    last_stats_.reset();
+    last_stats_.fullRebuild = true;
+    world.clear();
+    if (prepare)
+        prepare->clear();
+
+    GeometryResourceCandidateMap resources;
+    AssetRevisionMap referencedAssets;
+    if (preview && !preview->empty()) {
+        std::array<engine::RenderMaterialHandle, kPreviewVisualRoleCount> materials;
+        for (const PreviewVisualRole role : { PreviewVisualRole::Tool, PreviewVisualRole::Snap, PreviewVisualRole::Grip,
+                                              PreviewVisualRole::GripHot }) {
+            materials[previewVisualRoleIndex(role)] = world.addMaterial(previewMaterialDesc(role, previewDomain));
+        }
+        appendPreviewDrawables(*preview, previewDomain, world, resources, materials, last_stats_);
+        if (scene && assets) {
+            appendPreviewReferences(*preview, *scene, *assets, assetDomain, world, materials, referencedAssets,
+                                    last_stats_);
+        }
+    }
+
+    buildGeometryResourceDelta(resources, geometry_revisions_, force_full_prepare_, prepare);
+    buildTextureResourceDelta({}, texture_revisions_, force_full_prepare_, prepare);
+    if (prepare)
+        force_full_prepare_ = false;
+    referenced_asset_revisions_ = std::move(referencedAssets);
+    asset_change_cursor_ = assets ? assets->currentChangeCursor() : asset::AssetChangeCursor{};
     last_stats_.worldObjectCount = world.objectCount();
     last_stats_.worldGeometryCount = world.geometryCount();
     last_stats_.worldMaterialCount = world.materialCount();

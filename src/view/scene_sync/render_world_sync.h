@@ -26,6 +26,7 @@ class AssetLibrary;
 
 namespace mulan::view {
 class RenderScene;
+class PreviewLayer;
 }  // namespace mulan::view
 
 namespace mulan::view {
@@ -61,6 +62,12 @@ public:
     void rebuildScene(const RenderScene& scene, const asset::AssetLibrary& assets, engine::ResourceDomainId assetDomain,
                       engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare = nullptr);
 
+    /// 按当前预览 generation 整体重建小型 OverlayWorld；资产引用复用 SceneWorld 的 GPU key。
+    void rebuildOverlay(const RenderScene* scene, const asset::AssetLibrary* assets,
+                        engine::ResourceDomainId assetDomain, engine::ResourceDomainId previewDomain,
+                        const PreviewLayer* preview, engine::RenderWorld& world,
+                        engine::RenderResourcePrepareList* prepare = nullptr);
+
     /// 将空世界与已记录的 GPU 几何/贴图做差量同步，用于 scene 来源消失。
     void rebuildEmpty(engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare = nullptr);
 
@@ -81,7 +88,7 @@ private:
     struct SceneState;
 
     RenderWorldSyncStats last_stats_;
-    // [0]=资产源版本，[1..2]=mesh 内容指纹。源版本只控制是否重算指纹，
+    // [0]=内容源版本（资产 revision 或 Preview generation），[1..2]=mesh 内容指纹。源版本只控制是否重算指纹，
     // 实际上传仍以单个 subresource 的双指纹变化为准。
     std::unordered_map<engine::RenderResourceKey, std::array<uint64_t, 3>> geometry_revisions_;
     std::unordered_map<engine::RenderTextureResourceKey, uint64_t, engine::RenderTextureResourceKeyHash>

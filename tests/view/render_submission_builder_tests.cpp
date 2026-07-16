@@ -95,35 +95,22 @@ OverlayRoleProjection overlayRoleProjection(const engine::RenderWorldSnapshot& s
     return projection;
 }
 
-struct PersistentStoreTestRecord {
-    uint32_t value = 0;
-};
-
-struct PersistentStoreDifference {
-    uint32_t index = 0;
-    const PersistentStoreTestRecord* previous = nullptr;
-    const PersistentStoreTestRecord* current = nullptr;
-};
-
-TEST(PreviewLayerTests, RoleAndSourceGenerationsAdvanceIndependently) {
+TEST(PreviewLayerTests, GenerationAdvancesOnlyForRealChanges) {
     PreviewLayer preview;
-    const uint64_t toolGeometry = preview.geometryGeneration(PreviewVisualRole::Tool);
-    const uint64_t toolReferences = preview.referenceGeneration(PreviewVisualRole::Tool);
-    const uint64_t snapGeometry = preview.geometryGeneration(PreviewVisualRole::Snap);
-    const uint64_t snapReferences = preview.referenceGeneration(PreviewVisualRole::Snap);
+    const uint64_t initial = preview.generation();
 
     preview.setSnapGeometry({}, { makePreviewMesh() });
-    EXPECT_EQ(preview.geometryGeneration(PreviewVisualRole::Tool), toolGeometry);
-    EXPECT_EQ(preview.referenceGeneration(PreviewVisualRole::Tool), toolReferences);
-    EXPECT_GT(preview.geometryGeneration(PreviewVisualRole::Snap), snapGeometry);
-    EXPECT_EQ(preview.referenceGeneration(PreviewVisualRole::Snap), snapReferences);
+    EXPECT_GT(preview.generation(), initial);
     ASSERT_EQ(preview.drawables(PreviewVisualRole::Snap).size(), 1u);
     EXPECT_TRUE(preview.drawables(PreviewVisualRole::Tool).empty());
 
-    preview.setReferences({ PreviewReference{ .role = PreviewVisualRole::Tool } });
-    EXPECT_EQ(preview.geometryGeneration(PreviewVisualRole::Tool), toolGeometry);
-    EXPECT_GT(preview.referenceGeneration(PreviewVisualRole::Tool), toolReferences);
-    EXPECT_EQ(preview.referenceGeneration(PreviewVisualRole::Snap), snapReferences);
+    const PreviewReference reference{ .role = PreviewVisualRole::Tool };
+    const uint64_t beforeReference = preview.generation();
+    preview.setReferences({ reference });
+    EXPECT_GT(preview.generation(), beforeReference);
+    const uint64_t unchanged = preview.generation();
+    preview.setReferences({ reference });
+    EXPECT_EQ(preview.generation(), unchanged);
 }
 
 TEST(RenderResourcePrepareListTests, MergeUsesLastOperationForSameGeometryKey) {
@@ -539,7 +526,7 @@ TEST(RenderSubmissionBuilderTests, ReplacingPreviewSourceWithSameGenerationUpdat
     EXPECT_TRUE(update.forceUpdate);
 }
 
-TEST(RenderSubmissionBuilderTests, UpdatingOnePreviewRolePreservesOtherRoleProjectionAndStableHandles) {
+TEST(RenderSubmissionBuilderTests, UpdatingOnePreviewRoleRebuildsOverlayAndPreservesStableResourceKeys) {
     RenderScene scene;
     asset::AssetLibrary assets;
     PreviewLayer preview;
@@ -565,22 +552,18 @@ TEST(RenderSubmissionBuilderTests, UpdatingOnePreviewRolePreservesOtherRoleProje
     preview.setMesh(std::move(replacement));
     const RenderSubmission updated = builder.build(view);
     ASSERT_TRUE(updated.overlayWorld);
-    EXPECT_FALSE(updated.overlaySyncStats.fullRebuild);
+    EXPECT_TRUE(updated.overlaySyncStats.fullRebuild);
     EXPECT_EQ(updated.overlaySyncStats.patchedObjectCount, 1u);
     const OverlayRoleProjection updatedTool = overlayRoleProjection(*updated.overlayWorld, PreviewVisualRole::Tool);
     const OverlayRoleProjection updatedSnap = overlayRoleProjection(*updated.overlayWorld, PreviewVisualRole::Snap);
 
-    // 变化角色复用自己的对象/几何句柄；未变化角色的整份绘制输入保持不动。
-    EXPECT_EQ(updatedTool.objects, firstTool.objects);
-    EXPECT_EQ(updatedTool.geometries, firstTool.geometries);
-    EXPECT_EQ(updatedSnap.objects, firstSnap.objects);
-    EXPECT_EQ(updatedSnap.geometries, firstSnap.geometries);
+    // OverlayWorld 整体重建，前端句柄换代；GPU 资源 key 保持稳定且只更新真实变化项。
+    EXPECT_NE(updatedTool.objects, firstTool.objects);
+    EXPECT_NE(updatedTool.geometries, firstTool.geometries);
+    EXPECT_NE(updatedSnap.objects, firstSnap.objects);
+    EXPECT_NE(updatedSnap.geometries, firstSnap.geometries);
     EXPECT_EQ(updatedSnap.geometryKeys, firstSnap.geometryKeys);
     EXPECT_EQ(updatedSnap.buckets, firstSnap.buckets);
-    EXPECT_EQ(first.overlayWorld->object(firstSnap.objects.front()),
-              updated.overlayWorld->object(updatedSnap.objects.front()));
-    EXPECT_EQ(first.overlayWorld->geometry(firstSnap.geometries.front()),
-              updated.overlayWorld->geometry(updatedSnap.geometries.front()));
     ASSERT_EQ(updated.prepare.geometries().size(), 1u);
     EXPECT_EQ(updated.prepare.geometries().front().resourceKey, firstTool.geometryKeys.front());
     EXPECT_TRUE(updated.prepare.geometries().front().isUpsert());
@@ -609,17 +592,18 @@ TEST(RenderSubmissionBuilderTests, ClearingOnePreviewRoleRemovesOnlyThatRoleAndR
     preview.clearToolGeometry();
     const RenderSubmission cleared = builder.build(view);
     ASSERT_TRUE(cleared.overlayWorld);
-    EXPECT_FALSE(cleared.overlaySyncStats.fullRebuild);
+    EXPECT_TRUE(cleared.overlaySyncStats.fullRebuild);
     EXPECT_TRUE(overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Tool).objects.empty());
     const OverlayRoleProjection stableSnap = overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Snap);
-    EXPECT_EQ(stableSnap.objects, snap.objects);
-    EXPECT_EQ(stableSnap.geometries, snap.geometries);
+    EXPECT_NE(stableSnap.objects, snap.objects);
+    EXPECT_NE(stableSnap.geometries, snap.geometries);
+    EXPECT_EQ(stableSnap.geometryKeys, snap.geometryKeys);
     ASSERT_EQ(cleared.prepare.geometries().size(), 1u);
     EXPECT_EQ(cleared.prepare.geometries().front().resourceKey, tool.geometryKeys.front());
     EXPECT_TRUE(cleared.prepare.geometries().front().isRetire());
 }
 
-TEST(RenderSubmissionBuilderTests, ReferenceOnlyRoleChangesDoNotTouchDirectRoleOrUploadGeometry) {
+TEST(RenderSubmissionBuilderTests, ReferenceOnlyChangesRebuildOverlayWithoutUploadingUnchangedDirectGeometry) {
     asset::AssetLibrary assets;
     auto* geometry = assets.create<asset::TessellatedAsset>("ReferenceOnlyRole");
     geometry->setRenderMeshes(makeSurfaceMesh(), {});
@@ -648,8 +632,9 @@ TEST(RenderSubmissionBuilderTests, ReferenceOnlyRoleChangesDoNotTouchDirectRoleO
             overlayRoleProjection(*referenced.overlayWorld, PreviewVisualRole::Snap);
     const OverlayRoleProjection referencedTool =
             overlayRoleProjection(*referenced.overlayWorld, PreviewVisualRole::Tool);
-    EXPECT_EQ(referencedSnap.objects, firstSnap.objects);
-    EXPECT_EQ(referencedSnap.geometries, firstSnap.geometries);
+    EXPECT_NE(referencedSnap.objects, firstSnap.objects);
+    EXPECT_NE(referencedSnap.geometries, firstSnap.geometries);
+    EXPECT_EQ(referencedSnap.geometryKeys, firstSnap.geometryKeys);
     ASSERT_EQ(referencedTool.objects.size(), 1u);
 
     preview.setReferences({ PreviewReference{
@@ -663,9 +648,10 @@ TEST(RenderSubmissionBuilderTests, ReferenceOnlyRoleChangesDoNotTouchDirectRoleO
     ASSERT_TRUE(transformed.overlayWorld);
     const OverlayRoleProjection transformedTool =
             overlayRoleProjection(*transformed.overlayWorld, PreviewVisualRole::Tool);
-    EXPECT_EQ(transformedTool.objects, referencedTool.objects);
-    EXPECT_EQ(transformedTool.geometries, referencedTool.geometries);
-    EXPECT_EQ(overlayRoleProjection(*transformed.overlayWorld, PreviewVisualRole::Snap).objects, firstSnap.objects);
+    EXPECT_NE(transformedTool.objects, referencedTool.objects);
+    EXPECT_NE(transformedTool.geometries, referencedTool.geometries);
+    EXPECT_EQ(overlayRoleProjection(*transformed.overlayWorld, PreviewVisualRole::Snap).geometryKeys,
+              firstSnap.geometryKeys);
 }
 
 TEST(RenderSubmissionBuilderTests, UnrelatedAssetEventsAdvanceOverlayCursorWithoutOverflowRebuild) {
@@ -718,7 +704,7 @@ TEST(RenderSubmissionBuilderTests, AssetClearDoesNotRebuildOverlayWithoutReferen
     EXPECT_EQ(cleared.overlayWorld, first.overlayWorld);
 }
 
-TEST(RenderSubmissionBuilderTests, AssetClearReprojectsOnlyRoleWithReferenceState) {
+TEST(RenderSubmissionBuilderTests, AssetClearRebuildsOverlayWithCurrentReferenceState) {
     asset::AssetLibrary assets;
     auto* geometry = assets.create<asset::TessellatedAsset>("ReferencedGeometry");
     geometry->setRenderMeshes(makeSurfaceMesh(), {});
@@ -749,10 +735,9 @@ TEST(RenderSubmissionBuilderTests, AssetClearReprojectsOnlyRoleWithReferenceStat
     ASSERT_TRUE(cleared.overlayWorld);
     EXPECT_TRUE(overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Tool).objects.empty());
     const OverlayRoleProjection stableSnap = overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Snap);
-    EXPECT_EQ(stableSnap.objects, firstSnap.objects);
-    EXPECT_EQ(stableSnap.geometries, firstSnap.geometries);
-    EXPECT_EQ(first.overlayWorld->object(firstSnap.objects.front()),
-              cleared.overlayWorld->object(stableSnap.objects.front()));
+    EXPECT_NE(stableSnap.objects, firstSnap.objects);
+    EXPECT_NE(stableSnap.geometries, firstSnap.geometries);
+    EXPECT_EQ(stableSnap.geometryKeys, firstSnap.geometryKeys);
     EXPECT_EQ(cleared.overlaySyncStats.patchedObjectCount, 1u);
     EXPECT_TRUE(std::ranges::none_of(cleared.prepare.geometries(), [](const auto& resource) {
         return resource.resourceKey.kind == engine::RenderResourceKind::PreviewGeometry;
@@ -784,11 +769,12 @@ TEST(RenderSubmissionBuilderTests, ReplacingRoleGeometryPreparesOnlyChangedStabl
     const RenderSubmission replaced = builder.build(view);
     ASSERT_TRUE(replaced.overlayWorld);
     const OverlayRoleProjection replacedGrip = overlayRoleProjection(*replaced.overlayWorld, PreviewVisualRole::Grip);
-    EXPECT_EQ(replacedGrip.objects, firstGrip.objects);
+    EXPECT_NE(replacedGrip.objects, firstGrip.objects);
     ASSERT_EQ(replacedGrip.geometries.size(), 2u);
-    EXPECT_EQ(replacedGrip.geometries.front(), firstGrip.geometries.front());
+    EXPECT_NE(replacedGrip.geometries.front(), firstGrip.geometries.front());
     EXPECT_EQ(replacedGrip.geometryKeys.front(), firstGrip.geometryKeys.front());
-    EXPECT_EQ(overlayRoleProjection(*replaced.overlayWorld, PreviewVisualRole::Snap).objects, firstSnap.objects);
+    EXPECT_EQ(overlayRoleProjection(*replaced.overlayWorld, PreviewVisualRole::Snap).geometryKeys,
+              firstSnap.geometryKeys);
 
     ASSERT_EQ(replaced.prepare.geometries().size(), 2u);
     EXPECT_TRUE(std::ranges::all_of(replaced.prepare.geometries(), [](const auto& resource) {
@@ -1380,9 +1366,10 @@ TEST(RenderSubmissionBuilderTests, RemoveAndAddKeepUnrelatedObjectIdsStable) {
     const ViewState view;
     const RenderSubmission first = builder.build(view);
     const engine::PickId firstPick = renderScene.proxy(firstEntity)->pickId;
-    const auto firstRecord = std::ranges::find_if(first.sceneWorld->objects(),
-                                                  [&](const auto& object) { return object.desc.pickId == firstPick; });
-    ASSERT_NE(firstRecord, first.sceneWorld->objects().end());
+    const auto firstObjects = first.sceneWorld->objects();
+    const auto firstRecord =
+            std::ranges::find_if(firstObjects, [&](const auto& object) { return object.desc.pickId == firstPick; });
+    ASSERT_NE(firstRecord, firstObjects.end());
     const engine::RenderObjectId stableId = firstRecord->id;
 
     sourceScene.destroyEntity(removedEntity);
@@ -1394,9 +1381,10 @@ TEST(RenderSubmissionBuilderTests, RemoveAndAddKeepUnrelatedObjectIdsStable) {
     EXPECT_EQ(patched.sceneSyncStats.patchedObjectCount, 2u);
     EXPECT_EQ(patched.sceneSyncStats.removedObjectCount, 1u);
     EXPECT_EQ(patched.sceneSyncStats.addedObjectCount, 1u);
-    const auto stableRecord = std::ranges::find_if(patched.sceneWorld->objects(),
-                                                   [&](const auto& object) { return object.desc.pickId == firstPick; });
-    ASSERT_NE(stableRecord, patched.sceneWorld->objects().end());
+    const auto patchedObjects = patched.sceneWorld->objects();
+    const auto stableRecord =
+            std::ranges::find_if(patchedObjects, [&](const auto& object) { return object.desc.pickId == firstPick; });
+    ASSERT_NE(stableRecord, patchedObjects.end());
     EXPECT_EQ(stableRecord->id, stableId);
 }
 
@@ -1451,11 +1439,12 @@ TEST(RenderSubmissionBuilderTests, IncrementalProjectionMatchesFreshFullProjecti
     ASSERT_TRUE(incremental.sceneWorld);
     ASSERT_TRUE(full.sceneWorld);
     ASSERT_EQ(incremental.sceneWorld->objects().size(), full.sceneWorld->objects().size());
+    const auto fullObjects = full.sceneWorld->objects();
     for (const auto& incrementalObject : incremental.sceneWorld->objects()) {
-        const auto fullObject = std::ranges::find_if(full.sceneWorld->objects(), [&](const auto& candidate) {
+        const auto fullObject = std::ranges::find_if(fullObjects, [&](const auto& candidate) {
             return candidate.desc.pickId == incrementalObject.desc.pickId;
         });
-        ASSERT_NE(fullObject, full.sceneWorld->objects().end());
+        ASSERT_NE(fullObject, fullObjects.end());
         EXPECT_EQ(math::Point3::origin().transformedBy(incrementalObject.desc.worldTransform),
                   math::Point3::origin().transformedBy(fullObject->desc.worldTransform));
         ASSERT_EQ(incrementalObject.desc.drawables.size(), fullObject->desc.drawables.size());
@@ -1549,13 +1538,14 @@ TEST(RenderWorldSnapshotTests, PublishedSnapshotRemainsImmutableAcrossSparseUpda
     EXPECT_EQ(published.objects().front().id, first);
     EXPECT_EQ(published.bounds().max.x, 11.0);
     ASSERT_EQ(current.objects().size(), 2u);
+    const auto currentObjects = current.objects();
     const auto currentFirst =
-            std::ranges::find_if(current.objects(), [&](const auto& record) { return record.id == first; });
-    ASSERT_NE(currentFirst, current.objects().end());
+            std::ranges::find_if(currentObjects, [&](const auto& record) { return record.id == first; });
+    ASSERT_NE(currentFirst, currentObjects.end());
     const math::Point3 expectedPosition{ 4.0, 0.0, 0.0 };
     EXPECT_EQ(math::Point3::origin().transformedBy(currentFirst->desc.worldTransform), expectedPosition);
-    EXPECT_NE(std::ranges::find_if(current.objects(), [&](const auto& record) { return record.id == added; }),
-              current.objects().end());
+    EXPECT_NE(std::ranges::find_if(currentObjects, [&](const auto& record) { return record.id == added; }),
+              currentObjects.end());
     EXPECT_EQ(current.bounds().max.x, 5.0);
 }
 
@@ -1612,7 +1602,7 @@ TEST(RenderWorldSnapshotTests, WorldVersionsAreUniqueAndAdvanceOnlyForSuccessful
     EXPECT_EQ(expectedRevision, beforeClear.revision + 1u);
 }
 
-TEST(RenderWorldSnapshotTests, DifferenceWrappersReportAddsUpdatesAndRemovalsInIndexOrder) {
+TEST(RenderWorldSnapshotTests, PublishedSnapshotRemainsStableAcrossWorldMutations) {
     engine::RenderWorld world;
     engine::RenderGeometryDesc geometryDesc;
     const engine::GeometryHandle updatedGeometry = world.addGeometry(geometryDesc);
@@ -1633,109 +1623,25 @@ TEST(RenderWorldSnapshotTests, DifferenceWrappersReportAddsUpdatesAndRemovalsInI
     const engine::RenderObjectId addedObject = world.addObject({});
     const engine::RenderWorldSnapshot current = world.snapshot();
 
-    std::vector<uint32_t> geometryIndices;
-    current.forEachGeometryDifference(previous, [&](uint32_t index, const engine::RenderGeometryRecord* oldRecord,
-                                                    const engine::RenderGeometryRecord* newRecord) {
-        geometryIndices.push_back(index);
-        if (index == updatedGeometry.index) {
-            ASSERT_NE(oldRecord, nullptr);
-            ASSERT_NE(newRecord, nullptr);
-            EXPECT_TRUE(oldRecord->desc.empty);
-            EXPECT_FALSE(newRecord->desc.empty);
-        } else {
-            EXPECT_EQ(index, addedGeometry.index);
-            EXPECT_EQ(oldRecord, nullptr);
-            ASSERT_NE(newRecord, nullptr);
-            EXPECT_EQ(newRecord->handle, addedGeometry);
-        }
-    });
-    EXPECT_EQ(geometryIndices, (std::vector<uint32_t>{ updatedGeometry.index, addedGeometry.index }));
-
-    std::vector<uint32_t> materialIndices;
-    current.forEachMaterialDifference(previous, [&](uint32_t index, const engine::RenderMaterialRecord* oldRecord,
-                                                    const engine::RenderMaterialRecord* newRecord) {
-        materialIndices.push_back(index);
-        if (index == removedMaterial.index) {
-            ASSERT_NE(oldRecord, nullptr);
-            EXPECT_EQ(newRecord, nullptr);
-        } else {
-            EXPECT_EQ(index, addedMaterial.index);
-            EXPECT_EQ(oldRecord, nullptr);
-            ASSERT_NE(newRecord, nullptr);
-            EXPECT_EQ(newRecord->handle, addedMaterial);
-        }
-    });
-    EXPECT_EQ(materialIndices, (std::vector<uint32_t>{ removedMaterial.index, addedMaterial.index }));
-
-    std::vector<uint32_t> objectIndices;
-    current.forEachObjectDifference(previous, [&](uint32_t index, const engine::RenderObjectRecord* oldRecord,
-                                                  const engine::RenderObjectRecord* newRecord) {
-        objectIndices.push_back(index);
-        if (index == updatedObject.index) {
-            ASSERT_NE(oldRecord, nullptr);
-            ASSERT_NE(newRecord, nullptr);
-            EXPECT_TRUE(oldRecord->desc.visible);
-            EXPECT_FALSE(newRecord->desc.visible);
-        } else if (index == removedObject.index) {
-            ASSERT_NE(oldRecord, nullptr);
-            EXPECT_EQ(newRecord, nullptr);
-        } else {
-            EXPECT_EQ(index, addedObject.index);
-            EXPECT_EQ(oldRecord, nullptr);
-            ASSERT_NE(newRecord, nullptr);
-            EXPECT_EQ(newRecord->id, addedObject);
-        }
-    });
-    EXPECT_EQ(objectIndices, (std::vector<uint32_t>{ updatedObject.index, removedObject.index, addedObject.index }));
-
     ASSERT_NE(previous.object(updatedObject), nullptr);
-    ASSERT_NE(current.object(updatedObject), nullptr);
     EXPECT_TRUE(previous.object(updatedObject)->desc.visible);
+    EXPECT_NE(previous.object(removedObject), nullptr);
+    EXPECT_NE(previous.material(removedMaterial), nullptr);
+    EXPECT_TRUE(previous.geometry(updatedGeometry)->desc.empty);
+    EXPECT_EQ(previous.geometry(addedGeometry), nullptr);
+    EXPECT_EQ(previous.material(addedMaterial), nullptr);
+    EXPECT_EQ(previous.object(addedObject), nullptr);
+
+    ASSERT_NE(current.object(updatedObject), nullptr);
     EXPECT_FALSE(current.object(updatedObject)->desc.visible);
+    EXPECT_FALSE(current.geometry(updatedGeometry)->desc.empty);
+    EXPECT_NE(current.geometry(addedGeometry), nullptr);
+    EXPECT_EQ(current.material(removedMaterial), nullptr);
+    EXPECT_NE(current.material(addedMaterial), nullptr);
     EXPECT_EQ(current.object(removedObject), nullptr);
     EXPECT_NE(current.object(addedObject), nullptr);
     const engine::RenderObjectId staleObject{ .index = addedObject.index, .generation = addedObject.generation + 1u };
     EXPECT_EQ(current.object(staleObject), nullptr);
-
-    size_t identicalDifferenceCount = 0;
-    current.forEachObjectDifference(current, [&](uint32_t, const auto*, const auto*) { ++identicalDifferenceCount; });
-    EXPECT_EQ(identicalDifferenceCount, 0u);
-}
-
-TEST(PersistentRecordStoreTests, DifferenceTraversalCrossesEveryRadixBranchAndPrunesStableRecords) {
-    engine::detail::PersistentRecordStore<PersistentStoreTestRecord> store;
-    store.set(0x000000ffu, { 1 });
-    store.set(0x00000100u, { 2 });
-    store.set(0x00010000u, { 3 });
-    store.set(0x01000000u, { 4 });
-    const auto previous = store;
-
-    store.set(0x000000ffu, { 11 });
-    ASSERT_TRUE(store.erase(0x00000100u));
-    store.set(0x00010001u, { 5 });
-    store.set(0x02000000u, { 6 });
-
-    std::vector<PersistentStoreDifference> differences;
-    store.forEachDifference(previous, [&](uint32_t index, const PersistentStoreTestRecord* oldRecord,
-                                          const PersistentStoreTestRecord* newRecord) {
-        differences.push_back({ index, oldRecord, newRecord });
-    });
-
-    ASSERT_EQ(differences.size(), 4u);
-    EXPECT_EQ(differences[0].index, 0x000000ffu);
-    ASSERT_NE(differences[0].previous, nullptr);
-    ASSERT_NE(differences[0].current, nullptr);
-    EXPECT_EQ(differences[0].previous->value, 1u);
-    EXPECT_EQ(differences[0].current->value, 11u);
-    EXPECT_EQ(differences[1].index, 0x00000100u);
-    ASSERT_NE(differences[1].previous, nullptr);
-    EXPECT_EQ(differences[1].current, nullptr);
-    EXPECT_EQ(differences[2].index, 0x00010001u);
-    EXPECT_EQ(differences[2].previous, nullptr);
-    ASSERT_NE(differences[2].current, nullptr);
-    EXPECT_EQ(differences[3].index, 0x02000000u);
-    EXPECT_EQ(differences[3].previous, nullptr);
-    ASSERT_NE(differences[3].current, nullptr);
 }
 
 }  // namespace

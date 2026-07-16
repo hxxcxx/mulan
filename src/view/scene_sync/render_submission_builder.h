@@ -23,7 +23,6 @@ class AssetLibrary;
 namespace mulan::view {
 class PreviewLayer;
 class RenderScene;
-struct OverlayIncrementalState;
 
 struct RenderSubmissionDiagnostics {
     uint64_t submissionCount = 0;
@@ -42,7 +41,6 @@ struct RenderSubmissionDiagnostics {
 class RenderSubmissionBuilder {
 public:
     RenderSubmissionBuilder();
-    ~RenderSubmissionBuilder();
 
     void reset();
     void setScene(const RenderScene* scene, const asset::AssetLibrary* assets);
@@ -84,7 +82,7 @@ private:
     bool overlay_reference_source_dirty_ = true;
 
     RenderWorldSync scene_world_sync_;
-    std::unique_ptr<OverlayIncrementalState> overlay_state_;
+    RenderWorldSync overlay_world_sync_;
     engine::RenderWorld scene_world_;
     engine::RenderWorld overlay_world_;
     std::shared_ptr<const engine::RenderWorldSnapshot> scene_world_snapshot_;
