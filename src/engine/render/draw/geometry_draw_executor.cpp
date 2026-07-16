@@ -32,6 +32,23 @@ bool GeometryDrawExecutor::init(TextureFormat colorFmt, TextureFormat depthFmt, 
     if (!pso_)
         return false;
 
+    instanced_pso_ = nullptr;
+    if (technique_.instancedVertexShader && technique_.instancedVertexShader[0] != '\0' &&
+        device_.capabilities().maxUniformBufferBindingSize >= sizeof(ObjectBatchUniforms)) {
+        instanced_pso_ = pipeline_library_.acquire(DevicePipelineKey{
+                .technique = technique_.technique,
+                .colorFormat = colorFmt,
+                .depthFormat = depthFmt,
+                .sampleCount = sampleCount,
+                .hasDepth = hasDepth,
+                .objectBindingMode = ObjectBindingMode::InstancedBatch,
+        });
+        // BindGroup 复用以完整 layout 等价为前提；不满足时只关闭优化，不能影响基础绘制。
+        if (instanced_pso_ && instanced_pso_->bindGroupLayout() != pso_->bindGroupLayout()) {
+            instanced_pso_ = nullptr;
+        }
+    }
+
     if (!createFrameBindGroup(colorFmt, depthFmt, hasDepth))
         return false;
 
@@ -78,6 +95,7 @@ bool GeometryDrawExecutor::createFrameBindGroup(TextureFormat, TextureFormat, bo
 }
 
 void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
+    execution_stats_ = {};
     if (!initialized_ || !pso_ || !ctx.cmd || !frame_bg_)
         return;
 
@@ -91,16 +109,45 @@ void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
         frame_bg_->updateTexture(11, ibl_brdf_lut_ ? ibl_brdf_lut_ : shared_resources_.defaultBrdfLUT());
     }
 
-    for (auto& cmd : commands_) {
-        if (!cmd.visible || cmd.instanceCount == 0)
+    planGeometryDrawBatches(commands_, pso_, instanced_pso_ != nullptr, batch_plan_);
+    for (const GeometryDrawBatchRange& range : batch_plan_) {
+        if (!range.instanced || range.count > kObjectBatchCapacity) {
+            for (size_t offset = 0; offset < range.count; ++offset) {
+                const MeshDrawCommand& command = commands_[range.first + offset];
+                if (!command.visible || command.instanceCount == 0)
+                    continue;
+                const auto materialUniform = shared_resources_.materialUniform(*ctx.cmd, command.materialIndex);
+                if (!materialUniform)
+                    continue;
+                command.execute(*ctx.cmd, *frame_bg_, shared_resources_.sceneUniform(), *materialUniform,
+                                shared_resources_.defaultWhiteTexture(), shared_resources_.defaultNormalTexture(),
+                                shared_resources_.defaultMetallicRoughnessTexture(),
+                                shared_resources_.defaultBlackTexture(), shared_resources_.defaultSampler());
+                ++execution_stats_.legacyDrawCount;
+            }
             continue;
-        const auto materialUniform = shared_resources_.materialUniform(*ctx.cmd, cmd.materialIndex);
+        }
+
+        const MeshDrawCommand& first = commands_[range.first];
+        const auto materialUniform = shared_resources_.materialUniform(*ctx.cmd, first.materialIndex);
         if (!materialUniform)
             continue;
-        cmd.execute(*ctx.cmd, *frame_bg_, shared_resources_.sceneUniform(), *materialUniform,
-                    shared_resources_.defaultWhiteTexture(), shared_resources_.defaultNormalTexture(),
-                    shared_resources_.defaultMetallicRoughnessTexture(), shared_resources_.defaultBlackTexture(),
-                    shared_resources_.defaultSampler());
+
+        // 固定写满 16 KiB：未使用项清零，descriptor range 在所有批次与后端上保持稳定。
+        ObjectBatchUniforms objects{};
+        if (!packGeometryDrawObjectBatch(commands_.subspan(range.first, range.count), objects))
+            continue;
+        const auto objectUniform = ctx.cmd->writeUniform(objects);
+        if (!objectUniform)
+            return;
+
+        first.executePrepared(*ctx.cmd, *frame_bg_, shared_resources_.sceneUniform(), *objectUniform, *materialUniform,
+                              instanced_pso_, static_cast<uint32_t>(range.count),
+                              shared_resources_.defaultWhiteTexture(), shared_resources_.defaultNormalTexture(),
+                              shared_resources_.defaultMetallicRoughnessTexture(),
+                              shared_resources_.defaultBlackTexture(), shared_resources_.defaultSampler());
+        ++execution_stats_.instancedDrawCount;
+        execution_stats_.batchedInstanceCount += range.count;
     }
 }
 

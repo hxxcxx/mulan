@@ -643,6 +643,14 @@ TEST(DeviceResourceServiceTests, PipelineLibraryUsesTheCompleteTargetSignature) 
     EXPECT_EQ(resources.pipelines().acquire(key), first);
     EXPECT_EQ(device.pipelineCreateCount(), 1u);
 
+    key.objectBindingMode = ObjectBindingMode::InstancedBatch;
+    PipelineState* instanced = resources.pipelines().acquire(key);
+    ASSERT_NE(instanced, nullptr);
+    EXPECT_NE(instanced, first);
+    EXPECT_EQ(resources.pipelines().acquire(key), instanced);
+    EXPECT_EQ(device.pipelineCreateCount(), 2u);
+
+    key.objectBindingMode = ObjectBindingMode::Single;
     key.sampleCount = 4;
     PipelineState* multisampled = resources.pipelines().acquire(key);
     ASSERT_NE(multisampled, nullptr);
@@ -651,8 +659,8 @@ TEST(DeviceResourceServiceTests, PipelineLibraryUsesTheCompleteTargetSignature) 
     PipelineState* depthless = resources.pipelines().acquire(key);
     ASSERT_NE(depthless, nullptr);
     EXPECT_NE(depthless, multisampled);
-    EXPECT_EQ(device.pipelineCreateCount(), 3u);
-    EXPECT_EQ(resources.stats().pipelineCount, 3u);
+    EXPECT_EQ(device.pipelineCreateCount(), 4u);
+    EXPECT_EQ(resources.stats().pipelineCount, 4u);
 }
 
 TEST(DeviceResourceServiceTests, TextStageIsSharedByCompleteTargetSignature) {

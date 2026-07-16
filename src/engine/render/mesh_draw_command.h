@@ -63,6 +63,8 @@ struct MeshDrawCommand {
     bool visible = true;
     bool isWire = false;
     bool translucent = false;
+    /// 仅由 RenderCompiler 对 Scene 基础不透明命令置位；执行器仍需验证完整兼容键。
+    bool batchInstancingEligible = false;
 
     /// 提交到 CommandList。
     /// defaultWhite / defaultSampler：仅对声明了纹理 binding 的 PSO 有效；
@@ -73,6 +75,14 @@ struct MeshDrawCommand {
                  const UniformSlice& materialUniform, Texture* defaultWhite = nullptr, Texture* defaultNormal = nullptr,
                  Texture* defaultMetallicRoughness = nullptr, Texture* defaultBlack = nullptr,
                  Sampler* defaultSampler = nullptr) const;
+
+    /// 使用调用方已准备的对象 Uniform 和管线提交。实例批路径据此复用完整绑定逻辑；
+    /// startInstance 始终为 0，以统一 OpenGL 与 D3D/Vulkan 的 InstanceID 语义。
+    void executePrepared(CommandList& cmd, BindGroup& frameBg, const UniformSlice& sceneUniform,
+                         const UniformSlice& objectUniform, const UniformSlice& materialUniform,
+                         PipelineState* activePipeline, uint32_t activeInstanceCount, Texture* defaultWhite = nullptr,
+                         Texture* defaultNormal = nullptr, Texture* defaultMetallicRoughness = nullptr,
+                         Texture* defaultBlack = nullptr, Sampler* defaultSampler = nullptr) const;
 };
 
 }  // namespace mulan::engine

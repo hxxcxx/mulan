@@ -242,6 +242,33 @@ TEST_P(BackendContractTest, ReportsUsableCapabilities) {
     ASSERT_TRUE(device->waitIdle());
 }
 
+TEST_P(BackendContractTest, WritesPortableObjectBatchUniformRange) {
+    ContractWindow window;
+    ASSERT_TRUE(window.valid());
+    auto deviceResult = createDevice(window);
+    ASSERT_TRUE(deviceResult) << deviceResult.error().message;
+    auto device = std::move(*deviceResult);
+
+    constexpr size_t ObjectBatchBytes = 16u * 1024u;
+    ASSERT_GE(device->capabilities().maxUniformBufferBindingSize, ObjectBatchBytes);
+    std::array<std::byte, ObjectBatchBytes> data{};
+    auto commandResult = device->createCommandList();
+    ASSERT_TRUE(commandResult) << commandResult.error().message;
+    auto command = std::move(*commandResult);
+    ASSERT_TRUE(command->begin());
+    const auto slice = command->writeUniformBytes(data);
+    ASSERT_TRUE(slice) << slice.error().message;
+    EXPECT_EQ(slice->size, ObjectBatchBytes);
+    EXPECT_EQ(slice->offset % device->capabilities().minUniformBufferOffsetAlignment, 0u);
+    ASSERT_TRUE(command->end()) << command->recordingError()->message;
+
+    auto submission = device->executeCommandList(command.get());
+    ASSERT_TRUE(submission) << submission.error().message;
+    ASSERT_TRUE(device->waitForSubmission(*submission));
+    command.reset();
+    ASSERT_TRUE(device->waitIdle());
+}
+
 TEST_P(BackendContractTest, BindGroupOwnsLayoutAndRejectsInvalidUniformUpdates) {
     ContractWindow window;
     ASSERT_TRUE(window.valid());

@@ -2,6 +2,7 @@ find_package(GTest CONFIG REQUIRED)
 
 add_executable(ViewRuntimeTests
     asset_gpu_registry_tests.cpp
+    geometry_draw_batch_tests.cpp
     material_cache_tests.cpp
     operator_routing_tests.cpp
     primitive_pick_index_tests.cpp

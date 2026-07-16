@@ -21,12 +21,18 @@ class PipelineState;
 class RHIDevice;
 class Shader;
 
+enum class ObjectBindingMode : uint8_t {
+    Single,
+    InstancedBatch,
+};
+
 struct DevicePipelineKey {
     RenderTechnique technique = RenderTechnique::SolidLit;
     TextureFormat colorFormat = TextureFormat::Unknown;
     TextureFormat depthFormat = TextureFormat::Unknown;
     uint32_t sampleCount = 1;
     bool hasDepth = true;
+    ObjectBindingMode objectBindingMode = ObjectBindingMode::Single;
 
     bool operator==(const DevicePipelineKey&) const = default;
 };

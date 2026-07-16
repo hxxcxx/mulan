@@ -94,6 +94,23 @@ EvaluatedLight evaluateSceneLight(uint index, float3 worldPosition) {
 // ============================================================
 // 物体常量（每 draw call 更新, 128 bytes）
 // ============================================================
+#ifdef MULAN_OBJECT_BATCH
+// 实例化路径固定绑定完整 16 KiB。数组元素与 CPU ObjectUniforms 严格保持 128 bytes；
+// instanceId 只能由 CPU 以 startInstance=0 的 draw 产生，禁止在 shader 内静默 clamp。
+struct ObjectData {
+    float4x4 World;
+    float3x3 NormalMatrix;
+    uint     PickId;
+    uint     Selected;
+    uint     Hovered;
+    uint     _o0;
+};
+
+[[vk::binding(1, 0)]]
+cbuffer ObjectBatch : register(b1) {
+    ObjectData Objects[128];
+};
+#else
 [[vk::binding(1, 0)]]
 cbuffer Object : register(b1) {
     float4x4 World;
@@ -103,6 +120,7 @@ cbuffer Object : register(b1) {
     uint     Hovered;     // 0=未悬停, 1=鼠标悬停
     uint     _o0;
 };
+#endif
 
 // ============================================================
 // 材质常量（仅切换时更新, 80 bytes = MaterialGPU 直传）

@@ -221,6 +221,8 @@ TEST_F(RenderCompilerTests, ReusesEveryPacketForAnIdenticalSnapshot) {
     EXPECT_TRUE(compiler_.lastPacketCacheStats().fullRebuild);
     EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 2u);
     ASSERT_EQ(compiler_.edgeCommands().size(), 2u);
+    EXPECT_TRUE(std::ranges::all_of(compiler_.edgeCommands(),
+                                    [](const auto& command) { return command.batchInstancingEligible; }));
 
     ASSERT_TRUE(compiler_.compile(snapshot, options, context, &view, true));
     const RenderPacketCacheStats& stats = compiler_.lastPacketCacheStats();
@@ -230,6 +232,8 @@ TEST_F(RenderCompilerTests, ReusesEveryPacketForAnIdenticalSnapshot) {
     EXPECT_EQ(stats.reusedPacketCount, 2u);
     EXPECT_EQ(stats.assembledCommandCount, 2u);
     EXPECT_EQ(compiler_.edgeCommands().size(), 2u);
+    EXPECT_TRUE(std::ranges::all_of(compiler_.edgeCommands(),
+                                    [](const auto& command) { return command.batchInstancingEligible; }));
 }
 
 TEST_F(RenderCompilerTests, SingleObjectUpdateRecompilesOnlyItsPacketAndKeepsBothCommands) {
@@ -312,6 +316,8 @@ TEST_F(RenderCompilerTests, HoverStateReassemblesHighlightsWithoutInvalidatingPa
     EXPECT_FALSE(compiler_.edgeCommands().front().hovered);
     EXPECT_FALSE(compiler_.highlightEdgeCommands().front().selected);
     EXPECT_TRUE(compiler_.highlightEdgeCommands().front().hovered);
+    EXPECT_TRUE(compiler_.edgeCommands().front().batchInstancingEligible);
+    EXPECT_FALSE(compiler_.highlightEdgeCommands().front().batchInstancingEligible);
 }
 
 TEST_F(RenderCompilerTests, FrustumCullsOutsideBoundsAndInvalidMatrixFailsOpen) {
@@ -369,6 +375,8 @@ TEST_F(RenderCompilerTests, OverlayCompilationNeverAppliesSceneFrustumCulling) {
     EXPECT_EQ(stats.culledObjectCount, 0u);
     EXPECT_FALSE(stats.frustumFailOpen);
     EXPECT_EQ(compiler_.edgeCommands().size(), 2u);
+    EXPECT_TRUE(std::ranges::none_of(compiler_.edgeCommands(),
+                                     [](const auto& command) { return command.batchInstancingEligible; }));
 }
 
 TEST_F(RenderCompilerTests, GeometryResolutionObservesAssetChangesWithoutCurrentPacketUsers) {

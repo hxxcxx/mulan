@@ -20,7 +20,19 @@ void MeshDrawCommand::execute(CommandList& cmd, BindGroup& frameBg, const Unifor
     if (!objectUniform)
         return;
 
-    cmd.setPipelineState(pipelineState);
+    executePrepared(cmd, frameBg, sceneUniform, *objectUniform, materialUniform, pipelineState, instanceCount,
+                    defaultWhite, defaultNormal, defaultMetallicRoughness, defaultBlack, defaultSampler);
+}
+
+void MeshDrawCommand::executePrepared(CommandList& cmd, BindGroup& frameBg, const UniformSlice& sceneUniform,
+                                      const UniformSlice& objectUniform, const UniformSlice& materialUniform,
+                                      PipelineState* activePipeline, uint32_t activeInstanceCount,
+                                      Texture* defaultWhite, Texture* defaultNormal, Texture* defaultMetallicRoughness,
+                                      Texture* defaultBlack, Sampler* defaultSampler) const {
+    if (activeInstanceCount == 0 || !activePipeline || !vertexBuffer || !objectUniform)
+        return;
+
+    cmd.setPipelineState(activePipeline);
 
     // 纹理 + sampler：仅当 defaultWhite 非 null（即该 pass 的 PSO 声明了纹理 binding）时才绑定。
     // 空纹理由 default* 退化：albedo→白, normal→(0,0,1)平面, mr→(1,1,0), emissive→黑, ao→白。
@@ -33,7 +45,7 @@ void MeshDrawCommand::execute(CommandList& cmd, BindGroup& frameBg, const Unifor
         frameBg.updateSampler(8, sampler ? sampler : defaultSampler);
     }
 
-    const std::array uniforms{ DynamicUniformBinding{ 0, sceneUniform }, DynamicUniformBinding{ 1, *objectUniform },
+    const std::array uniforms{ DynamicUniformBinding{ 0, sceneUniform }, DynamicUniformBinding{ 1, objectUniform },
                                DynamicUniformBinding{ 2, materialUniform } };
     cmd.bindGroup(frameBg, uniforms);
 
@@ -43,15 +55,17 @@ void MeshDrawCommand::execute(CommandList& cmd, BindGroup& frameBg, const Unifor
         cmd.setIndexBuffer(indexBuffer, 0, indexType);
         DrawIndexedAttribs attrs;
         attrs.indexCount = indexCount;
-        attrs.instanceCount = instanceCount;
+        attrs.instanceCount = activeInstanceCount;
         attrs.startIndex = firstIndex;
         attrs.baseVertex = baseVertex;
         attrs.indexType = indexType;
+        attrs.startInstance = 0;
         cmd.drawIndexed(attrs);
     } else if (vertexCount > 0) {
         DrawAttribs attrs;
         attrs.vertexCount = vertexCount;
-        attrs.instanceCount = instanceCount;
+        attrs.instanceCount = activeInstanceCount;
+        attrs.startInstance = 0;
         cmd.draw(attrs);
     }
 }

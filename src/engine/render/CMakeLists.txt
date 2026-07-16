@@ -19,6 +19,7 @@ add_library(render STATIC
     backend/render_renderer.cpp
     # Draw executors / stages
     draw/geometry_draw_shared_resources.cpp
+    draw/geometry_draw_batch.cpp
     draw/geometry_draw_executor.cpp
     forward/face_stage.cpp
     forward/edge_stage.cpp
@@ -77,6 +78,10 @@ set(SHADER_SOURCES
     pbr.vert.slang
     pbr.frag.slang
     pbr_tangent.vert.slang
+    solid_instanced.vert.slang
+    pbr_instanced.vert.slang
+    pbr_tangent_instanced.vert.slang
+    edge_instanced.vert.slang
     pbr_tangent.frag.slang
     wireframe.vert.slang
     wireframe.frag.slang

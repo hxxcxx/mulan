@@ -4,7 +4,8 @@
  * @author hxxcxx
  * @date 2026-07-03
  *
- * 消费 MeshDrawCommand 并逐条绘制。它的可变部分（shader / 拓扑 / 是否写深度）
+ * 消费 MeshDrawCommand，并对完整共享绘制状态相同的连续命令做保守实例合批；
+ * 其余命令逐条绘制。它的可变部分（shader / 拓扑 / 是否写深度）
  * 由 TechniqueDesc 在构造时指定；绘制逻辑（上传 Scene/Object/Material
  * UBO、遍历命令、执行 MeshDrawCommand）对所有配置完全相同。
  *
@@ -15,6 +16,7 @@
 #pragma once
 
 #include "draw_execution_context.h"
+#include "geometry_draw_batch.h"
 #include "geometry_draw_shared_resources.h"
 #include "../mesh_draw_command.h"
 #include "../technique/render_technique.h"
@@ -25,12 +27,20 @@
 #include <mulan/math/math.h>
 
 #include <cstdint>
+#include <cstddef>
 #include <span>
 #include <string>
+#include <vector>
 
 namespace mulan::engine {
 
 class DevicePipelineLibrary;
+
+struct GeometryDrawExecutionStats {
+    size_t legacyDrawCount = 0;
+    size_t instancedDrawCount = 0;
+    size_t batchedInstanceCount = 0;
+};
 
 class GeometryDrawExecutor : public DrawExecutor {
 public:
@@ -45,6 +55,8 @@ public:
     void setDrawCommands(std::span<const MeshDrawCommand> cmds) { commands_ = cmds; }
 
     PipelineState* pipelineState() const { return pso_; }
+    PipelineState* instancedPipelineState() const { return instanced_pso_; }
+    const GeometryDrawExecutionStats& lastExecutionStats() const { return execution_stats_; }
 
     /// 全局默认白纹理（无材质模型退化用，1×1 RGBA=(255,255,255,255)）。
     /// 仅 sampleTextures=true 时非 null。
@@ -69,6 +81,8 @@ private:
     const TechniqueDesc& technique_;
 
     PipelineState* pso_ = nullptr;
+    /// 可选优化管线；能力、shader 或布局不满足时保持为空并完整回退旧路径。
+    PipelineState* instanced_pso_ = nullptr;
 
     /// 保存纹理与采样器等静态资源；Uniform 在提交 draw 时通过切片绑定。
     std::unique_ptr<BindGroup> frame_bg_;
@@ -79,6 +93,8 @@ private:
     Texture* ibl_brdf_lut_ = nullptr;
 
     std::span<const MeshDrawCommand> commands_;
+    std::vector<GeometryDrawBatchRange> batch_plan_;
+    GeometryDrawExecutionStats execution_stats_;
     bool initialized_ = false;
 };
 

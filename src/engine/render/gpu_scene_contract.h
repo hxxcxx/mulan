@@ -69,7 +69,24 @@ struct alignas(16) ObjectUniforms {
     uint32_t hovered;
     uint32_t _pad;
 };
+static_assert(offsetof(ObjectUniforms, world) == 0);
+static_assert(offsetof(ObjectUniforms, normalMat) == 64);
+static_assert(offsetof(ObjectUniforms, pickId) == 112);
+static_assert(offsetof(ObjectUniforms, selected) == 116);
+static_assert(offsetof(ObjectUniforms, hovered) == 120);
+static_assert(offsetof(ObjectUniforms, _pad) == 124);
 static_assert(sizeof(ObjectUniforms) == 128);
+
+/// 所有后端共同保证至少 16 KiB 的单次 UniformBuffer 绑定范围。
+/// 固定容量避免 Vulkan descriptor range 抖动，也满足 DX11/GL 对完整 cbuffer/block 的校验。
+inline constexpr uint32_t kObjectBatchCapacity = 128;
+
+/// 对应实例化顶点着色器 binding=1 的 ObjectBatch 常量缓冲。
+struct alignas(16) ObjectBatchUniforms {
+    ObjectUniforms objects[kObjectBatchCapacity];
+};
+static_assert(offsetof(ObjectBatchUniforms, objects) == 0);
+static_assert(sizeof(ObjectBatchUniforms) == 16u * 1024u);
 
 inline void storeGpuMat4(float* dst, const math::Mat4& m) {
     for (int c = 0; c < 4; ++c) {

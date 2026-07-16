@@ -37,6 +37,8 @@ struct TechniqueDesc {
     RenderTechnique technique = RenderTechnique::SurfacePBR;
     const char* debugName = "Technique";
     ShaderProgramId shader;
+    /// 空字符串表示该技术禁止对象批实例化；只替换 VS，fragment 与资源布局保持不变。
+    const char* instancedVertexShader = "";
     graphics::VertexLayout vertexLayout;
     PrimitiveTopology topology = PrimitiveTopology::TriangleList;
     bool depthTest = true;

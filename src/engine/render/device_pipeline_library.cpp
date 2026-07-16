@@ -24,6 +24,7 @@ size_t DevicePipelineKeyHash::operator()(const DevicePipelineKey& key) const noe
     combine(std::hash<uint16_t>{}(static_cast<uint16_t>(key.depthFormat)));
     combine(std::hash<uint32_t>{}(key.sampleCount));
     combine(std::hash<bool>{}(key.hasDepth));
+    combine(std::hash<uint8_t>{}(static_cast<uint8_t>(key.objectBindingMode)));
     return value;
 }
 
@@ -32,7 +33,14 @@ PipelineState* DevicePipelineLibrary::acquire(const DevicePipelineKey& key) {
         return known->second.pipeline.get();
     }
     const TechniqueDesc& technique = TechniqueRegistry::builtin(key.technique);
-    auto vertexShader = loadShader(device_, ShaderType::Vertex, technique.shader.vertex);
+    const char* vertexShaderName = technique.shader.vertex;
+    if (key.objectBindingMode == ObjectBindingMode::InstancedBatch) {
+        if (!technique.instancedVertexShader || technique.instancedVertexShader[0] == '\0') {
+            return nullptr;
+        }
+        vertexShaderName = technique.instancedVertexShader;
+    }
+    auto vertexShader = loadShader(device_, ShaderType::Vertex, vertexShaderName);
     auto pixelShader = loadShader(device_, ShaderType::Pixel, technique.shader.pixel);
     if (!vertexShader || !pixelShader) {
         return nullptr;
@@ -40,6 +48,9 @@ PipelineState* DevicePipelineLibrary::acquire(const DevicePipelineKey& key) {
 
     GraphicsPipelineDesc desc{};
     desc.name = technique.debugName;
+    if (key.objectBindingMode == ObjectBindingMode::InstancedBatch) {
+        desc.name += "InstancedBatch";
+    }
     desc.vs = vertexShader->get();
     desc.ps = pixelShader->get();
     desc.vertexLayout = technique.vertexLayout;

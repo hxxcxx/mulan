@@ -52,6 +52,14 @@ void updateSortKey(MeshDrawCommand& command) noexcept {
     key = mixSortKey(key, pointerSortKey(command.vertexBuffer));
     key = mixSortKey(key, pointerSortKey(command.indexBuffer));
     key = mixSortKey(key, static_cast<uint64_t>(command.indexType));
+    key = mixSortKey(key, command.indexCount);
+    key = mixSortKey(key, command.firstIndex);
+    key = mixSortKey(key, static_cast<uint64_t>(static_cast<int64_t>(command.baseVertex)));
+    key = mixSortKey(key, command.vertexCount);
+    key = mixSortKey(key, command.instanceCount);
+    key = mixSortKey(key, static_cast<uint64_t>(command.topology));
+    key = mixSortKey(key, command.isWire ? 1u : 0u);
+    key = mixSortKey(key, command.batchInstancingEligible ? 1u : 0u);
     command.sortKey = key;
 }
 
@@ -88,10 +96,22 @@ bool opaqueCommandLess(const MeshDrawCommand& lhs, const MeshDrawCommand& rhs) n
         return order < 0;
     if (lhs.indexType != rhs.indexType)
         return static_cast<uint8_t>(lhs.indexType) < static_cast<uint8_t>(rhs.indexType);
+    if (lhs.indexCount != rhs.indexCount)
+        return lhs.indexCount < rhs.indexCount;
     if (lhs.firstIndex != rhs.firstIndex)
         return lhs.firstIndex < rhs.firstIndex;
     if (lhs.baseVertex != rhs.baseVertex)
         return lhs.baseVertex < rhs.baseVertex;
+    if (lhs.vertexCount != rhs.vertexCount)
+        return lhs.vertexCount < rhs.vertexCount;
+    if (lhs.instanceCount != rhs.instanceCount)
+        return lhs.instanceCount < rhs.instanceCount;
+    if (lhs.topology != rhs.topology)
+        return static_cast<uint8_t>(lhs.topology) < static_cast<uint8_t>(rhs.topology);
+    if (lhs.isWire != rhs.isWire)
+        return lhs.isWire < rhs.isWire;
+    if (lhs.batchInstancingEligible != rhs.batchInstancingEligible)
+        return lhs.batchInstancingEligible < rhs.batchInstancingEligible;
     return lhs.pickId < rhs.pickId;
 }
 
@@ -1153,6 +1173,7 @@ struct RenderCompiler::Impl {
         command.pipelineState = pipeline;
         command.selected = selected;
         command.hovered = hovered;
+        command.batchInstancingEligible = !highlight && !renderBucketIsOverlay(drawable.bucket) && !command.translucent;
         destination.push_back(std::move(command));
         ++acceptedCount;
         return {};

@@ -198,6 +198,9 @@ function(mulan_add_slang_shaders shader_target)
                     ${_mulan_slangc_debug_flags}
                     -o "${glsl_output}"
                     "${shader_input}"
+                COMMAND "${CMAKE_COMMAND}"
+                    -DINPUT_FILE=${glsl_output}
+                    -P "${CMAKE_SOURCE_DIR}/cmake/PatchOpenGLShaderBuiltins.cmake"
                 COMMAND "${MULAN_GLSLANG_VALIDATOR_EXECUTABLE}"
                     -G
                     ${_mulan_glslang_debug_flags}
@@ -205,7 +208,7 @@ function(mulan_add_slang_shaders shader_target)
                     -e main
                     -o "${gl_spirv_output}"
                     "${glsl_output}"
-                DEPENDS ${shader_dependencies}
+                DEPENDS ${shader_dependencies} "${CMAKE_SOURCE_DIR}/cmake/PatchOpenGLShaderBuiltins.cmake"
                 COMMENT "Compiling Slang shader: ${shader_file} -> ${gl_spirv_file} (OpenGL SPIR-V)"
                 VERBATIM
             )
