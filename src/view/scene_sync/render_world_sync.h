@@ -26,7 +26,6 @@ class AssetLibrary;
 
 namespace mulan::view {
 class RenderScene;
-class PreviewLayer;
 }  // namespace mulan::view
 
 namespace mulan::view {
@@ -62,23 +61,15 @@ public:
     void rebuildScene(const RenderScene& scene, const asset::AssetLibrary& assets, engine::ResourceDomainId assetDomain,
                       engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare = nullptr);
 
-    /// 重建高频覆盖层。预览引用复用 SceneWorld 已准备的资产几何，只管理预览自有几何资源。
-    void rebuildOverlay(const RenderScene* scene, const asset::AssetLibrary* assets,
-                        engine::ResourceDomainId assetDomain, engine::ResourceDomainId previewDomain,
-                        const PreviewLayer* preview, engine::RenderWorld& world,
-                        engine::RenderResourcePrepareList* prepare = nullptr);
-
     /// 将空世界与已记录的 GPU 几何/贴图做差量同步，用于 scene 来源消失。
     void rebuildEmpty(engine::RenderWorld& world, engine::RenderResourcePrepareList* prepare = nullptr);
 
     /// 已引用资产的内容版本是否已超过上次 world 快照。
+    /// 仅包含无关事件时会确认其 journal 游标，避免无关变更挤出保留窗口后误判全量。
     bool referencedAssetsChanged(const asset::AssetLibrary& assets) const;
 
     /// GPU 执行域丢失后保留 CPU 差量基线，但下次 rebuild 必须完整重传当前存活资源。
     void invalidateResources() { force_full_prepare_ = true; }
-
-    /// PreviewLayer 指针换源时只使当前同步器的预览 key 内容基线失效。
-    void invalidatePreviewResources();
 
     /// 丢弃所有 world/resource 基线，仅用于上层整体 reset。
     void reset();
@@ -90,13 +81,13 @@ private:
     struct SceneState;
 
     RenderWorldSyncStats last_stats_;
-    // [0]=内容域（0=资产，非 0=预览换源世代），[1]=源版本，[2..3]=mesh 内容指纹。
-    std::unordered_map<engine::RenderResourceKey, std::array<uint64_t, 4>> geometry_revisions_;
+    // [0]=资产源版本，[1..2]=mesh 内容指纹。源版本只控制是否重算指纹，
+    // 实际上传仍以单个 subresource 的双指纹变化为准。
+    std::unordered_map<engine::RenderResourceKey, std::array<uint64_t, 3>> geometry_revisions_;
     std::unordered_map<engine::RenderTextureResourceKey, uint64_t, engine::RenderTextureResourceKeyHash>
             texture_revisions_;
     std::unordered_map<asset::AssetId, uint64_t> referenced_asset_revisions_;
-    asset::AssetChangeCursor asset_change_cursor_;
-    uint64_t preview_source_revision_ = 1;
+    mutable asset::AssetChangeCursor asset_change_cursor_;
     bool force_full_prepare_ = true;
     std::unique_ptr<SceneState> scene_state_;
 };

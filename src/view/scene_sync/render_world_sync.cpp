@@ -4,7 +4,6 @@
 #include <mulan/asset/geometry_asset.h>
 #include <mulan/asset/material_asset.h>
 #include <mulan/asset/texture_asset.h>
-#include <mulan/view/core/preview_layer.h>
 #include <mulan/view/scene_sync/render_scene.h>
 #include <mulan/view/scene_sync/scene_proxy.h>
 
@@ -12,7 +11,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 #include <span>
 #include <unordered_map>
 #include <utility>
@@ -22,11 +20,10 @@ namespace mulan::view {
 namespace {
 
 using AssetRevisionMap = std::unordered_map<asset::AssetId, uint64_t>;
-using GeometryContentRevision = std::array<uint64_t, 4>;
+using GeometryContentRevision = std::array<uint64_t, 3>;
 
 struct GeometryResourceCandidate {
     const graphics::Mesh* mesh = nullptr;
-    uint64_t contentDomain = 0;
     uint64_t sourceRevision = 0;
 };
 
@@ -88,30 +85,16 @@ std::pair<uint64_t, uint64_t> meshContentFingerprint(const graphics::Mesh& mesh)
 }
 
 bool geometryContentChanged(const GeometryContentRevision& previous, const GeometryContentRevision& current) {
-    if (previous[0] != current[0]) {
-        return true;
-    }
-    // Asset/Preview revision 用来触发 world rebuild；实际上传粒度继续精确到每个 mesh key。
-    // 预览换源会改变 contentDomain，即使 generation 恰好相同也不会误复用。
-    return previous[2] != current[2] || previous[3] != current[3];
+    return previous[1] != current[1] || previous[2] != current[2];
 }
 
-void observeAsset(const asset::Asset* source, AssetRevisionMap& revisions) {
-    if (source) {
-        revisions.insert_or_assign(source->id(), source->revision());
-    }
-}
-
-void collectGeometryResource(GeometryResourceCandidateMap& resources, engine::RenderResourceKey key,
-                             const graphics::Mesh& mesh, uint64_t contentDomain, uint64_t sourceRevision) {
-    if (!key || mesh.empty()) {
+void observeAssetReference(asset::AssetId id, const asset::Asset* source, AssetRevisionMap& revisions) {
+    if (!id) {
         return;
     }
-    resources.try_emplace(key, GeometryResourceCandidate{
-                                       .mesh = &mesh,
-                                       .contentDomain = contentDomain,
-                                       .sourceRevision = sourceRevision,
-                               });
+    // 0 是“引用存在但资产尚未出现”的等待版本；有效资产 revision 从 1 开始。
+    // 这样资产创建事件只会唤醒真实等待者，无关成员变化不会触发 world 重建。
+    revisions.insert_or_assign(id, source ? source->revision() : 0);
 }
 
 engine::RenderTextureResourceKey textureResourceKey(const engine::RenderTextureDesc& texture) {
@@ -158,9 +141,9 @@ engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::
         return {};
 
     const auto* texture = dynamic_cast<const asset::TextureAsset*>(assets.asset(textureId));
+    observeAssetReference(textureId, texture, revisions);
     if (!texture)
         return {};
-    observeAsset(texture, revisions);
     if (!texture->hasImage())
         return {};
 
@@ -182,10 +165,10 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
     }
 
     const auto* material = dynamic_cast<const asset::MaterialAsset*>(assets.asset(materialId));
+    observeAssetReference(materialId, material, revisions);
     if (!material) {
         return desc;
     }
-    observeAsset(material, revisions);
 
     desc.resourceKey =
             engine::makeRenderResourceKey(assetDomain, materialId.value, engine::RenderResourceKind::Material);
@@ -240,221 +223,6 @@ void accumulate(RenderItemDiagnostics& dst, const RenderItemDiagnostics& src) {
     dst.rejectedLayout += src.rejectedLayout;
 }
 
-engine::RenderMaterialDesc previewMaterialDesc(PreviewVisualRole role, engine::ResourceDomainId previewDomain) {
-    engine::RenderMaterialDesc desc;
-    desc.resourceKey = engine::makeRenderResourceKey(previewDomain, RenderItemBuilder::previewMaterialKey(role),
-                                                     engine::RenderResourceKind::PreviewMaterial);
-    switch (role) {
-    case PreviewVisualRole::Tool:
-        desc.material = engine::Material::unlit(math::Vec3(0.0, 0.58, 1.0));
-        desc.material.name = "ToolPreview";
-        break;
-    case PreviewVisualRole::Snap:
-        desc.material = engine::Material::unlit(math::Vec3(1.0, 0.74, 0.16));
-        desc.material.name = "SnapPreview";
-        break;
-    case PreviewVisualRole::Grip:
-        desc.material = engine::Material::unlit(math::Vec3(0.2, 1.0, 0.38));
-        desc.material.name = "GripPreview";
-        break;
-    case PreviewVisualRole::GripHot:
-        desc.material = engine::Material::unlit(math::Vec3(1.0, 0.95, 0.25));
-        desc.material.name = "GripHotPreview";
-        break;
-    }
-    return desc;
-}
-
-engine::RenderMaterialHandle previewMaterialForRole(PreviewVisualRole role, engine::RenderMaterialHandle toolMaterial,
-                                                    engine::RenderMaterialHandle snapMaterial,
-                                                    engine::RenderMaterialHandle gripMaterial,
-                                                    engine::RenderMaterialHandle gripHotMaterial) {
-    switch (role) {
-    case PreviewVisualRole::Tool: return toolMaterial;
-    case PreviewVisualRole::Snap: return snapMaterial;
-    case PreviewVisualRole::Grip: return gripMaterial;
-    case PreviewVisualRole::GripHot: return gripHotMaterial;
-    }
-    return toolMaterial;
-}
-
-std::optional<engine::RenderBucket> overlayBucketForReference(engine::RenderBucket bucket) {
-    switch (bucket) {
-    case engine::RenderBucket::Surface: return engine::RenderBucket::OverlaySurface;
-    case engine::RenderBucket::Edge: return engine::RenderBucket::OverlayEdge;
-    case engine::RenderBucket::OverlaySurface:
-    case engine::RenderBucket::OverlayEdge:
-    case engine::RenderBucket::Gizmo:
-    case engine::RenderBucket::Text: return std::nullopt;
-    }
-    return std::nullopt;
-}
-
-void appendPreviewDrawables(const PreviewLayer& preview, engine::RenderWorld& world,
-                            GeometryResourceCandidateMap& resources, engine::ResourceDomainId previewDomain,
-                            uint64_t previewSourceRevision, RenderWorldSyncStats& stats,
-                            engine::RenderMaterialHandle toolMaterial, engine::RenderMaterialHandle snapMaterial,
-                            engine::RenderMaterialHandle gripMaterial, engine::RenderMaterialHandle gripHotMaterial) {
-    const auto& drawables = preview.drawables();
-    if (drawables.empty()) {
-        return;
-    }
-
-    engine::RenderObjectDesc object;
-    object.pickId = engine::PickId::invalid();
-    object.worldTransform = math::Mat4(1.0f);
-    object.worldBounds = math::AABB3::empty();
-    object.visible = true;
-    object.selected = false;
-
-    std::vector<RenderItem> items;
-    RenderItemDiagnostics diagnostics;
-    RenderItemBuilder::buildPreviewItems(std::span<const PreviewDrawable>{ drawables.data(), drawables.size() }, items,
-                                         &diagnostics);
-    accumulate(stats.previewItems, diagnostics);
-    for (const RenderItem& item : items) {
-        const graphics::Mesh& mesh = *item.mesh;
-
-        engine::RenderGeometryDesc geometryDesc;
-        geometryDesc.resourceKey = engine::makeRenderResourceKey(previewDomain, item.geometryKey,
-                                                                 engine::RenderResourceKind::PreviewGeometry);
-        geometryDesc.topology = mesh.topology;
-        geometryDesc.vertexLayout = mesh.layout;
-        geometryDesc.empty = mesh.empty();
-        // 预览没有 Asset 身份，以稳定角色槽位 key + PreviewLayer generation 作为内容版本。
-        collectGeometryResource(resources, geometryDesc.resourceKey, mesh, previewSourceRevision, preview.generation());
-
-        if (!mesh.bounds.isEmpty()) {
-            object.worldBounds.expand(mesh.bounds);
-        }
-        object.drawables.push_back(engine::RenderObjectDrawable{
-                .geometry = world.addGeometry(std::move(geometryDesc)),
-                .material = previewMaterialForRole(item.previewRole, toolMaterial, snapMaterial, gripMaterial,
-                                                   gripHotMaterial),
-                .bucket = item.bucket,
-                .sourceDrawableIndex = item.sourceDrawableIndex,
-        });
-    }
-
-    if (!object.drawables.empty()) {
-        world.addObject(std::move(object));
-        ++stats.previewObjectCount;
-    }
-}
-
-void appendPreviewReferences(const PreviewLayer& preview, const RenderScene& scene, const asset::AssetLibrary& assets,
-                             engine::ResourceDomainId assetDomain, engine::RenderWorld& world,
-                             AssetRevisionMap& revisions, RenderWorldSyncStats& stats,
-                             std::unordered_map<uint64_t, engine::GeometryHandle>& geometryHandles,
-                             engine::RenderMaterialHandle toolMaterial, engine::RenderMaterialHandle snapMaterial,
-                             engine::RenderMaterialHandle gripMaterial, engine::RenderMaterialHandle gripHotMaterial) {
-    const auto& references = preview.references();
-    if (references.empty()) {
-        return;
-    }
-
-    std::vector<asset::Drawable> drawables;
-    std::vector<RenderItem> renderItems;
-    for (const PreviewReference& reference : references) {
-        if (!reference.valid()) {
-            continue;
-        }
-
-        const SceneProxy* proxy = scene.proxy(reference.entity);
-        if (!proxy || !proxy->visible || !proxy->geometry) {
-            continue;
-        }
-
-        const auto* asset = assets.asset(proxy->geometry);
-        const auto* geometry = dynamic_cast<const asset::GeometryAsset*>(asset);
-        if (!geometry) {
-            ++stats.missingGeometryAssetCount;
-            continue;
-        }
-        observeAsset(geometry, revisions);
-
-        drawables.clear();
-        geometry->collectDrawables(drawables);
-        RenderItemDiagnostics diagnostics;
-        RenderItemBuilder::buildSceneItems(proxy->geometry,
-                                           std::span<const asset::Drawable>{ drawables.data(), drawables.size() },
-                                           renderItems, &diagnostics);
-        accumulate(stats.previewItems, diagnostics);
-
-        engine::RenderObjectDesc object;
-        object.pickId = engine::PickId::invalid();
-        object.worldTransform = reference.overrideWorldTransform ? reference.worldTransform : proxy->worldTransform;
-        object.worldBounds = math::AABB3::empty();
-        object.visible = reference.visible;
-        object.selected = false;
-
-        for (const RenderItem& item : renderItems) {
-            const graphics::Mesh& mesh = *item.mesh;
-            const std::optional<engine::RenderBucket> bucket = overlayBucketForReference(item.bucket);
-            if (!bucket) {
-                continue;
-            }
-
-            auto geometryIt = geometryHandles.find(item.geometryKey);
-            if (geometryIt == geometryHandles.end()) {
-                engine::RenderGeometryDesc geometryDesc;
-                geometryDesc.resourceKey = engine::makeRenderResourceKey(
-                        assetDomain, proxy->geometry.value, engine::RenderResourceKind::Geometry,
-                        static_cast<uint32_t>(item.sourceDrawableIndex));
-                geometryDesc.topology = mesh.topology;
-                geometryDesc.vertexLayout = mesh.layout;
-                geometryDesc.empty = mesh.empty();
-                // 引用几何已经由 SceneWorld 的可靠资源批次持有。OverlayWorld 只借用同一稳定 key，
-                // 不能在预览结束时将仍被 SceneWorld 使用的资源误标记为退役。
-                geometryIt =
-                        geometryHandles.emplace(item.geometryKey, world.addGeometry(std::move(geometryDesc))).first;
-            }
-
-            if (!mesh.bounds.isEmpty()) {
-                object.worldBounds.expand(mesh.bounds.transformed(object.worldTransform));
-            }
-            object.drawables.push_back(engine::RenderObjectDrawable{
-                    .geometry = geometryIt->second,
-                    .material = previewMaterialForRole(reference.role, toolMaterial, snapMaterial, gripMaterial,
-                                                       gripHotMaterial),
-                    .bucket = *bucket,
-                    .sourceDrawableIndex = item.sourceDrawableIndex,
-            });
-        }
-
-        if (!object.drawables.empty()) {
-            world.addObject(std::move(object));
-            ++stats.previewObjectCount;
-        }
-    }
-}
-
-void appendPreview(const RenderScene* scene, const asset::AssetLibrary* assets, const PreviewLayer* preview,
-                   engine::ResourceDomainId assetDomain, engine::ResourceDomainId previewDomain,
-                   engine::RenderWorld& world, GeometryResourceCandidateMap& resources, AssetRevisionMap& revisions,
-                   uint64_t previewSourceRevision, RenderWorldSyncStats& stats,
-                   std::unordered_map<uint64_t, engine::GeometryHandle>& geometryHandles) {
-    if (!preview || preview->empty()) {
-        return;
-    }
-
-    const engine::RenderMaterialHandle toolMaterial =
-            world.addMaterial(previewMaterialDesc(PreviewVisualRole::Tool, previewDomain));
-    const engine::RenderMaterialHandle snapMaterial =
-            world.addMaterial(previewMaterialDesc(PreviewVisualRole::Snap, previewDomain));
-    const engine::RenderMaterialHandle gripMaterial =
-            world.addMaterial(previewMaterialDesc(PreviewVisualRole::Grip, previewDomain));
-    const engine::RenderMaterialHandle gripHotMaterial =
-            world.addMaterial(previewMaterialDesc(PreviewVisualRole::GripHot, previewDomain));
-
-    appendPreviewDrawables(*preview, world, resources, previewDomain, previewSourceRevision, stats, toolMaterial,
-                           snapMaterial, gripMaterial, gripHotMaterial);
-    if (scene && assets) {
-        appendPreviewReferences(*preview, *scene, *assets, assetDomain, world, revisions, stats, geometryHandles,
-                                toolMaterial, snapMaterial, gripMaterial, gripHotMaterial);
-    }
-}
-
 bool resourceKeyLess(const engine::RenderResourceKey& lhs, const engine::RenderResourceKey& rhs) {
     if (lhs.domain.value != rhs.domain.value) {
         return lhs.domain.value < rhs.domain.value;
@@ -502,16 +270,15 @@ void buildGeometryResourceDelta(const GeometryResourceCandidateMap& current,
         const GeometryResourceCandidate& resource = current.at(key);
         const auto previousIt = previous.find(key);
         const bool existed = previousIt != previous.end();
-        GeometryContentRevision currentRevision{ resource.contentDomain, resource.sourceRevision, 0, 0 };
-        if (existed && previousIt->second[0] == resource.contentDomain &&
-            previousIt->second[1] == resource.sourceRevision) {
+        GeometryContentRevision currentRevision{ resource.sourceRevision, 0, 0 };
+        if (existed && previousIt->second[0] == resource.sourceRevision) {
             // transform/selection/material 等 world-only rebuild 不会扫描大网格字节；
             // 只有新 key 或对应内容源版本变化时才重算该 key 的指纹。
             currentRevision = previousIt->second;
         } else {
             const auto [primary, secondary] = meshContentFingerprint(*resource.mesh);
-            currentRevision[2] = primary;
-            currentRevision[3] = secondary;
+            currentRevision[1] = primary;
+            currentRevision[2] = secondary;
         }
         const bool revisionChanged = existed && geometryContentChanged(previousIt->second, currentRevision);
         if (forceFullPrepare || !existed || revisionChanged) {
@@ -709,7 +476,10 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
         PendingProjection pending;
         pending.object.pickId = proxy->pickId;
         pending.object.worldTransform = proxy->worldTransform;
-        pending.object.worldBounds = proxy->worldBounds;
+        // RenderSubmissionBuilder 允许只收到资产内容事件而未先同步 RenderScene。
+        // 完整投影因此以当前 GeometryAsset bounds 为准，避免编译器按旧 proxy bounds
+        // 错误剔除一帧；纯位姿快路径仍只使用 SceneProxy 缓存，不触碰资产。
+        pending.object.worldBounds = geometry->localBounds().transformed(proxy->worldTransform);
         pending.object.visible = proxy->visible;
         pending.object.selected = false;
         pending.dependencies.insert(geometry->id());
@@ -733,9 +503,8 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
             geometryDesc.empty = mesh.empty();
             pending.geometries.insert_or_assign(item.geometryKey, geometryDesc);
             pending.geometryResources.insert_or_assign(
-                    item.geometryKey, GeometryResourceCandidate{ .mesh = &mesh,
-                                                                 .contentDomain = 0,
-                                                                 .sourceRevision = geometry->revision() });
+                    item.geometryKey,
+                    GeometryResourceCandidate{ .mesh = &mesh, .sourceRevision = geometry->revision() });
 
             const uint64_t materialKey = item.material.value;
             if (!pending.materials.contains(materialKey)) {
@@ -825,7 +594,7 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
         nextEntry.dependencies = std::move(pending.dependencies);
         for (asset::AssetId dependency : nextEntry.dependencies) {
             state.assetUsers[dependency].insert(entity);
-            observeAsset(assets.asset(dependency), referenced_asset_revisions_);
+            observeAssetReference(dependency, assets.asset(dependency), referenced_asset_revisions_);
         }
         for (const PendingDrawable& drawable : pending.drawables) {
             pending.object.drawables.push_back(engine::RenderObjectDrawable{
@@ -846,26 +615,56 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
         }
     };
 
-    std::unordered_set<scene::EntityId> entitiesToPatch;
+    std::unordered_map<scene::EntityId, RenderProxyDirty> entitiesToPatch;
+    const auto mergePatch = [&](scene::EntityId entity, RenderProxyDirty dirty) {
+        if (dirty != RenderProxyDirty::None) {
+            entitiesToPatch[entity] |= dirty;
+        }
+    };
     if (fullRebuild) {
-        scene.forEachProxy([&](const SceneProxy& proxy) { entitiesToPatch.insert(proxy.entity); });
+        scene.forEachProxy([&](const SceneProxy& proxy) { mergePatch(proxy.entity, RenderProxyDirty::Added); });
     } else {
         for (const RenderSceneChange& change : changes.changes) {
-            entitiesToPatch.insert(change.entity);
+            mergePatch(change.entity, change.dirty);
         }
         for (const asset::AssetChange& assetChange : assetChanges.changes) {
             if (!assetChange.asset) {
-                scene.forEachProxy([&](const SceneProxy& proxy) { entitiesToPatch.insert(proxy.entity); });
+                for (const auto& [entity, entry] : state.objects) {
+                    (void) entry;
+                    mergePatch(entity, RenderProxyDirty::Geometry | RenderProxyDirty::Material);
+                }
+                scene.forEachProxy([&](const SceneProxy& proxy) {
+                    mergePatch(proxy.entity, RenderProxyDirty::Geometry | RenderProxyDirty::Material);
+                });
                 resourceStateChanged = true;
                 continue;
             }
             if (const auto users = state.assetUsers.find(assetChange.asset); users != state.assetUsers.end()) {
-                entitiesToPatch.insert(users->second.begin(), users->second.end());
+                for (scene::EntityId entity : users->second) {
+                    mergePatch(entity, RenderProxyDirty::Geometry | RenderProxyDirty::Material);
+                }
                 resourceStateChanged = true;
             }
         }
     }
-    for (scene::EntityId entity : entitiesToPatch) {
+
+    constexpr RenderProxyDirty fullProjectionMask = RenderProxyDirty::Added | RenderProxyDirty::Removed |
+                                                    RenderProxyDirty::Geometry | RenderProxyDirty::Material;
+    constexpr RenderProxyDirty spatialPatchMask = RenderProxyDirty::Placement | RenderProxyDirty::Visibility;
+    for (const auto& [entity, dirty] : entitiesToPatch) {
+        if (!hasAnyRenderProxyDirty(dirty, fullProjectionMask) && hasAnyRenderProxyDirty(dirty, spatialPatchMask)) {
+            const auto previous = state.objects.find(entity);
+            const SceneProxy* proxy = scene.proxy(entity);
+            if (previous != state.objects.end() && proxy &&
+                world.updateObjectSpatialState(previous->second.id, proxy->worldTransform, proxy->worldBounds,
+                                               proxy->visible)) {
+                ++last_stats_.patchedObjectCount;
+                ++last_stats_.updatedObjectCount;
+                continue;
+            }
+            // SceneProxy、同步缓存或 RenderWorld 句柄任一缺失时不能猜测状态；
+            // 回退完整实体投影，以恢复依赖索引和资源引用计数。
+        }
         patchEntity(entity);
     }
 
@@ -892,35 +691,6 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
     last_stats_.sceneProxyCount = scene.proxyCount();
     last_stats_.missingGeometryAssetCount = scene.lastSyncStats().missingGeometryCount;
     last_stats_.sceneObjectCount = state.objects.size();
-    last_stats_.worldObjectCount = world.objectCount();
-    last_stats_.worldGeometryCount = world.geometryCount();
-    last_stats_.worldMaterialCount = world.materialCount();
-}
-
-void RenderWorldSync::rebuildOverlay(const RenderScene* scene, const asset::AssetLibrary* assets,
-                                     engine::ResourceDomainId assetDomain, engine::ResourceDomainId previewDomain,
-                                     const PreviewLayer* preview, engine::RenderWorld& world,
-                                     engine::RenderResourcePrepareList* prepare) {
-    last_stats_.reset();
-    world.clear();
-    if (prepare) {
-        prepare->clear();
-    }
-
-    std::unordered_map<uint64_t, engine::GeometryHandle> geometryHandles;
-    GeometryResourceCandidateMap geometryResources;
-    AssetRevisionMap referencedAssetRevisions;
-    appendPreview(scene, assets, preview, assetDomain, previewDomain, world, geometryResources,
-                  referencedAssetRevisions, preview_source_revision_, last_stats_, geometryHandles);
-
-    const bool forceFullPrepare = force_full_prepare_;
-    buildGeometryResourceDelta(geometryResources, geometry_revisions_, forceFullPrepare, prepare);
-    buildTextureResourceDelta({}, texture_revisions_, forceFullPrepare, prepare);
-    if (prepare) {
-        force_full_prepare_ = false;
-    }
-    referenced_asset_revisions_ = std::move(referencedAssetRevisions);
-    asset_change_cursor_ = assets ? assets->currentChangeCursor() : asset::AssetChangeCursor{};
     last_stats_.worldObjectCount = world.objectCount();
     last_stats_.worldGeometryCount = world.geometryCount();
     last_stats_.worldMaterialCount = world.materialCount();
@@ -956,6 +726,9 @@ bool RenderWorldSync::referencedAssetsChanged(const asset::AssetLibrary& assets)
             return true;
         }
     }
+    // 全部是无关事件时可以安全确认读取；真正相关的批次必须留给 rebuildScene
+    // 在成功更新 world 后提交，不能在这里只检查不应用便提前越过。
+    asset_change_cursor_ = changes.cursorAfterApply();
     return false;
 }
 
@@ -965,16 +738,8 @@ void RenderWorldSync::reset() {
     texture_revisions_.clear();
     referenced_asset_revisions_.clear();
     asset_change_cursor_ = {};
-    preview_source_revision_ = 1;
     force_full_prepare_ = true;
     *scene_state_ = {};
-}
-
-void RenderWorldSync::invalidatePreviewResources() {
-    ++preview_source_revision_;
-    if (preview_source_revision_ == 0) {
-        preview_source_revision_ = 1;
-    }
 }
 
 }  // namespace mulan::view

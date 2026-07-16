@@ -15,7 +15,10 @@
 #include <mulan/math/math.h>
 #include <mulan/scene/entity_id.h>
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace mulan::view {
@@ -26,6 +29,18 @@ enum class PreviewVisualRole : uint8_t {
     Grip,
     GripHot,
 };
+
+inline constexpr size_t kPreviewVisualRoleCount = 4;
+
+constexpr size_t previewVisualRoleIndex(PreviewVisualRole role) {
+    switch (role) {
+    case PreviewVisualRole::Tool: return 0;
+    case PreviewVisualRole::Snap: return 1;
+    case PreviewVisualRole::Grip: return 2;
+    case PreviewVisualRole::GripHot: return 3;
+    }
+    return 0;
+}
 
 struct PreviewDrawable {
     graphics::Mesh mesh;
@@ -62,13 +77,26 @@ public:
 
     bool empty() const;
     uint64_t generation() const { return generation_; }
+    /// 角色内任意直接几何或引用变化时递增，供上层快速判断角色差量。
+    uint64_t roleGeneration(PreviewVisualRole role) const { return role_generations_[previewVisualRoleIndex(role)]; }
+    /// 仅直接曲线/网格变化时递增；引用变化不会污染 GPU 几何上传判定。
+    uint64_t geometryGeneration(PreviewVisualRole role) const {
+        return geometry_generations_[previewVisualRoleIndex(role)];
+    }
+    /// 仅引用集合变化时递增。
+    uint64_t referenceGeneration(PreviewVisualRole role) const {
+        return reference_generations_[previewVisualRoleIndex(role)];
+    }
     const graphics::Mesh& mesh() const;
     const std::vector<graphics::Mesh>& meshes() const { return meshes_; }
     const std::vector<PreviewDrawable>& drawables() const { return drawables_; }
+    std::span<const PreviewDrawable> drawables(PreviewVisualRole role) const;
     const std::vector<PreviewReference>& references() const { return references_; }
 
 private:
-    void rebuildMeshes();
+    void rebuildRoleMeshes(PreviewVisualRole role);
+    void touchRoleChanges(const std::array<bool, kPreviewVisualRoleCount>& geometryChanged,
+                          const std::array<bool, kPreviewVisualRoleCount>& referencesChanged);
     void touch();
 
     std::vector<asset::CurvePrimitive> tool_curves_;
@@ -82,6 +110,11 @@ private:
     std::vector<graphics::Mesh> meshes_;
     std::vector<PreviewDrawable> drawables_;
     std::vector<PreviewReference> references_;
+    std::array<size_t, kPreviewVisualRoleCount> role_drawable_offsets_{};
+    std::array<size_t, kPreviewVisualRoleCount> role_drawable_counts_{};
+    std::array<uint64_t, kPreviewVisualRoleCount> role_generations_{ 1, 1, 1, 1 };
+    std::array<uint64_t, kPreviewVisualRoleCount> geometry_generations_{ 1, 1, 1, 1 };
+    std::array<uint64_t, kPreviewVisualRoleCount> reference_generations_{ 1, 1, 1, 1 };
     uint64_t generation_ = 1;
 };
 

@@ -1,6 +1,6 @@
 /**
  * @file preview_layer.cpp
- * @brief Transient preview geometry mesh rebuild.
+ * @brief 临时预览几何的分角色网格维护。
  * @author hxxcxx
  * @date 2026-07-07
  */
@@ -9,9 +9,65 @@
 
 #include <mulan/asset/curve_mesh_builder.h>
 
+#include <array>
+#include <cstddef>
+#include <iterator>
 #include <utility>
 
 namespace mulan::view {
+namespace {
+
+void advanceGeneration(uint64_t& generation) {
+    ++generation;
+    if (generation == 0) {
+        generation = 1;
+    }
+}
+
+bool sameMatrix(const math::Mat4& lhs, const math::Mat4& rhs) {
+    for (size_t column = 0; column < 4; ++column) {
+        if (lhs[column] != rhs[column]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool sameReference(const PreviewReference& lhs, const PreviewReference& rhs) {
+    return lhs.entity == rhs.entity && sameMatrix(lhs.worldTransform, rhs.worldTransform) &&
+           lhs.overrideWorldTransform == rhs.overrideWorldTransform && lhs.role == rhs.role &&
+           lhs.visible == rhs.visible;
+}
+
+bool referencesForRoleEqual(const std::vector<PreviewReference>& lhs, const std::vector<PreviewReference>& rhs,
+                            PreviewVisualRole role) {
+    auto left = lhs.begin();
+    auto right = rhs.begin();
+    for (;;) {
+        while (left != lhs.end() && left->role != role) {
+            ++left;
+        }
+        while (right != rhs.end() && right->role != role) {
+            ++right;
+        }
+        if (left == lhs.end() || right == rhs.end()) {
+            return left == lhs.end() && right == rhs.end();
+        }
+        if (!sameReference(*left, *right)) {
+            return false;
+        }
+        ++left;
+        ++right;
+    }
+}
+
+std::array<bool, kPreviewVisualRoleCount> oneRole(PreviewVisualRole role) {
+    std::array<bool, kPreviewVisualRoleCount> changed{};
+    changed[previewVisualRoleIndex(role)] = true;
+    return changed;
+}
+
+}  // namespace
 
 void PreviewLayer::setCurves(std::vector<asset::CurvePrimitive> primitives) {
     setGeometry(std::move(primitives), {});
@@ -36,7 +92,8 @@ void PreviewLayer::setMesh(graphics::Mesh mesh) {
 void PreviewLayer::setGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes) {
     tool_curves_ = std::move(curves);
     tool_meshes_ = std::move(meshes);
-    rebuildMeshes();
+    rebuildRoleMeshes(PreviewVisualRole::Tool);
+    touchRoleChanges(oneRole(PreviewVisualRole::Tool), {});
 }
 
 void PreviewLayer::clearToolGeometry() {
@@ -46,13 +103,15 @@ void PreviewLayer::clearToolGeometry() {
 
     tool_curves_.clear();
     tool_meshes_.clear();
-    rebuildMeshes();
+    rebuildRoleMeshes(PreviewVisualRole::Tool);
+    touchRoleChanges(oneRole(PreviewVisualRole::Tool), {});
 }
 
 void PreviewLayer::setSnapGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes) {
     snap_curves_ = std::move(curves);
     snap_meshes_ = std::move(meshes);
-    rebuildMeshes();
+    rebuildRoleMeshes(PreviewVisualRole::Snap);
+    touchRoleChanges(oneRole(PreviewVisualRole::Snap), {});
 }
 
 void PreviewLayer::clearSnapGeometry() {
@@ -62,13 +121,15 @@ void PreviewLayer::clearSnapGeometry() {
 
     snap_curves_.clear();
     snap_meshes_.clear();
-    rebuildMeshes();
+    rebuildRoleMeshes(PreviewVisualRole::Snap);
+    touchRoleChanges(oneRole(PreviewVisualRole::Snap), {});
 }
 
 void PreviewLayer::setGripGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes) {
     grip_curves_ = std::move(curves);
     grip_meshes_ = std::move(meshes);
-    rebuildMeshes();
+    rebuildRoleMeshes(PreviewVisualRole::Grip);
+    touchRoleChanges(oneRole(PreviewVisualRole::Grip), {});
 }
 
 void PreviewLayer::clearGripGeometry() {
@@ -78,13 +139,15 @@ void PreviewLayer::clearGripGeometry() {
 
     grip_curves_.clear();
     grip_meshes_.clear();
-    rebuildMeshes();
+    rebuildRoleMeshes(PreviewVisualRole::Grip);
+    touchRoleChanges(oneRole(PreviewVisualRole::Grip), {});
 }
 
 void PreviewLayer::setGripHotGeometry(std::vector<asset::CurvePrimitive> curves, std::vector<graphics::Mesh> meshes) {
     grip_hot_curves_ = std::move(curves);
     grip_hot_meshes_ = std::move(meshes);
-    rebuildMeshes();
+    rebuildRoleMeshes(PreviewVisualRole::GripHot);
+    touchRoleChanges(oneRole(PreviewVisualRole::GripHot), {});
 }
 
 void PreviewLayer::clearGripHotGeometry() {
@@ -94,12 +157,19 @@ void PreviewLayer::clearGripHotGeometry() {
 
     grip_hot_curves_.clear();
     grip_hot_meshes_.clear();
-    rebuildMeshes();
+    rebuildRoleMeshes(PreviewVisualRole::GripHot);
+    touchRoleChanges(oneRole(PreviewVisualRole::GripHot), {});
 }
 
 void PreviewLayer::setReferences(std::vector<PreviewReference> references) {
+    std::array<bool, kPreviewVisualRoleCount> changed{};
+    constexpr std::array roles{ PreviewVisualRole::Tool, PreviewVisualRole::Snap, PreviewVisualRole::Grip,
+                                PreviewVisualRole::GripHot };
+    for (const PreviewVisualRole role : roles) {
+        changed[previewVisualRoleIndex(role)] = !referencesForRoleEqual(references_, references, role);
+    }
     references_ = std::move(references);
-    touch();
+    touchRoleChanges({}, changed);
 }
 
 void PreviewLayer::clearReferences() {
@@ -107,8 +177,12 @@ void PreviewLayer::clearReferences() {
         return;
     }
 
+    std::array<bool, kPreviewVisualRoleCount> changed{};
+    for (const PreviewReference& reference : references_) {
+        changed[previewVisualRoleIndex(reference.role)] = true;
+    }
     references_.clear();
-    touch();
+    touchRoleChanges({}, changed);
 }
 
 void PreviewLayer::clear() {
@@ -116,6 +190,17 @@ void PreviewLayer::clear() {
         grip_curves_.empty() && grip_meshes_.empty() && grip_hot_curves_.empty() && grip_hot_meshes_.empty() &&
         references_.empty()) {
         return;
+    }
+
+    std::array<bool, kPreviewVisualRoleCount> geometryChanged{};
+    geometryChanged[previewVisualRoleIndex(PreviewVisualRole::Tool)] = !tool_curves_.empty() || !tool_meshes_.empty();
+    geometryChanged[previewVisualRoleIndex(PreviewVisualRole::Snap)] = !snap_curves_.empty() || !snap_meshes_.empty();
+    geometryChanged[previewVisualRoleIndex(PreviewVisualRole::Grip)] = !grip_curves_.empty() || !grip_meshes_.empty();
+    geometryChanged[previewVisualRoleIndex(PreviewVisualRole::GripHot)] =
+            !grip_hot_curves_.empty() || !grip_hot_meshes_.empty();
+    std::array<bool, kPreviewVisualRoleCount> referencesChanged{};
+    for (const PreviewReference& reference : references_) {
+        referencesChanged[previewVisualRoleIndex(reference.role)] = true;
     }
 
     tool_curves_.clear();
@@ -127,7 +212,13 @@ void PreviewLayer::clear() {
     grip_hot_curves_.clear();
     grip_hot_meshes_.clear();
     references_.clear();
-    rebuildMeshes();
+    for (const PreviewVisualRole role :
+         { PreviewVisualRole::Tool, PreviewVisualRole::Snap, PreviewVisualRole::Grip, PreviewVisualRole::GripHot }) {
+        if (geometryChanged[previewVisualRoleIndex(role)]) {
+            rebuildRoleMeshes(role);
+        }
+    }
+    touchRoleChanges(geometryChanged, referencesChanged);
 }
 
 bool PreviewLayer::empty() const {
@@ -149,49 +240,106 @@ const graphics::Mesh& PreviewLayer::mesh() const {
     return drawables_.empty() ? emptyMesh : drawables_.front().mesh;
 }
 
-void PreviewLayer::rebuildMeshes() {
-    meshes_.clear();
-    drawables_.clear();
-    auto appendMesh = [this](graphics::Mesh mesh, PreviewVisualRole role) {
+std::span<const PreviewDrawable> PreviewLayer::drawables(PreviewVisualRole role) const {
+    const size_t index = previewVisualRoleIndex(role);
+    if (role_drawable_counts_[index] == 0) {
+        return {};
+    }
+    return std::span<const PreviewDrawable>(drawables_)
+            .subspan(role_drawable_offsets_[index], role_drawable_counts_[index]);
+}
+
+void PreviewLayer::rebuildRoleMeshes(PreviewVisualRole role) {
+    std::vector<PreviewDrawable> rebuilt;
+    auto appendMesh = [&rebuilt, role](graphics::Mesh mesh) {
         if (mesh.empty()) {
             return;
         }
-        drawables_.push_back(PreviewDrawable{ std::move(mesh), role });
-        meshes_.push_back(drawables_.back().mesh);
+        rebuilt.push_back(PreviewDrawable{ std::move(mesh), role });
     };
+    switch (role) {
+    case PreviewVisualRole::Tool:
+        if (!tool_curves_.empty()) {
+            appendMesh(asset::buildCurveWireMesh(tool_curves_));
+        }
+        for (const graphics::Mesh& mesh : tool_meshes_) {
+            appendMesh(mesh);
+        }
+        break;
+    case PreviewVisualRole::Snap:
+        if (!snap_curves_.empty()) {
+            appendMesh(asset::buildCurveWireMesh(snap_curves_));
+        }
+        for (const graphics::Mesh& mesh : snap_meshes_) {
+            appendMesh(mesh);
+        }
+        break;
+    case PreviewVisualRole::Grip:
+        if (!grip_curves_.empty()) {
+            appendMesh(asset::buildCurveWireMesh(grip_curves_));
+        }
+        for (const graphics::Mesh& mesh : grip_meshes_) {
+            appendMesh(mesh);
+        }
+        break;
+    case PreviewVisualRole::GripHot:
+        if (!grip_hot_curves_.empty()) {
+            appendMesh(asset::buildCurveWireMesh(grip_hot_curves_));
+        }
+        for (const graphics::Mesh& mesh : grip_hot_meshes_) {
+            appendMesh(mesh);
+        }
+        break;
+    }
 
-    if (!tool_curves_.empty()) {
-        appendMesh(asset::buildCurveWireMesh(tool_curves_), PreviewVisualRole::Tool);
+    const size_t roleIndex = previewVisualRoleIndex(role);
+    const size_t oldOffset = role_drawable_offsets_[roleIndex];
+    const size_t oldCount = role_drawable_counts_[roleIndex];
+    drawables_.erase(drawables_.begin() + static_cast<std::ptrdiff_t>(oldOffset),
+                     drawables_.begin() + static_cast<std::ptrdiff_t>(oldOffset + oldCount));
+    drawables_.insert(drawables_.begin() + static_cast<std::ptrdiff_t>(oldOffset),
+                      std::make_move_iterator(rebuilt.begin()), std::make_move_iterator(rebuilt.end()));
+
+    meshes_.erase(meshes_.begin() + static_cast<std::ptrdiff_t>(oldOffset),
+                  meshes_.begin() + static_cast<std::ptrdiff_t>(oldOffset + oldCount));
+    std::vector<graphics::Mesh> rebuiltMeshes;
+    rebuiltMeshes.reserve(rebuilt.size());
+    for (size_t index = 0; index < rebuilt.size(); ++index) {
+        rebuiltMeshes.push_back(drawables_[oldOffset + index].mesh);
     }
-    for (graphics::Mesh& mesh : tool_meshes_) {
-        appendMesh(mesh, PreviewVisualRole::Tool);
+    meshes_.insert(meshes_.begin() + static_cast<std::ptrdiff_t>(oldOffset),
+                   std::make_move_iterator(rebuiltMeshes.begin()), std::make_move_iterator(rebuiltMeshes.end()));
+
+    role_drawable_counts_[roleIndex] = rebuilt.size();
+    size_t offset = 0;
+    for (size_t index = 0; index < kPreviewVisualRoleCount; ++index) {
+        role_drawable_offsets_[index] = offset;
+        offset += role_drawable_counts_[index];
     }
-    if (!snap_curves_.empty()) {
-        appendMesh(asset::buildCurveWireMesh(snap_curves_), PreviewVisualRole::Snap);
+}
+
+void PreviewLayer::touchRoleChanges(const std::array<bool, kPreviewVisualRoleCount>& geometryChanged,
+                                    const std::array<bool, kPreviewVisualRoleCount>& referencesChanged) {
+    bool anyChanged = false;
+    for (size_t index = 0; index < kPreviewVisualRoleCount; ++index) {
+        if (geometryChanged[index]) {
+            advanceGeneration(geometry_generations_[index]);
+        }
+        if (referencesChanged[index]) {
+            advanceGeneration(reference_generations_[index]);
+        }
+        if (geometryChanged[index] || referencesChanged[index]) {
+            advanceGeneration(role_generations_[index]);
+            anyChanged = true;
+        }
     }
-    for (graphics::Mesh& mesh : snap_meshes_) {
-        appendMesh(mesh, PreviewVisualRole::Snap);
+    if (anyChanged) {
+        touch();
     }
-    if (!grip_curves_.empty()) {
-        appendMesh(asset::buildCurveWireMesh(grip_curves_), PreviewVisualRole::Grip);
-    }
-    for (graphics::Mesh& mesh : grip_meshes_) {
-        appendMesh(mesh, PreviewVisualRole::Grip);
-    }
-    if (!grip_hot_curves_.empty()) {
-        appendMesh(asset::buildCurveWireMesh(grip_hot_curves_), PreviewVisualRole::GripHot);
-    }
-    for (graphics::Mesh& mesh : grip_hot_meshes_) {
-        appendMesh(mesh, PreviewVisualRole::GripHot);
-    }
-    touch();
 }
 
 void PreviewLayer::touch() {
-    ++generation_;
-    if (generation_ == 0) {
-        generation_ = 1;
-    }
+    advanceGeneration(generation_);
 }
 
 void PreviewBuilder::addCurve(asset::CurvePrimitive primitive) {

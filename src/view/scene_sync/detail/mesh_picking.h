@@ -11,6 +11,7 @@
 #include <mulan/graphics/mesh.h>
 #include <mulan/math/math.h>
 
+#include <span>
 #include <vector>
 
 namespace mulan::view::detail {
@@ -28,6 +29,9 @@ bool readTriangle(const graphics::Mesh& mesh, uint32_t triangleIndex, math::Poin
 /// 读取第 segmentIndex 条线段两个端点位置。
 bool readLineSegment(const graphics::Mesh& mesh, uint32_t segmentIndex, math::Point3& v0, math::Point3& v1);
 
+/// 返回 LineList/LineStrip 中可寻址的线段数，其他拓扑返回 0。
+uint32_t lineSegmentCount(const graphics::Mesh& mesh);
+
 /// 三角形网格射线拾取（最近命中）。
 MeshPickResult pickTriangleMesh(const math::Ray3& worldRay, const graphics::Mesh& mesh,
                                 const math::Mat4& worldTransform);
@@ -44,10 +48,20 @@ MeshPickResult pickMesh(const math::Ray3& ray, const graphics::Mesh& mesh, const
 void appendTriangleMeshPickCandidates(const math::Ray3& worldRay, const graphics::Mesh& mesh,
                                       const math::Mat4& worldTransform, std::vector<MeshPickResult>& out);
 
+/// 只精确测试宽阶段给出的三角形编号；编号越界时与旧路径一样跳过。
+void appendTriangleMeshPickCandidates(const math::Ray3& worldRay, const graphics::Mesh& mesh,
+                                      const math::Mat4& worldTransform, std::span<const uint32_t> triangleIndices,
+                                      std::vector<MeshPickResult>& out);
+
 /// 线网格射线拾取（收集全部命中候选，带容差）。
 void appendLineMeshPickCandidates(const math::Ray3& worldRay, const graphics::Mesh& mesh,
                                   const math::Mat4& worldTransform, double lineToleranceWorld,
                                   std::vector<MeshPickResult>& out);
+
+/// 只精确测试宽阶段给出的线段编号；编号越界时与旧路径一样跳过。
+void appendLineMeshPickCandidates(const math::Ray3& worldRay, const graphics::Mesh& mesh,
+                                  const math::Mat4& worldTransform, double lineToleranceWorld,
+                                  std::span<const uint32_t> segmentIndices, std::vector<MeshPickResult>& out);
 
 /// 按拓扑分派收集全部命中候选。
 void appendMeshPickCandidates(const math::Ray3& ray, const graphics::Mesh& mesh, const math::Mat4& worldTransform,

@@ -34,18 +34,24 @@ namespace mulan::view {
 
 class GeometryQueryWorld;
 namespace detail {
+class PrimitivePickIndexCache;
 class SceneSpatialIndex;
-}
+}  // namespace detail
 
 /// 单次拾取查询的轻量宽阶段诊断，不包含任何持久对象引用。
 struct PickQueryStats {
-    size_t visibleProxyCount = 0;    ///< 查询时可见代理总数。
-    size_t indexedProxyCount = 0;    ///< 进入 BVH 的有限非空 bounds 数量。
-    size_t fallbackProxyCount = 0;   ///< 必须保守精确测试的空/非有限 bounds 数量。
-    size_t nodeBoundsTestCount = 0;  ///< BVH 节点 AABB 测试次数。
-    size_t leafBoundsTestCount = 0;  ///< BVH 叶条目 AABB 测试次数。
-    size_t candidateProxyCount = 0;  ///< 宽阶段输出的代理数量（含 fallback）。
-    size_t exactAssetTestCount = 0;  ///< 实际进入资产级精确拾取的代理数量。
+    size_t visibleProxyCount = 0;             ///< 查询时可见代理总数。
+    size_t indexedProxyCount = 0;             ///< 进入 BVH 的有限非空 bounds 数量。
+    size_t fallbackProxyCount = 0;            ///< 必须保守精确测试的空/非有限 bounds 数量。
+    size_t nodeBoundsTestCount = 0;           ///< BVH 节点 AABB 测试次数。
+    size_t leafBoundsTestCount = 0;           ///< BVH 叶条目 AABB 测试次数。
+    size_t candidateProxyCount = 0;           ///< 宽阶段输出的代理数量（含 fallback）。
+    size_t exactAssetTestCount = 0;           ///< 实际进入资产级精确拾取的代理数量。
+    size_t indexedPrimitiveCount = 0;         ///< 本次资产查询所覆盖的静态图元总数。
+    size_t primitiveNodeBoundsTestCount = 0;  ///< 图元 BVH 节点 AABB 测试次数。
+    size_t candidatePrimitiveCount = 0;       ///< 进入旧精确求交函数的图元候选数。
+    size_t primitiveIndexBuildCount = 0;      ///< 本次查询惰性构建/重建的资产索引数。
+    size_t primitiveLinearFallbackCount = 0;  ///< 因非法网格/变换退回线性扫描的资产数。
 };
 
 /// RenderScene 派生对象 journal 的独立消费者游标。
@@ -63,6 +69,7 @@ enum class RenderSceneChangeStatus : uint8_t {
 struct RenderSceneChange {
     uint64_t revision = 0;
     scene::EntityId entity;
+    RenderProxyDirty dirty = RenderProxyDirty::None;
 };
 
 struct RenderSceneChangeSet {
@@ -177,7 +184,9 @@ private:
     void rebuildSpatialIndex();
     engine::PickId pickIdForEntity(scene::EntityId entity);
     void resetChangeJournal();
-    void appendChanges(const std::unordered_set<scene::EntityId>& entities);
+    void appendChanges(const std::unordered_map<scene::EntityId, RenderProxyDirty>& entities);
+    void trackMissingGeometry(scene::EntityId entity, asset::AssetId geometry);
+    void untrackMissingGeometry(scene::EntityId entity);
 
     SyncStats last_sync_stats_;
     math::AABB3 scene_bounds_;
@@ -186,15 +195,16 @@ private:
     std::unordered_map<scene::EntityId, uint64_t> geometry_asset_revisions_;
     std::unordered_map<asset::AssetId, std::unordered_set<scene::EntityId>> geometry_asset_users_;
     std::unordered_map<scene::EntityId, engine::PickId> entity_pick_ids_;
-    std::unordered_set<scene::EntityId> missing_geometry_entities_;
+    std::unordered_map<scene::EntityId, asset::AssetId> missing_geometry_assets_;
+    std::unordered_map<asset::AssetId, std::unordered_set<scene::EntityId>> missing_geometry_asset_users_;
     std::unordered_map<scene::EntityId, engine::Light> all_lights_;
     std::vector<engine::Light> lights_;
     std::unique_ptr<detail::SceneSpatialIndex> spatial_index_;
+    mutable std::unique_ptr<detail::PrimitivePickIndexCache> primitive_pick_indices_;
     const scene::Scene* scene_ = nullptr;
     const asset::AssetLibrary* assets_ = nullptr;
     scene::SceneChangeCursor scene_change_cursor_;
     asset::AssetChangeCursor asset_change_cursor_;
-    uint64_t assets_membership_revision_ = 0;
     uint64_t next_pick_id_ = 1;
     uint64_t generation_ = 1;
     uint64_t geometry_generation_ = 1;

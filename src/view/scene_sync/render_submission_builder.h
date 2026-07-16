@@ -23,6 +23,7 @@ class AssetLibrary;
 namespace mulan::view {
 class PreviewLayer;
 class RenderScene;
+struct OverlayIncrementalState;
 
 struct RenderSubmissionDiagnostics {
     uint64_t submissionCount = 0;
@@ -41,6 +42,7 @@ struct RenderSubmissionDiagnostics {
 class RenderSubmissionBuilder {
 public:
     RenderSubmissionBuilder();
+    ~RenderSubmissionBuilder();
 
     void reset();
     void setScene(const RenderScene* scene, const asset::AssetLibrary* assets);
@@ -70,14 +72,19 @@ private:
     const PreviewLayer* preview_ = nullptr;
 
     uint64_t last_scene_generation_ = 0;
+    /// 当前绑定源及两个已发布 world 各自确认的 change-domain，用于阻断同址换代 ABA。
+    uint64_t bound_scene_change_domain_ = 0;
+    uint64_t last_scene_change_domain_ = 0;
+    uint64_t last_overlay_scene_change_domain_ = 0;
     uint64_t last_preview_generation_ = 0;
     uint64_t last_overlay_scene_generation_ = 0;
     uint64_t submission_generation_ = 0;
     bool scene_source_dirty_ = true;
     bool preview_source_dirty_ = true;
+    bool overlay_reference_source_dirty_ = true;
 
     RenderWorldSync scene_world_sync_;
-    RenderWorldSync overlay_world_sync_;
+    std::unique_ptr<OverlayIncrementalState> overlay_state_;
     engine::RenderWorld scene_world_;
     engine::RenderWorld overlay_world_;
     std::shared_ptr<const engine::RenderWorldSnapshot> scene_world_snapshot_;

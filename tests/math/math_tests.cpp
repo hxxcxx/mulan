@@ -228,6 +228,18 @@ TEST(IntersectionTest, RayAABB) {
     EXPECT_EQ(hit.point.asVec(), Vec3(-1, 0, 0));
 }
 
+TEST(IntersectionTest, RayAABBPreservesTinyNonZeroDirectionAtLongDistance) {
+    const AABB3 box(Point3(0.5, -1.0, -1.0e16 - 4.0), Point3(1.5, 1.0, -1.0e16 + 4.0));
+    const Ray3 ray(Point3::origin(), Vec3(1.0e-16, 0.0, -1.0));
+
+    const Hit3 hit = intersect(ray, box);
+
+    ASSERT_TRUE(hit.hit);
+    EXPECT_GT(hit.t, 0.0);
+    EXPECT_GE(hit.point.x, box.min.x);
+    EXPECT_LE(hit.point.x, box.max.x);
+}
+
 TEST(IntersectionTest, RaySphere) {
     Ray3 ray(Point3(-3, 0, 0), Vec3::unitX());
     Sphere3 sphere(Point3(0), 1.0);

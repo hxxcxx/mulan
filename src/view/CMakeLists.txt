@@ -17,6 +17,7 @@ add_library(view STATIC
     scene_sync/render_world_sync.cpp
     scene_sync/geometry_query.cpp
     scene_sync/detail/mesh_picking.cpp
+    scene_sync/detail/primitive_pick_index.cpp
     scene_sync/detail/curve_picking.cpp
     scene_sync/detail/asset_picking.cpp
     scene_sync/render_scene.cpp

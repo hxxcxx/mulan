@@ -323,6 +323,55 @@ void appendTriangleMeshPickCandidates(const math::Ray3& worldRay, const graphics
     }
 }
 
+void appendTriangleMeshPickCandidates(const math::Ray3& worldRay, const graphics::Mesh& mesh,
+                                      const math::Mat4& worldTransform, std::span<const uint32_t> triangleIndices,
+                                      std::vector<MeshPickResult>& out) {
+    if (mesh.empty() || mesh.topology != graphics::PrimitiveTopology::TriangleList ||
+        !mesh.layout.has(graphics::VertexSemantic::Position)) {
+        return;
+    }
+
+    const uint32_t triangleCount = !mesh.indices.empty() ? mesh.indexCount() / 3 : mesh.vertexCount() / 3;
+    if (triangleCount == 0) {
+        return;
+    }
+
+    const math::Ray3 localRay = worldRay.transformed(worldTransform.inverse());
+    for (uint32_t tri : triangleIndices) {
+        if (tri >= triangleCount) {
+            continue;
+        }
+        math::Point3 v0;
+        math::Point3 v1;
+        math::Point3 v2;
+        if (!readTriangle(mesh, tri, v0, v1, v2)) {
+            continue;
+        }
+
+        math::Vec3 barycentric;
+        const auto hit = math::intersect(localRay, v0, v1, v2, &barycentric);
+        if (!hit.hit) {
+            continue;
+        }
+
+        const math::Point3 worldPoint = hit.point.transformedBy(worldTransform);
+        out.push_back(MeshPickResult{
+                .tested = true,
+                .distance = (worldPoint - worldRay.origin).length(),
+                .kind = RenderScene::PickHitKind::Face,
+                .worldPoint = worldPoint,
+                .hasWorldPoint = true,
+                .worldNormal = (v1 - v0).cross(v2 - v0).transformedAsNormal(worldTransform),
+                .hasWorldNormal = true,
+                .primitiveIndex = tri,
+                .hasPrimitiveIndex = true,
+                .parameter = hit.t,
+                .barycentric = barycentric,
+                .hasBarycentric = true,
+        });
+    }
+}
+
 void appendLineMeshPickCandidates(const math::Ray3& worldRay, const graphics::Mesh& mesh,
                                   const math::Mat4& worldTransform, double lineToleranceWorld,
                                   std::vector<MeshPickResult>& out) {
@@ -341,6 +390,58 @@ void appendLineMeshPickCandidates(const math::Ray3& worldRay, const graphics::Me
     const double tolerance = std::max(0.0, lineToleranceWorld);
     const double toleranceSq = tolerance * tolerance;
     for (uint32_t segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex) {
+        math::Point3 v0;
+        math::Point3 v1;
+        if (!readLineSegment(mesh, segmentIndex, v0, v1)) {
+            continue;
+        }
+
+        const math::Segment3 worldSegment(v0.transformedBy(worldTransform), v1.transformedBy(worldTransform));
+        const RaySegmentClosest closest = closestRaySegment(worldRay, worldSegment);
+        if (closest.distanceSq > toleranceSq) {
+            continue;
+        }
+
+        out.push_back(MeshPickResult{
+                .tested = true,
+                .distance = closest.rayT,
+                .kind = RenderScene::PickHitKind::Edge,
+                .worldPoint = closest.segmentPoint,
+                .hasWorldPoint = true,
+                .worldNormal = worldSegment.direction().normalizedOr(math::Vec3::unitX()),
+                .hasWorldNormal = true,
+                .primitiveIndex = segmentIndex,
+                .hasPrimitiveIndex = true,
+                .parameter = closest.segmentT,
+                .toleranceWorld = tolerance,
+                .edgeStart = worldSegment.start,
+                .edgeEnd = worldSegment.end,
+                .hasEdgeSegment = true,
+        });
+    }
+}
+
+void appendLineMeshPickCandidates(const math::Ray3& worldRay, const graphics::Mesh& mesh,
+                                  const math::Mat4& worldTransform, double lineToleranceWorld,
+                                  std::span<const uint32_t> segmentIndices, std::vector<MeshPickResult>& out) {
+    if (mesh.empty() ||
+        (mesh.topology != graphics::PrimitiveTopology::LineList &&
+         mesh.topology != graphics::PrimitiveTopology::LineStrip) ||
+        !mesh.layout.has(graphics::VertexSemantic::Position)) {
+        return;
+    }
+
+    const uint32_t segmentCount = lineSegmentCount(mesh);
+    if (segmentCount == 0) {
+        return;
+    }
+
+    const double tolerance = std::max(0.0, lineToleranceWorld);
+    const double toleranceSq = tolerance * tolerance;
+    for (uint32_t segmentIndex : segmentIndices) {
+        if (segmentIndex >= segmentCount) {
+            continue;
+        }
         math::Point3 v0;
         math::Point3 v1;
         if (!readLineSegment(mesh, segmentIndex, v0, v1)) {

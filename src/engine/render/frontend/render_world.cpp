@@ -14,6 +14,24 @@ bool sameHandle(Handle lhs, Handle rhs) {
     return lhs.index == rhs.index && lhs.generation == rhs.generation;
 }
 
+bool sameMatrix(const math::Mat4& lhs, const math::Mat4& rhs) {
+    for (int column = 0; column < 4; ++column) {
+        if (lhs[column] != rhs[column]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool sameBounds(const math::AABB3& lhs, const math::AABB3& rhs) {
+    const bool lhsEmpty = lhs.isEmpty();
+    const bool rhsEmpty = rhs.isEmpty();
+    if (lhsEmpty || rhsEmpty) {
+        return lhsEmpty == rhsEmpty;
+    }
+    return lhs.min == rhs.min && lhs.max == rhs.max;
+}
+
 std::atomic<uint64_t> next_render_world_id{ 1 };
 
 uint64_t allocateRenderWorldId() {
@@ -128,6 +146,26 @@ bool RenderWorld::updateObject(RenderObjectId id, RenderObjectDesc desc) {
     if (!record || !sameHandle(record->id, id)) {
         return false;
     }
+    storage_.objects.set(id.index, RenderObjectRecord{ id, std::move(desc) });
+    advanceRevision();
+    return true;
+}
+
+bool RenderWorld::updateObjectSpatialState(RenderObjectId id, const math::Mat4& worldTransform,
+                                           const math::AABB3& worldBounds, bool visible) {
+    const RenderObjectRecord* record = storage_.objects.find(id.index);
+    if (!record || !sameHandle(record->id, id)) {
+        return false;
+    }
+    if (sameMatrix(record->desc.worldTransform, worldTransform) && sameBounds(record->desc.worldBounds, worldBounds) &&
+        record->desc.visible == visible) {
+        return true;
+    }
+
+    RenderObjectDesc desc = record->desc;
+    desc.worldTransform = worldTransform;
+    desc.worldBounds = worldBounds;
+    desc.visible = visible;
     storage_.objects.set(id.index, RenderObjectRecord{ id, std::move(desc) });
     advanceRevision();
     return true;

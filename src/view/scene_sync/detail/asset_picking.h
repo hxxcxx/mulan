@@ -15,14 +15,19 @@
 
 namespace mulan::view::detail {
 
+class PrimitivePickIndexCache;
+struct PrimitivePickQueryStats;
+
 /// 资产级最近拾取：返回整个资产中最近的命中。
 MeshPickResult pickGeometryAsset(const math::Ray3& ray, const asset::Asset& asset, const math::Mat4& worldTransform,
-                                 double lineToleranceWorld);
+                                 double lineToleranceWorld, PrimitivePickIndexCache* indexCache = nullptr,
+                                 PrimitivePickQueryStats* indexStats = nullptr);
 
 /// 资产级候选收集：返回资产中全部命中候选。
 void appendGeometryAssetPickCandidates(const math::Ray3& ray, const asset::Asset& asset,
                                        const math::Mat4& worldTransform, double lineToleranceWorld,
-                                       std::vector<MeshPickResult>& out);
+                                       std::vector<MeshPickResult>& out, PrimitivePickIndexCache* indexCache = nullptr,
+                                       PrimitivePickQueryStats* indexStats = nullptr);
 
 /// 把中间拾取结果转换为 RenderScene::PickResult。
 RenderScene::PickResult pickResultFromMeshHit(scene::EntityId id, const SceneProxy& proxy,

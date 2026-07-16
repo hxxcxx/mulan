@@ -8,15 +8,176 @@
 
 #include "curve_picking.h"
 #include "mesh_picking.h"
+#include "primitive_pick_index.h"
 
 #include <mulan/asset/curve_asset.h>
 #include <mulan/asset/geometry_asset.h>
 #include <mulan/render/frontend/pick_identity.h>
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
+#include <optional>
 #include <variant>
 
 namespace mulan::view::detail {
+namespace {
+
+bool finitePoint(const math::Point3& point) {
+    return std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z);
+}
+
+bool finiteVector(const math::Vec3& vector) {
+    return std::isfinite(vector.x) && std::isfinite(vector.y) && std::isfinite(vector.z);
+}
+
+bool meshHasPickablePrimitives(const graphics::Mesh& mesh) {
+    if (mesh.empty() || !mesh.layout.has(graphics::VertexSemantic::Position)) {
+        return false;
+    }
+    if (mesh.topology == graphics::PrimitiveTopology::TriangleList) {
+        return (!mesh.indices.empty() ? mesh.indexCount() : mesh.vertexCount()) >= 3;
+    }
+    if (mesh.topology == graphics::PrimitiveTopology::LineList ||
+        mesh.topology == graphics::PrimitiveTopology::LineStrip) {
+        return lineSegmentCount(mesh) != 0;
+    }
+    return false;
+}
+
+bool geometryHasPickablePrimitives(std::span<const asset::Drawable> drawables) {
+    return std::any_of(drawables.begin(), drawables.end(), [](const asset::Drawable& drawable) {
+        return drawable.mesh && meshHasPickablePrimitives(*drawable.mesh);
+    });
+}
+
+size_t geometryPickablePrimitiveCount(std::span<const asset::Drawable> drawables) {
+    size_t count = 0;
+    for (const asset::Drawable& drawable : drawables) {
+        if (!drawable.mesh || drawable.mesh->empty() ||
+            !drawable.mesh->layout.has(graphics::VertexSemantic::Position)) {
+            continue;
+        }
+        if (drawable.mesh->topology == graphics::PrimitiveTopology::TriangleList) {
+            count +=
+                    (!drawable.mesh->indices.empty() ? drawable.mesh->indexCount() : drawable.mesh->vertexCount()) / 3u;
+        } else {
+            count += lineSegmentCount(*drawable.mesh);
+        }
+    }
+    return count;
+}
+
+struct LocalPickQuery {
+    math::Ray3 ray;
+    double padding = 0.0;
+};
+
+/// 只有有限、非奇异仿射矩阵才可把宽阶段变换到资产本地空间。
+/// 线容差乘逆线性部分的 Frobenius 范数，是对任意方向缩放的保守上界。
+std::optional<LocalPickQuery> tryMakeLocalQuery(const math::Ray3& worldRay, const math::Mat4& worldTransform,
+                                                double lineToleranceWorld) {
+    for (int column = 0; column < 4; ++column) {
+        for (int row = 0; row < 4; ++row) {
+            if (!std::isfinite(worldTransform[column][row])) {
+                return std::nullopt;
+            }
+        }
+    }
+
+    // 项目点/方向变换契约只消费 top 3x4，而 Mat4::inverse 会消费完整矩阵。
+    // 因而最后一行必须是精确 canonical affine；即使极小 projective 项也可能
+    // 与超大平移相乘令完整矩阵奇异，任何容差都会制造宽阶段漏候选。
+    if (worldTransform[0].w != 0.0 || worldTransform[1].w != 0.0 || worldTransform[2].w != 0.0 ||
+        worldTransform[3].w != 1.0) {
+        return std::nullopt;
+    }
+
+    constexpr double AffineEpsilon = 64.0 * std::numeric_limits<double>::epsilon();
+    const math::Mat3 linear(worldTransform);
+    const double columnScale = linear[0].length() * linear[1].length() * linear[2].length();
+    const double determinant = linear.determinant();
+    if (!(columnScale > 0.0) || !std::isfinite(columnScale) || !std::isfinite(determinant) ||
+        std::abs(determinant) <= AffineEpsilon * columnScale) {
+        return std::nullopt;
+    }
+
+    const math::Mat4 inverse = worldTransform.inverse();
+    const math::Mat3 inverseLinear(inverse);
+    const math::Point3 localOrigin = worldRay.origin.transformedBy(inverse);
+    const math::Vec3 localDirectionRaw = worldRay.direction.transformedAsDir(inverse);
+    const double directionLength = localDirectionRaw.length();
+    if (!finitePoint(localOrigin) || !finiteVector(localDirectionRaw) || !(directionLength > 0.0) ||
+        !std::isfinite(directionLength)) {
+        return std::nullopt;
+    }
+
+    double inverseNormSq = 0.0;
+    for (int column = 0; column < 3; ++column) {
+        inverseNormSq += inverseLinear[column].lengthSq();
+    }
+    const double localPadding = std::max(0.0, lineToleranceWorld) * std::sqrt(inverseNormSq);
+    if (!std::isfinite(localPadding)) {
+        return std::nullopt;
+    }
+
+    return LocalPickQuery{
+        .ray = math::Ray3(localOrigin, localDirectionRaw / directionLength),
+        .padding = localPadding,
+    };
+}
+
+bool appendIndexedGeometryCandidates(const math::Ray3& worldRay, const asset::GeometryAsset& geometry,
+                                     std::span<const asset::Drawable> drawables, const math::Mat4& worldTransform,
+                                     double lineToleranceWorld, std::vector<MeshPickResult>& out,
+                                     PrimitivePickIndexCache* indexCache, PrimitivePickQueryStats* indexStats) {
+    if (!indexCache) {
+        return false;
+    }
+    const std::optional<LocalPickQuery> localQuery = tryMakeLocalQuery(worldRay, worldTransform, lineToleranceWorld);
+    if (!localQuery) {
+        return false;
+    }
+    const PrimitivePickIndex* index = indexCache->get(geometry, drawables);
+    if (!index) {
+        return false;
+    }
+
+    std::vector<PickPrimitiveRef> refs;
+    index->queryRay(localQuery->ray, localQuery->padding, refs, indexStats);
+    if (indexStats) {
+        indexStats->usedIndex = true;
+    }
+    std::vector<uint32_t> primitiveIndices;
+    size_t cursor = 0;
+    while (cursor < refs.size()) {
+        const uint32_t drawableIndex = refs[cursor].drawableIndex;
+        const PickPrimitiveKind kind = refs[cursor].kind;
+        primitiveIndices.clear();
+        while (cursor < refs.size() && refs[cursor].drawableIndex == drawableIndex && refs[cursor].kind == kind) {
+            primitiveIndices.push_back(refs[cursor].primitiveIndex);
+            ++cursor;
+        }
+        if (drawableIndex >= drawables.size() || !drawables[drawableIndex].mesh) {
+            continue;
+        }
+
+        const size_t first = out.size();
+        if (kind == PickPrimitiveKind::Triangle) {
+            appendTriangleMeshPickCandidates(worldRay, *drawables[drawableIndex].mesh, worldTransform, primitiveIndices,
+                                             out);
+        } else {
+            appendLineMeshPickCandidates(worldRay, *drawables[drawableIndex].mesh, worldTransform, lineToleranceWorld,
+                                         primitiveIndices, out);
+        }
+        for (size_t resultIndex = first; resultIndex < out.size(); ++resultIndex) {
+            out[resultIndex].sourceDrawableIndex = drawableIndex;
+        }
+    }
+    return true;
+}
+
+}  // namespace
 
 MeshPickResult pickStructuredCurveAsset(const math::Ray3& ray, const asset::Asset& asset,
                                         const math::Mat4& worldTransform, double lineToleranceWorld) {
@@ -34,7 +195,11 @@ MeshPickResult pickStructuredCurveAsset(const math::Ray3& ray, const asset::Asse
 }
 
 MeshPickResult pickGeometryAsset(const math::Ray3& ray, const asset::Asset& asset, const math::Mat4& worldTransform,
-                                 double lineToleranceWorld) {
+                                 double lineToleranceWorld, PrimitivePickIndexCache* indexCache,
+                                 PrimitivePickQueryStats* indexStats) {
+    if (indexStats) {
+        *indexStats = {};
+    }
     if (dynamic_cast<const asset::CurveAsset*>(&asset)) {
         return pickStructuredCurveAsset(ray, asset, worldTransform, lineToleranceWorld);
     }
@@ -46,6 +211,25 @@ MeshPickResult pickGeometryAsset(const math::Ray3& ray, const asset::Asset& asse
 
     std::vector<asset::Drawable> drawables;
     geometry->collectDrawables(drawables);
+
+    if (indexCache) {
+        std::vector<MeshPickResult> candidates;
+        if (appendIndexedGeometryCandidates(ray, *geometry, drawables, worldTransform, lineToleranceWorld, candidates,
+                                            indexCache, indexStats)) {
+            MeshPickResult result;
+            result.tested = geometryHasPickablePrimitives(drawables);
+            for (const MeshPickResult& candidate : candidates) {
+                if (candidate.distance && (!result.distance || *candidate.distance < *result.distance)) {
+                    result = candidate;
+                }
+            }
+            return result;
+        }
+        if (indexStats) {
+            indexStats->linearFallback = true;
+            indexStats->candidatePrimitiveCount = geometryPickablePrimitiveCount(drawables);
+        }
+    }
 
     MeshPickResult result;
     for (size_t drawableIndex = 0; drawableIndex < drawables.size(); ++drawableIndex) {
@@ -67,7 +251,11 @@ MeshPickResult pickGeometryAsset(const math::Ray3& ray, const asset::Asset& asse
 
 void appendGeometryAssetPickCandidates(const math::Ray3& ray, const asset::Asset& asset,
                                        const math::Mat4& worldTransform, double lineToleranceWorld,
-                                       std::vector<MeshPickResult>& out) {
+                                       std::vector<MeshPickResult>& out, PrimitivePickIndexCache* indexCache,
+                                       PrimitivePickQueryStats* indexStats) {
+    if (indexStats) {
+        *indexStats = {};
+    }
     if (const auto* curve = dynamic_cast<const asset::CurveAsset*>(&asset)) {
         const double tolerance = std::max(0.0, lineToleranceWorld);
         const double toleranceSq = tolerance * tolerance;
@@ -224,6 +412,15 @@ void appendGeometryAssetPickCandidates(const math::Ray3& ray, const asset::Asset
 
     std::vector<asset::Drawable> drawables;
     geometry->collectDrawables(drawables);
+
+    if (appendIndexedGeometryCandidates(ray, *geometry, drawables, worldTransform, lineToleranceWorld, out, indexCache,
+                                        indexStats)) {
+        return;
+    }
+    if (indexCache && indexStats) {
+        indexStats->linearFallback = true;
+        indexStats->candidatePrimitiveCount = geometryPickablePrimitiveCount(drawables);
+    }
 
     for (size_t drawableIndex = 0; drawableIndex < drawables.size(); ++drawableIndex) {
         const asset::Drawable& drawable = drawables[drawableIndex];

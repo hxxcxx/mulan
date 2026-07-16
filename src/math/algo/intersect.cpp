@@ -26,8 +26,9 @@ Hit3 intersect(const Ray3& ray, const AABB3& box, const Tolerance& tol) {
         double bMin = box.min[i];
         double bMax = box.max[i];
 
-        if (std::abs(d) < 1e-15) {
-            // 射线与该轴的 slab 平行，原点须在 slab 内
+        if (d == 0.0) {
+            // 宽阶段不能把极小但非零的方向近似为平行：它仍可能在极远处
+            // 进入 slab。只有精确为零时才能安全地执行平行早退。
             if (o < bMin - tol.lengthEps || o > bMax + tol.lengthEps)
                 return Hit3::miss();
         } else {

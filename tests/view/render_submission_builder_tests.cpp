@@ -15,8 +15,11 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -52,6 +55,47 @@ graphics::Mesh makeWireMesh(uint8_t marker = 0) {
     return mesh;
 }
 
+struct OverlayRoleProjection {
+    engine::RenderMaterialHandle material;
+    std::vector<engine::RenderObjectId> objects;
+    std::vector<engine::GeometryHandle> geometries;
+    std::vector<engine::RenderResourceKey> geometryKeys;
+    std::vector<engine::RenderBucket> buckets;
+};
+
+OverlayRoleProjection overlayRoleProjection(const engine::RenderWorldSnapshot& snapshot, PreviewVisualRole role) {
+    OverlayRoleProjection projection;
+    for (const engine::RenderMaterialRecord& material : snapshot.materials()) {
+        if (material.desc.resourceKey.kind == engine::RenderResourceKind::PreviewMaterial &&
+            material.desc.resourceKey.source == RenderItemBuilder::previewMaterialKey(role)) {
+            projection.material = material.handle;
+            break;
+        }
+    }
+    if (!projection.material) {
+        return projection;
+    }
+
+    for (const engine::RenderObjectRecord& object : snapshot.objects()) {
+        bool belongsToRole = false;
+        for (const engine::RenderObjectDrawable& drawable : object.desc.drawables) {
+            if (drawable.material != projection.material) {
+                continue;
+            }
+            belongsToRole = true;
+            projection.geometries.push_back(drawable.geometry);
+            projection.buckets.push_back(drawable.bucket);
+            if (const engine::RenderGeometryRecord* geometry = snapshot.geometry(drawable.geometry)) {
+                projection.geometryKeys.push_back(geometry->desc.resourceKey);
+            }
+        }
+        if (belongsToRole) {
+            projection.objects.push_back(object.id);
+        }
+    }
+    return projection;
+}
+
 struct PersistentStoreTestRecord {
     uint32_t value = 0;
 };
@@ -61,6 +105,27 @@ struct PersistentStoreDifference {
     const PersistentStoreTestRecord* previous = nullptr;
     const PersistentStoreTestRecord* current = nullptr;
 };
+
+TEST(PreviewLayerTests, RoleAndSourceGenerationsAdvanceIndependently) {
+    PreviewLayer preview;
+    const uint64_t toolGeometry = preview.geometryGeneration(PreviewVisualRole::Tool);
+    const uint64_t toolReferences = preview.referenceGeneration(PreviewVisualRole::Tool);
+    const uint64_t snapGeometry = preview.geometryGeneration(PreviewVisualRole::Snap);
+    const uint64_t snapReferences = preview.referenceGeneration(PreviewVisualRole::Snap);
+
+    preview.setSnapGeometry({}, { makePreviewMesh() });
+    EXPECT_EQ(preview.geometryGeneration(PreviewVisualRole::Tool), toolGeometry);
+    EXPECT_EQ(preview.referenceGeneration(PreviewVisualRole::Tool), toolReferences);
+    EXPECT_GT(preview.geometryGeneration(PreviewVisualRole::Snap), snapGeometry);
+    EXPECT_EQ(preview.referenceGeneration(PreviewVisualRole::Snap), snapReferences);
+    ASSERT_EQ(preview.drawables(PreviewVisualRole::Snap).size(), 1u);
+    EXPECT_TRUE(preview.drawables(PreviewVisualRole::Tool).empty());
+
+    preview.setReferences({ PreviewReference{ .role = PreviewVisualRole::Tool } });
+    EXPECT_EQ(preview.geometryGeneration(PreviewVisualRole::Tool), toolGeometry);
+    EXPECT_GT(preview.referenceGeneration(PreviewVisualRole::Tool), toolReferences);
+    EXPECT_EQ(preview.referenceGeneration(PreviewVisualRole::Snap), snapReferences);
+}
 
 TEST(RenderResourcePrepareListTests, MergeUsesLastOperationForSameGeometryKey) {
     const engine::AssetGpuKey key = engine::makeAssetGpuKey(42);
@@ -187,6 +252,103 @@ TEST(RenderResourceDomainTests, BuildersForTheSameAssetLibraryReuseTheDocumentDo
     ASSERT_EQ(first.prepare.geometries().size(), 1u);
     ASSERT_EQ(second.prepare.geometries().size(), 1u);
     EXPECT_EQ(first.prepare.geometries().front().resourceKey, second.prepare.geometries().front().resourceKey);
+}
+
+TEST(RenderResourceDomainTests, ReusedAssetLibraryAddressCannotReuseThePreviousGpuDomain) {
+    std::optional<asset::AssetLibrary> assets(std::in_place);
+    asset::AssetLibrary* const stableAddress = &*assets;
+    auto* firstMesh = assets->create<asset::MeshAsset>("FirstGeneration");
+    firstMesh->addPrimitive(makeSurfaceMesh(1));
+    const asset::AssetId stableAssetId = firstMesh->id();
+
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("Entity");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, stableAssetId));
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, *assets);
+
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &*assets);
+    const RenderSubmission first = builder.build(ViewState{});
+    ASSERT_EQ(first.prepare.geometries().size(), 1u);
+    const engine::RenderResourceKey firstKey = first.prepare.geometries().front().resourceKey;
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    assets.reset();
+    assets.emplace();
+    ASSERT_EQ(&*assets, stableAddress);
+    auto* replacementMesh = assets->create<asset::MeshAsset>("SecondGeneration");
+    ASSERT_EQ(replacementMesh->id(), stableAssetId);
+    replacementMesh->addPrimitive(makeSurfaceMesh(77));
+    renderScene.sync(sourceScene, *assets);
+
+    // 指针、AssetId、asset revision 都可与上一代相同；domain 必须仍能识别换代。
+    builder.setScene(&renderScene, &*assets);
+    const RenderSubmission replacement = builder.build(ViewState{});
+    ASSERT_TRUE(replacement.rebuiltSceneWorld);
+    ASSERT_EQ(replacement.prepare.geometries().size(), 2u);
+    const auto retired = std::ranges::find_if(replacement.prepare.geometries(),
+                                              [&](const auto& resource) { return resource.resourceKey == firstKey; });
+    ASSERT_NE(retired, replacement.prepare.geometries().end());
+    EXPECT_TRUE(retired->isRetire());
+    const auto preparedIt = std::ranges::find_if(replacement.prepare.geometries(),
+                                                 [](const auto& resource) { return resource.isUpsert(); });
+    ASSERT_NE(preparedIt, replacement.prepare.geometries().end());
+    const engine::RenderGeometryPrepareDesc& prepared = *preparedIt;
+    EXPECT_NE(prepared.resourceKey.domain, firstKey.domain);
+    ASSERT_TRUE(prepared.mesh);
+    EXPECT_EQ(prepared.mesh->vertices.back(), std::byte{ 77 });
+}
+
+TEST(RenderSubmissionBuilderTests, ReusedRenderSceneAddressCannotReuseThePreviousWorlds) {
+    asset::AssetLibrary assets;
+    auto* geometry = assets.create<asset::MeshAsset>("StableGeometry");
+    geometry->addPrimitive(makeSurfaceMesh());
+
+    scene::Scene firstSource;
+    const scene::EntityId referencedEntity = firstSource.createEntity("First");
+    ASSERT_TRUE(firstSource.setGeometry(referencedEntity, geometry->id()));
+
+    std::optional<RenderScene> renderScene(std::in_place);
+    RenderScene* const stableAddress = &*renderScene;
+    renderScene->sync(firstSource, assets);
+    const uint64_t collidingGeneration = renderScene->generation();
+
+    PreviewLayer preview;
+    preview.setReferences({ PreviewReference{ .entity = referencedEntity, .role = PreviewVisualRole::Tool } });
+    RenderSubmissionBuilder builder;
+    builder.setScene(&*renderScene, &assets);
+    builder.setPreviewLayer(&preview);
+    const RenderSubmission first = builder.build(ViewState{});
+    ASSERT_TRUE(first.sceneWorld);
+    ASSERT_TRUE(first.overlayWorld);
+    ASSERT_EQ(first.sceneWorld->objects().size(), 1u);
+
+    renderScene.reset();
+    renderScene.emplace();
+    ASSERT_EQ(&*renderScene, stableAddress);
+    scene::Scene replacementSource;
+    const scene::EntityId replacementReferenced = replacementSource.createEntity("Replacement");
+    ASSERT_EQ(replacementReferenced, referencedEntity);
+    ASSERT_TRUE(replacementSource.setGeometry(replacementReferenced, geometry->id()));
+    ASSERT_TRUE(replacementSource.setWorldTransform(replacementReferenced,
+                                                    math::Mat4::translate(math::Vec3(7.0, 0.0, 0.0))));
+    const scene::EntityId secondEntity = replacementSource.createEntity("Second");
+    ASSERT_TRUE(replacementSource.setGeometry(secondEntity, geometry->id()));
+    renderScene->sync(replacementSource, assets);
+    ASSERT_EQ(renderScene->generation(), collidingGeneration);
+
+    builder.setScene(&*renderScene, &assets);
+    const RenderSubmission replacement = builder.build(ViewState{});
+    ASSERT_TRUE(replacement.rebuiltSceneWorld);
+    ASSERT_TRUE(replacement.rebuiltOverlayWorld);
+    ASSERT_TRUE(replacement.sceneWorld);
+    ASSERT_TRUE(replacement.overlayWorld);
+    EXPECT_NE(replacement.sceneWorld, first.sceneWorld);
+    EXPECT_EQ(replacement.sceneWorld->objects().size(), 2u);
+    ASSERT_EQ(replacement.overlayWorld->objects().size(), 1u);
+    EXPECT_EQ(math::Point3::origin().transformedBy(replacement.overlayWorld->objects().front().desc.worldTransform),
+              math::Point3(7.0, 0.0, 0.0));
 }
 
 TEST(RenderSubmissionBuilderTests, KeepsPendingResourcesUntilMatchingAck) {
@@ -376,6 +538,268 @@ TEST(RenderSubmissionBuilderTests, ReplacingPreviewSourceWithSameGenerationUpdat
     EXPECT_EQ(update.resourceKey, key);
     EXPECT_TRUE(update.isUpsert());
     EXPECT_TRUE(update.forceUpdate);
+}
+
+TEST(RenderSubmissionBuilderTests, UpdatingOnePreviewRolePreservesOtherRoleProjectionAndStableHandles) {
+    RenderScene scene;
+    asset::AssetLibrary assets;
+    PreviewLayer preview;
+    preview.setMesh(makePreviewMesh());
+    preview.setSnapGeometry({}, { makePreviewMesh() });
+
+    RenderSubmissionBuilder builder;
+    builder.setScene(&scene, &assets);
+    builder.setPreviewLayer(&preview);
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_TRUE(first.overlayWorld);
+    const OverlayRoleProjection firstTool = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Tool);
+    const OverlayRoleProjection firstSnap = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Snap);
+    ASSERT_EQ(firstTool.objects.size(), 1u);
+    ASSERT_EQ(firstTool.geometries.size(), 1u);
+    ASSERT_EQ(firstSnap.objects.size(), 1u);
+    ASSERT_EQ(firstSnap.geometries.size(), 1u);
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    graphics::Mesh replacement = makePreviewMesh();
+    replacement.vertices.back() = std::byte{ 9 };
+    preview.setMesh(std::move(replacement));
+    const RenderSubmission updated = builder.build(view);
+    ASSERT_TRUE(updated.overlayWorld);
+    EXPECT_FALSE(updated.overlaySyncStats.fullRebuild);
+    EXPECT_EQ(updated.overlaySyncStats.patchedObjectCount, 1u);
+    const OverlayRoleProjection updatedTool = overlayRoleProjection(*updated.overlayWorld, PreviewVisualRole::Tool);
+    const OverlayRoleProjection updatedSnap = overlayRoleProjection(*updated.overlayWorld, PreviewVisualRole::Snap);
+
+    // 变化角色复用自己的对象/几何句柄；未变化角色的整份绘制输入保持不动。
+    EXPECT_EQ(updatedTool.objects, firstTool.objects);
+    EXPECT_EQ(updatedTool.geometries, firstTool.geometries);
+    EXPECT_EQ(updatedSnap.objects, firstSnap.objects);
+    EXPECT_EQ(updatedSnap.geometries, firstSnap.geometries);
+    EXPECT_EQ(updatedSnap.geometryKeys, firstSnap.geometryKeys);
+    EXPECT_EQ(updatedSnap.buckets, firstSnap.buckets);
+    EXPECT_EQ(first.overlayWorld->object(firstSnap.objects.front()),
+              updated.overlayWorld->object(updatedSnap.objects.front()));
+    EXPECT_EQ(first.overlayWorld->geometry(firstSnap.geometries.front()),
+              updated.overlayWorld->geometry(updatedSnap.geometries.front()));
+    ASSERT_EQ(updated.prepare.geometries().size(), 1u);
+    EXPECT_EQ(updated.prepare.geometries().front().resourceKey, firstTool.geometryKeys.front());
+    EXPECT_TRUE(updated.prepare.geometries().front().isUpsert());
+    EXPECT_TRUE(updated.prepare.geometries().front().forceUpdate);
+}
+
+TEST(RenderSubmissionBuilderTests, ClearingOnePreviewRoleRemovesOnlyThatRoleAndRetiresOnlyItsGeometry) {
+    RenderScene scene;
+    asset::AssetLibrary assets;
+    PreviewLayer preview;
+    preview.setMesh(makePreviewMesh());
+    preview.setSnapGeometry({}, { makePreviewMesh() });
+
+    RenderSubmissionBuilder builder;
+    builder.setScene(&scene, &assets);
+    builder.setPreviewLayer(&preview);
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_TRUE(first.overlayWorld);
+    const OverlayRoleProjection tool = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Tool);
+    const OverlayRoleProjection snap = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Snap);
+    ASSERT_EQ(tool.geometryKeys.size(), 1u);
+    ASSERT_EQ(snap.objects.size(), 1u);
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    preview.clearToolGeometry();
+    const RenderSubmission cleared = builder.build(view);
+    ASSERT_TRUE(cleared.overlayWorld);
+    EXPECT_FALSE(cleared.overlaySyncStats.fullRebuild);
+    EXPECT_TRUE(overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Tool).objects.empty());
+    const OverlayRoleProjection stableSnap = overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Snap);
+    EXPECT_EQ(stableSnap.objects, snap.objects);
+    EXPECT_EQ(stableSnap.geometries, snap.geometries);
+    ASSERT_EQ(cleared.prepare.geometries().size(), 1u);
+    EXPECT_EQ(cleared.prepare.geometries().front().resourceKey, tool.geometryKeys.front());
+    EXPECT_TRUE(cleared.prepare.geometries().front().isRetire());
+}
+
+TEST(RenderSubmissionBuilderTests, ReferenceOnlyRoleChangesDoNotTouchDirectRoleOrUploadGeometry) {
+    asset::AssetLibrary assets;
+    auto* geometry = assets.create<asset::TessellatedAsset>("ReferenceOnlyRole");
+    geometry->setRenderMeshes(makeSurfaceMesh(), {});
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("Referenced");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+
+    PreviewLayer preview;
+    preview.setSnapGeometry({}, { makePreviewMesh() });
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+    builder.setPreviewLayer(&preview);
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_TRUE(first.overlayWorld);
+    const OverlayRoleProjection firstSnap = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Snap);
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    preview.setReferences({ PreviewReference{ .entity = entity, .role = PreviewVisualRole::Tool } });
+    const RenderSubmission referenced = builder.build(view);
+    ASSERT_TRUE(referenced.overlayWorld);
+    EXPECT_TRUE(referenced.prepare.empty());
+    const OverlayRoleProjection referencedSnap =
+            overlayRoleProjection(*referenced.overlayWorld, PreviewVisualRole::Snap);
+    const OverlayRoleProjection referencedTool =
+            overlayRoleProjection(*referenced.overlayWorld, PreviewVisualRole::Tool);
+    EXPECT_EQ(referencedSnap.objects, firstSnap.objects);
+    EXPECT_EQ(referencedSnap.geometries, firstSnap.geometries);
+    ASSERT_EQ(referencedTool.objects.size(), 1u);
+
+    preview.setReferences({ PreviewReference{
+            .entity = entity,
+            .worldTransform = math::Mat4::translate(math::Vec3(3.0, 0.0, 0.0)),
+            .overrideWorldTransform = true,
+            .role = PreviewVisualRole::Tool,
+    } });
+    const RenderSubmission transformed = builder.build(view);
+    EXPECT_TRUE(transformed.prepare.empty());
+    ASSERT_TRUE(transformed.overlayWorld);
+    const OverlayRoleProjection transformedTool =
+            overlayRoleProjection(*transformed.overlayWorld, PreviewVisualRole::Tool);
+    EXPECT_EQ(transformedTool.objects, referencedTool.objects);
+    EXPECT_EQ(transformedTool.geometries, referencedTool.geometries);
+    EXPECT_EQ(overlayRoleProjection(*transformed.overlayWorld, PreviewVisualRole::Snap).objects, firstSnap.objects);
+}
+
+TEST(RenderSubmissionBuilderTests, UnrelatedAssetEventsAdvanceOverlayCursorWithoutOverflowRebuild) {
+    asset::AssetLibrary assets(2);
+    auto* geometry = assets.create<asset::TessellatedAsset>("ReferencedGeometry");
+    geometry->setRenderMeshes(makeSurfaceMesh(), {});
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("Referenced");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+
+    PreviewLayer preview;
+    preview.setReferences({ PreviewReference{ .entity = entity, .role = PreviewVisualRole::Tool } });
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+    builder.setPreviewLayer(&preview);
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_TRUE(first.overlayWorld);
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    // journal 仅保留两项；若 Overlay 不独立确认无关事件，第三项会制造伪 overflow，
+    // 从而把仍然稳定的引用角色误判为必须全量重投影。
+    for (size_t index = 0; index < 3; ++index) {
+        ASSERT_NE(assets.create<asset::MaterialAsset>("Unrelated" + std::to_string(index)), nullptr);
+        const RenderSubmission unchanged = builder.build(view);
+        EXPECT_FALSE(unchanged.rebuiltOverlayWorld) << "unrelated event index=" << index;
+        EXPECT_EQ(unchanged.overlayWorld, first.overlayWorld);
+    }
+}
+
+TEST(RenderSubmissionBuilderTests, AssetClearDoesNotRebuildOverlayWithoutReferenceState) {
+    asset::AssetLibrary assets;
+    ASSERT_NE(assets.create<asset::MaterialAsset>("Unrelated"), nullptr);
+    RenderScene scene;
+    PreviewLayer preview;
+    preview.setMesh(makePreviewMesh());
+    RenderSubmissionBuilder builder;
+    builder.setScene(&scene, &assets);
+    builder.setPreviewLayer(&preview);
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_TRUE(first.overlayWorld);
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    assets.clear();
+    const RenderSubmission cleared = builder.build(view);
+    EXPECT_FALSE(cleared.rebuiltOverlayWorld);
+    EXPECT_EQ(cleared.overlayWorld, first.overlayWorld);
+}
+
+TEST(RenderSubmissionBuilderTests, AssetClearReprojectsOnlyRoleWithReferenceState) {
+    asset::AssetLibrary assets;
+    auto* geometry = assets.create<asset::TessellatedAsset>("ReferencedGeometry");
+    geometry->setRenderMeshes(makeSurfaceMesh(), {});
+    scene::Scene sourceScene;
+    const scene::EntityId entity = sourceScene.createEntity("Referenced");
+    ASSERT_TRUE(sourceScene.setGeometry(entity, geometry->id()));
+    RenderScene renderScene;
+    renderScene.sync(sourceScene, assets);
+
+    PreviewLayer preview;
+    preview.setSnapGeometry({}, { makePreviewMesh() });
+    preview.setReferences({ PreviewReference{ .entity = entity, .role = PreviewVisualRole::Tool } });
+    RenderSubmissionBuilder builder;
+    builder.setScene(&renderScene, &assets);
+    builder.setPreviewLayer(&preview);
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_TRUE(first.overlayWorld);
+    const OverlayRoleProjection firstTool = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Tool);
+    const OverlayRoleProjection firstSnap = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Snap);
+    ASSERT_EQ(firstTool.objects.size(), 1u);
+    ASSERT_EQ(firstSnap.objects.size(), 1u);
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    assets.clear();
+    const RenderSubmission cleared = builder.build(view);
+    ASSERT_TRUE(cleared.rebuiltOverlayWorld);
+    ASSERT_TRUE(cleared.overlayWorld);
+    EXPECT_TRUE(overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Tool).objects.empty());
+    const OverlayRoleProjection stableSnap = overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Snap);
+    EXPECT_EQ(stableSnap.objects, firstSnap.objects);
+    EXPECT_EQ(stableSnap.geometries, firstSnap.geometries);
+    EXPECT_EQ(first.overlayWorld->object(firstSnap.objects.front()),
+              cleared.overlayWorld->object(stableSnap.objects.front()));
+    EXPECT_EQ(cleared.overlaySyncStats.patchedObjectCount, 1u);
+    EXPECT_TRUE(std::ranges::none_of(cleared.prepare.geometries(), [](const auto& resource) {
+        return resource.resourceKey.kind == engine::RenderResourceKind::PreviewGeometry;
+    }));
+}
+
+TEST(RenderSubmissionBuilderTests, ReplacingRoleGeometryPreparesOnlyChangedStableRoleSlots) {
+    RenderScene scene;
+    asset::AssetLibrary assets;
+    PreviewLayer preview;
+    preview.setGripGeometry({}, { makePreviewMesh() });
+    preview.setSnapGeometry({}, { makePreviewMesh() });
+    RenderSubmissionBuilder builder;
+    builder.setScene(&scene, &assets);
+    builder.setPreviewLayer(&preview);
+    const ViewState view;
+    const RenderSubmission first = builder.build(view);
+    ASSERT_TRUE(first.overlayWorld);
+    const OverlayRoleProjection firstGrip = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Grip);
+    const OverlayRoleProjection firstSnap = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Snap);
+    ASSERT_EQ(firstGrip.geometryKeys.size(), 1u);
+    builder.acknowledgeResources(first.resourceBatchId);
+
+    graphics::Mesh firstReplacement = makePreviewMesh();
+    firstReplacement.vertices.back() = std::byte{ 1 };
+    graphics::Mesh added = makePreviewMesh();
+    added.vertices.back() = std::byte{ 2 };
+    preview.setGripGeometry({}, { std::move(firstReplacement), std::move(added) });
+    const RenderSubmission replaced = builder.build(view);
+    ASSERT_TRUE(replaced.overlayWorld);
+    const OverlayRoleProjection replacedGrip = overlayRoleProjection(*replaced.overlayWorld, PreviewVisualRole::Grip);
+    EXPECT_EQ(replacedGrip.objects, firstGrip.objects);
+    ASSERT_EQ(replacedGrip.geometries.size(), 2u);
+    EXPECT_EQ(replacedGrip.geometries.front(), firstGrip.geometries.front());
+    EXPECT_EQ(replacedGrip.geometryKeys.front(), firstGrip.geometryKeys.front());
+    EXPECT_EQ(overlayRoleProjection(*replaced.overlayWorld, PreviewVisualRole::Snap).objects, firstSnap.objects);
+
+    ASSERT_EQ(replaced.prepare.geometries().size(), 2u);
+    EXPECT_TRUE(std::ranges::all_of(replaced.prepare.geometries(), [](const auto& resource) {
+        return resource.isUpsert() && resource.resourceKey.kind == engine::RenderResourceKind::PreviewGeometry;
+    }));
+    const auto stableUpdate = std::ranges::find_if(replaced.prepare.geometries(), [&](const auto& resource) {
+        return resource.resourceKey == firstGrip.geometryKeys.front();
+    });
+    ASSERT_NE(stableUpdate, replaced.prepare.geometries().end());
+    EXPECT_TRUE(stableUpdate->forceUpdate);
 }
 
 TEST(RenderSubmissionBuilderTests, InvalidatingGpuDomainRebuildsCurrentResources) {

@@ -23,6 +23,10 @@ public:
     bool updateGeometry(GeometryHandle handle, RenderGeometryDesc desc);
     bool updateMaterial(RenderMaterialHandle handle, RenderMaterialDesc desc);
     bool updateObject(RenderObjectId id, RenderObjectDesc desc);
+    /// 仅更新对象的空间状态，保留 PickId、drawable、选择状态及资源句柄。
+    /// 句柄失效时返回 false；内容未变化时成功但不推进 world revision。
+    bool updateObjectSpatialState(RenderObjectId id, const math::Mat4& worldTransform, const math::AABB3& worldBounds,
+                                  bool visible);
     bool removeGeometry(GeometryHandle handle);
     bool removeMaterial(RenderMaterialHandle handle);
     bool removeObject(RenderObjectId id);

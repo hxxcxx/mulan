@@ -8,6 +8,7 @@
 
 #include "detail/asset_picking.h"
 #include "detail/picking_types.h"
+#include "detail/primitive_pick_index.h"
 #include "detail/scene_spatial_index.h"
 
 #include <mulan/asset/asset_library.h>
@@ -17,6 +18,22 @@
 #include <utility>
 
 namespace mulan::view {
+
+namespace {
+
+void accumulatePrimitiveStats(PickQueryStats* destination, const detail::PrimitivePickQueryStats& source,
+                              size_t buildCountBefore, size_t buildCountAfter) {
+    if (!destination) {
+        return;
+    }
+    destination->indexedPrimitiveCount += source.indexedPrimitiveCount;
+    destination->primitiveNodeBoundsTestCount += source.nodeBoundsTestCount;
+    destination->candidatePrimitiveCount += source.candidatePrimitiveCount;
+    destination->primitiveIndexBuildCount += buildCountAfter - buildCountBefore;
+    destination->primitiveLinearFallbackCount += source.linearFallback ? 1u : 0u;
+}
+
+}  // namespace
 
 using detail::appendGeometryAssetPickCandidates;
 using detail::expandedBounds;
@@ -66,7 +83,12 @@ void GeometryQueryWorld::collectPickCandidates(const math::Ray3& ray, double lin
             ++stats->exactAssetTestCount;
         }
         meshHits.clear();
-        appendGeometryAssetPickCandidates(ray, *geometryAsset, proxy->worldTransform, tolerance, meshHits);
+        detail::PrimitivePickQueryStats primitiveStats;
+        const size_t buildCountBefore = scene_->primitive_pick_indices_->buildCount();
+        appendGeometryAssetPickCandidates(ray, *geometryAsset, proxy->worldTransform, tolerance, meshHits,
+                                          scene_->primitive_pick_indices_.get(), &primitiveStats);
+        accumulatePrimitiveStats(stats, primitiveStats, buildCountBefore,
+                                 scene_->primitive_pick_indices_->buildCount());
         for (const MeshPickResult& meshHit : meshHits) {
             if (!meshHit.distance) {
                 continue;
@@ -128,7 +150,13 @@ std::optional<RenderScene::PickResult> GeometryQueryWorld::pick(const math::Ray3
                 if (stats) {
                     ++stats->exactAssetTestCount;
                 }
-                const MeshPickResult meshHit = pickGeometryAsset(ray, *geometryAsset, proxy->worldTransform, tolerance);
+                detail::PrimitivePickQueryStats primitiveStats;
+                const size_t buildCountBefore = scene_->primitive_pick_indices_->buildCount();
+                const MeshPickResult meshHit =
+                        pickGeometryAsset(ray, *geometryAsset, proxy->worldTransform, tolerance,
+                                          scene_->primitive_pick_indices_.get(), &primitiveStats);
+                accumulatePrimitiveStats(stats, primitiveStats, buildCountBefore,
+                                         scene_->primitive_pick_indices_->buildCount());
                 if (meshHit.tested) {
                     if (!meshHit.distance) {
                         continue;

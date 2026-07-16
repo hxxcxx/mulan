@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <optional>
 #include <string>
 #include <utility>
@@ -324,6 +325,36 @@ TEST(RenderSceneSpatialIndexTests, EmptyBoundsAlwaysReachConservativeExactFallba
     EXPECT_EQ(collectStats.exactAssetTestCount, 1u);
 }
 
+TEST(RenderSceneSpatialIndexTests, NonFiniteFallbackDoesNotPoisonFullRebuildSceneBounds) {
+    asset::AssetLibrary assets;
+    asset::CurveAsset* line = makeLineAsset(assets);
+    scene::Scene source;
+    addCurveEntity(source, line->id(), 5.0);
+    const scene::EntityId invalidEntity = addCurveEntity(source, line->id(), 0.0);
+    math::Mat4 invalidTransform{ 1.0 };
+    invalidTransform[3].x = std::numeric_limits<double>::quiet_NaN();
+    ASSERT_TRUE(source.setWorldTransform(invalidEntity, invalidTransform));
+
+    RenderScene renderScene;
+    renderScene.sync(source, assets);
+
+    const math::AABB3& bounds = renderScene.sceneBounds();
+    EXPECT_FALSE(bounds.isEmpty());
+    EXPECT_TRUE(std::isfinite(bounds.min.x));
+    EXPECT_TRUE(std::isfinite(bounds.min.y));
+    EXPECT_TRUE(std::isfinite(bounds.min.z));
+    EXPECT_TRUE(std::isfinite(bounds.max.x));
+    EXPECT_TRUE(std::isfinite(bounds.max.y));
+    EXPECT_TRUE(std::isfinite(bounds.max.z));
+    EXPECT_TRUE(bounds.contains(math::Point3{ 5.0, 0.0, 0.0 }));
+
+    PickQueryStats stats;
+    EXPECT_TRUE(renderScene.pick(verticalRay(5.0), 0.01, &stats));
+    EXPECT_EQ(stats.visibleProxyCount, 2u);
+    EXPECT_EQ(stats.indexedProxyCount, 1u);
+    EXPECT_EQ(stats.fallbackProxyCount, 1u);
+}
+
 TEST(RenderSceneSpatialIndexTests, IndependentRenderScenesConsumeTheSameJournal) {
     asset::AssetLibrary assets;
     asset::CurveAsset* line = makeLineAsset(assets);
@@ -393,6 +424,53 @@ TEST(RenderSceneSpatialIndexTests, AssetMembershipChangeRestoresPreviouslyMissin
     renderScene.sync(source, assets);
     EXPECT_EQ(renderScene.proxy(entity), nullptr);
     EXPECT_EQ(renderScene.lastSyncStats().missingGeometryCount, 1u);
+}
+
+TEST(RenderSceneSpatialIndexTests, AssetMembershipChangesOnlyWakeMatchingGeometryUsers) {
+    asset::AssetLibrary assets;
+    asset::CurveAsset* firstLine = makeLineAsset(assets);
+    ASSERT_EQ(firstLine->id(), asset::AssetId{ 1 });
+    scene::Scene source;
+    const scene::EntityId firstEntity = addCurveEntity(source, firstLine->id(), -2.0);
+    const scene::EntityId waitingEntity = addCurveEntity(source, asset::AssetId{ 3 }, 2.0);
+
+    RenderScene renderScene;
+    renderScene.sync(source, assets);
+    ASSERT_NE(renderScene.proxy(firstEntity), nullptr);
+    ASSERT_EQ(renderScene.proxy(waitingEntity), nullptr);
+    ASSERT_EQ(renderScene.lastSyncStats().missingGeometryCount, 1u);
+    const RenderSceneChangeCursor initialCursor = renderScene.currentChangeCursor();
+    const uint64_t initialGeneration = renderScene.generation();
+
+    auto* unrelated = assets.create<asset::MaterialAsset>("UnrelatedMaterial");
+    ASSERT_EQ(unrelated->id(), asset::AssetId{ 2 });
+    renderScene.sync(source, assets);
+    EXPECT_EQ(renderScene.generation(), initialGeneration);
+    EXPECT_EQ(renderScene.readChanges(initialCursor).status, RenderSceneChangeStatus::UpToDate);
+    EXPECT_NE(renderScene.proxy(firstEntity), nullptr);
+    EXPECT_EQ(renderScene.proxy(waitingEntity), nullptr);
+
+    asset::CurveAsset* recoveredLine = makeLineAsset(assets);
+    ASSERT_EQ(recoveredLine->id(), asset::AssetId{ 3 });
+    renderScene.sync(source, assets);
+    ASSERT_NE(renderScene.proxy(waitingEntity), nullptr);
+    const RenderSceneChangeSet recoveredChanges = renderScene.readChanges(initialCursor);
+    ASSERT_EQ(recoveredChanges.status, RenderSceneChangeStatus::Changes);
+    ASSERT_EQ(recoveredChanges.changes.size(), 1u);
+    EXPECT_EQ(recoveredChanges.changes.front().entity, waitingEntity);
+    EXPECT_EQ(recoveredChanges.changes.front().dirty, RenderProxyDirty::Added);
+
+    const RenderSceneChangeCursor removalCursor = renderScene.currentChangeCursor();
+    ASSERT_TRUE(assets.remove(firstLine->id()));
+    renderScene.sync(source, assets);
+    EXPECT_EQ(renderScene.proxy(firstEntity), nullptr);
+    EXPECT_NE(renderScene.proxy(waitingEntity), nullptr);
+    EXPECT_EQ(renderScene.lastSyncStats().missingGeometryCount, 1u);
+    const RenderSceneChangeSet removalChanges = renderScene.readChanges(removalCursor);
+    ASSERT_EQ(removalChanges.status, RenderSceneChangeStatus::Changes);
+    ASSERT_EQ(removalChanges.changes.size(), 1u);
+    EXPECT_EQ(removalChanges.changes.front().entity, firstEntity);
+    EXPECT_EQ(removalChanges.changes.front().dirty, RenderProxyDirty::Removed);
 }
 
 TEST(RenderSceneSpatialIndexTests, LightChangesFollowJournalWithoutGeometryProxy) {

@@ -1,6 +1,7 @@
 #include <mulan/view/scene_sync/render_scene.h>
 
 #include "scene_sync/geometry_query.h"
+#include "scene_sync/detail/primitive_pick_index.h"
 #include "scene_sync/detail/scene_spatial_index.h"
 
 #include <mulan/asset/asset_library.h>
@@ -184,7 +185,8 @@ std::optional<SceneProxy> buildProxy(const scene::Scene& scene, const asset::Ass
     proxy.selected = selection ? selection->selected : false;
     proxy.worldTransform = transform ? transform->world : math::Mat4{ 1.0 };
     // worldBounds = local asset bounds transformed into world space.
-    proxy.worldBounds = geomAsset->localBounds().transformed(proxy.worldTransform);
+    proxy.localBounds = geomAsset->localBounds();
+    proxy.worldBounds = proxy.localBounds.transformed(proxy.worldTransform);
     return proxy;
 }
 
@@ -201,16 +203,20 @@ bool sameBounds(const math::AABB3& lhs, const math::AABB3& rhs) {
     return lhs.min == rhs.min && lhs.max == rhs.max;
 }
 
+bool sameMatrix(const math::Mat4& lhs, const math::Mat4& rhs) {
+    for (int column = 0; column < 4; ++column) {
+        if (lhs[column] != rhs[column]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool sameSpatialProxy(const SceneProxy& lhs, const SceneProxy& rhs) {
     if (lhs.visible != rhs.visible) {
         return false;
     }
     return !lhs.visible || sameBounds(lhs.worldBounds, rhs.worldBounds);
-}
-
-bool hasGeometryReference(const scene::Scene& scene, scene::EntityId id) {
-    const auto* geometry = scene.geometry(id);
-    return geometry && static_cast<bool>(geometry->geometry);
 }
 
 /// 增量投影原地更新时的失败恢复护栏。任何异常都会让下一次 sync 走全量，
@@ -233,10 +239,44 @@ private:
 }  // namespace
 
 RenderScene::RenderScene()
-    : spatial_index_(std::make_unique<detail::SceneSpatialIndex>()), change_domain_(allocateRenderSceneChangeDomain()) {
+    : spatial_index_(std::make_unique<detail::SceneSpatialIndex>()),
+      primitive_pick_indices_(std::make_unique<detail::PrimitivePickIndexCache>()),
+      change_domain_(allocateRenderSceneChangeDomain()) {
 }
 
 RenderScene::~RenderScene() = default;
+
+void RenderScene::trackMissingGeometry(scene::EntityId entity, asset::AssetId geometry) {
+    if (!geometry) {
+        untrackMissingGeometry(entity);
+        return;
+    }
+    if (const auto current = missing_geometry_assets_.find(entity);
+        current != missing_geometry_assets_.end() && current->second == geometry) {
+        return;
+    }
+
+    untrackMissingGeometry(entity);
+    missing_geometry_assets_.insert_or_assign(entity, geometry);
+    missing_geometry_asset_users_[geometry].insert(entity);
+}
+
+void RenderScene::untrackMissingGeometry(scene::EntityId entity) {
+    const auto current = missing_geometry_assets_.find(entity);
+    if (current == missing_geometry_assets_.end()) {
+        return;
+    }
+    const asset::AssetId geometry = current->second;
+    missing_geometry_assets_.erase(current);
+    const auto users = missing_geometry_asset_users_.find(geometry);
+    if (users == missing_geometry_asset_users_.end()) {
+        return;
+    }
+    users->second.erase(entity);
+    if (users->second.empty()) {
+        missing_geometry_asset_users_.erase(users);
+    }
+}
 
 // ============================================================
 // Full rebuild for the first sync or after resetSync().
@@ -256,21 +296,17 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         // 避免旧异步帧/hover 与新 Scene 的首批实体发生 ABA。
         entity_pick_ids_.clear();
     }
-    const uint64_t assetsMembershipRevision = assets.membershipRevision();
-    if (initialized_ && assets_membership_revision_ != assetsMembershipRevision) {
-        // 集合变化可能让原先缺失的几何首次出现；此类实体不在 proxies_ 中，
-        // 无法仅扫描现有代理发现，因此走确定性的全量恢复。
-        initialized_ = false;
-    }
     scene_ = &scene;
     assets_ = &assets;
+    primitive_pick_indices_->bindDomain(assets.domainId());
 
     const auto rebuildAll = [&]() {
         initialized_ = false;
         proxies_.clear();
         geometry_asset_revisions_.clear();
         geometry_asset_users_.clear();
-        missing_geometry_entities_.clear();
+        missing_geometry_assets_.clear();
+        missing_geometry_asset_users_.clear();
         last_sync_stats_ = {};
         scene_bounds_.reset();
         last_sync_stats_.entityCount = scene.entityCount();
@@ -280,15 +316,12 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         scene.forEachEntity([&](scene::EntityId id) {
             auto proxy = buildProxy(scene, assets, id);
             if (!proxy) {
-                if (hasGeometryReference(scene, id))
-                    missing_geometry_entities_.insert(id);
+                const auto* geometry = scene.geometry(id);
+                if (geometry && geometry->geometry)
+                    trackMissingGeometry(id, geometry->geometry);
                 return;
             }
             proxy->pickId = pickIdForEntity(id);
-            if (proxy->visible) {
-                ++last_sync_stats_.visibleProxyCount;
-                scene_bounds_.expand(proxy->worldBounds);
-            }
             geometry_asset_revisions_[id] = geometryAssetRevision(assets, proxy->geometry);
             geometry_asset_users_[proxy->geometry].insert(id);
             proxies_[id] = std::move(*proxy);
@@ -302,12 +335,15 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         }
 
         last_sync_stats_.proxyCount = proxies_.size();
-        last_sync_stats_.missingGeometryCount = missing_geometry_entities_.size();
-        scene_bounds_sphere_ = math::Sphere3::fromAABB(scene_bounds_);
+        last_sync_stats_.missingGeometryCount = missing_geometry_assets_.size();
         rebuildSpatialIndex();
+        // 非有限 bounds 进入保守拾取 fallback，但不能污染相机使用的场景 bounds。
+        // 全量与增量路径统一以 BVH 的有限根 bounds 为唯一聚合结果。
+        scene_bounds_ = spatial_index_->bounds();
+        last_sync_stats_.visibleProxyCount = spatial_index_->indexedCount() + spatial_index_->fallbackCount();
+        scene_bounds_sphere_ = math::Sphere3::fromAABB(scene_bounds_);
         scene_change_cursor_ = scene.currentChangeCursor();
         asset_change_cursor_ = assets.currentChangeCursor();
-        assets_membership_revision_ = assetsMembershipRevision;
         initialized_ = true;
         ++generation_;
         ++geometry_generation_;
@@ -326,10 +362,12 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
     }
     const asset::AssetChangeSet assetChangeSet = assets.readChanges(asset_change_cursor_);
     if (assetChangeSet.requiresFullResync()) {
+        primitive_pick_indices_->clear();
         rebuildAll();
         return;
     }
     if (std::ranges::any_of(assetChangeSet.changes, [](const asset::AssetChange& change) { return !change.asset; })) {
+        primitive_pick_indices_->clear();
         rebuildAll();
         return;
     }
@@ -346,12 +384,19 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         entityChanges[change.entity] |= scene::dirtyValue(change.dirty);
     }
     for (const asset::AssetChange& change : assetChangeSet.changes) {
-        const auto users = geometry_asset_users_.find(change.asset);
-        if (users == geometry_asset_users_.end()) {
-            continue;
+        primitive_pick_indices_->erase(change.asset);
+        if (const auto users = geometry_asset_users_.find(change.asset); users != geometry_asset_users_.end()) {
+            for (scene::EntityId entity : users->second) {
+                entityChanges[entity] |= scene::dirtyValue(scene::EntityDirty::Geometry);
+            }
         }
-        for (scene::EntityId entity : users->second) {
-            entityChanges[entity] |= scene::dirtyValue(scene::EntityDirty::Geometry);
+        // 缺失几何不在 proxies_ 中，必须通过反向等待索引精确唤醒；
+        // 无关资产的创建/删除不能再迫使整个 RenderScene 重建。
+        if (const auto waiters = missing_geometry_asset_users_.find(change.asset);
+            waiters != missing_geometry_asset_users_.end()) {
+            for (scene::EntityId entity : waiters->second) {
+                entityChanges[entity] |= scene::dirtyValue(scene::EntityDirty::Geometry);
+            }
         }
     }
 
@@ -359,8 +404,14 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
     bool geometryChanged = false;
     bool spatialChanged = false;
     bool lightChanged = false;
-    std::unordered_set<scene::EntityId> changedEntities;
+    std::unordered_map<scene::EntityId, RenderProxyDirty> changedEntities;
     std::unordered_set<scene::EntityId> spatialEntities;
+
+    const auto markChanged = [&](scene::EntityId entity, RenderProxyDirty dirty) {
+        if (dirty != RenderProxyDirty::None) {
+            changedEntities[entity] |= dirty;
+        }
+    };
 
     const auto unlinkGeometryAsset = [&](scene::EntityId entity, asset::AssetId geometry) {
         auto users = geometry_asset_users_.find(geometry);
@@ -396,6 +447,20 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         selectLights(all_lights_, lights_);
     }
 
+    // Selection 由 ViewState 单独驱动，不属于 RenderWorld 变更；但 SceneProxy 的
+    // 只读诊断字段仍保持当前值，避免增量路径与 journal 溢出后的全量结果不一致。
+    for (const auto& [id, flags] : entityChanges) {
+        if (!scene::hasAnyDirty(flags, scene::EntityDirty::Selection) || !scene.isValid(id)) {
+            continue;
+        }
+        const auto proxy = proxies_.find(id);
+        if (proxy == proxies_.end()) {
+            continue;
+        }
+        const auto* selection = scene.selection(id);
+        proxy->second.selected = selection ? selection->selected : false;
+    }
+
     // 销毁记录保留发布时的完整 generation；先移除旧代理，再处理仍有效实体的最终状态。
     for (const auto& [id, flags] : entityChanges) {
         if (!scene::hasAnyDirty(flags, scene::EntityDirty::Destroyed)) {
@@ -409,13 +474,13 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         }
         geometry_asset_revisions_.erase(id);
         entity_pick_ids_.erase(id);
-        missing_geometry_entities_.erase(id);
+        untrackMissingGeometry(id);
         if (removed) {
             changed = true;
             geometryChanged = true;
             spatialChanged = true;
             spatialEntities.insert(id);
-            changedEntities.insert(id);
+            markChanged(id, RenderProxyDirty::Removed);
         }
     }
 
@@ -431,6 +496,63 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         }
 
         const auto oldProxy = proxies_.find(id);
+        const bool requiresFullProjection =
+                scene::hasAnyDirty(flags, scene::EntityDirty::Created | scene::EntityDirty::Geometry);
+
+        // 位姿、可见性和实体材质槽只依赖 SceneProxy 已缓存的数据。纯空间变化
+        // 绝不能重新访问 GeometryAsset，否则相机拖动仍会退化为网格/材质全解析。
+        if (!requiresFullProjection && oldProxy != proxies_.end()) {
+            SceneProxy& proxy = oldProxy->second;
+            const bool previousVisible = proxy.visible;
+            const math::AABB3 previousBounds = proxy.worldBounds;
+            RenderProxyDirty proxyDirty = RenderProxyDirty::None;
+
+            if (scene::hasAnyDirty(flags, scene::EntityDirty::Transform)) {
+                const auto* transform = scene.transform(id);
+                const math::Mat4 world = transform ? transform->world : math::Mat4{ 1.0 };
+                if (!sameMatrix(proxy.worldTransform, world)) {
+                    proxy.worldTransform = world;
+                    proxy.worldBounds = proxy.localBounds.transformed(proxy.worldTransform);
+                    proxyDirty |= RenderProxyDirty::Placement;
+                }
+            }
+            if (scene::hasAnyDirty(flags, scene::EntityDirty::RenderState)) {
+                const auto* render = scene.render(id);
+                const bool visible = render ? render->visible : true;
+                if (proxy.visible != visible) {
+                    proxy.visible = visible;
+                    proxyDirty |= RenderProxyDirty::Visibility;
+                }
+            }
+            if (scene::hasAnyDirty(flags, scene::EntityDirty::Material)) {
+                const auto* render = scene.render(id);
+                const std::vector<asset::AssetId> materialSlots =
+                        render ? render->material_slots : std::vector<asset::AssetId>{};
+                if (proxy.materialSlots != materialSlots) {
+                    proxy.materialSlots = materialSlots;
+                    proxyDirty |= RenderProxyDirty::Material;
+                }
+            }
+
+            if (proxyDirty != RenderProxyDirty::None) {
+                const bool proxySpatialChanged = previousVisible != proxy.visible ||
+                                                 (proxy.visible && !sameBounds(previousBounds, proxy.worldBounds));
+                changed = true;
+                markChanged(id, proxyDirty);
+                if (proxySpatialChanged) {
+                    spatialChanged = true;
+                    spatialEntities.insert(id);
+                }
+            }
+            continue;
+        }
+
+        // 缺失几何上的纯 transform/visibility/material 变化不会使实体变得可投影；
+        // 等待索引仍指向原资产，因此无需进行一次必然失败的资产解析。
+        if (!requiresFullProjection && oldProxy == proxies_.end()) {
+            continue;
+        }
+
         auto proxy = buildProxy(scene, assets, id);
         if (!proxy) {
             const bool removed = oldProxy != proxies_.end();
@@ -440,21 +562,21 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
             }
             geometry_asset_revisions_.erase(id);
             entity_pick_ids_.erase(id);
-            if (hasGeometryReference(scene, id))
-                missing_geometry_entities_.insert(id);
-            else
-                missing_geometry_entities_.erase(id);
+            untrackMissingGeometry(id);
+            const auto* geometry = scene.geometry(id);
+            if (geometry && geometry->geometry)
+                trackMissingGeometry(id, geometry->geometry);
             if (removed) {
                 changed = true;
                 geometryChanged = true;
                 spatialChanged = true;
                 spatialEntities.insert(id);
-                changedEntities.insert(id);
+                markChanged(id, RenderProxyDirty::Removed);
             }
             continue;
         }
         proxy->pickId = pickIdForEntity(id);
-        missing_geometry_entities_.erase(id);
+        untrackMissingGeometry(id);
 
         const uint64_t currentRevision = geometryAssetRevision(assets, proxy->geometry);
         const auto knownRevision = geometry_asset_revisions_.find(id);
@@ -462,10 +584,29 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
                 knownRevision != geometry_asset_revisions_.end() && knownRevision->second != currentRevision;
         const bool newProxy = oldProxy == proxies_.end();
         const bool proxySpatialChanged = newProxy || !sameSpatialProxy(oldProxy->second, *proxy);
+        RenderProxyDirty proxyDirty = RenderProxyDirty::None;
+        if (newProxy) {
+            proxyDirty = RenderProxyDirty::Added;
+        } else {
+            const SceneProxy& previous = oldProxy->second;
+            if (assetRevisionChanged || previous.geometry != proxy->geometry ||
+                previous.geometryKind != proxy->geometryKind || !sameBounds(previous.localBounds, proxy->localBounds)) {
+                proxyDirty |= RenderProxyDirty::Geometry;
+            }
+            if (previous.materialSlots != proxy->materialSlots) {
+                proxyDirty |= RenderProxyDirty::Material;
+            }
+            if (!sameMatrix(previous.worldTransform, proxy->worldTransform)) {
+                proxyDirty |= RenderProxyDirty::Placement;
+            }
+            if (previous.visible != proxy->visible) {
+                proxyDirty |= RenderProxyDirty::Visibility;
+            }
+        }
 
-        changed = true;
-        geometryChanged = geometryChanged || newProxy || assetRevisionChanged ||
-                          scene::hasAnyDirty(flags, scene::EntityDirty::Created | scene::EntityDirty::Geometry);
+        changed = changed || proxyDirty != RenderProxyDirty::None;
+        geometryChanged = geometryChanged ||
+                          hasAnyRenderProxyDirty(proxyDirty, RenderProxyDirty::Added | RenderProxyDirty::Geometry);
         spatialChanged = spatialChanged || proxySpatialChanged;
         if (proxySpatialChanged)
             spatialEntities.insert(id);
@@ -474,7 +615,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         geometry_asset_users_[proxy->geometry].insert(id);
         geometry_asset_revisions_[id] = currentRevision;
         proxies_[id] = std::move(*proxy);
-        changedEntities.insert(id);
+        markChanged(id, proxyDirty);
     }
 
     // 动态空间索引只更新真正改变的实体；根节点缓存的 subtree bounds 同时给出
@@ -494,7 +635,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         last_sync_stats_.visibleProxyCount = previousVisibleProxyCount;
     }
     last_sync_stats_.proxyCount = proxies_.size();
-    last_sync_stats_.missingGeometryCount = missing_geometry_entities_.size();
+    last_sync_stats_.missingGeometryCount = missing_geometry_assets_.size();
 
     if (changed) {
         ++generation_;
@@ -518,15 +659,16 @@ void RenderScene::clear() {
     geometry_asset_revisions_.clear();
     geometry_asset_users_.clear();
     entity_pick_ids_.clear();
-    missing_geometry_entities_.clear();
+    missing_geometry_assets_.clear();
+    missing_geometry_asset_users_.clear();
     lights_.clear();
     all_lights_.clear();
     spatial_index_->clear();
+    primitive_pick_indices_->clear();
     scene_ = nullptr;
     assets_ = nullptr;
     scene_change_cursor_ = {};
     asset_change_cursor_ = {};
-    assets_membership_revision_ = 0;
     initialized_ = false;
     ++generation_;
     ++geometry_generation_;
@@ -539,7 +681,7 @@ void RenderScene::resetChangeJournal() {
     change_revision_ = 1;
 }
 
-void RenderScene::appendChanges(const std::unordered_set<scene::EntityId>& entities) {
+void RenderScene::appendChanges(const std::unordered_map<scene::EntityId, RenderProxyDirty>& entities) {
     if (entities.empty()) {
         return;
     }
@@ -549,8 +691,11 @@ void RenderScene::appendChanges(const std::unordered_set<scene::EntityId>& entit
         return;
     }
     constexpr size_t MaxJournalEntries = 4096;
-    for (scene::EntityId entity : entities) {
-        change_journal_.push_back(RenderSceneChange{ change_revision_, entity });
+    std::vector<std::pair<scene::EntityId, RenderProxyDirty>> orderedChanges(entities.begin(), entities.end());
+    std::ranges::sort(orderedChanges,
+                      [](const auto& lhs, const auto& rhs) { return lhs.first.value < rhs.first.value; });
+    for (const auto& [entity, dirty] : orderedChanges) {
+        change_journal_.push_back(RenderSceneChange{ change_revision_, entity, dirty });
     }
     while (change_journal_.size() > MaxJournalEntries) {
         // revision 是一次 RenderScene 同步的原子批次；容量不足时必须整批丢弃，
