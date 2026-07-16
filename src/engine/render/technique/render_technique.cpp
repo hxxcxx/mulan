@@ -15,6 +15,7 @@ consteval TechniqueDesc makeSolidLit() {
         .depthWrite = true,
         .depthFunc = CompareFunc::LessEqual,
         .sampleTextures = false,
+        .cullMode = CullMode::Back,
     };
 }
 
@@ -30,6 +31,7 @@ consteval TechniqueDesc makeSurfacePBR() {
         .depthWrite = true,
         .depthFunc = CompareFunc::LessEqual,
         .sampleTextures = true,
+        .cullMode = CullMode::Back,
     };
 }
 
@@ -45,6 +47,7 @@ consteval TechniqueDesc makeSurfacePBRTangent() {
         .depthWrite = true,
         .depthFunc = CompareFunc::LessEqual,
         .sampleTextures = true,
+        .cullMode = CullMode::Back,
     };
 }
 
@@ -54,7 +57,7 @@ consteval TechniqueDesc makeEdgeLine() {
         .debugName = "EdgeLine",
         .shader = { .vertex = "edge.vert", .pixel = "edge.frag" },
         .instancedVertexShader = "edge_instanced.vert",
-        .vertexLayout = graphics::layouts::surface(),
+        .vertexLayout = graphics::layouts::position3(),
         .topology = PrimitiveTopology::LineList,
         .depthTest = true,
         .depthWrite = false,
@@ -110,7 +113,7 @@ consteval TechniqueDesc makeHighlightEdge() {
         .technique = RenderTechnique::HighlightEdge,
         .debugName = "HighlightEdge",
         .shader = { .vertex = "edge.vert", .pixel = "highlight_edge.frag" },
-        .vertexLayout = graphics::layouts::surface(),
+        .vertexLayout = graphics::layouts::position3(),
         .topology = PrimitiveTopology::LineList,
         .depthTest = true,
         .depthWrite = false,
@@ -123,8 +126,8 @@ consteval TechniqueDesc makeViewCube() {
     return TechniqueDesc{
         .technique = RenderTechnique::ViewCube,
         .debugName = "ViewCube",
-        .shader = { .vertex = "solid.vert", .pixel = "viewcube.frag" },
-        .vertexLayout = graphics::layouts::surface(),
+        .shader = { .vertex = "viewcube.vert", .pixel = "viewcube.frag" },
+        .vertexLayout = graphics::layouts::solid(),
         .topology = PrimitiveTopology::TriangleList,
         .depthTest = true,
         .depthWrite = true,
@@ -138,7 +141,7 @@ consteval TechniqueDesc makeViewCubeLine() {
         .technique = RenderTechnique::ViewCubeLine,
         .debugName = "ViewCubeLine",
         .shader = { .vertex = "edge.vert", .pixel = "viewcube_line.frag" },
-        .vertexLayout = graphics::layouts::surface(),
+        .vertexLayout = graphics::layouts::position3(),
         .topology = PrimitiveTopology::LineList,
         .depthTest = true,
         .depthWrite = false,

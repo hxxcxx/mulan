@@ -136,7 +136,7 @@ void appendLoopLines(std::vector<LinePointPair>& lines, std::span<const math::Po
 
 graphics::Mesh buildLineMesh(std::span<const LinePointPair> lines, const math::Vec3& normal) {
     graphics::Mesh mesh;
-    mesh.layout = graphics::layouts::surface();
+    mesh.layout = graphics::layouts::position3();
     mesh.topology = graphics::PrimitiveTopology::LineList;
     mesh.indexType = graphics::IndexType::UInt32;
     mesh.bounds.reset();
@@ -152,10 +152,6 @@ graphics::Mesh buildLineMesh(std::span<const LinePointPair> lines, const math::V
         for (const math::Point3& point : points) {
             builder.setPosition(vertex, static_cast<float>(point.x), static_cast<float>(point.y),
                                 static_cast<float>(point.z));
-            builder.setNormal(vertex, static_cast<float>(normal.x), static_cast<float>(normal.y),
-                              static_cast<float>(normal.z));
-            const float uv[2] = { 0.0f, 0.0f };
-            builder.write(vertex, graphics::VertexSemantic::TexCoord0, uv);
             mesh.bounds.expand(point);
             ++vertex;
         }

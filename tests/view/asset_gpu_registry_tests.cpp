@@ -108,6 +108,8 @@ public:
     size_t uploadCount() const { return upload_count_; }
     size_t liveTextureCount() const { return live_texture_count_; }
     size_t pipelineCreateCount() const { return pipeline_create_count_; }
+    const std::vector<TextureDesc>& textureDescs() const { return texture_descs_; }
+    const std::vector<TextureUploadDesc>& uploads() const { return uploads_; }
 
     GraphicsBackend backend() const override { return GraphicsBackend::Vulkan; }
     const GPUDeviceCapabilities& capabilities() const override { return capabilities_; }
@@ -128,6 +130,7 @@ public:
             return std::unexpected(Error::make(ErrorCode::Internal, "Injected texture creation failure."));
         }
         ++create_count_;
+        texture_descs_.push_back(desc);
         std::unique_ptr<Texture> texture = std::make_unique<RegistryTestTexture>(desc, live_texture_count_);
         return std::move(texture);
     }
@@ -156,8 +159,11 @@ public:
         return std::unique_ptr<BindGroup>{};
     }
 
-    ResultVoid uploadTextureData(Texture*, const TextureUploadDesc&) override {
+    ResultVoid uploadTextureData(Texture*, const TextureUploadDesc& upload) override {
         ++upload_count_;
+        TextureUploadDesc metadata = upload;
+        metadata.data = {};
+        uploads_.push_back(metadata);
         return {};
     }
     ResultVoid beginUploadBatch() override { return {}; }
@@ -177,9 +183,26 @@ private:
     size_t upload_count_ = 0;
     size_t live_texture_count_ = 0;
     size_t pipeline_create_count_ = 0;
+    std::vector<TextureDesc> texture_descs_;
+    std::vector<TextureUploadDesc> uploads_;
     bool fail_next_buffer_create_ = false;
     bool fail_next_texture_create_ = false;
 };
+
+TEST(AssetGpuRegistryTests, GenerateMipsCreatesAndUploadsTheCompletePortableChain) {
+    RegistryTestDevice device;
+    AssetGpuRegistry registry(device);
+    const auto image = core::Image::create(3, 5, core::PixelFormat::RGBA8);
+    ASSERT_TRUE(image);
+    ASSERT_TRUE(registry.acquireTexture(makeAssetGpuKey(71), *image, TextureLoadOptions{ .generateMips = true }, 1));
+    ASSERT_EQ(device.textureDescs().size(), 1u);
+    EXPECT_EQ(device.textureDescs().front().mipLevels, 3u);
+    ASSERT_EQ(device.uploads().size(), 3u);
+    EXPECT_EQ(std::pair(device.uploads()[0].width, device.uploads()[0].height), std::pair(3u, 5u));
+    EXPECT_EQ(std::pair(device.uploads()[1].width, device.uploads()[1].height), std::pair(1u, 2u));
+    EXPECT_EQ(std::pair(device.uploads()[2].width, device.uploads()[2].height), std::pair(1u, 1u));
+    EXPECT_EQ(device.uploads()[2].mipLevel, 2u);
+}
 
 graphics::Mesh makeRegistryJournalMesh() {
     graphics::Mesh mesh;
@@ -651,6 +674,17 @@ TEST(DeviceResourceServiceTests, PipelineLibraryUsesTheCompleteTargetSignature) 
     EXPECT_EQ(device.pipelineCreateCount(), 2u);
 
     key.objectBindingMode = ObjectBindingMode::Single;
+    key.rasterVariant = RasterVariant::DoubleSided;
+    PipelineState* doubleSided = resources.pipelines().acquire(key);
+    ASSERT_NE(doubleSided, nullptr);
+    EXPECT_EQ(doubleSided->desc().cullMode, CullMode::None);
+    key.rasterVariant = RasterVariant::Mirrored;
+    PipelineState* mirrored = resources.pipelines().acquire(key);
+    ASSERT_NE(mirrored, nullptr);
+    EXPECT_EQ(mirrored->desc().cullMode, CullMode::Back);
+    EXPECT_EQ(mirrored->desc().frontFace, FrontFace::Clockwise);
+
+    key.rasterVariant = RasterVariant::TechniqueDefault;
     key.sampleCount = 4;
     PipelineState* multisampled = resources.pipelines().acquire(key);
     ASSERT_NE(multisampled, nullptr);
@@ -659,8 +693,8 @@ TEST(DeviceResourceServiceTests, PipelineLibraryUsesTheCompleteTargetSignature) 
     PipelineState* depthless = resources.pipelines().acquire(key);
     ASSERT_NE(depthless, nullptr);
     EXPECT_NE(depthless, multisampled);
-    EXPECT_EQ(device.pipelineCreateCount(), 4u);
-    EXPECT_EQ(resources.stats().pipelineCount, 4u);
+    EXPECT_EQ(device.pipelineCreateCount(), 6u);
+    EXPECT_EQ(resources.stats().pipelineCount, 6u);
 }
 
 TEST(DeviceResourceServiceTests, TextStageIsSharedByCompleteTargetSignature) {

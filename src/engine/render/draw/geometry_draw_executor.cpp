@@ -32,6 +32,27 @@ bool GeometryDrawExecutor::init(TextureFormat colorFmt, TextureFormat depthFmt, 
     if (!pso_)
         return false;
 
+    double_sided_pso_ = nullptr;
+    mirrored_pso_ = nullptr;
+    if (technique_.cullMode != CullMode::None) {
+        DevicePipelineKey rasterKey{
+            .technique = technique_.technique,
+            .colorFormat = colorFmt,
+            .depthFormat = depthFmt,
+            .sampleCount = sampleCount,
+            .hasDepth = hasDepth,
+        };
+        rasterKey.rasterVariant = RasterVariant::DoubleSided;
+        double_sided_pso_ = pipeline_library_.acquire(rasterKey);
+        rasterKey.rasterVariant = RasterVariant::Mirrored;
+        mirrored_pso_ = pipeline_library_.acquire(rasterKey);
+        // 双面材质必须有无剔除路径；镜像变体失败则回退双面，仍保持显示正确。
+        if (!double_sided_pso_)
+            return false;
+        if (!mirrored_pso_)
+            mirrored_pso_ = double_sided_pso_;
+    }
+
     instanced_pso_ = nullptr;
     if (technique_.instancedVertexShader && technique_.instancedVertexShader[0] != '\0' &&
         device_.capabilities().maxUniformBufferBindingSize >= sizeof(ObjectBatchUniforms)) {

@@ -42,6 +42,29 @@ float clamp01(float v) {
     return std::max(0.0f, std::min(1.0f, v));
 }
 
+bool matrixExactlyEqual(const math::Mat4& lhs, const math::Mat4& rhs) {
+    for (size_t column = 0; column < 4; ++column) {
+        if (lhs[static_cast<int>(column)] != rhs[static_cast<int>(column)])
+            return false;
+    }
+    return true;
+}
+
+bool textDrawExactlyEqual(const TextDrawDesc& lhs, const TextDrawDesc& rhs) {
+    return lhs.text == rhs.text && lhs.font == rhs.font && lhs.space == rhs.space && lhs.anchor == rhs.anchor &&
+           lhs.depthMode == rhs.depthMode && lhs.positionPx == rhs.positionPx &&
+           lhs.positionWorld == rhs.positionWorld && lhs.rightWorld == rhs.rightWorld && lhs.upWorld == rhs.upWorld &&
+           matrixExactlyEqual(lhs.clipFromWorld, rhs.clipFromWorld) && lhs.viewportOriginPx == rhs.viewportOriginPx &&
+           lhs.viewportSizePx == rhs.viewportSizePx && lhs.sizePx == rhs.sizePx && lhs.sizeWorld == rhs.sizeWorld &&
+           lhs.color == rhs.color;
+}
+
+bool textDrawListsExactlyEqual(const std::vector<TextDrawDesc>& lhs, const std::vector<TextDrawDesc>& rhs) {
+    return lhs.size() == rhs.size() &&
+           std::equal(lhs.begin(), lhs.end(), rhs.begin(),
+                      [](const auto& a, const auto& b) { return textDrawExactlyEqual(a, b); });
+}
+
 bool projectToViewport(const math::Mat4& clipFromWorld, const math::Point2& viewportOrigin,
                        const math::Vec2& viewportSize, const math::Point3& world, math::Point2& out) {
     math::Vec4 clip = clipFromWorld * math::Vec4(world.x, world.y, world.z, 1.0);
@@ -166,8 +189,11 @@ void TextStage::shutdown(RHIDevice&) {
     vertices_.clear();
     indices_.clear();
     batches_.clear();
+    cached_items_.clear();
     vertex_capacity_ = 0;
     index_capacity_ = 0;
+    geometry_cache_valid_ = false;
+    last_geometry_cache_hit_ = false;
     initialized_ = false;
 }
 
@@ -179,7 +205,6 @@ void TextStage::beginFrame(uint32_t width, uint32_t height) {
 
 void TextStage::clear() {
     items_.clear();
-    batches_.clear();
 }
 
 void TextStage::addText(const TextDrawDesc& desc) {
@@ -486,28 +511,40 @@ TextStage::TextParamsGPU TextStage::buildParams(const FontAtlas& font) const {
 }
 
 void TextStage::execute(RenderFrame& frame) {
+    last_geometry_cache_hit_ = false;
     if (!initialized_ || !pso_ || !vertex_buffer_ || !index_buffer_ || items_.empty()) {
         return;
     }
 
     width_ = frame.view.width;
     height_ = frame.view.height;
-    buildGeometry();
-    if (vertices_.empty() || indices_.empty() || batches_.empty()) {
-        return;
-    }
-    if (!ensureCapacity(static_cast<uint32_t>(vertices_.size()), static_cast<uint32_t>(indices_.size()))) {
-        return;
-    }
+    const bool reuseGeometry = geometry_cache_valid_ && cached_width_ == width_ && cached_height_ == height_ &&
+                               textDrawListsExactlyEqual(items_, cached_items_);
+    if (!reuseGeometry) {
+        geometry_cache_valid_ = false;
+        buildGeometry();
+        if (vertices_.empty() || indices_.empty() || batches_.empty()) {
+            return;
+        }
+        if (!ensureCapacity(static_cast<uint32_t>(vertices_.size()), static_cast<uint32_t>(indices_.size()))) {
+            return;
+        }
 
-    const auto vertexWrite =
-            vertex_buffer_->write(0, static_cast<uint32_t>(sizeof(TextVertex) * vertices_.size()), vertices_.data());
-    const auto indexWrite =
-            index_buffer_->write(0, static_cast<uint32_t>(sizeof(uint32_t) * indices_.size()), indices_.data());
-    if (!vertexWrite || !indexWrite) {
-        LOG_ERROR("[TextStage] Dynamic geometry upload failed: {}",
-                  !vertexWrite ? vertexWrite.error().message : indexWrite.error().message);
-        return;
+        const auto vertexWrite = vertex_buffer_->write(0, static_cast<uint32_t>(sizeof(TextVertex) * vertices_.size()),
+                                                       vertices_.data());
+        const auto indexWrite =
+                index_buffer_->write(0, static_cast<uint32_t>(sizeof(uint32_t) * indices_.size()), indices_.data());
+        if (!vertexWrite || !indexWrite) {
+            LOG_ERROR("[TextStage] Dynamic geometry upload failed: {}",
+                      !vertexWrite ? vertexWrite.error().message : indexWrite.error().message);
+            return;
+        }
+        cached_items_ = items_;
+        cached_width_ = width_;
+        cached_height_ = height_;
+        geometry_cache_valid_ = true;
+    } else {
+        last_geometry_cache_hit_ = true;
     }
 
     auto& cmd = frame.cmd;

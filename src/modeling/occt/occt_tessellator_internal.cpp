@@ -159,7 +159,7 @@ graphics::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
         return {};
 
     graphics::Mesh mesh;
-    mesh.layout = graphics::layouts::surface();
+    mesh.layout = graphics::layouts::position3();
     mesh.topology = graphics::PrimitiveTopology::LineList;
     mesh.indexType = graphics::IndexType::UInt32;
 
@@ -179,10 +179,6 @@ graphics::Mesh buildEdgeMesh(const TopoDS_Shape& shape) {
             for (int i = 1; i <= discret.NbPoints(); ++i) {
                 gp_Pnt pt = discret.Value(i);
                 vb.setPosition(vi, static_cast<float>(pt.X()), static_cast<float>(pt.Y()), static_cast<float>(pt.Z()));
-                vb.setNormal(vi, 0.f, 0.f, 0.f);
-                float uv[2] = { 0.f, 0.f };
-                vb.write(vi, graphics::VertexSemantic::TexCoord0, uv);
-
                 if (i > 1) {
                     indices[idxSlot++] = vi - 1;
                     indices[idxSlot++] = vi;

@@ -6,6 +6,7 @@ add_library(render STATIC
     camera/trackball_rotation.cpp
     asset_gpu_key.cpp
     asset_gpu_registry.cpp
+    texture_mip_chain.cpp
     device_resource_service.cpp
     device_pipeline_library.cpp
     environment_map.cpp
@@ -90,6 +91,7 @@ set(SHADER_SOURCES
     highlight_surface.frag.slang
     highlight_edge.frag.slang
     viewcube.frag.slang
+    viewcube.vert.slang
     viewcube_line.frag.slang
     text.vert.slang
     text.frag.slang

@@ -5,7 +5,7 @@
  * @date 2026-05-26
  *
  * 职责：
- *  - 生成带面颜色的导航立方体几何体（6个面中心 + 12个共享边区 + 8个角区）
+ *  - 生成带顶点颜色的导航立方体几何体（6个面中心 + 12个共享边区 + 8个角区）
  *  - 从主相机提取旋转，以正交投影渲染
  *  - 使用视口裁剪将渲染限定在角落小区域
  *
@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <array>
 #include <memory>
+#include <vector>
 
 namespace mulan::engine {
 
@@ -35,7 +36,7 @@ class Texture;
 /// 导航立方体渲染阶段
 ///
 /// 不拥有 PSO / Shader —— 由 Renderer 注入几何绘制执行器的 PSO。
-/// 只拥有 CPU 几何体 + 面材质 + 小尺寸 UBO（与主场景布局不同）。
+/// 只拥有 CPU 几何体、顶点颜色和小尺寸 UBO（与主场景布局不同）。
 /// render() 从主相机提取旋转、设置角落视口、借用 PSO + BindGroupDesc 录制命令。
 class ViewCubeStage final : public RenderStage {
 public:
@@ -78,11 +79,12 @@ public:
 private:
     // --- 内部类型 ---
 
-    /// 立方体顶点格式：pos(3f) + normal(3f) + uv(2f) = 32 bytes（与主场景顶点布局一致）
+    /// 立方体顶点格式：pos(3f) + normal(3f) + color(RGBA8) + pad = 32 bytes。
     struct CubeVertex {
         float pos[3];
         float normal[3];
-        float uv[2];
+        uint8_t color[4];
+        uint32_t pad = 0;
     };
 
     /// 面信息
@@ -97,7 +99,7 @@ private:
     bool createGeometry();
     bool createFaceGeometry();
     bool createAxisGeometry();
-    void updateInteractionMaterials();
+    bool updateInteractionGeometry();
 
     void render(CommandList* cmd, const math::Mat4& mainViewMatrix, uint32_t vpWidth, uint32_t vpHeight);
 
@@ -111,8 +113,9 @@ private:
     std::unique_ptr<Buffer> face_vb_;  // 面顶点
     std::unique_ptr<Buffer> face_ib_;  // 面索引
     uint32_t face_index_count_ = 0;
-    std::array<uint32_t, ViewCubeModel::kPartCount> part_index_offsets_{};
-    std::array<uint32_t, ViewCubeModel::kPartCount> part_index_counts_{};
+    std::vector<CubeVertex> face_vertices_;
+    std::array<uint32_t, ViewCubeModel::kPartCount> part_vertex_offsets_{};
+    std::array<uint32_t, ViewCubeModel::kPartCount> part_vertex_counts_{};
     std::unique_ptr<Buffer> axis_vb_;
     std::unique_ptr<Buffer> axis_ib_;
     static constexpr uint32_t kAxisCount = 3;
@@ -120,19 +123,18 @@ private:
     uint32_t axis_index_count_ = 0;
 
     static constexpr uint32_t kPartCount = ViewCubeModel::kPartCount;
-    static constexpr uint32_t kAxisMaterialOffset = kPartCount;
-    static constexpr uint32_t kMaterialCount = kPartCount + kAxisCount;
 
     // --- per-frame BindGroup（按借用 PSO 的 layout 创建，缓存在 PSO 不变期间复用）---
     std::unique_ptr<BindGroup> face_bg_;  // solid PSO (10 binding)
     uint64_t face_bg_layout_hash_ = 0;
 
-    // --- 面材质数据 ---
-    MaterialGPU materials_[kMaterialCount];
+    // --- 所有部件共享一次材质绑定；实际颜色位于顶点中 ---
+    MaterialGPU material_{};
 
     // --- 配置 ---
     ViewCubeModel model_;
     ViewCubeInteractionState interaction_;
+    bool interaction_geometry_dirty_ = false;
     bool initialized_ = false;
 };
 

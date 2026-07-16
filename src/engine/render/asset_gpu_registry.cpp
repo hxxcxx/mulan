@@ -1,4 +1,5 @@
 #include "asset_gpu_registry.h"
+#include "texture_mip_chain.h"
 #include "../rhi/buffer.h"
 #include "../rhi/device.h"
 #include "../rhi/engine_error_code.h"
@@ -414,26 +415,39 @@ Result<std::unique_ptr<Texture>> AssetGpuRegistry::createRHITexture(const core::
     desc.dimension = TextureDimension::Texture2D;
     desc.usage = usage;
 
+    const auto sourceBytes = std::as_bytes(std::span(uploadImage->data(), uploadImage->totalBytes()));
+    std::vector<Rgba8MipLevel> mipChain;
+    if (generateMips) {
+        mipChain = buildRgba8MipChain(sourceBytes, desc.width, desc.height, sRGB);
+        if (mipChain.empty()) {
+            return std::unexpected(makeError(EngineErrorCode::ResourceUploadFailed, "Texture mip generation failed."));
+        }
+        desc.mipLevels = static_cast<uint32_t>(mipChain.size());
+    }
+
     auto result = device_.createTexture(desc);
     if (!result) {
         return std::unexpected(result.error());
     }
 
     if (uploadImage->data() && uploadImage->totalBytes() > 0) {
-        auto uploadResult = device_.uploadTextureData(
-                result->get(),
-                TextureUploadDesc::tightlyPacked(std::span(uploadImage->data(), uploadImage->totalBytes()),
-                                                 uploadImage->width(), uploadImage->height(), desc.format));
-        if (!uploadResult) {
-            LOG_ERROR("[AssetGpuRegistry] Texture upload failed: {}", uploadResult.error().message);
-            // RHI 不要求失败前完全没有录制命令；保活目标纹理直到批次 flush 收口。
-            failed_upload_texture_ = std::move(*result);
-            return std::unexpected(uploadResult.error());
+        const uint32_t uploadCount = generateMips ? static_cast<uint32_t>(mipChain.size()) : 1u;
+        for (uint32_t mip = 0; mip < uploadCount; ++mip) {
+            const std::span<const std::byte> pixels =
+                    generateMips ? std::span<const std::byte>(mipChain[mip].pixels) : sourceBytes;
+            const uint32_t width = generateMips ? mipChain[mip].width : desc.width;
+            const uint32_t height = generateMips ? mipChain[mip].height : desc.height;
+            TextureUploadDesc upload = TextureUploadDesc::tightlyPackedBytes(pixels, width, height, desc.format);
+            upload.mipLevel = mip;
+            auto uploadResult = device_.uploadTextureData(result->get(), upload);
+            if (!uploadResult) {
+                LOG_ERROR("[AssetGpuRegistry] Texture mip {} upload failed: {}", mip, uploadResult.error().message);
+                // RHI 不要求失败前完全没有录制命令；保活目标纹理直到批次 flush 收口。
+                failed_upload_texture_ = std::move(*result);
+                return std::unexpected(uploadResult.error());
+            }
         }
     }
-
-    // TODO: Generate the mip chain on GPU when RHIDevice exposes a portable path.
-    (void) generateMips;
 
     return std::move(*result);
 }

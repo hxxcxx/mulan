@@ -109,8 +109,7 @@ private:
 
 graphics::Mesh makeEdgeMesh() {
     graphics::Mesh mesh;
-    // 当前 edge pass 的公开合同是 surface layout + LineList。
-    mesh.layout = graphics::layouts::surface();
+    mesh.layout = graphics::layouts::position3();
     mesh.topology = graphics::PrimitiveTopology::LineList;
     mesh.vertices.resize(static_cast<size_t>(mesh.layout.stride()) * 2u);
     return mesh;
@@ -128,7 +127,7 @@ RenderGeometryDesc makeEdgeGeometryDesc(RenderResourceKey key) {
     RenderGeometryDesc desc;
     desc.resourceKey = key;
     desc.topology = graphics::PrimitiveTopology::LineList;
-    desc.vertexLayout = graphics::layouts::surface();
+    desc.vertexLayout = graphics::layouts::position3();
     desc.empty = false;
     return desc;
 }
@@ -191,6 +190,8 @@ protected:
     RenderCompileContext makeContext() {
         RenderCompileContext context{ .assets = assets_, .materials = materials_ };
         context.surfacePipeline = &surface_pipeline_;
+        context.surfaceDoubleSidedPipeline = &surface_double_sided_pipeline_;
+        context.surfaceMirroredPipeline = &surface_mirrored_pipeline_;
         context.highlightSurfacePipeline = &surface_pipeline_;
         context.edgePipeline = &edge_pipeline_;
         context.highlightEdgePipeline = &edge_pipeline_;
@@ -201,9 +202,46 @@ protected:
     AssetGpuRegistry assets_{ device_ };
     MaterialCache materials_;
     CompilerTestPipeline surface_pipeline_{ graphics::PrimitiveTopology::TriangleList };
+    CompilerTestPipeline surface_double_sided_pipeline_{ graphics::PrimitiveTopology::TriangleList };
+    CompilerTestPipeline surface_mirrored_pipeline_{ graphics::PrimitiveTopology::TriangleList };
     CompilerTestPipeline edge_pipeline_{ graphics::PrimitiveTopology::LineList };
     RenderCompiler compiler_;
 };
+
+TEST_F(RenderCompilerTests, SelectsCullVariantFromMaterialAndTransformWinding) {
+    const RenderResourceKey key = makeAssetGpuKey(99);
+    prepareGeometry(key, makeSurfaceMesh());
+    RenderWorld world;
+    const GeometryHandle geometry = world.addGeometry(makeSurfaceGeometryDesc(key));
+    RenderMaterialDesc singleSided;
+    singleSided.resourceKey = defaultRenderMaterialResourceKey();
+    const RenderMaterialHandle singleMaterial = world.addMaterial(singleSided);
+    RenderMaterialDesc doubleSided = singleSided;
+    doubleSided.resourceKey = makeRenderResourceKey(ResourceDomainId{ 1 }, 2, RenderResourceKind::Material);
+    doubleSided.material.doubleSided = true;
+    const RenderMaterialHandle doubleMaterial = world.addMaterial(doubleSided);
+
+    auto regular = makeSurfaceObjectDesc(geometry, singleMaterial, 90, boundsAt(-0.3));
+    auto mirrored = makeSurfaceObjectDesc(geometry, singleMaterial, 91, boundsAt(-0.1));
+    mirrored.worldTransform = math::Mat4::scale(math::Vec3(-1.0, 1.0, 1.0));
+    auto singular = makeSurfaceObjectDesc(geometry, singleMaterial, 92, boundsAt(0.1));
+    singular.worldTransform = math::Mat4::scale(math::Vec3(0.0, 1.0, 1.0));
+    auto explicitDouble = makeSurfaceObjectDesc(geometry, doubleMaterial, 93, boundsAt(0.3));
+    world.addObject(regular);
+    world.addObject(mirrored);
+    world.addObject(singular);
+    world.addObject(explicitDouble);
+
+    RenderCompileContext context = makeContext();
+    const RenderOptions options;
+    const RenderViewDesc view = identityView();
+    ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
+    ASSERT_EQ(compiler_.surfaceCommands().size(), 4u);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 90)->pipelineState, &surface_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 91)->pipelineState, &surface_mirrored_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 92)->pipelineState, &surface_double_sided_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 93)->pipelineState, &surface_double_sided_pipeline_);
+}
 
 TEST_F(RenderCompilerTests, ReusesEveryPacketForAnIdenticalSnapshot) {
     const RenderResourceKey key = makeAssetGpuKey(100);

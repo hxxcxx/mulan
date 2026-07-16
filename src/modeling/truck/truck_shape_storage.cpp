@@ -107,10 +107,22 @@ graphics::Mesh buildTriangleWireMesh(const graphics::Mesh& surfaceMesh) {
         return {};
 
     graphics::Mesh mesh;
-    mesh.layout = surfaceMesh.layout;
-    mesh.vertices = surfaceMesh.vertices;
+    mesh.layout = graphics::layouts::position3();
     mesh.indexType = graphics::IndexType::UInt32;
     mesh.topology = graphics::PrimitiveTopology::LineList;
+
+    const graphics::VertexAttribute* position = surfaceMesh.layout.find(graphics::VertexSemantic::Position);
+    if (!position || position->format != graphics::VertexFormat::Float3)
+        return {};
+    graphics::VertexBufferBuilder wireVertices(mesh.layout, surfaceMesh.vertexCount());
+    for (uint32_t vertex = 0; vertex < surfaceMesh.vertexCount(); ++vertex) {
+        const size_t sourceOffset = static_cast<size_t>(vertex) * surfaceMesh.vertexStride() + position->offset;
+        float xyz[3]{};
+        std::memcpy(xyz, surfaceMesh.vertices.data() + sourceOffset, sizeof(xyz));
+        wireVertices.setPosition(vertex, xyz[0], xyz[1], xyz[2]);
+    }
+    const auto wireBytes = wireVertices.data();
+    mesh.vertices.assign(wireBytes.begin(), wireBytes.end());
 
     const size_t triIndexCount = surfaceMesh.indices.size() / sizeof(uint32_t);
     std::vector<uint32_t> lines(triIndexCount * 2);

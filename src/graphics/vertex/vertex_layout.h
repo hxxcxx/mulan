@@ -144,6 +144,13 @@ constexpr uint8_t indexTypeSize(IndexType t) {
 
 namespace layouts {
 
+// 布局 0: 仅位置。Edge/线框 shader 不得为未读取的法线、UV 或颜色支付带宽。
+consteval VertexLayout position3() {
+    VertexLayout l;
+    l.begin(1).add(VertexSemantic::Position, VertexFormat::Float3).end();
+    return l;
+}
+
 // 布局 A: Wireframe / edges
 // position(f3) + color(u32 packed), 16 bytes
 consteval VertexLayout wire() {
@@ -330,6 +337,7 @@ constexpr bool validateLayout(const VertexLayout& L) {
 
 // 内置布局合法性检查
 static_assert(validateLayout(layouts::wire()));
+static_assert(validateLayout(layouts::position3()));
 static_assert(validateLayout(layouts::solid()));
 static_assert(validateLayout(layouts::pick()));
 static_assert(validateLayout(layouts::pbr()));
@@ -346,6 +354,7 @@ static_assert(validateLayout(layouts::surface()));
 
 // 步长大小检查
 static_assert(layouts::wire().stride() == 16);
+static_assert(layouts::position3().stride() == 12);
 static_assert(layouts::solid().stride() == 32);
 static_assert(layouts::pick().stride() == 16);
 static_assert(layouts::pbr().stride() == 48);

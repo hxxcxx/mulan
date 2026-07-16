@@ -10,15 +10,12 @@
 #include <mulan/graphics/vertex/vertex_layout.h>
 #include <mulan/math/math.h>
 
-#include <cstring>
 #include <cmath>
 #include <algorithm>
 #include <string>
 #include <vector>
 
 namespace mulan::engine {
-
-namespace layouts = graphics::layouts;
 
 namespace {
 
@@ -127,24 +124,9 @@ ResultVoid ViewCubeStage::init(RHIDevice& device, const RenderTargetInfo&) {
     device_ = &device;
 
     // --- 初始化材质 ---
-    for (uint32_t i = 0; i < kMaterialCount; ++i) {
-        auto& m = materials_[i];
-        std::memset(&m, 0, sizeof(m));
-        m.metallic = 0.0f;
-        m.roughness = 0.8f;
-        m.alpha = 1.0f;
-        m.ao = 1.0f;  // 无 AO 纹理时必须为 1，否则 PBR 的 IBL 环境光被乘 0 → 背光面纯黑
-        m.materialType = 0;
-    }
-
-    for (uint32_t i = 0; i < kPartCount; ++i) {
-        viewCubePartBaseColor(ViewCubeModel::parts()[i], materials_[i].baseColor);
-    }
-    for (uint32_t axis = 0; axis < kAxisCount; ++axis) {
-        materials_[kAxisMaterialOffset + axis].baseColor[0] = kAxisColors[axis][0];
-        materials_[kAxisMaterialOffset + axis].baseColor[1] = kAxisColors[axis][1];
-        materials_[kAxisMaterialOffset + axis].baseColor[2] = kAxisColors[axis][2];
-    }
+    material_.roughness = 0.8f;
+    material_.alpha = 1.0f;
+    material_.ao = 1.0f;
 
     // --- 几何体 ---
     if (!createGeometry()) {
@@ -192,7 +174,13 @@ void ViewCubeStage::setLayout(const ViewCubeLayout& layout) {
 }
 
 void ViewCubeStage::setInteraction(const ViewCubeInteractionState& interaction) {
+    const bool changed =
+            interaction_.hasHoveredPart != interaction.hasHoveredPart ||
+            interaction_.hasPressedPart != interaction.hasPressedPart ||
+            (interaction.hasHoveredPart && interaction_.hoveredPart.index != interaction.hoveredPart.index) ||
+            (interaction.hasPressedPart && interaction_.pressedPart.index != interaction.pressedPart.index);
     interaction_ = interaction;
+    interaction_geometry_dirty_ = interaction_geometry_dirty_ || changed;
 }
 
 void ViewCubeStage::setCorner(ViewCubeCorner corner) {
@@ -281,18 +269,21 @@ bool ViewCubeStage::createFaceGeometry() {
     std::vector<uint32_t> indices;
     verts.reserve(ViewCubeModel::kPartCount * 4);
     indices.reserve(ViewCubeModel::kPartCount * 6);
-    part_index_offsets_.fill(0);
-    part_index_counts_.fill(0);
+    part_vertex_offsets_.fill(0);
+    part_vertex_counts_.fill(0);
 
-    auto makeVert = [](const math::Vec3& p, const math::Vec3& n) -> CubeVertex {
-        return { static_cast<float>(p.x),
-                 static_cast<float>(p.y),
-                 static_cast<float>(p.z),
-                 static_cast<float>(n.x),
-                 static_cast<float>(n.y),
-                 static_cast<float>(n.z),
-                 0.0f,
-                 0.0f };
+    auto makeVert = [](const math::Vec3& p, const math::Vec3& n, const float color[3]) -> CubeVertex {
+        CubeVertex result{};
+        result.pos[0] = static_cast<float>(p.x);
+        result.pos[1] = static_cast<float>(p.y);
+        result.pos[2] = static_cast<float>(p.z);
+        result.normal[0] = static_cast<float>(n.x);
+        result.normal[1] = static_cast<float>(n.y);
+        result.normal[2] = static_cast<float>(n.z);
+        for (size_t channel = 0; channel < 3; ++channel)
+            result.color[channel] = static_cast<uint8_t>(std::clamp(color[channel], 0.0f, 1.0f) * 255.0f + 0.5f);
+        result.color[3] = 255;
+        return result;
     };
 
     for (const auto& part : ViewCubeModel::parts()) {
@@ -302,10 +293,11 @@ bool ViewCubeStage::createFaceGeometry() {
 
         const math::Vec3 normal = ViewCubeModel::partNormal(part);
         const uint32_t base = static_cast<uint32_t>(verts.size());
-        const uint32_t start = static_cast<uint32_t>(indices.size());
+        float color[3]{};
+        viewCubePartBaseColor(part, color);
 
         for (uint32_t i = 0; i < shape.vertexCount; ++i) {
-            verts.push_back(makeVert(shape.vertices[i], normal));
+            verts.push_back(makeVert(shape.vertices[i], normal, color));
         }
 
         if (shape.vertexCount == 3) {
@@ -314,20 +306,27 @@ bool ViewCubeStage::createFaceGeometry() {
             indices.insert(indices.end(), { base, base + 1, base + 2, base, base + 2, base + 3 });
         }
 
-        part_index_offsets_[part.index] = start;
-        part_index_counts_[part.index] = static_cast<uint32_t>(indices.size()) - start;
+        part_vertex_offsets_[part.index] = base;
+        part_vertex_counts_[part.index] = shape.vertexCount;
     }
 
     face_index_count_ = static_cast<uint32_t>(indices.size());
 
+    face_vertices_ = verts;
     {
-        auto r = device_->createBuffer(
-                BufferDesc::vertex(sizeof(CubeVertex) * verts.size(), verts.data(), "ViewCube_FaceVB"));
+        auto r = device_->createBuffer(BufferDesc::dynamicVertex(
+                static_cast<uint32_t>(sizeof(CubeVertex) * face_vertices_.size()), "ViewCube_FaceVB"));
         if (!r) {
             LOG_ERROR("[ViewCube] Face vertex-buffer creation failed: {}", r.error().message);
             return false;
         }
         face_vb_ = std::move(*r);
+        const auto written = face_vb_->write(0, static_cast<uint32_t>(sizeof(CubeVertex) * face_vertices_.size()),
+                                             face_vertices_.data());
+        if (!written) {
+            LOG_ERROR("[ViewCube] Face vertex-buffer upload failed: {}", written.error().message);
+            return false;
+        }
     }
     {
         auto r = device_->createBuffer(
@@ -379,8 +378,18 @@ bool ViewCubeStage::createAxisGeometry() {
     verts.reserve(kAxisCount * kAxisSegments * 5);
     indices.reserve(kAxisCount * kAxisSegments * 9);
 
-    auto makeVert = [](const math::FVec3& p, const math::FVec3& n) -> CubeVertex {
-        return { { p.x, p.y, p.z }, { n.x, n.y, n.z }, { 0.0f, 0.0f } };
+    auto makeVert = [](const math::FVec3& p, const math::FVec3& n, const float color[3]) -> CubeVertex {
+        CubeVertex result{};
+        result.pos[0] = p.x;
+        result.pos[1] = p.y;
+        result.pos[2] = p.z;
+        result.normal[0] = n.x;
+        result.normal[1] = n.y;
+        result.normal[2] = n.z;
+        for (size_t channel = 0; channel < 3; ++channel)
+            result.color[channel] = static_cast<uint8_t>(std::clamp(color[channel], 0.0f, 1.0f) * 255.0f + 0.5f);
+        result.color[3] = 255;
+        return result;
     };
 
     for (uint32_t axis = 0; axis < kAxisCount; ++axis) {
@@ -397,8 +406,8 @@ bool ViewCubeStage::createAxisGeometry() {
             const float t =
                     (static_cast<float>(i) / static_cast<float>(kAxisSegments)) * 2.0f * static_cast<float>(math::kPi);
             const math::FVec3 radial = a * std::cos(t) + b * std::sin(t);
-            verts.push_back(makeVert(start + radial * shaftRadius, radial));
-            verts.push_back(makeVert(coneBase + radial * shaftRadius, radial));
+            verts.push_back(makeVert(start + radial * shaftRadius, radial, kAxisColors[axis]));
+            verts.push_back(makeVert(coneBase + radial * shaftRadius, radial, kAxisColors[axis]));
         }
 
         for (uint32_t i = 0; i < kAxisSegments; ++i) {
@@ -416,10 +425,10 @@ bool ViewCubeStage::createAxisGeometry() {
                     (static_cast<float>(i) / static_cast<float>(kAxisSegments)) * 2.0f * static_cast<float>(math::kPi);
             const math::FVec3 radial = a * std::cos(t) + b * std::sin(t);
             const math::FVec3 normal = (radial * coneLength + dir * coneRadius).normalized();
-            verts.push_back(makeVert(coneBase + radial * coneRadius, normal));
+            verts.push_back(makeVert(coneBase + radial * coneRadius, normal, kAxisColors[axis]));
         }
         const uint32_t tipIndex = static_cast<uint32_t>(verts.size());
-        verts.push_back(makeVert(end, dir));
+        verts.push_back(makeVert(end, dir, kAxisColors[axis]));
 
         for (uint32_t i = 0; i < kAxisSegments; ++i) {
             const uint32_t next = (i + 1) % kAxisSegments;
@@ -427,7 +436,7 @@ bool ViewCubeStage::createAxisGeometry() {
         }
     }
 
-    axis_index_count_ = static_cast<uint32_t>(indices.size() / kAxisCount);
+    axis_index_count_ = static_cast<uint32_t>(indices.size());
 
     {
         auto r = device_->createBuffer(
@@ -450,7 +459,7 @@ bool ViewCubeStage::createAxisGeometry() {
     return true;
 }
 
-void ViewCubeStage::updateInteractionMaterials() {
+bool ViewCubeStage::updateInteractionGeometry() {
     auto mixColor = [](float dst[3], const float a[3], const float b[3], float t) {
         dst[0] = a[0] * (1.0f - t) + b[0] * t;
         dst[1] = a[1] * (1.0f - t) + b[1] * t;
@@ -461,15 +470,32 @@ void ViewCubeStage::updateInteractionMaterials() {
     const uint32_t pressed = interaction_.hasPressedPart ? interaction_.pressedPart.index : kPartCount;
 
     for (uint32_t i = 0; i < kPartCount; ++i) {
-        viewCubePartBaseColor(ViewCubeModel::parts()[i], materials_[i].baseColor);
+        float color[3]{};
+        viewCubePartBaseColor(ViewCubeModel::parts()[i], color);
 
         if (i == hovered) {
-            mixColor(materials_[i].baseColor, materials_[i].baseColor, kHoverColor, 0.58f);
+            mixColor(color, color, kHoverColor, 0.58f);
         }
         if (i == pressed) {
-            mixColor(materials_[i].baseColor, materials_[i].baseColor, kPressedColor, 0.78f);
+            mixColor(color, color, kPressedColor, 0.78f);
+        }
+        const uint32_t first = part_vertex_offsets_[i];
+        const uint32_t count = part_vertex_counts_[i];
+        for (uint32_t vertex = first; vertex < first + count; ++vertex) {
+            for (size_t channel = 0; channel < 3; ++channel) {
+                face_vertices_[vertex].color[channel] =
+                        static_cast<uint8_t>(std::clamp(color[channel], 0.0f, 1.0f) * 255.0f + 0.5f);
+            }
         }
     }
+    const auto written = face_vb_->write(0, static_cast<uint32_t>(sizeof(CubeVertex) * face_vertices_.size()),
+                                         face_vertices_.data());
+    if (!written) {
+        LOG_ERROR("[ViewCube] Interaction vertex upload failed: {}", written.error().message);
+        return false;
+    }
+    interaction_geometry_dirty_ = false;
+    return true;
 }
 
 // ============================================================
@@ -492,6 +518,10 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
     ScissorRect cubeScissor{ cubeRect.x, cubeRect.y, cubeRect.width, cubeRect.height };
     cmd->setViewport(cubeVP);
     cmd->setScissorRect(cubeScissor);
+    const auto restoreFullViewport = [&] {
+        cmd->setViewport({ 0.0f, 0.0f, static_cast<float>(vpWidth), static_cast<float>(vpHeight), 0.0f, 1.0f });
+        cmd->setScissorRect({ 0, 0, static_cast<int32_t>(vpWidth), static_cast<int32_t>(vpHeight) });
+    };
 
     // --- 2. 从主相机提取纯旋转 + 正交投影 ---
     math::Mat3 rotOnly = math::Mat3(mainViewMatrix);
@@ -515,17 +545,24 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
     storeGpuVec3(sceneUbo.ambientColor, math::Vec3(0.85));
     storeGpuVec3(sceneUbo.edgeColor, math::Vec3(0.08, 0.08, 0.08));
     const auto sceneUniform = cmd->writeUniform(sceneUbo);
-    if (!sceneUniform)
+    if (!sceneUniform) {
+        restoreFullViewport();
         return;
+    }
 
     // --- 4. 写入对象 Uniform（单位矩阵）---
     const ObjectUniforms objUbo = makeObjectUniforms(math::Mat4(1.0));
     const auto objectUniform = cmd->writeUniform(objUbo);
-    if (!objectUniform)
+    if (!objectUniform) {
+        restoreFullViewport();
         return;
-    updateInteractionMaterials();
+    }
+    if (interaction_geometry_dirty_ && !updateInteractionGeometry()) {
+        restoreFullViewport();
+        return;
+    }
 
-    // --- 5. 渲染面（每面独立材质）---
+    // --- 5. 顶点颜色合批：26 个部件一次 draw，3 根轴一次 draw ---
     cmd->setPipelineState(solid_pso_);
 
     // 确保 face_bg_ 与当前 PSO layout 一致（PSO 不变期间复用，descriptor set 缓存生效）
@@ -560,44 +597,27 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
         }
     }
 
-    for (uint32_t partIndex = 0; partIndex < kPartCount; ++partIndex) {
-        const uint32_t indexCount = part_index_counts_[partIndex];
-        if (indexCount == 0)
-            continue;
-
-        const auto materialUniform = cmd->writeUniform(materials_[partIndex]);
-        if (!materialUniform)
-            continue;
-        if (face_bg_) {
-            const std::array uniforms{ DynamicUniformBinding{ 0, *sceneUniform },
-                                       DynamicUniformBinding{ 1, *objectUniform },
-                                       DynamicUniformBinding{ 2, *materialUniform } };
-            cmd->bindGroup(*face_bg_, uniforms);
+    const auto materialUniform = cmd->writeUniform(material_);
+    if (materialUniform && face_bg_) {
+        const std::array uniforms{ DynamicUniformBinding{ 0, *sceneUniform },
+                                   DynamicUniformBinding{ 1, *objectUniform },
+                                   DynamicUniformBinding{ 2, *materialUniform } };
+        cmd->bindGroup(*face_bg_, uniforms);
+        if (face_vb_ && face_ib_ && face_index_count_ > 0) {
+            cmd->setVertexBuffer(0, face_vb_.get());
+            cmd->setIndexBuffer(face_ib_.get());
+            cmd->drawIndexed(DrawIndexedAttribs{ face_index_count_, 1, 0 });
         }
 
-        cmd->setVertexBuffer(0, face_vb_.get());
-        cmd->setIndexBuffer(face_ib_.get());
-        cmd->drawIndexed(DrawIndexedAttribs{ indexCount, 1, part_index_offsets_[partIndex] });
-    }
-
-    if (axis_vb_ && axis_ib_ && face_bg_) {
-        cmd->setVertexBuffer(0, axis_vb_.get());
-        cmd->setIndexBuffer(axis_ib_.get());
-        for (uint32_t axis = 0; axis < kAxisCount; ++axis) {
-            const auto materialUniform = cmd->writeUniform(materials_[kAxisMaterialOffset + axis]);
-            if (!materialUniform)
-                continue;
-            const std::array uniforms{ DynamicUniformBinding{ 0, *sceneUniform },
-                                       DynamicUniformBinding{ 1, *objectUniform },
-                                       DynamicUniformBinding{ 2, *materialUniform } };
-            cmd->bindGroup(*face_bg_, uniforms);
-            cmd->drawIndexed(DrawIndexedAttribs{ axis_index_count_, 1, axis * axis_index_count_ });
+        if (axis_vb_ && axis_ib_ && axis_index_count_ > 0) {
+            cmd->setVertexBuffer(0, axis_vb_.get());
+            cmd->setIndexBuffer(axis_ib_.get());
+            cmd->drawIndexed(DrawIndexedAttribs{ axis_index_count_, 1, 0 });
         }
     }
 
     // --- 6. 恢复全屏视口 ---
-    cmd->setViewport({ 0.0f, 0.0f, static_cast<float>(vpWidth), static_cast<float>(vpHeight), 0.0f, 1.0f });
-    cmd->setScissorRect({ 0, 0, static_cast<int32_t>(vpWidth), static_cast<int32_t>(vpHeight) });
+    restoreFullViewport();
 }
 
 // ============================================================

@@ -55,6 +55,11 @@ public:
     void setDrawCommands(std::span<const MeshDrawCommand> cmds) { commands_ = cmds; }
 
     PipelineState* pipelineState() const { return pso_; }
+    PipelineState* doubleSidedPipelineState() const { return double_sided_pso_ ? double_sided_pso_ : pso_; }
+    PipelineState* mirroredPipelineState() const { return mirrored_pso_ ? mirrored_pso_ : doubleSidedPipelineState(); }
+    bool ownsPipeline(const PipelineState* pipeline) const {
+        return pipeline && (pipeline == pso_ || pipeline == double_sided_pso_ || pipeline == mirrored_pso_);
+    }
     PipelineState* instancedPipelineState() const { return instanced_pso_; }
     const GeometryDrawExecutionStats& lastExecutionStats() const { return execution_stats_; }
 
@@ -81,6 +86,8 @@ private:
     const TechniqueDesc& technique_;
 
     PipelineState* pso_ = nullptr;
+    PipelineState* double_sided_pso_ = nullptr;
+    PipelineState* mirrored_pso_ = nullptr;
     /// 可选优化管线；能力、shader 或布局不满足时保持为空并完整回退旧路径。
     PipelineState* instanced_pso_ = nullptr;
 

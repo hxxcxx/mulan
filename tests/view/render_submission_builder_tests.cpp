@@ -28,7 +28,7 @@ namespace {
 
 graphics::Mesh makePreviewMesh() {
     graphics::Mesh mesh;
-    mesh.layout = graphics::layouts::surface();
+    mesh.layout = graphics::layouts::position3();
     mesh.topology = graphics::PrimitiveTopology::LineList;
     mesh.vertices.resize(static_cast<size_t>(mesh.layout.stride()) * 2u);
     return mesh;
@@ -46,8 +46,7 @@ graphics::Mesh makeSurfaceMesh(uint8_t marker = 0) {
 
 graphics::Mesh makeWireMesh(uint8_t marker = 0) {
     graphics::Mesh mesh;
-    // 当前 edge pass 的公开合同使用 surface layout + LineList。
-    mesh.layout = graphics::layouts::surface();
+    mesh.layout = graphics::layouts::position3();
     mesh.topology = graphics::PrimitiveTopology::LineList;
     mesh.vertices.resize(static_cast<size_t>(mesh.layout.stride()) * 2u);
     mesh.vertices.back() = static_cast<std::byte>(marker);

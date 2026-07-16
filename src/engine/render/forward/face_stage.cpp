@@ -58,7 +58,7 @@ void FaceStage::setDrawCommands(std::span<const MeshDrawCommand> commands) {
     pbr_commands_.clear();
     pbr_tangent_commands_.clear();
     for (const auto& command : commands) {
-        if (command.pipelineState == pbr_tangent_executor_.pipelineState()) {
+        if (pbr_tangent_executor_.ownsPipeline(command.pipelineState)) {
             pbr_tangent_commands_.push_back(command);
         } else {
             pbr_commands_.push_back(command);
@@ -88,6 +88,22 @@ PipelineState* FaceStage::pipelineState() const {
 
 PipelineState* FaceStage::tangentPipelineState() const {
     return pbr_tangent_executor_.pipelineState();
+}
+
+PipelineState* FaceStage::doubleSidedPipelineState() const {
+    return activeExecutor().doubleSidedPipelineState();
+}
+
+PipelineState* FaceStage::mirroredPipelineState() const {
+    return activeExecutor().mirroredPipelineState();
+}
+
+PipelineState* FaceStage::tangentDoubleSidedPipelineState() const {
+    return pbr_tangent_executor_.doubleSidedPipelineState();
+}
+
+PipelineState* FaceStage::tangentMirroredPipelineState() const {
+    return pbr_tangent_executor_.mirroredPipelineState();
 }
 
 PipelineState* FaceStage::viewCubePipelineState() const {

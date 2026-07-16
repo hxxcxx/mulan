@@ -46,6 +46,7 @@ public:
     bool hasFont() const;
     bool hasFont(std::string_view fontKey) const;
     TextMetrics measureText(std::string_view fontKey, std::string_view text, float sizePx) const;
+    bool lastGeometryCacheHit() const { return last_geometry_cache_hit_; }
 
 private:
     struct TextBatch {
@@ -92,11 +93,16 @@ private:
     std::vector<TextVertex> vertices_;
     std::vector<uint32_t> indices_;
     std::vector<TextBatch> batches_;
+    std::vector<TextDrawDesc> cached_items_;
 
     uint32_t width_ = 0;
     uint32_t height_ = 0;
     uint32_t vertex_capacity_ = 0;
     uint32_t index_capacity_ = 0;
+    uint32_t cached_width_ = 0;
+    uint32_t cached_height_ = 0;
+    bool geometry_cache_valid_ = false;
+    bool last_geometry_cache_hit_ = false;
     bool initialized_ = false;
 };
 

@@ -45,6 +45,8 @@ struct TechniqueDesc {
     bool depthWrite = true;
     CompareFunc depthFunc = CompareFunc::LessEqual;
     bool sampleTextures = false;
+    /// 面技术默认启用背面剔除；线、透明高亮与 UI 保持 None。
+    CullMode cullMode = CullMode::None;
     BlendDesc blend;
 };
 

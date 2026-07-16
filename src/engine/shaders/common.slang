@@ -160,6 +160,12 @@ struct VS_INPUT_POS {
     float3 position : POSITION;
 };
 
+struct VS_INPUT_COLOR {
+    float3 position : POSITION;
+    float3 normal   : NORMAL;
+    float4 color    : COLOR0;
+};
+
 // 顶点着色器输出
 struct VS_OUTPUT {
     float4 position : SV_POSITION;
@@ -179,6 +185,12 @@ struct VS_OUTPUT_TANGENT {
 // wireframe / pick 用的简化输出
 struct VS_OUTPUT_SIMPLE {
     float4 position : SV_POSITION;
+};
+
+struct VS_OUTPUT_COLOR {
+    float4 position : SV_POSITION;
+    float3 normal   : NORMAL;
+    float4 color    : COLOR0;
 };
 
 #endif // MULAN_GEO_COMMON_SLANG

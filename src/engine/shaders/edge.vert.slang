@@ -5,7 +5,7 @@
 
 #include "common.slang"
 
-VS_OUTPUT_SIMPLE main(VS_INPUT input) {
+VS_OUTPUT_SIMPLE main(VS_INPUT_POS input) {
     VS_OUTPUT_SIMPLE output;
     float4 worldPos = mul(World, float4(input.position, 1.0));
     output.position = mul(ViewProjection, worldPos);

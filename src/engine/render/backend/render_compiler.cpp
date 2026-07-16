@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <functional>
 #include <limits>
 #include <optional>
@@ -25,6 +26,21 @@ namespace {
 using ObjectIdHash = RenderHandleHash<RenderObjectIdTag>;
 using GeometryHandleHash = RenderHandleHash<GeometryHandleTag>;
 using MaterialHandleHash = RenderHandleHash<MaterialHandleTag>;
+
+PipelineState* selectSurfaceRasterPipeline(PipelineState* regular, PipelineState* doubleSided, PipelineState* mirrored,
+                                           bool materialDoubleSided, const math::Mat4& world) noexcept {
+    if (materialDoubleSided)
+        return doubleSided ? doubleSided : regular;
+
+    const math::Mat3 linear(world);
+    const double determinant = linear.determinant();
+    const double scale = linear[0].length() * linear[1].length() * linear[2].length();
+    if (!std::isfinite(determinant) || !std::isfinite(scale) || scale <= 0.0 ||
+        std::abs(determinant) <= std::numeric_limits<double>::epsilon() * 64.0 * scale) {
+        return doubleSided ? doubleSided : regular;
+    }
+    return determinant < 0.0 ? (mirrored ? mirrored : (doubleSided ? doubleSided : regular)) : regular;
+}
 
 uint64_t mixSortKey(uint64_t seed, uint64_t value) noexcept {
     value ^= value >> 30;
@@ -239,7 +255,11 @@ struct ContextIdentity {
     const MaterialCache* materials = nullptr;
     uint64_t materialLayoutRevision = 0;
     PipelineState* surfacePipeline = nullptr;
+    PipelineState* surfaceDoubleSidedPipeline = nullptr;
+    PipelineState* surfaceMirroredPipeline = nullptr;
     PipelineState* surfaceTangentPipeline = nullptr;
+    PipelineState* surfaceTangentDoubleSidedPipeline = nullptr;
+    PipelineState* surfaceTangentMirroredPipeline = nullptr;
     PipelineState* edgePipeline = nullptr;
     PipelineState* highlightSurfacePipeline = nullptr;
     PipelineState* highlightSurfaceTangentPipeline = nullptr;
@@ -248,7 +268,12 @@ struct ContextIdentity {
     bool matches(const RenderCompileContext& context) const noexcept {
         return assets == &context.assets && materials == &context.materials &&
                materialLayoutRevision == context.materials.layoutRevision() &&
-               surfacePipeline == context.surfacePipeline && surfaceTangentPipeline == context.surfaceTangentPipeline &&
+               surfacePipeline == context.surfacePipeline &&
+               surfaceDoubleSidedPipeline == context.surfaceDoubleSidedPipeline &&
+               surfaceMirroredPipeline == context.surfaceMirroredPipeline &&
+               surfaceTangentPipeline == context.surfaceTangentPipeline &&
+               surfaceTangentDoubleSidedPipeline == context.surfaceTangentDoubleSidedPipeline &&
+               surfaceTangentMirroredPipeline == context.surfaceTangentMirroredPipeline &&
                edgePipeline == context.edgePipeline && highlightSurfacePipeline == context.highlightSurfacePipeline &&
                highlightSurfaceTangentPipeline == context.highlightSurfaceTangentPipeline &&
                highlightEdgePipeline == context.highlightEdgePipeline;
@@ -259,7 +284,11 @@ struct ContextIdentity {
                  .materials = &context.materials,
                  .materialLayoutRevision = context.materials.layoutRevision(),
                  .surfacePipeline = context.surfacePipeline,
+                 .surfaceDoubleSidedPipeline = context.surfaceDoubleSidedPipeline,
+                 .surfaceMirroredPipeline = context.surfaceMirroredPipeline,
                  .surfaceTangentPipeline = context.surfaceTangentPipeline,
+                 .surfaceTangentDoubleSidedPipeline = context.surfaceTangentDoubleSidedPipeline,
+                 .surfaceTangentMirroredPipeline = context.surfaceTangentMirroredPipeline,
                  .edgePipeline = context.edgePipeline,
                  .highlightSurfacePipeline = context.highlightSurfacePipeline,
                  .highlightSurfaceTangentPipeline = context.highlightSurfaceTangentPipeline,
@@ -623,6 +652,18 @@ struct RenderCompiler::Impl {
             }
 
             ResolvedMaterial& material = resolveMaterial(current, drawable.material, transaction);
+            if (renderBucketPass(drawable.bucket) == RenderPassKind::Surface) {
+                const bool materialDoubleSided = material.record && material.record->desc.material.doubleSided;
+                if (tangentLayout) {
+                    cached.baseCommand.pipelineState = selectSurfaceRasterPipeline(
+                            context.surfaceTangentPipeline, context.surfaceTangentDoubleSidedPipeline,
+                            context.surfaceTangentMirroredPipeline, materialDoubleSided, object.desc.worldTransform);
+                } else {
+                    cached.baseCommand.pipelineState = selectSurfaceRasterPipeline(
+                            context.surfacePipeline, context.surfaceDoubleSidedPipeline,
+                            context.surfaceMirroredPipeline, materialDoubleSided, object.desc.worldTransform);
+                }
+            }
             if (material.record) {
                 const RenderTextureDesc* textures[] = { &material.record->desc.baseColorTexture,
                                                         &material.record->desc.normalTexture,

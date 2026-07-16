@@ -21,7 +21,7 @@ bool isSurfaceLayout(const graphics::VertexLayout& layout) {
 }
 
 bool isEdgeLayout(const graphics::VertexLayout& layout) {
-    return layoutEquals(layout, graphics::layouts::surface());
+    return layoutEquals(layout, graphics::layouts::position3());
 }
 
 }  // namespace

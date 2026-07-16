@@ -269,6 +269,37 @@ TEST_P(BackendContractTest, WritesPortableObjectBatchUniformRange) {
     ASSERT_TRUE(device->waitIdle());
 }
 
+TEST_P(BackendContractTest, UploadsEveryMipSubresourceOfAnOddSizedTexture) {
+    ContractWindow window;
+    ASSERT_TRUE(window.valid());
+    auto deviceResult = createDevice(window);
+    ASSERT_TRUE(deviceResult) << deviceResult.error().message;
+    auto device = std::move(*deviceResult);
+
+    TextureDesc desc;
+    desc.width = 3;
+    desc.height = 5;
+    desc.mipLevels = 3;
+    desc.format = TextureFormat::RGBA8_UNorm;
+    desc.usage = TextureUsageFlags::ShaderResource;
+    auto textureResult = device->createTexture(desc);
+    ASSERT_TRUE(textureResult) << textureResult.error().message;
+    auto texture = std::move(*textureResult);
+
+    const std::array<std::pair<uint32_t, uint32_t>, 3> dimensions{ std::pair{ 3u, 5u }, std::pair{ 1u, 2u },
+                                                                   std::pair{ 1u, 1u } };
+    ASSERT_TRUE(device->beginUploadBatch());
+    for (uint32_t mip = 0; mip < dimensions.size(); ++mip) {
+        const auto [width, height] = dimensions[mip];
+        std::vector<std::byte> pixels(static_cast<size_t>(width) * height * 4u, std::byte{ 0x7f });
+        TextureUploadDesc upload = TextureUploadDesc::tightlyPackedBytes(pixels, width, height, desc.format);
+        upload.mipLevel = mip;
+        ASSERT_TRUE(device->uploadTextureData(texture.get(), upload));
+    }
+    ASSERT_TRUE(device->flushUploadBatch());
+    ASSERT_TRUE(device->waitIdle());
+}
+
 TEST_P(BackendContractTest, BindGroupOwnsLayoutAndRejectsInvalidUniformUpdates) {
     ContractWindow window;
     ASSERT_TRUE(window.valid());
