@@ -26,12 +26,6 @@ enum class ObjectBindingMode : uint8_t {
     InstancedBatch,
 };
 
-enum class RasterVariant : uint8_t {
-    TechniqueDefault,
-    DoubleSided,
-    Mirrored,
-};
-
 struct DevicePipelineKey {
     RenderTechnique technique = RenderTechnique::SolidLit;
     TextureFormat colorFormat = TextureFormat::Unknown;
@@ -39,7 +33,6 @@ struct DevicePipelineKey {
     uint32_t sampleCount = 1;
     bool hasDepth = true;
     ObjectBindingMode objectBindingMode = ObjectBindingMode::Single;
-    RasterVariant rasterVariant = RasterVariant::TechniqueDefault;
 
     bool operator==(const DevicePipelineKey&) const = default;
 };

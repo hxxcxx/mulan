@@ -674,17 +674,7 @@ TEST(DeviceResourceServiceTests, PipelineLibraryUsesTheCompleteTargetSignature) 
     EXPECT_EQ(device.pipelineCreateCount(), 2u);
 
     key.objectBindingMode = ObjectBindingMode::Single;
-    key.rasterVariant = RasterVariant::DoubleSided;
-    PipelineState* doubleSided = resources.pipelines().acquire(key);
-    ASSERT_NE(doubleSided, nullptr);
-    EXPECT_EQ(doubleSided->desc().cullMode, CullMode::None);
-    key.rasterVariant = RasterVariant::Mirrored;
-    PipelineState* mirrored = resources.pipelines().acquire(key);
-    ASSERT_NE(mirrored, nullptr);
-    EXPECT_EQ(mirrored->desc().cullMode, CullMode::Back);
-    EXPECT_EQ(mirrored->desc().frontFace, FrontFace::Clockwise);
-
-    key.rasterVariant = RasterVariant::TechniqueDefault;
+    EXPECT_EQ(first->desc().cullMode, CullMode::None);
     key.sampleCount = 4;
     PipelineState* multisampled = resources.pipelines().acquire(key);
     ASSERT_NE(multisampled, nullptr);
@@ -693,8 +683,8 @@ TEST(DeviceResourceServiceTests, PipelineLibraryUsesTheCompleteTargetSignature) 
     PipelineState* depthless = resources.pipelines().acquire(key);
     ASSERT_NE(depthless, nullptr);
     EXPECT_NE(depthless, multisampled);
-    EXPECT_EQ(device.pipelineCreateCount(), 6u);
-    EXPECT_EQ(resources.stats().pipelineCount, 6u);
+    EXPECT_EQ(device.pipelineCreateCount(), 4u);
+    EXPECT_EQ(resources.stats().pipelineCount, 4u);
 }
 
 TEST(DeviceResourceServiceTests, TextStageIsSharedByCompleteTargetSignature) {

@@ -190,8 +190,6 @@ protected:
     RenderCompileContext makeContext() {
         RenderCompileContext context{ .assets = assets_, .materials = materials_ };
         context.surfacePipeline = &surface_pipeline_;
-        context.surfaceDoubleSidedPipeline = &surface_double_sided_pipeline_;
-        context.surfaceMirroredPipeline = &surface_mirrored_pipeline_;
         context.highlightSurfacePipeline = &surface_pipeline_;
         context.edgePipeline = &edge_pipeline_;
         context.highlightEdgePipeline = &edge_pipeline_;
@@ -202,13 +200,11 @@ protected:
     AssetGpuRegistry assets_{ device_ };
     MaterialCache materials_;
     CompilerTestPipeline surface_pipeline_{ graphics::PrimitiveTopology::TriangleList };
-    CompilerTestPipeline surface_double_sided_pipeline_{ graphics::PrimitiveTopology::TriangleList };
-    CompilerTestPipeline surface_mirrored_pipeline_{ graphics::PrimitiveTopology::TriangleList };
     CompilerTestPipeline edge_pipeline_{ graphics::PrimitiveTopology::LineList };
     RenderCompiler compiler_;
 };
 
-TEST_F(RenderCompilerTests, SelectsCullVariantFromMaterialAndTransformWinding) {
+TEST_F(RenderCompilerTests, SurfacePipelineDoesNotDependOnMaterialSidednessOrTransformWinding) {
     const RenderResourceKey key = makeAssetGpuKey(99);
     prepareGeometry(key, makeSurfaceMesh());
     RenderWorld world;
@@ -238,9 +234,9 @@ TEST_F(RenderCompilerTests, SelectsCullVariantFromMaterialAndTransformWinding) {
     ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
     ASSERT_EQ(compiler_.surfaceCommands().size(), 4u);
     EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 90)->pipelineState, &surface_pipeline_);
-    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 91)->pipelineState, &surface_mirrored_pipeline_);
-    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 92)->pipelineState, &surface_double_sided_pipeline_);
-    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 93)->pipelineState, &surface_double_sided_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 91)->pipelineState, &surface_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 92)->pipelineState, &surface_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 93)->pipelineState, &surface_pipeline_);
 }
 
 TEST_F(RenderCompilerTests, ReusesEveryPacketForAnIdenticalSnapshot) {

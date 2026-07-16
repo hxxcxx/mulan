@@ -25,7 +25,6 @@ size_t DevicePipelineKeyHash::operator()(const DevicePipelineKey& key) const noe
     combine(std::hash<uint32_t>{}(key.sampleCount));
     combine(std::hash<bool>{}(key.hasDepth));
     combine(std::hash<uint8_t>{}(static_cast<uint8_t>(key.objectBindingMode)));
-    combine(std::hash<uint8_t>{}(static_cast<uint8_t>(key.rasterVariant)));
     return value;
 }
 
@@ -56,8 +55,8 @@ PipelineState* DevicePipelineLibrary::acquire(const DevicePipelineKey& key) {
     desc.ps = pixelShader->get();
     desc.vertexLayout = technique.vertexLayout;
     desc.topology = technique.topology;
-    desc.cullMode = key.rasterVariant == RasterVariant::DoubleSided ? CullMode::None : technique.cullMode;
-    desc.frontFace = key.rasterVariant == RasterVariant::Mirrored ? FrontFace::Clockwise : FrontFace::CounterClockwise;
+    desc.cullMode = technique.cullMode;
+    desc.frontFace = FrontFace::CounterClockwise;
     desc.fillMode = FillMode::Solid;
     desc.depthStencil.depthEnable = technique.depthTest;
     desc.depthStencil.depthWrite = technique.depthWrite;

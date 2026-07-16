@@ -90,22 +90,6 @@ PipelineState* FaceStage::tangentPipelineState() const {
     return pbr_tangent_executor_.pipelineState();
 }
 
-PipelineState* FaceStage::doubleSidedPipelineState() const {
-    return activeExecutor().doubleSidedPipelineState();
-}
-
-PipelineState* FaceStage::mirroredPipelineState() const {
-    return activeExecutor().mirroredPipelineState();
-}
-
-PipelineState* FaceStage::tangentDoubleSidedPipelineState() const {
-    return pbr_tangent_executor_.doubleSidedPipelineState();
-}
-
-PipelineState* FaceStage::tangentMirroredPipelineState() const {
-    return pbr_tangent_executor_.mirroredPipelineState();
-}
-
 PipelineState* FaceStage::viewCubePipelineState() const {
     return view_cube_executor_.pipelineState();
 }

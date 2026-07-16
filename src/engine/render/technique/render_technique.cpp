@@ -15,7 +15,7 @@ consteval TechniqueDesc makeSolidLit() {
         .depthWrite = true,
         .depthFunc = CompareFunc::LessEqual,
         .sampleTextures = false,
-        .cullMode = CullMode::Back,
+        .cullMode = CullMode::None,
     };
 }
 
@@ -31,7 +31,7 @@ consteval TechniqueDesc makeSurfacePBR() {
         .depthWrite = true,
         .depthFunc = CompareFunc::LessEqual,
         .sampleTextures = true,
-        .cullMode = CullMode::Back,
+        .cullMode = CullMode::None,
     };
 }
 
@@ -47,7 +47,7 @@ consteval TechniqueDesc makeSurfacePBRTangent() {
         .depthWrite = true,
         .depthFunc = CompareFunc::LessEqual,
         .sampleTextures = true,
-        .cullMode = CullMode::Back,
+        .cullMode = CullMode::None,
     };
 }
 

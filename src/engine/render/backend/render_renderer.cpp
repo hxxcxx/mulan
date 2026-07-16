@@ -256,19 +256,9 @@ ResultVoid RenderRenderer::compile(const RenderRequest& request) {
         .assets = *asset_gpu_registry_,
         .materials = *material_cache_,
         .surfacePipeline = face_stage_ ? face_stage_->pipelineState() : nullptr,
-        .surfaceDoubleSidedPipeline = face_stage_ ? face_stage_->doubleSidedPipelineState() : nullptr,
-        .surfaceMirroredPipeline = face_stage_ ? face_stage_->mirroredPipelineState() : nullptr,
         .surfaceTangentPipeline = face_stage_ && request.options.surfaceTechnique == SurfaceTechnique::SurfacePBR
                                           ? face_stage_->tangentPipelineState()
                                           : nullptr,
-        .surfaceTangentDoubleSidedPipeline =
-                face_stage_ && request.options.surfaceTechnique == SurfaceTechnique::SurfacePBR
-                        ? face_stage_->tangentDoubleSidedPipelineState()
-                        : nullptr,
-        .surfaceTangentMirroredPipeline =
-                face_stage_ && request.options.surfaceTechnique == SurfaceTechnique::SurfacePBR
-                        ? face_stage_->tangentMirroredPipelineState()
-                        : nullptr,
         .edgePipeline = edge_stage_ ? edge_stage_->pipelineState() : nullptr,
         .highlightSurfacePipeline = highlight_stage_ ? highlight_stage_->surfacePipeline() : nullptr,
         .highlightSurfaceTangentPipeline = highlight_stage_ ? highlight_stage_->surfaceTangentPipeline() : nullptr,

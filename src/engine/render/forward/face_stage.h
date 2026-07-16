@@ -36,10 +36,6 @@ public:
 
     PipelineState* pipelineState() const;
     PipelineState* tangentPipelineState() const;
-    PipelineState* doubleSidedPipelineState() const;
-    PipelineState* mirroredPipelineState() const;
-    PipelineState* tangentDoubleSidedPipelineState() const;
-    PipelineState* tangentMirroredPipelineState() const;
     PipelineState* viewCubePipelineState() const;
     Texture* defaultWhiteTexture() const;
     Sampler* defaultSampler() const;
