@@ -12,13 +12,16 @@
 #include "core/operation/document_operation.h"
 #include "core/operation/editor_action.h"
 #include "core/selection/editor_input.h"
+#include "core/selection/editor_selection.h"
 #include "core/session/editor_session.h"
 #include "core/tools/editor_tool.h"
 #include "core/tools/tool_controller.h"
 
 #include <mulan/editor/document/document_view.h>
+#include <mulan/io/document.h>
 #include <mulan/view/core/view_context.h>
 #include <mulan/scene/entity_id.h>
+#include <mulan/scene/scene.h>
 
 #include <memory>
 #include <optional>
@@ -29,6 +32,23 @@ using namespace mulan::engine;
 using mulan::scene::EntityId;
 
 namespace {
+
+TEST(EditorSelectionTests, PrunesEntityIdsInvalidatedBySceneGeneration) {
+    mulan::io::Document document("stale-selection");
+    const EntityId entity = document.scene()->createEntity("Selected");
+    EditorSelectionContext selection;
+    ASSERT_TRUE(selection.selectSingle(EditorSelectionReference{ .entity = entity }));
+    ASSERT_FALSE(selection.empty());
+
+    document.scene()->destroyEntity(entity);
+    const EntityId replacement = document.scene()->createEntity("Replacement");
+    ASSERT_NE(replacement, entity);
+    ASSERT_TRUE(document.scene()->isValid(replacement));
+
+    EXPECT_TRUE(selection.pruneInvalid(document));
+    EXPECT_TRUE(selection.empty());
+    EXPECT_FALSE(selection.contains(replacement));
+}
 
 /// 构造一个最小 DocumentOperation（removeEntities 不依赖 asset/math 几何构造）。
 DocumentOperation makeDummyOperation() {

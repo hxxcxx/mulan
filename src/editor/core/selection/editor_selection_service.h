@@ -15,6 +15,10 @@ namespace mulan::view {
 class ViewContext;
 }
 
+namespace mulan::io {
+class Document;
+}
+
 namespace mulan::editor {
 
 class EditorSelectionService {
@@ -34,6 +38,7 @@ public:
     void selectSingleAndHover(EditorSelectionHit hit);
     void clearSelectionAndHover();
     void setFilter(EditorSelectionFilter filter);
+    bool pruneInvalid(const io::Document& document);
     void syncVisualState();
 
 private:

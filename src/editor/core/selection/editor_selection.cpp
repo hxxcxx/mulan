@@ -198,6 +198,34 @@ bool EditorSelectionContext::clearSelection() {
     return true;
 }
 
+bool EditorSelectionContext::pruneInvalid(const io::Document& document) {
+    const scene::Scene* scene = document.scene();
+    const auto isValidReference = [&](const EditorSelectionReference& reference) {
+        if (!scene || !scene->isValid(reference.entity))
+            return false;
+        if (reference.curveElementSelection()) {
+            const asset::CurveAsset* curve = curveAssetForEntity(document, reference.entity);
+            if (!curve)
+                return false;
+            return std::any_of(curve->elements().begin(), curve->elements().end(),
+                               [&](const asset::CurveElement& e) { return e.id == reference.subObject.curveElement; });
+        }
+        return true;
+    };
+
+    const size_t previousSize = selected_.size();
+    selected_.erase(
+            std::remove_if(selected_.begin(), selected_.end(),
+                           [&](const EditorSelectionReference& selected) { return !isValidReference(selected); }),
+            selected_.end());
+    bool changed = selected_.size() != previousSize;
+    if (hovered_ && !isValidReference(hovered_->reference)) {
+        hovered_.reset();
+        changed = true;
+    }
+    return changed;
+}
+
 void EditorSelectionContext::clear() {
     hovered_.reset();
     selected_.clear();

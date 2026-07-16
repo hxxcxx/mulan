@@ -55,4 +55,16 @@ void CommandHistory::pushUndo(Entry entry) {
     undo_stack_.push_back(std::move(entry));
 }
 
+void CommandHistory::remapReferences(std::span<const EntityIdRemap> entityRemaps,
+                                     std::span<const AssetIdRemap> assetRemaps) {
+    const auto remapEntry = [&](Entry& entry) {
+        remapDocumentOperation(entry.redoOperation, entityRemaps, assetRemaps);
+        remapDocumentOperation(entry.undoOperation, entityRemaps, assetRemaps);
+    };
+    for (auto& entry : undo_stack_)
+        remapEntry(entry);
+    for (auto& entry : redo_stack_)
+        remapEntry(entry);
+}
+
 }  // namespace mulan::editor

@@ -162,6 +162,7 @@ bool EditorSession::undo() {
     cancelActiveTool();
     const bool changed = operation_executor_.undo();
     if (changed) {
+        selection_service_.pruneInvalid(*session_->document());
         refreshGrips();
         selection_service_.syncVisualState();
         LOG_DEBUG("[Editor] Undo completed");
@@ -177,6 +178,7 @@ bool EditorSession::redo() {
     cancelActiveTool();
     const bool changed = operation_executor_.redo();
     if (changed) {
+        selection_service_.pruneInvalid(*session_->document());
         refreshGrips();
         selection_service_.syncVisualState();
         LOG_DEBUG("[Editor] Redo completed");
@@ -403,6 +405,7 @@ bool EditorSession::applyAction(EditorAction action) {
 
     if (action.operation()) {
         if (operation_executor_.execute(std::move(*action.operation()))) {
+            selection_service_.pruneInvalid(*session_->document());
             refreshGrips();
             selection_service_.syncVisualState();
         }

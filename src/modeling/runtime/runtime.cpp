@@ -1,8 +1,12 @@
 #include "runtime.h"
 
 #include <cstdlib>
+#include <array>
+#include <algorithm>
+#include <cwctype>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <system_error>
 
 #include <mulan/core/log/log.h>
@@ -10,6 +14,9 @@
 
 #ifdef _WIN32
 #include <windows.h>
+
+#include <softpub.h>
+#include <wintrust.h>
 #endif
 
 #ifndef MULAN_DEFAULT_SHAPE_OPS_BACKEND
@@ -23,11 +30,59 @@ namespace {
 /// 后端 DLL 导出的固定 C 符号签名（见各后端 backend_entry.cpp）。
 using LoadBackendFn = void (*)();
 
+constexpr auto allowedBackendDlls() {
+    std::array<std::wstring_view, MULAN_ENABLE_OCCT_BACKEND + MULAN_ENABLE_TRUCK_BACKEND> names{};
+    size_t index = 0;
+#if MULAN_ENABLE_OCCT_BACKEND
+    names[index++] = L"mulan_modeling_occt.dll";
+#endif
+#if MULAN_ENABLE_TRUCK_BACKEND
+    names[index++] = L"mulan_modeling_truck.dll";
+#endif
+    return names;
+}
+
+bool isAllowedBackendDll(const std::filesystem::path& path) {
+    std::wstring filename = path.filename().wstring();
+    std::transform(filename.begin(), filename.end(), filename.begin(),
+                   [](wchar_t ch) { return static_cast<wchar_t>(std::towlower(ch)); });
+    const auto allowed = allowedBackendDlls();
+    return std::find(allowed.begin(), allowed.end(), filename) != allowed.end();
+}
+
+#ifdef _WIN32
+bool hasTrustedAuthenticodeSignature(const std::filesystem::path& path) {
+    WINTRUST_FILE_INFO fileInfo{};
+    fileInfo.cbStruct = sizeof(fileInfo);
+    const std::wstring nativePath = path.wstring();
+    fileInfo.pcwszFilePath = nativePath.c_str();
+
+    WINTRUST_DATA trustData{};
+    trustData.cbStruct = sizeof(trustData);
+    trustData.dwUIChoice = WTD_UI_NONE;
+    // Keep startup deterministic and offline-safe; the OS still validates the embedded signature and trust chain.
+    trustData.fdwRevocationChecks = WTD_REVOKE_NONE;
+    trustData.dwUnionChoice = WTD_CHOICE_FILE;
+    trustData.pFile = &fileInfo;
+    trustData.dwStateAction = WTD_STATEACTION_VERIFY;
+    trustData.dwProvFlags = WTD_CACHE_ONLY_URL_RETRIEVAL;
+
+    GUID policy = WINTRUST_ACTION_GENERIC_VERIFY_V2;
+    const LONG status = WinVerifyTrust(nullptr, &policy, &trustData);
+    trustData.dwStateAction = WTD_STATEACTION_CLOSE;
+    WinVerifyTrust(nullptr, &policy, &trustData);
+    return status == ERROR_SUCCESS;
+}
+#endif
+
 /// 加载单个后端 DLL：LoadLibrary + GetProcAddress(mulan_load_backend) + 调用。
 /// 本函数对任何具体后端一无所知，只认固定的 C 符号契约。
 bool loadBackendDll(const std::filesystem::path& dllPath) {
 #ifdef _WIN32
-    HMODULE handle = LoadLibraryW(dllPath.wstring().c_str());
+    // Dependencies are intentionally resolved only from the application directory and System32, never beside an
+    // independently writable plugin. Release packaging keeps the backend's third-party dependencies with the app.
+    HMODULE handle = LoadLibraryExW(dllPath.wstring().c_str(), nullptr,
+                                    LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (!handle) {
         LOG_ERROR("[ModelingRuntime] Backend DLL load failed: path={}, win32Error={}", dllPath.string(),
                   static_cast<unsigned long>(GetLastError()));
@@ -67,15 +122,18 @@ void init() {
     registry.selectBackend(configuredShapeOpsBackend());
     LOG_INFO("[ModelingRuntime] Initializing: selectedBackend={}", registry.selectedBackend());
 
-    // 扫描可执行文件同目录的 backends/ 子目录，加载所有后端插件。
-    // runtime 不点名任何后端，插件可热插拔。
+    // 仅从可执行文件同目录的 backends/ 加载本构建启用的后端；不接受任意 DLL。
     namespace fs = std::filesystem;
     fs::path backendsDir;
 
 #ifdef _WIN32
-    wchar_t exePath[MAX_PATH];
-    if (GetModuleFileNameW(nullptr, exePath, MAX_PATH) > 0)
-        backendsDir = fs::path(exePath).parent_path() / "backends";
+    std::array<wchar_t, 32768> exePath{};
+    const DWORD exePathLength = GetModuleFileNameW(nullptr, exePath.data(), static_cast<DWORD>(exePath.size()));
+    fs::path executablePath;
+    if (exePathLength > 0 && exePathLength < exePath.size()) {
+        executablePath = fs::path(std::wstring_view(exePath.data(), exePathLength));
+        backendsDir = executablePath.parent_path() / "backends";
+    }
 #endif
 
     if (backendsDir.empty() || !fs::exists(backendsDir)) {
@@ -85,9 +143,42 @@ void init() {
     }
 
     std::error_code ec;
+    backendsDir = fs::weakly_canonical(backendsDir, ec);
+    if (ec) {
+        LOG_ERROR("[ModelingRuntime] Backend directory canonicalization failed: error={}", ec.message());
+        return;
+    }
+
     size_t loadedCount = 0;
+#ifdef _WIN32
+    // Signed production hosts only accept plugins with an OS-trusted Authenticode chain. Unsigned developer
+    // builds remain usable, while still receiving the allow-list, canonical-path and restricted-search defenses.
+    const bool requireTrustedSignature = hasTrustedAuthenticodeSignature(executablePath);
+    if (!requireTrustedSignature)
+        LOG_WARN("[ModelingRuntime] Host executable is unsigned; backend signature enforcement is disabled");
+#endif
     for (auto& entry : fs::directory_iterator(backendsDir, ec)) {
-        if (entry.path().extension() == ".dll" && loadBackendDll(entry.path()))
+        std::error_code entryError;
+        const fs::path canonicalPath = fs::weakly_canonical(entry.path(), entryError);
+        if (entryError || !entry.is_regular_file(entryError) || entry.is_symlink(entryError) ||
+            canonicalPath.parent_path() != backendsDir || !isAllowedBackendDll(canonicalPath)) {
+            if (entry.path().extension() == ".dll")
+                LOG_WARN("[ModelingRuntime] Ignoring untrusted or unknown backend DLL: {}", entry.path().string());
+            continue;
+        }
+#ifdef _WIN32
+        const DWORD attributes = GetFileAttributesW(entry.path().wstring().c_str());
+        if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+            LOG_WARN("[ModelingRuntime] Ignoring backend DLL through a reparse point: {}", entry.path().string());
+            continue;
+        }
+        if (requireTrustedSignature && !hasTrustedAuthenticodeSignature(canonicalPath)) {
+            LOG_ERROR("[ModelingRuntime] Rejecting backend DLL with an untrusted signature: {}",
+                      canonicalPath.string());
+            continue;
+        }
+#endif
+        if (loadBackendDll(canonicalPath))
             ++loadedCount;
     }
     if (ec) {

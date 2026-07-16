@@ -36,6 +36,8 @@ public:
     void restoreRedo(Entry entry);
     void pushUndo(Entry entry);
 
+    void remapReferences(std::span<const EntityIdRemap> entityRemaps, std::span<const AssetIdRemap> assetRemaps);
+
 private:
     std::vector<Entry> undo_stack_;
     std::vector<Entry> redo_stack_;

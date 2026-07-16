@@ -203,25 +203,87 @@ TEST(DocumentCopyOnWrite, BooleanDoesNotMutateSharedTargetGeometry) {
     EXPECT_DOUBLE_EQ(result->shape().bounds().min.x, 100.0);
 }
 
-TEST(DocumentOperationTransactions, IrreversibleChangeInvalidatesBothHistoryBranches) {
-    auto document = std::make_unique<Document>("history-boundary");
+TEST(DocumentOperationTransactions, RemovalIsReversibleAndPreservesEarlierHistory) {
+    auto document = std::make_unique<Document>("reversible-removal");
     Document* documentPtr = document.get();
     DocumentSession session(std::move(document));
     DocumentOperationExecutor executor;
     executor.bind(&session);
 
     ASSERT_TRUE(executor.execute(DocumentOperation::createCurve("Recorded", segment(1.0))));
+    EntityId recorded;
+    documentPtr->scene()->forEachEntity([&](EntityId entity) { recorded = entity; });
+    ASSERT_TRUE(executor.execute(DocumentOperation::removeEntities({ recorded }, true)));
+    EXPECT_EQ(documentPtr->scene()->entityCount(), 0u);
+
+    ASSERT_TRUE(executor.undo());
+    ASSERT_EQ(documentPtr->scene()->entityCount(), 1u);
+    EntityId restored;
+    documentPtr->scene()->forEachEntity([&](EntityId entity) { restored = entity; });
+    EXPECT_NE(restored, recorded);  // generation changes, history references must be remapped.
     ASSERT_TRUE(executor.canUndo());
     ASSERT_TRUE(executor.undo());
-    ASSERT_TRUE(executor.canRedo());
+    EXPECT_EQ(documentPtr->scene()->entityCount(), 0u);
 
-    DocumentEditor editor(*documentPtr);
-    const auto independent = editor.createCurve("Independent", segment(2.0));
-    ASSERT_TRUE(independent);
-    ASSERT_TRUE(executor.execute(DocumentOperation::removeEntities({ independent.entity }, true)));
-
-    EXPECT_FALSE(executor.canUndo());
+    ASSERT_TRUE(executor.redo());
+    EXPECT_EQ(documentPtr->scene()->entityCount(), 1u);
+    ASSERT_TRUE(executor.redo());
+    EXPECT_EQ(documentPtr->scene()->entityCount(), 0u);
+    EXPECT_TRUE(executor.canUndo());
     EXPECT_FALSE(executor.canRedo());
+}
+
+TEST(DocumentOperationTransactions, RemovalRestoresEntityWithoutGeometry) {
+    auto document = std::make_unique<Document>("reversible-empty-entity");
+    Document* documentPtr = document.get();
+    const EntityId emptyEntity = documentPtr->scene()->createEntity("Empty");
+    ASSERT_TRUE(emptyEntity);
+
+    DocumentSession session(std::move(document));
+    DocumentOperationExecutor executor;
+    executor.bind(&session);
+    ASSERT_TRUE(executor.execute(DocumentOperation::removeEntities({ emptyEntity }, true)));
+    ASSERT_EQ(documentPtr->scene()->entityCount(), 0u);
+
+    ASSERT_TRUE(executor.undo());
+    ASSERT_EQ(documentPtr->scene()->entityCount(), 1u);
+    documentPtr->scene()->forEachEntity([&](EntityId restored) {
+        EXPECT_EQ(documentPtr->scene()->name(restored)->value, "Empty");
+        EXPECT_FALSE(documentPtr->scene()->geometry(restored)->geometry);
+    });
+}
+
+TEST(DocumentOperationTransactions, BooleanUndoRestoresOperandsWithoutDiscardingHistory) {
+    ShapeBackendSelectionGuard backend;
+    auto document = std::make_unique<Document>("reversible-boolean");
+    Document* documentPtr = document.get();
+    DocumentEditor editor(*documentPtr);
+    const EntityId target = editor.createBody("Target", testShape(1.0));
+    const EntityId tool = editor.createBody("Tool", testShape(2.0));
+    ASSERT_TRUE(target);
+    ASSERT_TRUE(tool);
+
+    DocumentSession session(std::move(document));
+    DocumentOperationExecutor executor;
+    executor.bind(&session);
+    ASSERT_TRUE(
+            executor.execute(DocumentOperation::updateEntityTransforms({ { target, Mat4::translate({ 1, 0, 0 }) } })));
+    ASSERT_TRUE(
+            executor.execute(DocumentOperation::booleanSubtract(target, tool, mulan::modeling::BooleanOp::Difference)));
+    EXPECT_EQ(documentPtr->scene()->entityCount(), 1u);
+
+    ASSERT_TRUE(executor.undo());
+    ASSERT_EQ(documentPtr->scene()->entityCount(), 2u);
+    const auto* restoredTarget = dynamic_cast<const mulan::asset::BRepAsset*>(
+            documentPtr->assets()->asset(editor.geometryAssetForEntity(target)));
+    ASSERT_NE(restoredTarget, nullptr);
+    EXPECT_DOUBLE_EQ(restoredTarget->shape().bounds().min.x, 1.0);
+    ASSERT_TRUE(executor.canUndo());
+    ASSERT_TRUE(executor.undo());
+    const Mat4& restoredWorld = documentPtr->scene()->transform(target)->world;
+    EXPECT_DOUBLE_EQ(restoredWorld[3].x, 0.0);
+    EXPECT_DOUBLE_EQ(restoredWorld[3].y, 0.0);
+    EXPECT_DOUBLE_EQ(restoredWorld[3].z, 0.0);
 }
 
 TEST(DocumentOperationHistoryOwnership, SurvivesUnbindRebindAndExecutorReplacement) {

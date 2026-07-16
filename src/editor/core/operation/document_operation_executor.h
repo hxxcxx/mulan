@@ -35,6 +35,8 @@ private:
         bool changed = false;
         DocumentChangeKind changes = DocumentChangeKind::None;
         std::optional<DocumentOperation> undoOperation;
+        std::vector<EntityIdRemap> entityRemaps;
+        std::vector<AssetIdRemap> assetRemaps;
     };
 
     ApplyResult apply(DocumentOperation operation) const;

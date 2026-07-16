@@ -63,4 +63,63 @@ DocumentOperation DocumentOperation::removeEntities(std::vector<scene::EntityId>
     return DocumentOperation(RemoveEntitiesOperation{ std::move(entities), removeGeometryAssets });
 }
 
+DocumentOperation DocumentOperation::restoreEntities(RestoreEntitiesOperation snapshot) {
+    return DocumentOperation(std::move(snapshot));
+}
+
+void remapDocumentOperation(DocumentOperation& operation, std::span<const EntityIdRemap> entityRemaps,
+                            std::span<const AssetIdRemap> assetRemaps) {
+    const auto remapEntity = [&](scene::EntityId& entity) {
+        for (const auto& remap : entityRemaps) {
+            if (entity == remap.from) {
+                entity = remap.to;
+                return;
+            }
+        }
+    };
+    const auto remapAsset = [&](asset::AssetId& asset) {
+        for (const auto& remap : assetRemaps) {
+            if (asset == remap.from) {
+                asset = remap.to;
+                return;
+            }
+        }
+    };
+
+    std::visit(
+            [&](auto& value) {
+                using T = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<T, BooleanOperation>) {
+                    remapEntity(value.target);
+                    remapEntity(value.tool);
+                } else if constexpr (std::is_same_v<T, UpdateCurveOperation>) {
+                    remapEntity(value.entity);
+                } else if constexpr (std::is_same_v<T, UpdateGeometryOperation>) {
+                    remapEntity(value.request.entity);
+                    remapAsset(value.request.sourceGeometry);
+                    remapAsset(value.request.targetGeometry);
+                } else if constexpr (std::is_same_v<T, UpdateEntityTransformsOperation> ||
+                                     std::is_same_v<T, CopyEntityTransformsOperation>) {
+                    for (auto& update : value.updates)
+                        remapEntity(update.entity);
+                } else if constexpr (std::is_same_v<T, RemoveEntitiesOperation>) {
+                    for (auto& entity : value.entities)
+                        remapEntity(entity);
+                } else if constexpr (std::is_same_v<T, RestoreEntitiesOperation>) {
+                    for (auto& entity : value.entities) {
+                        remapEntity(entity.originalId);
+                        remapEntity(entity.parent);
+                        for (auto& child : entity.children)
+                            remapEntity(child);
+                        remapAsset(entity.geometry);
+                        for (auto& material : entity.materialSlots)
+                            remapAsset(material);
+                    }
+                    for (auto& geometry : value.geometryAssets)
+                        remapAsset(geometry.originalId);
+                }
+            },
+            operation.data());
+}
+
 }  // namespace mulan::editor

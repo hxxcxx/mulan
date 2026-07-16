@@ -55,6 +55,7 @@ public:
     bool selectSingle(EditorSelectionHit hit);
     bool selectSingle(EditorSelectionReference reference);
     bool clearSelection();
+    bool pruneInvalid(const io::Document& document);
     void clear();
 
 private:
