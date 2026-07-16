@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <optional>
 #include <random>
 #include <set>
 #include <unordered_map>
@@ -38,6 +39,12 @@ AABB3 boxAt(double x, double y = 0.0, double z = 0.0, double halfExtent = 0.5) {
                  Point3(x + halfExtent, y + halfExtent, z + halfExtent));
 }
 
+AABB3 expandedForQuery(const AABB3& bounds, double padding) {
+    if (padding <= 0.0)
+        return bounds;
+    return AABB3(bounds.min - Vec3(padding), bounds.max + Vec3(padding));
+}
+
 template <typename Tree>
 std::set<int> queryBounds(const Tree& tree, const AABB3& bounds) {
     std::set<int> result;
@@ -46,6 +53,182 @@ std::set<int> queryBounds(const Tree& tree, const AABB3& bounds) {
         return true;
     }));
     return result;
+}
+
+template <typename Tree>
+std::set<int> queryFrustum(const Tree& tree, const Frustum3& frustum, double padding = 0.0) {
+    std::set<int> result;
+    EXPECT_TRUE(tree.queryFrustum(frustum, padding, [&result](const TestId& id) {
+        result.insert(id.value);
+        return true;
+    }));
+    return result;
+}
+
+TEST(FrustumTests, TryFromViewProjectionRejectsNonFiniteAndDegenerateMatrices) {
+    const std::optional<Frustum3> identity = Frustum3::tryFromViewProjection(Mat4::identity());
+    ASSERT_TRUE(identity.has_value());
+    EXPECT_TRUE(identity->contains(Point3(0.0, 0.0, 0.0)));
+    EXPECT_FALSE(identity->contains(Point3(2.0, 0.0, 0.0)));
+
+    EXPECT_FALSE(Frustum3::tryFromViewProjection(Mat4(0.0)).has_value());
+
+    Mat4 singular = Mat4::identity();
+    singular[3][3] = 0.0;
+    EXPECT_FALSE(Frustum3::tryFromViewProjection(singular).has_value());
+
+    // 最后一行严格等于 -10 * row0 + 6 * row1。普通 double 消元会留下约
+    // 2.6e-18 的伪主元；该残差不能被误认为有效视锥，否则会错误裁掉原点。
+    const double dependentRows[4][4] = {
+        { 10.0, 6.0, 4.0, 3.0 }, { -8.0, -8.0, 10.0, -3.0 }, { 6.0, -2.0, -9.0, 4.0 }, { -148.0, -108.0, 20.0, -48.0 }
+    };
+    Mat4 numericallySingular(0.0);
+    for (int row = 0; row < 4; ++row) {
+        for (int column = 0; column < 4; ++column)
+            numericallySingular[column][row] = dependentRows[row][column];
+    }
+    EXPECT_FALSE(Frustum3::tryFromViewProjection(numericallySingular).has_value());
+
+    Mat4 notANumber = Mat4::identity();
+    notANumber[1][2] = std::numeric_limits<double>::quiet_NaN();
+    EXPECT_FALSE(Frustum3::tryFromViewProjection(notANumber).has_value());
+
+    Mat4 infinite = Mat4::identity();
+    infinite[2][0] = std::numeric_limits<double>::infinity();
+    EXPECT_FALSE(Frustum3::tryFromViewProjection(infinite).has_value());
+
+    // 大世界平移会让矩阵条件数很差，但不等于矩阵退化，不能因此关闭有效视锥。
+    const Mat4 largeWorldTranslation = Mat4::translate(Vec3(1.0e200, -2.0e200, 3.0e200));
+    EXPECT_TRUE(Frustum3::tryFromViewProjection(largeWorldTranslation).has_value());
+
+    // 兼容入口对非法矩阵采用保守 fallback，不因相机瞬时无效而误裁整个场景。
+    const Frustum3 fallback = Frustum3::fromViewProjection(Mat4(0.0));
+    EXPECT_TRUE(fallback.intersects(boxAt(1.0e6, -1.0e6, 1.0e6)));
+}
+
+TEST(FrustumTests, LargeWorldBoundaryUsesAConservativeRoundoffBound) {
+    constexpr double origin = 1.0e12;
+    const Mat4 viewProjection = Mat4::translate(Vec3(-origin, origin, -origin));
+    const std::optional<Frustum3> frustum = Frustum3::tryFromViewProjection(viewProjection);
+    ASSERT_TRUE(frustum.has_value());
+
+    // x = origin + 1 正好位于右裁剪面。平面距离在这里是约 1e12 的两个数相减，
+    // 固定世界容差不足以覆盖舍入误差，但边界对象必须保守保留。
+    const AABB3 boundary(Point3(origin + 1.0, -origin, origin), Point3(origin + 1.0, -origin, origin));
+    EXPECT_TRUE(frustum->intersects(boundary));
+
+    const AABB3 clearlyOutside(Point3(origin + 2.0, -origin, origin), Point3(origin + 3.0, -origin, origin));
+    EXPECT_FALSE(frustum->intersects(clearlyOutside));
+}
+
+TEST(DynamicBVHTests, FrustumQueryReturnsFixedExpectedSetAndStatistics) {
+    const std::optional<Frustum3> frustum = Frustum3::tryFromViewProjection(Mat4::identity());
+    ASSERT_TRUE(frustum.has_value());
+
+    TestTree tree;
+    ASSERT_TRUE(tree.insert(TestId(0), boxAt(0.0, 0.0, 0.0, 0.25)));
+    ASSERT_TRUE(tree.insert(TestId(1), boxAt(1.2, 0.0, 0.0, 0.25)));
+    ASSERT_TRUE(tree.insert(TestId(2), boxAt(1.5, 0.0, 0.0, 0.25)));
+    ASSERT_TRUE(tree.insert(TestId(3), boxAt(0.0, 0.0, -2.0, 0.25)));
+    ASSERT_TRUE(tree.validate());
+
+    TestTree::QueryStats stats;
+    std::set<int> actual;
+    EXPECT_TRUE(tree.queryFrustum(
+            *frustum, 0.0,
+            [&actual](const TestId& id) {
+                actual.insert(id.value);
+                return true;
+            },
+            &stats));
+    EXPECT_EQ(actual, (std::set<int>{ 0, 1 }));
+    EXPECT_EQ(stats.resultCount, actual.size());
+    EXPECT_EQ(stats.leafBoundsTestCount, actual.size());
+    EXPECT_GE(stats.nodeBoundsTestCount, stats.leafBoundsTestCount);
+}
+
+TEST(DynamicBVHTests, FrustumQueryMatchesRandomizedLinearReference) {
+    TestTree tree;
+    std::unordered_map<int, AABB3> reference;
+    constexpr int kObjectCount = 512;
+    tree.reserve(kObjectCount);
+
+    std::mt19937 random(0x8b17u);
+    std::uniform_real_distribution<double> centerDistribution(-100.0, 100.0);
+    std::uniform_real_distribution<double> objectExtentDistribution(0.05, 3.0);
+    for (int id = 0; id < kObjectCount; ++id) {
+        const Point3 center(centerDistribution(random), centerDistribution(random), centerDistribution(random));
+        const Vec3 extents(objectExtentDistribution(random), objectExtentDistribution(random),
+                           objectExtentDistribution(random));
+        const AABB3 bounds = AABB3::fromCenterExtents(center, extents);
+        ASSERT_TRUE(tree.insert(TestId(id), bounds));
+        reference.emplace(id, bounds);
+    }
+    ASSERT_TRUE(tree.validate());
+
+    std::uniform_real_distribution<double> frustumCenterDistribution(-70.0, 70.0);
+    std::uniform_real_distribution<double> frustumExtentDistribution(4.0, 35.0);
+    std::uniform_real_distribution<double> angleDistribution(-3.0, 3.0);
+    std::uniform_real_distribution<double> paddingDistribution(0.0, 2.0);
+    for (int queryIndex = 0; queryIndex < 96; ++queryIndex) {
+        const Vec3 center(frustumCenterDistribution(random), frustumCenterDistribution(random),
+                          frustumCenterDistribution(random));
+        const Vec3 extents(frustumExtentDistribution(random), frustumExtentDistribution(random),
+                           frustumExtentDistribution(random));
+        const Mat4 viewProjection = Mat4::scale(Vec3(1.0 / extents.x, 1.0 / extents.y, 1.0 / extents.z)) *
+                                    Mat4::rotationY(angleDistribution(random)) *
+                                    Mat4::rotationZ(angleDistribution(random)) * Mat4::translate(-center);
+        const std::optional<Frustum3> frustum = Frustum3::tryFromViewProjection(viewProjection);
+        ASSERT_TRUE(frustum.has_value()) << "query=" << queryIndex;
+        const double padding = queryIndex % 4 == 0 ? 0.0 : paddingDistribution(random);
+
+        std::set<int> expected;
+        for (const auto& [id, bounds] : reference) {
+            if (frustum->intersects(expandedForQuery(bounds, padding)))
+                expected.insert(id);
+        }
+        EXPECT_EQ(queryFrustum(tree, *frustum, padding), expected) << "query=" << queryIndex;
+    }
+}
+
+TEST(DynamicBVHTests, FrustumQueryAppliesPaddingAndNormalizesInvalidPadding) {
+    const std::optional<Frustum3> frustum = Frustum3::tryFromViewProjection(Mat4::identity());
+    ASSERT_TRUE(frustum.has_value());
+
+    TestTree tree;
+    ASSERT_TRUE(tree.insert(TestId(7), boxAt(1.2, 0.0, 0.0, 0.1)));
+    ASSERT_TRUE(tree.insert(TestId(8), boxAt(3.0, 0.0, 0.0, 0.1)));
+    ASSERT_GT(tree.height(), 0);
+    EXPECT_TRUE(queryFrustum(tree, *frustum, 0.0).empty());
+    EXPECT_EQ(queryFrustum(tree, *frustum, 0.11), std::set<int>{ 7 });
+    EXPECT_TRUE(queryFrustum(tree, *frustum, -1.0).empty());
+    EXPECT_TRUE(queryFrustum(tree, *frustum, std::numeric_limits<double>::quiet_NaN()).empty());
+}
+
+TEST(DynamicBVHTests, FrustumQuerySupportsEarlyCancellationWithCompleteStatistics) {
+    const std::optional<Frustum3> frustum = Frustum3::tryFromViewProjection(Mat4::identity());
+    ASSERT_TRUE(frustum.has_value());
+
+    TestTree tree;
+    for (int id = 0; id < 64; ++id) {
+        const double x = -0.7 + static_cast<double>(id % 8) * 0.2;
+        const double y = -0.7 + static_cast<double>(id / 8) * 0.2;
+        ASSERT_TRUE(tree.insert(TestId(id), boxAt(x, y, 0.0, 0.01)));
+    }
+
+    TestTree::QueryStats stats;
+    size_t visitCount = 0;
+    EXPECT_FALSE(tree.queryFrustum(
+            *frustum, 0.0,
+            [&visitCount](const TestId&) {
+                ++visitCount;
+                return false;
+            },
+            &stats));
+    EXPECT_EQ(visitCount, 1u);
+    EXPECT_EQ(stats.resultCount, 1u);
+    EXPECT_EQ(stats.leafBoundsTestCount, 1u);
+    EXPECT_GE(stats.nodeBoundsTestCount, 1u);
 }
 
 TEST(DynamicBVHTests, SupportsNonDefaultConstructibleIdsAndRejectsInvalidInput) {

@@ -41,6 +41,21 @@ struct RenderWorkloadStats {
     void reset() { *this = {}; }
 };
 
+/// 单个 drawable 在当前选择/悬停状态下的视觉匹配结果。
+struct RenderVisualMatch {
+    bool selected = false;
+    bool hovered = false;
+};
+
+/**
+ * 计算 drawable 的选择与悬停语义。
+ *
+ * RenderWorkload 与增量 RenderCompiler 共用此入口，避免对象级缓存引入第二套
+ * sub-object 匹配规则。defaultSelected 仅在没有显式 SelectionVisualState 时生效。
+ */
+RenderVisualMatch renderVisualMatch(RenderBucket bucket, PickId pickId, size_t sourceDrawableIndex,
+                                    bool defaultSelected, const RenderOptions& options);
+
 class RenderWorkload {
 public:
     void build(const RenderWorldSnapshot& snapshot, const RenderOptions& options);

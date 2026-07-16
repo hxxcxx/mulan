@@ -7,7 +7,9 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 
 namespace mulan::engine {
@@ -23,6 +25,15 @@ struct RenderHandle {
 
     friend constexpr bool operator==(RenderHandle lhs, RenderHandle rhs) {
         return lhs.index == rhs.index && lhs.generation == rhs.generation;
+    }
+};
+
+/// RenderHandle 的通用哈希器；generation 参与哈希，避免复用槽位时混淆新旧句柄。
+template <typename Tag>
+struct RenderHandleHash {
+    size_t operator()(RenderHandle<Tag> handle) const noexcept {
+        const uint64_t value = (static_cast<uint64_t>(handle.generation) << 32u) | handle.index;
+        return std::hash<uint64_t>{}(value);
     }
 };
 

@@ -14,6 +14,8 @@ namespace mulan::engine {
 class RenderWorld {
 public:
     RenderWorld();
+    RenderWorld(const RenderWorld&) = delete;
+    RenderWorld& operator=(const RenderWorld&) = delete;
 
     GeometryHandle addGeometry(RenderGeometryDesc desc);
     RenderMaterialHandle addMaterial(RenderMaterialDesc desc);
@@ -33,7 +35,10 @@ public:
     size_t objectCount() const { return storage_.objects.size(); }
 
 private:
+    void advanceRevision();
+
     RenderWorldStorage storage_;
+    RenderWorldVersion version_;
     uint32_t next_geometry_index_ = 0;
     uint32_t next_material_index_ = 0;
     uint32_t next_object_index_ = 0;

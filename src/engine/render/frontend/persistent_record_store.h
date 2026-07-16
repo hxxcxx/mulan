@@ -142,7 +142,90 @@ public:
         return root_ == other.root_ && extent_ == other.extent_;
     }
 
+    /// 按索引升序枚举 previous 与当前版本间的差异；共享子树会被直接剪枝。
+    /// visitor(index, previousRecord, currentRecord)，增加/删除分别以空指针表示缺失端。
+    template <typename Visitor>
+    void forEachDifference(const PersistentRecordStore& previous, Visitor&& visitor) const {
+        visitRootDifferences(previous.root_, root_, visitor);
+    }
+
 private:
+    template <typename Visitor>
+    static void visitLeafDifferences(const std::shared_ptr<const Leaf>& previous,
+                                     const std::shared_ptr<const Leaf>& current, uint32_t prefix, Visitor& visitor) {
+        if (previous == current) {
+            return;
+        }
+        for (uint32_t i0 = 0; i0 < kRadix; ++i0) {
+            const auto& previousRecord = previous ? previous->records[i0] : emptyRecord();
+            const auto& currentRecord = current ? current->records[i0] : emptyRecord();
+            if (previousRecord != currentRecord) {
+                visitor(prefix | i0, previousRecord.get(), currentRecord.get());
+            }
+        }
+    }
+
+    template <typename Visitor>
+    static void visitBranch1Differences(const std::shared_ptr<const Branch1>& previous,
+                                        const std::shared_ptr<const Branch1>& current, uint32_t prefix,
+                                        Visitor& visitor) {
+        if (previous == current) {
+            return;
+        }
+        for (uint32_t i1 = 0; i1 < kRadix; ++i1) {
+            const auto& previousLeaf = previous ? previous->children[i1] : emptyLeaf();
+            const auto& currentLeaf = current ? current->children[i1] : emptyLeaf();
+            visitLeafDifferences(previousLeaf, currentLeaf, prefix | (i1 << 8u), visitor);
+        }
+    }
+
+    template <typename Visitor>
+    static void visitBranch2Differences(const std::shared_ptr<const Branch2>& previous,
+                                        const std::shared_ptr<const Branch2>& current, uint32_t prefix,
+                                        Visitor& visitor) {
+        if (previous == current) {
+            return;
+        }
+        for (uint32_t i2 = 0; i2 < kRadix; ++i2) {
+            const auto& previousBranch1 = previous ? previous->children[i2] : emptyBranch1();
+            const auto& currentBranch1 = current ? current->children[i2] : emptyBranch1();
+            visitBranch1Differences(previousBranch1, currentBranch1, prefix | (i2 << 16u), visitor);
+        }
+    }
+
+    template <typename Visitor>
+    static void visitRootDifferences(const std::shared_ptr<const Root>& previous,
+                                     const std::shared_ptr<const Root>& current, Visitor& visitor) {
+        if (previous == current) {
+            return;
+        }
+        for (uint32_t i3 = 0; i3 < kRadix; ++i3) {
+            const auto& previousBranch2 = previous ? previous->children[i3] : emptyBranch2();
+            const auto& currentBranch2 = current ? current->children[i3] : emptyBranch2();
+            visitBranch2Differences(previousBranch2, currentBranch2, i3 << 24u, visitor);
+        }
+    }
+
+    static const std::shared_ptr<const Record>& emptyRecord() {
+        static const std::shared_ptr<const Record> empty;
+        return empty;
+    }
+
+    static const std::shared_ptr<const Leaf>& emptyLeaf() {
+        static const std::shared_ptr<const Leaf> empty;
+        return empty;
+    }
+
+    static const std::shared_ptr<const Branch1>& emptyBranch1() {
+        static const std::shared_ptr<const Branch1> empty;
+        return empty;
+    }
+
+    static const std::shared_ptr<const Branch2>& emptyBranch2() {
+        static const std::shared_ptr<const Branch2> empty;
+        return empty;
+    }
+
     uint64_t nextIndex(uint64_t start) const {
         if (!root_ || start >= extent_)
             return extent_;

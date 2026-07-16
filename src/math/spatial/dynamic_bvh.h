@@ -15,6 +15,7 @@
 
 #include "../algo/intersect.h"
 #include "../geom/aabb.h"
+#include "../geom/frustum.h"
 
 #include <algorithm>
 #include <cmath>
@@ -208,6 +209,51 @@ public:
             const Node& node = nodes_[index];
             ++local.nodeBoundsTestCount;
             if (!node.bounds.intersects(query))
+                continue;
+
+            if (node.isLeaf()) {
+                ++local.leafBoundsTestCount;
+                ++local.resultCount;
+                if (!static_cast<bool>(std::invoke(visitor, *node.id))) {
+                    if (stats)
+                        *stats = local;
+                    return false;
+                }
+                continue;
+            }
+            stack.push_back(node.right);
+            stack.push_back(node.left);
+        }
+
+        if (stats)
+            *stats = local;
+        return true;
+    }
+
+    /**
+     * 视锥宽阶段查询。padding 统一施加于每层节点 AABB，而非只膨胀叶节点，确保父节点
+     * 不会提前剪掉本应由容差命中的叶节点。负值和非有限 padding 按 0 处理；visitor
+     * 的统计与提前终止语义和 queryBounds 一致。
+     */
+    template <typename Visitor>
+    bool queryFrustum(const Frustum3& frustum, double padding, Visitor&& visitor, QueryStats* stats = nullptr) const {
+        QueryStats local;
+        if (root_ == kInvalidIndex) {
+            if (stats)
+                *stats = local;
+            return true;
+        }
+
+        const double safePadding = std::isfinite(padding) && padding > 0.0 ? padding : 0.0;
+        std::vector<NodeIndex> stack;
+        stack.reserve(static_cast<size_t>(height()) + 1u);
+        stack.push_back(root_);
+        while (!stack.empty()) {
+            const NodeIndex index = stack.back();
+            stack.pop_back();
+            const Node& node = nodes_[index];
+            ++local.nodeBoundsTestCount;
+            if (!frustum.intersects(expanded(node.bounds, safePadding)))
                 continue;
 
             if (node.isLeaf()) {

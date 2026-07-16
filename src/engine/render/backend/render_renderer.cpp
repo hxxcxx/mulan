@@ -231,14 +231,15 @@ void RenderRenderer::clearCompiledCommands() {
         highlight_stage_->setSurfaceDrawCommands(emptyCommands);
         highlight_stage_->setEdgeDrawCommands(emptyCommands);
     }
-    scene_workload_.clear();
-    overlay_workload_.clear();
     scene_compiler_.clear();
     overlay_compiler_.clear();
     surface_commands_.clear();
     edge_commands_.clear();
     highlight_surface_commands_.clear();
     highlight_edge_commands_.clear();
+    merged_scene_command_revision_ = 0;
+    merged_overlay_command_revision_ = 0;
+    merged_commands_valid_ = false;
 }
 
 ResultVoid RenderRenderer::compile(const RenderRequest& request) {
@@ -247,16 +248,6 @@ ResultVoid RenderRenderer::compile(const RenderRequest& request) {
         return {};
     }
 
-    if (request.sceneWorld) {
-        scene_workload_.build(*request.sceneWorld, request.options);
-    } else {
-        scene_workload_.clear();
-    }
-    if (request.overlayWorld) {
-        overlay_workload_.build(*request.overlayWorld, request.options);
-    } else {
-        overlay_workload_.clear();
-    }
     if (face_stage_) {
         face_stage_->setSurfaceTechnique(request.options.surfaceTechnique);
     }
@@ -274,24 +265,27 @@ ResultVoid RenderRenderer::compile(const RenderRequest& request) {
         .highlightEdgePipeline = highlight_stage_ ? highlight_stage_->edgePipeline() : nullptr,
     };
     if (request.sceneWorld) {
-        scene_compiler_.compile(*request.sceneWorld, scene_workload_, compileContext);
+        auto compiled =
+                scene_compiler_.compile(*request.sceneWorld, request.options, compileContext, &request.view, true);
+        if (!compiled)
+            return compiled;
     } else {
         scene_compiler_.clear();
     }
     if (request.overlayWorld) {
-        overlay_compiler_.compile(*request.overlayWorld, overlay_workload_, compileContext);
+        auto compiled =
+                overlay_compiler_.compile(*request.overlayWorld, request.options, compileContext, nullptr, false);
+        if (!compiled)
+            return compiled;
     } else {
         overlay_compiler_.clear();
     }
 
-    const auto persistentResourcesMissing = [](const RenderCompilerStats& stats) {
-        return stats.missingGpuGeometryCount != 0 || stats.missingGpuTextureCount != 0;
-    };
-    if (persistentResourcesMissing(scene_compiler_.lastStats()) ||
-        persistentResourcesMissing(overlay_compiler_.lastStats())) {
-        clearCompiledCommands();
-        return std::unexpected(
-                Error::make(ErrorCode::NotFound, "Frame references persistent resources that have not been prepared."));
+    const uint64_t sceneCommandRevision = scene_compiler_.commandRevision();
+    const uint64_t overlayCommandRevision = overlay_compiler_.commandRevision();
+    if (merged_commands_valid_ && merged_scene_command_revision_ == sceneCommandRevision &&
+        merged_overlay_command_revision_ == overlayCommandRevision) {
+        return {};
     }
 
     const auto mergeCommands = [](std::vector<MeshDrawCommand>& destination,
@@ -326,6 +320,9 @@ ResultVoid RenderRenderer::compile(const RenderRequest& request) {
                                                       ? std::span<const MeshDrawCommand>(highlight_edge_commands_)
                                                       : emptyCommands);
     }
+    merged_scene_command_revision_ = sceneCommandRevision;
+    merged_overlay_command_revision_ = overlayCommandRevision;
+    merged_commands_valid_ = true;
     return {};
 }
 

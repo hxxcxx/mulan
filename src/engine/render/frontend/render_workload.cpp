@@ -5,17 +5,13 @@
 namespace mulan::engine {
 namespace {
 
-struct VisualMatch {
-    bool selected = false;
-    bool hovered = false;
-};
-
 bool targetRoleMatches(const SelectionVisualTarget& target, SelectionVisualRole role) {
     return target.role == role;
 }
 
-bool targetMatchesDrawable(const SelectionVisualTarget& target, const RenderWorkItem& item) {
-    if (!target.valid() || target.pickId != item.pickId) {
+bool targetMatchesDrawable(const SelectionVisualTarget& target, RenderBucket bucket, PickId pickId,
+                           size_t sourceDrawableIndex) {
+    if (!target.valid() || target.pickId != pickId) {
         return false;
     }
 
@@ -27,13 +23,13 @@ bool targetMatchesDrawable(const SelectionVisualTarget& target, const RenderWork
     case SelectionVisualDomain::CurveElement:
     case SelectionVisualDomain::CurveSegment:
     case SelectionVisualDomain::CurveVertex:
-        if (renderBucketPass(item.bucket) != RenderPassKind::Edge) {
+        if (renderBucketPass(bucket) != RenderPassKind::Edge) {
             return false;
         }
         if (target.hasSourceDrawableIndex) {
-            return item.sourceDrawableIndex == target.sourceDrawableIndex;
+            return sourceDrawableIndex == target.sourceDrawableIndex;
         }
-        return target.hasPrimitiveIndex && item.sourceDrawableIndex == target.primitiveIndex;
+        return target.hasPrimitiveIndex && sourceDrawableIndex == target.primitiveIndex;
     case SelectionVisualDomain::MeshFace:
     case SelectionVisualDomain::MeshEdge:
     case SelectionVisualDomain::MeshVertex:
@@ -48,24 +44,6 @@ bool targetMatchesDrawable(const SelectionVisualTarget& target, const RenderWork
     case SelectionVisualDomain::Entity: return false;
     }
     return false;
-}
-
-VisualMatch visualMatchForItem(const RenderWorkItem& item, const RenderOptions& options) {
-    VisualMatch match;
-    if (options.selectionVisuals.active()) {
-        for (const SelectionVisualTarget& target : options.selectionVisuals.targets()) {
-            if (!targetMatchesDrawable(target, item)) {
-                continue;
-            }
-            match.selected = match.selected || targetRoleMatches(target, SelectionVisualRole::Selected);
-            match.hovered = match.hovered || targetRoleMatches(target, SelectionVisualRole::Hovered);
-        }
-        return match;
-    }
-
-    match.selected = item.selected;
-    match.hovered = options.hoveredPickId.valid() && item.pickId == options.hoveredPickId;
-    return match;
 }
 
 bool bucketEnabled(const RenderWorkItem& item, const RenderOptions& options, RenderWorkloadStats& stats) {
@@ -98,6 +76,25 @@ bool bucketEnabled(const RenderWorkItem& item, const RenderOptions& options, Ren
 
 }  // namespace
 
+RenderVisualMatch renderVisualMatch(RenderBucket bucket, PickId pickId, size_t sourceDrawableIndex,
+                                    bool defaultSelected, const RenderOptions& options) {
+    RenderVisualMatch match;
+    if (options.selectionVisuals.active()) {
+        for (const SelectionVisualTarget& target : options.selectionVisuals.targets()) {
+            if (!targetMatchesDrawable(target, bucket, pickId, sourceDrawableIndex)) {
+                continue;
+            }
+            match.selected = match.selected || targetRoleMatches(target, SelectionVisualRole::Selected);
+            match.hovered = match.hovered || targetRoleMatches(target, SelectionVisualRole::Hovered);
+        }
+        return match;
+    }
+
+    match.selected = defaultSelected;
+    match.hovered = options.hoveredPickId.valid() && pickId == options.hoveredPickId;
+    return match;
+}
+
 void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOptions& options) {
     clear();
 
@@ -116,7 +113,8 @@ void RenderWorkload::build(const RenderWorldSnapshot& snapshot, const RenderOpti
             item.sourceDrawableIndex = drawable.sourceDrawableIndex;
             item.selected = object.desc.selected;
 
-            const VisualMatch visualMatch = visualMatchForItem(item, options);
+            const RenderVisualMatch visualMatch =
+                    renderVisualMatch(item.bucket, item.pickId, item.sourceDrawableIndex, item.selected, options);
             item.selected = visualMatch.selected;
             item.hovered = visualMatch.hovered;
 

@@ -52,6 +52,16 @@ graphics::Mesh makeWireMesh(uint8_t marker = 0) {
     return mesh;
 }
 
+struct PersistentStoreTestRecord {
+    uint32_t value = 0;
+};
+
+struct PersistentStoreDifference {
+    uint32_t index = 0;
+    const PersistentStoreTestRecord* previous = nullptr;
+    const PersistentStoreTestRecord* current = nullptr;
+};
+
 TEST(RenderResourcePrepareListTests, MergeUsesLastOperationForSameGeometryKey) {
     const engine::AssetGpuKey key = engine::makeAssetGpuKey(42);
 
@@ -1124,6 +1134,185 @@ TEST(RenderWorldSnapshotTests, PublishedSnapshotRemainsImmutableAcrossSparseUpda
     EXPECT_NE(std::ranges::find_if(current.objects(), [&](const auto& record) { return record.id == added; }),
               current.objects().end());
     EXPECT_EQ(current.bounds().max.x, 5.0);
+}
+
+TEST(RenderWorldSnapshotTests, WorldVersionsAreUniqueAndAdvanceOnlyForSuccessfulMutations) {
+    engine::RenderWorld world;
+    engine::RenderWorld otherWorld;
+    const engine::RenderWorldVersion initial = world.snapshot().version();
+    const engine::RenderWorldVersion otherInitial = otherWorld.snapshot().version();
+    EXPECT_NE(initial.world, 0u);
+    EXPECT_NE(initial.world, otherInitial.world);
+    EXPECT_EQ(initial.revision, 0u);
+
+    uint64_t expectedRevision = initial.revision;
+    const engine::GeometryHandle geometry = world.addGeometry({});
+    EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
+    const engine::RenderMaterialHandle material = world.addMaterial({});
+    EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
+    engine::RenderObjectDesc desc;
+    const engine::RenderObjectId object = world.addObject(desc);
+    EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
+
+    const engine::GeometryHandle staleGeometry{ .index = geometry.index, .generation = geometry.generation + 1u };
+    const engine::RenderMaterialHandle staleMaterial{ .index = material.index, .generation = material.generation + 1u };
+    const engine::RenderObjectId staleObject{ .index = object.index, .generation = object.generation + 1u };
+    const engine::RenderWorldVersion beforeFailedUpdate = world.snapshot().version();
+    EXPECT_FALSE(world.updateGeometry(staleGeometry, {}));
+    EXPECT_FALSE(world.updateMaterial(staleMaterial, {}));
+    EXPECT_FALSE(world.updateObject(staleObject, desc));
+    EXPECT_EQ(world.snapshot().version(), beforeFailedUpdate);
+
+    ASSERT_TRUE(world.updateGeometry(geometry, {}));
+    EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
+    ASSERT_TRUE(world.updateMaterial(material, {}));
+    EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
+    desc.visible = false;
+    ASSERT_TRUE(world.updateObject(object, desc));
+    EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
+
+    const engine::RenderWorldVersion beforeFailedRemove = world.snapshot().version();
+    EXPECT_FALSE(world.removeGeometry(staleGeometry));
+    EXPECT_FALSE(world.removeMaterial(staleMaterial));
+    EXPECT_FALSE(world.removeObject(staleObject));
+    EXPECT_EQ(world.snapshot().version(), beforeFailedRemove);
+    ASSERT_TRUE(world.removeGeometry(geometry));
+    EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
+    ASSERT_TRUE(world.removeMaterial(material));
+    EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
+    ASSERT_TRUE(world.removeObject(object));
+    EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
+
+    const engine::RenderWorldVersion beforeClear = world.snapshot().version();
+    world.clear();
+    EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
+    EXPECT_EQ(expectedRevision, beforeClear.revision + 1u);
+}
+
+TEST(RenderWorldSnapshotTests, DifferenceWrappersReportAddsUpdatesAndRemovalsInIndexOrder) {
+    engine::RenderWorld world;
+    engine::RenderGeometryDesc geometryDesc;
+    const engine::GeometryHandle updatedGeometry = world.addGeometry(geometryDesc);
+    const engine::RenderMaterialHandle removedMaterial = world.addMaterial({});
+    engine::RenderObjectDesc objectDesc;
+    const engine::RenderObjectId updatedObject = world.addObject(objectDesc);
+    const engine::RenderObjectId removedObject = world.addObject({});
+    const engine::RenderWorldSnapshot previous = world.snapshot();
+
+    geometryDesc.empty = false;
+    ASSERT_TRUE(world.updateGeometry(updatedGeometry, geometryDesc));
+    const engine::GeometryHandle addedGeometry = world.addGeometry({});
+    ASSERT_TRUE(world.removeMaterial(removedMaterial));
+    const engine::RenderMaterialHandle addedMaterial = world.addMaterial({});
+    objectDesc.visible = false;
+    ASSERT_TRUE(world.updateObject(updatedObject, objectDesc));
+    ASSERT_TRUE(world.removeObject(removedObject));
+    const engine::RenderObjectId addedObject = world.addObject({});
+    const engine::RenderWorldSnapshot current = world.snapshot();
+
+    std::vector<uint32_t> geometryIndices;
+    current.forEachGeometryDifference(previous, [&](uint32_t index, const engine::RenderGeometryRecord* oldRecord,
+                                                    const engine::RenderGeometryRecord* newRecord) {
+        geometryIndices.push_back(index);
+        if (index == updatedGeometry.index) {
+            ASSERT_NE(oldRecord, nullptr);
+            ASSERT_NE(newRecord, nullptr);
+            EXPECT_TRUE(oldRecord->desc.empty);
+            EXPECT_FALSE(newRecord->desc.empty);
+        } else {
+            EXPECT_EQ(index, addedGeometry.index);
+            EXPECT_EQ(oldRecord, nullptr);
+            ASSERT_NE(newRecord, nullptr);
+            EXPECT_EQ(newRecord->handle, addedGeometry);
+        }
+    });
+    EXPECT_EQ(geometryIndices, (std::vector<uint32_t>{ updatedGeometry.index, addedGeometry.index }));
+
+    std::vector<uint32_t> materialIndices;
+    current.forEachMaterialDifference(previous, [&](uint32_t index, const engine::RenderMaterialRecord* oldRecord,
+                                                    const engine::RenderMaterialRecord* newRecord) {
+        materialIndices.push_back(index);
+        if (index == removedMaterial.index) {
+            ASSERT_NE(oldRecord, nullptr);
+            EXPECT_EQ(newRecord, nullptr);
+        } else {
+            EXPECT_EQ(index, addedMaterial.index);
+            EXPECT_EQ(oldRecord, nullptr);
+            ASSERT_NE(newRecord, nullptr);
+            EXPECT_EQ(newRecord->handle, addedMaterial);
+        }
+    });
+    EXPECT_EQ(materialIndices, (std::vector<uint32_t>{ removedMaterial.index, addedMaterial.index }));
+
+    std::vector<uint32_t> objectIndices;
+    current.forEachObjectDifference(previous, [&](uint32_t index, const engine::RenderObjectRecord* oldRecord,
+                                                  const engine::RenderObjectRecord* newRecord) {
+        objectIndices.push_back(index);
+        if (index == updatedObject.index) {
+            ASSERT_NE(oldRecord, nullptr);
+            ASSERT_NE(newRecord, nullptr);
+            EXPECT_TRUE(oldRecord->desc.visible);
+            EXPECT_FALSE(newRecord->desc.visible);
+        } else if (index == removedObject.index) {
+            ASSERT_NE(oldRecord, nullptr);
+            EXPECT_EQ(newRecord, nullptr);
+        } else {
+            EXPECT_EQ(index, addedObject.index);
+            EXPECT_EQ(oldRecord, nullptr);
+            ASSERT_NE(newRecord, nullptr);
+            EXPECT_EQ(newRecord->id, addedObject);
+        }
+    });
+    EXPECT_EQ(objectIndices, (std::vector<uint32_t>{ updatedObject.index, removedObject.index, addedObject.index }));
+
+    ASSERT_NE(previous.object(updatedObject), nullptr);
+    ASSERT_NE(current.object(updatedObject), nullptr);
+    EXPECT_TRUE(previous.object(updatedObject)->desc.visible);
+    EXPECT_FALSE(current.object(updatedObject)->desc.visible);
+    EXPECT_EQ(current.object(removedObject), nullptr);
+    EXPECT_NE(current.object(addedObject), nullptr);
+    const engine::RenderObjectId staleObject{ .index = addedObject.index, .generation = addedObject.generation + 1u };
+    EXPECT_EQ(current.object(staleObject), nullptr);
+
+    size_t identicalDifferenceCount = 0;
+    current.forEachObjectDifference(current, [&](uint32_t, const auto*, const auto*) { ++identicalDifferenceCount; });
+    EXPECT_EQ(identicalDifferenceCount, 0u);
+}
+
+TEST(PersistentRecordStoreTests, DifferenceTraversalCrossesEveryRadixBranchAndPrunesStableRecords) {
+    engine::detail::PersistentRecordStore<PersistentStoreTestRecord> store;
+    store.set(0x000000ffu, { 1 });
+    store.set(0x00000100u, { 2 });
+    store.set(0x00010000u, { 3 });
+    store.set(0x01000000u, { 4 });
+    const auto previous = store;
+
+    store.set(0x000000ffu, { 11 });
+    ASSERT_TRUE(store.erase(0x00000100u));
+    store.set(0x00010001u, { 5 });
+    store.set(0x02000000u, { 6 });
+
+    std::vector<PersistentStoreDifference> differences;
+    store.forEachDifference(previous, [&](uint32_t index, const PersistentStoreTestRecord* oldRecord,
+                                          const PersistentStoreTestRecord* newRecord) {
+        differences.push_back({ index, oldRecord, newRecord });
+    });
+
+    ASSERT_EQ(differences.size(), 4u);
+    EXPECT_EQ(differences[0].index, 0x000000ffu);
+    ASSERT_NE(differences[0].previous, nullptr);
+    ASSERT_NE(differences[0].current, nullptr);
+    EXPECT_EQ(differences[0].previous->value, 1u);
+    EXPECT_EQ(differences[0].current->value, 11u);
+    EXPECT_EQ(differences[1].index, 0x00000100u);
+    ASSERT_NE(differences[1].previous, nullptr);
+    EXPECT_EQ(differences[1].current, nullptr);
+    EXPECT_EQ(differences[2].index, 0x00010001u);
+    EXPECT_EQ(differences[2].previous, nullptr);
+    ASSERT_NE(differences[2].current, nullptr);
+    EXPECT_EQ(differences[3].index, 0x02000000u);
+    EXPECT_EQ(differences[3].previous, nullptr);
+    ASSERT_NE(differences[3].current, nullptr);
 }
 
 }  // namespace

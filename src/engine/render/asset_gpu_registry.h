@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include "asset_gpu_change.h"
 #include "asset_gpu_key.h"
 #include "render_geometry.h"
 #include "../rhi/texture.h"
@@ -26,6 +27,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
@@ -43,7 +45,9 @@ struct TextureLoadOptions {
 
 class AssetGpuRegistry {
 public:
-    explicit AssetGpuRegistry(RHIDevice& device);
+    static constexpr size_t DefaultChangeJournalCapacity = 4096;
+
+    explicit AssetGpuRegistry(RHIDevice& device, size_t changeJournalCapacity = DefaultChangeJournalCapacity);
 
     AssetGpuRegistry(const AssetGpuRegistry&) = delete;
     AssetGpuRegistry& operator=(const AssetGpuRegistry&) = delete;
@@ -83,6 +87,16 @@ public:
     /// 清空全部资产派生 GPU 资源（文档切换时调用）。
     void clear();
 
+    /// 返回可观察资源集的当前版本；真实新增、替换、退役或清空时递增。
+    uint64_t revision() const noexcept { return revision_; }
+
+    /// 返回 journal 当前末端；两个 compiler 应分别保存自己的 cursor。
+    AssetGpuChangeCursor currentChangeCursor() const noexcept { return { change_domain_, change_revision_ }; }
+    /// 非破坏读取 cursor 之后的结构化资源变化；日志缺口会明确要求全量恢复。
+    AssetGpuChangeSet readChanges(const AssetGpuChangeCursor& cursor) const;
+    AssetGpuChangeDomain changeDomain() const noexcept { return change_domain_; }
+    size_t changeJournalCapacity() const noexcept { return change_journal_capacity_; }
+
     size_t geometryCount() const { return geometries_.size(); }
     size_t textureCount() const { return textures_.size(); }
 
@@ -105,6 +119,8 @@ private:
     Result<GpuGeometry> createGpuBuffer(const graphics::Mesh& mesh);
     ResultVoid retireGeometryResource(GpuGeometry geometry);
     ResultVoid retireTextureResource(std::unique_ptr<Texture> texture);
+    void advanceRevision() noexcept;
+    void publishChange(AssetGpuChangeKind kind, RenderResourceKey key = {});
     static std::string textureKey(RenderResourceKey resourceKey, const TextureLoadOptions& options);
     static TextureFormat toRHITextureFormat(core::PixelFormat pixelFmt, bool sRGB);
 
@@ -112,6 +128,11 @@ private:
                                                       bool generateMips);
 
     RHIDevice& device_;
+    uint64_t revision_ = 1;
+    size_t change_journal_capacity_ = DefaultChangeJournalCapacity;
+    AssetGpuChangeDomain change_domain_ = 0;
+    AssetGpuChangeRevision change_revision_ = 0;
+    std::deque<AssetGpuChange> change_journal_;
     std::unordered_map<RenderResourceKey, GpuGeometry> geometries_;
     std::unordered_map<std::string, GpuTextureResource> textures_;
     std::optional<GpuGeometry> retirement_failure_keepalive_;

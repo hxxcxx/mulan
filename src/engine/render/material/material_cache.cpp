@@ -23,6 +23,7 @@ MaterialHandle MaterialCache::registerMaterial(Material material) {
     const auto handle = materials_.size();
     name_to_index_[material.name] = handle;
     materials_.push_back(std::move(material));
+    advanceRevision();
     return handle;
 }
 
@@ -36,6 +37,7 @@ MaterialHandle MaterialCache::registerMaterial(const std::string& name, Material
             return handle;
         }
         materials_[handle] = std::move(material);
+        advanceRevision();
         return handle;
     }
     // 新增
@@ -46,6 +48,7 @@ MaterialHandle MaterialCache::registerMaterial(const std::string& name, Material
     const auto handle = materials_.size();
     name_to_index_[name] = handle;
     materials_.push_back(std::move(material));
+    advanceRevision();
     return handle;
 }
 
@@ -89,6 +92,7 @@ bool MaterialCache::updateMaterial(MaterialHandle handle, const Material& materi
     if (materials_[handle] == material)
         return true;
     materials_[handle] = material;
+    advanceRevision();
     return true;
 }
 
@@ -100,6 +104,7 @@ bool MaterialCache::updateMaterial(const std::string& name, const Material& mate
     if (materials_[handle] == material)
         return true;
     materials_[handle] = material;
+    advanceRevision();
     return true;
 }
 
@@ -111,14 +116,33 @@ bool MaterialCache::remove(MaterialHandle handle) {
         return false;
     materials_.erase(materials_.begin() + static_cast<std::ptrdiff_t>(handle));
     rebuildNameIndex();
+    advanceRevision();
+    advanceLayoutRevision();
     return true;
 }
 
 void MaterialCache::clear() {
     // 保留默认材质（前3个）
     size_t keepCount = std::min(materials_.size(), size_t(3));
+    if (materials_.size() == keepCount) {
+        return;
+    }
     materials_.erase(materials_.begin() + static_cast<std::ptrdiff_t>(keepCount), materials_.end());
     rebuildNameIndex();
+    advanceRevision();
+    advanceLayoutRevision();
+}
+
+void MaterialCache::advanceRevision() noexcept {
+    if (++revision_ == 0) {
+        ++revision_;
+    }
+}
+
+void MaterialCache::advanceLayoutRevision() noexcept {
+    if (++layout_revision_ == 0) {
+        ++layout_revision_;
+    }
 }
 
 void MaterialCache::rebuildNameIndex() {

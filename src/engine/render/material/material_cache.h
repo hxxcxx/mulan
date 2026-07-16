@@ -83,6 +83,12 @@ public:
     /// 清空所有材质（保留默认材质）
     void clear();
 
+    /// 返回可观察材质集的当前版本；真实新增、替换、更新、移除或清空时递增。
+    uint64_t revision() const noexcept { return revision_; }
+
+    /// 仅在已有 MaterialHandle 的数值映射可能改变时递增，供 DrawCommand 缓存失效。
+    uint64_t layoutRevision() const noexcept { return layout_revision_; }
+
     /// 材质数量
     size_t size() const { return materials_.size(); }
 
@@ -93,8 +99,12 @@ public:
     static constexpr size_t kMaxMaterials = static_cast<size_t>(std::numeric_limits<uint32_t>::max());
 
 private:
+    void advanceRevision() noexcept;
+    void advanceLayoutRevision() noexcept;
     void rebuildNameIndex();
 
+    uint64_t revision_ = 1;
+    uint64_t layout_revision_ = 1;
     std::vector<Material> materials_;
     std::unordered_map<std::string, size_t> name_to_index_;
 };

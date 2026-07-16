@@ -16,6 +16,78 @@
 namespace mulan::engine {
 namespace {
 
+TEST(MaterialCacheTests, RevisionChangesOnlyForRealRegistrationAndUpdates) {
+    MaterialCache cache;
+    EXPECT_NE(cache.revision(), 0u);
+    const uint64_t initialLayoutRevision = cache.layoutRevision();
+
+    const uint64_t initialRevision = cache.revision();
+    Material material = Material::defaultPBR();
+    material.roughness = 0.25;
+    const MaterialHandle handle = cache.registerMaterial("revision-material", material);
+    ASSERT_NE(handle, kInvalidMaterialHandle);
+    EXPECT_EQ(cache.revision(), initialRevision + 1);
+
+    const uint64_t addedRevision = cache.revision();
+    EXPECT_EQ(cache.registerMaterial("revision-material", material), handle);
+    EXPECT_EQ(cache.revision(), addedRevision);
+
+    material.roughness = 0.75;
+    EXPECT_EQ(cache.registerMaterial("revision-material", material), handle);
+    EXPECT_EQ(cache.revision(), addedRevision + 1);
+
+    const uint64_t replacedRevision = cache.revision();
+    ASSERT_NE(cache.find(handle), nullptr);
+    const Material current = *cache.find(handle);
+    EXPECT_TRUE(cache.updateMaterial(handle, current));
+    EXPECT_TRUE(cache.updateMaterial("revision-material", current));
+    EXPECT_EQ(cache.revision(), replacedRevision);
+
+    Material updated = current;
+    updated.metallic = 0.5;
+    EXPECT_TRUE(cache.updateMaterial(handle, updated));
+    EXPECT_EQ(cache.revision(), replacedRevision + 1);
+
+    const uint64_t updatedRevision = cache.revision();
+    EXPECT_FALSE(cache.updateMaterial(kInvalidMaterialHandle, updated));
+    EXPECT_FALSE(cache.updateMaterial("missing-material", updated));
+    EXPECT_EQ(cache.revision(), updatedRevision);
+    EXPECT_EQ(cache.layoutRevision(), initialLayoutRevision);
+}
+
+TEST(MaterialCacheTests, RevisionChangesOnlyForSuccessfulRemoveAndNonEmptyClear) {
+    MaterialCache cache;
+    const uint64_t initialRevision = cache.revision();
+
+    EXPECT_FALSE(cache.remove(0));
+    EXPECT_FALSE(cache.remove(kInvalidMaterialHandle));
+    cache.clear();
+    EXPECT_EQ(cache.revision(), initialRevision);
+
+    const MaterialHandle first = cache.registerMaterial("revision-clear-1", Material::defaultPBR());
+    ASSERT_NE(first, kInvalidMaterialHandle);
+    const MaterialHandle second = cache.registerMaterial("revision-clear-2", Material::defaultPBR());
+    ASSERT_NE(second, kInvalidMaterialHandle);
+
+    const uint64_t beforeRemove = cache.revision();
+    const uint64_t layoutBeforeRemove = cache.layoutRevision();
+    EXPECT_TRUE(cache.remove(first));
+    EXPECT_EQ(cache.revision(), beforeRemove + 1);
+    EXPECT_EQ(cache.layoutRevision(), layoutBeforeRemove + 1);
+
+    const uint64_t beforeClear = cache.revision();
+    const uint64_t layoutBeforeClear = cache.layoutRevision();
+    cache.clear();
+    EXPECT_EQ(cache.size(), 3u);
+    EXPECT_EQ(cache.revision(), beforeClear + 1);
+    EXPECT_EQ(cache.layoutRevision(), layoutBeforeClear + 1);
+
+    const uint64_t clearedRevision = cache.revision();
+    cache.clear();
+    EXPECT_EQ(cache.revision(), clearedRevision);
+    EXPECT_EQ(cache.layoutRevision(), layoutBeforeClear + 1);
+}
+
 TEST(MaterialCacheTests, AcceptsMoreMaterialsThanLegacy256Limit) {
     MaterialCache cache;
     constexpr size_t kAddedMaterialCount = 512;

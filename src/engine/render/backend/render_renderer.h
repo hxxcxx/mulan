@@ -15,7 +15,6 @@
 #include "../forward/highlight_stage.h"
 #include "../frontend/render_request.h"
 #include "../frontend/render_resource_prepare.h"
-#include "../frontend/render_workload.h"
 #include "../light_environment.h"
 #include "../material/material_cache.h"
 #include "../asset_gpu_registry.h"
@@ -25,6 +24,7 @@
 #include <mulan/core/result/error.h>
 
 #include <memory>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -53,8 +53,9 @@ public:
     ResultVoid render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
 
     bool isInitialized() const { return initialized_; }
-    const RenderWorkloadStats& lastWorkloadStats() const { return scene_workload_.lastStats(); }
+    const RenderWorkloadStats& lastWorkloadStats() const { return scene_compiler_.lastWorkloadStats(); }
     const RenderCompilerStats& lastCompilerStats() const { return scene_compiler_.lastStats(); }
+    const RenderPacketCacheStats& lastPacketCacheStats() const { return scene_compiler_.lastPacketCacheStats(); }
 
 private:
     bool validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const;
@@ -73,8 +74,6 @@ private:
     GeometryDrawSharedResources* geometry_resources_ = nullptr;
     LightEnvironment* light_environment_ = nullptr;
 
-    RenderWorkload scene_workload_;
-    RenderWorkload overlay_workload_;
     RenderCompiler scene_compiler_;
     RenderCompiler overlay_compiler_;
     // Stage 持有 span，合并命令必须由 Renderer 保持到本帧执行结束。
@@ -82,6 +81,9 @@ private:
     std::vector<MeshDrawCommand> edge_commands_;
     std::vector<MeshDrawCommand> highlight_surface_commands_;
     std::vector<MeshDrawCommand> highlight_edge_commands_;
+    uint64_t merged_scene_command_revision_ = 0;
+    uint64_t merged_overlay_command_revision_ = 0;
+    bool merged_commands_valid_ = false;
 
     std::unique_ptr<FaceStage> face_stage_;
     std::unique_ptr<EdgeStage> edge_stage_;

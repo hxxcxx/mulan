@@ -1,6 +1,6 @@
 /**
  * @file render_compiler.h
- * @brief RenderCompiler 将 frontend workload 编译为可提交的 MeshDrawCommand 列表。
+ * @brief RenderCompiler 增量维护按对象 RenderPacket，并组装当前可见绘制命令。
  * @author hxxcxx
  * @date 2026-07-05
  */
@@ -8,12 +8,16 @@
 #pragma once
 
 #include "render_compile_context.h"
-#include "../frontend/render_workload.h"
 #include "../mesh_draw_command.h"
+#include "../frontend/render_request.h"
+#include "../frontend/render_workload.h"
+
+#include <mulan/core/result/error.h>
 
 #include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <span>
-#include <vector>
 
 namespace mulan::engine {
 
@@ -37,24 +41,59 @@ struct RenderCompilerStats {
     void reset() { *this = {}; }
 };
 
+/// RenderPacket 缓存与视锥查询的逐帧诊断数据。
+struct RenderPacketCacheStats {
+    bool cacheHit = false;
+    bool assemblyCacheHit = false;
+    bool fullRebuild = false;
+    bool frustumFailOpen = false;
+    size_t recompiledPacketCount = 0;
+    size_t reusedPacketCount = 0;
+    size_t sourceVisibleObjectCount = 0;
+    size_t frustumVisibleObjectCount = 0;
+    size_t culledObjectCount = 0;
+    size_t uncullableObjectCount = 0;
+    size_t bvhNodeBoundsTestCount = 0;
+    size_t bvhLeafBoundsTestCount = 0;
+    size_t assembledCommandCount = 0;
+
+    void reset() { *this = {}; }
+};
+
 class RenderCompiler {
 public:
-    void compile(const RenderWorldSnapshot& snapshot, const RenderWorkload& workload, RenderCompileContext& context);
+    RenderCompiler();
+    ~RenderCompiler();
+
+    RenderCompiler(const RenderCompiler&) = delete;
+    RenderCompiler& operator=(const RenderCompiler&) = delete;
+
+    /**
+     * 同步世界 Packet 缓存并组装命令。
+     *
+     * sceneFrustumCulling 为 true 时 view 必须描述 SceneWorld 的 CPU 视锥；非法矩阵
+     * 按 fail-open 处理。OverlayWorld 传 false，保持预览、夹点和 Gizmo 的既有语义。
+     * 返回失败时本次命令没有发布，调用方不得提交各 command span；其中保存的上一
+     * 成功帧资源可能已经退役。RenderRenderer 会在该路径立即解绑并清空缓存。
+     */
+    ResultVoid compile(const RenderWorldSnapshot& snapshot, const RenderOptions& options, RenderCompileContext& context,
+                       const RenderViewDesc* view, bool sceneFrustumCulling);
 
     void clear();
 
-    std::span<const MeshDrawCommand> surfaceCommands() const { return surface_commands_; }
-    std::span<const MeshDrawCommand> edgeCommands() const { return edge_commands_; }
-    std::span<const MeshDrawCommand> highlightSurfaceCommands() const { return highlight_surface_commands_; }
-    std::span<const MeshDrawCommand> highlightEdgeCommands() const { return highlight_edge_commands_; }
-    const RenderCompilerStats& lastStats() const { return stats_; }
+    std::span<const MeshDrawCommand> surfaceCommands() const;
+    std::span<const MeshDrawCommand> edgeCommands() const;
+    std::span<const MeshDrawCommand> highlightSurfaceCommands() const;
+    std::span<const MeshDrawCommand> highlightEdgeCommands() const;
+    const RenderCompilerStats& lastStats() const;
+    const RenderWorkloadStats& lastWorkloadStats() const;
+    const RenderPacketCacheStats& lastPacketCacheStats() const;
+    /// 仅在成功发布的新命令列表与上一版本不同时推进。
+    uint64_t commandRevision() const;
 
 private:
-    std::vector<MeshDrawCommand> surface_commands_;
-    std::vector<MeshDrawCommand> edge_commands_;
-    std::vector<MeshDrawCommand> highlight_surface_commands_;
-    std::vector<MeshDrawCommand> highlight_edge_commands_;
-    RenderCompilerStats stats_;
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace mulan::engine
