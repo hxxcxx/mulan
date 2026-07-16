@@ -84,8 +84,10 @@ public:
     engine::Camera& camera() { return camera_; }
     const engine::Camera& camera() const { return camera_; }
 
-    engine::LightEnvironment& lightEnvironment() { return light_env_; }
     const engine::LightEnvironment& lightEnvironment() const { return light_env_; }
+    void setLightingMode(engine::LightingMode mode);
+    void setAmbientLight(const math::Vec3& color, double intensity);
+    void setExposure(double exposure);
     void setSceneLights(std::span<const engine::Light> lights);
 
     PreviewLayer& previewLayer() { return preview_layer_; }

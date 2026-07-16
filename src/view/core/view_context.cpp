@@ -5,6 +5,7 @@
 #include "runtime/detail/render_session.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iterator>
 #include <utility>
 
@@ -143,10 +144,43 @@ void ViewContext::clearSelectionVisualState() {
 }
 
 void ViewContext::setSceneLights(std::span<const engine::Light> lights) {
-    light_env_.clear();
+    // 场景同步只替换文档灯列表；查看灯策略、环境光和曝光属于 View 设置。
+    light_env_.clearLights();
     for (const auto& light : lights) {
         light_env_.addLight(light);
     }
+    render_session_->setLightEnvironment(light_env_);
+}
+
+void ViewContext::setLightingMode(engine::LightingMode mode) {
+    if (light_env_.mode == mode)
+        return;
+    light_env_.mode = mode;
+    render_session_->setLightEnvironment(light_env_);
+}
+
+void ViewContext::setAmbientLight(const math::Vec3& color, double intensity) {
+    const auto nonNegativeFinite = [](double value) {
+        return std::isfinite(value) ? std::max(0.0, value) : 0.0;
+    };
+    const math::Vec3 sanitizedColor{
+        nonNegativeFinite(color.x),
+        nonNegativeFinite(color.y),
+        nonNegativeFinite(color.z),
+    };
+    const double sanitizedIntensity = nonNegativeFinite(intensity);
+    if (light_env_.ambientColor == sanitizedColor && light_env_.ambientIntensity == sanitizedIntensity)
+        return;
+    light_env_.ambientColor = sanitizedColor;
+    light_env_.ambientIntensity = sanitizedIntensity;
+    render_session_->setLightEnvironment(light_env_);
+}
+
+void ViewContext::setExposure(double exposure) {
+    const double sanitized = std::isfinite(exposure) ? std::max(0.0, exposure) : 1.0;
+    if (light_env_.exposure == sanitized)
+        return;
+    light_env_.exposure = sanitized;
     render_session_->setLightEnvironment(light_env_);
 }
 

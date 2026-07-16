@@ -58,27 +58,59 @@ engine::Light toRenderLight(const scene::LightComponent& src, const math::Mat4& 
     dst.outerConeAngle = src.outerConeAngle;
     dst.position = math::Point3::origin().transformedBy(world).asVec();
     dst.direction = math::Vec3(0.0, 0.0, -1.0).transformedAsDir(world).normalizedOr(math::Vec3(-0.3, -1.0, -0.4));
-    return dst;
+    return dst.sanitized();
 }
 
-void collectLights(const scene::Scene& scene, std::vector<engine::Light>& lights,
-                   std::unordered_set<scene::EntityId>& lightEntities) {
+void selectLights(const std::unordered_map<scene::EntityId, engine::Light>& allLights,
+                  std::vector<engine::Light>& lights) {
+    struct Candidate {
+        scene::EntityId entity;
+        engine::Light light;
+    };
+
     lights.clear();
-    lightEntities.clear();
+    std::vector<Candidate> candidates;
+    candidates.reserve(allLights.size());
+    for (const auto& [entity, light] : allLights)
+        candidates.push_back({ entity, light });
+
+    // 固定灯位优先保留全局方向光，再按能量和 EntityId 排序；结果不依赖容器遍历顺序。
+    const auto typeRank = [](engine::LightType type) {
+        switch (type) {
+        case engine::LightType::Directional: return 0;
+        case engine::LightType::Spot: return 1;
+        case engine::LightType::Point: return 2;
+        }
+        return 3;
+    };
+    std::ranges::sort(candidates, [&](const Candidate& lhs, const Candidate& rhs) {
+        const int lhsRank = typeRank(lhs.light.type);
+        const int rhsRank = typeRank(rhs.light.type);
+        if (lhsRank != rhsRank)
+            return lhsRank < rhsRank;
+        if (lhs.light.intensity != rhs.light.intensity)
+            return lhs.light.intensity > rhs.light.intensity;
+        return lhs.entity.value < rhs.entity.value;
+    });
+    const size_t count = std::min(candidates.size(), static_cast<size_t>(engine::LightEnvironment::kMaxLights));
+    lights.reserve(count);
+    for (size_t index = 0; index < count; ++index)
+        lights.push_back(candidates[index].light);
+}
+
+void collectLights(const scene::Scene& scene, std::unordered_map<scene::EntityId, engine::Light>& allLights,
+                   std::vector<engine::Light>& lights) {
+    allLights.clear();
     scene.forEachEntity([&](scene::EntityId id) {
         const auto* light = scene.light(id);
         if (!light) {
             return;
         }
-        lightEntities.insert(id);
-        if (lights.size() >= engine::LightEnvironment::kMaxLights) {
-            return;
-        }
-
         const auto* transform = scene.transform(id);
         const math::Mat4 world = transform ? transform->world : math::Mat4{ 1.0 };
-        lights.push_back(toRenderLight(*light, world));
+        allLights.emplace(id, toRenderLight(*light, world));
     });
+    selectLights(allLights, lights);
 }
 
 std::optional<SceneProxy> buildProxy(const scene::Scene& scene, const asset::AssetLibrary& assets, scene::EntityId id) {
@@ -202,7 +234,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         scene_bounds_.reset();
         last_sync_stats_.entityCount = scene.entityCount();
         last_sync_stats_.assetCount = assets.count();
-        collectLights(scene, lights_, light_entities_);
+        collectLights(scene, all_lights_, lights_);
 
         scene.forEachEntity([&](scene::EntityId id) {
             auto proxy = buildProxy(scene, assets, id);
@@ -305,14 +337,22 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
             continue;
         }
 
-        const bool wasLight = light_entities_.contains(id);
-        const bool isLight = scene.isValid(id) && scene.light(id) != nullptr;
+        const bool wasLight = all_lights_.contains(id);
+        const scene::LightComponent* light = scene.isValid(id) ? scene.light(id) : nullptr;
+        const bool isLight = light != nullptr;
         if (wasLight || isLight) {
             lightChanged = true;
+            if (isLight) {
+                const auto* transform = scene.transform(id);
+                const math::Mat4 world = transform ? transform->world : math::Mat4{ 1.0 };
+                all_lights_.insert_or_assign(id, toRenderLight(*light, world));
+            } else {
+                all_lights_.erase(id);
+            }
         }
     }
     if (lightChanged) {
-        collectLights(scene, lights_, light_entities_);
+        selectLights(all_lights_, lights_);
     }
 
     // 销毁记录保留发布时的完整 generation；先移除旧代理，再处理仍有效实体的最终状态。
@@ -439,7 +479,7 @@ void RenderScene::clear() {
     entity_pick_ids_.clear();
     missing_geometry_entities_.clear();
     lights_.clear();
-    light_entities_.clear();
+    all_lights_.clear();
     spatial_index_->clear();
     scene_ = nullptr;
     assets_ = nullptr;

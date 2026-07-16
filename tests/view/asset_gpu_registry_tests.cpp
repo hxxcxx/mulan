@@ -8,10 +8,13 @@
 #include <mulan/render/asset_gpu_registry.h>
 #include <mulan/render/device_resource_service.h>
 #include <mulan/render/frame/render_target_info.h>
+#include <mulan/render/gpu_scene_contract.h>
+#include <mulan/render/light_environment.h>
 #include <mulan/rhi/device.h>
 
 #include <gtest/gtest.h>
 
+#include <limits>
 #include <memory>
 #include <utility>
 
@@ -374,6 +377,87 @@ TEST(DeviceResourceServiceTests, TextStageIsSharedByCompleteTargetSignature) {
     ASSERT_NE(multisampled, nullptr);
     EXPECT_NE(multisampled, first);
     EXPECT_EQ(resources.stats().textStageCount, 2u);
+}
+
+TEST(LightingPolicyTests, EmptyScenePreservesLegacyViewerLight) {
+    const LightEnvironment environment;
+    const ResolvedLighting resolved = resolveLighting(environment, math::Mat4{ 1.0 });
+
+    ASSERT_EQ(resolved.lightCount, 1u);
+    EXPECT_EQ(resolved.lights[0].type, LightType::Directional);
+    const math::Vec3 expectedDirection = math::Vec3(0.35, -0.45, -0.82).normalized();
+    EXPECT_NEAR(resolved.lights[0].direction.x, expectedDirection.x, 1.0e-12);
+    EXPECT_NEAR(resolved.lights[0].direction.y, expectedDirection.y, 1.0e-12);
+    EXPECT_NEAR(resolved.lights[0].direction.z, expectedDirection.z, 1.0e-12);
+    EXPECT_EQ(resolved.lights[0].color, math::Vec3(0.95, 0.94, 0.92));
+    EXPECT_DOUBLE_EQ(resolved.lights[0].intensity, 1.0);
+}
+
+TEST(LightingPolicyTests, ExplicitSceneLightSuppressesViewerFallback) {
+    LightEnvironment environment;
+    environment.addLight(Light::point(math::Vec3(1.0, 2.0, 3.0), 20.0, math::Vec3(0.2, 0.4, 0.8), 12.0));
+
+    const ResolvedLighting resolved = resolveLighting(environment, math::Mat4{ 1.0 });
+    ASSERT_EQ(resolved.lightCount, 1u);
+    EXPECT_EQ(resolved.lights[0].type, LightType::Point);
+    EXPECT_EQ(resolved.lights[0].position, math::Vec3(1.0, 2.0, 3.0));
+}
+
+TEST(LightingPolicyTests, ModesHaveExplicitAndBoundedComposition) {
+    LightEnvironment environment;
+    environment.addLight(Light::point(math::Vec3(1.0), 5.0));
+
+    environment.mode = LightingMode::ViewerDefault;
+    ResolvedLighting resolved = resolveLighting(environment, math::Mat4{ 1.0 });
+    ASSERT_EQ(resolved.lightCount, 1u);
+    EXPECT_EQ(resolved.lights[0].type, LightType::Directional);
+
+    environment.mode = LightingMode::Hybrid;
+    resolved = resolveLighting(environment, math::Mat4{ 1.0 });
+    ASSERT_EQ(resolved.lightCount, 2u);
+    EXPECT_EQ(resolved.lights[0].type, LightType::Directional);
+    EXPECT_EQ(resolved.lights[1].type, LightType::Point);
+
+    environment.clearLights();
+    environment.mode = LightingMode::SceneOnly;
+    resolved = resolveLighting(environment, math::Mat4{ 1.0 });
+    EXPECT_EQ(resolved.lightCount, 0u);
+}
+
+TEST(LightingPolicyTests, InvalidValuesAreSanitizedBeforeSnapshotAndGpuPacking) {
+    Light invalid;
+    invalid.type = LightType::Spot;
+    invalid.color = { -1.0, std::numeric_limits<double>::quiet_NaN(), 2.0 };
+    invalid.direction = { std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0 };
+    invalid.intensity = -4.0;
+    invalid.range = -10.0;
+    invalid.innerConeAngle = 2.0;
+    invalid.outerConeAngle = -1.0;
+
+    const Light sanitized = invalid.sanitized();
+    EXPECT_EQ(sanitized.color, math::Vec3(0.0, 0.0, 2.0));
+    EXPECT_EQ(sanitized.direction, math::Vec3(0.0, 0.0, -1.0));
+    EXPECT_DOUBLE_EQ(sanitized.intensity, 0.0);
+    EXPECT_DOUBLE_EQ(sanitized.range, 0.0);
+    EXPECT_DOUBLE_EQ(sanitized.innerConeAngle, 0.0);
+    EXPECT_DOUBLE_EQ(sanitized.outerConeAngle, 0.0);
+
+    const SceneLightUniform gpu = makeSceneLightUniform(invalid);
+    EXPECT_FLOAT_EQ(gpu.color[0], 0.0f);
+    EXPECT_FLOAT_EQ(gpu.color[1], 0.0f);
+    EXPECT_FLOAT_EQ(gpu.color[2], 2.0f);
+    EXPECT_EQ(gpu.type, static_cast<uint32_t>(LightType::Spot));
+}
+
+TEST(LightingPolicyTests, HybridNeverExceedsGpuLightCapacity) {
+    LightEnvironment environment;
+    environment.mode = LightingMode::Hybrid;
+    for (uint32_t index = 0; index < LightEnvironment::kMaxLights; ++index)
+        environment.addLight(Light::point(math::Vec3(static_cast<double>(index)), 10.0));
+
+    const ResolvedLighting resolved = resolveLighting(environment, math::Mat4{ 1.0 });
+    ASSERT_EQ(resolved.lightCount, LightEnvironment::kMaxLights);
+    EXPECT_EQ(resolved.lights[0].type, LightType::Directional);
 }
 
 }  // namespace

@@ -7,13 +7,36 @@
 
 #pragma once
 
+#include "light_environment.h"
+
 #include <mulan/math/math.h>
 
+#include <cstddef>
 #include <cstdint>
 
 namespace mulan::engine {
 
-// 对应 shaders/common.slang 中的 Scene 常量缓冲（b0）。
+static_assert(static_cast<uint32_t>(LightType::Directional) == 0u);
+static_assert(static_cast<uint32_t>(LightType::Point) == 1u);
+static_assert(static_cast<uint32_t>(LightType::Spot) == 2u);
+
+/// 对应 shaders/common.slang 的 SceneLight；四个 16-byte 槽位，禁止使用 bool。
+struct alignas(16) SceneLightUniform {
+    float position[3];
+    float range;
+    float direction[3];
+    float intensity;
+    float color[3];
+    uint32_t type;
+    float innerConeAngle;
+    float outerConeAngle;
+    uint32_t castShadow;
+    float _pad;
+};
+static_assert(sizeof(SceneLightUniform) == 64);
+
+// 对应 shaders/common.slang 中的 Scene 常量缓冲（b0）。前 288 字节保留旧布局，
+// 让 ViewCube 等只消费公共相机字段的管线无需建立第二份场景常量协议。
 struct alignas(16) SceneUniforms {
     float view[16];
     float projection[16];
@@ -24,8 +47,15 @@ struct alignas(16) SceneUniforms {
     float ambientColor[4];
     float edgeColor[4];
     float highlightColor[4];
+    SceneLightUniform lights[LightEnvironment::kMaxLights];
+    uint32_t lightCount;
+    float exposure;
+    float _pad[2];
 };
-static_assert(sizeof(SceneUniforms) == 288);
+static_assert(offsetof(SceneUniforms, lights) == 288);
+static_assert(offsetof(SceneUniforms, lightCount) == 800);
+static_assert(offsetof(SceneUniforms, exposure) == 804);
+static_assert(sizeof(SceneUniforms) == 816);
 
 // 对应 shaders/common.slang 中的 Object 常量缓冲（b1）。
 struct alignas(16) ObjectUniforms {
@@ -59,6 +89,27 @@ inline void storeGpuVec3(float* dst, const math::Vec3& v) {
     dst[1] = static_cast<float>(v.y);
     dst[2] = static_cast<float>(v.z);
     dst[3] = 0.0f;
+}
+
+inline SceneLightUniform makeSceneLightUniform(const Light& source) {
+    const Light light = source.sanitized();
+    SceneLightUniform result{};
+    result.position[0] = static_cast<float>(light.position.x);
+    result.position[1] = static_cast<float>(light.position.y);
+    result.position[2] = static_cast<float>(light.position.z);
+    result.range = static_cast<float>(light.range);
+    result.direction[0] = static_cast<float>(light.direction.x);
+    result.direction[1] = static_cast<float>(light.direction.y);
+    result.direction[2] = static_cast<float>(light.direction.z);
+    result.intensity = static_cast<float>(light.intensity);
+    result.color[0] = static_cast<float>(light.color.x);
+    result.color[1] = static_cast<float>(light.color.y);
+    result.color[2] = static_cast<float>(light.color.z);
+    result.type = static_cast<uint32_t>(light.type);
+    result.innerConeAngle = static_cast<float>(light.innerConeAngle);
+    result.outerConeAngle = static_cast<float>(light.outerConeAngle);
+    result.castShadow = light.castShadow ? 1u : 0u;
+    return result;
 }
 
 inline ObjectUniforms makeObjectUniforms(const math::Mat4& world, uint32_t pickId = 0, bool selected = false,

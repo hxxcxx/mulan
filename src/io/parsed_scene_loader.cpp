@@ -244,7 +244,8 @@ void ParsedSceneLoader::loadNode(size_t nodeIndex, const ParsedScene& scene, sce
         lc.kind = pl.kind;
         lc.color = pl.color;
         lc.intensity = pl.intensity;
-        lc.range = pl.range;
+        // range 与节点位置使用同一文档长度单位；全局导入缩放不能只缩位置而遗漏衰减范围。
+        lc.range = pl.range * (options.unitScale > 0.0 ? options.unitScale : 1.0);
         lc.innerConeAngle = pl.innerConeAngle;
         lc.outerConeAngle = pl.outerConeAngle;
         scn->setLight(entity, lc);

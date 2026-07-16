@@ -160,26 +160,31 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
         emissive *= MULAN_SAMPLE_2D(EmissiveTex, PbrSampler, input.texcoord).rgb;
 
     // ── 光照计算 ──
-    float3 L = normalize(-LightDir);
-    float3 H = normalize(V + L);
-
-    float NdotL = max(dot(N, L), 0.0);
     float NdotV = max(dot(N, V), 1e-5);
-    float NdotH = max(dot(N, H), 0.0);
-    float VdotH = max(dot(V, H), 0.0);
 
     // Dielectric F0 (non-metal ≈ 0.04)
     float3 f0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
+    float3 F = schlickFresnel(f0, NdotV);
+    float3 directLight = float3(0.0, 0.0, 0.0);
+    for (uint lightIndex = 0u; lightIndex < activeSceneLightCount(); ++lightIndex) {
+        EvaluatedLight light = evaluateSceneLight(lightIndex, input.worldPos);
+        float3 L = light.directionToLight;
+        float3 H = normalize(V + L);
+        float NdotL = max(dot(N, L), 0.0);
+        float NdotH = max(dot(N, H), 0.0);
+        float VdotH = max(dot(V, H), 0.0);
 
-    float3 F  = schlickFresnel(f0, max(VdotH, 0.0));
-    float D  = ggxDistribution(NdotH, roughness);
-    float G  = smithGeometry(NdotV, NdotL, roughness);
-
-    float3 specular = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-5);
+        float3 FDirect = schlickFresnel(f0, VdotH);
+        // 环境项沿用主灯 Fresnel，单查看灯路径与既有效果数学一致。
+        if (lightIndex == 0u) F = FDirect;
+        float D = ggxDistribution(NdotH, roughness);
+        float G = smithGeometry(NdotV, NdotL, roughness);
+        float3 specular = (D * G * FDirect) / max(4.0 * NdotV * NdotL, 1e-5);
+        float3 kDDirect = (1.0 - FDirect) * (1.0 - metallic);
+        float3 diffuse = kDDirect * albedo / PI;
+        directLight += (diffuse + specular) * light.radiance * NdotL;
+    }
     float3 kD = (1.0 - F) * (1.0 - metallic);
-    float3 diffuse = kD * albedo / PI;
-
-    float3 directLight = (diffuse + specular) * LightColor * NdotL;
 
     // ── IBL 环境光照（split-sum 近似，equirect 表示）──
     float3 R = reflect(-V, N);
@@ -202,7 +207,7 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
 
     float3 ambient = (baseAmbient + diffuseIBL + specularIBL) * AmbientColor;
 
-    float3 color = ambient + directLight + emissive;
+    float3 color = (ambient + directLight + emissive) * Exposure;
 
     color = acesTonemap(color);
     color = pow(color, 1.0 / 2.2);

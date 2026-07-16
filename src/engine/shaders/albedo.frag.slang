@@ -38,26 +38,27 @@ float3 acesTonemap(float3 x) {
 
 float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
     float3 N = normalize(input.normal);
-    float3 L = normalize(-LightDir);
 
     // 双面光照：背面翻转法线
     if (!isFrontFace) {
         N = -N;
     }
 
-    float NdotL = max(dot(N, L), 0.0);
-
     // BaseColor × albedo 纹理（白纹理时 sampled=(1,1,1) → 等价纯色）
     float3 sampled = MULAN_SAMPLE_2D(AlbedoTex, AlbedoSampler, input.texcoord).rgb;
     float3 baseColorLinear = BaseColor * sampled;
 
-    // 主光漫反射（乘 LightColor 参考项目风格）
-    float3 diffuse = baseColorLinear * LightColor * NdotL;
+    float3 directLight = float3(0.0, 0.0, 0.0);
+    for (uint lightIndex = 0u; lightIndex < activeSceneLightCount(); ++lightIndex) {
+        EvaluatedLight light = evaluateSceneLight(lightIndex, input.worldPos);
+        float NdotL = max(dot(N, light.directionToLight), 0.0);
+        directLight += baseColorLinear * light.radiance * NdotL;
+    }
 
     // 环境光（参考项目: baseColor / PI * ambientIntensity * 3.5）
     float3 ambient = baseColorLinear * AmbientColor * 3.5;
 
-    float3 color = ambient + diffuse;
+    float3 color = (ambient + directLight) * Exposure;
 
     // ACES tone mapping
     color = acesTonemap(color);

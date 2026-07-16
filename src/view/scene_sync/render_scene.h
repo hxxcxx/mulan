@@ -187,7 +187,7 @@ private:
     std::unordered_map<asset::AssetId, std::unordered_set<scene::EntityId>> geometry_asset_users_;
     std::unordered_map<scene::EntityId, engine::PickId> entity_pick_ids_;
     std::unordered_set<scene::EntityId> missing_geometry_entities_;
-    std::unordered_set<scene::EntityId> light_entities_;
+    std::unordered_map<scene::EntityId, engine::Light> all_lights_;
     std::vector<engine::Light> lights_;
     std::unique_ptr<detail::SceneSpatialIndex> spatial_index_;
     const scene::Scene* scene_ = nullptr;

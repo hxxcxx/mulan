@@ -1,27 +1,21 @@
 /**
  * @file light_environment.h
- * @brief 光源与全局光照环境参数
+ * @brief 定义渲染光源、模型查看灯策略与全局光照环境参数。
  * @author hxxcxx
  * @date 2026-04-17
  *
  * 设计思路：
- *  - DirectionalLight / PointLight / SpotLight 三种光源
- *  - LightEnvironment 汇聚场景中所有活跃光源
- *  - LightGPU / SceneLightGPU 是对应的 GPU 常量布局
+ * 本文件只描述 CPU 侧光照语义。GPU 常量布局统一定义在 gpu_scene_contract.h，
+ * 防止场景常量与独立光源结构产生两套互相漂移的协议。
  */
 
 #pragma once
 
 #include <mulan/math/math.h>
 
-#include <array>
-#include <cstdint>
 #include <algorithm>
 #include <cmath>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include <cstdint>
 
 namespace mulan::engine {
 
@@ -33,6 +27,14 @@ enum class LightType : uint8_t {
     Directional,  ///< 平行光（太阳光）
     Point,        ///< 点光源
     Spot,         ///< 聚光灯
+};
+
+/// 场景光源和模型查看灯的组合策略。默认值保持既有“无灯时使用查看灯”的效果。
+enum class LightingMode : uint8_t {
+    SceneWithViewerFallback,  ///< 有场景灯时使用场景灯，否则使用相机跟随查看灯
+    ViewerDefault,            ///< 始终使用查看灯，忽略场景灯
+    SceneOnly,                ///< 只使用场景灯；空场景允许没有直接光
+    Hybrid,                   ///< 场景灯与查看灯共同参与，查看灯占用一个灯位
 };
 
 // ============================================================
@@ -55,8 +57,8 @@ struct Light {
     double range = 10.0;
 
     // Spot: 锥形角度 (弧度)
-    double innerConeAngle = M_PI / 6.0;  // 30°
-    double outerConeAngle = M_PI / 4.0;  // 45°
+    double innerConeAngle = 0.5235987755982988;  // 30°
+    double outerConeAngle = 0.7853981633974483;  // 45°
 
     bool castShadow = false;
 
@@ -81,6 +83,51 @@ struct Light {
         l.intensity = intensity;
         return l;
     }
+
+    static Light spot(const math::Vec3& pos, const math::Vec3& dir, double range, double innerConeAngle,
+                      double outerConeAngle, const math::Vec3& color = { 1, 1, 1 }, double intensity = 1.0) {
+        Light l = point(pos, range, color, intensity);
+        l.type = LightType::Spot;
+        l.direction = dir.normalizedOr(math::Vec3(0.0, 0.0, -1.0));
+        l.innerConeAngle = innerConeAngle;
+        l.outerConeAngle = outerConeAngle;
+        return l;
+    }
+
+    /// 在进入渲染快照时统一清理 NaN、负能量和无效锥角，避免污染整帧颜色。
+    Light sanitized() const {
+        constexpr double kHalfPi = 1.5707963267948966;
+        const auto finiteOr = [](double value, double fallback) {
+            return std::isfinite(value) ? value : fallback;
+        };
+        const auto nonNegative = [&](double value) {
+            return std::max(0.0, finiteOr(value, 0.0));
+        };
+
+        Light result = *this;
+        switch (result.type) {
+        case LightType::Directional:
+        case LightType::Point:
+        case LightType::Spot: break;
+        default: result.type = LightType::Directional; break;
+        }
+        result.position = {
+            finiteOr(position.x, 0.0),
+            finiteOr(position.y, 0.0),
+            finiteOr(position.z, 0.0),
+        };
+        result.color = {
+            nonNegative(color.x),
+            nonNegative(color.y),
+            nonNegative(color.z),
+        };
+        result.intensity = nonNegative(intensity);
+        result.range = nonNegative(range);
+        result.direction = direction.normalizedOr(math::Vec3(0.0, 0.0, -1.0));
+        result.outerConeAngle = std::clamp(finiteOr(outerConeAngle, 0.7853981633974483), 0.0, kHalfPi);
+        result.innerConeAngle = std::clamp(finiteOr(innerConeAngle, 0.0), 0.0, result.outerConeAngle);
+        return result;
+    }
 };
 
 // ============================================================
@@ -92,6 +139,7 @@ struct LightEnvironment {
 
     Light lights[kMaxLights];
     uint32_t lightCount = 0;
+    LightingMode mode = LightingMode::SceneWithViewerFallback;
 
     // --- 环境光 ---
     math::Vec3 ambientColor = { 0.15, 0.15, 0.18 };
@@ -100,22 +148,21 @@ struct LightEnvironment {
     // --- 天空 (IBL 相关预留) ---
     double exposure = 1.0;
 
-    void clear() {
-        lightCount = 0;
-        ambientColor = { 0.15, 0.15, 0.18 };
-        ambientIntensity = 1.0;
-    }
+    void clear() { *this = {}; }
+
+    void clearLights() { lightCount = 0; }
+    bool hasSceneLights() const { return lightCount != 0; }
 
     uint32_t addLight(const Light& light) {
         if (lightCount >= kMaxLights)
             return kMaxLights;
-        lights[lightCount] = light;
+        lights[lightCount] = light.sanitized();
         return lightCount++;
     }
 
     /// 获取主方向光（第一个 Directional），不存在则返回 nullptr
     const Light* primaryDirectional() const {
-        for (uint32_t i = 0; i < lightCount; ++i) {
+        for (uint32_t i = 0; i < std::min(lightCount, kMaxLights); ++i) {
             if (lights[i].type == LightType::Directional)
                 return &lights[i];
         }
@@ -123,75 +170,62 @@ struct LightEnvironment {
     }
 };
 
-// ============================================================
-// GPU 端光源布局 (std140)
-// ============================================================
-
-struct alignas(16) LightGPU {
-    float position[3];
-    float range;
-
-    float direction[3];
-    float intensity;
-
-    float color[3];
-    uint32_t type;
-
-    float innerConeAngle;
-    float outerConeAngle;
-    uint32_t castShadow;
-    float _pad;
+/// 一帧实际参与着色的不可变光照快照；已完成查看灯策略选择和参数清洗。
+struct ResolvedLighting {
+    Light lights[LightEnvironment::kMaxLights];
+    uint32_t lightCount = 0;
+    math::Vec3 ambientColor{ 0.15, 0.15, 0.18 };
+    double exposure = 1.0;
 };
 
-static_assert(sizeof(LightGPU) == 64, "LightGPU must be 64 bytes (4 x vec4)");
+/// 根据相机和策略解析最终灯光。纯函数，可在 owner/render 线程之间按值传递和测试。
+inline ResolvedLighting resolveLighting(const LightEnvironment& environment, const math::Mat4& viewMatrix) {
+    ResolvedLighting result;
+    const auto append = [&](const Light& light) {
+        if (result.lightCount < LightEnvironment::kMaxLights)
+            result.lights[result.lightCount++] = light.sanitized();
+    };
+    const auto appendSceneLights = [&]() {
+        for (uint32_t index = 0; index < std::min(environment.lightCount, LightEnvironment::kMaxLights); ++index)
+            append(environment.lights[index]);
+    };
+    const auto viewerDefaultLight = [&]() {
+        // 与既有模型查看效果保持相同：相机空间左上前方的柔和主光。
+        const math::Vec3 viewLightDirection = math::Vec3(0.35, -0.45, -0.82).normalized();
+        const math::Vec3 worldDirection =
+                (math::Mat3(viewMatrix).transposed() * viewLightDirection).normalizedOr(math::Vec3(0.0, 0.0, -1.0));
+        return Light::directional(worldDirection, math::Vec3(0.95, 0.94, 0.92));
+    };
 
-// ============================================================
-// GPU 端场景光照环境布局
-// ============================================================
-
-struct alignas(16) SceneLightGPU {
-    static constexpr uint32_t kMaxLightsGPU = 8;
-
-    LightGPU lights[kMaxLightsGPU];
-
-    float ambientColor[3];
-    float ambientIntensity;
-
-    uint32_t lightCount;
-    float exposure;
-    float _pad[2];
-
-    static SceneLightGPU fromEnvironment(const LightEnvironment& env) {
-        SceneLightGPU g{};
-        g.lightCount = std::min(env.lightCount, kMaxLightsGPU);
-        for (uint32_t i = 0; i < g.lightCount; ++i) {
-            const auto& src = env.lights[i];
-            auto& dst = g.lights[i];
-            dst.position[0] = static_cast<float>(src.position.x);
-            dst.position[1] = static_cast<float>(src.position.y);
-            dst.position[2] = static_cast<float>(src.position.z);
-            dst.range = static_cast<float>(src.range);
-            dst.direction[0] = static_cast<float>(src.direction.x);
-            dst.direction[1] = static_cast<float>(src.direction.y);
-            dst.direction[2] = static_cast<float>(src.direction.z);
-            dst.intensity = static_cast<float>(src.intensity);
-            dst.color[0] = static_cast<float>(src.color.x);
-            dst.color[1] = static_cast<float>(src.color.y);
-            dst.color[2] = static_cast<float>(src.color.z);
-            dst.type = static_cast<uint32_t>(src.type);
-            dst.innerConeAngle = static_cast<float>(src.innerConeAngle);
-            dst.outerConeAngle = static_cast<float>(src.outerConeAngle);
-            dst.castShadow = src.castShadow ? 1u : 0u;
-        }
-        g.ambientColor[0] = static_cast<float>(env.ambientColor.x);
-        g.ambientColor[1] = static_cast<float>(env.ambientColor.y);
-        g.ambientColor[2] = static_cast<float>(env.ambientColor.z);
-        g.ambientIntensity = static_cast<float>(env.ambientIntensity);
-        g.exposure = static_cast<float>(env.exposure);
-        return g;
+    switch (environment.mode) {
+    case LightingMode::ViewerDefault: append(viewerDefaultLight()); break;
+    case LightingMode::SceneOnly: appendSceneLights(); break;
+    case LightingMode::Hybrid:
+        append(viewerDefaultLight());
+        appendSceneLights();
+        break;
+    case LightingMode::SceneWithViewerFallback:
+        if (environment.hasSceneLights())
+            appendSceneLights();
+        else
+            append(viewerDefaultLight());
+        break;
+    default: append(viewerDefaultLight()); break;
     }
-};
 
-static_assert(sizeof(SceneLightGPU) == 544, "SceneLightGPU = 8*64 + 32 = 544");
+    const auto nonNegativeFinite = [](double value) {
+        return std::isfinite(value) ? std::max(0.0, value) : 0.0;
+    };
+    result.ambientColor = {
+        nonNegativeFinite(environment.ambientColor.x) * nonNegativeFinite(environment.ambientIntensity),
+        nonNegativeFinite(environment.ambientColor.y) * nonNegativeFinite(environment.ambientIntensity),
+        nonNegativeFinite(environment.ambientColor.z) * nonNegativeFinite(environment.ambientIntensity),
+    };
+    // 保留原有工程查看兜底：显式全黑环境不会让未受光面完全不可见。
+    if (result.ambientColor.lengthSq() <= 1.0e-12)
+        result.ambientColor = math::Vec3(0.35);
+    result.exposure = std::isfinite(environment.exposure) ? std::max(0.0, environment.exposure) : 1.0;
+    return result;
+}
 
 }  // namespace mulan::engine

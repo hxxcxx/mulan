@@ -224,36 +224,26 @@ SceneUniforms GeometryDrawSharedResources::buildSceneUniforms(const DrawExecutio
     math::Mat4 vp = clip * proj * view;
     math::Vec3 eye = ctx.camera.eyePosition;
 
-    auto* dl = lightEnv.primaryDirectional();
-    math::Vec3 ldir;
-    math::Vec3 lightColor;
-    if (dl) {
-        // 模型/场景显式提供方向光时，忠实使用世界空间灯光。
-        ldir = dl->direction.normalizedOr(math::Vec3(0.0, 0.0, -1.0));
-        lightColor = dl->color * dl->intensity;
-    } else {
-        // 默认模型查看灯：相机空间左上前方的柔和方向光。它随观察方向旋转，
-        // 类似系统 3D 查看器的棚拍主光，旋转模型时不会突然进入全黑背光面。
-        const math::Vec3 viewLightDir = math::Vec3(0.35, -0.45, -0.82).normalized();
-        ldir = (math::Mat3(view).transposed() * viewLightDir).normalizedOr(math::Vec3(0.0, 0.0, -1.0));
-        lightColor = math::Vec3(0.95, 0.94, 0.92);
-    }
-
-    math::Vec3 ambientColor = lightEnv.ambientColor * lightEnv.ambientIntensity;
-    if (ambientColor.lengthSq() <= 1.0e-12) {
-        ambientColor = math::Vec3(0.35);
-    }
+    const ResolvedLighting lighting = resolveLighting(lightEnv, view);
+    const Light legacyLight = lighting.lightCount != 0
+                                      ? lighting.lights[0]
+                                      : Light::directional(math::Vec3(0.0, 0.0, -1.0), math::Vec3(0.0));
 
     SceneUniforms ubo{};
     storeGpuMat4(ubo.view, view);
     storeGpuMat4(ubo.projection, proj);
     storeGpuMat4(ubo.viewProjection, vp);
     storeGpuVec3(ubo.cameraPos, eye);
-    storeGpuVec3(ubo.lightDir, ldir);
-    storeGpuVec3(ubo.lightColor, lightColor);
-    storeGpuVec3(ubo.ambientColor, ambientColor);
+    // 保留旧单灯字段供 ViewCube 和旧着色路径消费；表面 Shader 使用下方 lights 数组。
+    storeGpuVec3(ubo.lightDir, legacyLight.direction);
+    storeGpuVec3(ubo.lightColor, legacyLight.color * legacyLight.intensity);
+    storeGpuVec3(ubo.ambientColor, lighting.ambientColor);
     storeGpuVec3(ubo.edgeColor, math::Vec3(0.08, 0.08, 0.08));
     storeGpuVec3(ubo.highlightColor, math::Vec3(1.0, 0.5, 0.0));
+    for (uint32_t index = 0; index < lighting.lightCount; ++index)
+        ubo.lights[index] = makeSceneLightUniform(lighting.lights[index]);
+    ubo.lightCount = lighting.lightCount;
+    ubo.exposure = static_cast<float>(lighting.exposure);
 
     return ubo;
 }

@@ -420,6 +420,31 @@ TEST(RenderSceneSpatialIndexTests, LightChangesFollowJournalWithoutGeometryProxy
     EXPECT_TRUE(renderScene.lights().empty());
 }
 
+TEST(RenderSceneSpatialIndexTests, LightSelectionIsDeterministicAndKeepsDirectionalLightsFirst) {
+    asset::AssetLibrary assets;
+    scene::Scene source;
+    for (uint32_t index = 0; index < 10u; ++index) {
+        const scene::EntityId entity = source.createEntity("PointLight");
+        scene::LightComponent light;
+        light.kind = scene::LightKind::Point;
+        light.intensity = static_cast<double>(index + 1u);
+        ASSERT_TRUE(source.setLight(entity, light));
+    }
+    const scene::EntityId directionalEntity = source.createEntity("DirectionalLight");
+    scene::LightComponent directional;
+    directional.kind = scene::LightKind::Directional;
+    directional.intensity = 0.25;
+    ASSERT_TRUE(source.setLight(directionalEntity, directional));
+
+    RenderScene renderScene;
+    renderScene.sync(source, assets);
+
+    ASSERT_EQ(renderScene.lights().size(), engine::LightEnvironment::kMaxLights);
+    EXPECT_EQ(renderScene.lights().front().type, engine::LightType::Directional);
+    EXPECT_DOUBLE_EQ(renderScene.lights()[1].intensity, 10.0);
+    EXPECT_DOUBLE_EQ(renderScene.lights()[2].intensity, 9.0);
+}
+
 TEST(RenderSceneSpatialIndexTests, ReusedEntitySlotReceivesANewStablePickId) {
     asset::AssetLibrary assets;
     asset::CurveAsset* line = makeLineAsset(assets);
