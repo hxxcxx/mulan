@@ -33,6 +33,7 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace mulan::engine {
@@ -213,6 +214,9 @@ private:
 
     mutable std::mutex live_resources_mutex_;
     std::vector<LiveResourceInfo> live_resources_;
+    // 指针到稠密数组下标的索引，使集中创建/销毁资源保持均摊 O(1)。
+    // 数组继续保留，便于设备销毁时顺序遍历并输出完整诊断。
+    std::unordered_map<const RHITrackedResource*, size_t> live_resource_indices_;
 
     uint64_t device_generation_ = 0;
     std::atomic<uint64_t> next_submission_value_ = 0;

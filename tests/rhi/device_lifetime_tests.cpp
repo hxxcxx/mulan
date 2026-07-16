@@ -226,6 +226,26 @@ TEST(DeviceLifetimeTest, IdentifiesTheOwningDevice) {
     EXPECT_FALSE(resource.belongsTo(second));
 }
 
+TEST(DeviceLifetimeTest, TracksAndRemovesManyResourcesInArbitraryOrder) {
+    TestDevice device;
+    std::vector<std::unique_ptr<TestResource>> resources;
+    resources.reserve(257);
+    for (size_t i = 0; i < 257; ++i) {
+        auto resource = std::make_unique<TestResource>();
+        resource->attach(device);
+        resources.push_back(std::move(resource));
+    }
+    EXPECT_TRUE(device.hasLiveResources());
+
+    for (size_t i = 1; i < resources.size(); i += 2) {
+        resources[i].reset();
+    }
+    for (size_t i = 0; i < resources.size(); i += 2) {
+        resources[i].reset();
+    }
+    EXPECT_FALSE(device.hasLiveResources());
+}
+
 TEST(CommandListContractTest, RejectsCommandsOutsideRecordingAndRecoversOnBegin) {
     TestDevice device;
     TestCommandList command;

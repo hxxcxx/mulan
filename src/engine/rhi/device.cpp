@@ -206,14 +206,23 @@ void RHIDevice::registerLiveResource(const RHITrackedResource* resource, RHIReso
     }
 
     std::scoped_lock lock(live_resources_mutex_);
-    auto it = std::find_if(live_resources_.begin(), live_resources_.end(),
-                           [&](const LiveResourceInfo& info) { return info.resource == resource; });
-    if (it != live_resources_.end()) {
-        it->kind = kind;
-        it->name = std::string(name);
+    if (const auto known = live_resource_indices_.find(resource); known != live_resource_indices_.end()) {
+        LiveResourceInfo& info = live_resources_[known->second];
+        info.kind = kind;
+        info.name = std::string(name);
         return;
     }
-    live_resources_.push_back(LiveResourceInfo{ resource, kind, std::string(name) });
+    const size_t index = live_resources_.size();
+    const auto [inserted, added] = live_resource_indices_.emplace(resource, index);
+    if (!added) {
+        return;
+    }
+    try {
+        live_resources_.push_back(LiveResourceInfo{ resource, kind, std::string(name) });
+    } catch (...) {
+        live_resource_indices_.erase(inserted);
+        throw;
+    }
 }
 
 void RHIDevice::unregisterLiveResource(const RHITrackedResource* resource) {
@@ -222,9 +231,21 @@ void RHIDevice::unregisterLiveResource(const RHITrackedResource* resource) {
     }
 
     std::scoped_lock lock(live_resources_mutex_);
-    auto it = std::remove_if(live_resources_.begin(), live_resources_.end(),
-                             [&](const LiveResourceInfo& info) { return info.resource == resource; });
-    live_resources_.erase(it, live_resources_.end());
+    const auto known = live_resource_indices_.find(resource);
+    if (known == live_resource_indices_.end()) {
+        return;
+    }
+
+    const size_t index = known->second;
+    const size_t last = live_resources_.size() - 1u;
+    live_resource_indices_.erase(known);
+    if (index != last) {
+        live_resources_[index] = std::move(live_resources_[last]);
+        const auto moved = live_resource_indices_.find(live_resources_[index].resource);
+        assert(moved != live_resource_indices_.end());
+        moved->second = index;
+    }
+    live_resources_.pop_back();
 }
 
 bool RHIDevice::hasLiveResources() const {
@@ -267,6 +288,7 @@ void RHIDevice::detachLiveResources() {
             resources.push_back(info.resource);
         }
         live_resources_.clear();
+        live_resource_indices_.clear();
     }
 
     for (const auto* resource : resources) {
