@@ -15,11 +15,14 @@
 #pragma once
 
 #include "view_cube_model.h"
-#include "../forward/render_stage.h"
+#include "../frame/render_frame.h"
+#include "../frame/render_target_info.h"
 #include "../../rhi/buffer.h"
 #include "../../rhi/bind_group.h"
 #include "../../rhi/pipeline_state.h"
 #include "../material/material.h"  // MaterialGPU
+
+#include <mulan/core/result/error.h>
 
 #include <cstdint>
 #include <array>
@@ -38,20 +41,18 @@ class Texture;
 /// 不拥有 PSO / Shader —— 由 Renderer 注入几何绘制执行器的 PSO。
 /// 只拥有 CPU 几何体、顶点颜色和小尺寸 UBO（与主场景布局不同）。
 /// render() 从主相机提取旋转、设置角落视口、借用 PSO + BindGroupDesc 录制命令。
-class ViewCubeStage final : public RenderStage {
+class ViewCubeStage final {
 public:
     explicit ViewCubeStage(RHIDevice& device);
-    ~ViewCubeStage() override;
+    ~ViewCubeStage();
 
     ViewCubeStage(const ViewCubeStage&) = delete;
     ViewCubeStage& operator=(const ViewCubeStage&) = delete;
 
-    std::string_view name() const override { return "ViewCube"; }
+    ResultVoid init(RHIDevice& device, const RenderTargetInfo& target);
 
-    ResultVoid init(RHIDevice& device, const RenderTargetInfo& target) override;
-
-    void shutdown(RHIDevice& device) override;
-    void execute(RenderFrame& frame) override;
+    void shutdown(RHIDevice& device);
+    void execute(RenderFrame& frame);
 
     void setPipelines(PipelineState* solidPso, PipelineState* edgePso);
     void setFallbackResources(Texture* defaultWhite, Sampler* defaultSampler);

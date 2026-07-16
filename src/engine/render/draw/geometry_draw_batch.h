@@ -32,7 +32,7 @@ struct GeometryDrawBatchRange {
 /// 判断命令是否允许进入指定执行器的实例化路径。
 bool isGeometryDrawBatchCandidate(const MeshDrawCommand& command, const PipelineState* executorPipeline) noexcept;
 
-/// 比较实例 draw 的完整共享状态；不依赖可能碰撞的 sortKey。
+/// 比较实例 draw 的完整共享状态。
 bool geometryDrawBatchCompatible(const MeshDrawCommand& lhs, const MeshDrawCommand& rhs) noexcept;
 
 /// 输出覆盖输入区间且保持原顺序的计划；legacy 相邻范围会合并。

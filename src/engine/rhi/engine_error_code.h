@@ -65,4 +65,19 @@ inline Error makeError(EngineErrorCode code, std::string_view msg,
     return Error::make(static_cast<int32_t>(code), msg, loc);
 }
 
+/// 会使当前 RHI Device 的后续执行结果不再可信的错误。
+/// 创建单个资源、管线或表面失败不属于设备致命错误，调用方可以在原 Device 上恢复。
+inline bool isDeviceFatalError(const Error& error) noexcept {
+    switch (static_cast<EngineErrorCode>(error.code)) {
+    case EngineErrorCode::DeviceLost:
+    case EngineErrorCode::OutOfDeviceMemory:
+    case EngineErrorCode::SubmissionFailed:
+    case EngineErrorCode::SubmissionWaitFailed:
+    case EngineErrorCode::ResourceUploadFailed:
+    case EngineErrorCode::PresentationFailed:
+    case EngineErrorCode::CommandRecordingFailed: return true;
+    default: return false;
+    }
+}
+
 }  // namespace mulan::engine

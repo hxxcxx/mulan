@@ -36,13 +36,13 @@
 namespace mulan::view::detail {
 
 class RenderExecutor;
+class RenderDeviceContext;
 
 using GpuExecutionClientId = uint64_t;
 
 enum class GpuExecutionDomainState : uint8_t {
     Healthy,
     Failed,
-    Rebuilding,
     Stopped,
 };
 
@@ -69,7 +69,7 @@ private:
     size_t next_ = 0;
 };
 
-class GpuExecutionDomain : public std::enable_shared_from_this<GpuExecutionDomain> {
+class GpuExecutionDomain {
 public:
     static Result<std::shared_ptr<GpuExecutionDomain>> acquire(const ViewConfig& config);
     ~GpuExecutionDomain();
@@ -107,6 +107,7 @@ private:
     explicit GpuExecutionDomain(const ViewConfig& config);
 
     Result<GpuExecutionClientId> attach(Initializer initialize);
+    Result<std::shared_ptr<RenderDeviceContext>> ensureDeviceContext();
     void run(std::stop_token stopToken);
     std::shared_ptr<Client> selectReadyClientLocked(bool& hasControl, ControlTask& control,
                                                     std::optional<PendingFrame>& frame);
@@ -119,23 +120,22 @@ private:
     void failClient(const std::shared_ptr<Client>& client, const Error& error, uint64_t resourceSequence = 0,
                     uint64_t resourceBatchId = 0);
     void failDomain(const Error& error);
-    static bool isDeviceDomainFailure(const Error& error);
     static Error domainError(ErrorCode code, std::string_view message);
 
     ViewConfig config_;
+    std::shared_ptr<RenderDeviceContext> device_context_;
     mutable std::mutex mutex_;
     std::condition_variable_any wake_;
     std::unordered_map<GpuExecutionClientId, std::shared_ptr<Client>> clients_;
     std::vector<GpuExecutionClientId> client_order_;
     FairClientCursor cursor_;
-    std::thread::id execution_thread_id_;
     GpuExecutionClientId next_client_ = 1;
     uint64_t domain_id_ = 0;
     size_t executed_control_count_ = 0;
     size_t executed_frame_count_ = 0;
     size_t rejected_work_count_ = 0;
     size_t failure_broadcast_count_ = 0;
-    GpuExecutionDomainState state_ = GpuExecutionDomainState::Rebuilding;
+    GpuExecutionDomainState state_ = GpuExecutionDomainState::Stopped;
     std::optional<Error> domain_failure_;
     bool stopping_ = false;
     // 必须最后声明并在构造函数体启动，禁止线程观察到尚未构造的状态成员。

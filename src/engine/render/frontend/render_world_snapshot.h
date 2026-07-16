@@ -11,7 +11,6 @@
 #include "render_record_store.h"
 
 #include <memory>
-#include <mutex>
 
 namespace mulan::engine {
 
@@ -39,21 +38,14 @@ public:
     auto materials() const { return storage_->materials.records(); }
     auto objects() const { return storage_->objects.records(); }
     RenderWorldVersion version() const { return version_; }
-    const math::AABB3& bounds() const;
 
     const RenderGeometryRecord* geometry(GeometryHandle handle) const;
     const RenderMaterialRecord* material(RenderMaterialHandle handle) const;
     const RenderObjectRecord* object(RenderObjectId id) const;
 
 private:
-    struct BoundsCache {
-        std::once_flag once;
-        math::AABB3 value;
-    };
-
     std::shared_ptr<const RenderWorldStorage> storage_;
     RenderWorldVersion version_;
-    std::shared_ptr<BoundsCache> bounds_cache_;
 };
 
 }  // namespace mulan::engine

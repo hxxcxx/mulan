@@ -10,7 +10,6 @@
 
 #pragma once
 
-#include "scene_sync/render_world_sync.h"
 #include <mulan/view/core/view_state.h>
 
 #include <mulan/render/frontend/render_resource_prepare.h>
@@ -33,19 +32,8 @@ struct RenderSubmission {
     ViewState view;
     /// 光照值快照；渲染端不再引用 ViewContext 的可变环境。
     engine::LightEnvironment lightEnvironment;
-    RenderWorldSyncStats sceneSyncStats;
-    RenderWorldSyncStats overlaySyncStats;
-    uint64_t sceneGeneration = 0;
-    uint64_t geometryGeneration = 0;
-    uint64_t previewGeneration = 0;
-    uint64_t surfaceGeneration = 0;
     /// 当前携带的待确认 GPU 资源批次；0 表示没有持久资源更新。
     uint64_t resourceBatchId = 0;
-    bool rebuiltSceneWorld = false;
-    bool rebuiltOverlayWorld = false;
-    /// 兼容诊断：任意一个世界发生重建时为 true。
-    bool rebuiltWorld = false;
-    uint64_t generation = 0;
 
     bool hasWorld() const { return static_cast<bool>(sceneWorld) || static_cast<bool>(overlayWorld); }
     bool hasResourceUpdates() const { return resourceBatchId != 0 && !prepare.empty(); }

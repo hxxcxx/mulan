@@ -8,11 +8,11 @@
 #pragma once
 
 #include "scene_sync/render_submission.h"
+#include "scene_sync/render_world_sync.h"
 
 #include <mulan/render/frontend/render_world.h>
 #include <mulan/render/light_environment.h>
 
-#include <cstddef>
 #include <cstdint>
 #include <memory>
 
@@ -23,20 +23,6 @@ class AssetLibrary;
 namespace mulan::view {
 class PreviewLayer;
 class RenderScene;
-
-struct RenderSubmissionDiagnostics {
-    uint64_t submissionCount = 0;
-    uint64_t worldRebuildCount = 0;
-    uint64_t worldReuseCount = 0;
-    uint64_t sceneWorldRebuildCount = 0;
-    uint64_t sceneWorldReuseCount = 0;
-    uint64_t overlayWorldRebuildCount = 0;
-    uint64_t overlayWorldReuseCount = 0;
-    size_t lastResourceUpdateCount = 0;
-    uint64_t lastSceneGeneration = 0;
-    uint64_t lastGeometryGeneration = 0;
-    uint64_t lastPreviewGeneration = 0;
-};
 
 class RenderSubmissionBuilder {
 public:
@@ -56,7 +42,6 @@ public:
 
     const RenderWorldSyncStats& lastStats() const { return last_scene_sync_stats_; }
     const RenderWorldSyncStats& lastOverlayStats() const { return last_overlay_sync_stats_; }
-    const RenderSubmissionDiagnostics& diagnostics() const { return diagnostics_; }
 
 private:
     bool needsSceneRebuild() const;
@@ -76,7 +61,6 @@ private:
     uint64_t last_overlay_scene_change_domain_ = 0;
     uint64_t last_preview_generation_ = 0;
     uint64_t last_overlay_scene_generation_ = 0;
-    uint64_t submission_generation_ = 0;
     bool scene_source_dirty_ = true;
     bool preview_source_dirty_ = true;
     bool overlay_reference_source_dirty_ = true;
@@ -89,7 +73,6 @@ private:
     std::shared_ptr<const engine::RenderWorldSnapshot> overlay_world_snapshot_;
     RenderWorldSyncStats last_scene_sync_stats_;
     RenderWorldSyncStats last_overlay_sync_stats_;
-    RenderSubmissionDiagnostics diagnostics_;
     engine::LightEnvironment light_environment_;
     engine::RenderResourcePrepareList pending_prepare_;
     uint64_t resource_batch_id_ = 0;

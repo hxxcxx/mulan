@@ -27,12 +27,4 @@ struct DrawExecutionContext {
     DrawCameraSnapshot camera;
 };
 
-class DrawExecutor {
-public:
-    virtual ~DrawExecutor() = default;
-
-    virtual const char* name() const = 0;
-    virtual void execute(const DrawExecutionContext& ctx) = 0;
-};
-
 }  // namespace mulan::engine

@@ -7,9 +7,12 @@
 
 #pragma once
 
-#include "render_stage.h"
 #include "../draw/geometry_draw_executor.h"
+#include "../frame/render_frame.h"
+#include "../frame/render_target_info.h"
 #include "../frontend/render_request.h"
+
+#include <mulan/core/result/error.h>
 
 #include <span>
 #include <vector>
@@ -19,16 +22,14 @@ namespace mulan::engine {
 class GeometryDrawSharedResources;
 class DevicePipelineLibrary;
 
-class FaceStage final : public RenderStage {
+class FaceStage final {
 public:
     FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources, DevicePipelineLibrary& pipelineLibrary);
 
-    std::string_view name() const override { return "Face"; }
+    ResultVoid init(RHIDevice& device, const RenderTargetInfo& target);
 
-    ResultVoid init(RHIDevice& device, const RenderTargetInfo& target) override;
-
-    void shutdown(RHIDevice& device) override;
-    void execute(RenderFrame& frame) override;
+    void shutdown(RHIDevice& device);
+    void execute(RenderFrame& frame);
 
     void setDrawCommands(std::span<const MeshDrawCommand> commands);
     void setSurfaceTechnique(SurfaceTechnique technique);
@@ -47,7 +48,9 @@ private:
     GeometryDrawExecutor solid_executor_;
     GeometryDrawExecutor pbr_executor_;
     GeometryDrawExecutor pbr_tangent_executor_;
-    GeometryDrawExecutor view_cube_executor_;
+    GeometryDrawSharedResources& shared_resources_;
+    DevicePipelineLibrary& pipeline_library_;
+    PipelineState* view_cube_pipeline_ = nullptr;
     std::vector<MeshDrawCommand> pbr_commands_;
     std::vector<MeshDrawCommand> pbr_tangent_commands_;
     SurfaceTechnique surface_technique_ = SurfaceTechnique::SolidLit;

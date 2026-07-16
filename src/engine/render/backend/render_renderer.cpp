@@ -20,10 +20,10 @@ namespace mulan::engine {
 RenderRenderer::RenderRenderer() = default;
 RenderRenderer::~RenderRenderer() = default;
 
-bool RenderRenderer::init(RHIDevice& device, DeviceResourceService& resources, LightEnvironment& lightEnv,
-                          TextureFormat colorFmt, TextureFormat depthFmt, uint32_t sampleCount) {
+ResultVoid RenderRenderer::init(RHIDevice& device, DeviceResourceService& resources, LightEnvironment& lightEnv,
+                                TextureFormat colorFmt, TextureFormat depthFmt, uint32_t sampleCount) {
     if (initialized_)
-        return true;
+        return {};
 
     device_resources_ = &resources;
     material_cache_ = &resources.materials();
@@ -38,19 +38,16 @@ bool RenderRenderer::init(RHIDevice& device, DeviceResourceService& resources, L
     targetInfo.sampleCount = sampleCount;
 
     face_stage_ = std::make_unique<FaceStage>(device, *geometry_resources_, resources.pipelines());
-    if (!face_stage_->init(device, targetInfo)) {
-        return false;
-    }
+    if (auto initialized = face_stage_->init(device, targetInfo); !initialized)
+        return std::unexpected(initialized.error());
 
     edge_stage_ = std::make_unique<EdgeStage>(device, *geometry_resources_, resources.pipelines());
-    if (!edge_stage_->init(device, targetInfo)) {
-        return false;
-    }
+    if (auto initialized = edge_stage_->init(device, targetInfo); !initialized)
+        return std::unexpected(initialized.error());
 
     highlight_stage_ = std::make_unique<HighlightStage>(device, *geometry_resources_, resources.pipelines());
-    if (!highlight_stage_->init(device, targetInfo)) {
-        return false;
-    }
+    if (auto initialized = highlight_stage_->init(device, targetInfo); !initialized)
+        return std::unexpected(initialized.error());
 
     view_cube_stage_ = std::make_unique<ViewCubeStage>(device);
     if (!view_cube_stage_->init(device, targetInfo)) {
@@ -67,7 +64,7 @@ bool RenderRenderer::init(RHIDevice& device, DeviceResourceService& resources, L
     LOG_INFO("[RenderRenderer] Initialized: colorFormat={}, depthFormat={}, sampleCount={}, viewCube={}, text={}",
              static_cast<int>(colorFmt), static_cast<int>(depthFmt), sampleCount, view_cube_stage_ != nullptr,
              text_stage_ != nullptr);
-    return true;
+    return {};
 }
 
 void RenderRenderer::shutdown(RHIDevice& device) {

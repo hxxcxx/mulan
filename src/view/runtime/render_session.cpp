@@ -19,10 +19,6 @@ Error sessionError(ErrorCode code, std::string_view message) {
     return Error::make(code, message);
 }
 
-bool isGpuExecutionError(const Error& error) {
-    return error.code >= static_cast<int32_t>(engine::EngineErrorCode::DeviceLost) && error.code < 2000;
-}
-
 }  // namespace
 
 RenderSession::RenderSession() : owner_thread_(std::this_thread::get_id()) {
@@ -192,7 +188,6 @@ void RenderSession::submitFrame(const ViewState& viewState) {
     }
 
     RenderSubmission submission = submission_builder_.build(viewState);
-    submission.surfaceGeneration = surfaceState().generation;
 
     if (execution_mode_ == ExecutionMode::Threaded) {
         // Worker 在同一锁内把 prepare 拆到可靠队列，并给 latest-frame 记录资源依赖；
@@ -240,7 +235,6 @@ Result<engine::RenderCaptureResult> RenderSession::capture(const ViewState& view
     }
 
     RenderSubmission submission = submission_builder_.build(viewState);
-    submission.surfaceGeneration = surfaceState().generation;
 
     Result<engine::RenderCaptureResult> result;
     if (execution_mode_ == ExecutionMode::Threaded) {
@@ -259,7 +253,7 @@ Result<engine::RenderCaptureResult> RenderSession::capture(const ViewState& view
         }
         result = inline_executor_->capture(submission, desc);
     }
-    if (!result && (isGpuExecutionError(result.error()) ||
+    if (!result && (engine::isDeviceFatalError(result.error()) ||
                     (execution_mode_ == ExecutionMode::Threaded && worker_ && !worker_->isInitialized()))) {
         failExecution(result.error());
     }
@@ -288,7 +282,7 @@ RenderSurfaceState RenderSession::resize(int width, int height) {
         if (!resized) {
             LOG_ERROR("[RenderSession] Surface resize failed: {}", resized.error().message);
             const RenderSurfaceState fallback = inline_executor_->surfaceState();
-            if (isGpuExecutionError(resized.error())) {
+            if (engine::isDeviceFatalError(resized.error())) {
                 failExecution(resized.error());
             }
             return fallback;

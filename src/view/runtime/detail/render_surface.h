@@ -46,20 +46,20 @@ public:
     RenderSurface& operator=(const RenderSurface&) = delete;
 
     /// 窗口表面：创建 SwapChain。device 由调用方持有。
-    bool initWindowSurface(engine::RHIDevice& device, const ViewConfig& config, int width, int height);
+    ResultVoid initWindowSurface(engine::RHIDevice& device, const ViewConfig& config, int width, int height);
 
     /// 离屏表面：创建 RenderTarget + readback staging buffer。
-    bool initOffscreenSurface(engine::RHIDevice& device, int width, int height);
-    bool initOffscreenSurface(engine::RHIDevice& device, const RenderSurfaceDesc& desc);
+    ResultVoid initOffscreenSurface(engine::RHIDevice& device, int width, int height);
+    ResultVoid initOffscreenSurface(engine::RHIDevice& device, const RenderSurfaceDesc& desc);
 
-    bool configureOffscreenSurface(engine::RHIDevice& device, const RenderSurfaceDesc& desc);
+    ResultVoid configureOffscreenSurface(engine::RHIDevice& device, const RenderSurfaceDesc& desc);
 
     void shutdown(engine::RHIDevice& device);
 
     /// 调整表面尺寸。失败时保留后端错误，使上层能够决定是否丢弃执行域。
     ResultVoid resize(engine::RHIDevice& device, int width, int height);
 
-    bool readbackPixels(engine::RHIDevice& device, std::vector<uint8_t>& pixels);
+    ResultVoid readbackPixels(engine::RHIDevice& device, std::vector<uint8_t>& pixels);
 
     bool isInitialized() const { return swapchain_ || render_target_; }
     bool isOffscreen() const { return !swapchain_ && static_cast<bool>(render_target_); }
@@ -69,8 +69,6 @@ public:
 
     int width() const { return width_; }
     int height() const { return height_; }
-    /// 表面资源版本；resize、重建或销毁后递增，可用于丢弃旧帧提交。
-    uint64_t generation() const { return generation_; }
     uint32_t bytesPerPixel() const { return bytes_per_pixel_; }
     uint32_t rowBytes() const { return row_bytes_; }
     engine::TextureFormat colorFormat(engine::RHIDevice& device) const;
@@ -79,7 +77,6 @@ public:
 
 private:
     bool offscreenDescMatches(const RenderSurfaceDesc& desc) const;
-    void advanceGeneration();
 
     std::unique_ptr<engine::SwapChain> swapchain_;
     std::unique_ptr<engine::RenderTarget> render_target_;
@@ -91,7 +88,6 @@ private:
 
     int width_ = 0;
     int height_ = 0;
-    uint64_t generation_ = 1;
 };
 
 }  // namespace mulan::view::detail

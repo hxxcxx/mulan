@@ -9,11 +9,14 @@
 
 #include "font_manager.h"
 #include "text_types.h"
-#include "../forward/render_stage.h"
+#include "../frame/render_frame.h"
+#include "../frame/render_target_info.h"
 #include "../../rhi/buffer.h"
 #include "../../rhi/bind_group.h"
 #include "../../rhi/pipeline_state.h"
 #include "../../rhi/shader.h"
+
+#include <mulan/core/result/error.h>
 
 #include <memory>
 #include <string>
@@ -23,19 +26,17 @@
 
 namespace mulan::engine {
 
-class TextStage final : public RenderStage {
+class TextStage final {
 public:
     explicit TextStage(RHIDevice& device);
-    ~TextStage() override;
+    ~TextStage();
 
     TextStage(const TextStage&) = delete;
     TextStage& operator=(const TextStage&) = delete;
 
-    std::string_view name() const override { return "Text"; }
-
-    ResultVoid init(RHIDevice& device, const RenderTargetInfo& target) override;
-    void shutdown(RHIDevice& device) override;
-    void execute(RenderFrame& frame) override;
+    ResultVoid init(RHIDevice& device, const RenderTargetInfo& target);
+    void shutdown(RHIDevice& device);
+    void execute(RenderFrame& frame);
 
     void beginFrame(uint32_t width, uint32_t height);
     void clear();

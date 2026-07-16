@@ -77,7 +77,6 @@ private:
     };
 
     bool validClient(DeviceResourceClientId client) const;
-    void rebuildDomainReferences();
 
     RHIDevice& device_;
     AssetGpuRegistry asset_registry_;
@@ -88,7 +87,6 @@ private:
     std::unordered_set<DeviceResourceClientId> clients_;
     std::unordered_map<RenderResourceKey, ClientSet> geometry_owners_;
     std::unordered_map<RenderTextureResourceKey, ClientSet, RenderTextureResourceKeyHash> texture_owners_;
-    std::unordered_map<ResourceDomainId, size_t> domain_references_;
     DeviceResourceClientId next_client_ = 1;
     bool initialized_ = false;
 };

@@ -14,7 +14,6 @@ namespace mulan::view::detail {
 struct RenderSurfaceState {
     uint32_t width = 0;
     uint32_t height = 0;
-    uint64_t generation = 0;
     bool valid = false;
 };
 

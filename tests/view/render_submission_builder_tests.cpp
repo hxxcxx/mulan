@@ -271,7 +271,6 @@ TEST(RenderResourceDomainTests, ReusedAssetLibraryAddressCannotReuseThePreviousG
     // 指针、AssetId、asset revision 都可与上一代相同；domain 必须仍能识别换代。
     builder.setScene(&renderScene, &*assets);
     const RenderSubmission replacement = builder.build(ViewState{});
-    ASSERT_TRUE(replacement.rebuiltSceneWorld);
     ASSERT_EQ(replacement.prepare.geometries().size(), 2u);
     const auto retired = std::ranges::find_if(replacement.prepare.geometries(),
                                               [&](const auto& resource) { return resource.resourceKey == firstKey; });
@@ -326,8 +325,6 @@ TEST(RenderSubmissionBuilderTests, ReusedRenderSceneAddressCannotReuseThePreviou
 
     builder.setScene(&*renderScene, &assets);
     const RenderSubmission replacement = builder.build(ViewState{});
-    ASSERT_TRUE(replacement.rebuiltSceneWorld);
-    ASSERT_TRUE(replacement.rebuiltOverlayWorld);
     ASSERT_TRUE(replacement.sceneWorld);
     ASSERT_TRUE(replacement.overlayWorld);
     EXPECT_NE(replacement.sceneWorld, first.sceneWorld);
@@ -417,9 +414,8 @@ TEST(RenderSubmissionBuilderTests, PreviewReferenceOnlyRevisionDoesNotUploadUnch
     // references 变化会推进 PreviewLayer generation，但不应让未变的直接预览 mesh 重传。
     preview.setReferences({ PreviewReference{} });
     const RenderSubmission referencesChanged = builder.build(view);
-    EXPECT_TRUE(referencesChanged.rebuiltWorld);
-    EXPECT_FALSE(referencesChanged.rebuiltSceneWorld);
-    EXPECT_TRUE(referencesChanged.rebuiltOverlayWorld);
+    EXPECT_EQ(referencesChanged.sceneWorld, first.sceneWorld);
+    EXPECT_NE(referencesChanged.overlayWorld, first.overlayWorld);
     EXPECT_TRUE(referencesChanged.prepare.empty());
 }
 
@@ -449,15 +445,13 @@ TEST(RenderSubmissionBuilderTests, PreviewAndViewChangesReuseSceneWorld) {
 
     preview.setMesh(makePreviewMesh());
     const RenderSubmission previewChanged = builder.build(view);
-    EXPECT_FALSE(previewChanged.rebuiltSceneWorld);
-    EXPECT_TRUE(previewChanged.rebuiltOverlayWorld);
     EXPECT_EQ(previewChanged.sceneWorld, stableSceneWorld);
+    EXPECT_NE(previewChanged.overlayWorld, first.overlayWorld);
 
     view.hoveredPickId = engine::PickId{ 7 };
     const RenderSubmission viewChanged = builder.build(view);
-    EXPECT_FALSE(viewChanged.rebuiltSceneWorld);
-    EXPECT_FALSE(viewChanged.rebuiltOverlayWorld);
     EXPECT_EQ(viewChanged.sceneWorld, stableSceneWorld);
+    EXPECT_EQ(viewChanged.overlayWorld, previewChanged.overlayWorld);
 }
 
 TEST(RenderSubmissionBuilderTests, PreviewReferencesBorrowSceneResourcesWithoutRetiringThem) {
@@ -552,8 +546,8 @@ TEST(RenderSubmissionBuilderTests, UpdatingOnePreviewRoleRebuildsOverlayAndPrese
     preview.setMesh(std::move(replacement));
     const RenderSubmission updated = builder.build(view);
     ASSERT_TRUE(updated.overlayWorld);
-    EXPECT_TRUE(updated.overlaySyncStats.fullRebuild);
-    EXPECT_EQ(updated.overlaySyncStats.patchedObjectCount, 1u);
+    EXPECT_TRUE(builder.lastOverlayStats().fullRebuild);
+    EXPECT_EQ(builder.lastOverlayStats().patchedObjectCount, 1u);
     const OverlayRoleProjection updatedTool = overlayRoleProjection(*updated.overlayWorld, PreviewVisualRole::Tool);
     const OverlayRoleProjection updatedSnap = overlayRoleProjection(*updated.overlayWorld, PreviewVisualRole::Snap);
 
@@ -592,7 +586,7 @@ TEST(RenderSubmissionBuilderTests, ClearingOnePreviewRoleRemovesOnlyThatRoleAndR
     preview.clearToolGeometry();
     const RenderSubmission cleared = builder.build(view);
     ASSERT_TRUE(cleared.overlayWorld);
-    EXPECT_TRUE(cleared.overlaySyncStats.fullRebuild);
+    EXPECT_TRUE(builder.lastOverlayStats().fullRebuild);
     EXPECT_TRUE(overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Tool).objects.empty());
     const OverlayRoleProjection stableSnap = overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Snap);
     EXPECT_NE(stableSnap.objects, snap.objects);
@@ -679,7 +673,6 @@ TEST(RenderSubmissionBuilderTests, UnrelatedAssetEventsAdvanceOverlayCursorWitho
     for (size_t index = 0; index < 3; ++index) {
         ASSERT_NE(assets.create<asset::MaterialAsset>("Unrelated" + std::to_string(index)), nullptr);
         const RenderSubmission unchanged = builder.build(view);
-        EXPECT_FALSE(unchanged.rebuiltOverlayWorld) << "unrelated event index=" << index;
         EXPECT_EQ(unchanged.overlayWorld, first.overlayWorld);
     }
 }
@@ -700,7 +693,6 @@ TEST(RenderSubmissionBuilderTests, AssetClearDoesNotRebuildOverlayWithoutReferen
 
     assets.clear();
     const RenderSubmission cleared = builder.build(view);
-    EXPECT_FALSE(cleared.rebuiltOverlayWorld);
     EXPECT_EQ(cleared.overlayWorld, first.overlayWorld);
 }
 
@@ -731,14 +723,13 @@ TEST(RenderSubmissionBuilderTests, AssetClearRebuildsOverlayWithCurrentReference
 
     assets.clear();
     const RenderSubmission cleared = builder.build(view);
-    ASSERT_TRUE(cleared.rebuiltOverlayWorld);
     ASSERT_TRUE(cleared.overlayWorld);
     EXPECT_TRUE(overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Tool).objects.empty());
     const OverlayRoleProjection stableSnap = overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Snap);
     EXPECT_NE(stableSnap.objects, firstSnap.objects);
     EXPECT_NE(stableSnap.geometries, firstSnap.geometries);
     EXPECT_EQ(stableSnap.geometryKeys, firstSnap.geometryKeys);
-    EXPECT_EQ(cleared.overlaySyncStats.patchedObjectCount, 1u);
+    EXPECT_EQ(builder.lastOverlayStats().patchedObjectCount, 1u);
     EXPECT_TRUE(std::ranges::none_of(cleared.prepare.geometries(), [](const auto& resource) {
         return resource.resourceKey.kind == engine::RenderResourceKind::PreviewGeometry;
     }));
@@ -833,8 +824,8 @@ TEST(RenderSubmissionBuilderTests, TransformOnlyWorldRebuildDoesNotUploadGeometr
     renderScene.sync(sourceScene, assets);
     const RenderSubmission transformed = builder.build(view);
 
-    EXPECT_TRUE(transformed.rebuiltWorld);
     EXPECT_TRUE(transformed.prepare.empty());
+    EXPECT_NE(transformed.sceneWorld, first.sceneWorld);
 }
 
 TEST(RenderSubmissionBuilderTests, UpdatingOneAssetOnlyUpsertsItsGeometryKey) {
@@ -865,8 +856,8 @@ TEST(RenderSubmissionBuilderTests, UpdatingOneAssetOnlyUpsertsItsGeometryKey) {
     changedAsset->setRenderMeshes(makeSurfaceMesh(2), {});
     const RenderSubmission updated = builder.build(view);
 
-    EXPECT_TRUE(updated.rebuiltWorld);
     ASSERT_EQ(updated.prepare.size(), 1u);
+    EXPECT_NE(updated.sceneWorld, first.sceneWorld);
     EXPECT_TRUE(updated.prepare.geometries().front().isUpsert());
     EXPECT_TRUE(updated.prepare.geometries().front().forceUpdate);
 }
@@ -974,8 +965,8 @@ TEST(RenderSubmissionBuilderTests, MaterialRevisionRebuildsWorldWithoutGeometryU
     material->setRoughness(0.25);
     const RenderSubmission materialChanged = builder.build(view);
 
-    EXPECT_TRUE(materialChanged.rebuiltWorld);
     EXPECT_TRUE(materialChanged.prepare.empty());
+    EXPECT_NE(materialChanged.sceneWorld, first.sceneWorld);
 }
 
 TEST(RenderSubmissionBuilderTests, TextureRevisionFlowsIntoWorldWithoutGeometryUpload) {
@@ -1006,8 +997,8 @@ TEST(RenderSubmissionBuilderTests, TextureRevisionFlowsIntoWorldWithoutGeometryU
     texture->setImage(core::Image::create(1, 1, core::PixelFormat::RGBA8));
     const RenderSubmission textureChanged = builder.build(view);
 
-    EXPECT_TRUE(textureChanged.rebuiltWorld);
     EXPECT_TRUE(textureChanged.prepare.geometries().empty());
+    EXPECT_NE(textureChanged.sceneWorld, first.sceneWorld);
     ASSERT_EQ(textureChanged.prepare.textures().size(), 1u);
     EXPECT_TRUE(textureChanged.prepare.textures().front().isUpsert());
     EXPECT_EQ(textureChanged.prepare.textures().front().contentRevision, texture->revision());
@@ -1045,8 +1036,8 @@ TEST(RenderSubmissionBuilderTests, RemovingLastTextureReferenceEmitsReliableReti
     material->setBaseColorTexture(asset::AssetId::invalid());
     const RenderSubmission removed = builder.build(view);
 
-    EXPECT_TRUE(removed.rebuiltWorld);
     EXPECT_TRUE(removed.prepare.geometries().empty());
+    EXPECT_NE(removed.sceneWorld, initial.sceneWorld);
     ASSERT_EQ(removed.prepare.textures().size(), 1u);
     EXPECT_TRUE(removed.prepare.textures().front().isRetire());
     EXPECT_EQ(removed.prepare.textures().front().identity, identity);
@@ -1080,8 +1071,8 @@ TEST(RenderSubmissionBuilderTests, RemovingReferencedTextureAssetEmitsReliableRe
     ASSERT_TRUE(assets.remove(textureId));
     const RenderSubmission removed = builder.build(view);
 
-    EXPECT_TRUE(removed.rebuiltWorld);
     ASSERT_EQ(removed.prepare.textures().size(), 1u);
+    EXPECT_NE(removed.sceneWorld, initial.sceneWorld);
     EXPECT_TRUE(removed.prepare.textures().front().isRetire());
     EXPECT_EQ(removed.prepare.textures().front().identity, identity);
 }
@@ -1292,15 +1283,14 @@ TEST(RenderSubmissionBuilderTests, MaterialLessDrawableKeepsStableDefaultIdentit
         renderScene.sync(sourceScene, assets);
 
         const RenderSubmission submission = builder.build(view);
-        ASSERT_TRUE(submission.rebuiltWorld);
         ASSERT_TRUE(submission.sceneWorld);
         ASSERT_EQ(submission.sceneWorld->materials().size(), 1u);
         const auto& material = submission.sceneWorld->materials().front();
         EXPECT_EQ(material.desc.resourceKey, stableKey);
         EXPECT_EQ(material.handle, stableHandle);
-        EXPECT_FALSE(submission.sceneSyncStats.fullRebuild);
-        EXPECT_EQ(submission.sceneSyncStats.patchedObjectCount, 1u);
-        EXPECT_EQ(submission.sceneSyncStats.updatedObjectCount, 1u);
+        EXPECT_FALSE(builder.lastStats().fullRebuild);
+        EXPECT_EQ(builder.lastStats().patchedObjectCount, 1u);
+        EXPECT_EQ(builder.lastStats().updatedObjectCount, 1u);
     }
 }
 
@@ -1337,9 +1327,9 @@ TEST(RenderSubmissionBuilderTests, SingleTransformPatchesOneObjectAndPreservesAl
     renderScene.sync(sourceScene, assets);
     const RenderSubmission patched = builder.build(view);
     ASSERT_TRUE(patched.sceneWorld);
-    EXPECT_FALSE(patched.sceneSyncStats.fullRebuild);
-    EXPECT_EQ(patched.sceneSyncStats.patchedObjectCount, 1u);
-    EXPECT_EQ(patched.sceneSyncStats.updatedObjectCount, 1u);
+    EXPECT_FALSE(builder.lastStats().fullRebuild);
+    EXPECT_EQ(builder.lastStats().patchedObjectCount, 1u);
+    EXPECT_EQ(builder.lastStats().updatedObjectCount, 1u);
     EXPECT_EQ(patched.sceneWorld->objects().size(), entities.size());
     for (const auto& object : patched.sceneWorld->objects()) {
         EXPECT_EQ(object.id, stableIds.at(object.desc.pickId.value));
@@ -1378,9 +1368,9 @@ TEST(RenderSubmissionBuilderTests, RemoveAndAddKeepUnrelatedObjectIdsStable) {
     renderScene.sync(sourceScene, assets);
     const RenderSubmission patched = builder.build(view);
     ASSERT_TRUE(patched.sceneWorld);
-    EXPECT_EQ(patched.sceneSyncStats.patchedObjectCount, 2u);
-    EXPECT_EQ(patched.sceneSyncStats.removedObjectCount, 1u);
-    EXPECT_EQ(patched.sceneSyncStats.addedObjectCount, 1u);
+    EXPECT_EQ(builder.lastStats().patchedObjectCount, 2u);
+    EXPECT_EQ(builder.lastStats().removedObjectCount, 1u);
+    EXPECT_EQ(builder.lastStats().addedObjectCount, 1u);
     const auto patchedObjects = patched.sceneWorld->objects();
     const auto stableRecord =
             std::ranges::find_if(patchedObjects, [&](const auto& object) { return object.desc.pickId == firstPick; });
@@ -1410,8 +1400,8 @@ TEST(RenderSubmissionBuilderTests, VisibilityUsesAnObjectPatchWithoutChangingIde
     ASSERT_EQ(hidden.sceneWorld->objects().size(), 1u);
     EXPECT_EQ(hidden.sceneWorld->objects().front().id, stableId);
     EXPECT_FALSE(hidden.sceneWorld->objects().front().desc.visible);
-    EXPECT_EQ(hidden.sceneSyncStats.updatedObjectCount, 1u);
-    EXPECT_EQ(hidden.sceneSyncStats.removedObjectCount, 0u);
+    EXPECT_EQ(builder.lastStats().updatedObjectCount, 1u);
+    EXPECT_EQ(builder.lastStats().removedObjectCount, 0u);
 }
 
 TEST(RenderSubmissionBuilderTests, IncrementalProjectionMatchesFreshFullProjection) {
@@ -1481,8 +1471,8 @@ TEST(RenderSubmissionBuilderTests, ProjectionJournalOverflowRecoversWithFullResy
     }
     const RenderSubmission recovered = builder.build(view);
     ASSERT_TRUE(recovered.sceneWorld);
-    EXPECT_TRUE(recovered.sceneSyncStats.fullRebuild);
-    EXPECT_EQ(recovered.sceneSyncStats.patchedObjectCount, 1u);
+    EXPECT_TRUE(builder.lastStats().fullRebuild);
+    EXPECT_EQ(builder.lastStats().patchedObjectCount, 1u);
     ASSERT_EQ(recovered.sceneWorld->objects().size(), 1u);
     EXPECT_EQ(math::Point3::origin().transformedBy(recovered.sceneWorld->objects().front().desc.worldTransform),
               math::Point3(4100.0, 0.0, 0.0));
@@ -1510,8 +1500,6 @@ TEST(RenderSubmissionBuilderTests, SelectionChangesOnlyViewVisualState) {
     renderScene.sync(sourceScene, assets);
     const RenderSubmission selected = builder.build(view);
 
-    EXPECT_FALSE(selected.rebuiltSceneWorld);
-    EXPECT_FALSE(selected.rebuiltOverlayWorld);
     EXPECT_EQ(selected.sceneWorld, first.sceneWorld);
 }
 
@@ -1536,7 +1524,9 @@ TEST(RenderWorldSnapshotTests, PublishedSnapshotRemainsImmutableAcrossSparseUpda
 
     ASSERT_EQ(published.objects().size(), 2u);
     EXPECT_EQ(published.objects().front().id, first);
-    EXPECT_EQ(published.bounds().max.x, 11.0);
+    auto publishedSecond = published.objects().begin();
+    ++publishedSecond;
+    EXPECT_EQ(publishedSecond->desc.worldBounds.max.x, 11.0);
     ASSERT_EQ(current.objects().size(), 2u);
     const auto currentObjects = current.objects();
     const auto currentFirst =
@@ -1546,7 +1536,7 @@ TEST(RenderWorldSnapshotTests, PublishedSnapshotRemainsImmutableAcrossSparseUpda
     EXPECT_EQ(math::Point3::origin().transformedBy(currentFirst->desc.worldTransform), expectedPosition);
     EXPECT_NE(std::ranges::find_if(currentObjects, [&](const auto& record) { return record.id == added; }),
               currentObjects.end());
-    EXPECT_EQ(current.bounds().max.x, 5.0);
+    EXPECT_EQ(current.objects().front().desc.worldBounds.max.x, 5.0);
 }
 
 TEST(RenderWorldSnapshotTests, WorldVersionsAreUniqueAndAdvanceOnlyForSuccessfulMutations) {

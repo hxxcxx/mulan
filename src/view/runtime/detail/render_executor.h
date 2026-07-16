@@ -4,8 +4,8 @@
  * @author hxxcxx
  * @date 2026-07-15
  *
- * 同步模式由调用线程独占，线程模式由 RenderWorker 独占。所有 RHI 操作统一遵循
- * Executor 锁到共享 Device 锁的顺序；上层只能读取不可变的表面状态快照。
+ * 同步模式由调用线程独占，线程模式由 GpuExecutionDomain 的唯一 GPU 线程独占。
+ * Executor 不提供跨线程同步；上层只能通过所属执行域访问它。
  */
 
 #pragma once
@@ -22,7 +22,6 @@
 #include <mulan/render/light_environment.h>
 
 #include <memory>
-#include <mutex>
 #include <string>
 
 namespace mulan::view::detail {
@@ -37,6 +36,10 @@ public:
 
     ResultVoid initWindow(const ViewConfig& config, int width, int height);
     ResultVoid initOffscreen(const ViewConfig& config, int width, int height);
+    ResultVoid initWindow(std::shared_ptr<RenderDeviceContext> context, const ViewConfig& config, int width,
+                          int height);
+    ResultVoid initOffscreen(std::shared_ptr<RenderDeviceContext> context, const ViewConfig& config, int width,
+                             int height);
     void shutdown();
 
     bool isInitialized() const;
@@ -52,7 +55,7 @@ public:
 
 private:
     ResultVoid initRenderer();
-    bool configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
+    ResultVoid configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
     RenderSurfaceState surfaceStateLocked() const;
     void shutdownLocked();
 
@@ -63,7 +66,6 @@ private:
     engine::LightEnvironment light_environment_;
     engine::RenderRenderer renderer_;
     engine::DeviceResourceClientId resource_client_ = 0;
-    mutable std::mutex mutex_;
     bool initialized_ = false;
 };
 

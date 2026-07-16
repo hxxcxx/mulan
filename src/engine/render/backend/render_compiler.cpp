@@ -24,43 +24,6 @@ namespace {
 using ObjectIdHash = RenderHandleHash<RenderObjectIdTag>;
 using SpatialIndex = math::DynamicBVH<RenderObjectId, ObjectIdHash>;
 
-uint64_t mixSortKey(uint64_t seed, uint64_t value) noexcept {
-    value ^= value >> 30;
-    value *= 0xbf58476d1ce4e5b9ULL;
-    value ^= value >> 27;
-    value *= 0x94d049bb133111ebULL;
-    value ^= value >> 31;
-    return seed ^ (value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2));
-}
-
-uint64_t pointerSortKey(const void* pointer) noexcept {
-    return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(pointer));
-}
-
-void updateSortKey(MeshDrawCommand& command) noexcept {
-    uint64_t key = 0xcbf29ce484222325ULL;
-    key = mixSortKey(key, pointerSortKey(command.pipelineState));
-    key = mixSortKey(key, pointerSortKey(command.albedoTex));
-    key = mixSortKey(key, pointerSortKey(command.normalTex));
-    key = mixSortKey(key, pointerSortKey(command.mrTex));
-    key = mixSortKey(key, pointerSortKey(command.emissiveTex));
-    key = mixSortKey(key, pointerSortKey(command.aoTex));
-    key = mixSortKey(key, pointerSortKey(command.sampler));
-    key = mixSortKey(key, command.materialIndex);
-    key = mixSortKey(key, pointerSortKey(command.vertexBuffer));
-    key = mixSortKey(key, pointerSortKey(command.indexBuffer));
-    key = mixSortKey(key, static_cast<uint64_t>(command.indexType));
-    key = mixSortKey(key, command.indexCount);
-    key = mixSortKey(key, command.firstIndex);
-    key = mixSortKey(key, static_cast<uint64_t>(static_cast<int64_t>(command.baseVertex)));
-    key = mixSortKey(key, command.vertexCount);
-    key = mixSortKey(key, command.instanceCount);
-    key = mixSortKey(key, static_cast<uint64_t>(command.topology));
-    key = mixSortKey(key, command.isWire ? 1u : 0u);
-    key = mixSortKey(key, command.batchInstancingEligible ? 1u : 0u);
-    command.sortKey = key;
-}
-
 template <typename T>
 int compareValue(const T& lhs, const T& rhs) noexcept {
     if (std::less<T>{}(lhs, rhs))
@@ -113,8 +76,6 @@ bool opaqueCommandLess(const MeshDrawCommand& lhs, const MeshDrawCommand& rhs) n
 }
 
 void sortDrawCommands(std::vector<MeshDrawCommand>& commands) {
-    for (MeshDrawCommand& command : commands)
-        updateSortKey(command);
     const auto opaqueEnd = std::stable_partition(commands.begin(), commands.end(),
                                                  [](const MeshDrawCommand& command) { return !command.translucent; });
     std::sort(commands.begin(), opaqueEnd, opaqueCommandLess);
@@ -663,10 +624,6 @@ struct RenderCompiler::Impl {
 
         sortDrawCommands(surfaceCommands);
         sortDrawCommands(edgeCommands);
-        for (MeshDrawCommand& command : highlightSurfaceCommands)
-            updateSortKey(command);
-        for (MeshDrawCommand& command : highlightEdgeCommands)
-            updateSortKey(command);
         assembledPacketRevision = packetRevision;
         assembledOptions = options;
         assembledVisibleIds = visibleIds;

@@ -156,7 +156,6 @@ public:
     uint64_t generation() const { return generation_; }
     /// 几何资源版本；仅在 GPU mesh 可能需要重新上传时递增。
     /// 几何代理身份或所引用资产内容变化的诊断世代；实际 GPU 上传由资源差量决定。
-    uint64_t geometryGeneration() const { return geometry_generation_; }
     size_t proxyCount() const { return proxies_.size(); }
     const SceneProxy* proxy(scene::EntityId id) const;
     std::optional<PickResult> pick(const math::Ray3& ray, double lineToleranceWorld = 0.0,
@@ -207,7 +206,6 @@ private:
     asset::AssetChangeCursor asset_change_cursor_;
     uint64_t next_pick_id_ = 1;
     uint64_t generation_ = 1;
-    uint64_t geometry_generation_ = 1;
     std::deque<RenderSceneChange> change_journal_;
     uint64_t change_domain_ = 0;
     uint64_t change_revision_ = 0;

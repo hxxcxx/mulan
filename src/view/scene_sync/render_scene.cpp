@@ -346,7 +346,6 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
         asset_change_cursor_ = assets.currentChangeCursor();
         initialized_ = true;
         ++generation_;
-        ++geometry_generation_;
         resetChangeJournal();
     };
 
@@ -640,9 +639,7 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
     if (changed) {
         ++generation_;
     }
-    if (geometryChanged) {
-        ++geometry_generation_;
-    }
+    if (geometryChanged) {}
     appendChanges(changedEntities);
     // 只有上述投影更新全部成功后才确认 journal 进度；若中途抛出，下一次 sync
     // 仍会从旧 cursor 重放，避免“游标已前进、派生状态未更新”的永久漏变更。
@@ -671,7 +668,6 @@ void RenderScene::clear() {
     asset_change_cursor_ = {};
     initialized_ = false;
     ++generation_;
-    ++geometry_generation_;
     resetChangeJournal();
 }
 

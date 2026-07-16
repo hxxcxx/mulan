@@ -8,6 +8,7 @@
 #include "runtime/detail/gpu_execution_domain.h"
 
 #include "runtime/detail/render_executor.h"
+#include "runtime/detail/render_device_context.h"
 
 #include <mulan/core/log/log.h>
 #include <mulan/rhi/engine_error_code.h>
@@ -146,14 +147,31 @@ GpuExecutionDomain::~GpuExecutionDomain() {
 }
 
 Result<GpuExecutionClientId> GpuExecutionDomain::attachWindow(const ViewConfig& config, int width, int height) {
-    return attach(
-            [config, width, height](RenderExecutor& executor) { return executor.initWindow(config, width, height); });
+    return attach([this, config, width, height](RenderExecutor& executor) -> ResultVoid {
+        auto context = ensureDeviceContext();
+        if (!context)
+            return std::unexpected(context.error());
+        return executor.initWindow(std::move(*context), config, width, height);
+    });
 }
 
 Result<GpuExecutionClientId> GpuExecutionDomain::attachOffscreen(const ViewConfig& config, int width, int height) {
-    return attach([config, width, height](RenderExecutor& executor) {
-        return executor.initOffscreen(config, width, height);
+    return attach([this, config, width, height](RenderExecutor& executor) -> ResultVoid {
+        auto context = ensureDeviceContext();
+        if (!context)
+            return std::unexpected(context.error());
+        return executor.initOffscreen(std::move(*context), config, width, height);
     });
+}
+
+Result<std::shared_ptr<RenderDeviceContext>> GpuExecutionDomain::ensureDeviceContext() {
+    if (device_context_ && device_context_->isHealthy())
+        return device_context_;
+    auto created = RenderDeviceContext::create(config_);
+    if (!created)
+        return std::unexpected(created.error());
+    device_context_ = std::move(*created);
+    return device_context_;
 }
 
 Result<GpuExecutionClientId> GpuExecutionDomain::attach(Initializer initialize) {
@@ -570,19 +588,6 @@ void GpuExecutionDomain::failClient(const std::shared_ptr<Client>& client, const
     wake_.notify_all();
 }
 
-bool GpuExecutionDomain::isDeviceDomainFailure(const Error& error) {
-    switch (static_cast<engine::EngineErrorCode>(error.code)) {
-    case engine::EngineErrorCode::DeviceLost:
-    case engine::EngineErrorCode::OutOfDeviceMemory:
-    case engine::EngineErrorCode::SubmissionFailed:
-    case engine::EngineErrorCode::SubmissionWaitFailed:
-    case engine::EngineErrorCode::ResourceUploadFailed:
-    case engine::EngineErrorCode::PresentationFailed:
-    case engine::EngineErrorCode::CommandRecordingFailed: return true;
-    default: return false;
-    }
-}
-
 void GpuExecutionDomain::failDomain(const Error& error) {
     std::deque<ControlTask> cancelled;
     {
@@ -618,10 +623,6 @@ void GpuExecutionDomain::failDomain(const Error& error) {
 }
 
 void GpuExecutionDomain::run(std::stop_token stopToken) {
-    {
-        std::scoped_lock lock(mutex_);
-        execution_thread_id_ = std::this_thread::get_id();
-    }
     while (!stopToken.stop_requested()) {
         bool hasControl = false;
         ControlTask control;
@@ -646,7 +647,7 @@ void GpuExecutionDomain::run(std::stop_token stopToken) {
             try {
                 auto rendered = client->executor->executeFrame(frame->submission);
                 if (!rendered) {
-                    if (isDeviceDomainFailure(rendered.error())) {
+                    if (engine::isDeviceFatalError(rendered.error())) {
                         failDomain(rendered.error());
                     } else {
                         failClient(client, rendered.error());
@@ -668,7 +669,7 @@ void GpuExecutionDomain::run(std::stop_token stopToken) {
                 if (control.fail) {
                     control.fail(executed.error());
                 }
-                if (isDeviceDomainFailure(executed.error())) {
+                if (engine::isDeviceFatalError(executed.error())) {
                     // capture 等同步控制即使自身不定义为“客户端致命”，DeviceLost 也必须
                     // 立即毒化整个共享执行域，不能等其他 Surface 下一次提交才被动发现。
                     failDomain(executed.error());

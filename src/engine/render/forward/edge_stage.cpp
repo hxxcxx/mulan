@@ -1,18 +1,27 @@
 #include "edge_stage.h"
 
+#include "../device_pipeline_library.h"
+
 namespace mulan::engine {
 
 EdgeStage::EdgeStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
                      DevicePipelineLibrary& pipelineLibrary)
     : draw_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::EdgeLine),
-      view_cube_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::ViewCubeLine) {
+      pipeline_library_(pipelineLibrary) {
 }
 
 ResultVoid EdgeStage::init(RHIDevice&, const RenderTargetInfo& target) {
     if (!draw_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
         return std::unexpected(Error::make(ErrorCode::Internal, "EdgeStage init failed"));
     }
-    if (!view_cube_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
+    view_cube_pipeline_ = pipeline_library_.acquire(DevicePipelineKey{
+            .technique = RenderTechnique::ViewCubeLine,
+            .colorFormat = target.colorFormat,
+            .depthFormat = target.depthFormat,
+            .sampleCount = target.sampleCount,
+            .hasDepth = target.hasDepth,
+    });
+    if (!view_cube_pipeline_) {
         return std::unexpected(Error::make(ErrorCode::Internal, "EdgeStage ViewCubeLine init failed"));
     }
     return {};
@@ -41,7 +50,7 @@ PipelineState* EdgeStage::pipelineState() const {
 }
 
 PipelineState* EdgeStage::viewCubePipelineState() const {
-    return view_cube_executor_.pipelineState();
+    return view_cube_pipeline_;
 }
 
 }  // namespace mulan::engine

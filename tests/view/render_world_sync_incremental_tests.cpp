@@ -75,7 +75,6 @@ TEST(RenderWorldSyncIncrementalTests, PlacementAndVisibilityDoNotReprojectGeomet
     renderScene.sync(source, assets);
     ASSERT_EQ(geometry->localBoundsCount(), 1u);
     const RenderSceneChangeCursor placementCursor = renderScene.currentChangeCursor();
-    const uint64_t geometryGeneration = renderScene.geometryGeneration();
 
     RenderWorldSync sync;
     engine::RenderWorld world;
@@ -94,7 +93,6 @@ TEST(RenderWorldSyncIncrementalTests, PlacementAndVisibilityDoNotReprojectGeomet
 
     ASSERT_TRUE(source.setWorldTransform(entity, math::Mat4::translate(math::Vec3{ 8.0, 2.0, 0.0 })));
     renderScene.sync(source, assets);
-    EXPECT_EQ(renderScene.geometryGeneration(), geometryGeneration);
     EXPECT_EQ(geometry->localBoundsCount(), stableLocalBoundsCount);
     const RenderSceneChangeSet placementChanges = renderScene.readChanges(placementCursor);
     ASSERT_EQ(placementChanges.status, RenderSceneChangeStatus::Changes);

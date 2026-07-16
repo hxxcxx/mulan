@@ -32,5 +32,15 @@ TEST(BackendModuleTest, RegistersExplicitModuleAndRejectsDuplicate) {
     EXPECT_EQ(duplicate.error().code, static_cast<int32_t>(EngineErrorCode::BackendAlreadyRegistered));
 }
 
+TEST(EngineErrorCodeTest, DistinguishesDeviceFailureFromRecoverableOperationFailure) {
+    EXPECT_TRUE(isDeviceFatalError(makeError(EngineErrorCode::DeviceLost, "device lost")));
+    EXPECT_TRUE(isDeviceFatalError(makeError(EngineErrorCode::SubmissionFailed, "submission failed")));
+    EXPECT_TRUE(isDeviceFatalError(makeError(EngineErrorCode::ResourceUploadFailed, "upload failed")));
+
+    EXPECT_FALSE(isDeviceFatalError(makeError(EngineErrorCode::RenderTargetCreateFailed, "target failed")));
+    EXPECT_FALSE(isDeviceFatalError(makeError(EngineErrorCode::PipelineCreateFailed, "pipeline failed")));
+    EXPECT_FALSE(isDeviceFatalError(Error::make(ErrorCode::InvalidArg, "invalid argument")));
+}
+
 }  // namespace
 }  // namespace mulan::engine

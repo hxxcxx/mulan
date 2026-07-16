@@ -35,7 +35,6 @@ void RenderSubmissionBuilder::reset() {
     last_overlay_scene_change_domain_ = 0;
     last_preview_generation_ = 0;
     last_overlay_scene_generation_ = 0;
-    submission_generation_ = 0;
     scene_source_dirty_ = true;
     preview_source_dirty_ = true;
     overlay_reference_source_dirty_ = true;
@@ -45,7 +44,6 @@ void RenderSubmissionBuilder::reset() {
     overlay_world_snapshot_.reset();
     last_scene_sync_stats_ = {};
     last_overlay_sync_stats_ = {};
-    diagnostics_ = {};
     light_environment_ = {};
     pending_prepare_.clear();
     resource_batch_id_ = 0;
@@ -93,16 +91,9 @@ RenderSubmission RenderSubmissionBuilder::build(const ViewState& viewState) {
     RenderSubmission submission;
     submission.view = viewState;
     submission.lightEnvironment = light_environment_;
-    submission.sceneGeneration = scene_ ? scene_->generation() : 0;
-    submission.geometryGeneration = scene_ ? scene_->geometryGeneration() : 0;
-    submission.previewGeneration = preview_ ? preview_->generation() : 0;
-
-    submission.rebuiltSceneWorld = needsSceneRebuild();
-    submission.rebuiltOverlayWorld = needsOverlayRebuild();
-    submission.rebuiltWorld = submission.rebuiltSceneWorld || submission.rebuiltOverlayWorld;
-    if (submission.rebuiltSceneWorld)
+    if (needsSceneRebuild())
         rebuildScene(submission);
-    if (submission.rebuiltOverlayWorld)
+    if (needsOverlayRebuild())
         rebuildOverlay(submission);
 
     if (!submission.prepare.empty()) {
@@ -113,22 +104,6 @@ RenderSubmission RenderSubmissionBuilder::build(const ViewState& viewState) {
     submission.resourceBatchId = pending_prepare_.empty() ? 0 : resource_batch_id_;
     submission.sceneWorld = scene_world_snapshot_;
     submission.overlayWorld = overlay_world_snapshot_;
-    submission.sceneSyncStats = last_scene_sync_stats_;
-    submission.overlaySyncStats = last_overlay_sync_stats_;
-    submission.generation = ++submission_generation_;
-    if (submission_generation_ == 0) {
-        submission_generation_ = 1;
-        submission.generation = submission_generation_;
-    }
-
-    ++diagnostics_.submissionCount;
-    submission.rebuiltWorld ? ++diagnostics_.worldRebuildCount : ++diagnostics_.worldReuseCount;
-    submission.rebuiltSceneWorld ? ++diagnostics_.sceneWorldRebuildCount : ++diagnostics_.sceneWorldReuseCount;
-    submission.rebuiltOverlayWorld ? ++diagnostics_.overlayWorldRebuildCount : ++diagnostics_.overlayWorldReuseCount;
-    diagnostics_.lastResourceUpdateCount = submission.prepare.size();
-    diagnostics_.lastSceneGeneration = submission.sceneGeneration;
-    diagnostics_.lastGeometryGeneration = submission.geometryGeneration;
-    diagnostics_.lastPreviewGeneration = submission.previewGeneration;
     return submission;
 }
 

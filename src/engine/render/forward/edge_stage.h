@@ -7,8 +7,11 @@
 
 #pragma once
 
-#include "render_stage.h"
 #include "../draw/geometry_draw_executor.h"
+#include "../frame/render_frame.h"
+#include "../frame/render_target_info.h"
+
+#include <mulan/core/result/error.h>
 
 #include <span>
 
@@ -17,16 +20,14 @@ namespace mulan::engine {
 class GeometryDrawSharedResources;
 class DevicePipelineLibrary;
 
-class EdgeStage final : public RenderStage {
+class EdgeStage final {
 public:
     EdgeStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources, DevicePipelineLibrary& pipelineLibrary);
 
-    std::string_view name() const override { return "Edge"; }
+    ResultVoid init(RHIDevice& device, const RenderTargetInfo& target);
 
-    ResultVoid init(RHIDevice& device, const RenderTargetInfo& target) override;
-
-    void shutdown(RHIDevice& device) override;
-    void execute(RenderFrame& frame) override;
+    void shutdown(RHIDevice& device);
+    void execute(RenderFrame& frame);
 
     void setDrawCommands(std::span<const MeshDrawCommand> commands);
     PipelineState* pipelineState() const;
@@ -34,7 +35,8 @@ public:
 
 private:
     GeometryDrawExecutor draw_executor_;
-    GeometryDrawExecutor view_cube_executor_;
+    DevicePipelineLibrary& pipeline_library_;
+    PipelineState* view_cube_pipeline_ = nullptr;
 };
 
 }  // namespace mulan::engine

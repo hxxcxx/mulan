@@ -7,8 +7,11 @@
 
 #pragma once
 
-#include "render_stage.h"
 #include "../draw/geometry_draw_executor.h"
+#include "../frame/render_frame.h"
+#include "../frame/render_target_info.h"
+
+#include <mulan/core/result/error.h>
 
 #include <span>
 #include <vector>
@@ -18,17 +21,15 @@ namespace mulan::engine {
 class GeometryDrawSharedResources;
 class DevicePipelineLibrary;
 
-class HighlightStage final : public RenderStage {
+class HighlightStage final {
 public:
     HighlightStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
                    DevicePipelineLibrary& pipelineLibrary);
 
-    std::string_view name() const override { return "Highlight"; }
+    ResultVoid init(RHIDevice& device, const RenderTargetInfo& target);
 
-    ResultVoid init(RHIDevice& device, const RenderTargetInfo& target) override;
-
-    void shutdown(RHIDevice& device) override;
-    void execute(RenderFrame& frame) override;
+    void shutdown(RHIDevice& device);
+    void execute(RenderFrame& frame);
 
     void setSurfaceDrawCommands(std::span<const MeshDrawCommand> commands);
     void setEdgeDrawCommands(std::span<const MeshDrawCommand> commands);

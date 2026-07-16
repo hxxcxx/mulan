@@ -53,10 +53,7 @@ struct MeshDrawCommand {
     // 对象数据（提交绘制时写入瞬态 Uniform 切片）
     math::Mat4 worldTransform{ 1.0f };
 
-    // Sort / Meta
-    // sortKey 是完整状态元组的诊断哈希；真正排序使用无碰撞的字段比较，
-    // 避免哈希碰撞破坏状态分组或透明绘制的稳定顺序。
-    uint64_t sortKey = 0;
+    // Meta
     uint32_t pickId = 0;
     bool selected = false;
     bool hovered = false;

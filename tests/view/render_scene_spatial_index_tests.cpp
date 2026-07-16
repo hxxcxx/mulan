@@ -222,7 +222,6 @@ TEST(RenderSceneSpatialIndexTests, GeometryRevisionRefreshesBoundsWithoutSceneDi
 
     RenderScene renderScene;
     renderScene.sync(source, assets);
-    const uint64_t previousGeometryGeneration = renderScene.geometryGeneration();
     const scene::SceneRevision sceneRevision = source.revision();
     ASSERT_FALSE(renderScene.pick(verticalRay(10.0), 0.01));
 
@@ -231,7 +230,6 @@ TEST(RenderSceneSpatialIndexTests, GeometryRevisionRefreshesBoundsWithoutSceneDi
     ASSERT_EQ(source.revision(), sceneRevision);
     renderScene.sync(source, assets);
 
-    EXPECT_GT(renderScene.geometryGeneration(), previousGeometryGeneration);
     EXPECT_FALSE(renderScene.pick(verticalRay(0.0), 0.01));
     const auto movedHit = renderScene.pick(verticalRay(10.0), 0.01);
     ASSERT_TRUE(movedHit);

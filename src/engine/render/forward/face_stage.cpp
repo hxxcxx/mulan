@@ -1,5 +1,8 @@
 #include "face_stage.h"
 
+#include "../device_pipeline_library.h"
+#include "../draw/geometry_draw_shared_resources.h"
+
 namespace mulan::engine {
 
 FaceStage::FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
@@ -7,7 +10,8 @@ FaceStage::FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResou
     : solid_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::SolidLit),
       pbr_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::SurfacePBR),
       pbr_tangent_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::SurfacePBRTangent),
-      view_cube_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::ViewCube) {
+      shared_resources_(sharedResources),
+      pipeline_library_(pipelineLibrary) {
 }
 
 ResultVoid FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
@@ -20,7 +24,14 @@ ResultVoid FaceStage::init(RHIDevice&, const RenderTargetInfo& target) {
     if (!pbr_tangent_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
         return std::unexpected(Error::make(ErrorCode::Internal, "FaceStage SurfacePBRTangent init failed"));
     }
-    if (!view_cube_executor_.init(target.colorFormat, target.depthFormat, target.hasDepth, target.sampleCount)) {
+    view_cube_pipeline_ = pipeline_library_.acquire(DevicePipelineKey{
+            .technique = RenderTechnique::ViewCube,
+            .colorFormat = target.colorFormat,
+            .depthFormat = target.depthFormat,
+            .sampleCount = target.sampleCount,
+            .hasDepth = target.hasDepth,
+    });
+    if (!view_cube_pipeline_) {
         return std::unexpected(Error::make(ErrorCode::Internal, "FaceStage ViewCube init failed"));
     }
     return {};
@@ -91,15 +102,15 @@ PipelineState* FaceStage::tangentPipelineState() const {
 }
 
 PipelineState* FaceStage::viewCubePipelineState() const {
-    return view_cube_executor_.pipelineState();
+    return view_cube_pipeline_;
 }
 
 Texture* FaceStage::defaultWhiteTexture() const {
-    return activeExecutor().defaultWhiteTexture();
+    return shared_resources_.defaultWhiteTexture();
 }
 
 Sampler* FaceStage::defaultSampler() const {
-    return activeExecutor().defaultSampler();
+    return shared_resources_.defaultSampler();
 }
 
 GeometryDrawExecutor& FaceStage::activeExecutor() {

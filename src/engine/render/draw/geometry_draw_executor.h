@@ -42,15 +42,13 @@ struct GeometryDrawExecutionStats {
     size_t batchedInstanceCount = 0;
 };
 
-class GeometryDrawExecutor : public DrawExecutor {
+class GeometryDrawExecutor {
 public:
     GeometryDrawExecutor(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
                          DevicePipelineLibrary& pipelineLibrary, RenderTechnique technique);
 
-    const char* name() const override { return technique_.debugName; }
-
     bool init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth, uint32_t sampleCount);
-    void execute(const DrawExecutionContext& ctx) override;
+    void execute(const DrawExecutionContext& ctx);
 
     void setDrawCommands(std::span<const MeshDrawCommand> cmds) { commands_ = cmds; }
 

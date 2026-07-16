@@ -39,22 +39,11 @@ uint64_t allocateRenderWorldId() {
 
 }  // namespace
 
-RenderWorldSnapshot::RenderWorldSnapshot()
-    : storage_(std::make_shared<RenderWorldStorage>()), bounds_cache_(std::make_shared<BoundsCache>()) {
+RenderWorldSnapshot::RenderWorldSnapshot() : storage_(std::make_shared<RenderWorldStorage>()) {
 }
 
 RenderWorldSnapshot::RenderWorldSnapshot(std::shared_ptr<const RenderWorldStorage> storage, RenderWorldVersion version)
-    : storage_(std::move(storage)), version_(version), bounds_cache_(std::make_shared<BoundsCache>()) {
-}
-
-const math::AABB3& RenderWorldSnapshot::bounds() const {
-    std::call_once(bounds_cache_->once, [&]() {
-        for (const RenderObjectRecord& object : storage_->objects.records()) {
-            if (object.desc.visible)
-                bounds_cache_->value.expand(object.desc.worldBounds);
-        }
-    });
-    return bounds_cache_->value;
+    : storage_(std::move(storage)), version_(version) {
 }
 
 const RenderGeometryRecord* RenderWorldSnapshot::geometry(GeometryHandle handle) const {

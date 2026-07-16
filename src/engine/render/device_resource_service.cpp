@@ -159,7 +159,6 @@ ResultVoid DeviceResourceService::preparePersistentResources(DeviceResourceClien
         return std::unexpected(flushed.error());
     }
     asset_registry_.releaseUploadFailureKeepalives();
-    rebuildDomainReferences();
     if (failure) {
         return std::unexpected(std::move(*failure));
     }
@@ -202,7 +201,6 @@ ResultVoid DeviceResourceService::releaseClient(DeviceResourceClientId client) {
     if (clients_.empty() && material_cache_) {
         material_cache_->clear();
     }
-    rebuildDomainReferences();
     if (failure) {
         LOG_ERROR("[DeviceResourceService] Client resource retirement failed: {}", failure->message);
         return std::unexpected(std::move(*failure));
@@ -210,20 +208,19 @@ ResultVoid DeviceResourceService::releaseClient(DeviceResourceClientId client) {
     return {};
 }
 
-void DeviceResourceService::rebuildDomainReferences() {
-    domain_references_.clear();
+DeviceResourceStats DeviceResourceService::stats() const {
+    std::unordered_set<ResourceDomainId> domains;
     for (const auto& [key, owners] : geometry_owners_) {
-        domain_references_[key.domain] += owners.size();
+        if (!owners.empty())
+            domains.insert(key.domain);
     }
     for (const auto& [identity, owners] : texture_owners_) {
-        domain_references_[identity.resourceKey.domain] += owners.size();
+        if (!owners.empty())
+            domains.insert(identity.resourceKey.domain);
     }
-}
-
-DeviceResourceStats DeviceResourceService::stats() const {
     return DeviceResourceStats{
         .clientCount = clients_.size(),
-        .domainCount = domain_references_.size(),
+        .domainCount = domains.size(),
         .geometryCount = asset_registry_.geometryCount(),
         .textureCount = asset_registry_.textureCount(),
         .pipelineCount = pipeline_library_.size(),

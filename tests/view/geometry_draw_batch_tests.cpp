@@ -65,7 +65,6 @@ TEST(GeometryDrawBatchTests, PerObjectStateDoesNotSplitAnOtherwiseCompatibleBatc
     second.pickId = 99;
     second.selected = true;
     second.hovered = true;
-    second.sortKey = ~first.sortKey;
 
     EXPECT_TRUE(geometryDrawBatchCompatible(first, second));
 }
