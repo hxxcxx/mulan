@@ -123,7 +123,12 @@ struct Light {
         };
         result.intensity = nonNegative(intensity);
         result.range = nonNegative(range);
-        result.direction = direction.normalizedOr(math::Vec3(0.0, 0.0, -1.0));
+        const math::Vec3 finiteDirection{
+            finiteOr(direction.x, 0.0),
+            finiteOr(direction.y, 0.0),
+            finiteOr(direction.z, 0.0),
+        };
+        result.direction = finiteDirection.normalizedOr(math::Vec3(0.0, 0.0, -1.0));
         result.outerConeAngle = std::clamp(finiteOr(outerConeAngle, 0.7853981633974483), 0.0, kHalfPi);
         result.innerConeAngle = std::clamp(finiteOr(innerConeAngle, 0.0), 0.0, result.outerConeAngle);
         return result;
@@ -221,9 +226,7 @@ inline ResolvedLighting resolveLighting(const LightEnvironment& environment, con
         nonNegativeFinite(environment.ambientColor.y) * nonNegativeFinite(environment.ambientIntensity),
         nonNegativeFinite(environment.ambientColor.z) * nonNegativeFinite(environment.ambientIntensity),
     };
-    // 保留原有工程查看兜底：显式全黑环境不会让未受光面完全不可见。
-    if (result.ambientColor.lengthSq() <= 1.0e-12)
-        result.ambientColor = math::Vec3(0.35);
+    // 默认环境参数负责无配置场景的可见性；显式零值必须能够真正关闭环境光。
     result.exposure = std::isfinite(environment.exposure) ? std::max(0.0, environment.exposure) : 1.0;
     return result;
 }

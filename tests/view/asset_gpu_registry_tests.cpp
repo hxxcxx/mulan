@@ -14,6 +14,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <limits>
 #include <memory>
 #include <utility>
@@ -391,6 +392,7 @@ TEST(LightingPolicyTests, EmptyScenePreservesLegacyViewerLight) {
     EXPECT_NEAR(resolved.lights[0].direction.z, expectedDirection.z, 1.0e-12);
     EXPECT_EQ(resolved.lights[0].color, math::Vec3(0.95, 0.94, 0.92));
     EXPECT_DOUBLE_EQ(resolved.lights[0].intensity, 1.0);
+    EXPECT_EQ(resolved.ambientColor, environment.ambientColor * environment.ambientIntensity);
 }
 
 TEST(LightingPolicyTests, ExplicitSceneLightSuppressesViewerFallback) {
@@ -401,6 +403,15 @@ TEST(LightingPolicyTests, ExplicitSceneLightSuppressesViewerFallback) {
     ASSERT_EQ(resolved.lightCount, 1u);
     EXPECT_EQ(resolved.lights[0].type, LightType::Point);
     EXPECT_EQ(resolved.lights[0].position, math::Vec3(1.0, 2.0, 3.0));
+}
+
+TEST(LightingPolicyTests, ExplicitZeroAmbientRemainsDisabled) {
+    LightEnvironment environment;
+    environment.ambientColor = math::Vec3(0.0);
+    environment.ambientIntensity = 0.0;
+
+    const ResolvedLighting resolved = resolveLighting(environment, math::Mat4{ 1.0 });
+    EXPECT_EQ(resolved.ambientColor, math::Vec3(0.0));
 }
 
 TEST(LightingPolicyTests, ModesHaveExplicitAndBoundedComposition) {
@@ -428,7 +439,8 @@ TEST(LightingPolicyTests, InvalidValuesAreSanitizedBeforeSnapshotAndGpuPacking) 
     Light invalid;
     invalid.type = LightType::Spot;
     invalid.color = { -1.0, std::numeric_limits<double>::quiet_NaN(), 2.0 };
-    invalid.direction = { std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0 };
+    invalid.direction = { std::numeric_limits<double>::infinity(), 0.0, 0.0 };
+    invalid.position = { std::numeric_limits<double>::max(), 0.0, 0.0 };
     invalid.intensity = -4.0;
     invalid.range = -10.0;
     invalid.innerConeAngle = 2.0;
@@ -447,6 +459,8 @@ TEST(LightingPolicyTests, InvalidValuesAreSanitizedBeforeSnapshotAndGpuPacking) 
     EXPECT_FLOAT_EQ(gpu.color[1], 0.0f);
     EXPECT_FLOAT_EQ(gpu.color[2], 2.0f);
     EXPECT_EQ(gpu.type, static_cast<uint32_t>(LightType::Spot));
+    EXPECT_TRUE(std::isfinite(gpu.position[0]));
+    EXPECT_FLOAT_EQ(gpu.position[0], std::numeric_limits<float>::max());
 }
 
 TEST(LightingPolicyTests, HybridNeverExceedsGpuLightCapacity) {

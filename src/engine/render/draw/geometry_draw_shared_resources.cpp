@@ -243,7 +243,7 @@ SceneUniforms GeometryDrawSharedResources::buildSceneUniforms(const DrawExecutio
     for (uint32_t index = 0; index < lighting.lightCount; ++index)
         ubo.lights[index] = makeSceneLightUniform(lighting.lights[index]);
     ubo.lightCount = lighting.lightCount;
-    ubo.exposure = static_cast<float>(lighting.exposure);
+    ubo.exposure = toFiniteGpuFloat(lighting.exposure);
 
     return ubo;
 }

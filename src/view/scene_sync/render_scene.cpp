@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -43,6 +44,46 @@ struct Overloaded : T... {
 template <typename... T>
 Overloaded(T...) -> Overloaded<T...>;
 
+math::Vec3 transformLightDirection(const math::Mat4& world) {
+    const auto finiteVector = [](const math::Vec3& value) {
+        return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
+    };
+    const math::Vec3 fallback =
+            math::Vec3(0.0, 0.0, -1.0).transformedAsDir(world).normalizedOr(math::Vec3(0.0, 0.0, -1.0));
+
+    math::Mat3 rotation(world);
+    if (!finiteVector(rotation[0]) || !finiteVector(rotation[1]) || !finiteVector(rotation[2]))
+        return fallback;
+    const double scale = std::max({ rotation[0].length(), rotation[1].length(), rotation[2].length() });
+    if (!std::isfinite(scale) || scale <= 1.0e-15)
+        return fallback;
+    rotation[0] /= scale;
+    rotation[1] /= scale;
+    rotation[2] /= scale;
+
+    // 世界矩阵在父级非均匀缩放与子级旋转组合后会包含 shear。通过极分解迭代
+    // 取得最接近的正交旋转，避免把缩放混入平行光和聚光灯方向。
+    for (uint32_t iteration = 0; iteration < 12; ++iteration) {
+        const double determinant = rotation.determinant();
+        if (!std::isfinite(determinant) || determinant <= 1.0e-12)
+            return fallback;
+
+        const math::Mat3 inverseTranspose = rotation.inverse().transposed();
+        const math::Mat3 next((rotation[0] + inverseTranspose[0]) * 0.5, (rotation[1] + inverseTranspose[1]) * 0.5,
+                              (rotation[2] + inverseTranspose[2]) * 0.5);
+        if (!finiteVector(next[0]) || !finiteVector(next[1]) || !finiteVector(next[2]))
+            return fallback;
+
+        const double delta = (next[0] - rotation[0]).lengthSq() + (next[1] - rotation[1]).lengthSq() +
+                             (next[2] - rotation[2]).lengthSq();
+        rotation = next;
+        if (delta <= 1.0e-24)
+            break;
+    }
+
+    return (rotation * math::Vec3(0.0, 0.0, -1.0)).normalizedOr(fallback);
+}
+
 engine::Light toRenderLight(const scene::LightComponent& src, const math::Mat4& world) {
     engine::Light dst;
     switch (src.kind) {
@@ -57,7 +98,7 @@ engine::Light toRenderLight(const scene::LightComponent& src, const math::Mat4& 
     dst.innerConeAngle = src.innerConeAngle;
     dst.outerConeAngle = src.outerConeAngle;
     dst.position = math::Point3::origin().transformedBy(world).asVec();
-    dst.direction = math::Vec3(0.0, 0.0, -1.0).transformedAsDir(world).normalizedOr(math::Vec3(-0.3, -1.0, -0.4));
+    dst.direction = transformLightDirection(world);
     return dst.sanitized();
 }
 

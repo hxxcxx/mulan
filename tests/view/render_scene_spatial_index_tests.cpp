@@ -420,6 +420,37 @@ TEST(RenderSceneSpatialIndexTests, LightChangesFollowJournalWithoutGeometryProxy
     EXPECT_TRUE(renderScene.lights().empty());
 }
 
+TEST(RenderSceneSpatialIndexTests, LightDirectionIgnoresInheritedNonUniformScale) {
+    asset::AssetLibrary assets;
+    scene::Scene source;
+    const scene::EntityId parent = source.createEntity("ScaledParent");
+    const scene::EntityId lightEntity = source.createEntity("RotatedLight");
+    constexpr double kQuarterTurn = 0.7853981633974483;
+
+    ASSERT_TRUE(source.setLocalTransform(parent, math::Mat4::scale(math::Vec3(2.0, 1.0, 1.0))));
+    ASSERT_TRUE(source.setLocalTransform(lightEntity, math::Mat4::rotation(math::Vec3::unitY(), kQuarterTurn)));
+    ASSERT_TRUE(source.setParent(lightEntity, parent));
+    scene::LightComponent light;
+    light.kind = scene::LightKind::Spot;
+    ASSERT_TRUE(source.setLight(lightEntity, light));
+
+    RenderScene renderScene;
+    renderScene.sync(source, assets);
+
+    ASSERT_EQ(renderScene.lights().size(), 1u);
+    const math::Vec3 expected = math::Mat3::rotation(math::Vec3::unitY(), kQuarterTurn) * math::Vec3(0.0, 0.0, -1.0);
+    EXPECT_NEAR(renderScene.lights().front().direction.x, expected.x, 1.0e-12);
+    EXPECT_NEAR(renderScene.lights().front().direction.y, expected.y, 1.0e-12);
+    EXPECT_NEAR(renderScene.lights().front().direction.z, expected.z, 1.0e-12);
+
+    ASSERT_TRUE(source.setLocalTransform(parent, math::Mat4::scale(math::Vec3(3.0, 0.5, 1.5))));
+    renderScene.sync(source, assets);
+    ASSERT_EQ(renderScene.lights().size(), 1u);
+    EXPECT_NEAR(renderScene.lights().front().direction.x, expected.x, 1.0e-12);
+    EXPECT_NEAR(renderScene.lights().front().direction.y, expected.y, 1.0e-12);
+    EXPECT_NEAR(renderScene.lights().front().direction.z, expected.z, 1.0e-12);
+}
+
 TEST(RenderSceneSpatialIndexTests, LightSelectionIsDeterministicAndKeepsDirectionalLightsFirst) {
     asset::AssetLibrary assets;
     scene::Scene source;

@@ -11,8 +11,11 @@
 
 #include <mulan/math/math.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 namespace mulan::engine {
 
@@ -84,30 +87,38 @@ inline void storeGpuMat3x4(float* dst, const math::Mat3& m) {
     }
 }
 
+/// 将 CPU double 安全收敛到 GPU float 域，避免有限超大值在窄化时变成 Infinity。
+inline float toFiniteGpuFloat(double value) {
+    constexpr double kLimit = static_cast<double>(std::numeric_limits<float>::max());
+    if (!std::isfinite(value))
+        return 0.0f;
+    return static_cast<float>(std::clamp(value, -kLimit, kLimit));
+}
+
 inline void storeGpuVec3(float* dst, const math::Vec3& v) {
-    dst[0] = static_cast<float>(v.x);
-    dst[1] = static_cast<float>(v.y);
-    dst[2] = static_cast<float>(v.z);
+    dst[0] = toFiniteGpuFloat(v.x);
+    dst[1] = toFiniteGpuFloat(v.y);
+    dst[2] = toFiniteGpuFloat(v.z);
     dst[3] = 0.0f;
 }
 
 inline SceneLightUniform makeSceneLightUniform(const Light& source) {
     const Light light = source.sanitized();
     SceneLightUniform result{};
-    result.position[0] = static_cast<float>(light.position.x);
-    result.position[1] = static_cast<float>(light.position.y);
-    result.position[2] = static_cast<float>(light.position.z);
-    result.range = static_cast<float>(light.range);
-    result.direction[0] = static_cast<float>(light.direction.x);
-    result.direction[1] = static_cast<float>(light.direction.y);
-    result.direction[2] = static_cast<float>(light.direction.z);
-    result.intensity = static_cast<float>(light.intensity);
-    result.color[0] = static_cast<float>(light.color.x);
-    result.color[1] = static_cast<float>(light.color.y);
-    result.color[2] = static_cast<float>(light.color.z);
+    result.position[0] = toFiniteGpuFloat(light.position.x);
+    result.position[1] = toFiniteGpuFloat(light.position.y);
+    result.position[2] = toFiniteGpuFloat(light.position.z);
+    result.range = toFiniteGpuFloat(light.range);
+    result.direction[0] = toFiniteGpuFloat(light.direction.x);
+    result.direction[1] = toFiniteGpuFloat(light.direction.y);
+    result.direction[2] = toFiniteGpuFloat(light.direction.z);
+    result.intensity = toFiniteGpuFloat(light.intensity);
+    result.color[0] = toFiniteGpuFloat(light.color.x);
+    result.color[1] = toFiniteGpuFloat(light.color.y);
+    result.color[2] = toFiniteGpuFloat(light.color.z);
     result.type = static_cast<uint32_t>(light.type);
-    result.innerConeAngle = static_cast<float>(light.innerConeAngle);
-    result.outerConeAngle = static_cast<float>(light.outerConeAngle);
+    result.innerConeAngle = toFiniteGpuFloat(light.innerConeAngle);
+    result.outerConeAngle = toFiniteGpuFloat(light.outerConeAngle);
     result.castShadow = light.castShadow ? 1u : 0u;
     return result;
 }

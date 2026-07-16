@@ -55,6 +55,11 @@ float3 schlickFresnel(float3 f0, float cosTheta) {
     return f0 + (1.0 - f0) * pow(max(1.0 - cosTheta, 0.0), 5.0);
 }
 
+float3 schlickFresnelRoughness(float3 f0, float cosTheta, float roughness) {
+    float3 grazing = max(float3(1.0 - roughness, 1.0 - roughness, 1.0 - roughness), f0);
+    return f0 + (grazing - f0) * pow(max(1.0 - cosTheta, 0.0), 5.0);
+}
+
 float ggxDistribution(float NdotH, float roughness) {
     float a  = roughness * roughness;
     float a2 = a * a;
@@ -164,7 +169,8 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
 
     // Dielectric F0 (non-metal ≈ 0.04)
     float3 f0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
-    float3 F = schlickFresnel(f0, NdotV);
+    // IBL Fresnel 只依赖视线与表面，不能被直接灯数量、顺序或位置改变。
+    float3 FEnvironment = schlickFresnelRoughness(f0, NdotV, roughness);
     float3 directLight = float3(0.0, 0.0, 0.0);
     for (uint lightIndex = 0u; lightIndex < activeSceneLightCount(); ++lightIndex) {
         EvaluatedLight light = evaluateSceneLight(lightIndex, input.worldPos);
@@ -175,8 +181,6 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
         float VdotH = max(dot(V, H), 0.0);
 
         float3 FDirect = schlickFresnel(f0, VdotH);
-        // 环境项沿用主灯 Fresnel，单查看灯路径与既有效果数学一致。
-        if (lightIndex == 0u) F = FDirect;
         float D = ggxDistribution(NdotH, roughness);
         float G = smithGeometry(NdotV, NdotL, roughness);
         float3 specular = (D * G * FDirect) / max(4.0 * NdotV * NdotL, 1e-5);
@@ -184,7 +188,7 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
         float3 diffuse = kDDirect * albedo / PI;
         directLight += (diffuse + specular) * light.radiance * NdotL;
     }
-    float3 kD = (1.0 - F) * (1.0 - metallic);
+    float3 kD = (1.0 - FEnvironment) * (1.0 - metallic);
 
     // ── IBL 环境光照（split-sum 近似，equirect 表示）──
     float3 R = reflect(-V, N);
@@ -199,7 +203,7 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
     float3 prefiltered = MULAN_SAMPLE_2D(PrefilterMap, PbrSampler, directionToEquirectUV(R)).rgb;
     // BRDF LUT: 输入 (NdotV, roughness)，输出 (scale, bias)
     float2 brdf = MULAN_SAMPLE_2D(BrdfLUT, PbrSampler, float2(NdotV, roughness)).rg;
-    float3 specularIBL = prefiltered * (F * brdf.x + brdf.y) * ao;
+    float3 specularIBL = prefiltered * (FEnvironment * brdf.x + brdf.y) * ao;
 
     // 基础环境光：与 IBL 无关的常数项，保证工程视图的背光面仍有最低可见度。
     // kD * albedo：让基础环境光也走 PBR 漫反射（金属几乎无漫反射，符合物理）。
