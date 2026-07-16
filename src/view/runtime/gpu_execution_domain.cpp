@@ -486,11 +486,9 @@ GpuExecutionDomainState GpuExecutionDomain::state() const {
     return state_;
 }
 
-#ifdef _DEBUG
 void GpuExecutionDomain::injectFailureForTesting(Error error) {
     failDomain(error);
 }
-#endif
 
 bool GpuExecutionDomain::clientHasWorkLocked(const Client& client) const {
     if (!client.controls.empty()) {

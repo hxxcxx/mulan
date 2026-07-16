@@ -95,10 +95,8 @@ public:
     GpuExecutionDomainStats stats() const;
     GpuExecutionDomainState state() const;
 
-#ifdef _DEBUG
-    /// 无真实 GPU 的状态机测试入口；只在 Debug 构建可用。
+    /// 无真实 GPU 的状态机测试入口；仅供测试代码显式调用。
     void injectFailureForTesting(Error error);
-#endif
 
 private:
     struct Client;
