@@ -51,6 +51,8 @@ private:
     std::optional<math::Point3> drag_start_world_;
     std::optional<math::Mat4> current_delta_;
     bool drag_preview_started_ = false;
+    /// 仅显式拖动入口在 release 提交；普通 Move/Copy 命令始终由第二次 press 确认。
+    bool commit_on_release_ = false;
 };
 
 }  // namespace mulan::editor

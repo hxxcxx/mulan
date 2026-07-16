@@ -17,6 +17,7 @@ TransformTool::TransformTool(const io::Document* document, TransformEditContext 
                              TransformEditMode mode, TransformEditCommitMode commitMode)
     : TransformTool(document, std::move(context), mode, commitMode) {
     setDragStart(dragStartWorld);
+    commit_on_release_ = true;
 }
 
 EditorPointPolicy TransformTool::pointPolicy() const {
@@ -56,17 +57,22 @@ EditorAction TransformTool::updateDragPreview(const EditorInput& /*input*/, cons
 }
 
 EditorAction TransformTool::commitAtPoint(const EditorInput& /*input*/, const math::Point3& worldPoint) {
-    // 有预览才提交，否则取消（守卫移入提交方法，保持基类分发简洁）。
-    if (drag_start_world_ && drag_preview_started_) {
+    // 普通 Move/Copy 使用两次 press 确认。基点点击期间即使产生鼠标抖动和预览，
+    // release 也不能提前提交；只有显式拖动入口采用 release 提交。
+    if (commit_on_release_ && drag_start_world_ && drag_preview_started_) {
         return commit(worldPoint);
     }
-    return EditorAction::cancel();
+    return EditorAction::consumeEvent();
 }
 
 std::optional<EditorAction> TransformTool::commitFallback(const EditorInput& /*input*/) {
-    // worldPoint 缺失时用已记录的增量回退提交，确保 release 总能完成。
-    if (drag_start_world_ && drag_preview_started_) {
+    // 显式拖动入口在 worldPoint 缺失时使用最后增量完成 release 提交。
+    if (commit_on_release_ && drag_start_world_ && drag_preview_started_) {
         return commitWithLastDelta();
+    }
+    if (drag_start_world_) {
+        // release 没有可用世界点时也不能把刚设定基点的点击误判为取消。
+        return EditorAction::consumeEvent();
     }
     return std::nullopt;  // 无可提交：基类将转为 cancel
 }

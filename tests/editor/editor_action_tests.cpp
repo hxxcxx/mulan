@@ -16,6 +16,7 @@
 #include "core/session/editor_session.h"
 #include "core/tools/editor_tool.h"
 #include "core/tools/tool_controller.h"
+#include "core/tools/transform_tool.h"
 
 #include <mulan/editor/document/document_view.h>
 #include <mulan/io/document.h>
@@ -95,6 +96,12 @@ class PassiveOperator final : public Operator {};
 EditorInput makeInput(InputEvent event) {
     EditorInput input;
     input.event = std::move(event);
+    return input;
+}
+
+EditorInput makePointInput(InputEvent event, const mulan::math::Point3& point) {
+    EditorInput input = makeInput(std::move(event));
+    input.point = EditorPoint{ .world = point, .source = EditorPointSource::WorkPlane };
     return input;
 }
 
@@ -219,6 +226,114 @@ TEST(ToolControllerEndAction, RunningLifecycleKeepsToolActive) {
     EXPECT_FALSE(endReason.has_value());  // end 未被调用
     EXPECT_TRUE(controller.hasActiveTool());
     EXPECT_EQ(action.lifecycle(), ToolLifecycle::Running);
+}
+
+TEST(TransformToolInteraction, FirstAnchorReleaseKeepsClickClickMoveActive) {
+    mulan::io::Document document("move-click-click");
+    const EntityId entity = document.scene()->createEntity("Target");
+    TransformEditContext context = TransformEditContext::fromTarget(document, SelectionTarget{ .entity = entity });
+    TransformTool tool(&document, std::move(context), TransformEditMode::Translate, TransformEditCommitMode::Move);
+    EXPECT_TRUE(tool.begin().shouldClearPreview());
+
+    const EditorAction anchor = tool.handleInput(makePointInput(
+            InputEvent::mousePress(10, 10, MouseButton::Left, MouseButton::Left), mulan::math::Point3(1.0, 0.0, 0.0)));
+    EXPECT_TRUE(anchor.shouldClearPreview());
+
+    const EditorAction jitterPreview = tool.handleInput(
+            makePointInput(InputEvent::mouseMove(11, 10, MouseButton::Left), mulan::math::Point3(1.01, 0.0, 0.0)));
+    ASSERT_TRUE(jitterPreview.hasPreviewReferences());
+
+    const EditorAction anchorRelease =
+            tool.handleInput(makePointInput(InputEvent::mouseRelease(11, 10, MouseButton::Left, MouseButton::None),
+                                            mulan::math::Point3(1.01, 0.0, 0.0)));
+    EXPECT_TRUE(anchorRelease.isConsumed());
+    EXPECT_EQ(anchorRelease.lifecycle(), ToolLifecycle::Running);
+    EXPECT_FALSE(anchorRelease.operation().has_value());
+    EXPECT_FALSE(anchorRelease.shouldClearPreview());
+
+    const EditorAction preview = tool.handleInput(
+            makePointInput(InputEvent::mouseMove(20, 10, MouseButton::None), mulan::math::Point3(3.0, 0.0, 0.0)));
+    ASSERT_TRUE(preview.hasPreviewReferences());
+    ASSERT_EQ(preview.previewReferences().size(), 1u);
+    EXPECT_DOUBLE_EQ(preview.previewReferences().front().worldTransform[3].x, 2.0);
+
+    const EditorAction committed = tool.handleInput(makePointInput(
+            InputEvent::mousePress(20, 10, MouseButton::Left, MouseButton::Left), mulan::math::Point3(3.0, 0.0, 0.0)));
+    ASSERT_TRUE(committed.operation().has_value());
+    EXPECT_EQ(committed.lifecycle(), ToolLifecycle::Finished);
+    EXPECT_TRUE(committed.shouldClearPreview());
+    const auto* update = std::get_if<UpdateEntityTransformsOperation>(&committed.operation()->data());
+    ASSERT_NE(update, nullptr);
+    ASSERT_EQ(update->updates.size(), 1u);
+    EXPECT_EQ(update->updates.front().entity, entity);
+    EXPECT_DOUBLE_EQ(update->updates.front().worldTransform[3].x, 2.0);
+}
+
+TEST(TransformToolInteraction, AnchorReleaseWithoutWorldPointDoesNotCancelMove) {
+    mulan::io::Document document("move-missing-release-point");
+    const EntityId entity = document.scene()->createEntity("Target");
+    TransformEditContext context = TransformEditContext::fromTarget(document, SelectionTarget{ .entity = entity });
+    TransformTool tool(&document, std::move(context));
+    tool.begin();
+    tool.handleInput(makePointInput(InputEvent::mousePress(10, 10, MouseButton::Left, MouseButton::Left),
+                                    mulan::math::Point3::origin()));
+
+    const EditorAction release =
+            tool.handleInput(makeInput(InputEvent::mouseRelease(10, 10, MouseButton::Left, MouseButton::None)));
+    EXPECT_TRUE(release.isConsumed());
+    EXPECT_EQ(release.lifecycle(), ToolLifecycle::Running);
+    EXPECT_FALSE(release.shouldClearPreview());
+}
+
+TEST(TransformToolInteraction, ClickClickCopyProducesCopyOperation) {
+    mulan::io::Document document("copy-click-click");
+    const EntityId entity = document.scene()->createEntity("Target");
+    TransformEditContext context = TransformEditContext::fromTarget(document, SelectionTarget{ .entity = entity });
+    TransformTool tool(&document, std::move(context), TransformEditMode::Translate, TransformEditCommitMode::Copy);
+    tool.begin();
+
+    tool.handleInput(makePointInput(InputEvent::mousePress(10, 10, MouseButton::Left, MouseButton::Left),
+                                    mulan::math::Point3::origin()));
+    const EditorAction anchorRelease = tool.handleInput(makePointInput(
+            InputEvent::mouseRelease(10, 10, MouseButton::Left, MouseButton::None), mulan::math::Point3::origin()));
+    EXPECT_EQ(anchorRelease.lifecycle(), ToolLifecycle::Running);
+    const EditorAction preview = tool.handleInput(
+            makePointInput(InputEvent::mouseMove(30, 10, MouseButton::None), mulan::math::Point3(4.0, 0.0, 0.0)));
+    ASSERT_TRUE(preview.hasPreviewReferences());
+
+    const EditorAction committed = tool.handleInput(makePointInput(
+            InputEvent::mousePress(30, 10, MouseButton::Left, MouseButton::Left), mulan::math::Point3(4.0, 0.0, 0.0)));
+    ASSERT_TRUE(committed.operation().has_value());
+    EXPECT_EQ(committed.lifecycle(), ToolLifecycle::Finished);
+    const auto* copy = std::get_if<CopyEntityTransformsOperation>(&committed.operation()->data());
+    ASSERT_NE(copy, nullptr);
+    ASSERT_EQ(copy->updates.size(), 1u);
+    EXPECT_EQ(copy->updates.front().entity, entity);
+    EXPECT_DOUBLE_EQ(copy->updates.front().worldTransform[3].x, 4.0);
+}
+
+TEST(TransformToolInteraction, DragReleaseCommitsCopyWithLastPreviewTransform) {
+    mulan::io::Document document("copy-drag");
+    const EntityId entity = document.scene()->createEntity("Target");
+    TransformEditContext context = TransformEditContext::fromTarget(document, SelectionTarget{ .entity = entity });
+    TransformTool tool(&document, std::move(context), mulan::math::Point3::origin(), TransformEditMode::Translate,
+                       TransformEditCommitMode::Copy);
+    tool.begin();
+
+    const EditorAction preview = tool.handleInput(
+            makePointInput(InputEvent::mouseMove(30, 10, MouseButton::Left), mulan::math::Point3(4.0, 0.0, 0.0)));
+    ASSERT_TRUE(preview.hasPreviewReferences());
+    const EditorAction committed =
+            tool.handleInput(makePointInput(InputEvent::mouseRelease(30, 10, MouseButton::Left, MouseButton::None),
+                                            mulan::math::Point3(4.0, 0.0, 0.0)));
+
+    ASSERT_TRUE(committed.operation().has_value());
+    EXPECT_EQ(committed.lifecycle(), ToolLifecycle::Finished);
+    const auto* copy = std::get_if<CopyEntityTransformsOperation>(&committed.operation()->data());
+    ASSERT_NE(copy, nullptr);
+    ASSERT_EQ(copy->updates.size(), 1u);
+    EXPECT_EQ(copy->updates.front().entity, entity);
+    EXPECT_DOUBLE_EQ(copy->updates.front().worldTransform[3].x, 4.0);
 }
 
 // ============================================================
