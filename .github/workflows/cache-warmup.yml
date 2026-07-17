@@ -5,7 +5,7 @@ on:
     - cron: '0 0 * * 1,4'   # 每周一 & 周四 UTC 00:00
 
 env:
-  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+  VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache
 
 jobs:
   warmup:
@@ -21,4 +21,12 @@ jobs:
           vcpkgGitCommitId: "616affa24b974b710a4fc26257e90b7fda6d6826"
 
       - name: Restore vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.vcpkg-cache
+          key: vcpkg-binary-windows-2025-vs2026-v1-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/vcpkg-overlay-ports/**') }}
+          restore-keys: |
+            vcpkg-binary-windows-2025-vs2026-v1-
+
+      - name: Warm up vcpkg packages
         run: vcpkg install --triplet x64-windows
