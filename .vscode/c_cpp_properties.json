@@ -6,7 +6,6 @@
                 "${env:OCCT_ROOT}/inc",
                 "${env:OCCT_3RDPARTY_DIR}/tbb-2021.13.0-x64/include",
                 "${env:OCCT_3RDPARTY_DIR}/freetype-2.13.3-x64/include",
-                "${env:QTDIR}/include/**",
                 "${env:WIN10_SDK_INCLUDE}/um",
                 "${env:WIN10_SDK_INCLUDE}/shared",
                 "${env:WIN10_SDK_INCLUDE}/ucrt",
