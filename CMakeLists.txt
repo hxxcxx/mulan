@@ -34,6 +34,20 @@ option(MULAN_DEPLOY_QT_WITH_WINDEPLOYQT "Run windeployqt from the explicit deplo
 option(MULAN_ENABLE_OCCT_BACKEND "Build the OpenCASCADE modeling backend." ON)
 option(MULAN_ENABLE_TRUCK_BACKEND "Build the experimental truck-bridge modeling backend." OFF)
 option(MULAN_SHADER_DEBUG_INFO "Emit debug info in compiled Slang shaders (symbol names, source line mapping for RenderDoc/PIX)." ON)
+# Profiling 只向最终进入应用进程的目标传播编译期接口。RelWithDebInfo 默认
+# 启用；Release/Debug 编译为空操作且不链接 Tracy。直接按配置生成，避免旧的
+# CMakeCache 开关让性能分析构建在不知情的情况下失效。
+find_package(Tracy CONFIG REQUIRED)
+add_library(mulan_profiling INTERFACE)
+add_library(mulan::profiling ALIAS mulan_profiling)
+target_compile_definitions(mulan_profiling INTERFACE
+    $<$<CONFIG:RelWithDebInfo>:MULAN_ENABLE_PROFILING=1>
+    $<$<NOT:$<CONFIG:RelWithDebInfo>>:MULAN_ENABLE_PROFILING=0>
+)
+target_link_libraries(mulan_profiling INTERFACE
+    $<$<CONFIG:RelWithDebInfo>:Tracy::TracyClient>
+)
+
 set(MULAN_DEFAULT_SHAPE_OPS_BACKEND "occt" CACHE STRING
     "Default IShapeOps backend used when no runtime environment override is set")
 set_property(CACHE MULAN_DEFAULT_SHAPE_OPS_BACKEND PROPERTY STRINGS occt truck)

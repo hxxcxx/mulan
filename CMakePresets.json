@@ -10,6 +10,7 @@
             "binaryDir": "${sourceDir}/build/msvc",
             "toolchainFile": "$penv{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
+                "VCPKG_OVERLAY_PORTS": "${sourceDir}/cmake/vcpkg-overlay-ports",
                 "OCCT_ROOT": {
                     "type": "PATH",
                     "value": "$penv{OCCT_ROOT}"

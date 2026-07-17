@@ -3,6 +3,7 @@
 #include "import_path_utils.h"
 #include "parsed_scene.h"
 
+#include <mulan/core/profiling/profile.h>
 #include <mulan/core/result/error.h>
 
 #include <assimp/Importer.hpp>
@@ -367,6 +368,8 @@ void importNode(const aiNode& node, ParsedScene& parsed, const std::vector<size_
 // ============================================================
 
 Result<ParsedScene> AssimpImporter::parse(const std::string& path, const ImportOptions& options) {
+    MULAN_PROFILE_ZONE();
+
     ParsedScene scene;
     scene.unitScale = options.unitScale > 0.0 ? options.unitScale : 1.0;
 
@@ -383,7 +386,11 @@ Result<ParsedScene> AssimpImporter::parse(const std::string& path, const ImportO
                                aiProcess_SortByPType |
                                (options.generateMissingNormals ? aiProcess_GenSmoothNormals : 0u);
 
-    const aiScene* aiScene = importer.ReadFile(sourcePath.string(), flags);
+    const aiScene* aiScene = nullptr;
+    {
+        MULAN_PROFILE_ZONE_N("Assimp::Importer::ReadFile");
+        aiScene = importer.ReadFile(sourcePath.string(), flags);
+    }
     if (!aiScene || !aiScene->mRootNode) {
         return std::unexpected(
                 Error::make(ErrorCode::Io, std::string("Assimp failed to import model: ") + importer.GetErrorString()));

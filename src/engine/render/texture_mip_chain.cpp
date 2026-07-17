@@ -7,6 +7,8 @@
 
 #include "texture_mip_chain.h"
 
+#include <mulan/core/profiling/profile.h>
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -80,6 +82,8 @@ Rgba8MipLevel downsample(const Rgba8MipLevel& source, bool srgb) {
 
 std::vector<Rgba8MipLevel> buildRgba8MipChain(std::span<const std::byte> levelZero, uint32_t width, uint32_t height,
                                               bool srgb) {
+    MULAN_PROFILE_ZONE();
+
     if (width == 0 || height == 0 || width > std::numeric_limits<size_t>::max() / height / 4u ||
         levelZero.size() != static_cast<size_t>(width) * height * 4u) {
         return {};

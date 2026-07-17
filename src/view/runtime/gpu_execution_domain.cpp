@@ -11,6 +11,7 @@
 #include "runtime/detail/render_device_context.h"
 
 #include <mulan/core/log/log.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/rhi/engine_error_code.h>
 
 #include <algorithm>
@@ -623,6 +624,8 @@ void GpuExecutionDomain::failDomain(const Error& error) {
 }
 
 void GpuExecutionDomain::run(std::stop_token stopToken) {
+    MULAN_PROFILE_THREAD("GpuExecutionDomain");
+
     while (!stopToken.stop_requested()) {
         bool hasControl = false;
         ControlTask control;

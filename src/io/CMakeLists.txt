@@ -26,6 +26,7 @@ target_link_libraries(io
         asset
         modeling_core
     PRIVATE
+        mulan::profiling
         assimp::assimp
         fastgltf::fastgltf
         mikktspace::mikktspace

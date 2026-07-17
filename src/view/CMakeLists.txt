@@ -47,6 +47,8 @@ target_link_libraries(view PUBLIC
     scene
 )
 
+target_link_libraries(view PRIVATE mulan::profiling)
+
 target_precompile_headers(view PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/pch.h
 )

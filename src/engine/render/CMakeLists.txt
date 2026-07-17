@@ -48,6 +48,7 @@ target_link_libraries(render
         math
         graphics
     PRIVATE
+        mulan::profiling
         nlohmann_json::nlohmann_json
         msdfgen::msdfgen
         msdf-atlas-gen

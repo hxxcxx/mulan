@@ -1,5 +1,7 @@
 #include "image.h"
 
+#include <mulan/core/profiling/profile.h>
+
 #include <stb_image.h>
 #include <stb_image_write.h>
 
@@ -169,6 +171,8 @@ PixelFormat pixelFormatForChannels(int channels) {
 
 Result<std::shared_ptr<Image>> finishDecode(stbi_uc* raw, int width, int height, int sourceChannels,
                                             const ImageDecodeOptions& options) {
+    MULAN_PROFILE_ZONE();
+
     if (!raw)
         return std::unexpected(
                 Error::make(ErrorCode::Io, stbi_failure_reason() ? stbi_failure_reason() : "Failed to decode image."));
@@ -202,12 +206,17 @@ Result<std::shared_ptr<Image>> Image::load(std::string_view path, const ImageDec
 
 Result<std::shared_ptr<Image>> Image::loadFromMemory(std::span<const std::byte> encoded,
                                                      const ImageDecodeOptions& options) {
+    MULAN_PROFILE_ZONE();
+
     if (encoded.empty() || encoded.size() > static_cast<size_t>(std::numeric_limits<int>::max()))
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Encoded image buffer is empty or too large."));
     int width = 0, height = 0, channels = 0;
     const int requestedChannels = static_cast<int>(options.channels);
-    auto* raw = stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(encoded.data()),
-                                      static_cast<int>(encoded.size()), &width, &height, &channels, requestedChannels);
+    auto* raw = [&] {
+        MULAN_PROFILE_ZONE_N("stbi_load_from_memory");
+        return stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(encoded.data()), static_cast<int>(encoded.size()),
+                                     &width, &height, &channels, requestedChannels);
+    }();
     return finishDecode(raw, width, height, channels, options);
 }
 

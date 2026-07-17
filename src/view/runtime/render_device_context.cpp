@@ -1,6 +1,7 @@
 #include "runtime/detail/render_device_context.h"
 
 #include <mulan/core/log/log.h>
+#include <mulan/core/profiling/profile.h>
 
 namespace mulan::view::detail {
 
@@ -12,6 +13,8 @@ void RenderDeviceContext::markFailed() {
 }
 
 Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::create(const ViewConfig& config) {
+    MULAN_PROFILE_ZONE();
+
     const engine::RenderConfig renderConfig = config.toRenderConfig();
 
     engine::DeviceCreateInfo createInfo;

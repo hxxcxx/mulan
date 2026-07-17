@@ -76,6 +76,7 @@ target_link_libraries(editor
         core
         io
     PRIVATE
+        mulan::profiling
         view
         render
         interaction

@@ -5,6 +5,7 @@
 #include "../rhi/engine_error_code.h"
 
 #include <mulan/core/log/log.h>
+#include <mulan/core/profiling/profile.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -324,6 +325,8 @@ TextureFormat AssetGpuRegistry::toRHITextureFormat(core::PixelFormat pixelFmt, b
 
 Result<std::unique_ptr<Texture>> AssetGpuRegistry::createRHITexture(const core::Image& image, TextureUsageFlags usage,
                                                                     bool sRGB, bool generateMips) {
+    MULAN_PROFILE_ZONE();
+
     std::shared_ptr<core::Image> rgbaImage;
     const core::Image* uploadImage = &image;
     if (image.format() != core::PixelFormat::RGBA8) {

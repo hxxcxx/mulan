@@ -24,6 +24,7 @@ endif()
 # --- spdlog (日志) ---
 find_package(spdlog CONFIG REQUIRED)
 target_link_libraries(core PRIVATE spdlog::spdlog)
+target_link_libraries(core PRIVATE mulan::profiling)
 
 # --- toml++ (TOML 配置文件) ---
 find_package(tomlplusplus CONFIG REQUIRED)

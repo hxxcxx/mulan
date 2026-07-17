@@ -1,0 +1,22 @@
+{
+  "name": "tracy",
+  "version": "0.13.1",
+  "description": "Tracy instrumentation client restricted to localhost with automatic system tracing disabled.",
+  "homepage": "https://github.com/wolfpld/tracy",
+  "license": "BSD-3-Clause",
+  "supports": "!(windows & (arm | uwp))",
+  "dependencies": [
+    {
+      "name": "pthreads",
+      "platform": "!windows"
+    },
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}

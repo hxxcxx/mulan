@@ -5,6 +5,7 @@
 #include "parsed_scene.h"
 
 #include <mulan/asset/mesh_asset.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/graphics/mesh.h>
 #include <mulan/graphics/vertex/vertex_buffer.h>
 #include <mulan/graphics/vertex/vertex_layout.h>
@@ -138,6 +139,8 @@ const std::byte* bufferDataView(const fastgltf::DataSource& src, size_t& outLen)
 // ============================================================
 std::map<size_t, size_t> importTextures(const fastgltf::Asset& gltf, ParsedScene& scene, const std::string& sourceDir,
                                         const std::string& importPath) {
+    MULAN_PROFILE_ZONE();
+
     std::map<size_t, size_t> texMap;
     for (size_t i = 0; i < gltf.images.size(); ++i) {
         const auto& image = gltf.images[i];
@@ -208,6 +211,8 @@ struct TextureSlotResolve {
 
 std::map<size_t, size_t> importMaterials(const fastgltf::Asset& gltf, ParsedScene& scene,
                                          const std::map<size_t, size_t>& texMap, std::vector<std::string>& warnings) {
+    MULAN_PROFILE_ZONE();
+
     std::map<size_t, size_t> matMap;
 
     auto resolveTexture = [&](size_t texIdx) -> TextureSlotResolve {
@@ -394,6 +399,8 @@ math::Mat4 nodeTransform(const fastgltf::Node& node) {
 // ============================================================
 
 Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOptions& options) {
+    MULAN_PROFILE_ZONE();
+
     ParsedScene scene;
     scene.unitScale = options.unitScale > 0.0 ? options.unitScale : 1.0;
 
@@ -402,14 +409,20 @@ Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOpt
     const std::string sourceDir = fileDirectory(path);
 
     const std::filesystem::path sourceDirectory = std::filesystem::path(path).parent_path();
-    auto fileData = fastgltf::GltfDataBuffer::FromPath(path);
+    auto fileData = [&] {
+        MULAN_PROFILE_ZONE_N("fastgltf::GltfDataBuffer::FromPath");
+        return fastgltf::GltfDataBuffer::FromPath(path);
+    }();
     if (fileData.error() != fastgltf::Error::None)
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Failed to read glTF file: " + path));
 
     const auto extensions =
             fastgltf::Extensions::KHR_lights_punctual | fastgltf::Extensions::KHR_materials_emissive_strength;
     fastgltf::Parser preflightParser(extensions);
-    auto preflight = preflightParser.loadGltf(fileData.get(), sourceDirectory, fastgltf::Options::None);
+    auto preflight = [&] {
+        MULAN_PROFILE_ZONE_N("fastgltf::Parser::loadGltf");
+        return preflightParser.loadGltf(fileData.get(), sourceDirectory, fastgltf::Options::None);
+    }();
     if (preflight.error() != fastgltf::Error::None) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg,
                                            "Failed to parse glTF: " + std::string(getErrorMessage(preflight.error()))));
@@ -425,7 +438,10 @@ Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOpt
     if (requiresExternalResourceLoading(*gltf)) {
         resourceParser.emplace(extensions);
         constexpr auto gltfOpts = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
-        auto loaded = resourceParser->loadGltf(fileData.get(), sourceDirectory, gltfOpts);
+        auto loaded = [&] {
+            MULAN_PROFILE_ZONE_N("fastgltf::Parser::loadGltf");
+            return resourceParser->loadGltf(fileData.get(), sourceDirectory, gltfOpts);
+        }();
         if (loaded.error() != fastgltf::Error::None) {
             return std::unexpected(
                     Error::make(ErrorCode::InvalidArg,
@@ -445,82 +461,85 @@ Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOpt
 
     // 网格:每个 glTF mesh → ParsedMesh,primitive 材质用 matMap 索引
     std::vector<size_t> meshIndices(gltf->meshes.size(), SIZE_MAX);
-    for (size_t meshIdx = 0; meshIdx < gltf->meshes.size(); ++meshIdx) {
-        const auto& mesh = gltf->meshes[meshIdx];
-        std::string meshName = mesh.name.empty() ? "Mesh_" + std::to_string(meshIdx) : std::string(mesh.name);
+    {
+        MULAN_PROFILE_ZONE_N("GltfImporter::parse/meshes");
+        for (size_t meshIdx = 0; meshIdx < gltf->meshes.size(); ++meshIdx) {
+            const auto& mesh = gltf->meshes[meshIdx];
+            std::string meshName = mesh.name.empty() ? "Mesh_" + std::to_string(meshIdx) : std::string(mesh.name);
 
-        ParsedMesh parsed;
-        parsed.name = meshName;
+            ParsedMesh parsed;
+            parsed.name = meshName;
 
-        for (const auto& primitive : mesh.primitives) {
-            // 当前 graphics::Mesh 只为导入路径定义了三角列表语义；其他 glTF 图元模式不能按三角形误读。
-            if (primitive.type != fastgltf::PrimitiveType::Triangles)
-                continue;
-
-            auto geomData = extractPrimitiveData(*gltf, primitive);
-            if (geomData.positions.empty())
-                continue;
-
-            // 属性 accessor 数量不一致时将其视为缺失，避免把错位属性写入顶点流。
-            if (geomData.normals.size() != geomData.positions.size())
-                geomData.normals.clear();
-            if (geomData.texcoords.size() != geomData.positions.size())
-                geomData.texcoords.clear();
-            if (geomData.tangents.size() != geomData.positions.size())
-                geomData.tangents.clear();
-
-            if (auto valid = detail::validateTriangleMesh(geomData); !valid)
-                continue;
-
-            // glTF 要求缺少法线时生成平面法线，且忽略文件中已有的切线。
-            if (geomData.normals.empty()) {
-                geomData.tangents.clear();
-                if (auto generated = detail::generateFlatNormals(geomData); !generated)
+            for (const auto& primitive : mesh.primitives) {
+                // 当前 graphics::Mesh 只为导入路径定义了三角列表语义；其他 glTF 图元模式不能按三角形误读。
+                if (primitive.type != fastgltf::PrimitiveType::Triangles)
                     continue;
-            }
 
-            if (hasUsableNormalTexture(*gltf, primitive, texMap) && !geomData.texcoords.empty()) {
-                if (geomData.tangents.empty()) {
-                    if (auto generated = detail::generateMikkTangents(geomData); !generated)
-                        geomData.tangents.clear();
+                auto geomData = extractPrimitiveData(*gltf, primitive);
+                if (geomData.positions.empty())
+                    continue;
+
+                // 属性 accessor 数量不一致时将其视为缺失，避免把错位属性写入顶点流。
+                if (geomData.normals.size() != geomData.positions.size())
+                    geomData.normals.clear();
+                if (geomData.texcoords.size() != geomData.positions.size())
+                    geomData.texcoords.clear();
+                if (geomData.tangents.size() != geomData.positions.size())
+                    geomData.tangents.clear();
+
+                if (auto valid = detail::validateTriangleMesh(geomData); !valid)
+                    continue;
+
+                // glTF 要求缺少法线时生成平面法线，且忽略文件中已有的切线。
+                if (geomData.normals.empty()) {
+                    geomData.tangents.clear();
+                    if (auto generated = detail::generateFlatNormals(geomData); !generated)
+                        continue;
                 }
-            } else {
-                geomData.tangents.clear();
+
+                if (hasUsableNormalTexture(*gltf, primitive, texMap) && !geomData.texcoords.empty()) {
+                    if (geomData.tangents.empty()) {
+                        if (auto generated = detail::generateMikkTangents(geomData); !generated)
+                            geomData.tangents.clear();
+                    }
+                } else {
+                    geomData.tangents.clear();
+                }
+
+                // surface/pbr 顶点布局始终包含 UV；缺少 UV 时使用稳定默认值，但不会启用法线贴图管线。
+                if (geomData.texcoords.empty())
+                    geomData.texcoords.resize(geomData.positions.size(), math::FVec2(0.0f));
+
+                StandardMeshSource src;
+                src.positions = std::span(geomData.positions);
+                src.normals = std::span(geomData.normals);
+                src.texcoords = std::span(geomData.texcoords);
+                src.tangents = std::span(geomData.tangents);
+                src.indices = std::span(geomData.indices);
+                src.topology = graphics::PrimitiveTopology::TriangleList;
+
+                auto engineMesh = buildStandardMesh(src);
+                if (engineMesh.empty())
+                    continue;
+
+                asset::MeshPrimitive prim;
+                prim.mesh = std::move(engineMesh);
+                size_t matIdx = SIZE_MAX;
+                if (primitive.materialIndex.has_value()) {
+                    auto it = matMap.find(*primitive.materialIndex);
+                    if (it != matMap.end())
+                        matIdx = it->second;
+                } else if (!matMap.empty()) {
+                    matIdx = matMap.begin()->second;
+                }
+                parsed.primitives.push_back(std::move(prim));
+                parsed.materialIndices.push_back(matIdx);
             }
 
-            // surface/pbr 顶点布局始终包含 UV；缺少 UV 时使用稳定默认值，但不会启用法线贴图管线。
-            if (geomData.texcoords.empty())
-                geomData.texcoords.resize(geomData.positions.size(), math::FVec2(0.0f));
-
-            StandardMeshSource src;
-            src.positions = std::span(geomData.positions);
-            src.normals = std::span(geomData.normals);
-            src.texcoords = std::span(geomData.texcoords);
-            src.tangents = std::span(geomData.tangents);
-            src.indices = std::span(geomData.indices);
-            src.topology = graphics::PrimitiveTopology::TriangleList;
-
-            auto engineMesh = buildStandardMesh(src);
-            if (engineMesh.empty())
-                continue;
-
-            asset::MeshPrimitive prim;
-            prim.mesh = std::move(engineMesh);
-            size_t matIdx = SIZE_MAX;
-            if (primitive.materialIndex.has_value()) {
-                auto it = matMap.find(*primitive.materialIndex);
-                if (it != matMap.end())
-                    matIdx = it->second;
-            } else if (!matMap.empty()) {
-                matIdx = matMap.begin()->second;
+            if (!parsed.primitives.empty()) {
+                meshIndices[meshIdx] = scene.meshes.size();
+                scene.meshes.push_back(std::move(parsed));
             }
-            parsed.primitives.push_back(std::move(prim));
-            parsed.materialIndices.push_back(matIdx);
-        }
-
-        if (!parsed.primitives.empty()) {
-            meshIndices[meshIdx] = scene.meshes.size();
-            scene.meshes.push_back(std::move(parsed));
         }
     }
 
@@ -546,22 +565,25 @@ Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOpt
         }
     };
 
-    if (gltf->defaultScene.has_value()) {
-        const auto& sceneDef = gltf->scenes[*gltf->defaultScene];
-        for (auto rootIdx : sceneDef.nodeIndices) {
-            buildNode(static_cast<size_t>(rootIdx), SIZE_MAX, buildNode);
-            scene.rootNodes.push_back(static_cast<size_t>(rootIdx));
-        }
-    } else {
-        std::vector<bool> isChild(gltf->nodes.size(), false);
-        for (auto& n : gltf->nodes)
-            for (auto c : n.children)
-                if (c < isChild.size())
-                    isChild[c] = true;
-        for (size_t i = 0; i < gltf->nodes.size(); ++i) {
-            if (!isChild[i]) {
-                buildNode(i, SIZE_MAX, buildNode);
-                scene.rootNodes.push_back(i);
+    {
+        MULAN_PROFILE_ZONE_N("GltfImporter::parse/nodes");
+        if (gltf->defaultScene.has_value()) {
+            const auto& sceneDef = gltf->scenes[*gltf->defaultScene];
+            for (auto rootIdx : sceneDef.nodeIndices) {
+                buildNode(static_cast<size_t>(rootIdx), SIZE_MAX, buildNode);
+                scene.rootNodes.push_back(static_cast<size_t>(rootIdx));
+            }
+        } else {
+            std::vector<bool> isChild(gltf->nodes.size(), false);
+            for (auto& n : gltf->nodes)
+                for (auto c : n.children)
+                    if (c < isChild.size())
+                        isChild[c] = true;
+            for (size_t i = 0; i < gltf->nodes.size(); ++i) {
+                if (!isChild[i]) {
+                    buildNode(i, SIZE_MAX, buildNode);
+                    scene.rootNodes.push_back(i);
+                }
             }
         }
     }

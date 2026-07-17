@@ -7,6 +7,7 @@
 #include <mulan/editor/command/builtin_commands.h>
 
 #include <mulan/core/log/log.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/io/file_manager.h>
 #include <mulan/io/import_result.h>
 #include <mulan/view/capture/capture_image_encoder.h>
@@ -558,6 +559,8 @@ void MainWindow::onOpenFile() {
 }
 
 bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
+    MULAN_PROFILE_ZONE();
+
     LOG_INFO("[App] Opening document: {}", filePath.toStdString());
     statusBar()->showMessage("Loading: " + filePath);
 

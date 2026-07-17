@@ -4,6 +4,7 @@
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/geometry_asset.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/view/core/view_context.h>
 
 #include <cmath>
@@ -31,6 +32,8 @@ DocumentRenderBinding::~DocumentRenderBinding() {
 }
 
 void DocumentRenderBinding::bind(DocumentSession& session, view::ViewContext& view) {
+    MULAN_PROFILE_ZONE();
+
     unbind();
     session_ = &session;
     view_ = &view;

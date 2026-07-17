@@ -1,4 +1,6 @@
 #include "document_area.h"
+
+#include <mulan/core/profiling/profile.h>
 #include "doc_widget.h"
 #include <mulan/editor/document/document_session.h>
 #include "startup_page.h"
@@ -69,6 +71,8 @@ DocumentArea::~DocumentArea() {
 }
 
 DocWidget* DocumentArea::addDocument(std::unique_ptr<DocumentSession> session, const QString& title) {
+    MULAN_PROFILE_ZONE();
+
     if (!session) {
         return nullptr;
     }

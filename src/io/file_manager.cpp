@@ -5,6 +5,7 @@
 
 #include <mulan/core/result/error.h>
 #include <mulan/core/log/log.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/io/document.h>
 #include <mulan/modeling/core/shape_file_reader.h>
 
@@ -29,6 +30,8 @@ std::string lowerExtension(std::string_view path) {
 
 /// STEP/IGES 路径:把 ShapeFileReader 产出的 NamedShape 列表包成 ParsedScene(brep 分区)。
 Result<ParsedScene> parseShapeFile(const std::string& path, const std::string& ext) {
+    MULAN_PROFILE_ZONE();
+
     auto reader = modeling::ShapeFileReaderRegistry::instance().create(ext);
     if (!reader) {
         return std::unexpected(Error::make(ErrorCode::NotSupported, "No shape reader for extension: ." + ext));
@@ -59,6 +62,8 @@ Result<ParsedScene> parseShapeFile(const std::string& path, const std::string& e
 }  // namespace
 
 Result<OpenDocumentResult> FileManager::openFile(const std::string& path, const ImportOptions& options) {
+    MULAN_PROFILE_ZONE();
+
     const auto startedAt = std::chrono::steady_clock::now();
     const std::string ext = lowerExtension(path);
     LOG_INFO("[IO] Import started: path={}, extension={}", path, ext.empty() ? "<none>" : ext);

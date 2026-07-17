@@ -14,6 +14,10 @@
     "spdlog",
     "freetype",
     "tomlplusplus",
+    {
+      "name": "tracy",
+      "default-features": false
+    },
     "gtest",
     "shader-slang",
     {

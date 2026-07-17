@@ -14,6 +14,7 @@
 #include "../rhi/device.h"
 
 #include <mulan/core/log/log.h>
+#include <mulan/core/profiling/profile.h>
 
 #include <optional>
 
@@ -99,34 +100,40 @@ ResultVoid DeviceResourceService::preparePersistentResources(DeviceResourceClien
     if (prepare.empty()) {
         return {};
     }
+    MULAN_PROFILE_ZONE();
+
     if (auto result = device_.beginUploadBatch(); !result) {
         return std::unexpected(result.error());
     }
 
     std::optional<Error> failure;
-    for (const RenderGeometryPrepareDesc& geometry : prepare.geometries()) {
-        if (geometry.isRetire()) {
-            const auto known = geometry_owners_.find(geometry.resourceKey);
-            if (known != geometry_owners_.end() && known->second.erase(client) > 0 && known->second.empty()) {
-                geometry_owners_.erase(known);
-                if (auto retired = asset_registry_.retireGeometry(geometry.resourceKey); !retired) {
-                    failure = retired.error();
-                    break;
+    {
+        MULAN_PROFILE_ZONE_N("DeviceResourceService::preparePersistentResources/geometry");
+        for (const RenderGeometryPrepareDesc& geometry : prepare.geometries()) {
+            if (geometry.isRetire()) {
+                const auto known = geometry_owners_.find(geometry.resourceKey);
+                if (known != geometry_owners_.end() && known->second.erase(client) > 0 && known->second.empty()) {
+                    geometry_owners_.erase(known);
+                    if (auto retired = asset_registry_.retireGeometry(geometry.resourceKey); !retired) {
+                        failure = retired.error();
+                        break;
+                    }
                 }
+                continue;
             }
-            continue;
+            if (!geometry.mesh || geometry.mesh->empty()) {
+                continue;
+            }
+            auto acquired = asset_registry_.acquireGeometry(geometry.resourceKey, *geometry.mesh, geometry.forceUpdate);
+            if (!acquired) {
+                failure = acquired.error();
+                break;
+            }
+            geometry_owners_[geometry.resourceKey].insert(client);
         }
-        if (!geometry.mesh || geometry.mesh->empty()) {
-            continue;
-        }
-        auto acquired = asset_registry_.acquireGeometry(geometry.resourceKey, *geometry.mesh, geometry.forceUpdate);
-        if (!acquired) {
-            failure = acquired.error();
-            break;
-        }
-        geometry_owners_[geometry.resourceKey].insert(client);
     }
     if (!failure) {
+        MULAN_PROFILE_ZONE_N("DeviceResourceService::preparePersistentResources/textures");
         for (const RenderTexturePrepareDesc& texture : prepare.textures()) {
             TextureLoadOptions options;
             options.sRGB = texture.identity.srgb;
@@ -155,8 +162,11 @@ ResultVoid DeviceResourceService::preparePersistentResources(DeviceResourceClien
         }
     }
 
-    if (auto flushed = device_.flushUploadBatch(); !flushed) {
-        return std::unexpected(flushed.error());
+    {
+        MULAN_PROFILE_ZONE_N("RHIDevice::flushUploadBatch");
+        if (auto flushed = device_.flushUploadBatch(); !flushed) {
+            return std::unexpected(flushed.error());
+        }
     }
     asset_registry_.releaseUploadFailureKeepalives();
     if (failure) {

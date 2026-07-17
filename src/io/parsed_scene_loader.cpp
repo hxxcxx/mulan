@@ -6,6 +6,7 @@
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/asset/texture_asset.h>
 #include <mulan/core/image/image.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/io/document.h>
 #include <mulan/scene/scene.h>
 
@@ -41,6 +42,8 @@ ParsedSceneLoader::ParsedSceneLoader(Document& document) : document_(document) {
 }
 
 ImportResult ParsedSceneLoader::load(ParsedScene&& scene, const ImportOptions& options) {
+    MULAN_PROFILE_ZONE();
+
     report_ = {};
     ImportResult result;
     if (scene.nodes.size() > options.maxNodeCount) {
@@ -54,30 +57,36 @@ ImportResult ParsedSceneLoader::load(ParsedScene&& scene, const ImportOptions& o
     loadBreps(scene);
 
     result.report = report_;
-    nodeEntities_.resize(scene.nodes.size());
+    {
+        MULAN_PROFILE_ZONE_N("ParsedSceneLoader::load/nodes");
+        nodeEntities_.resize(scene.nodes.size());
 
-    std::vector<std::vector<size_t>> children(scene.nodes.size());
-    for (size_t i = 0; i < scene.nodes.size(); ++i) {
-        if (scene.nodes[i].parent < scene.nodes.size())
-            children[scene.nodes[i].parent].push_back(i);
-    }
-    std::vector<uint8_t> visitState(scene.nodes.size(), 0);
+        std::vector<std::vector<size_t>> children(scene.nodes.size());
+        for (size_t i = 0; i < scene.nodes.size(); ++i) {
+            if (scene.nodes[i].parent < scene.nodes.size())
+                children[scene.nodes[i].parent].push_back(i);
+        }
+        std::vector<uint8_t> visitState(scene.nodes.size(), 0);
 
-    const math::Mat4 unitScaleMat = math::Mat4::scale(math::Vec3(options.unitScale > 0.0 ? options.unitScale : 1.0));
+        const math::Mat4 unitScaleMat =
+                math::Mat4::scale(math::Vec3(options.unitScale > 0.0 ? options.unitScale : 1.0));
 
-    // 根节点的 worldTransform 是单位变换的"父世界";loadNode 内部把 unitScale
-    // 乘进根节点的 local(使其 world = unitScale * local)。
-    for (size_t rootIdx : scene.rootNodes) {
-        if (rootIdx >= scene.nodes.size())
-            continue;
-        loadNode(rootIdx, scene, scene::EntityId::invalid(), math::Mat4{ 1.0 }, unitScaleMat, options, children,
-                 visitState, 0, result);
+        // 根节点的 worldTransform 是单位变换的"父世界";loadNode 内部把 unitScale
+        // 乘进根节点的 local(使其 world = unitScale * local)。
+        for (size_t rootIdx : scene.rootNodes) {
+            if (rootIdx >= scene.nodes.size())
+                continue;
+            loadNode(rootIdx, scene, scene::EntityId::invalid(), math::Mat4{ 1.0 }, unitScaleMat, options, children,
+                     visitState, 0, result);
+        }
     }
 
     return result;
 }
 
 void ParsedSceneLoader::loadTextures(ParsedScene& scene) {
+    MULAN_PROFILE_ZONE();
+
     auto* library = document_.assets();
     textureIds_.assign(scene.textures.size(), asset::AssetId::invalid());
     if (!library)
@@ -128,6 +137,8 @@ void ParsedSceneLoader::loadTextures(ParsedScene& scene) {
 }
 
 void ParsedSceneLoader::loadMaterials(ParsedScene& scene) {
+    MULAN_PROFILE_ZONE();
+
     auto* library = document_.assets();
     materialIds_.assign(scene.materials.size(), asset::AssetId::invalid());
     if (!library)
@@ -163,6 +174,8 @@ void ParsedSceneLoader::loadMaterials(ParsedScene& scene) {
 }
 
 void ParsedSceneLoader::loadMeshes(ParsedScene& scene) {
+    MULAN_PROFILE_ZONE();
+
     auto* library = document_.assets();
     meshIds_.assign(scene.meshes.size(), asset::AssetId::invalid());
     if (!library)
@@ -190,6 +203,8 @@ void ParsedSceneLoader::loadMeshes(ParsedScene& scene) {
 }
 
 void ParsedSceneLoader::loadBreps(ParsedScene& scene) {
+    MULAN_PROFILE_ZONE();
+
     auto* library = document_.assets();
     brepIds_.assign(scene.breps.size(), asset::AssetId::invalid());
     if (!library)
