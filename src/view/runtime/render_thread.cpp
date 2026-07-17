@@ -146,18 +146,18 @@ Result<RenderChannelId> RenderThread::attachWindow(const ViewConfig& config, int
         auto context = ensureDeviceContext();
         if (!context)
             return std::unexpected(context.error());
-        return executor.initWindow(std::move(*context), config, width, height);
+        return executor.initWindow(context->get(), config, width, height);
     });
 }
 
-Result<std::shared_ptr<RenderDeviceContext>> RenderThread::ensureDeviceContext() {
+Result<std::reference_wrapper<RenderDeviceContext>> RenderThread::ensureDeviceContext() {
     if (device_context_)
-        return device_context_;
+        return std::ref(*device_context_);
     auto created = RenderDeviceContext::create(config_);
     if (!created)
         return std::unexpected(created.error());
-    device_context_ = std::move(*created);
-    return device_context_;
+    device_context_.emplace(std::move(*created));
+    return std::ref(*device_context_);
 }
 
 Result<RenderChannelId> RenderThread::attach(Initializer initialize) {

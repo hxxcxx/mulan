@@ -67,8 +67,7 @@ RenderExecutor::~RenderExecutor() {
     shutdown();
 }
 
-ResultVoid RenderExecutor::initWindow(std::shared_ptr<RenderDeviceContext> context, const ViewConfig& config, int width,
-                                      int height) {
+ResultVoid RenderExecutor::initWindow(RenderDeviceContext& context, const ViewConfig& config, int width, int height) {
     MULAN_PROFILE_ZONE();
 
     if (initialized_) {
@@ -84,10 +83,7 @@ ResultVoid RenderExecutor::initWindow(std::shared_ptr<RenderDeviceContext> conte
                 executorError(ErrorCode::InvalidArg, "Window render session requires a valid native window."));
     }
 
-    if (!context) {
-        return std::unexpected(executorError(ErrorCode::InvalidArg, "Window executor requires a device context."));
-    }
-    device_context_ = std::move(context);
+    device_context_ = &context;
 
     auto& device = device_context_->device();
     if (auto surfaceInitialized = surface_.initWindowSurface(device, config, width, height); !surfaceInitialized) {
@@ -272,7 +268,7 @@ void RenderExecutor::shutdownLocked() {
             resource_client_ = 0;
         }
     }
-    device_context_.reset();
+    device_context_ = nullptr;
     resource_client_ = 0;
     initialized_ = false;
     if (hadResources) {

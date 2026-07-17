@@ -20,10 +20,12 @@ namespace mulan::view::detail {
 
 class RenderDeviceContext {
 public:
-    static Result<std::shared_ptr<RenderDeviceContext>> create(const ViewConfig& config);
+    static Result<RenderDeviceContext> create(const ViewConfig& config);
 
     RenderDeviceContext(const RenderDeviceContext&) = delete;
     RenderDeviceContext& operator=(const RenderDeviceContext&) = delete;
+    RenderDeviceContext(RenderDeviceContext&&) noexcept = default;
+    RenderDeviceContext& operator=(RenderDeviceContext&&) = delete;
 
     engine::RHIDevice& device() { return *device_; }
     const engine::RHIDevice& device() const { return *device_; }

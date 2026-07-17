@@ -20,7 +20,6 @@
 #include <mulan/render/backend/forward_renderer.h>
 #include <mulan/render/frontend/render_capture.h>
 
-#include <memory>
 #include <string>
 
 namespace mulan::view::detail {
@@ -33,8 +32,7 @@ public:
     RenderExecutor(const RenderExecutor&) = delete;
     RenderExecutor& operator=(const RenderExecutor&) = delete;
 
-    ResultVoid initWindow(std::shared_ptr<RenderDeviceContext> context, const ViewConfig& config, int width,
-                          int height);
+    ResultVoid initWindow(RenderDeviceContext& context, const ViewConfig& config, int width, int height);
     void shutdown();
 
     bool isInitialized() const;
@@ -54,7 +52,8 @@ private:
     RenderSurfaceState surfaceStateLocked() const;
     void shutdownLocked();
 
-    std::shared_ptr<RenderDeviceContext> device_context_;
+    // 非拥有借用；RenderThread 保证先关闭全部 Executor，再销毁设备上下文。
+    RenderDeviceContext* device_context_ = nullptr;
     RenderSurface surface_;
     RenderSurface capture_surface_;
     engine::ForwardRenderer forward_renderer_;

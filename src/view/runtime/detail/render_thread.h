@@ -12,6 +12,7 @@
 
 #include "render_surface_state.h"
 #include "render_channel_state.h"
+#include "render_device_context.h"
 
 #include "scene_sync/render_submission.h"
 
@@ -35,7 +36,6 @@
 namespace mulan::view::detail {
 
 class RenderExecutor;
-class RenderDeviceContext;
 
 using RenderChannelId = uint64_t;
 
@@ -104,7 +104,7 @@ private:
     explicit RenderThread(const ViewConfig& config);
 
     Result<RenderChannelId> attach(Initializer initialize);
-    Result<std::shared_ptr<RenderDeviceContext>> ensureDeviceContext();
+    Result<std::reference_wrapper<RenderDeviceContext>> ensureDeviceContext();
     void run(std::stop_token stopToken);
     std::shared_ptr<Channel> selectReadyChannelLocked(bool& hasControl, ControlTask& control,
                                                       std::optional<RenderSubmission>& frame);
@@ -119,7 +119,7 @@ private:
     static Error threadError(ErrorCode code, std::string_view message);
 
     ViewConfig config_;
-    std::shared_ptr<RenderDeviceContext> device_context_;
+    std::optional<RenderDeviceContext> device_context_;
     mutable std::mutex mutex_;
     std::condition_variable_any wake_;
     std::unordered_map<RenderChannelId, std::shared_ptr<Channel>> channels_;

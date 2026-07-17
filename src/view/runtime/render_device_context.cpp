@@ -5,7 +5,7 @@
 
 namespace mulan::view::detail {
 
-Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::create(const ViewConfig& config) {
+Result<RenderDeviceContext> RenderDeviceContext::create(const ViewConfig& config) {
     MULAN_PROFILE_ZONE();
 
     const engine::RenderConfig renderConfig = config.toRenderConfig();
@@ -24,13 +24,13 @@ Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::create(const V
         return std::unexpected(device.error());
     }
 
-    auto context = std::shared_ptr<RenderDeviceContext>(new RenderDeviceContext(std::move(*device)));
-    if (!context->resource_service_->init()) {
+    RenderDeviceContext context(std::move(*device));
+    if (!context.resource_service_->init()) {
         return std::unexpected(Error::make(ErrorCode::Internal, "Failed to initialize device resource service."));
     }
     LOG_INFO("[RenderDeviceContext] Device context created: backend={}, validation={}",
              static_cast<int>(config.backend), config.enableValidation);
-    return context;
+    return Result<RenderDeviceContext>{ std::move(context) };
 }
 
 }  // namespace mulan::view::detail
