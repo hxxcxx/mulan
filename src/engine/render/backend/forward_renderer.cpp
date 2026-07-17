@@ -13,7 +13,6 @@
 #include <mulan/core/log/log.h>
 
 #include <cstdio>
-#include <optional>
 #include <span>
 
 namespace mulan::engine {
@@ -130,7 +129,7 @@ ResultVoid ForwardRenderer::render(RHIDevice& device, const RenderSurfaceBinding
     if (!initialized_) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Forward renderer is not initialized."));
     }
-    if (!surface.isValid() || !validateOutput(surface, request)) {
+    if (!validateSurface(surface)) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render output is invalid."));
     }
 
@@ -141,7 +140,7 @@ ResultVoid ForwardRenderer::render(RHIDevice& device, const RenderSurfaceBinding
         return std::unexpected(compiled.error());
     }
 
-    auto commandList = beginFrame(device, surface, request);
+    auto commandList = beginFrame(device, surface, request.view);
     if (!commandList) {
         return std::unexpected(commandList.error());
     }
@@ -151,57 +150,30 @@ ResultVoid ForwardRenderer::render(RHIDevice& device, const RenderSurfaceBinding
     renderView.viewMatrix = request.view.viewMatrix;
     renderView.projectionMatrix = request.view.projectionMatrix;
     renderView.cameraPosition = request.view.cameraPosition;
-    renderView.width = request.output.width ? request.output.width : request.view.width;
-    renderView.height = request.output.height ? request.output.height : request.view.height;
-    renderView.showFaces = renderSurfacesEnabled(request.options);
-    renderView.showEdges = renderEdgesEnabled(request.options);
+    renderView.width = request.view.width;
+    renderView.height = request.view.height;
     renderView.showOverlay = request.options.showOverlays;
     renderView.showViewCube = request.options.showViewCube;
     renderView.viewCubeLayout = request.options.viewCubeLayout;
     renderView.viewCubeInteraction = request.options.viewCubeInteraction;
 
-    RenderTargetInfo frameTargetInfo;
-    frameTargetInfo.width = renderView.width;
-    frameTargetInfo.height = renderView.height;
-    frameTargetInfo.hasDepth = true;
-    frameTargetInfo.presentable = request.output.mode == RenderTargetMode::Present;
-
-    RenderFrame frame{ *cmd, renderView, frameTargetInfo };
+    RenderFrame frame{ *cmd, renderView };
     if (geometry_resources_) {
         geometry_resources_->uploadFrameData(buildDrawContext(*cmd, frame), lightEnvironment);
     }
-    executeStages(frame, request.textDraws);
+    executeStages(frame);
 
     cmd->endRenderPass();
 
-    return endFrame(device, surface, request);
+    return endFrame(device, surface);
 }
 
-bool ForwardRenderer::validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const {
-    switch (request.output.mode) {
-    case RenderTargetMode::Present:
-        if (!surface.swapChain) {
-            LOG_ERROR("[ForwardRenderer] Present request rejected: SwapChain is required");
-            return false;
-        }
-        return true;
-    case RenderTargetMode::Offscreen:
-        if (!surface.renderTarget) {
-            LOG_ERROR("[ForwardRenderer] Offscreen request rejected: RenderTarget is required");
-            return false;
-        }
-        return true;
-    case RenderTargetMode::Capture:
-        if (!surface.renderTarget) {
-            LOG_ERROR("[ForwardRenderer] Capture request rejected: RenderTarget is required");
-            return false;
-        }
-        if (!request.output.readback) {
-            LOG_WARN("[ForwardRenderer] Capture request has readback disabled");
-        }
-        return true;
+bool ForwardRenderer::validateSurface(const RenderSurfaceBinding& surface) const {
+    if (!surface.isValid()) {
+        LOG_ERROR("[ForwardRenderer] Exactly one SwapChain or RenderTarget must be bound");
+        return false;
     }
-    return false;
+    return true;
 }
 
 void ForwardRenderer::clearCompiledCommands() {
@@ -312,7 +284,7 @@ ResultVoid ForwardRenderer::compile(const RenderRequest& request) {
 }
 
 Result<CommandList*> ForwardRenderer::beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
-                                                 const RenderRequest& request) {
+                                                 const RenderViewDesc& view) {
     auto commandListResult = device.beginFrame(surface.swapChain ? surface.swapChain : nullptr);
     if (!commandListResult) {
         LOG_ERROR("[ForwardRenderer] Frame begin failed: {}", commandListResult.error().message);
@@ -320,17 +292,15 @@ Result<CommandList*> ForwardRenderer::beginFrame(RHIDevice& device, const Render
     }
     auto* cmd = *commandListResult;
 
-    if (request.output.mode == RenderTargetMode::Present) {
-        cmd->beginRenderPass(surface.swapChain->renderPassBeginInfo());
-    } else {
-        cmd->beginRenderPass(surface.renderTarget->renderPassBeginInfo());
-    }
+    const RenderPassBeginInfo renderPass = surface.isPresentable() ? surface.swapChain->renderPassBeginInfo()
+                                                                   : surface.renderTarget->renderPassBeginInfo();
+    cmd->beginRenderPass(renderPass);
 
     Viewport vp;
     vp.x = 0.0f;
     vp.y = 0.0f;
-    vp.width = static_cast<float>(request.view.width);
-    vp.height = static_cast<float>(request.view.height);
+    vp.width = static_cast<float>(view.width);
+    vp.height = static_cast<float>(view.height);
     vp.minDepth = 0.0f;
     vp.maxDepth = 1.0f;
     cmd->setViewport(vp);
@@ -338,17 +308,16 @@ Result<CommandList*> ForwardRenderer::beginFrame(RHIDevice& device, const Render
     ScissorRect scissor;
     scissor.x = 0;
     scissor.y = 0;
-    scissor.width = static_cast<int32_t>(request.view.width);
-    scissor.height = static_cast<int32_t>(request.view.height);
+    scissor.width = static_cast<int32_t>(view.width);
+    scissor.height = static_cast<int32_t>(view.height);
     cmd->setScissorRect(scissor);
     return cmd;
 }
 
-void ForwardRenderer::executeStages(RenderFrame& frame, const TextDrawList& requestTextDraws) {
+void ForwardRenderer::executeStages(RenderFrame& frame) {
     if (text_stage_)
         text_stage_->beginFrame(frame.view.width, frame.view.height);
     TextDrawList textDraws;
-    textDraws.append(requestTextDraws);
     if (face_stage_)
         face_stage_->execute(frame);
     if (edge_stage_)
@@ -382,10 +351,8 @@ DrawExecutionContext ForwardRenderer::buildDrawContext(CommandList& cmd, const R
     return ctx;
 }
 
-ResultVoid ForwardRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
-                                     const RenderRequest& request) {
-    SwapChain* swapchain = request.output.mode == RenderTargetMode::Present ? surface.swapChain : nullptr;
-    auto result = device.endFrame(swapchain);
+ResultVoid ForwardRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface) {
+    auto result = device.endFrame(surface.swapChain);
     if (!result) {
         LOG_ERROR("[ForwardRenderer] Frame submission failed: {}", result.error().message);
         return std::unexpected(result.error());

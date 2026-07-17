@@ -1,6 +1,6 @@
 /**
  * @file render_capture.h
- * @brief RenderCaptureDesc/Result 定义截图与离屏读回的 frontend 数据协议。
+ * @brief RenderCaptureDesc/Result 定义截图尺寸、读回意图和实际输出数据。
  * @author hxxcxx
  * @date 2026-07-05
  */
@@ -15,11 +15,10 @@
 namespace mulan::engine {
 
 struct RenderCaptureDesc {
+    /// 0 表示沿用当前窗口 Surface 的对应尺寸。
     uint32_t width = 0;
     uint32_t height = 0;
-    TextureFormat format = TextureFormat::RGBA8_UNorm;
-    TextureFormat depthFormat = TextureFormat::D24_UNorm_S8_UInt;
-    uint32_t sampleCount = 0;
+    /// false 只执行离屏渲染并返回输出元数据，不进行同步像素读回。
     bool readback = true;
 };
 

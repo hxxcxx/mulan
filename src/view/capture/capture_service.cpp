@@ -10,10 +10,8 @@ namespace {
 ErrorCode errorCodeFor(CaptureFailureCode code) {
     switch (code) {
     case CaptureFailureCode::ContextNotInitialized: return ErrorCode::InvalidArg;
-    case CaptureFailureCode::SurfaceNotOffscreen:
-    case CaptureFailureCode::SurfaceConfigurationFailed: return ErrorCode::NotSupported;
     case CaptureFailureCode::InvalidSize: return ErrorCode::InvalidArg;
-    case CaptureFailureCode::ReadbackFailed: return ErrorCode::Io;
+    case CaptureFailureCode::CaptureFailed: return ErrorCode::Generic;
     case CaptureFailureCode::None: return ErrorCode::Generic;
     }
     return ErrorCode::Generic;
@@ -94,7 +92,7 @@ CaptureBatchResult CaptureService::capture(ViewContext& context, const CaptureBa
             batchResult.items.push_back(CaptureResult{
                     .name = request.name,
                     .result = std::unexpected(result.error()),
-                    .failure = CaptureFailureCode::ReadbackFailed,
+                    .failure = CaptureFailureCode::CaptureFailed,
                     .message = result.error().message,
             });
             continue;

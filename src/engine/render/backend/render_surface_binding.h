@@ -16,8 +16,8 @@ struct RenderSurfaceBinding {
     SwapChain* swapChain = nullptr;
     RenderTarget* renderTarget = nullptr;
 
-    bool isValid() const { return swapChain || renderTarget; }
-    bool isOffscreen() const { return !swapChain && renderTarget; }
+    bool isValid() const { return (swapChain != nullptr) != (renderTarget != nullptr); }
+    bool isPresentable() const { return swapChain != nullptr && renderTarget == nullptr; }
 };
 
 }  // namespace mulan::engine

@@ -38,7 +38,7 @@ engine::RenderSurfaceBinding bindSurface(RenderSurface& surface) {
     };
 }
 
-engine::RenderRequest buildRenderRequest(RenderSurface& surface, const RenderSubmission& submission) {
+engine::RenderRequest buildRenderRequest(const RenderSubmission& submission) {
     const ViewState& viewState = submission.view;
     engine::RenderRequest request;
     request.sceneWorld = submission.sceneWorld.get();
@@ -48,17 +48,6 @@ engine::RenderRequest buildRenderRequest(RenderSurface& surface, const RenderSub
     request.view.cameraPosition = viewState.cameraPosition;
     request.view.width = static_cast<uint32_t>(viewState.width);
     request.view.height = static_cast<uint32_t>(viewState.height);
-    request.output.mode = surface.isOffscreen() ? engine::RenderTargetMode::Capture : engine::RenderTargetMode::Present;
-    request.output.width = request.view.width;
-    request.output.height = request.view.height;
-    request.output.readback = surface.isOffscreen();
-    request.output.capture.width = request.output.width;
-    request.output.capture.height = request.output.height;
-    request.output.capture.format =
-            surface.renderTarget() ? surface.renderTarget()->colorFormat() : surface.swapChain()->colorFormat();
-    request.output.capture.depthFormat =
-            surface.renderTarget() ? surface.renderTarget()->depthFormat() : surface.swapChain()->depthFormat();
-    request.output.capture.readback = request.output.readback;
     request.options.displayMode = toDisplayMode(viewState.renderMode);
     request.options.surfaceTechnique = toSurfaceTechnique(viewState.surfaceShading);
     request.options.hoveredPickId = viewState.hoveredPickId;
@@ -149,7 +138,7 @@ ResultVoid RenderExecutor::executeFrame(const RenderSubmission& submission) {
         return std::unexpected(executorError(ErrorCode::Internal, "Render surface is not available."));
     }
 
-    auto request = buildRenderRequest(surface_, submission);
+    auto request = buildRenderRequest(submission);
     return forward_renderer_.render(device_context_->device(), bindSurface(surface_), request,
                                     submission.lightEnvironment);
 }
@@ -169,7 +158,7 @@ Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmissi
         return std::unexpected(configured.error());
     }
 
-    auto request = buildRenderRequest(capture_surface_, submission);
+    auto request = buildRenderRequest(submission);
     auto rendered = forward_renderer_.render(device_context_->device(), bindSurface(capture_surface_), request,
                                              submission.lightEnvironment);
     if (!rendered) {

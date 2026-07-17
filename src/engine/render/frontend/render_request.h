@@ -1,28 +1,20 @@
 /**
  * @file render_request.h
- * @brief RenderRequest 描述一次渲染调用的世界快照、视图、输出目标和显示选项。
+ * @brief RenderRequest 描述一次渲染调用的世界快照、视图和显示选项。
  * @author hxxcxx
  * @date 2026-07-05
  */
 
 #pragma once
 
-#include "render_capture.h"
 #include "selection_visual_state.h"
 #include "render_view_desc.h"
 #include "render_world_snapshot.h"
 #include "../overlay/view_cube_model.h"
-#include "../text/text_types.h"
 
 #include <cstdint>
 
 namespace mulan::engine {
-
-enum class RenderTargetMode : uint8_t {
-    Present,
-    Offscreen,
-    Capture,
-};
 
 enum class DisplayMode : uint8_t {
     Shaded,
@@ -72,21 +64,11 @@ inline bool renderEdgesEnabled(const RenderOptions& options) {
     return options.showEdges;
 }
 
-struct RenderOutputDesc {
-    RenderTargetMode mode = RenderTargetMode::Present;
-    uint32_t width = 0;
-    uint32_t height = 0;
-    bool readback = false;
-    RenderCaptureDesc capture;
-};
-
 struct RenderRequest {
     const RenderWorldSnapshot* sceneWorld = nullptr;
     const RenderWorldSnapshot* overlayWorld = nullptr;
     RenderViewDesc view;
-    RenderOutputDesc output;
     RenderOptions options;
-    TextDrawList textDraws;
 };
 
 }  // namespace mulan::engine

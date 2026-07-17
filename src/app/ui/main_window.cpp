@@ -620,7 +620,6 @@ void MainWindow::captureRecentThumbnail(DocWidget* docWidget, const QString& fil
     request.name = "recent-thumbnail";
     request.desc.width = recent_thumbnail::kCaptureWidth;
     request.desc.height = recent_thumbnail::kCaptureHeight;
-    request.desc.format = mulan::engine::TextureFormat::RGBA8_UNorm;
     request.desc.readback = true;
     request.camera = viewContext.camera();
     request.visual.style = mulan::view::CaptureRenderStyle::ShadedWithEdges;

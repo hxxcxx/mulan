@@ -49,10 +49,8 @@ struct CaptureImage {
 enum class CaptureFailureCode : uint8_t {
     None,
     ContextNotInitialized,
-    SurfaceNotOffscreen,
     InvalidSize,
-    SurfaceConfigurationFailed,
-    ReadbackFailed,
+    CaptureFailed,
 };
 
 struct CaptureResult {

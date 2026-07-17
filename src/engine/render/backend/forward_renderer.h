@@ -53,14 +53,13 @@ public:
     bool isInitialized() const { return initialized_; }
 
 private:
-    bool validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const;
+    bool validateSurface(const RenderSurfaceBinding& surface) const;
     void clearCompiledCommands();
     ResultVoid compile(const RenderRequest& request);
     DrawExecutionContext buildDrawContext(CommandList& cmd, const RenderFrame& frame) const;
-    Result<CommandList*> beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
-                                    const RenderRequest& request);
-    void executeStages(RenderFrame& frame, const TextDrawList& requestTextDraws);
-    ResultVoid endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
+    Result<CommandList*> beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderViewDesc& view);
+    void executeStages(RenderFrame& frame);
+    ResultVoid endFrame(RHIDevice& device, const RenderSurfaceBinding& surface);
 
     MaterialCache* material_cache_ = nullptr;
     std::unique_ptr<IBLPipeline> ibl_;
