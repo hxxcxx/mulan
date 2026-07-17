@@ -36,6 +36,7 @@ CTestTestfile.cmake
 *.cmake
 !cmake/
 !cmake/*.cmake
+!cmake/vcpkg-overlay-ports/**/portfile.cmake
 
 # Logs
 *.log
