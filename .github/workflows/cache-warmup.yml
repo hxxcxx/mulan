@@ -1,0 +1,24 @@
+name: Cache Warmup
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'   # 每周一 UTC 00:00
+
+env:
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+jobs:
+  warmup:
+    runs-on: windows-2025-vs2026
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: "616affa24b974b710a4fc26257e90b7fda6d6826"
+
+      - name: Restore vcpkg binary cache
+        run: vcpkg install --triplet x64-windows

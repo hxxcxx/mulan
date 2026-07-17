@@ -12,6 +12,7 @@ concurrency:
 
 env:
   BUILD_TYPE: Release
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
 jobs:
   build-windows:
@@ -80,12 +81,6 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: "616affa24b974b710a4fc26257e90b7fda6d6826"
-
-      - name: Cache vcpkg installed packages
-        uses: actions/cache@v4
-        with:
-          path: build/msvc/vcpkg_installed
-          key: vcpkg-installed-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
 
       # slangc 和 glslangValidator 由 vcpkg 提供（shader-slang、glslang[tools]），
       # MulanShaders.cmake 的 find_program 在 configure 期间自动发现。
