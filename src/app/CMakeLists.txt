@@ -186,6 +186,14 @@ foreach(runtime_dll IN LISTS MULAN_RUNTIME_DLL_FILES)
     )
 endforeach()
 
+# qsvg/qsvgicon 是动态插件，插件对 Qt6Svg 的依赖不会进入 app 的链接闭包，需随插件显式同步。
+if(TARGET Qt6::Svg)
+    list(APPEND MULAN_DEV_RUNTIME_COMMANDS
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Qt6::Svg>" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+    )
+endif()
+
 if(MULAN_QT_PLATFORM_PLUGIN_DLLS)
     list(APPEND MULAN_DEV_RUNTIME_COMMANDS
         COMMAND ${CMAKE_COMMAND} -E make_directory
