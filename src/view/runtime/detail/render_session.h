@@ -4,7 +4,7 @@
  * @author hxxcxx
  * @date 2026-07-15
  *
- * 会话在调用线程构建自持有 RenderSubmission，并将其交给当前唯一的执行策略。
+ * 会话在调用线程构建自持有 RenderSubmission，并将其交给 GPU 执行域。
  * Device、Surface、渲染线程和 engine renderer 均属于内部实现，不向 view 模块外暴露。
  * RenderSession 由创建它的调用线程独占；只有 RenderWorker 内部跨越线程边界。
  */
@@ -35,7 +35,6 @@ class PreviewLayer;
 class RenderScene;
 
 namespace detail {
-class RenderExecutor;
 class RenderWorker;
 
 class RenderSession {
@@ -47,7 +46,6 @@ public:
     RenderSession& operator=(const RenderSession&) = delete;
 
     ResultVoid initWindow(const ViewConfig& config, int width, int height);
-    ResultVoid initOffscreen(const ViewConfig& config, int width, int height);
     void shutdown();
 
     bool isInitialized() const;
@@ -68,25 +66,16 @@ public:
     RenderSurfaceState surfaceState() const;
 
 private:
-    enum class ExecutionMode : uint8_t {
-        None,
-        Inline,
-        Threaded,
-    };
-
     void assertOwnerThread() const;
-    ResultVoid prepareInlineResources(RenderSubmission& submission);
     ResultVoid drainWorkerEvents();
     void failExecution(const Error& error);
     void discardExecutionDomain();
     void clearAssetResources();
 
     RenderSubmissionBuilder submission_builder_;
-    std::unique_ptr<RenderExecutor> inline_executor_;
     std::unique_ptr<RenderWorker> worker_;
     const asset::AssetLibrary* asset_source_ = nullptr;
     std::optional<Error> last_runtime_failure_;
-    ExecutionMode execution_mode_ = ExecutionMode::None;
     std::thread::id owner_thread_;
 };
 

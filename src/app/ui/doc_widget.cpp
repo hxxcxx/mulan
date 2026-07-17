@@ -59,8 +59,6 @@ bool DocWidget::init() {
     runtime_failure_message_.clear();
 
     EngineSettings::instance().applyTo(view_config_);
-    // 产品路径明确使用专用渲染线程；Synchronous 只保留给测试或显式回退场景。
-    view_config_.executionMode = mulan::view::RenderExecutionMode::Threaded;
 
 #ifdef _WIN32
     view_config_.hInstance = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));

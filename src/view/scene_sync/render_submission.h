@@ -5,7 +5,7 @@
  * @date 2026-07-10
  *
  * 提交对象由 view 主线程构建。它不引用 RenderScene、AssetLibrary 或 PreviewLayer，
- * 因而可保持为同步路径输入，并为后续渲染线程队列提供稳定边界。
+ * 因而可安全跨越线程边界，为渲染线程队列提供稳定输入。
  */
 
 #pragma once

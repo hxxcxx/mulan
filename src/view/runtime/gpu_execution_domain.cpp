@@ -156,15 +156,6 @@ Result<GpuExecutionClientId> GpuExecutionDomain::attachWindow(const ViewConfig& 
     });
 }
 
-Result<GpuExecutionClientId> GpuExecutionDomain::attachOffscreen(const ViewConfig& config, int width, int height) {
-    return attach([this, config, width, height](RenderExecutor& executor) -> ResultVoid {
-        auto context = ensureDeviceContext();
-        if (!context)
-            return std::unexpected(context.error());
-        return executor.initOffscreen(std::move(*context), config, width, height);
-    });
-}
-
 Result<std::shared_ptr<RenderDeviceContext>> GpuExecutionDomain::ensureDeviceContext() {
     if (device_context_ && device_context_->isHealthy())
         return device_context_;

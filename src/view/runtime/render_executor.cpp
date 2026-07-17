@@ -83,15 +83,6 @@ RenderExecutor::~RenderExecutor() {
     shutdown();
 }
 
-ResultVoid RenderExecutor::initWindow(const ViewConfig& config, int width, int height) {
-    auto context = RenderDeviceContext::create(config);
-    if (!context) {
-        LOG_ERROR("[RenderExecutor] Window initialization failed while creating device: {}", context.error().message);
-        return std::unexpected(context.error());
-    }
-    return initWindow(std::move(*context), config, width, height);
-}
-
 ResultVoid RenderExecutor::initWindow(std::shared_ptr<RenderDeviceContext> context, const ViewConfig& config, int width,
                                       int height) {
     MULAN_PROFILE_ZONE();
@@ -136,56 +127,6 @@ ResultVoid RenderExecutor::initWindow(std::shared_ptr<RenderDeviceContext> conte
     initialized_ = true;
     LOG_INFO("[RenderExecutor] Window executor initialized: backend={}, size={}x{}", static_cast<int>(config.backend),
              width, height);
-    return {};
-}
-
-ResultVoid RenderExecutor::initOffscreen(const ViewConfig& config, int width, int height) {
-    auto context = RenderDeviceContext::create(config);
-    if (!context) {
-        LOG_ERROR("[RenderExecutor] Offscreen initialization failed while creating device: {}",
-                  context.error().message);
-        return std::unexpected(context.error());
-    }
-    return initOffscreen(std::move(*context), config, width, height);
-}
-
-ResultVoid RenderExecutor::initOffscreen(std::shared_ptr<RenderDeviceContext> context, const ViewConfig& config,
-                                         int width, int height) {
-    if (initialized_) {
-        return {};
-    }
-    if (width <= 0 || height <= 0) {
-        return std::unexpected(
-                executorError(ErrorCode::InvalidArg, "Offscreen render surface size must be greater than zero."));
-    }
-
-    if (!context) {
-        return std::unexpected(executorError(ErrorCode::InvalidArg, "Offscreen executor requires a device context."));
-    }
-    device_context_ = std::move(context);
-
-    if (!device_context_->isHealthy()) {
-        shutdownLocked();
-        return std::unexpected(unavailableDeviceError());
-    }
-    auto& device = device_context_->device();
-    if (auto surfaceInitialized = surface_.initOffscreenSurface(device, width, height); !surfaceInitialized) {
-        shutdownLocked();
-        LOG_ERROR("[RenderExecutor] Offscreen surface initialization failed: size={}x{}, error={}", width, height,
-                  surfaceInitialized.error().message);
-        return std::unexpected(surfaceInitialized.error());
-    }
-
-    auto initialized = initRenderer();
-    if (!initialized) {
-        shutdownLocked();
-        LOG_ERROR("[RenderExecutor] Renderer initialization failed: {}", initialized.error().message);
-        return initialized;
-    }
-
-    initialized_ = true;
-    LOG_INFO("[RenderExecutor] Offscreen executor initialized: backend={}, size={}x{}",
-             static_cast<int>(config.backend), width, height);
     return {};
 }
 

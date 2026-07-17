@@ -78,7 +78,6 @@ public:
     GpuExecutionDomain& operator=(const GpuExecutionDomain&) = delete;
 
     Result<GpuExecutionClientId> attachWindow(const ViewConfig& config, int width, int height);
-    Result<GpuExecutionClientId> attachOffscreen(const ViewConfig& config, int width, int height);
     void detach(GpuExecutionClientId client);
 
     bool isReady(GpuExecutionClientId client) const;

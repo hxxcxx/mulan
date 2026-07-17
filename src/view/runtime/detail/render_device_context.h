@@ -4,8 +4,8 @@
  * @author hxxcxx
  * @date 2026-07-12
  *
- * 线程模式下由 GpuExecutionDomain 创建并持有；同步模式下由单个 RenderExecutor
- * 独占。所有 RHI 调用均发生在所属执行线程，不在此层重复加锁或建立第二套共享注册表。
+ * 由 GpuExecutionDomain 创建并持有。所有 RHI 调用均发生在所属执行线程，
+ * 不在此层重复加锁或建立第二套共享注册表。
  */
 #pragma once
 

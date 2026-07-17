@@ -96,7 +96,6 @@ TEST(RenderWorkerProtocolTests, FailureIsObservableAndNeverProducesFalseAck) {
 TEST(GpuExecutionDomainTests, CompatibleThreadedViewsReuseOneDomain) {
     mulan::view::ViewConfig config;
     config.backend = mulan::engine::GraphicsBackend::Vulkan;
-    config.executionMode = mulan::view::RenderExecutionMode::Threaded;
     auto first = GpuExecutionDomain::acquire(config);
     auto second = GpuExecutionDomain::acquire(config);
     ASSERT_TRUE(first);
@@ -113,7 +112,6 @@ TEST(GpuExecutionDomainTests, CompatibleThreadedViewsReuseOneDomain) {
 TEST(GpuExecutionDomainTests, OpenGLContextsAlwaysUseIndependentDomains) {
     mulan::view::ViewConfig config;
     config.backend = mulan::engine::GraphicsBackend::OpenGL;
-    config.executionMode = mulan::view::RenderExecutionMode::Threaded;
     auto first = GpuExecutionDomain::acquire(config);
     auto second = GpuExecutionDomain::acquire(config);
     ASSERT_TRUE(first);
@@ -135,7 +133,6 @@ TEST(GpuExecutionDomainTests, FairCursorVisitsEveryContinuouslyReadyClient) {
 TEST(GpuExecutionDomainTests, DeviceFailurePoisonsTheOldDomainAndForcesReplacement) {
     mulan::view::ViewConfig config;
     config.backend = mulan::engine::GraphicsBackend::Vulkan;
-    config.executionMode = mulan::view::RenderExecutionMode::Threaded;
     auto failedDomain = GpuExecutionDomain::acquire(config);
     ASSERT_TRUE(failedDomain);
     const uint64_t failedId = (*failedDomain)->stats().domainId;

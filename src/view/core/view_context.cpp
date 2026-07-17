@@ -73,35 +73,6 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
     return true;
 }
 
-bool ViewContext::initOffscreen(const ViewConfig& cfg, int width, int height) {
-    if (render_session_->isInitialized())
-        return true;
-
-    width_ = width;
-    height_ = height;
-    ibl_enabled_ = cfg.iblEnabled;
-    hdr_path_ = cfg.hdrPath;
-
-    if (!render_session_->initOffscreen(cfg, width, height)) {
-        return false;
-    }
-    render_session_->setPreviewLayer(&preview_layer_);
-    render_session_->setLightEnvironment(light_env_);
-
-    const auto surface = render_session_->surfaceState();
-    width_ = static_cast<int>(surface.width);
-    height_ = static_cast<int>(surface.height);
-
-    camera_.setViewport(width_, height_);
-    camera_.fitToBox(math::AABB3(math::Point3(-1, -1, -1), math::Point3(1, 1, 1)));
-
-    return true;
-}
-
-bool ViewContext::initOffscreen(int width, int height) {
-    return initOffscreen(ViewConfig{}, width, height);
-}
-
 void ViewContext::shutdown() {
     render_session_->setPreviewLayer(nullptr);
     render_session_->shutdown();

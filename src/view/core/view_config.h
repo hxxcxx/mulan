@@ -18,12 +18,6 @@
 
 namespace mulan::view {
 
-/// 渲染运行时执行模式。同步模式用于调试和单线程回退。
-enum class RenderExecutionMode : uint8_t {
-    Synchronous,
-    Threaded,
-};
-
 struct ViewConfig {
     engine::GraphicsBackend backend = engine::GraphicsBackend::Vulkan;
 
@@ -36,9 +30,6 @@ struct ViewConfig {
     bool stencilBuffer = false;
 
     bool enableValidation = true;
-    /// 当前默认走调用线程内执行；可显式设为 Threaded 使用专用渲染线程。
-    RenderExecutionMode executionMode = RenderExecutionMode::Synchronous;
-
     float clearColor[4] = { 97.0f / 255, 101.0f / 255, 118.0f / 255, 1.0f };
 
     /// IBL（环境光反射）开关。默认关闭：需要 hdrPath 指向一张可读的 HDR 文件。

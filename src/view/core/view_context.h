@@ -49,8 +49,6 @@ public:
     ViewContext& operator=(const ViewContext&) = delete;
 
     bool init(const ViewConfig& config, int width, int height);
-    bool initOffscreen(const ViewConfig& config, int width, int height);
-    bool initOffscreen(int width, int height);
     void shutdown();
 
     bool isInitialized() const;

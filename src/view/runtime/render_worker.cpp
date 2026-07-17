@@ -14,14 +14,6 @@ RenderWorker::~RenderWorker() {
 }
 
 ResultVoid RenderWorker::initWindow(const ViewConfig& config, int width, int height) {
-    return attach(config, width, height, false);
-}
-
-ResultVoid RenderWorker::initOffscreen(const ViewConfig& config, int width, int height) {
-    return attach(config, width, height, true);
-}
-
-ResultVoid RenderWorker::attach(const ViewConfig& config, int width, int height, bool offscreen) {
     if (isInitialized()) {
         return {};
     }
@@ -32,8 +24,7 @@ ResultVoid RenderWorker::attach(const ViewConfig& config, int width, int height,
     if (!domain) {
         return std::unexpected(domain.error());
     }
-    auto client = offscreen ? (*domain)->attachOffscreen(config, width, height)
-                            : (*domain)->attachWindow(config, width, height);
+    auto client = (*domain)->attachWindow(config, width, height);
     if (!client) {
         return std::unexpected(client.error());
     }

@@ -4,8 +4,8 @@
  * @author hxxcxx
  * @date 2026-07-15
  *
- * 同步模式由调用线程独占，线程模式由 GpuExecutionDomain 的唯一 GPU 线程独占。
- * Executor 不提供跨线程同步；上层只能通过所属执行域访问它。
+ * Executor 由 GpuExecutionDomain 的唯一 GPU 线程独占，不提供跨线程同步；
+ * 上层只能通过所属执行域访问它。
  */
 
 #pragma once
@@ -34,12 +34,8 @@ public:
     RenderExecutor(const RenderExecutor&) = delete;
     RenderExecutor& operator=(const RenderExecutor&) = delete;
 
-    ResultVoid initWindow(const ViewConfig& config, int width, int height);
-    ResultVoid initOffscreen(const ViewConfig& config, int width, int height);
     ResultVoid initWindow(std::shared_ptr<RenderDeviceContext> context, const ViewConfig& config, int width,
                           int height);
-    ResultVoid initOffscreen(std::shared_ptr<RenderDeviceContext> context, const ViewConfig& config, int width,
-                             int height);
     void shutdown();
 
     bool isInitialized() const;

@@ -157,14 +157,6 @@ ResultVoid RenderSurface::initWindowSurface(engine::RHIDevice& device, const Vie
     return {};
 }
 
-ResultVoid RenderSurface::initOffscreenSurface(engine::RHIDevice& device, int width, int height) {
-    RenderSurfaceDesc desc;
-    desc.width = width;
-    desc.height = height;
-    desc.sampleCount = device.renderConfig().sampleCount();
-    return initOffscreenSurface(device, desc);
-}
-
 ResultVoid RenderSurface::initOffscreenSurface(engine::RHIDevice& device, const RenderSurfaceDesc& desc) {
     if (swapchain_ || render_target_)
         return {};

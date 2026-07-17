@@ -49,7 +49,6 @@ public:
     ResultVoid initWindowSurface(engine::RHIDevice& device, const ViewConfig& config, int width, int height);
 
     /// 离屏表面：创建 RenderTarget + readback staging buffer。
-    ResultVoid initOffscreenSurface(engine::RHIDevice& device, int width, int height);
     ResultVoid initOffscreenSurface(engine::RHIDevice& device, const RenderSurfaceDesc& desc);
 
     ResultVoid configureOffscreenSurface(engine::RHIDevice& device, const RenderSurfaceDesc& desc);

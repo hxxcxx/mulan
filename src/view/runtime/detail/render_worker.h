@@ -20,7 +20,6 @@ public:
     RenderWorker& operator=(const RenderWorker&) = delete;
 
     ResultVoid initWindow(const ViewConfig& config, int width, int height);
-    ResultVoid initOffscreen(const ViewConfig& config, int width, int height);
     void shutdown();
 
     bool isInitialized() const;
@@ -38,8 +37,6 @@ public:
     GpuExecutionDomainStats domainStats() const;
 
 private:
-    ResultVoid attach(const ViewConfig& config, int width, int height, bool offscreen);
-
     std::shared_ptr<GpuExecutionDomain> domain_;
     GpuExecutionClientId client_ = 0;
 };
