@@ -3,6 +3,7 @@
 # 图片加载/保存、日志、文件 IO 等通用功能。
 # 所有模块均可引入。
 add_library(core SHARED
+    concurrency/thread_pool.cpp
     image/image.cpp
     image/stb_impl.cpp
     ini/config_file.cpp

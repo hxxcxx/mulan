@@ -7,13 +7,21 @@
 #include <mulan/asset/texture_asset.h>
 #include <mulan/core/image/image.h>
 #include <mulan/core/profiling/profile.h>
+#include <mulan/core/concurrency/thread_pool.h>
 #include <mulan/io/document.h>
 #include <mulan/scene/scene.h>
 
+#include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstring>
+#include <exception>
 #include <fstream>
+#include <future>
+#include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace mulan::io {
 
@@ -36,9 +44,35 @@ std::vector<std::byte> readBinaryFile(const std::string& path) {
     return bytes;
 }
 
+struct TextureWorkItem {
+    asset::TextureAsset* texture = nullptr;
+    std::vector<std::byte> encodedBytes;
+    std::string mimeType;
+    int width = 0;
+    int height = 0;
+    std::shared_ptr<core::Image> image;
+    std::string decodeError;
+};
+
+void decodeTexture(TextureWorkItem& item) {
+    if (item.encodedBytes.empty())
+        return;
+
+    core::ImageDecodeOptions decodeOptions;
+    decodeOptions.outputOrigin = core::ImageOrigin::TopLeft;
+    decodeOptions.channels = core::ImageChannelLayout::RGBA;
+    auto decoded = core::Image::loadFromMemory(std::span<const std::byte>(item.encodedBytes), decodeOptions);
+    if (decoded) {
+        item.image = std::move(decoded).value();
+    } else {
+        item.decodeError = decoded.error().message;
+    }
+}
+
 }  // namespace
 
-ParsedSceneLoader::ParsedSceneLoader(Document& document) : document_(document) {
+ParsedSceneLoader::ParsedSceneLoader(Document& document, core::ThreadPool& workerPool)
+    : document_(document), worker_pool_(workerPool) {
 }
 
 ImportResult ParsedSceneLoader::load(ParsedScene&& scene, const ImportOptions& options) {
@@ -92,44 +126,80 @@ void ParsedSceneLoader::loadTextures(ParsedScene& scene) {
     if (!library)
         return;
 
+    std::vector<TextureWorkItem> workItems(scene.textures.size());
     for (size_t i = 0; i < scene.textures.size(); ++i) {
         auto& desc = scene.textures[i];
+        auto& item = workItems[i];
         auto* texture = library->create<asset::TextureAsset>(std::move(desc.name), std::move(desc.sourcePath));
         if (!texture)
             continue;
 
-        std::vector<std::byte> encodedBytes =
-                desc.data.empty() ? readBinaryFile(texture->sourcePath()) : std::move(desc.data);
-        std::shared_ptr<core::Image> image;
-        std::string decodeError;
-        core::ImageDecodeOptions decodeOptions;
-        decodeOptions.outputOrigin = core::ImageOrigin::TopLeft;
-        decodeOptions.channels = core::ImageChannelLayout::RGBA;
-        if (!encodedBytes.empty()) {
-            auto decoded = core::Image::loadFromMemory(std::span<const std::byte>(encodedBytes), decodeOptions);
-            if (decoded) {
-                image = std::move(decoded).value();
-            } else {
-                decodeError = decoded.error().message;
-            }
-        }
+        item.texture = texture;
+        item.encodedBytes = desc.data.empty() ? readBinaryFile(texture->sourcePath()) : std::move(desc.data);
+        item.mimeType = std::move(desc.mimeType);
+        item.width = desc.width;
+        item.height = desc.height;
+    }
 
-        if (image && image->valid()) {
-            texture->setImage(std::move(image));
-        } else if (!texture->sourcePath().empty() || !encodedBytes.empty()) {
+    constexpr size_t kMaxConcurrentTextureDecodes = 2;
+    const size_t runnerCount = std::min({ kMaxConcurrentTextureDecodes, worker_pool_.workerCount(), workItems.size() });
+    std::atomic_size_t nextIndex = 0;
+    std::vector<std::future<void>> runners;
+    runners.reserve(runnerCount);
+
+    try {
+        for (size_t runner = 0; runner < runnerCount; ++runner) {
+            runners.push_back(worker_pool_.submit([&workItems, &nextIndex] {
+                for (;;) {
+                    const size_t index = nextIndex.fetch_add(1, std::memory_order_relaxed);
+                    if (index >= workItems.size())
+                        return;
+                    decodeTexture(workItems[index]);
+                }
+            }));
+        }
+    } catch (...) {
+        const std::exception_ptr submissionFailure = std::current_exception();
+        for (auto& runner : runners)
+            runner.wait();
+        std::rethrow_exception(submissionFailure);
+    }
+
+    std::exception_ptr decodeFailure;
+    for (auto& runner : runners) {
+        try {
+            runner.get();
+        } catch (...) {
+            if (!decodeFailure)
+                decodeFailure = std::current_exception();
+        }
+    }
+    if (decodeFailure)
+        std::rethrow_exception(decodeFailure);
+
+    // 资产提交保持在调用线程，并按解析顺序执行，保证 AssetId 与 warning 顺序稳定。
+    for (size_t i = 0; i < workItems.size(); ++i) {
+        auto& item = workItems[i];
+        auto* texture = item.texture;
+        if (!texture)
+            continue;
+
+        if (item.image && item.image->valid()) {
+            texture->setImage(std::move(item.image));
+        } else if (!texture->sourcePath().empty() || !item.encodedBytes.empty()) {
             const std::string& source = texture->sourcePath().empty() ? texture->name() : texture->sourcePath();
             report_.warnings.push_back("Failed to decode texture image: " + source +
-                                       (decodeError.empty() ? std::string{} : " (" + decodeError + ")"));
+                                       (item.decodeError.empty() ? std::string{} : " (" + item.decodeError + ")"));
         }
 
-        if (!encodedBytes.empty()) {
-            texture->setEmbeddedBytes(std::move(encodedBytes));
-            texture->setMimeType(std::move(desc.mimeType));
+        if (!item.encodedBytes.empty()) {
+            texture->setEmbeddedBytes(std::move(item.encodedBytes));
+            texture->setMimeType(std::move(item.mimeType));
         } else if (!texture->sourcePath().empty()) {
             report_.warnings.push_back("Failed to read texture bytes: " + texture->sourcePath());
         }
-        if (desc.width > 0 && desc.height > 0)
-            texture->setSize(desc.width, desc.height);
+        if (item.width > 0 && item.height > 0)
+            texture->setSize(item.width, item.height);
 
         textureIds_[i] = texture->id();
         ++report_.textureCount;

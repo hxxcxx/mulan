@@ -3,6 +3,7 @@
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/asset/texture_asset.h>
 #include <mulan/core/image/image.h>
+#include <mulan/core/concurrency/thread_pool.h>
 #include <mulan/io/document.h>
 #include <mulan/io/import_builder.h>
 #include <mulan/io/parsed_scene_loader.h>
@@ -15,6 +16,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -96,7 +98,8 @@ TEST(ParsedSceneLoaderTests, MovesEmbeddedTextureAndMeshIntoDocumentWithoutChang
     scene.rootNodes.push_back(0);
 
     Document document("LoaderTest");
-    ParsedSceneLoader loader(document);
+    core::ThreadPool workerPool(2);
+    ParsedSceneLoader loader(document, workerPool);
     const ImportResult result = loader.load(std::move(scene));
 
     EXPECT_EQ(result.report.textureCount, 1u);
@@ -152,7 +155,8 @@ TEST(ParsedSceneLoaderTests, ReadsExternalTextureOnceAndKeepsItsEncodedSource) {
     });
 
     Document document("ExternalTextureTest");
-    ParsedSceneLoader loader(document);
+    core::ThreadPool workerPool(2);
+    ParsedSceneLoader loader(document, workerPool);
     const ImportResult result = loader.load(std::move(scene));
     std::filesystem::remove(pngPath);
 
@@ -166,6 +170,44 @@ TEST(ParsedSceneLoaderTests, ReadsExternalTextureOnceAndKeepsItsEncodedSource) {
     ASSERT_NE(texture, nullptr);
     EXPECT_TRUE(texture->hasImage());
     EXPECT_EQ(texture->embeddedBytes(), encoded);
+}
+
+TEST(ParsedSceneLoaderTests, DecodesTextureBatchWithoutChangingAssetContent) {
+    const auto pngPath = writeTestPng("mulan_parsed_scene_loader_batch.png");
+    const std::vector<std::byte> encoded = readBytes(pngPath);
+    std::filesystem::remove(pngPath);
+    ASSERT_FALSE(encoded.empty());
+
+    constexpr size_t kTextureCount = 8;
+    ParsedScene scene;
+    for (size_t i = 0; i < kTextureCount; ++i) {
+        scene.textures.push_back(ParsedTexture{
+                .name = "Embedded" + std::to_string(i),
+                .sourcePath = "gltf:batch#image[" + std::to_string(i) + "]",
+                .data = encoded,
+                .mimeType = "image/png",
+        });
+    }
+
+    Document document("TextureBatchTest");
+    core::ThreadPool workerPool(2);
+    ParsedSceneLoader loader(document, workerPool);
+    const ImportResult result = loader.load(std::move(scene));
+
+    EXPECT_EQ(result.report.textureCount, kTextureCount);
+    EXPECT_TRUE(result.report.warnings.empty());
+
+    size_t loadedTextureCount = 0;
+    document.assets()->forEachAsset([&](const asset::Asset& value) {
+        if (value.kind() != asset::AssetKind::Texture)
+            return;
+        const auto& texture = static_cast<const asset::TextureAsset&>(value);
+        ++loadedTextureCount;
+        EXPECT_TRUE(texture.hasImage());
+        EXPECT_EQ(texture.embeddedBytes(), encoded);
+        EXPECT_EQ(texture.mimeType(), "image/png");
+    });
+    EXPECT_EQ(loadedTextureCount, kTextureCount);
 }
 
 }  // namespace

@@ -21,13 +21,17 @@
 
 #include <vector>
 
+namespace mulan::core {
+class ThreadPool;
+}
+
 namespace mulan::io {
 
 class Document;
 
 class IO_API ParsedSceneLoader {
 public:
-    explicit ParsedSceneLoader(Document& document);
+    ParsedSceneLoader(Document& document, core::ThreadPool& workerPool);
 
     /// 消费解析结果并把其中的大块资源所有权移交给 Document；调用后 scene 不再可复用。
     ImportResult load(ParsedScene&& scene, const ImportOptions& options = {});
@@ -48,6 +52,7 @@ private:
     asset::AssetId brepAssetId(size_t parsedIndex) const;
 
     Document& document_;
+    core::ThreadPool& worker_pool_;
     ImportReport report_;
 
     std::vector<asset::AssetId> textureIds_;

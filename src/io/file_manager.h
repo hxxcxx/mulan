@@ -9,6 +9,7 @@
 #include "import_result.h"
 #include "io_export.h"
 
+#include <mulan/core/concurrency/thread_pool.h>
 #include <mulan/core/result/error.h>
 
 #include <expected>
@@ -29,7 +30,7 @@ struct OpenDocumentResult {
 
 class IO_API FileManager {
 public:
-    FileManager() = default;
+    FileManager();
     ~FileManager() = default;
 
     FileManager(const FileManager&) = delete;
@@ -38,6 +39,9 @@ public:
     Result<OpenDocumentResult> openFile(const std::string& path, const ImportOptions& options = {});
 
     std::vector<std::string> supportedExtensions() const;
+
+private:
+    core::ThreadPool worker_pool_;
 };
 
 }  // namespace mulan::io

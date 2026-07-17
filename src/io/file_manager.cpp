@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cctype>
 #include <expected>
+#include <thread>
 #include <utility>
 
 namespace mulan::io {
@@ -26,6 +27,13 @@ std::string lowerExtension(std::string_view path) {
     for (auto& c : ext)
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return ext;
+}
+
+size_t fileWorkerCount() noexcept {
+    const unsigned hardwareThreads = std::max(1u, std::thread::hardware_concurrency());
+    if (hardwareThreads <= 2)
+        return 1;
+    return std::min<size_t>(4, hardwareThreads - 1);
 }
 
 /// STEP/IGES 路径:把 ShapeFileReader 产出的 NamedShape 列表包成 ParsedScene(brep 分区)。
@@ -60,6 +68,9 @@ Result<ParsedScene> parseShapeFile(const std::string& path, const std::string& e
 }
 
 }  // namespace
+
+FileManager::FileManager() : worker_pool_(fileWorkerCount()) {
+}
 
 Result<OpenDocumentResult> FileManager::openFile(const std::string& path, const ImportOptions& options) {
     MULAN_PROFILE_ZONE();
@@ -99,7 +110,7 @@ Result<OpenDocumentResult> FileManager::openFile(const std::string& path, const 
               sceneResult->materials.size(), sceneResult->textures.size(), sceneResult->lights.size());
 
     // 装载 → Document
-    ParsedSceneLoader loader(*doc);
+    ParsedSceneLoader loader(*doc, worker_pool_);
     auto importResult = loader.load(std::move(*sceneResult), options);
 
     const auto elapsed =

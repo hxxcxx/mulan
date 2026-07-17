@@ -8,3 +8,7 @@ add_test(NAME CoreImageTests COMMAND CoreImageTests)
 add_executable(CoreLogTests log_tests.cpp)
 target_link_libraries(CoreLogTests PRIVATE core GTest::gtest)
 add_test(NAME CoreLogTests COMMAND CoreLogTests)
+
+add_executable(CoreThreadPoolTests thread_pool_tests.cpp)
+target_link_libraries(CoreThreadPoolTests PRIVATE core GTest::gtest GTest::gtest_main)
+add_test(NAME CoreThreadPoolTests COMMAND CoreThreadPoolTests)
