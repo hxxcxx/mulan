@@ -33,8 +33,7 @@ public:
     const engine::DeviceResourceService& resources() const { return *resource_service_; }
 
 private:
-    explicit RenderDeviceContext(std::unique_ptr<engine::RHIDevice> device)
-        : device_(std::move(device)), resource_service_(std::make_unique<engine::DeviceResourceService>(*device_)) {}
+    explicit RenderDeviceContext(std::unique_ptr<engine::RHIDevice> device);
 
     std::unique_ptr<engine::RHIDevice> device_;
     // 声明在 Device 之后，析构时先释放所有共享 GPU 资源，再销毁 Device。

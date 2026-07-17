@@ -5,6 +5,11 @@
 
 namespace mulan::view::detail {
 
+RenderDeviceContext::RenderDeviceContext(std::unique_ptr<engine::RHIDevice> device) : device_(std::move(device)) {
+    MULAN_PROFILE_ZONE();
+    resource_service_ = std::make_unique<engine::DeviceResourceService>(*device_);
+}
+
 Result<std::unique_ptr<RenderDeviceContext>> RenderDeviceContext::create(const ViewConfig& config) {
     MULAN_PROFILE_ZONE();
 
@@ -17,24 +22,15 @@ Result<std::unique_ptr<RenderDeviceContext>> RenderDeviceContext::create(const V
     createInfo.renderConfig = renderConfig;
     createInfo.enableValidation = config.enableValidation;
 
-    auto device = [&createInfo]() {
-        MULAN_PROFILE_ZONE_N("mulan::engine::RHIDevice::create");
-        return engine::RHIDevice::create(createInfo);
-    }();
+    auto device = engine::RHIDevice::create(createInfo);
     if (!device) {
         LOG_ERROR("[RenderDeviceContext] Device creation failed: backend={}, validation={}, error={}",
                   static_cast<int>(config.backend), config.enableValidation, device.error().message);
         return std::unexpected(device.error());
     }
 
-    auto context = [&device]() {
-        MULAN_PROFILE_ZONE_N("mulan::view::detail::RenderDeviceContext::RenderDeviceContext");
-        return std::unique_ptr<RenderDeviceContext>(new RenderDeviceContext(std::move(*device)));
-    }();
-    auto initialized = [&context]() {
-        MULAN_PROFILE_ZONE_N("mulan::engine::DeviceResourceService::init");
-        return context->resource_service_->init();
-    }();
+    auto context = std::unique_ptr<RenderDeviceContext>(new RenderDeviceContext(std::move(*device)));
+    auto initialized = context->resource_service_->init();
     if (!initialized) {
         LOG_ERROR("[RenderDeviceContext] Device resource service initialization failed: {}",
                   initialized.error().message);

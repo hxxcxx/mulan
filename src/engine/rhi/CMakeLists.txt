@@ -18,6 +18,8 @@ target_link_libraries(rhi
         core
         math
         graphics
+    PRIVATE
+        mulan::profiling
 )
 
 target_precompile_headers(rhi PRIVATE

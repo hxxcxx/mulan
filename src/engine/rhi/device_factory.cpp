@@ -9,6 +9,8 @@
 #include "device_factory.h"
 #include "engine_error_code.h"
 
+#include <mulan/core/profiling/profile.h>
+
 #include <algorithm>
 
 namespace mulan::engine {
@@ -37,6 +39,8 @@ const BackendModule* DeviceFactory::find(GraphicsBackend backend) const noexcept
 }
 
 Result<std::unique_ptr<RHIDevice>> RHIDevice::create(const DeviceCreateInfo& ci) {
+    MULAN_PROFILE_ZONE();
+
     const BackendModule* module = DeviceFactory::instance().find(ci.backend);
     if (!module) {
         return std::unexpected(makeError(EngineErrorCode::BackendNotSupported, "Graphics backend not registered"));

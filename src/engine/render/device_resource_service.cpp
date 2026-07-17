@@ -35,6 +35,8 @@ DeviceResourceService::~DeviceResourceService() {
 }
 
 ResultVoid DeviceResourceService::init() {
+    MULAN_PROFILE_ZONE();
+
     if (initialized_) {
         return {};
     }
