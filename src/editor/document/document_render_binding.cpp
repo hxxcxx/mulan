@@ -32,8 +32,6 @@ DocumentRenderBinding::~DocumentRenderBinding() {
 }
 
 void DocumentRenderBinding::bind(DocumentSession& session, view::ViewContext& view) {
-    MULAN_PROFILE_ZONE();
-
     unbind();
     session_ = &session;
     view_ = &view;
@@ -138,6 +136,8 @@ void DocumentRenderBinding::prepareFrame(ClipUpdateMode mode) {
 }
 
 void DocumentRenderBinding::syncRenderCache() {
+    MULAN_PROFILE_ZONE();
+
     if (view_) {
         const bool synced = render_cache_.sync(session_);
         view_->setSceneLights(synced ? render_cache_.lights() : std::span<const engine::Light>{});

@@ -11,6 +11,7 @@
 #include "../../rhi/swap_chain.h"
 
 #include <mulan/core/log/log.h>
+#include <mulan/core/profiling/profile.h>
 
 #include <cstdio>
 #include <span>
@@ -21,6 +22,8 @@ ForwardRenderer::~ForwardRenderer() = default;
 
 ResultVoid ForwardRenderer::init(RHIDevice& device, DeviceResourceService& resources, TextureFormat colorFmt,
                                  TextureFormat depthFmt, uint32_t sampleCount) {
+    MULAN_PROFILE_ZONE();
+
     if (initialized_)
         return {};
 
@@ -126,6 +129,8 @@ void ForwardRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
 
 ResultVoid ForwardRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request,
                                    const LightEnvironment& lightEnvironment) {
+    MULAN_PROFILE_ZONE();
+
     if (!initialized_) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Forward renderer is not initialized."));
     }
@@ -200,6 +205,8 @@ void ForwardRenderer::clearCompiledCommands() {
 }
 
 ResultVoid ForwardRenderer::compile(const RenderRequest& request) {
+    MULAN_PROFILE_ZONE();
+
     if (!request.sceneWorld && !request.overlayWorld) {
         clearCompiledCommands();
         return {};
@@ -285,6 +292,8 @@ ResultVoid ForwardRenderer::compile(const RenderRequest& request) {
 
 Result<CommandList*> ForwardRenderer::beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
                                                  const RenderViewDesc& view) {
+    MULAN_PROFILE_ZONE();
+
     auto commandListResult = device.beginFrame(surface.swapChain ? surface.swapChain : nullptr);
     if (!commandListResult) {
         LOG_ERROR("[ForwardRenderer] Frame begin failed: {}", commandListResult.error().message);
@@ -315,6 +324,8 @@ Result<CommandList*> ForwardRenderer::beginFrame(RHIDevice& device, const Render
 }
 
 void ForwardRenderer::executeStages(RenderFrame& frame) {
+    MULAN_PROFILE_ZONE();
+
     if (text_stage_)
         text_stage_->beginFrame(frame.view.width, frame.view.height);
     TextDrawList textDraws;
@@ -352,6 +363,8 @@ DrawExecutionContext ForwardRenderer::buildDrawContext(CommandList& cmd, const R
 }
 
 ResultVoid ForwardRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface) {
+    MULAN_PROFILE_ZONE();
+
     auto result = device.endFrame(surface.swapChain);
     if (!result) {
         LOG_ERROR("[ForwardRenderer] Frame submission failed: {}", result.error().message);

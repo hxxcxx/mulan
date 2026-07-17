@@ -4,8 +4,6 @@
 
 #include "runtime/detail/render_session.h"
 
-#include <mulan/core/profiling/profile.h>
-
 #include <algorithm>
 #include <cmath>
 #include <iterator>
@@ -47,8 +45,6 @@ ViewContext::~ViewContext() {
 }
 
 bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
-    MULAN_PROFILE_ZONE();
-
     if (render_session_->isInitialized())
         return true;
 

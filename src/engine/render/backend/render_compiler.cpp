@@ -6,6 +6,7 @@
 #include "../render_geometry.h"
 #include "../../rhi/engine_error_code.h"
 
+#include <mulan/core/profiling/profile.h>
 #include <mulan/math/spatial/dynamic_bvh.h>
 
 #include <algorithm>
@@ -409,6 +410,8 @@ struct RenderCompiler::Impl {
     }
 
     void rebuild(const RenderWorldSnapshot& snapshot, RenderCompileContext& context) {
+        MULAN_PROFILE_ZONE();
+
         packets.clear();
         spatialIndex.clear();
         uncullableObjects.clear();
@@ -444,6 +447,8 @@ struct RenderCompiler::Impl {
     }
 
     std::vector<RenderObjectId> visiblePacketIds(const RenderViewDesc* view, bool sceneFrustumCulling) {
+        MULAN_PROFILE_ZONE();
+
         packetStats.sourceVisibleObjectCount = sourceVisibleObjectCount;
         packetStats.uncullableObjectCount = uncullableObjects.size();
         if (!sceneFrustumCulling) {
@@ -540,6 +545,8 @@ struct RenderCompiler::Impl {
     }
 
     ResultVoid assemble(const RenderOptions& options, const std::vector<RenderObjectId>& visibleIds) {
+        MULAN_PROFILE_ZONE();
+
         if (assembledOptions && assembledPacketRevision == packetRevision && assembledVisibleIds == visibleIds &&
             commandOptionsEqual(*assembledOptions, options)) {
             packetStats.assemblyCacheHit = true;
@@ -642,6 +649,8 @@ RenderCompiler::~RenderCompiler() = default;
 ResultVoid RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const RenderOptions& options,
                                    RenderCompileContext& context, const RenderViewDesc* view,
                                    bool sceneFrustumCulling) {
+    MULAN_PROFILE_ZONE();
+
     impl_->packetStats.reset();
     const bool rebuild = !impl_->worldVersion || *impl_->worldVersion != snapshot.version() ||
                          !impl_->contextIdentity.matches(context);

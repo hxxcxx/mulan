@@ -211,8 +211,6 @@ struct TextureSlotResolve {
 
 std::map<size_t, size_t> importMaterials(const fastgltf::Asset& gltf, ParsedScene& scene,
                                          const std::map<size_t, size_t>& texMap, std::vector<std::string>& warnings) {
-    MULAN_PROFILE_ZONE();
-
     std::map<size_t, size_t> matMap;
 
     auto resolveTexture = [&](size_t texIdx) -> TextureSlotResolve {

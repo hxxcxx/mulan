@@ -13,7 +13,6 @@
 #include "../core/session/editor_session.h"
 
 #include <mulan/core/log/log.h>
-#include <mulan/core/profiling/profile.h>
 #include <mulan/interaction/input_event.h>
 #include <mulan/view/core/view_config.h>
 #include <mulan/view/core/view_context.h>
@@ -62,8 +61,6 @@ DocumentView::~DocumentView() {
 }
 
 bool DocumentView::init(const mulan::view::ViewConfig& config, int width, int height) {
-    MULAN_PROFILE_ZONE();
-
     if (impl_->view_context.isInitialized()) {
         return true;
     }

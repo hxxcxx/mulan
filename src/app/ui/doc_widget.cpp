@@ -3,7 +3,6 @@
 #include "qt_viewport_input_adapter.h"
 #include "engine_settings.h"
 
-#include <mulan/core/profiling/profile.h>
 #include <mulan/view/core/view_context.h>
 
 #include <QShowEvent>
@@ -46,8 +45,6 @@ DocWidget::~DocWidget() {
 }
 
 bool DocWidget::init() {
-    MULAN_PROFILE_ZONE();
-
     if (document_view_.isInitialized()) {
         runtime_state_ = RuntimeState::Ready;
         runtime_health_timer_.start();

@@ -171,8 +171,6 @@ PixelFormat pixelFormatForChannels(int channels) {
 
 Result<std::shared_ptr<Image>> finishDecode(stbi_uc* raw, int width, int height, int sourceChannels,
                                             const ImageDecodeOptions& options) {
-    MULAN_PROFILE_ZONE();
-
     if (!raw)
         return std::unexpected(
                 Error::make(ErrorCode::Io, stbi_failure_reason() ? stbi_failure_reason() : "Failed to decode image."));
