@@ -5,7 +5,7 @@ on:
     - cron: '0 0 * * 1,4'   # 每周一 & 周四 UTC 00:00
 
 env:
-  VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache
+  VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite
 
 jobs:
   warmup:
@@ -19,6 +19,8 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: "616affa24b974b710a4fc26257e90b7fda6d6826"
+          # Keep run-vcpkg from injecting the removed x-gha backend.
+          doNotCache: true
 
       - name: Restore vcpkg binary cache
         uses: actions/cache@v4

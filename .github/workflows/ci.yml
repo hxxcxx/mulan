@@ -12,7 +12,7 @@ concurrency:
 
 env:
   BUILD_TYPE: Release
-  VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache
+  VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite
 
 jobs:
   build-windows:
@@ -81,6 +81,9 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: "616affa24b974b710a4fc26257e90b7fda6d6826"
+          # run-vcpkg@v11 still configures the removed x-gha backend by default.
+          # Binary packages are cached explicitly by actions/cache below instead.
+          doNotCache: true
 
       - name: Restore vcpkg binary cache
         uses: actions/cache@v4
