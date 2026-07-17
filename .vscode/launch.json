@@ -2,18 +2,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug mulan",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/msvc/bin/Debug/mulan.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build/msvc/bin/Debug",
-            "environment": [],
-            "console": "integratedTerminal",
-            "preLaunchTask": "CMake: Deploy (Debug)"
-        },
-        {
             "name": "Debug mulan (RelWithDebInfo)",
             "type": "cppvsdbg",
             "request": "launch",

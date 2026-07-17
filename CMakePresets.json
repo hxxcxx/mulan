@@ -23,11 +23,6 @@
     ],
     "buildPresets": [
         {
-            "name": "debug",
-            "configurePreset": "msvc",
-            "configuration": "Debug"
-        },
-        {
             "name": "release",
             "configurePreset": "msvc",
             "configuration": "Release"

@@ -12,25 +12,6 @@
             "problemMatcher": []
         },
         {
-            "label": "CMake: Build (Debug)",
-            "type": "shell",
-            "command": "cmake --build --preset debug",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "dependsOn": "CMake: Configure",
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "CMake: Deploy (Debug)",
-            "type": "shell",
-            "command": "cmake --build build/msvc --config Debug --target mulan_deploy_runtime --parallel",
-            "group": "build",
-            "dependsOn": "CMake: Configure",
-            "problemMatcher": "$msCompile"
-        },
-        {
             "label": "CMake: Build (Release)",
             "type": "shell",
             "command": "cmake --build --preset release",
@@ -42,7 +23,10 @@
             "label": "CMake: Build (RelWithDebInfo)",
             "type": "shell",
             "command": "cmake --build --preset relwithdebinfo",
-            "group": "build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
             "dependsOn": "CMake: Configure",
             "problemMatcher": "$msCompile"
         },
