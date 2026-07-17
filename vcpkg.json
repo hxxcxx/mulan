@@ -9,6 +9,7 @@
     "stb",
     "nlohmann-json",
     "fastgltf",
+    "mikktspace",
     "assimp",
     "spdlog",
     "freetype",

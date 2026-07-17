@@ -1,4 +1,5 @@
 #include "gltf_importer.h"
+#include "detail/mesh_attribute_generator.h"
 #include "import_builder.h"  // buildStandardMesh / StandardMeshSource
 #include "import_path_utils.h"
 #include "parsed_scene.h"
@@ -275,6 +276,9 @@ bool hasUsableNormalTexture(const fastgltf::Asset& gltf, const fastgltf::Primiti
     const auto& material = gltf.materials[*primitive.materialIndex];
     if (!material.normalTexture.has_value())
         return false;
+    // 当前顶点格式只导入 TEXCOORD_0；不能把其他 UV 集合误当作 0 号集合生成切线。
+    if (material.normalTexture->texCoordIndex != 0u)
+        return false;
     const size_t textureIndex = material.normalTexture->textureIndex;
     if (textureIndex >= gltf.textures.size())
         return false;
@@ -282,76 +286,6 @@ bool hasUsableNormalTexture(const fastgltf::Asset& gltf, const fastgltf::Primiti
     if (!texture.imageIndex.has_value())
         return false;
     return texMap.find(*texture.imageIndex) != texMap.end();
-}
-
-struct PrimitiveGeomData {
-    std::vector<math::FVec3> positions;
-    std::vector<math::FVec3> normals;
-    std::vector<math::FVec2> texcoords;
-    std::vector<math::FVec4> tangents;
-    std::vector<uint32_t> indices;
-};
-
-math::FVec3 fallbackTangent(const math::FVec3& normal) {
-    const math::FVec3 n = normal.normalizedOr(math::FVec3::unitZ());
-    const math::FVec3 axis = std::abs(n.z) < 0.9f ? math::FVec3::unitZ() : math::FVec3::unitY();
-    return axis.cross(n).normalizedOr(math::FVec3::unitX());
-}
-
-std::vector<math::FVec4> generateTangents(const PrimitiveGeomData& geom) {
-    std::vector<math::FVec3> tangentSum(geom.positions.size(), math::FVec3(0.0f));
-    std::vector<math::FVec3> bitangentSum(geom.positions.size(), math::FVec3(0.0f));
-
-    const auto indexAt = [&](size_t i) -> uint32_t {
-        return geom.indices.empty() ? static_cast<uint32_t>(i) : geom.indices[i];
-    };
-    const size_t indexCount = geom.indices.empty() ? geom.positions.size() : geom.indices.size();
-
-    for (size_t i = 0; i + 2 < indexCount; i += 3) {
-        const uint32_t i0 = indexAt(i + 0);
-        const uint32_t i1 = indexAt(i + 1);
-        const uint32_t i2 = indexAt(i + 2);
-        if (i0 >= geom.positions.size() || i1 >= geom.positions.size() || i2 >= geom.positions.size())
-            continue;
-
-        const math::FVec3& p0 = geom.positions[i0];
-        const math::FVec3& p1 = geom.positions[i1];
-        const math::FVec3& p2 = geom.positions[i2];
-        const math::FVec2& uv0 = geom.texcoords[i0];
-        const math::FVec2& uv1 = geom.texcoords[i1];
-        const math::FVec2& uv2 = geom.texcoords[i2];
-
-        const math::FVec3 e1 = p1 - p0;
-        const math::FVec3 e2 = p2 - p0;
-        const math::FVec2 duv1 = uv1 - uv0;
-        const math::FVec2 duv2 = uv2 - uv0;
-
-        const float det = duv1.x * duv2.y - duv1.y * duv2.x;
-        if (std::abs(det) < 1e-8f)
-            continue;
-
-        const float invDet = 1.0f / det;
-        const math::FVec3 tangent = (e1 * duv2.y - e2 * duv1.y) * invDet;
-        const math::FVec3 bitangent = (e2 * duv1.x - e1 * duv2.x) * invDet;
-
-        tangentSum[i0] += tangent;
-        tangentSum[i1] += tangent;
-        tangentSum[i2] += tangent;
-        bitangentSum[i0] += bitangent;
-        bitangentSum[i1] += bitangent;
-        bitangentSum[i2] += bitangent;
-    }
-
-    std::vector<math::FVec4> tangents(geom.positions.size(), math::FVec4(1.0f, 0.0f, 0.0f, 1.0f));
-    for (size_t i = 0; i < geom.positions.size(); ++i) {
-        const math::FVec3 normal =
-                i < geom.normals.size() ? geom.normals[i].normalizedOr(math::FVec3::unitZ()) : math::FVec3::unitZ();
-        math::FVec3 tangent = tangentSum[i] - normal * normal.dot(tangentSum[i]);
-        tangent = tangent.normalizedOr(fallbackTangent(normal));
-        const float sign = normal.cross(tangent).dot(bitangentSum[i]) < 0.0f ? -1.0f : 1.0f;
-        tangents[i] = math::FVec4(tangent, sign);
-    }
-    return tangents;
 }
 
 bool isAccessorReadable(const fastgltf::Asset& gltf, size_t accessorIndex, fastgltf::AccessorType expectedType,
@@ -378,8 +312,19 @@ bool isAccessorReadable(const fastgltf::Asset& gltf, size_t accessorIndex, fastg
            std::holds_alternative<fastgltf::sources::ByteView>(buf);
 }
 
-PrimitiveGeomData extractPrimitiveData(const fastgltf::Asset& gltf, const fastgltf::Primitive& prim) {
-    PrimitiveGeomData geom;
+bool isTexcoordAccessorReadable(const fastgltf::Asset& gltf, size_t accessorIndex) {
+    if (!isAccessorReadable(gltf, accessorIndex, fastgltf::AccessorType::Vec2))
+        return false;
+    const auto& accessor = gltf.accessors[accessorIndex];
+    if (accessor.componentType == fastgltf::ComponentType::Float)
+        return true;
+    const bool isNormalizedInteger = accessor.componentType == fastgltf::ComponentType::UnsignedByte ||
+                                     accessor.componentType == fastgltf::ComponentType::UnsignedShort;
+    return isNormalizedInteger && accessor.normalized;
+}
+
+detail::TriangleMeshData extractPrimitiveData(const fastgltf::Asset& gltf, const fastgltf::Primitive& prim) {
+    detail::TriangleMeshData geom;
 
     auto* posAttr = prim.findAttribute("POSITION");
     if (posAttr &&
@@ -392,8 +337,7 @@ PrimitiveGeomData extractPrimitiveData(const fastgltf::Asset& gltf, const fastgl
         geom.normals = readPositions(gltf, gltf.accessors[nrmAttr->accessorIndex]);
 
     auto* uvAttr = prim.findAttribute("TEXCOORD_0");
-    if (uvAttr &&
-        isAccessorReadable(gltf, uvAttr->accessorIndex, fastgltf::AccessorType::Vec2, fastgltf::ComponentType::Float))
+    if (uvAttr && isTexcoordAccessorReadable(gltf, uvAttr->accessorIndex))
         geom.texcoords = readTexcoords(gltf, gltf.accessors[uvAttr->accessorIndex]);
 
     auto* tangentAttr = prim.findAttribute("TANGENT");
@@ -509,20 +453,44 @@ Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOpt
         parsed.name = meshName;
 
         for (const auto& primitive : mesh.primitives) {
+            // 当前 graphics::Mesh 只为导入路径定义了三角列表语义；其他 glTF 图元模式不能按三角形误读。
+            if (primitive.type != fastgltf::PrimitiveType::Triangles)
+                continue;
+
             auto geomData = extractPrimitiveData(*gltf, primitive);
             if (geomData.positions.empty())
                 continue;
-            if (geomData.normals.empty())
-                geomData.normals.resize(geomData.positions.size(), math::FVec3(0.0f, 0.0f, 1.0f));
-            if (geomData.texcoords.empty())
-                geomData.texcoords.resize(geomData.positions.size(), math::FVec2(0.0f, 0.0f));
 
-            if (hasUsableNormalTexture(*gltf, primitive, texMap)) {
-                if (geomData.tangents.size() != geomData.positions.size())
-                    geomData.tangents = generateTangents(geomData);
+            // 属性 accessor 数量不一致时将其视为缺失，避免把错位属性写入顶点流。
+            if (geomData.normals.size() != geomData.positions.size())
+                geomData.normals.clear();
+            if (geomData.texcoords.size() != geomData.positions.size())
+                geomData.texcoords.clear();
+            if (geomData.tangents.size() != geomData.positions.size())
+                geomData.tangents.clear();
+
+            if (auto valid = detail::validateTriangleMesh(geomData); !valid)
+                continue;
+
+            // glTF 要求缺少法线时生成平面法线，且忽略文件中已有的切线。
+            if (geomData.normals.empty()) {
+                geomData.tangents.clear();
+                if (auto generated = detail::generateFlatNormals(geomData); !generated)
+                    continue;
+            }
+
+            if (hasUsableNormalTexture(*gltf, primitive, texMap) && !geomData.texcoords.empty()) {
+                if (geomData.tangents.empty()) {
+                    if (auto generated = detail::generateMikkTangents(geomData); !generated)
+                        geomData.tangents.clear();
+                }
             } else {
                 geomData.tangents.clear();
             }
+
+            // surface/pbr 顶点布局始终包含 UV；缺少 UV 时使用稳定默认值，但不会启用法线贴图管线。
+            if (geomData.texcoords.empty())
+                geomData.texcoords.resize(geomData.positions.size(), math::FVec2(0.0f));
 
             StandardMeshSource src;
             src.positions = std::span(geomData.positions);

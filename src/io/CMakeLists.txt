@@ -9,12 +9,14 @@ add_library(io STATIC
     parsed_scene_loader.cpp
     document.cpp
     document_editor.cpp
+    detail/mesh_attribute_generator.cpp
 )
 
 mulan_copy_public_headers(io io)
 
 find_package(assimp CONFIG REQUIRED)
 find_package(fastgltf CONFIG REQUIRED)
+find_package(mikktspace CONFIG REQUIRED)
 
 target_link_libraries(io
     PUBLIC
@@ -26,6 +28,7 @@ target_link_libraries(io
     PRIVATE
         assimp::assimp
         fastgltf::fastgltf
+        mikktspace::mikktspace
 )
 
 set_target_properties(io PROPERTIES OUTPUT_NAME mulan_io)

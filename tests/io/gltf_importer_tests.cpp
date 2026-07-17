@@ -41,6 +41,13 @@ std::vector<std::byte> trianglePositionBytes() {
     return bytes;
 }
 
+template <size_t Size>
+void appendFloats(std::vector<std::byte>& bytes, const std::array<float, Size>& values) {
+    const size_t offset = bytes.size();
+    bytes.resize(offset + sizeof(values));
+    std::memcpy(bytes.data() + offset, values.data(), sizeof(values));
+}
+
 std::vector<std::byte> makePngBytes(const std::filesystem::path& directory) {
     const auto path = directory / "texture.png";
     auto image = core::Image::createFromBuffer(1, 1, core::PixelFormat::RGBA8, { 255, 128, 0, 255 });
@@ -138,6 +145,70 @@ TEST(GltfImporterTests, LoadsValidatedExternalBufferThroughSecondStage) {
     ASSERT_EQ(result->meshes.size(), 1u);
     ASSERT_EQ(result->meshes.front().primitives.size(), 1u);
     EXPECT_EQ(result->meshes.front().primitives.front().mesh.vertexCount(), 3u);
+}
+
+TEST(GltfImporterTests, GeneratesMikkTangentsForNormalMappedPrimitive) {
+    TemporaryGltfDirectory files;
+    std::vector<std::byte> binary;
+    appendFloats(binary, std::array{
+                                 0.0f,
+                                 0.0f,
+                                 0.0f,
+                                 1.0f,
+                                 0.0f,
+                                 0.0f,
+                                 0.0f,
+                                 1.0f,
+                                 0.0f,
+                         });
+    appendFloats(binary, std::array{
+                                 0.0f,
+                                 0.0f,
+                                 1.0f,
+                                 0.0f,
+                                 0.0f,
+                                 1.0f,
+                                 0.0f,
+                                 0.0f,
+                                 1.0f,
+                         });
+    appendFloats(binary, std::array{
+                                 0.0f,
+                                 0.0f,
+                                 1.0f,
+                                 0.0f,
+                                 0.0f,
+                                 1.0f,
+                         });
+    const std::vector<std::byte> png = makePngBytes(files.path);
+    const size_t imageOffset = binary.size();
+    binary.insert(binary.end(), png.begin(), png.end());
+
+    std::ostringstream json;
+    json << R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":)" << binary.size() << R"(}],"bufferViews":[)"
+         << R"({"buffer":0,"byteOffset":0,"byteLength":36},)"
+         << R"({"buffer":0,"byteOffset":36,"byteLength":36},)"
+         << R"({"buffer":0,"byteOffset":72,"byteLength":24},)"
+         << R"({"buffer":0,"byteOffset":)" << imageOffset << R"(,"byteLength":)" << png.size() << R"(}],"accessors":[)"
+         << R"({"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},)"
+         << R"({"bufferView":1,"componentType":5126,"count":3,"type":"VEC3"},)"
+         << R"({"bufferView":2,"componentType":5126,"count":3,"type":"VEC2"})"
+         << R"(],"images":[{"bufferView":3,"mimeType":"image/png"}],)"
+         << R"("textures":[{"source":0}],"materials":[{"normalTexture":{"index":0}}],)"
+         << R"("meshes":[{"primitives":[{"attributes":{"POSITION":0,"NORMAL":1,"TEXCOORD_0":2},"material":0}]}],)"
+         << R"("nodes":[{"mesh":0}],"scenes":[{"nodes":[0]}],"scene":0})";
+
+    const auto model = files.path / "normal_mapped.glb";
+    writeGlb(model, json.str(), std::move(binary));
+
+    const auto result = GltfImporter{}.parse(model.string());
+
+    ASSERT_TRUE(result) << result.error().message;
+    ASSERT_EQ(result->meshes.size(), 1u);
+    ASSERT_EQ(result->meshes.front().primitives.size(), 1u);
+    const auto& mesh = result->meshes.front().primitives.front().mesh;
+    EXPECT_NE(mesh.layout.find(graphics::VertexSemantic::Tangent), nullptr);
+    EXPECT_EQ(mesh.vertexCount(), 3u);
 }
 
 }  // namespace
