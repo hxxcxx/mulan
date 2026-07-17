@@ -7,11 +7,11 @@ add_library(view STATIC
     capture/capture_request.cpp
     capture/capture_service.cpp
     runtime/render_device_context.cpp
-    runtime/gpu_execution_domain.cpp
+    runtime/render_thread.cpp
     runtime/render_executor.cpp
     runtime/render_session.cpp
     runtime/render_surface.cpp
-    runtime/render_worker.cpp
+    runtime/render_channel.cpp
     scene_sync/render_item_builder.cpp
     scene_sync/render_submission_builder.cpp
     scene_sync/render_world_sync.cpp

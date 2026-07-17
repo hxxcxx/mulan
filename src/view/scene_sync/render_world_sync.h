@@ -75,7 +75,7 @@ public:
     /// 仅包含无关事件时会确认其 journal 游标，避免无关变更挤出保留窗口后误判全量。
     bool referencedAssetsChanged(const asset::AssetLibrary& assets) const;
 
-    /// GPU 执行域丢失后保留 CPU 差量基线，但下次 rebuild 必须完整重传当前存活资源。
+    /// 渲染线程重建后保留 CPU 差量基线，但下次 rebuild 必须完整重传当前存活资源。
     void invalidateResources() { force_full_prepare_ = true; }
 
     /// 丢弃所有 world/resource 基线，仅用于上层整体 reset。

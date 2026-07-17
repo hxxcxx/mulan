@@ -11,7 +11,7 @@ add_executable(ViewRuntimeTests
     render_scene_spatial_index_tests.cpp
     render_submission_builder_tests.cpp
     render_world_sync_incremental_tests.cpp
-    render_worker_protocol_tests.cpp
+    render_thread_tests.cpp
 )
 
 target_include_directories(ViewRuntimeTests PRIVATE

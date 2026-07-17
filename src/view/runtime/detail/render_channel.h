@@ -1,23 +1,28 @@
 /**
- * @file render_worker.h
- * @brief RenderWorker 是 RenderSession 接入设备级 GpuExecutionDomain 的客户端外观
+ * @file render_channel.h
+ * @brief RenderChannel 是 RenderSession 接入共享 RenderThread 的独占通道外观
  * @author hxxcxx
  * @date 2026-07-15
  */
 
 #pragma once
 
-#include "gpu_execution_domain.h"
+#include "render_thread.h"
+
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <string>
 
 namespace mulan::view::detail {
 
-class RenderWorker {
+class RenderChannel {
 public:
-    RenderWorker() = default;
-    ~RenderWorker();
+    RenderChannel() = default;
+    ~RenderChannel();
 
-    RenderWorker(const RenderWorker&) = delete;
-    RenderWorker& operator=(const RenderWorker&) = delete;
+    RenderChannel(const RenderChannel&) = delete;
+    RenderChannel& operator=(const RenderChannel&) = delete;
 
     ResultVoid initWindow(const ViewConfig& config, int width, int height);
     void shutdown();
@@ -29,13 +34,13 @@ public:
     void enableIBL(std::string hdrPath);
     ResultVoid clearAssetResources();
 
-    std::vector<RenderWorkerEvent> drainEvents();
+    std::optional<uint64_t> takeCompletedResourceBatch();
     std::optional<Error> failureSnapshot() const;
     RenderSurfaceState surfaceState() const;
 
 private:
-    std::shared_ptr<GpuExecutionDomain> domain_;
-    GpuExecutionClientId client_ = 0;
+    std::shared_ptr<RenderThread> thread_;
+    RenderChannelId channel_ = 0;
 };
 
 }  // namespace mulan::view::detail

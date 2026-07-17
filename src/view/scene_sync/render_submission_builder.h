@@ -37,7 +37,7 @@ public:
 
     /// 仅在执行端确认整个上传批次后清除 pending；过期 ACK 不影响更新批次。
     void acknowledgeResources(uint64_t batchId);
-    /// GPU 执行域重建或资产域切换后，强制从当前 CPU 场景重新生成资源批次。
+    /// 渲染线程重建或资产域切换后，强制从当前 CPU 场景重新生成资源批次。
     void invalidateResources();
 
     const RenderWorldSyncStats& lastStats() const { return last_scene_sync_stats_; }

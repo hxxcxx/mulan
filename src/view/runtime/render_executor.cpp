@@ -272,7 +272,7 @@ void RenderExecutor::shutdownLocked() {
     const bool hadResources = initialized_ || device_context_ != nullptr;
     if (device_context_) {
         auto& device = device_context_->device();
-        // 先移除所有 Surface，确保执行域租约释放后再也没有窗口/截图后备缓冲引用 Device。
+        // 先移除所有 Surface，确保通道释放后再也没有窗口/截图后备缓冲引用 Device。
         capture_surface_.shutdown(device);
         surface_.shutdown(device);
         // 即使初始化只完成了一部分，也必须让 RenderRenderer 无条件清理已创建资源。

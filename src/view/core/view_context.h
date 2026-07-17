@@ -51,7 +51,7 @@ public:
     void shutdown();
 
     bool isInitialized() const;
-    /// owner 主动回收渲染线程 ACK/Failure，并在失败时完成执行域清理。
+    /// owner 主动消费渲染线程 ACK 与失败快照，并在失败时完成通道清理。
     ResultVoid pollRuntime();
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);

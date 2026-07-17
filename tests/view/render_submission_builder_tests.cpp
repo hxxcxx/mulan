@@ -778,7 +778,7 @@ TEST(RenderSubmissionBuilderTests, ReplacingRoleGeometryPreparesOnlyChangedStabl
     EXPECT_TRUE(stableUpdate->forceUpdate);
 }
 
-TEST(RenderSubmissionBuilderTests, InvalidatingGpuDomainRebuildsCurrentResources) {
+TEST(RenderSubmissionBuilderTests, InvalidatingRenderThreadRebuildsCurrentResources) {
     RenderScene scene;
     asset::AssetLibrary assets;
     PreviewLayer preview;
@@ -1167,7 +1167,7 @@ TEST(RenderSubmissionBuilderTests, TextureOptionChangeRetiresOnlyOldIdentityAndU
     EXPECT_EQ(upsertCount, 1u);
 }
 
-TEST(RenderSubmissionBuilderTests, InvalidatingExecutionDomainRestoresEveryLiveTextureIdentity) {
+TEST(RenderSubmissionBuilderTests, InvalidatingRenderThreadRestoresEveryLiveTextureIdentity) {
     asset::AssetLibrary assets;
     auto* texture = assets.create<asset::TextureAsset>("RestoredTexture");
     texture->setImage(core::Image::create(1, 1, core::PixelFormat::RGBA8));
@@ -1201,7 +1201,7 @@ TEST(RenderSubmissionBuilderTests, InvalidatingExecutionDomainRestoresEveryLiveT
     EXPECT_EQ(restored.prepare.textures().front().contentRevision, texture->revision());
 }
 
-TEST(RenderSubmissionBuilderTests, InvalidatingExecutionDomainFullyRestoresAllLiveGeometry) {
+TEST(RenderSubmissionBuilderTests, InvalidatingRenderThreadFullyRestoresAllLiveGeometry) {
     asset::AssetLibrary assets;
     auto* firstAsset = assets.create<asset::TessellatedAsset>("First");
     firstAsset->setRenderMeshes(makeSurfaceMesh(), {});

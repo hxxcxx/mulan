@@ -1,6 +1,6 @@
 #include "runtime/detail/render_session.h"
 
-#include "runtime/detail/render_worker.h"
+#include "runtime/detail/render_channel.h"
 
 #include <mulan/core/log/log.h>
 #include <mulan/core/profiling/profile.h>
@@ -35,16 +35,16 @@ ResultVoid RenderSession::initWindow(const ViewConfig& config, int width, int he
     if (isInitialized()) {
         return {};
     }
-    if (worker_) {
-        discardExecutionDomain();
+    if (channel_) {
+        discardRenderChannel();
     }
 
-    auto candidate = std::make_unique<RenderWorker>();
+    auto candidate = std::make_unique<RenderChannel>();
     auto initialized = candidate->initWindow(config, width, height);
     if (!initialized) {
         return initialized;
     }
-    worker_ = std::move(candidate);
+    channel_ = std::move(candidate);
     submission_builder_.invalidateResources();
     last_runtime_failure_.reset();
     return {};
@@ -52,9 +52,9 @@ ResultVoid RenderSession::initWindow(const ViewConfig& config, int width, int he
 
 void RenderSession::shutdown() {
     assertOwnerThread();
-    if (worker_) {
-        worker_->shutdown();
-        worker_.reset();
+    if (channel_) {
+        channel_->shutdown();
+        channel_.reset();
     }
     submission_builder_.reset();
     asset_source_ = nullptr;
@@ -63,7 +63,7 @@ void RenderSession::shutdown() {
 
 bool RenderSession::isInitialized() const {
     assertOwnerThread();
-    return worker_ && worker_->isInitialized();
+    return channel_ && channel_->isInitialized();
 }
 
 ResultVoid RenderSession::pollRuntime() {
@@ -71,33 +71,33 @@ ResultVoid RenderSession::pollRuntime() {
     if (last_runtime_failure_) {
         return std::unexpected(*last_runtime_failure_);
     }
-    if (!worker_) {
+    if (!channel_) {
         return {};
     }
 
-    auto drained = drainWorkerEvents();
-    if (!drained) {
-        return drained;
+    auto consumed = consumeChannelState();
+    if (!consumed) {
+        return consumed;
     }
-    if (!worker_) {
+    if (!channel_) {
         return {};
     }
-    if (worker_->isInitialized()) {
+    if (channel_->isInitialized()) {
         return {};
     }
 
-    const std::optional<Error> snapshot = worker_->failureSnapshot();
+    const std::optional<Error> snapshot = channel_->failureSnapshot();
     const Error failure =
             snapshot ? *snapshot
-                     : sessionError(ErrorCode::Internal, "Render worker stopped without a completion event.");
+                     : sessionError(ErrorCode::Internal, "Render channel stopped without a failure snapshot.");
     failExecution(failure);
     return std::unexpected(failure);
 }
 
 void RenderSession::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
     assertOwnerThread();
-    if (worker_ && !pollRuntime()) {
-        // pollRuntime 已记录并销毁失败执行域；CPU 场景仍可更新，供下次初始化恢复。
+    if (channel_ && !pollRuntime()) {
+        // pollRuntime 已记录并销毁失败通道；CPU 场景仍可更新，供下次初始化恢复。
     }
     if (assets != asset_source_) {
         clearAssetResources();
@@ -118,20 +118,19 @@ void RenderSession::setLightEnvironment(const engine::LightEnvironment& lightEnv
 
 void RenderSession::submitFrame(const ViewState& viewState) {
     assertOwnerThread();
-    if (!worker_) {
+    if (!channel_) {
         return;
     }
-    if (!pollRuntime() || !worker_) {
+    if (!pollRuntime() || !channel_) {
         return;
     }
 
     RenderSubmission submission = submission_builder_.build(viewState);
 
-    // Worker 在同一锁内把 prepare 拆到可靠队列，并给 latest-frame 记录资源依赖；
-    // owner 此处只提交，不等待 GPU 上传。
-    auto submitted = worker_->submitFrame(std::move(submission));
+    // Channel 在同一锁内把 prepare 拆到可靠队列；控制任务始终先于 latest-frame 执行。
+    auto submitted = channel_->submitFrame(std::move(submission));
     if (!submitted) {
-        const std::optional<Error> snapshot = worker_->failureSnapshot();
+        const std::optional<Error> snapshot = channel_->failureSnapshot();
         const Error failure = snapshot ? *snapshot : submitted.error();
         LOG_ERROR("[RenderSession] Frame submission failed: {}", failure.message);
         failExecution(failure);
@@ -141,31 +140,31 @@ void RenderSession::submitFrame(const ViewState& viewState) {
 Result<engine::RenderCaptureResult> RenderSession::capture(const ViewState& viewState,
                                                            const engine::RenderCaptureDesc& desc) {
     assertOwnerThread();
-    if (!worker_) {
+    if (!channel_) {
         return std::unexpected(sessionError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
     auto polled = pollRuntime();
     if (!polled) {
         return std::unexpected(polled.error());
     }
-    if (!worker_ || !worker_->isInitialized()) {
-        const std::optional<Error> snapshot = worker_ ? worker_->failureSnapshot() : std::nullopt;
+    if (!channel_ || !channel_->isInitialized()) {
+        const std::optional<Error> snapshot = channel_ ? channel_->failureSnapshot() : std::nullopt;
         const Error failure =
                 snapshot ? *snapshot
-                         : sessionError(ErrorCode::Internal, "Render worker stopped before capture submission.");
+                         : sessionError(ErrorCode::Internal, "Render channel stopped before capture submission.");
         failExecution(failure);
         return std::unexpected(failure);
     }
     RenderSubmission submission = submission_builder_.build(viewState);
 
-    // capture 自身是同步 API，但其资源上传仍由 worker 可靠队列先行执行；owner
-    // 不再单独等待 prepare future，完成后统一 drain ACK。
-    Result<engine::RenderCaptureResult> result = worker_->capture(std::move(submission), desc);
-    auto drained = drainWorkerEvents();
-    if (!drained) {
-        return std::unexpected(drained.error());
+    // capture 自身是同步 API，但其资源上传仍由通道可靠队列先行执行；owner
+    // 不再单独等待 prepare future，完成后统一消费 ACK。
+    Result<engine::RenderCaptureResult> result = channel_->capture(std::move(submission), desc);
+    auto consumed = consumeChannelState();
+    if (!consumed) {
+        return std::unexpected(consumed.error());
     }
-    if (!result && (engine::isDeviceFatalError(result.error()) || (worker_ && !worker_->isInitialized()))) {
+    if (!result && (engine::isDeviceFatalError(result.error()) || (channel_ && !channel_->isInitialized()))) {
         failExecution(result.error());
     }
     return result;
@@ -173,18 +172,18 @@ Result<engine::RenderCaptureResult> RenderSession::capture(const ViewState& view
 
 RenderSurfaceState RenderSession::resize(int width, int height) {
     assertOwnerThread();
-    if (!worker_) {
+    if (!channel_) {
         return {};
     }
-    if (!pollRuntime() || !worker_) {
+    if (!pollRuntime() || !channel_) {
         return {};
     }
-    auto resized = worker_->resize(width, height);
+    auto resized = channel_->resize(width, height);
     if (!resized) {
         LOG_ERROR("[RenderSession] Surface resize failed: {}", resized.error().message);
-        const RenderSurfaceState fallback = worker_->surfaceState();
+        const RenderSurfaceState fallback = channel_->surfaceState();
         // resize 控制任务被定义为 fatal；任何失败都可能留下半失效表面，
-        // 必须立即销毁执行域，不能只在 DeviceLost 错误码时处理。
+        // 必须立即销毁渲染通道，不能只在 DeviceLost 错误码时处理。
         failExecution(resized.error());
         return fallback;
     }
@@ -193,18 +192,18 @@ RenderSurfaceState RenderSession::resize(int width, int height) {
 
 void RenderSession::enableIBL(const std::string& hdrPath) {
     assertOwnerThread();
-    if (!worker_) {
+    if (!channel_) {
         return;
     }
-    if (!pollRuntime() || !worker_) {
+    if (!pollRuntime() || !channel_) {
         return;
     }
-    worker_->enableIBL(hdrPath);
+    channel_->enableIBL(hdrPath);
 }
 
 RenderSurfaceState RenderSession::surfaceState() const {
     assertOwnerThread();
-    return worker_ ? worker_->surfaceState() : RenderSurfaceState{};
+    return channel_ ? channel_->surfaceState() : RenderSurfaceState{};
 }
 
 void RenderSession::assertOwnerThread() const {
@@ -212,23 +211,17 @@ void RenderSession::assertOwnerThread() const {
            "RenderSession must only be accessed from its owning thread.");
 }
 
-ResultVoid RenderSession::drainWorkerEvents() {
-    if (!worker_) {
+ResultVoid RenderSession::consumeChannelState() {
+    if (!channel_) {
         return {};
     }
 
-    std::optional<Error> failure;
-    for (RenderWorkerEvent& event : worker_->drainEvents()) {
-        if (event.type == RenderWorkerEventType::ResourceBatchCompleted) {
-            // Builder 只接受当前 pending batch；迟到 ACK 会被安全忽略。
-            submission_builder_.acknowledgeResources(event.resourceBatchId);
-            continue;
-        }
-        if (event.type == RenderWorkerEventType::Failure && !failure) {
-            failure = event.error;
-        }
+    if (const auto completed = channel_->takeCompletedResourceBatch()) {
+        // Builder 只接受当前 pending batch；迟到 ACK 会被安全忽略。
+        submission_builder_.acknowledgeResources(*completed);
     }
 
+    const std::optional<Error> failure = channel_->failureSnapshot();
     if (!failure) {
         return {};
     }
@@ -240,27 +233,27 @@ ResultVoid RenderSession::drainWorkerEvents() {
 
 void RenderSession::failExecution(const Error& error) {
     last_runtime_failure_ = error;
-    LOG_CRITICAL("[RenderSession] Execution domain failed and will be discarded: {}", error.message);
-    discardExecutionDomain();
+    LOG_CRITICAL("[RenderSession] Render channel failed and will be discarded: {}", error.message);
+    discardRenderChannel();
 }
 
-void RenderSession::discardExecutionDomain() {
-    if (worker_) {
-        worker_->shutdown();
-        worker_.reset();
+void RenderSession::discardRenderChannel() {
+    if (channel_) {
+        channel_->shutdown();
+        channel_.reset();
     }
-    // 新执行域拥有空 GPU registry，下一次初始化必须从当前 CPU 场景完整恢复。
+    // 新渲染线程拥有空 GPU registry，下一次初始化必须从当前 CPU 场景完整恢复。
     submission_builder_.invalidateResources();
 }
 
 void RenderSession::clearAssetResources() {
-    if (!worker_) {
+    if (!channel_) {
         return;
     }
-    if (!pollRuntime() || !worker_) {
+    if (!pollRuntime() || !channel_) {
         return;
     }
-    auto cleared = worker_->clearAssetResources();
+    auto cleared = channel_->clearAssetResources();
     if (!cleared) {
         LOG_ERROR("[RenderSession] Asset resource clearing failed: {}", cleared.error().message);
         failExecution(cleared.error());

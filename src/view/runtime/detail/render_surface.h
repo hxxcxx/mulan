@@ -55,7 +55,7 @@ public:
 
     void shutdown(engine::RHIDevice& device);
 
-    /// 调整表面尺寸。失败时保留后端错误，使上层能够决定是否丢弃执行域。
+    /// 调整表面尺寸。失败时保留后端错误，使上层能够决定是否丢弃渲染通道。
     ResultVoid resize(engine::RHIDevice& device, int width, int height);
 
     ResultVoid readbackPixels(engine::RHIDevice& device, std::vector<uint8_t>& pixels);

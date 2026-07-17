@@ -4,8 +4,8 @@
  * @author hxxcxx
  * @date 2026-07-15
  *
- * Executor 由 GpuExecutionDomain 的唯一 GPU 线程独占，不提供跨线程同步；
- * 上层只能通过所属执行域访问它。
+ * Executor 由 RenderThread 的唯一 GPU 线程独占，不提供跨线程同步；
+ * 上层只能通过所属渲染通道访问它。
  */
 
 #pragma once

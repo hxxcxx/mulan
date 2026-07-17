@@ -4,9 +4,9 @@
  * @author hxxcxx
  * @date 2026-07-15
  *
- * 会话在调用线程构建自持有 RenderSubmission，并将其交给 GPU 执行域。
+ * 会话在调用线程构建自持有 RenderSubmission，并将其交给 RenderChannel。
  * Device、Surface、渲染线程和 engine renderer 均属于内部实现，不向 view 模块外暴露。
- * RenderSession 由创建它的调用线程独占；只有 RenderWorker 内部跨越线程边界。
+ * RenderSession 由创建它的调用线程独占；只有 RenderChannel 内部跨越线程边界。
  */
 
 #pragma once
@@ -35,7 +35,7 @@ class PreviewLayer;
 class RenderScene;
 
 namespace detail {
-class RenderWorker;
+class RenderChannel;
 
 class RenderSession {
 public:
@@ -49,7 +49,7 @@ public:
     void shutdown();
 
     bool isInitialized() const;
-    /// owner 线程主动 drain ACK/Failure；失败时同步销毁执行域并使 builder 资源失效。
+    /// owner 线程消费资源 ACK 与失败快照；失败时同步销毁渲染通道并使 builder 资源失效。
     ResultVoid pollRuntime();
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
@@ -65,13 +65,13 @@ public:
 
 private:
     void assertOwnerThread() const;
-    ResultVoid drainWorkerEvents();
+    ResultVoid consumeChannelState();
     void failExecution(const Error& error);
-    void discardExecutionDomain();
+    void discardRenderChannel();
     void clearAssetResources();
 
     RenderSubmissionBuilder submission_builder_;
-    std::unique_ptr<RenderWorker> worker_;
+    std::unique_ptr<RenderChannel> channel_;
     const asset::AssetLibrary* asset_source_ = nullptr;
     std::optional<Error> last_runtime_failure_;
     std::thread::id owner_thread_;

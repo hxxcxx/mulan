@@ -1,10 +1,10 @@
 /**
  * @file render_device_context.h
- * @brief RenderDeviceContext 管理单个 GPU 执行域独占的 RHI Device 与设备级资源。
+ * @brief RenderDeviceContext 管理单个 RenderThread 独占的 RHI Device 与设备级资源。
  * @author hxxcxx
  * @date 2026-07-12
  *
- * 由 GpuExecutionDomain 创建并持有。所有 RHI 调用均发生在所属执行线程，
+ * 由 RenderThread 创建并持有。所有 RHI 调用均发生在所属执行线程，
  * 不在此层重复加锁或建立第二套共享注册表。
  */
 #pragma once
