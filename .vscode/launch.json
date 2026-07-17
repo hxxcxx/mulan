@@ -11,7 +11,7 @@
             "cwd": "${workspaceFolder}/build/msvc/bin/RelWithDebInfo",
             "environment": [],
             "console": "integratedTerminal",
-            "preLaunchTask": "CMake: Deploy (RelWithDebInfo)"
+            "preLaunchTask": "CMake: Prepare Runtime (RelWithDebInfo)"
         }
     ]
 }

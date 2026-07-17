@@ -154,20 +154,6 @@ function(mulan_add_copy_files_target target)
     endif()
 endfunction()
 
-function(mulan_copy_target_runtime_dlls_post_build target)
-    if(NOT WIN32)
-        return()
-    endif()
-
-    add_custom_command(TARGET ${target} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_RUNTIME_DLLS:${target}>
-            "$<TARGET_FILE_DIR:${target}>"
-        COMMAND_EXPAND_LISTS
-        COMMENT "Syncing linked runtime DLLs..."
-    )
-endfunction()
-
 function(mulan_copy_files_post_build target)
     set(multi_value_args FILES)
     cmake_parse_arguments(ARG "" "" "${multi_value_args}" ${ARGN})

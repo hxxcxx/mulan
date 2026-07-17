@@ -49,6 +49,14 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Widgets
 )
 
+# 建模后端是运行时插件，不参与 app 链接；但可执行程序的开发构建必须同步产出启用的插件。
+if(TARGET modeling_occt)
+    add_dependencies(${PROJECT_NAME} modeling_occt)
+endif()
+if(TARGET modeling_truck)
+    add_dependencies(${PROJECT_NAME} modeling_truck)
+endif()
+
 # truck 实验关闭后清理可能由旧构建遗留的运行库，避免 runtime 继续扫描加载。
 if(NOT MULAN_ENABLE_TRUCK_BACKEND)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
@@ -95,12 +103,10 @@ if(OCCT_3RDPARTY_DIR)
 endif()
 
 set(MULAN_OCCT_3RDPARTY_RUNTIME_DLL_FILES)
-if(MULAN_ENABLE_DEV_RUNTIME_COPY OR MULAN_ENABLE_POST_BUILD_DEPLOY OR MULAN_ENABLE_RUNTIME_DEPLOY_TARGET)
-    mulan_find_named_dlls(MULAN_OCCT_3RDPARTY_RUNTIME_DLL_FILES
-        NAMES ${MULAN_OCCT_3RDPARTY_DLL_NAMES}
-        SEARCH_DIRS ${MULAN_OCCT_3RDPARTY_RUNTIME_DIRS}
-    )
-endif()
+mulan_find_named_dlls(MULAN_OCCT_3RDPARTY_RUNTIME_DLL_FILES
+    NAMES ${MULAN_OCCT_3RDPARTY_DLL_NAMES}
+    SEARCH_DIRS ${MULAN_OCCT_3RDPARTY_RUNTIME_DIRS}
+)
 
 set(MULAN_RUNTIME_DLL_FILES
     ${OCCT_RUNTIME_DLL_FILES}
@@ -168,52 +174,68 @@ if(MULAN_ENABLE_DEV_RUNTIME_ENV)
     )
 endif()
 
-if(MULAN_ENABLE_DEV_RUNTIME_COPY)
-    mulan_copy_target_runtime_dlls_post_build(${PROJECT_NAME})
-    mulan_copy_files_post_build(${PROJECT_NAME}
-        FILES ${MULAN_RUNTIME_DLL_FILES}
+# 开发运行时只补齐链接闭包之外的文件：
+# - 普通链接 DLL 由 vcpkg app-local 在目标构建后自动同步；
+# - 此处只复制 OCCT/第三方运行库及应用实际需要的 Qt 插件；
+# - windeployqt 保留给显式发布流程，不进入日常 F5 路径。
+set(MULAN_DEV_RUNTIME_COMMANDS)
+foreach(runtime_dll IN LISTS MULAN_RUNTIME_DLL_FILES)
+    list(APPEND MULAN_DEV_RUNTIME_COMMANDS
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${runtime_dll}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
     )
+endforeach()
 
-    foreach(platform_plugin IN LISTS MULAN_QT_PLATFORM_PLUGIN_DLLS)
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms"
+if(MULAN_QT_PLATFORM_PLUGIN_DLLS)
+    list(APPEND MULAN_DEV_RUNTIME_COMMANDS
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms"
+    )
+    foreach(plugin IN LISTS MULAN_QT_PLATFORM_PLUGIN_DLLS)
+        list(APPEND MULAN_DEV_RUNTIME_COMMANDS
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${platform_plugin}"
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms"
-            COMMENT "Syncing Qt platform plugin..."
-        )
-    endforeach()
-
-    foreach(imageformats_plugin IN LISTS MULAN_QT_IMAGEFORMATS_PLUGIN_DLLS)
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/imageformats"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${imageformats_plugin}"
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/imageformats"
-            COMMENT "Syncing Qt imageformats plugin..."
-        )
-    endforeach()
-
-    foreach(iconengines_plugin IN LISTS MULAN_QT_ICONENGINES_PLUGIN_DLLS)
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/iconengines"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${iconengines_plugin}"
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/iconengines"
-            COMMENT "Syncing Qt iconengines plugin..."
+                "${plugin}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms"
         )
     endforeach()
 endif()
 
-if(MULAN_ENABLE_POST_BUILD_DEPLOY)
-    if(NOT MULAN_ENABLE_DEV_RUNTIME_COPY)
-        mulan_copy_files_post_build(${PROJECT_NAME}
-            FILES ${MULAN_RUNTIME_DLL_FILES}
+if(MULAN_QT_IMAGEFORMATS_PLUGIN_DLLS)
+    list(APPEND MULAN_DEV_RUNTIME_COMMANDS
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/imageformats"
+    )
+    foreach(plugin IN LISTS MULAN_QT_IMAGEFORMATS_PLUGIN_DLLS)
+        list(APPEND MULAN_DEV_RUNTIME_COMMANDS
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${plugin}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/imageformats"
         )
-    endif()
+    endforeach()
+endif()
+
+if(MULAN_QT_ICONENGINES_PLUGIN_DLLS)
+    list(APPEND MULAN_DEV_RUNTIME_COMMANDS
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/iconengines"
+    )
+    foreach(plugin IN LISTS MULAN_QT_ICONENGINES_PLUGIN_DLLS)
+        list(APPEND MULAN_DEV_RUNTIME_COMMANDS
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${plugin}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/iconengines"
+        )
+    endforeach()
+endif()
+
+add_custom_target(${PROJECT_NAME}_dev_runtime
+    ${MULAN_DEV_RUNTIME_COMMANDS}
+    DEPENDS ${PROJECT_NAME}
+    COMMENT "Preparing the minimal development runtime..."
+    VERBATIM
+)
+
+if(MULAN_ENABLE_POST_BUILD_DEPLOY)
+    mulan_copy_files_post_build(${PROJECT_NAME}
+        FILES ${MULAN_RUNTIME_DLL_FILES}
+    )
 
     if(MULAN_DEPLOY_QT_WITH_WINDEPLOYQT AND MULAN_WINDEPLOYQT_EXECUTABLE)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

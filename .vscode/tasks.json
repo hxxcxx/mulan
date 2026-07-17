@@ -12,11 +12,17 @@
             "problemMatcher": []
         },
         {
+            "label": "CMake: Ensure Configured",
+            "type": "shell",
+            "command": "if (-not (Test-Path -LiteralPath 'build/msvc/CMakeCache.txt')) { cmake --preset msvc }",
+            "problemMatcher": []
+        },
+        {
             "label": "CMake: Build (Release)",
             "type": "shell",
             "command": "cmake --build --preset release",
             "group": "build",
-            "dependsOn": "CMake: Configure",
+            "dependsOn": "CMake: Ensure Configured",
             "problemMatcher": "$msCompile"
         },
         {
@@ -27,7 +33,15 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "dependsOn": "CMake: Configure",
+            "dependsOn": "CMake: Ensure Configured",
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "CMake: Prepare Runtime (RelWithDebInfo)",
+            "type": "shell",
+            "command": "cmake --build build/msvc --config RelWithDebInfo --target mulan_dev_runtime --parallel",
+            "group": "build",
+            "dependsOn": "CMake: Ensure Configured",
             "problemMatcher": "$msCompile"
         },
         {
@@ -35,7 +49,7 @@
             "type": "shell",
             "command": "cmake --build build/msvc --config RelWithDebInfo --target mulan_deploy_runtime --parallel",
             "group": "build",
-            "dependsOn": "CMake: Configure",
+            "dependsOn": "CMake: Ensure Configured",
             "problemMatcher": "$msCompile"
         }
     ]
