@@ -11,8 +11,14 @@
     "fastgltf",
     "mikktspace",
     "assimp",
-    "spdlog",
-    "freetype",
+    {
+      "name": "spdlog",
+      "default-features": false
+    },
+    {
+      "name": "freetype",
+      "default-features": false
+    },
     "tomlplusplus",
     {
       "name": "tracy",
@@ -22,7 +28,8 @@
     "shader-slang",
     {
       "name": "qtbase",
-      "features": ["widgets", "windeployqt"]
+      "default-features": false,
+      "features": ["gui", "widgets", "png", "windeployqt"]
     },
     "qtsvg",
     {
