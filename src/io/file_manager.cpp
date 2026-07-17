@@ -95,7 +95,7 @@ Result<OpenDocumentResult> FileManager::openFile(const std::string& path, const 
 
     // 装载 → Document
     ParsedSceneLoader loader(*doc);
-    auto importResult = loader.load(*sceneResult, options);
+    auto importResult = loader.load(std::move(*sceneResult), options);
 
     const auto elapsed =
             std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - startedAt).count();

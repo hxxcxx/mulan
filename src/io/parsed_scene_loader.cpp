@@ -40,7 +40,7 @@ std::vector<std::byte> readBinaryFile(const std::string& path) {
 ParsedSceneLoader::ParsedSceneLoader(Document& document) : document_(document) {
 }
 
-ImportResult ParsedSceneLoader::load(const ParsedScene& scene, const ImportOptions& options) {
+ImportResult ParsedSceneLoader::load(ParsedScene&& scene, const ImportOptions& options) {
     report_ = {};
     ImportResult result;
     if (scene.nodes.size() > options.maxNodeCount) {
@@ -77,33 +77,27 @@ ImportResult ParsedSceneLoader::load(const ParsedScene& scene, const ImportOptio
     return result;
 }
 
-void ParsedSceneLoader::loadTextures(const ParsedScene& scene) {
+void ParsedSceneLoader::loadTextures(ParsedScene& scene) {
     auto* library = document_.assets();
     textureIds_.assign(scene.textures.size(), asset::AssetId::invalid());
     if (!library)
         return;
 
     for (size_t i = 0; i < scene.textures.size(); ++i) {
-        const auto& desc = scene.textures[i];
-        auto* texture = library->create<asset::TextureAsset>(desc.name, desc.sourcePath);
+        auto& desc = scene.textures[i];
+        auto* texture = library->create<asset::TextureAsset>(std::move(desc.name), std::move(desc.sourcePath));
         if (!texture)
             continue;
 
-        std::vector<std::byte> encodedBytes = desc.data.empty() ? readBinaryFile(desc.sourcePath) : desc.data;
+        std::vector<std::byte> encodedBytes =
+                desc.data.empty() ? readBinaryFile(texture->sourcePath()) : std::move(desc.data);
         std::shared_ptr<core::Image> image;
         std::string decodeError;
         core::ImageDecodeOptions decodeOptions;
         decodeOptions.outputOrigin = core::ImageOrigin::TopLeft;
         decodeOptions.channels = core::ImageChannelLayout::RGBA;
-        if (!desc.data.empty()) {
-            auto decoded = core::Image::loadFromMemory(std::span<const std::byte>(desc.data), decodeOptions);
-            if (decoded) {
-                image = std::move(decoded).value();
-            } else {
-                decodeError = decoded.error().message;
-            }
-        } else if (!desc.sourcePath.empty()) {
-            auto decoded = core::Image::load(desc.sourcePath, decodeOptions);
+        if (!encodedBytes.empty()) {
+            auto decoded = core::Image::loadFromMemory(std::span<const std::byte>(encodedBytes), decodeOptions);
             if (decoded) {
                 image = std::move(decoded).value();
             } else {
@@ -113,17 +107,17 @@ void ParsedSceneLoader::loadTextures(const ParsedScene& scene) {
 
         if (image && image->valid()) {
             texture->setImage(std::move(image));
-        } else if (!desc.sourcePath.empty() || !desc.data.empty()) {
-            const std::string source = desc.sourcePath.empty() ? desc.name : desc.sourcePath;
+        } else if (!texture->sourcePath().empty() || !encodedBytes.empty()) {
+            const std::string& source = texture->sourcePath().empty() ? texture->name() : texture->sourcePath();
             report_.warnings.push_back("Failed to decode texture image: " + source +
                                        (decodeError.empty() ? std::string{} : " (" + decodeError + ")"));
         }
 
         if (!encodedBytes.empty()) {
             texture->setEmbeddedBytes(std::move(encodedBytes));
-            texture->setMimeType(desc.mimeType);
-        } else if (!desc.sourcePath.empty()) {
-            report_.warnings.push_back("Failed to read texture bytes: " + desc.sourcePath);
+            texture->setMimeType(std::move(desc.mimeType));
+        } else if (!texture->sourcePath().empty()) {
+            report_.warnings.push_back("Failed to read texture bytes: " + texture->sourcePath());
         }
         if (desc.width > 0 && desc.height > 0)
             texture->setSize(desc.width, desc.height);
@@ -133,15 +127,15 @@ void ParsedSceneLoader::loadTextures(const ParsedScene& scene) {
     }
 }
 
-void ParsedSceneLoader::loadMaterials(const ParsedScene& scene) {
+void ParsedSceneLoader::loadMaterials(ParsedScene& scene) {
     auto* library = document_.assets();
     materialIds_.assign(scene.materials.size(), asset::AssetId::invalid());
     if (!library)
         return;
 
     for (size_t i = 0; i < scene.materials.size(); ++i) {
-        const auto& desc = scene.materials[i];
-        auto* material = library->create<asset::MaterialAsset>(desc.name);
+        auto& desc = scene.materials[i];
+        auto* material = library->create<asset::MaterialAsset>(std::move(desc.name));
         if (!material)
             continue;
 
@@ -168,42 +162,42 @@ void ParsedSceneLoader::loadMaterials(const ParsedScene& scene) {
     }
 }
 
-void ParsedSceneLoader::loadMeshes(const ParsedScene& scene) {
+void ParsedSceneLoader::loadMeshes(ParsedScene& scene) {
     auto* library = document_.assets();
     meshIds_.assign(scene.meshes.size(), asset::AssetId::invalid());
     if (!library)
         return;
 
     for (size_t i = 0; i < scene.meshes.size(); ++i) {
-        const auto& parsed = scene.meshes[i];
+        auto& parsed = scene.meshes[i];
         if (parsed.primitives.empty())
             continue;
 
-        auto* mesh = library->create<asset::MeshAsset>(parsed.name);
+        for (size_t p = 0; p < parsed.primitives.size(); ++p) {
+            const size_t matIdx = (p < parsed.materialIndices.size()) ? parsed.materialIndices[p] : SIZE_MAX;
+            parsed.primitives[p].material = materialAssetId(matIdx);
+        }
+
+        const size_t primitiveCount = parsed.primitives.size();
+        auto* mesh = library->create<asset::MeshAsset>(std::move(parsed.name), std::move(parsed.primitives));
         if (!mesh)
             continue;
 
-        for (size_t p = 0; p < parsed.primitives.size(); ++p) {
-            graphics::Mesh meshData = parsed.primitives[p].mesh;
-            meshData.computeBounds();
-            const size_t matIdx = (p < parsed.materialIndices.size()) ? parsed.materialIndices[p] : SIZE_MAX;
-            mesh->addPrimitive(std::move(meshData), materialAssetId(matIdx), parsed.primitives[p].name);
-        }
         meshIds_[i] = mesh->id();
-        report_.primitiveCount += parsed.primitives.size();
+        report_.primitiveCount += primitiveCount;
         ++report_.meshAssetCount;
     }
 }
 
-void ParsedSceneLoader::loadBreps(const ParsedScene& scene) {
+void ParsedSceneLoader::loadBreps(ParsedScene& scene) {
     auto* library = document_.assets();
     brepIds_.assign(scene.breps.size(), asset::AssetId::invalid());
     if (!library)
         return;
 
     for (size_t i = 0; i < scene.breps.size(); ++i) {
-        const auto& parsed = scene.breps[i];
-        auto* brep = library->create<asset::BRepAsset>(parsed.name, modeling::Shape(parsed.shape));
+        auto& parsed = scene.breps[i];
+        auto* brep = library->create<asset::BRepAsset>(std::move(parsed.name), std::move(parsed.shape));
         if (!brep)
             continue;
         brepIds_[i] = brep->id();

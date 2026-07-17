@@ -29,13 +29,14 @@ class IO_API ParsedSceneLoader {
 public:
     explicit ParsedSceneLoader(Document& document);
 
-    ImportResult load(const ParsedScene& scene, const ImportOptions& options = {});
+    /// 消费解析结果并把其中的大块资源所有权移交给 Document；调用后 scene 不再可复用。
+    ImportResult load(ParsedScene&& scene, const ImportOptions& options = {});
 
 private:
-    void loadTextures(const ParsedScene& scene);
-    void loadMaterials(const ParsedScene& scene);
-    void loadMeshes(const ParsedScene& scene);
-    void loadBreps(const ParsedScene& scene);
+    void loadTextures(ParsedScene& scene);
+    void loadMaterials(ParsedScene& scene);
+    void loadMeshes(ParsedScene& scene);
+    void loadBreps(ParsedScene& scene);
     void loadNodes(const ParsedScene& scene, const ImportOptions& options);
     void loadNode(size_t nodeIndex, const ParsedScene& scene, scene::EntityId parentEntity,
                   const math::Mat4& parentWorld, const math::Mat4& rootUnitScale, const ImportOptions& options,

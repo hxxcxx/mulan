@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <map>
 #include <optional>
+#include <utility>
 #include <variant>
 
 namespace mulan::io {
@@ -67,6 +68,14 @@ std::optional<std::string> validateGltfResourceLimits(const fastgltf::Asset& glt
             return error;
     }
     return std::nullopt;
+}
+
+bool requiresExternalResourceLoading(const fastgltf::Asset& gltf) {
+    const auto isUri = [](const auto& resource) {
+        return std::holds_alternative<fastgltf::sources::URI>(resource.data);
+    };
+    return std::any_of(gltf.buffers.begin(), gltf.buffers.end(), isUri) ||
+           std::any_of(gltf.images.begin(), gltf.images.end(), isUri);
 }
 
 std::vector<uint32_t> readIndices(const fastgltf::Asset& asset, const fastgltf::Accessor& accessor) {
@@ -449,14 +458,14 @@ Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOpt
     const std::string sourceDir = fileDirectory(path);
 
     const std::filesystem::path sourceDirectory = std::filesystem::path(path).parent_path();
-    auto preflightStream = fastgltf::GltfFileStream(path);
-    if (!preflightStream.isOpen())
-        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Failed to open glTF file: " + path));
+    auto fileData = fastgltf::GltfDataBuffer::FromPath(path);
+    if (fileData.error() != fastgltf::Error::None)
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Failed to read glTF file: " + path));
 
     const auto extensions =
             fastgltf::Extensions::KHR_lights_punctual | fastgltf::Extensions::KHR_materials_emissive_strength;
     fastgltf::Parser preflightParser(extensions);
-    auto preflight = preflightParser.loadGltf(preflightStream, sourceDirectory, fastgltf::Options::None);
+    auto preflight = preflightParser.loadGltf(fileData.get(), sourceDirectory, fastgltf::Options::None);
     if (preflight.error() != fastgltf::Error::None) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg,
                                            "Failed to parse glTF: " + std::string(getErrorMessage(preflight.error()))));
@@ -464,36 +473,43 @@ Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOpt
     if (auto limitError = validateGltfResourceLimits(preflight.get(), sourceDirectory, options))
         return std::unexpected(Error::make(ErrorCode::InvalidArg, *limitError));
 
-    auto fileStream = fastgltf::GltfFileStream(path);
-    if (!fileStream.isOpen())
-        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Failed to reopen glTF file: " + path));
-    fastgltf::Parser parser(extensions);
-    constexpr auto gltfOpts = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
-    auto assetResult = parser.loadGltf(fileStream, sourceDirectory, gltfOpts);
-    if (assetResult.error() != fastgltf::Error::None) {
-        return std::unexpected(Error::make(
-                ErrorCode::InvalidArg, "Failed to parse glTF: " + std::string(getErrorMessage(assetResult.error()))));
+    // 自包含 GLB 的内嵌 Buffer 在 fastgltf 中默认已驻留，直接消费预检查结果即可。
+    // 仅URI资源需要第二阶段加载；复用同一内存快照，避免重新读取或主文件阶段间变化。
+    const fastgltf::Asset* gltf = &preflight.get();
+    std::optional<fastgltf::Parser> resourceParser;
+    std::optional<fastgltf::Asset> resourceAsset;
+    if (requiresExternalResourceLoading(*gltf)) {
+        resourceParser.emplace(extensions);
+        constexpr auto gltfOpts = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
+        auto loaded = resourceParser->loadGltf(fileData.get(), sourceDirectory, gltfOpts);
+        if (loaded.error() != fastgltf::Error::None) {
+            return std::unexpected(
+                    Error::make(ErrorCode::InvalidArg,
+                                "Failed to load glTF resources: " + std::string(getErrorMessage(loaded.error()))));
+        }
+        if (auto limitError = validateGltfResourceLimits(loaded.get(), sourceDirectory, options))
+            return std::unexpected(Error::make(ErrorCode::InvalidArg, *limitError));
+        resourceAsset.emplace(std::move(loaded.get()));
+        gltf = &*resourceAsset;
     }
 
-    auto& gltf = assetResult.get();
-
     // 纹理 → 材质
-    auto texMap = importTextures(gltf, scene, sourceDir, path);
+    auto texMap = importTextures(*gltf, scene, sourceDir, path);
     std::vector<std::string> warnings;
-    auto matMap = importMaterials(gltf, scene, texMap, warnings);
+    auto matMap = importMaterials(*gltf, scene, texMap, warnings);
     (void) matMap;
 
     // 网格:每个 glTF mesh → ParsedMesh,primitive 材质用 matMap 索引
-    std::vector<size_t> meshIndices(gltf.meshes.size(), SIZE_MAX);
-    for (size_t meshIdx = 0; meshIdx < gltf.meshes.size(); ++meshIdx) {
-        const auto& mesh = gltf.meshes[meshIdx];
+    std::vector<size_t> meshIndices(gltf->meshes.size(), SIZE_MAX);
+    for (size_t meshIdx = 0; meshIdx < gltf->meshes.size(); ++meshIdx) {
+        const auto& mesh = gltf->meshes[meshIdx];
         std::string meshName = mesh.name.empty() ? "Mesh_" + std::to_string(meshIdx) : std::string(mesh.name);
 
         ParsedMesh parsed;
         parsed.name = meshName;
 
         for (const auto& primitive : mesh.primitives) {
-            auto geomData = extractPrimitiveData(gltf, primitive);
+            auto geomData = extractPrimitiveData(*gltf, primitive);
             if (geomData.positions.empty())
                 continue;
             if (geomData.normals.empty())
@@ -501,7 +517,7 @@ Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOpt
             if (geomData.texcoords.empty())
                 geomData.texcoords.resize(geomData.positions.size(), math::FVec2(0.0f, 0.0f));
 
-            if (hasUsableNormalTexture(gltf, primitive, texMap)) {
+            if (hasUsableNormalTexture(*gltf, primitive, texMap)) {
                 if (geomData.tangents.size() != geomData.positions.size())
                     geomData.tangents = generateTangents(geomData);
             } else {
@@ -541,40 +557,40 @@ Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOpt
     }
 
     // 节点树 → ParsedNode(不碰 Document)
-    scene.nodes.resize(gltf.nodes.size());
+    scene.nodes.resize(gltf->nodes.size());
     auto buildNode = [&](size_t nodeIdx, size_t parentIdx, auto& self) -> void {
-        const auto& node = gltf.nodes[nodeIdx];
+        const auto& node = gltf->nodes[nodeIdx];
         auto& pn = scene.nodes[nodeIdx];
         pn.name = node.name.empty() ? "Node_" + std::to_string(nodeIdx) : std::string(node.name);
         pn.parent = parentIdx;
         pn.localTransform = nodeTransform(node);
 
-        if (node.lightIndex.has_value() && *node.lightIndex < gltf.lights.size()) {
+        if (node.lightIndex.has_value() && *node.lightIndex < gltf->lights.size()) {
             pn.lightIndex = scene.lights.size();
-            scene.lights.push_back(lightFromGltf(gltf.lights[*node.lightIndex]));
+            scene.lights.push_back(lightFromGltf(gltf->lights[*node.lightIndex]));
         }
         if (node.meshIndex.has_value() && *node.meshIndex < meshIndices.size())
             pn.meshIndex = meshIndices[*node.meshIndex];
 
         for (auto childIdx : node.children) {
-            if (childIdx < gltf.nodes.size())
+            if (childIdx < gltf->nodes.size())
                 self(static_cast<size_t>(childIdx), nodeIdx, self);
         }
     };
 
-    if (gltf.defaultScene.has_value()) {
-        const auto& sceneDef = gltf.scenes[*gltf.defaultScene];
+    if (gltf->defaultScene.has_value()) {
+        const auto& sceneDef = gltf->scenes[*gltf->defaultScene];
         for (auto rootIdx : sceneDef.nodeIndices) {
             buildNode(static_cast<size_t>(rootIdx), SIZE_MAX, buildNode);
             scene.rootNodes.push_back(static_cast<size_t>(rootIdx));
         }
     } else {
-        std::vector<bool> isChild(gltf.nodes.size(), false);
-        for (auto& n : gltf.nodes)
+        std::vector<bool> isChild(gltf->nodes.size(), false);
+        for (auto& n : gltf->nodes)
             for (auto c : n.children)
                 if (c < isChild.size())
                     isChild[c] = true;
-        for (size_t i = 0; i < gltf.nodes.size(); ++i) {
+        for (size_t i = 0; i < gltf->nodes.size(); ++i) {
             if (!isChild[i]) {
                 buildNode(i, SIZE_MAX, buildNode);
                 scene.rootNodes.push_back(i);
