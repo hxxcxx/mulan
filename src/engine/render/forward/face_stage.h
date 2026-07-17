@@ -20,11 +20,13 @@
 namespace mulan::engine {
 
 class GeometryDrawSharedResources;
+class DrawFallbackResources;
 class DevicePipelineLibrary;
 
 class FaceStage final {
 public:
-    FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources, DevicePipelineLibrary& pipelineLibrary);
+    FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources, DrawFallbackResources& fallbackResources,
+              DevicePipelineLibrary& pipelineLibrary);
 
     ResultVoid init(RHIDevice& device, const RenderTargetInfo& target);
 
@@ -38,8 +40,6 @@ public:
     PipelineState* pipelineState() const;
     PipelineState* tangentPipelineState() const;
     PipelineState* viewCubePipelineState() const;
-    Texture* defaultWhiteTexture() const;
-    Sampler* defaultSampler() const;
 
 private:
     GeometryDrawExecutor& activeExecutor();
@@ -48,7 +48,6 @@ private:
     GeometryDrawExecutor solid_executor_;
     GeometryDrawExecutor pbr_executor_;
     GeometryDrawExecutor pbr_tangent_executor_;
-    GeometryDrawSharedResources& shared_resources_;
     DevicePipelineLibrary& pipeline_library_;
     PipelineState* view_cube_pipeline_ = nullptr;
     std::vector<MeshDrawCommand> pbr_commands_;

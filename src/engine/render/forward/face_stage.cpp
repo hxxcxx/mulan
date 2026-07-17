@@ -6,11 +6,11 @@
 namespace mulan::engine {
 
 FaceStage::FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
-                     DevicePipelineLibrary& pipelineLibrary)
-    : solid_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::SolidLit),
-      pbr_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::SurfacePBR),
-      pbr_tangent_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::SurfacePBRTangent),
-      shared_resources_(sharedResources),
+                     DrawFallbackResources& fallbackResources, DevicePipelineLibrary& pipelineLibrary)
+    : solid_executor_(device, sharedResources, fallbackResources, pipelineLibrary, RenderTechnique::SolidLit),
+      pbr_executor_(device, sharedResources, fallbackResources, pipelineLibrary, RenderTechnique::SurfacePBR),
+      pbr_tangent_executor_(device, sharedResources, fallbackResources, pipelineLibrary,
+                            RenderTechnique::SurfacePBRTangent),
       pipeline_library_(pipelineLibrary) {
 }
 
@@ -103,14 +103,6 @@ PipelineState* FaceStage::tangentPipelineState() const {
 
 PipelineState* FaceStage::viewCubePipelineState() const {
     return view_cube_pipeline_;
-}
-
-Texture* FaceStage::defaultWhiteTexture() const {
-    return shared_resources_.defaultWhiteTexture();
-}
-
-Sampler* FaceStage::defaultSampler() const {
-    return shared_resources_.defaultSampler();
 }
 
 GeometryDrawExecutor& FaceStage::activeExecutor() {

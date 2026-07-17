@@ -19,6 +19,7 @@ add_library(render STATIC
     backend/render_compiler.cpp
     backend/forward_renderer.cpp
     # Draw executors / stages
+    draw/draw_fallback_resources.cpp
     draw/geometry_draw_shared_resources.cpp
     draw/geometry_draw_batch.cpp
     draw/geometry_draw_executor.cpp

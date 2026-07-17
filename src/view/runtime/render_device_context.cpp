@@ -25,8 +25,10 @@ Result<std::unique_ptr<RenderDeviceContext>> RenderDeviceContext::create(const V
     }
 
     auto context = std::unique_ptr<RenderDeviceContext>(new RenderDeviceContext(std::move(*device)));
-    if (!context->resource_service_->init()) {
-        return std::unexpected(Error::make(ErrorCode::Internal, "Failed to initialize device resource service."));
+    if (auto initialized = context->resource_service_->init(); !initialized) {
+        LOG_ERROR("[RenderDeviceContext] Device resource service initialization failed: {}",
+                  initialized.error().message);
+        return std::unexpected(initialized.error());
     }
     LOG_INFO("[RenderDeviceContext] Device context created: backend={}, validation={}",
              static_cast<int>(config.backend), config.enableValidation);

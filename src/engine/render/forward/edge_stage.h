@@ -18,11 +18,13 @@
 namespace mulan::engine {
 
 class GeometryDrawSharedResources;
+class DrawFallbackResources;
 class DevicePipelineLibrary;
 
 class EdgeStage final {
 public:
-    EdgeStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources, DevicePipelineLibrary& pipelineLibrary);
+    EdgeStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources, DrawFallbackResources& fallbackResources,
+              DevicePipelineLibrary& pipelineLibrary);
 
     ResultVoid init(RHIDevice& device, const RenderTargetInfo& target);
 

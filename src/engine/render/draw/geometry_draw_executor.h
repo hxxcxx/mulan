@@ -16,6 +16,7 @@
 #pragma once
 
 #include "draw_execution_context.h"
+#include "draw_fallback_resources.h"
 #include "geometry_draw_batch.h"
 #include "geometry_draw_shared_resources.h"
 #include "../mesh_draw_command.h"
@@ -45,7 +46,8 @@ struct GeometryDrawExecutionStats {
 class GeometryDrawExecutor {
 public:
     GeometryDrawExecutor(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
-                         DevicePipelineLibrary& pipelineLibrary, RenderTechnique technique);
+                         DrawFallbackResources& fallbackResources, DevicePipelineLibrary& pipelineLibrary,
+                         RenderTechnique technique);
 
     bool init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth, uint32_t sampleCount);
     void execute(const DrawExecutionContext& ctx);
@@ -56,12 +58,6 @@ public:
     bool ownsPipeline(const PipelineState* pipeline) const { return pipeline && pipeline == pso_; }
     PipelineState* instancedPipelineState() const { return instanced_pso_; }
     const GeometryDrawExecutionStats& lastExecutionStats() const { return execution_stats_; }
-
-    /// 全局默认白纹理（无材质模型退化用，1×1 RGBA=(255,255,255,255)）。
-    /// 仅 sampleTextures=true 时非 null。
-    Texture* defaultWhiteTexture() const { return shared_resources_.defaultWhiteTexture(); }
-    /// 全局默认线性 sampler。仅 sampleTextures=true 时非 null。
-    Sampler* defaultSampler() const { return shared_resources_.defaultSampler(); }
 
     /// 设置 IBL 三件套（irradiance / prefilter / brdf LUT，均为 equirect 2D）。
     /// 任意一张为 nullptr 时该 binding 走 default fallback。
@@ -76,6 +72,7 @@ private:
 
     RHIDevice& device_;
     GeometryDrawSharedResources& shared_resources_;
+    DrawFallbackResources& fallback_resources_;
     DevicePipelineLibrary& pipeline_library_;
     const TechniqueDesc& technique_;
 

@@ -30,6 +30,7 @@ ResultVoid ForwardRenderer::init(RHIDevice& device, DeviceResourceService& resou
     material_cache_ = &resources.materials();
     asset_gpu_registry_ = &resources.assets();
     geometry_resources_ = &resources.geometryDrawResources();
+    fallback_resources_ = &resources.drawFallbackResources();
 
     RenderTargetInfo targetInfo;
     targetInfo.colorFormat = colorFmt;
@@ -37,15 +38,18 @@ ResultVoid ForwardRenderer::init(RHIDevice& device, DeviceResourceService& resou
     targetInfo.hasDepth = true;
     targetInfo.sampleCount = sampleCount;
 
-    face_stage_ = std::make_unique<FaceStage>(device, *geometry_resources_, resources.pipelines());
+    face_stage_ =
+            std::make_unique<FaceStage>(device, *geometry_resources_, *fallback_resources_, resources.pipelines());
     if (auto initialized = face_stage_->init(device, targetInfo); !initialized)
         return std::unexpected(initialized.error());
 
-    edge_stage_ = std::make_unique<EdgeStage>(device, *geometry_resources_, resources.pipelines());
+    edge_stage_ =
+            std::make_unique<EdgeStage>(device, *geometry_resources_, *fallback_resources_, resources.pipelines());
     if (auto initialized = edge_stage_->init(device, targetInfo); !initialized)
         return std::unexpected(initialized.error());
 
-    highlight_stage_ = std::make_unique<HighlightStage>(device, *geometry_resources_, resources.pipelines());
+    highlight_stage_ =
+            std::make_unique<HighlightStage>(device, *geometry_resources_, *fallback_resources_, resources.pipelines());
     if (auto initialized = highlight_stage_->init(device, targetInfo); !initialized)
         return std::unexpected(initialized.error());
 
@@ -68,9 +72,8 @@ ResultVoid ForwardRenderer::init(RHIDevice& device, DeviceResourceService& resou
 }
 
 void ForwardRenderer::shutdown(RHIDevice& device) {
-    // 即使 init() 未能完成（initialized_ 仍为 false），也可能已分配部分 RHI 资源
-    //（如 GeometryDrawSharedResources 的 UBO）。因此 shutdown 必须无条件执行清理，
-    // 否则这些资源会在 device 析构时触发 assertNoLiveResources 断言。
+    // 即使 init() 未能完成（initialized_ 仍为 false），Stage 也可能已分配部分管线或绑定资源。
+    // 因此 shutdown 必须无条件执行清理，否则会在 Device 析构时触发存活资源断言。
     clearCompiledCommands();
 
     // TextStage 属于 DeviceResourceService，不随单个 Surface/Renderer 退役。
@@ -94,6 +97,7 @@ void ForwardRenderer::shutdown(RHIDevice& device) {
         releaseResources();
     }
     geometry_resources_ = nullptr;
+    fallback_resources_ = nullptr;
     asset_gpu_registry_ = nullptr;
     material_cache_ = nullptr;
     initialized_ = false;
@@ -338,8 +342,8 @@ void ForwardRenderer::executeStages(RenderFrame& frame) {
     if (view_cube_stage_ && frame.view.showOverlay && frame.view.showViewCube) {
         view_cube_stage_->setPipelines(face_stage_ ? face_stage_->viewCubePipelineState() : nullptr,
                                        edge_stage_ ? edge_stage_->viewCubePipelineState() : nullptr);
-        view_cube_stage_->setFallbackResources(face_stage_ ? face_stage_->defaultWhiteTexture() : nullptr,
-                                               face_stage_ ? face_stage_->defaultSampler() : nullptr);
+        view_cube_stage_->setFallbackResources(fallback_resources_ ? fallback_resources_->whiteTexture() : nullptr,
+                                               fallback_resources_ ? fallback_resources_->sampler() : nullptr);
         view_cube_stage_->setLayout(frame.view.viewCubeLayout);
         view_cube_stage_->setInteraction(frame.view.viewCubeInteraction);
         view_cube_stage_->execute(frame);

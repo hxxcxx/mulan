@@ -7,6 +7,7 @@
 
 #include "device_resource_service.h"
 
+#include "draw/draw_fallback_resources.h"
 #include "draw/geometry_draw_shared_resources.h"
 #include "frame/render_target_info.h"
 #include "material/material_cache.h"
@@ -33,14 +34,36 @@ DeviceResourceService::~DeviceResourceService() {
     device_.collectGarbage();
 }
 
-bool DeviceResourceService::init() {
+ResultVoid DeviceResourceService::init() {
     if (initialized_) {
-        return true;
+        return {};
     }
-    material_cache_ = std::make_unique<MaterialCache>();
-    geometry_resources_ = std::make_unique<GeometryDrawSharedResources>(device_, *material_cache_);
-    initialized_ = geometry_resources_->init();
-    return initialized_;
+
+    auto materialCache = std::make_unique<MaterialCache>();
+    auto geometryResources = std::make_unique<GeometryDrawSharedResources>(device_, *materialCache);
+    auto fallbackResources = std::make_unique<DrawFallbackResources>(device_);
+
+    if (auto begun = device_.beginUploadBatch(); !begun) {
+        return std::unexpected(begun.error());
+    }
+    auto initializedFallbacks = fallbackResources->init();
+    auto flushed = device_.flushUploadBatch();
+    if (!flushed) {
+        if (!initializedFallbacks) {
+            LOG_ERROR("[DeviceResourceService] Fallback creation also failed before upload flush: {}",
+                      initializedFallbacks.error().message);
+        }
+        return std::unexpected(flushed.error());
+    }
+    if (!initializedFallbacks) {
+        return std::unexpected(initializedFallbacks.error());
+    }
+
+    material_cache_ = std::move(materialCache);
+    geometry_resources_ = std::move(geometryResources);
+    fallback_resources_ = std::move(fallbackResources);
+    initialized_ = true;
+    return {};
 }
 
 size_t DeviceResourceService::TextStageKeyHash::operator()(const TextStageKey& key) const noexcept {

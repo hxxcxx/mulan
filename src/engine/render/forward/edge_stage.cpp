@@ -5,8 +5,8 @@
 namespace mulan::engine {
 
 EdgeStage::EdgeStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
-                     DevicePipelineLibrary& pipelineLibrary)
-    : draw_executor_(device, sharedResources, pipelineLibrary, RenderTechnique::EdgeLine),
+                     DrawFallbackResources& fallbackResources, DevicePipelineLibrary& pipelineLibrary)
+    : draw_executor_(device, sharedResources, fallbackResources, pipelineLibrary, RenderTechnique::EdgeLine),
       pipeline_library_(pipelineLibrary) {
 }
 

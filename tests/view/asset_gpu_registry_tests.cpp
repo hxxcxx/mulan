@@ -7,6 +7,7 @@
 
 #include <mulan/render/asset_gpu_registry.h>
 #include <mulan/render/device_resource_service.h>
+#include <mulan/render/draw/draw_fallback_resources.h>
 #include <mulan/render/frame/render_target_info.h>
 #include <mulan/render/gpu_scene_contract.h>
 #include <mulan/render/light_environment.h>
@@ -64,6 +65,15 @@ private:
     BufferDesc desc_;
 };
 
+class RegistryTestSampler final : public Sampler {
+public:
+    explicit RegistryTestSampler(SamplerDesc desc) : desc_(std::move(desc)) {}
+    const SamplerDesc& desc() const override { return desc_; }
+
+private:
+    SamplerDesc desc_;
+};
+
 class RegistryTestShader final : public Shader {
 public:
     explicit RegistryTestShader(const ShaderDesc& desc) : desc_(desc) { desc_.discardCreationData(); }
@@ -102,12 +112,16 @@ public:
     }
     void complete(SubmissionToken token) { ASSERT_TRUE(fence_->signal(token.value)); }
     void failNextBufferCreate() { fail_next_buffer_create_ = true; }
-    void failNextTextureCreate() { fail_next_texture_create_ = true; }
+    void failNextTextureCreate() { failTextureCreateAfter(0); }
+    void failTextureCreateAfter(size_t successfulCreates) { texture_creates_until_failure_ = successfulCreates; }
 
     size_t createCount() const { return create_count_; }
     size_t uploadCount() const { return upload_count_; }
     size_t liveTextureCount() const { return live_texture_count_; }
     size_t pipelineCreateCount() const { return pipeline_create_count_; }
+    size_t beginUploadBatchCount() const { return begin_upload_batch_count_; }
+    size_t flushUploadBatchCount() const { return flush_upload_batch_count_; }
+    size_t liveTextureCountAtLastFlush() const { return live_texture_count_at_last_flush_; }
     const std::vector<TextureDesc>& textureDescs() const { return texture_descs_; }
     const std::vector<TextureUploadDesc>& uploads() const { return uploads_; }
 
@@ -125,9 +139,12 @@ public:
         return std::move(buffer);
     }
     Result<std::unique_ptr<Texture>> createTexture(const TextureDesc& desc) override {
-        if (fail_next_texture_create_) {
-            fail_next_texture_create_ = false;
-            return std::unexpected(Error::make(ErrorCode::Internal, "Injected texture creation failure."));
+        if (texture_creates_until_failure_ != std::numeric_limits<size_t>::max()) {
+            if (texture_creates_until_failure_ == 0) {
+                texture_creates_until_failure_ = std::numeric_limits<size_t>::max();
+                return std::unexpected(Error::make(ErrorCode::Internal, "Injected texture creation failure."));
+            }
+            --texture_creates_until_failure_;
         }
         ++create_count_;
         texture_descs_.push_back(desc);
@@ -153,7 +170,10 @@ public:
     Result<std::unique_ptr<RenderTarget>> createRenderTarget(const RenderTargetDesc&) override {
         return std::unique_ptr<RenderTarget>{};
     }
-    Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc&) override { return std::unique_ptr<Sampler>{}; }
+    Result<std::unique_ptr<Sampler>> createSampler(const SamplerDesc& desc) override {
+        std::unique_ptr<Sampler> sampler = std::make_unique<RegistryTestSampler>(desc);
+        return std::move(sampler);
+    }
     Result<std::unique_ptr<Fence>> createFence(uint64_t) override { return std::unique_ptr<Fence>{}; }
     Result<std::unique_ptr<BindGroup>> createBindGroup(const BindGroupLayout&, const BindGroupDesc&) override {
         return std::unique_ptr<BindGroup>{};
@@ -166,8 +186,15 @@ public:
         uploads_.push_back(metadata);
         return {};
     }
-    ResultVoid beginUploadBatch() override { return {}; }
-    ResultVoid flushUploadBatch() override { return {}; }
+    ResultVoid beginUploadBatch() override {
+        ++begin_upload_batch_count_;
+        return {};
+    }
+    ResultVoid flushUploadBatch() override {
+        ++flush_upload_batch_count_;
+        live_texture_count_at_last_flush_ = live_texture_count_;
+        return {};
+    }
     Result<SubmissionToken> executeCommandLists(CommandList**, uint32_t, Fence*, uint64_t) override {
         return issueSubmission();
     }
@@ -183,11 +210,63 @@ private:
     size_t upload_count_ = 0;
     size_t live_texture_count_ = 0;
     size_t pipeline_create_count_ = 0;
+    size_t begin_upload_batch_count_ = 0;
+    size_t flush_upload_batch_count_ = 0;
+    size_t live_texture_count_at_last_flush_ = 0;
     std::vector<TextureDesc> texture_descs_;
     std::vector<TextureUploadDesc> uploads_;
     bool fail_next_buffer_create_ = false;
-    bool fail_next_texture_create_ = false;
+    size_t texture_creates_until_failure_ = std::numeric_limits<size_t>::max();
 };
+
+TEST(DeviceResourceServiceTests, InitializesFallbackResourcesInOneUploadBatch) {
+    RegistryTestDevice device;
+    {
+        DeviceResourceService resources(device);
+        ASSERT_TRUE(resources.init());
+        EXPECT_EQ(device.beginUploadBatchCount(), 1u);
+        EXPECT_EQ(device.flushUploadBatchCount(), 1u);
+        EXPECT_EQ(device.createCount(), 6u);
+        EXPECT_EQ(device.uploadCount(), 6u);
+        EXPECT_EQ(device.liveTextureCount(), 6u);
+
+        const DrawFallbackResources& fallbacks = resources.drawFallbackResources();
+        EXPECT_NE(fallbacks.whiteTexture(), nullptr);
+        EXPECT_NE(fallbacks.blackTexture(), nullptr);
+        EXPECT_NE(fallbacks.normalTexture(), nullptr);
+        EXPECT_NE(fallbacks.metallicRoughnessTexture(), nullptr);
+        EXPECT_NE(fallbacks.environmentTexture(), nullptr);
+        EXPECT_NE(fallbacks.brdfLutTexture(), nullptr);
+        EXPECT_NE(fallbacks.sampler(), nullptr);
+
+        ASSERT_TRUE(resources.init());
+        EXPECT_EQ(device.beginUploadBatchCount(), 1u);
+        EXPECT_EQ(device.flushUploadBatchCount(), 1u);
+        EXPECT_EQ(device.createCount(), 6u);
+    }
+    EXPECT_EQ(device.liveTextureCount(), 0u);
+}
+
+TEST(DeviceResourceServiceTests, FailedFallbackInitializationRollsBackAndCanRetry) {
+    RegistryTestDevice device;
+    {
+        DeviceResourceService resources(device);
+        device.failTextureCreateAfter(2);
+        const auto failed = resources.init();
+        ASSERT_FALSE(failed);
+        EXPECT_EQ(failed.error().message, "Injected texture creation failure.");
+        EXPECT_EQ(device.beginUploadBatchCount(), 1u);
+        EXPECT_EQ(device.flushUploadBatchCount(), 1u);
+        EXPECT_EQ(device.liveTextureCountAtLastFlush(), 2u);
+        EXPECT_EQ(device.liveTextureCount(), 0u);
+
+        ASSERT_TRUE(resources.init());
+        EXPECT_EQ(device.beginUploadBatchCount(), 2u);
+        EXPECT_EQ(device.flushUploadBatchCount(), 2u);
+        EXPECT_EQ(device.liveTextureCount(), 6u);
+    }
+    EXPECT_EQ(device.liveTextureCount(), 0u);
+}
 
 TEST(AssetGpuRegistryTests, GenerateMipsCreatesAndUploadsTheCompletePortableChain) {
     RegistryTestDevice device;

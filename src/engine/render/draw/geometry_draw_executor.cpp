@@ -14,9 +14,11 @@ namespace mulan::engine {
 // ─── 构造 / init ───────────────────────────────────────────────
 
 GeometryDrawExecutor::GeometryDrawExecutor(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
+                                           DrawFallbackResources& fallbackResources,
                                            DevicePipelineLibrary& pipelineLibrary, RenderTechnique technique)
     : device_(device),
       shared_resources_(sharedResources),
+      fallback_resources_(fallbackResources),
       pipeline_library_(pipelineLibrary),
       technique_(TechniqueRegistry::builtin(technique)) {
 }
@@ -62,24 +64,23 @@ bool GeometryDrawExecutor::createFrameBindGroup(TextureFormat, TextureFormat, bo
     // Uniform binding 由每次 draw 提供切片；这里只保存纹理和采样器。
     BindGroupDesc bg;
 
-    if (technique_.sampleTextures && shared_resources_.defaultWhiteTexture() && shared_resources_.defaultSampler()) {
-        bg.addTexture(3, shared_resources_.defaultWhiteTexture());
-        bg.addTexture(4, shared_resources_.defaultNormalTexture() ? shared_resources_.defaultNormalTexture()
-                                                                  : shared_resources_.defaultWhiteTexture());
-        bg.addTexture(5, shared_resources_.defaultMetallicRoughnessTexture()
-                                 ? shared_resources_.defaultMetallicRoughnessTexture()
-                                 : shared_resources_.defaultWhiteTexture());
-        bg.addTexture(6, shared_resources_.defaultBlackTexture() ? shared_resources_.defaultBlackTexture()
-                                                                 : shared_resources_.defaultWhiteTexture());
-        bg.addTexture(7, shared_resources_.defaultWhiteTexture());
-        bg.addSampler(8, shared_resources_.defaultSampler());
+    if (technique_.sampleTextures && fallback_resources_.whiteTexture() && fallback_resources_.sampler()) {
+        bg.addTexture(3, fallback_resources_.whiteTexture());
+        bg.addTexture(4, fallback_resources_.normalTexture() ? fallback_resources_.normalTexture()
+                                                             : fallback_resources_.whiteTexture());
+        bg.addTexture(5, fallback_resources_.metallicRoughnessTexture() ? fallback_resources_.metallicRoughnessTexture()
+                                                                        : fallback_resources_.whiteTexture());
+        bg.addTexture(6, fallback_resources_.blackTexture() ? fallback_resources_.blackTexture()
+                                                            : fallback_resources_.whiteTexture());
+        bg.addTexture(7, fallback_resources_.whiteTexture());
+        bg.addSampler(8, fallback_resources_.sampler());
         // IBL 三件套：先用内置默认环境光照，每帧 execute 时刷新为真实烘焙产物。
         // 若 fallback 创建失败，退化到 defaultWhite 以保证 descriptor 非 null
         // —— 避免 Vulkan 验证层 "descriptor never updated" 错误。
-        Texture* iblFallback = shared_resources_.defaultIBLTexture() ? shared_resources_.defaultIBLTexture()
-                                                                     : shared_resources_.defaultWhiteTexture();
-        Texture* lutFallback = shared_resources_.defaultBrdfLUT() ? shared_resources_.defaultBrdfLUT()
-                                                                  : shared_resources_.defaultWhiteTexture();
+        Texture* iblFallback = fallback_resources_.environmentTexture() ? fallback_resources_.environmentTexture()
+                                                                        : fallback_resources_.whiteTexture();
+        Texture* lutFallback = fallback_resources_.brdfLutTexture() ? fallback_resources_.brdfLutTexture()
+                                                                    : fallback_resources_.whiteTexture();
         bg.addTexture(9, iblFallback);
         bg.addTexture(10, iblFallback);
         bg.addTexture(11, lutFallback);
@@ -104,9 +105,9 @@ void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
 
     // binding=9/10/11 (IBL 三件套) 在 setIBLTextures 后生效，每帧刷新一次。
     if (technique_.sampleTextures) {
-        frame_bg_->updateTexture(9, ibl_irradiance_ ? ibl_irradiance_ : shared_resources_.defaultIBLTexture());
-        frame_bg_->updateTexture(10, ibl_prefilter_ ? ibl_prefilter_ : shared_resources_.defaultIBLTexture());
-        frame_bg_->updateTexture(11, ibl_brdf_lut_ ? ibl_brdf_lut_ : shared_resources_.defaultBrdfLUT());
+        frame_bg_->updateTexture(9, ibl_irradiance_ ? ibl_irradiance_ : fallback_resources_.environmentTexture());
+        frame_bg_->updateTexture(10, ibl_prefilter_ ? ibl_prefilter_ : fallback_resources_.environmentTexture());
+        frame_bg_->updateTexture(11, ibl_brdf_lut_ ? ibl_brdf_lut_ : fallback_resources_.brdfLutTexture());
     }
 
     planGeometryDrawBatches(commands_, pso_, instanced_pso_ != nullptr, batch_plan_);
@@ -120,9 +121,9 @@ void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
                 if (!materialUniform)
                     continue;
                 command.execute(*ctx.cmd, *frame_bg_, shared_resources_.sceneUniform(), *materialUniform,
-                                shared_resources_.defaultWhiteTexture(), shared_resources_.defaultNormalTexture(),
-                                shared_resources_.defaultMetallicRoughnessTexture(),
-                                shared_resources_.defaultBlackTexture(), shared_resources_.defaultSampler());
+                                fallback_resources_.whiteTexture(), fallback_resources_.normalTexture(),
+                                fallback_resources_.metallicRoughnessTexture(), fallback_resources_.blackTexture(),
+                                fallback_resources_.sampler());
                 ++execution_stats_.legacyDrawCount;
             }
             continue;
@@ -142,10 +143,9 @@ void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
             return;
 
         first.executePrepared(*ctx.cmd, *frame_bg_, shared_resources_.sceneUniform(), *objectUniform, *materialUniform,
-                              instanced_pso_, static_cast<uint32_t>(range.count),
-                              shared_resources_.defaultWhiteTexture(), shared_resources_.defaultNormalTexture(),
-                              shared_resources_.defaultMetallicRoughnessTexture(),
-                              shared_resources_.defaultBlackTexture(), shared_resources_.defaultSampler());
+                              instanced_pso_, static_cast<uint32_t>(range.count), fallback_resources_.whiteTexture(),
+                              fallback_resources_.normalTexture(), fallback_resources_.metallicRoughnessTexture(),
+                              fallback_resources_.blackTexture(), fallback_resources_.sampler());
         ++execution_stats_.instancedDrawCount;
         execution_stats_.batchedInstanceCount += range.count;
     }

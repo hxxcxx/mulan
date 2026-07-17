@@ -17,6 +17,7 @@
 #include "../light_environment.h"
 #include "../material/material_cache.h"
 #include "../asset_gpu_registry.h"
+#include "../draw/draw_fallback_resources.h"
 #include "../draw/geometry_draw_shared_resources.h"
 #include "../device_resource_service.h"
 
@@ -65,6 +66,7 @@ private:
     std::unique_ptr<IBLPipeline> ibl_;
     AssetGpuRegistry* asset_gpu_registry_ = nullptr;
     GeometryDrawSharedResources* geometry_resources_ = nullptr;
+    DrawFallbackResources* fallback_resources_ = nullptr;
 
     RenderCompiler scene_compiler_;
     RenderCompiler overlay_compiler_;

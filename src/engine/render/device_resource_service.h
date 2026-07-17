@@ -22,6 +22,7 @@
 namespace mulan::engine {
 
 class GeometryDrawSharedResources;
+class DrawFallbackResources;
 class MaterialCache;
 class RHIDevice;
 class TextStage;
@@ -46,7 +47,7 @@ public:
     DeviceResourceService(const DeviceResourceService&) = delete;
     DeviceResourceService& operator=(const DeviceResourceService&) = delete;
 
-    bool init();
+    ResultVoid init();
     DeviceResourceClientId registerClient();
     ResultVoid releaseClient(DeviceResourceClientId client);
     ResultVoid preparePersistentResources(DeviceResourceClientId client, const RenderResourcePrepareList& prepare);
@@ -54,6 +55,7 @@ public:
     AssetGpuRegistry& assets() { return asset_registry_; }
     MaterialCache& materials() { return *material_cache_; }
     GeometryDrawSharedResources& geometryDrawResources() { return *geometry_resources_; }
+    DrawFallbackResources& drawFallbackResources() { return *fallback_resources_; }
     DevicePipelineLibrary& pipelines() { return pipeline_library_; }
     /// TextStage 的字体图集、文本管线和动态缓冲均属于 Device 级串行执行资源。
     /// 相同目标签名的 Renderer 只借用同一实例，不再按视图重复创建。
@@ -83,6 +85,7 @@ private:
     DevicePipelineLibrary pipeline_library_;
     std::unique_ptr<MaterialCache> material_cache_;
     std::unique_ptr<GeometryDrawSharedResources> geometry_resources_;
+    std::unique_ptr<DrawFallbackResources> fallback_resources_;
     std::unordered_map<TextStageKey, std::unique_ptr<TextStage>, TextStageKeyHash> text_stages_;
     std::unordered_set<DeviceResourceClientId> clients_;
     std::unordered_map<RenderResourceKey, ClientSet> geometry_owners_;

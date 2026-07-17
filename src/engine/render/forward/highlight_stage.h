@@ -19,12 +19,13 @@
 namespace mulan::engine {
 
 class GeometryDrawSharedResources;
+class DrawFallbackResources;
 class DevicePipelineLibrary;
 
 class HighlightStage final {
 public:
     HighlightStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources,
-                   DevicePipelineLibrary& pipelineLibrary);
+                   DrawFallbackResources& fallbackResources, DevicePipelineLibrary& pipelineLibrary);
 
     ResultVoid init(RHIDevice& device, const RenderTargetInfo& target);
 
