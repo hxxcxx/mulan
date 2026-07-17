@@ -156,7 +156,7 @@ Result<std::reference_wrapper<RenderDeviceContext>> RenderThread::ensureDeviceCo
     auto created = RenderDeviceContext::create(config_);
     if (!created)
         return std::unexpected(created.error());
-    device_context_.emplace(std::move(*created));
+    device_context_ = std::move(*created);
     return std::ref(*device_context_);
 }
 
