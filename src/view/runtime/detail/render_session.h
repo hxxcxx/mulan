@@ -49,8 +49,6 @@ public:
     void shutdown();
 
     bool isInitialized() const;
-    /// worker 异步失败快照；不消费事件，供 owner/UI 健康检查读取真实原因。
-    std::optional<Error> runtimeFailure() const;
     /// owner 线程主动 drain ACK/Failure；失败时同步销毁执行域并使 builder 资源失效。
     ResultVoid pollRuntime();
 

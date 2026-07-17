@@ -14,7 +14,6 @@
 #include <mulan/render/device_resource_service.h>
 #include <mulan/view/core/view_config.h>
 
-#include <atomic>
 #include <memory>
 
 namespace mulan::view::detail {
@@ -31,23 +30,13 @@ public:
     engine::DeviceResourceService& resources() { return *resource_service_; }
     const engine::DeviceResourceService& resources() const { return *resource_service_; }
 
-    engine::GraphicsBackend backend() const { return backend_; }
-
-    bool isHealthy() const { return healthy_.load(); }
-    /// GPU 提交域失败后禁止其他视图继续复用同一 Device。
-    void markFailed();
-
 private:
-    RenderDeviceContext(std::unique_ptr<engine::RHIDevice> device, engine::GraphicsBackend backend)
-        : device_(std::move(device)),
-          resource_service_(std::make_unique<engine::DeviceResourceService>(*device_)),
-          backend_(backend) {}
+    explicit RenderDeviceContext(std::unique_ptr<engine::RHIDevice> device)
+        : device_(std::move(device)), resource_service_(std::make_unique<engine::DeviceResourceService>(*device_)) {}
 
     std::unique_ptr<engine::RHIDevice> device_;
     // 声明在 Device 之后，析构时先释放所有共享 GPU 资源，再销毁 Device。
     std::unique_ptr<engine::DeviceResourceService> resource_service_;
-    engine::GraphicsBackend backend_ = engine::GraphicsBackend::Vulkan;
-    std::atomic<bool> healthy_ = true;
 };
 
 }  // namespace mulan::view::detail

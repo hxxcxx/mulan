@@ -3,7 +3,6 @@
 #include <mulan/core/log/log.h>
 #include <mulan/core/profiling/profile.h>
 #include <mulan/rhi/device.h>
-#include <mulan/rhi/engine_error_code.h>
 
 #include <string_view>
 #include <utility>
@@ -13,10 +12,6 @@ namespace {
 
 Error executorError(ErrorCode code, std::string_view message) {
     return Error::make(code, message);
-}
-
-Error unavailableDeviceError() {
-    return engine::makeError(engine::EngineErrorCode::DeviceLost, "Shared render device is no longer healthy.");
 }
 
 engine::DisplayMode toDisplayMode(RenderMode mode) {
@@ -105,10 +100,6 @@ ResultVoid RenderExecutor::initWindow(std::shared_ptr<RenderDeviceContext> conte
     }
     device_context_ = std::move(context);
 
-    if (!device_context_->isHealthy()) {
-        shutdownLocked();
-        return std::unexpected(unavailableDeviceError());
-    }
     auto& device = device_context_->device();
     if (auto surfaceInitialized = surface_.initWindowSurface(device, config, width, height); !surfaceInitialized) {
         shutdownLocked();
@@ -146,25 +137,13 @@ ResultVoid RenderExecutor::prepareResources(const engine::RenderResourcePrepareL
     if (!initialized_ || !device_context_) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
-    if (!device_context_->isHealthy()) {
-        return std::unexpected(unavailableDeviceError());
-    }
-
-    auto prepared = renderer_.preparePersistentResources(resource_client_, prepare);
-    if (!prepared && engine::isDeviceFatalError(prepared.error())) {
-        device_context_->markFailed();
-    }
-    return prepared;
+    return renderer_.preparePersistentResources(resource_client_, prepare);
 }
 
 ResultVoid RenderExecutor::executeFrame(const RenderSubmission& submission) {
     if (!initialized_ || !device_context_) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
-    if (!device_context_->isHealthy()) {
-        return std::unexpected(unavailableDeviceError());
-    }
-
     const RenderSurfaceState state = surfaceStateLocked();
     if (!state.valid || (!surface_.renderTarget() && !surface_.swapChain())) {
         return std::unexpected(executorError(ErrorCode::Internal, "Render surface is not available."));
@@ -172,11 +151,7 @@ ResultVoid RenderExecutor::executeFrame(const RenderSubmission& submission) {
 
     light_environment_ = submission.lightEnvironment;
     auto request = buildRenderRequest(surface_, submission);
-    auto rendered = renderer_.render(device_context_->device(), bindSurface(surface_), request);
-    if (!rendered && engine::isDeviceFatalError(rendered.error())) {
-        device_context_->markFailed();
-    }
-    return rendered;
+    return renderer_.render(device_context_->device(), bindSurface(surface_), request);
 }
 
 Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmission& submission,
@@ -184,10 +159,6 @@ Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmissi
     if (!initialized_ || !device_context_) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
-    if (!device_context_->isHealthy()) {
-        return std::unexpected(unavailableDeviceError());
-    }
-
     const uint32_t width = desc.width ? desc.width : static_cast<uint32_t>(surface_.width());
     const uint32_t height = desc.height ? desc.height : static_cast<uint32_t>(surface_.height());
     if (width == 0 || height == 0) {
@@ -195,8 +166,6 @@ Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmissi
     }
 
     if (auto configured = configureCaptureSurface(desc, width, height); !configured) {
-        if (engine::isDeviceFatalError(configured.error()))
-            device_context_->markFailed();
         return std::unexpected(configured.error());
     }
 
@@ -204,9 +173,6 @@ Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmissi
     auto request = buildRenderRequest(capture_surface_, submission);
     auto rendered = renderer_.render(device_context_->device(), bindSurface(capture_surface_), request);
     if (!rendered) {
-        if (engine::isDeviceFatalError(rendered.error())) {
-            device_context_->markFailed();
-        }
         return std::unexpected(rendered.error());
     }
 
@@ -220,8 +186,6 @@ Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmissi
     if (desc.readback) {
         auto readback = capture_surface_.readbackPixels(device_context_->device(), result.pixels);
         if (!readback) {
-            if (engine::isDeviceFatalError(readback.error()))
-                device_context_->markFailed();
             return std::unexpected(readback.error());
         }
     }
@@ -232,21 +196,14 @@ Result<RenderSurfaceState> RenderExecutor::resize(int width, int height) {
     if (!device_context_ || !initialized_ || width <= 0 || height <= 0) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render surface resize is invalid."));
     }
-    if (!device_context_->isHealthy()) {
-        return std::unexpected(unavailableDeviceError());
-    }
-
     if (auto resized = surface_.resize(device_context_->device(), width, height); !resized) {
-        if (engine::isDeviceFatalError(resized.error())) {
-            device_context_->markFailed();
-        }
         return std::unexpected(resized.error());
     }
     return surfaceStateLocked();
 }
 
 void RenderExecutor::enableIBL(const std::string& hdrPath) {
-    if (!device_context_ || !device_context_->isHealthy() || hdrPath.empty()) {
+    if (!device_context_ || hdrPath.empty()) {
         return;
     }
 
@@ -257,10 +214,6 @@ ResultVoid RenderExecutor::clearAssetResources() {
     if (!device_context_ || !renderer_.isInitialized()) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render executor is not initialized."));
     }
-    if (!device_context_->isHealthy()) {
-        return std::unexpected(unavailableDeviceError());
-    }
-
     if (resource_client_ != 0) {
         const engine::DeviceResourceClientId releasedClient = std::exchange(resource_client_, 0);
         auto released = device_context_->resources().releaseClient(releasedClient);

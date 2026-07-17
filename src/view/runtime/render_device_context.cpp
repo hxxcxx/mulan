@@ -5,13 +5,6 @@
 
 namespace mulan::view::detail {
 
-void RenderDeviceContext::markFailed() {
-    if (healthy_.exchange(false)) {
-        LOG_CRITICAL("[RenderDeviceContext] Shared device context marked unhealthy: backend={}",
-                     static_cast<int>(backend_));
-    }
-}
-
 Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::create(const ViewConfig& config) {
     MULAN_PROFILE_ZONE();
 
@@ -31,7 +24,7 @@ Result<std::shared_ptr<RenderDeviceContext>> RenderDeviceContext::create(const V
         return std::unexpected(device.error());
     }
 
-    auto context = std::shared_ptr<RenderDeviceContext>(new RenderDeviceContext(std::move(*device), config.backend));
+    auto context = std::shared_ptr<RenderDeviceContext>(new RenderDeviceContext(std::move(*device)));
     if (!context->resource_service_->init()) {
         return std::unexpected(Error::make(ErrorCode::Internal, "Failed to initialize device resource service."));
     }

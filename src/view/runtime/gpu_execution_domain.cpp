@@ -157,7 +157,7 @@ Result<GpuExecutionClientId> GpuExecutionDomain::attachWindow(const ViewConfig& 
 }
 
 Result<std::shared_ptr<RenderDeviceContext>> GpuExecutionDomain::ensureDeviceContext() {
-    if (device_context_ && device_context_->isHealthy())
+    if (device_context_)
         return device_context_;
     auto created = RenderDeviceContext::create(config_);
     if (!created)

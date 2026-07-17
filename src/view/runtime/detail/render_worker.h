@@ -33,9 +33,6 @@ public:
     std::optional<Error> failureSnapshot() const;
     RenderSurfaceState surfaceState() const;
 
-    /// Debug/测试统计：同一 domainId 表示多个 Worker 实际共享一条 GPU 线程。
-    GpuExecutionDomainStats domainStats() const;
-
 private:
     std::shared_ptr<GpuExecutionDomain> domain_;
     GpuExecutionClientId client_ = 0;

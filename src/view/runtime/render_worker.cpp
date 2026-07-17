@@ -91,8 +91,4 @@ RenderSurfaceState RenderWorker::surfaceState() const {
     return domain_ && client_ != 0 ? domain_->surfaceState(client_) : RenderSurfaceState{};
 }
 
-GpuExecutionDomainStats RenderWorker::domainStats() const {
-    return domain_ ? domain_->stats() : GpuExecutionDomainStats{};
-}
-
 }  // namespace mulan::view::detail

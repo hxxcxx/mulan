@@ -82,10 +82,6 @@ bool ViewContext::isInitialized() const {
     return render_session_->isInitialized();
 }
 
-std::optional<Error> ViewContext::runtimeFailure() const {
-    return render_session_->runtimeFailure();
-}
-
 ResultVoid ViewContext::pollRuntime() {
     return render_session_->pollRuntime();
 }

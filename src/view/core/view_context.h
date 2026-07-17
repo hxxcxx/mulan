@@ -22,7 +22,6 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
-#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -52,8 +51,6 @@ public:
     void shutdown();
 
     bool isInitialized() const;
-    /// 专用渲染线程的异步失败快照；无失败时返回空。
-    std::optional<Error> runtimeFailure() const;
     /// owner 主动回收渲染线程 ACK/Failure，并在失败时完成执行域清理。
     ResultVoid pollRuntime();
 

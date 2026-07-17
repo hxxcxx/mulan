@@ -66,17 +66,6 @@ bool RenderSession::isInitialized() const {
     return worker_ && worker_->isInitialized();
 }
 
-std::optional<Error> RenderSession::runtimeFailure() const {
-    assertOwnerThread();
-    if (last_runtime_failure_) {
-        return last_runtime_failure_;
-    }
-    if (worker_) {
-        return worker_->failureSnapshot();
-    }
-    return std::nullopt;
-}
-
 ResultVoid RenderSession::pollRuntime() {
     assertOwnerThread();
     if (last_runtime_failure_) {
