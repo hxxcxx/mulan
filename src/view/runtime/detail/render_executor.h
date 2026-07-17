@@ -47,7 +47,7 @@ public:
                                                 const engine::RenderCaptureDesc& desc);
     Result<RenderSurfaceState> resize(int width, int height);
     void enableIBL(const std::string& hdrPath);
-    void clearAssetResources();
+    ResultVoid clearAssetResources();
 
 private:
     ResultVoid initRenderer();

@@ -253,18 +253,23 @@ void RenderExecutor::enableIBL(const std::string& hdrPath) {
     renderer_.enableIBL(device_context_->device(), hdrPath);
 }
 
-void RenderExecutor::clearAssetResources() {
-    if (!device_context_ || !device_context_->isHealthy() || !renderer_.isInitialized()) {
-        return;
+ResultVoid RenderExecutor::clearAssetResources() {
+    if (!device_context_ || !renderer_.isInitialized()) {
+        return std::unexpected(executorError(ErrorCode::InvalidArg, "Render executor is not initialized."));
+    }
+    if (!device_context_->isHealthy()) {
+        return std::unexpected(unavailableDeviceError());
     }
 
     if (resource_client_ != 0) {
-        auto released = device_context_->resources().releaseClient(resource_client_);
+        const engine::DeviceResourceClientId releasedClient = std::exchange(resource_client_, 0);
+        auto released = device_context_->resources().releaseClient(releasedClient);
         if (!released) {
-            LOG_ERROR("[RenderExecutor] Device resource client release failed: {}", released.error().message);
+            return std::unexpected(released.error());
         }
     }
     resource_client_ = device_context_->resources().registerClient();
+    return {};
 }
 
 ResultVoid RenderExecutor::initRenderer() {

@@ -425,10 +425,7 @@ ResultVoid GpuExecutionDomain::clearAssetResources(GpuExecutionClientId clientId
         client.latestFrame.reset();
         const uint64_t sequence = client.protocol.registerResourceBarrier();
         client.controls.push_back(ControlTask{
-                .execute = [](RenderExecutor& executor) -> ResultVoid {
-                    executor.clearAssetResources();
-                    return {};
-                },
+                .execute = [](RenderExecutor& executor) -> ResultVoid { return executor.clearAssetResources(); },
                 .fatalOnFailure = true,
                 .resourceSequence = sequence,
         });
