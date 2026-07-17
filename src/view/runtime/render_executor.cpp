@@ -137,7 +137,7 @@ ResultVoid RenderExecutor::prepareResources(const engine::RenderResourcePrepareL
     if (!initialized_ || !device_context_) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
-    return renderer_.preparePersistentResources(resource_client_, prepare);
+    return device_context_->resources().preparePersistentResources(resource_client_, prepare);
 }
 
 ResultVoid RenderExecutor::executeFrame(const RenderSubmission& submission) {
@@ -149,9 +149,9 @@ ResultVoid RenderExecutor::executeFrame(const RenderSubmission& submission) {
         return std::unexpected(executorError(ErrorCode::Internal, "Render surface is not available."));
     }
 
-    light_environment_ = submission.lightEnvironment;
     auto request = buildRenderRequest(surface_, submission);
-    return renderer_.render(device_context_->device(), bindSurface(surface_), request);
+    return forward_renderer_.render(device_context_->device(), bindSurface(surface_), request,
+                                    submission.lightEnvironment);
 }
 
 Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmission& submission,
@@ -169,9 +169,9 @@ Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmissi
         return std::unexpected(configured.error());
     }
 
-    light_environment_ = submission.lightEnvironment;
     auto request = buildRenderRequest(capture_surface_, submission);
-    auto rendered = renderer_.render(device_context_->device(), bindSurface(capture_surface_), request);
+    auto rendered = forward_renderer_.render(device_context_->device(), bindSurface(capture_surface_), request,
+                                             submission.lightEnvironment);
     if (!rendered) {
         return std::unexpected(rendered.error());
     }
@@ -207,11 +207,11 @@ void RenderExecutor::enableIBL(const std::string& hdrPath) {
         return;
     }
 
-    renderer_.enableIBL(device_context_->device(), hdrPath);
+    forward_renderer_.enableIBL(device_context_->device(), hdrPath);
 }
 
 ResultVoid RenderExecutor::clearAssetResources() {
-    if (!device_context_ || !renderer_.isInitialized()) {
+    if (!device_context_ || !forward_renderer_.isInitialized()) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render executor is not initialized."));
     }
     if (resource_client_ != 0) {
@@ -237,8 +237,8 @@ ResultVoid RenderExecutor::initRenderer() {
     if (resource_client_ == 0) {
         resource_client_ = device_context_->resources().registerClient();
     }
-    return renderer_.init(device, device_context_->resources(), light_environment_, surface_.colorFormat(device),
-                          surface_.depthFormat(device), surface_.sampleCount());
+    return forward_renderer_.init(device, device_context_->resources(), surface_.colorFormat(device),
+                                  surface_.depthFormat(device), surface_.sampleCount());
 }
 
 ResultVoid RenderExecutor::configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width,
@@ -275,8 +275,8 @@ void RenderExecutor::shutdownLocked() {
         // 先移除所有 Surface，确保通道释放后再也没有窗口/截图后备缓冲引用 Device。
         capture_surface_.shutdown(device);
         surface_.shutdown(device);
-        // 即使初始化只完成了一部分，也必须让 RenderRenderer 无条件清理已创建资源。
-        renderer_.shutdown(device);
+        // 即使初始化只完成了一部分，也必须让 ForwardRenderer 无条件清理已创建资源。
+        forward_renderer_.shutdown(device);
         if (resource_client_ != 0) {
             auto released = device_context_->resources().releaseClient(resource_client_);
             if (!released) {

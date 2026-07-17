@@ -17,9 +17,8 @@
 #include "scene_sync/render_submission.h"
 
 #include <mulan/core/result/error.h>
-#include <mulan/render/backend/render_renderer.h>
+#include <mulan/render/backend/forward_renderer.h>
 #include <mulan/render/frontend/render_capture.h>
-#include <mulan/render/light_environment.h>
 
 #include <memory>
 #include <string>
@@ -58,9 +57,7 @@ private:
     std::shared_ptr<RenderDeviceContext> device_context_;
     RenderSurface surface_;
     RenderSurface capture_surface_;
-    // RenderRenderer 的资源对象持有此成员引用，因此 LightEnvironment 必须比 renderer_ 更晚析构。
-    engine::LightEnvironment light_environment_;
-    engine::RenderRenderer renderer_;
+    engine::ForwardRenderer forward_renderer_;
     engine::DeviceResourceClientId resource_client_ = 0;
     bool initialized_ = false;
 };

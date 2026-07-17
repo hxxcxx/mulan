@@ -1,6 +1,6 @@
 /**
- * @file render_renderer.h
- * @brief RenderRenderer 是 engine backend 的一帧渲染编排入口。
+ * @file forward_renderer.h
+ * @brief ForwardRenderer 编译并执行单个视图的固定 Forward 渲染流程。
  * @author hxxcxx
  * @date 2026-07-05
  */
@@ -14,7 +14,6 @@
 #include "../forward/face_stage.h"
 #include "../forward/highlight_stage.h"
 #include "../frontend/render_request.h"
-#include "../frontend/render_resource_prepare.h"
 #include "../light_environment.h"
 #include "../material/material_cache.h"
 #include "../asset_gpu_registry.h"
@@ -35,27 +34,23 @@ class RHIDevice;
 class TextStage;
 class ViewCubeStage;
 
-class RenderRenderer {
+class ForwardRenderer {
 public:
-    RenderRenderer();
-    ~RenderRenderer();
+    ForwardRenderer();
+    ~ForwardRenderer();
 
-    RenderRenderer(const RenderRenderer&) = delete;
-    RenderRenderer& operator=(const RenderRenderer&) = delete;
+    ForwardRenderer(const ForwardRenderer&) = delete;
+    ForwardRenderer& operator=(const ForwardRenderer&) = delete;
 
-    ResultVoid init(RHIDevice& device, DeviceResourceService& resources, LightEnvironment& lightEnv,
-                    TextureFormat colorFmt, TextureFormat depthFmt, uint32_t sampleCount);
+    ResultVoid init(RHIDevice& device, DeviceResourceService& resources, TextureFormat colorFmt, TextureFormat depthFmt,
+                    uint32_t sampleCount);
     void shutdown(RHIDevice& device);
 
     void enableIBL(RHIDevice& device, const std::string& hdrPath);
-    /// 上传跨帧持久资源；只有整个批次完成后才返回成功，供上层生成可靠 ACK。
-    ResultVoid preparePersistentResources(DeviceResourceClientId client, const RenderResourcePrepareList& prepare);
-    ResultVoid render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
+    ResultVoid render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request,
+                      const LightEnvironment& lightEnvironment);
 
     bool isInitialized() const { return initialized_; }
-    const RenderWorkloadStats& lastWorkloadStats() const { return scene_compiler_.lastWorkloadStats(); }
-    const RenderCompilerStats& lastCompilerStats() const { return scene_compiler_.lastStats(); }
-    const RenderPacketCacheStats& lastPacketCacheStats() const { return scene_compiler_.lastPacketCacheStats(); }
 
 private:
     bool validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const;
@@ -67,12 +62,10 @@ private:
     void executeStages(RenderFrame& frame, const TextDrawList& requestTextDraws);
     ResultVoid endFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request);
 
-    DeviceResourceService* device_resources_ = nullptr;
     MaterialCache* material_cache_ = nullptr;
     std::unique_ptr<IBLPipeline> ibl_;
     AssetGpuRegistry* asset_gpu_registry_ = nullptr;
     GeometryDrawSharedResources* geometry_resources_ = nullptr;
-    LightEnvironment* light_environment_ = nullptr;
 
     RenderCompiler scene_compiler_;
     RenderCompiler overlay_compiler_;

@@ -1,4 +1,4 @@
-#include "render_renderer.h"
+#include "forward_renderer.h"
 
 #include "../frame/render_frame.h"
 #include "../overlay/view_cube_stage.h"
@@ -17,19 +17,17 @@
 #include <span>
 
 namespace mulan::engine {
-RenderRenderer::RenderRenderer() = default;
-RenderRenderer::~RenderRenderer() = default;
+ForwardRenderer::ForwardRenderer() = default;
+ForwardRenderer::~ForwardRenderer() = default;
 
-ResultVoid RenderRenderer::init(RHIDevice& device, DeviceResourceService& resources, LightEnvironment& lightEnv,
-                                TextureFormat colorFmt, TextureFormat depthFmt, uint32_t sampleCount) {
+ResultVoid ForwardRenderer::init(RHIDevice& device, DeviceResourceService& resources, TextureFormat colorFmt,
+                                 TextureFormat depthFmt, uint32_t sampleCount) {
     if (initialized_)
         return {};
 
-    device_resources_ = &resources;
     material_cache_ = &resources.materials();
     asset_gpu_registry_ = &resources.assets();
     geometry_resources_ = &resources.geometryDrawResources();
-    light_environment_ = &lightEnv;
 
     RenderTargetInfo targetInfo;
     targetInfo.colorFormat = colorFmt;
@@ -51,23 +49,23 @@ ResultVoid RenderRenderer::init(RHIDevice& device, DeviceResourceService& resour
 
     view_cube_stage_ = std::make_unique<ViewCubeStage>(device);
     if (!view_cube_stage_->init(device, targetInfo)) {
-        LOG_WARN("[RenderRenderer] ViewCube stage initialization failed; continuing without it");
+        LOG_WARN("[ForwardRenderer] ViewCube stage initialization failed; continuing without it");
         view_cube_stage_.reset();
     }
 
     text_stage_ = resources.acquireTextStage(targetInfo);
     if (!text_stage_) {
-        LOG_WARN("[RenderRenderer] Text stage initialization failed; continuing without it");
+        LOG_WARN("[ForwardRenderer] Text stage initialization failed; continuing without it");
     }
 
     initialized_ = true;
-    LOG_INFO("[RenderRenderer] Initialized: colorFormat={}, depthFormat={}, sampleCount={}, viewCube={}, text={}",
+    LOG_INFO("[ForwardRenderer] Initialized: colorFormat={}, depthFormat={}, sampleCount={}, viewCube={}, text={}",
              static_cast<int>(colorFmt), static_cast<int>(depthFmt), sampleCount, view_cube_stage_ != nullptr,
              text_stage_ != nullptr);
     return {};
 }
 
-void RenderRenderer::shutdown(RHIDevice& device) {
+void ForwardRenderer::shutdown(RHIDevice& device) {
     // 即使 init() 未能完成（initialized_ 仍为 false），也可能已分配部分 RHI 资源
     //（如 GeometryDrawSharedResources 的 UBO）。因此 shutdown 必须无条件执行清理，
     // 否则这些资源会在 device 析构时触发 assertNoLiveResources 断言。
@@ -89,19 +87,17 @@ void RenderRenderer::shutdown(RHIDevice& device) {
     if (token) {
         auto retireResult = device.retire(token, std::move(releaseResources));
         if (!retireResult)
-            LOG_ERROR("[RenderRenderer] Renderer resource retirement failed: {}", retireResult.error().message);
+            LOG_ERROR("[ForwardRenderer] Renderer resource retirement failed: {}", retireResult.error().message);
     } else {
         releaseResources();
     }
     geometry_resources_ = nullptr;
     asset_gpu_registry_ = nullptr;
     material_cache_ = nullptr;
-    device_resources_ = nullptr;
-    light_environment_ = nullptr;
     initialized_ = false;
 }
 
-void RenderRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
+void ForwardRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
     if (ibl_)
         return;
 
@@ -112,7 +108,7 @@ void RenderRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
     test = fopen(hdrPath.c_str(), "rb");
 #endif
     if (!test) {
-        LOG_WARN("[RenderRenderer] IBL requested but HDR file was not found: {}", hdrPath);
+        LOG_WARN("[ForwardRenderer] IBL requested but HDR file was not found: {}", hdrPath);
         return;
     }
     fclose(test);
@@ -122,25 +118,17 @@ void RenderRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
         if (face_stage_) {
             face_stage_->setIBLTextures(ibl_->irradiance(), ibl_->prefilter(), ibl_->brdfLUT());
         }
-        LOG_INFO("[RenderRenderer] IBL enabled: {}", hdrPath);
+        LOG_INFO("[ForwardRenderer] IBL enabled: {}", hdrPath);
     } else {
-        LOG_ERROR("[RenderRenderer] IBL bake failed: {}", hdrPath);
+        LOG_ERROR("[ForwardRenderer] IBL bake failed: {}", hdrPath);
         ibl_.reset();
     }
 }
 
-ResultVoid RenderRenderer::preparePersistentResources(DeviceResourceClientId client,
-                                                      const RenderResourcePrepareList& prepare) {
-    if (!initialized_ || !device_resources_) {
-        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render renderer is not initialized."));
-    }
-    return device_resources_->preparePersistentResources(client, prepare);
-}
-
-ResultVoid RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surface,
-                                  const RenderRequest& request) {
+ResultVoid ForwardRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request,
+                                   const LightEnvironment& lightEnvironment) {
     if (!initialized_) {
-        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render renderer is not initialized."));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Forward renderer is not initialized."));
     }
     if (!surface.isValid() || !validateOutput(surface, request)) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render output is invalid."));
@@ -149,7 +137,7 @@ ResultVoid RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding&
     auto compiled = compile(request);
     if (!compiled) {
         clearCompiledCommands();
-        LOG_ERROR("[RenderRenderer] Frame compilation failed: {}", compiled.error().message);
+        LOG_ERROR("[ForwardRenderer] Frame compilation failed: {}", compiled.error().message);
         return std::unexpected(compiled.error());
     }
 
@@ -179,8 +167,8 @@ ResultVoid RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding&
     frameTargetInfo.presentable = request.output.mode == RenderTargetMode::Present;
 
     RenderFrame frame{ *cmd, renderView, frameTargetInfo };
-    if (geometry_resources_ && light_environment_) {
-        geometry_resources_->uploadFrameData(buildDrawContext(*cmd, frame), *light_environment_);
+    if (geometry_resources_) {
+        geometry_resources_->uploadFrameData(buildDrawContext(*cmd, frame), lightEnvironment);
     }
     executeStages(frame, request.textDraws);
 
@@ -189,34 +177,34 @@ ResultVoid RenderRenderer::render(RHIDevice& device, const RenderSurfaceBinding&
     return endFrame(device, surface, request);
 }
 
-bool RenderRenderer::validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const {
+bool ForwardRenderer::validateOutput(const RenderSurfaceBinding& surface, const RenderRequest& request) const {
     switch (request.output.mode) {
     case RenderTargetMode::Present:
         if (!surface.swapChain) {
-            LOG_ERROR("[RenderRenderer] Present request rejected: SwapChain is required");
+            LOG_ERROR("[ForwardRenderer] Present request rejected: SwapChain is required");
             return false;
         }
         return true;
     case RenderTargetMode::Offscreen:
         if (!surface.renderTarget) {
-            LOG_ERROR("[RenderRenderer] Offscreen request rejected: RenderTarget is required");
+            LOG_ERROR("[ForwardRenderer] Offscreen request rejected: RenderTarget is required");
             return false;
         }
         return true;
     case RenderTargetMode::Capture:
         if (!surface.renderTarget) {
-            LOG_ERROR("[RenderRenderer] Capture request rejected: RenderTarget is required");
+            LOG_ERROR("[ForwardRenderer] Capture request rejected: RenderTarget is required");
             return false;
         }
         if (!request.output.readback) {
-            LOG_WARN("[RenderRenderer] Capture request has readback disabled");
+            LOG_WARN("[ForwardRenderer] Capture request has readback disabled");
         }
         return true;
     }
     return false;
 }
 
-void RenderRenderer::clearCompiledCommands() {
+void ForwardRenderer::clearCompiledCommands() {
     const std::span<const MeshDrawCommand> emptyCommands;
     if (face_stage_) {
         face_stage_->setDrawCommands(emptyCommands);
@@ -239,7 +227,7 @@ void RenderRenderer::clearCompiledCommands() {
     merged_commands_valid_ = false;
 }
 
-ResultVoid RenderRenderer::compile(const RenderRequest& request) {
+ResultVoid ForwardRenderer::compile(const RenderRequest& request) {
     if (!request.sceneWorld && !request.overlayWorld) {
         clearCompiledCommands();
         return {};
@@ -323,11 +311,11 @@ ResultVoid RenderRenderer::compile(const RenderRequest& request) {
     return {};
 }
 
-Result<CommandList*> RenderRenderer::beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
-                                                const RenderRequest& request) {
+Result<CommandList*> ForwardRenderer::beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
+                                                 const RenderRequest& request) {
     auto commandListResult = device.beginFrame(surface.swapChain ? surface.swapChain : nullptr);
     if (!commandListResult) {
-        LOG_ERROR("[RenderRenderer] Frame begin failed: {}", commandListResult.error().message);
+        LOG_ERROR("[ForwardRenderer] Frame begin failed: {}", commandListResult.error().message);
         return std::unexpected(commandListResult.error());
     }
     auto* cmd = *commandListResult;
@@ -356,7 +344,7 @@ Result<CommandList*> RenderRenderer::beginFrame(RHIDevice& device, const RenderS
     return cmd;
 }
 
-void RenderRenderer::executeStages(RenderFrame& frame, const TextDrawList& requestTextDraws) {
+void ForwardRenderer::executeStages(RenderFrame& frame, const TextDrawList& requestTextDraws) {
     if (text_stage_)
         text_stage_->beginFrame(frame.view.width, frame.view.height);
     TextDrawList textDraws;
@@ -383,7 +371,7 @@ void RenderRenderer::executeStages(RenderFrame& frame, const TextDrawList& reque
     }
 }
 
-DrawExecutionContext RenderRenderer::buildDrawContext(CommandList& cmd, const RenderFrame& frame) const {
+DrawExecutionContext ForwardRenderer::buildDrawContext(CommandList& cmd, const RenderFrame& frame) const {
     DrawExecutionContext ctx;
     ctx.cmd = &cmd;
     ctx.width = static_cast<int>(frame.view.width);
@@ -394,12 +382,12 @@ DrawExecutionContext RenderRenderer::buildDrawContext(CommandList& cmd, const Re
     return ctx;
 }
 
-ResultVoid RenderRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
-                                    const RenderRequest& request) {
+ResultVoid ForwardRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
+                                     const RenderRequest& request) {
     SwapChain* swapchain = request.output.mode == RenderTargetMode::Present ? surface.swapChain : nullptr;
     auto result = device.endFrame(swapchain);
     if (!result) {
-        LOG_ERROR("[RenderRenderer] Frame submission failed: {}", result.error().message);
+        LOG_ERROR("[ForwardRenderer] Frame submission failed: {}", result.error().message);
         return std::unexpected(result.error());
     }
     return {};
