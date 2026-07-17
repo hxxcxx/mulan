@@ -17,8 +17,8 @@
 
 namespace mulan::engine {
 
-/// 设备创建函数签名。
-using DeviceCreator = Result<std::unique_ptr<RHIDevice>> (*)(const DeviceCreateInfo&);
+/// 后端只负责构造具体设备；错误转换和完整性验证统一由 RHIDevice::create 处理。
+using DeviceCreator = std::unique_ptr<RHIDevice> (*)(const DeviceCreateInfo&);
 
 struct BackendModule {
     GraphicsBackend backend = GraphicsBackend::Vulkan;

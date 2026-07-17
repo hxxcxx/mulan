@@ -182,6 +182,8 @@ protected:
     RHIDevice(const RHIDevice&) = delete;
     RHIDevice& operator=(const RHIDevice&) = delete;
 
+    virtual bool isInitialized() const noexcept = 0;
+
     void assertResourceOwned(const RHITrackedResource* resource) const noexcept {
 #ifndef NDEBUG
         assert(resource != nullptr);

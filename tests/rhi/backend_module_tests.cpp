@@ -13,19 +13,26 @@
 namespace mulan::engine {
 namespace {
 
-Result<std::unique_ptr<RHIDevice>> rejectDeviceCreation(const DeviceCreateInfo&) {
-    return std::unexpected(makeError(EngineErrorCode::BackendNotSupported, "test backend does not create a Device"));
+std::unique_ptr<RHIDevice> createNullDevice(const DeviceCreateInfo&) {
+    return {};
 }
 
 TEST(BackendModuleTest, RegistersExplicitModuleAndRejectsDuplicate) {
     auto& factory = DeviceFactory::instance();
-    const BackendModule module{ GraphicsBackend::D3D11, "TestD3D11", &rejectDeviceCreation };
+    constexpr auto testBackend = static_cast<GraphicsBackend>(0xFF);
+    const BackendModule module{ testBackend, "TestNull", &createNullDevice };
 
     ASSERT_TRUE(factory.registerModule(module));
-    const BackendModule* registered = factory.find(GraphicsBackend::D3D11);
+    const BackendModule* registered = factory.find(testBackend);
     ASSERT_NE(registered, nullptr);
-    EXPECT_EQ(registered->name, "TestD3D11");
-    EXPECT_EQ(registered->createDevice, &rejectDeviceCreation);
+    EXPECT_EQ(registered->name, "TestNull");
+    EXPECT_EQ(registered->createDevice, &createNullDevice);
+
+    DeviceCreateInfo createInfo;
+    createInfo.backend = testBackend;
+    const auto created = RHIDevice::create(createInfo);
+    ASSERT_FALSE(created);
+    EXPECT_EQ(created.error().code, static_cast<int32_t>(EngineErrorCode::DeviceLost));
 
     const auto duplicate = factory.registerModule(module);
     ASSERT_FALSE(duplicate);

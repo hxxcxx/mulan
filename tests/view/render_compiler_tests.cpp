@@ -103,6 +103,8 @@ public:
     Result<SubmissionToken> endFrame(SwapChain*) override { return SubmissionToken{}; }
 
 private:
+    bool isInitialized() const noexcept override { return true; }
+
     GPUDeviceCapabilities capabilities_;
     RenderConfig render_config_;
 };

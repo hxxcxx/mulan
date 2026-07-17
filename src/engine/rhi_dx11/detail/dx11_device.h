@@ -35,9 +35,6 @@ public:
     const GPUDeviceCapabilities& capabilities() const override { return m_caps; }
     const RenderConfig& renderConfig() const override { return m_renderConfig; }
     math::Mat4 clipSpaceCorrectionMatrix() const override;
-    bool isInitialized() const {
-        return m_factory && m_device && m_immediateCtx && m_frameCmdList && submissionFence();
-    }
 
     // --- 资源创建 ---
     Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc) override;
@@ -67,6 +64,10 @@ public:
     Result<SubmissionToken> endFrame(SwapChain* swapchain = nullptr) override;
 
 private:
+    bool isInitialized() const noexcept override {
+        return m_factory && m_device && m_immediateCtx && m_frameCmdList && submissionFence();
+    }
+
     Result<SubmissionToken> submitFrame();
     void init(const DeviceCreateInfo& ci);
     uint32_t resolveSampleCount(TextureFormat colorFormat, TextureFormat depthFormat, bool hasDepth,

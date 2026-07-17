@@ -12,6 +12,7 @@
 #include <mulan/core/profiling/profile.h>
 
 #include <algorithm>
+#include <string>
 
 namespace mulan::engine {
 
@@ -46,7 +47,12 @@ Result<std::unique_ptr<RHIDevice>> RHIDevice::create(const DeviceCreateInfo& ci)
         return std::unexpected(makeError(EngineErrorCode::BackendNotSupported, "Graphics backend not registered"));
     }
     try {
-        return module->createDevice(ci);
+        auto device = module->createDevice(ci);
+        if (!device || !device->isInitialized()) {
+            return std::unexpected(makeError(EngineErrorCode::DeviceLost,
+                                             std::string(module->name) + " device initialization failed"));
+        }
+        return std::move(device);
     } catch (const std::exception& e) {
         return std::unexpected(makeError(EngineErrorCode::DeviceLost, e.what()));
     } catch (...) {

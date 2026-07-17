@@ -114,6 +114,24 @@ std::vector<BackendContractParam> availableBackends() {
     return backends;
 }
 
+ResultVoid ensureBackendRegistered(const BackendModule& module) {
+    auto& factory = DeviceFactory::instance();
+    if (const BackendModule* registered = factory.find(module.backend)) {
+        if (registered->createDevice == module.createDevice)
+            return {};
+        return std::unexpected(
+                makeError(EngineErrorCode::InvalidBackendModule, "A different backend module is already registered"));
+    }
+    return factory.registerModule(module);
+}
+
+Result<std::unique_ptr<RHIDevice>> createRegisteredDevice(const BackendModule& module,
+                                                          const DeviceCreateInfo& createInfo) {
+    if (auto registered = ensureBackendRegistered(module); !registered)
+        return std::unexpected(registered.error());
+    return RHIDevice::create(createInfo);
+}
+
 class BackendContractTest : public testing::TestWithParam<BackendContractParam> {
 protected:
     Result<std::unique_ptr<RHIDevice>> createDevice(ContractWindow& window) const {
@@ -123,7 +141,7 @@ protected:
         createInfo.window = window.nativeHandle();
         createInfo.enableValidation = true;
         createInfo.renderConfig.msaa = RenderConfig::MSAALevel::None;
-        return module.createDevice(createInfo);
+        return createRegisteredDevice(module, createInfo);
     }
 };
 
@@ -138,7 +156,7 @@ TEST(VulkanBackendContractTest, OneDeviceAlternatesTwoIndependentSwapChains) {
     createInfo.backend = GraphicsBackend::Vulkan;
     createInfo.enableValidation = true;
     createInfo.renderConfig.msaa = RenderConfig::MSAALevel::None;
-    auto deviceResult = vulkanBackendModule().createDevice(createInfo);
+    auto deviceResult = createRegisteredDevice(vulkanBackendModule(), createInfo);
     ASSERT_TRUE(deviceResult) << deviceResult.error().message;
     auto device = std::move(*deviceResult);
 

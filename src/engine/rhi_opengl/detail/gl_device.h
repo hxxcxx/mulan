@@ -97,9 +97,9 @@ public:
 
     GLContext* context() const { return context_.get(); }
 
-    bool isInitialized() const { return initialized_; }
-
 private:
+    bool isInitialized() const noexcept override { return initialized_; }
+
     Result<SubmissionToken> submitFrame();
     void init(const CreateInfo& ci);
     void shutdown();

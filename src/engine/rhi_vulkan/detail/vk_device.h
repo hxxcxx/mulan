@@ -85,6 +85,14 @@ public:
     uint32_t currentFrameIndex() const { return frame_scheduler_->currentFrameIndex(); }
 
 private:
+    bool isInitialized() const noexcept override {
+        return static_cast<VkInstance>(instance_) != VK_NULL_HANDLE &&
+               static_cast<VkPhysicalDevice>(physical_device_) != VK_NULL_HANDLE &&
+               static_cast<VkDevice>(device_) != VK_NULL_HANDLE &&
+               static_cast<VkQueue>(graphics_queue_) != VK_NULL_HANDLE && allocator_ != nullptr && upload_context_ &&
+               frame_scheduler_ && resource_factory_ && submissionFence();
+    }
+
     Result<SubmissionToken> submitFrame();
     Result<SubmissionToken> submitOffscreenFrame();
     void init(const DeviceCreateInfo& ci);

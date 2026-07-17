@@ -203,6 +203,8 @@ public:
     Result<SubmissionToken> endFrame(SwapChain*) override { return issueSubmission(); }
 
 private:
+    bool isInitialized() const noexcept override { return true; }
+
     RegistryTestFence* fence_ = nullptr;
     GPUDeviceCapabilities capabilities_;
     RenderConfig render_config_;

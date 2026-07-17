@@ -38,10 +38,6 @@ public:
     const GPUDeviceCapabilities& capabilities() const override { return caps_; }
     const RenderConfig& renderConfig() const override { return render_config_; }
     math::Mat4 clipSpaceCorrectionMatrix() const override;
-    bool isInitialized() const {
-        return factory_ && device_ && command_queue_ && !frames_.empty() && upload_context_ && sampler_heap_ &&
-               submissionFence() && sampler_heap_->isValid();
-    }
 
     // --- 资源创建 ---
     Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc) override;
@@ -75,6 +71,11 @@ public:
     ID3D12CommandSignature* drawIndirectSignature();
 
 private:
+    bool isInitialized() const noexcept override {
+        return factory_ && device_ && command_queue_ && !frames_.empty() && upload_context_ && sampler_heap_ &&
+               submissionFence() && sampler_heap_->isValid();
+    }
+
     Result<SubmissionToken> submitFrame();
     void init(const DeviceCreateInfo& ci);
     void createFactory();
