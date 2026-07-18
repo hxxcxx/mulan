@@ -83,14 +83,12 @@ Result<std::unique_ptr<X11GLContext>> X11GLContext::create(const GLContextCreate
 }
 
 bool X11GLContext::initialize(const GLContextCreateInfo& ci) {
-    if (ci.window.type != NativeWindowHandle::Type::XCB || ci.window.xcb.connection == 0 || ci.window.xcb.window == 0)
+    if (ci.window.type != NativeWindowHandle::Type::X11 || !ci.window.valid())
         return false;
 
-    display_ = XOpenDisplay(nullptr);
-    if (!display_)
-        return false;
-
-    window_ = static_cast<::Window>(ci.window.xcb.window);
+    // Display 与 Window 均由 Qt 的 X11 平台插件持有；GLX 上下文只在其生命周期内借用。
+    display_ = reinterpret_cast<Display*>(ci.window.x11.display);
+    window_ = static_cast<::Window>(ci.window.x11.window);
     XWindowAttributes windowAttributes{};
     if (!XGetWindowAttributes(display_, window_, &windowAttributes) || !windowAttributes.visual)
         return false;
@@ -169,10 +167,7 @@ void X11GLContext::shutdown() {
         context_ = nullptr;
     }
     window_ = 0;
-    if (display_) {
-        XCloseDisplay(display_);
-        display_ = nullptr;
-    }
+    display_ = nullptr;
     swap_interval_ext_ = nullptr;
     swap_interval_mesa_ = nullptr;
     swap_interval_sgi_ = nullptr;

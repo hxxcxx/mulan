@@ -251,10 +251,10 @@ vk::SurfaceKHR VKDevice::createSurface(const NativeWindowHandle& window) {
 #endif
 
 #ifdef VK_USE_PLATFORM_XCB_KHR
-    case NativeWindowHandle::Type::XCB: {
+    case NativeWindowHandle::Type::X11: {
         vk::XcbSurfaceCreateInfoKHR ci;
-        ci.connection = reinterpret_cast<xcb_connection_t*>(window.xcb.connection);
-        ci.window = static_cast<xcb_window_t>(window.xcb.window);
+        ci.connection = reinterpret_cast<xcb_connection_t*>(window.x11.connection);
+        ci.window = static_cast<xcb_window_t>(window.x11.window);
         return instance_.createXcbSurfaceKHR(ci);
     }
 #endif

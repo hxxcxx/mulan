@@ -17,8 +17,8 @@ Result<std::unique_ptr<RenderDeviceContext>> RenderDeviceContext::create(const V
 
     engine::DeviceCreateInfo createInfo;
     createInfo.backend = config.backend;
-    createInfo.window = config.backend == engine::GraphicsBackend::OpenGL ? config.toNativeWindowHandle()
-                                                                          : engine::NativeWindowHandle{};
+    if (config.backend == engine::GraphicsBackend::OpenGL)
+        createInfo.window = config.window;
     createInfo.renderConfig = renderConfig;
     createInfo.enableValidation = config.enableValidation;
 

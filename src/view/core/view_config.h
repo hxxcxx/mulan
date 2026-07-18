@@ -38,13 +38,8 @@ struct ViewConfig {
     /// HDR 文件路径（相对进程工作目录）。仅 iblEnabled=true 时使用。
     std::string hdrPath = "assets/envmap.hdr";
 
-#ifdef _WIN32
-    uintptr_t hInstance = 0;
-    uintptr_t hWnd = 0;
-#else
-    uintptr_t displayConnection = 0;
-    uintptr_t windowHandle = 0;
-#endif
+    /// 由应用壳的平台适配器提供；View 与渲染线程不感知 Qt/Win32/X11。
+    engine::NativeWindowHandle window;
 
     engine::RenderConfig toRenderConfig() const {
         engine::RenderConfig rc;
@@ -56,17 +51,6 @@ struct ViewConfig {
         for (int i = 0; i < 4; ++i)
             rc.clearColor[i] = clearColor[i];
         return rc;
-    }
-
-    engine::NativeWindowHandle toNativeWindowHandle() const {
-#ifdef _WIN32
-        if (hWnd)
-            return engine::NativeWindowHandle::makeWin32(hInstance, hWnd);
-#else
-        if (displayConnection && windowHandle)
-            return engine::NativeWindowHandle::makeXCB(displayConnection, windowHandle);
-#endif
-        return {};
     }
 };
 

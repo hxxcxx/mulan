@@ -77,7 +77,7 @@ ResultVoid RenderExecutor::initWindow(RenderDeviceContext& context, const ViewCo
         return std::unexpected(
                 executorError(ErrorCode::InvalidArg, "Window render surface size must be greater than zero."));
     }
-    if (!config.toNativeWindowHandle().valid()) {
+    if (!config.window.valid()) {
         LOG_ERROR("[RenderExecutor] Window initialization rejected: invalid native window handle");
         return std::unexpected(
                 executorError(ErrorCode::InvalidArg, "Window render session requires a valid native window."));

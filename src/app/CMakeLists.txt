@@ -25,7 +25,14 @@ set(MULAN_APP_QT_HEADERS
 )
 
 if(WIN32)
-    list(APPEND MULAN_APP_SOURCES resource/app-icon.rc)
+    list(APPEND MULAN_APP_SOURCES
+        platform/qt_native_window_handle_win32.cpp
+        resource/app-icon.rc
+    )
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    list(APPEND MULAN_APP_SOURCES platform/qt_native_window_handle_x11.cpp)
+else()
+    message(FATAL_ERROR "The Qt application has no native-window adapter for ${CMAKE_SYSTEM_NAME}")
 endif()
 
 add_executable(${PROJECT_NAME}

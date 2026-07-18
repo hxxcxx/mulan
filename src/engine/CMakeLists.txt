@@ -3,7 +3,6 @@
 #   rhi_vulkan   Vulkan 后端（全平台，CMake option 控制）
 #   rhi_dx12     DX12 后端（Windows only，CMake option 控制）
 #   render       渲染管线（对外暴露）
-#   platform     平台/窗口层（对外暴露）
 #   interaction  交互层（对外暴露）
 
 option(MULAN_ENABLE_VULKAN_BACKEND "Build Vulkan RHI backend" ON)
@@ -32,7 +31,4 @@ if(MULAN_ENABLE_OPENGL_BACKEND AND (WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 add_subdirectory(render)
-if(WIN32)
-    add_subdirectory(platform)
-endif()
 add_subdirectory(interaction)

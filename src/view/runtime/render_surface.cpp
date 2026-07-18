@@ -131,7 +131,7 @@ ResultVoid RenderSurface::initWindowSurface(engine::RHIDevice& device, const Vie
     if (width <= 0 || height <= 0)
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Window surface size must be positive."));
 
-    engine::NativeWindowHandle window = config.toNativeWindowHandle();
+    const engine::NativeWindowHandle window = config.window;
     if (!window.valid())
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Window surface requires a native window."));
 

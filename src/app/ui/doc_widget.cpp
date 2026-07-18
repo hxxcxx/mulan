@@ -1,5 +1,6 @@
 #include "doc_widget.h"
 
+#include "platform/qt_native_window_handle.h"
 #include "qt_viewport_input_adapter.h"
 #include "engine_settings.h"
 
@@ -13,13 +14,6 @@
 #include <QFocusEvent>
 
 #include <utility>
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <QApplication>
-#include <QtGui/qguiapplication_platform.h>
-#endif
 
 DocWidget::DocWidget(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_PaintOnScreen);
@@ -59,16 +53,7 @@ bool DocWidget::init() {
     runtime_failure_message_.clear();
 
     EngineSettings::instance().applyTo(view_config_);
-
-#ifdef _WIN32
-    view_config_.hInstance = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
-    view_config_.hWnd = reinterpret_cast<uintptr_t>(HWND(winId()));
-#else
-    if (auto* x11 = qApp->nativeInterface<QNativeInterface::QX11Application>()) {
-        view_config_.displayConnection = reinterpret_cast<uintptr_t>(x11->connection());
-        view_config_.windowHandle = static_cast<uintptr_t>(winId());
-    }
-#endif
+    view_config_.window = mulan::app::nativeWindowHandle(*this);
 
     const qreal dpr = devicePixelRatioF();
     input_adapter_.setDevicePixelRatioF(dpr);
