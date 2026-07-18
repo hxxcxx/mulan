@@ -4,9 +4,10 @@
  * @date 2026-07-03
  */
 
-#include "runtime/detail/render_surface.h"
+#include "detail/render_surface.h"
 
 #include <mulan/core/log/log.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/rhi/device.h>
 #include <mulan/rhi/engine_error_code.h>
 
@@ -123,6 +124,8 @@ Result<OffscreenResources> createOffscreenResources(engine::RHIDevice& device, c
 
 ResultVoid RenderSurface::initWindowSurface(engine::RHIDevice& device, const RenderSurfaceConfig& config, int width,
                                             int height) {
+    MULAN_PROFILE_ZONE();
+
     if (swapchain_ || render_target_)
         return {};
     if (width <= 0 || height <= 0)

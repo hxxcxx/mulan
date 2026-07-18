@@ -1,8 +1,7 @@
-#include <mulan/view/scene_sync/render_scene.h>
-
-#include "scene_sync/geometry_query.h"
-#include "scene_sync/detail/primitive_pick_index.h"
-#include "scene_sync/detail/scene_spatial_index.h"
+#include "render_scene.h"
+#include "geometry_query.h"
+#include "detail/primitive_pick_index.h"
+#include "detail/scene_spatial_index.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/geometry_asset.h>

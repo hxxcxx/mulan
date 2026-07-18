@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <mulan/view/scene_sync/scene_proxy.h>
+#include "scene_proxy.h"
 
 #include <mulan/asset/asset_change.h>
 #include <mulan/render/light_environment.h>

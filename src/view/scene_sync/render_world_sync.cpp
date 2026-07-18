@@ -1,13 +1,13 @@
-#include "scene_sync/render_world_sync.h"
+#include "render_world_sync.h"
+#include "render_scene.h"
+#include "scene_proxy.h"
+#include "../core/preview_layer.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/geometry_asset.h>
 #include <mulan/asset/material_asset.h>
 #include <mulan/asset/texture_asset.h>
 #include <mulan/core/profiling/profile.h>
-#include <mulan/view/core/preview_layer.h>
-#include <mulan/view/scene_sync/render_scene.h>
-#include <mulan/view/scene_sync/scene_proxy.h>
 
 #include <algorithm>
 #include <array>

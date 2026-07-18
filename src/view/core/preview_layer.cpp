@@ -5,7 +5,7 @@
  * @date 2026-07-07
  */
 
-#include <mulan/view/core/preview_layer.h>
+#include "preview_layer.h"
 
 #include <mulan/asset/curve_mesh_builder.h>
 

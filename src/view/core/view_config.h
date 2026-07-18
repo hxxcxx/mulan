@@ -10,8 +10,8 @@
 
 #pragma once
 
-#include "mulan/rhi/device.h"
-#include "mulan/rhi/window.h"
+#include <mulan/rhi/device.h>
+#include <mulan/rhi/window.h>
 
 #include <cstdint>
 #include <string>

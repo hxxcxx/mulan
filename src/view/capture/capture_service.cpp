@@ -1,6 +1,6 @@
-#include "capture/capture_service.h"
+#include "capture_service.h"
+#include "../core/view_context.h"
 
-#include <mulan/view/core/view_context.h>
 #include <mulan/core/profiling/profile.h>
 
 #include <utility>

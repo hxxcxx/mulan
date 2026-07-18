@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "scene_sync/render_submission.h"
-#include "scene_sync/render_world_sync.h"
+#include "render_submission.h"
+#include "render_world_sync.h"
 
 #include <mulan/render/frontend/render_world.h>
 #include <mulan/render/light_environment.h>

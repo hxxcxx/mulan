@@ -5,7 +5,9 @@
  * @date 2026-07-15
  */
 
-#include "runtime/detail/render_channel.h"
+#include "detail/render_channel.h"
+
+#include <mulan/core/profiling/profile.h>
 
 #include <utility>
 
@@ -17,6 +19,8 @@ RenderChannel::~RenderChannel() {
 
 ResultVoid RenderChannel::initWindow(const ViewConfig& config, int width, int height,
                                      RenderChannelEventCallback eventCallback) {
+    MULAN_PROFILE_ZONE();
+
     if (isInitialized()) {
         return {};
     }

@@ -5,10 +5,10 @@
  * @date 2026-07-15
  */
 
-#include "runtime/detail/render_thread.h"
+#include "detail/render_thread.h"
 
-#include "runtime/detail/render_executor.h"
-#include "runtime/detail/render_device_context.h"
+#include "detail/render_executor.h"
+#include "detail/render_device_context.h"
 
 #include <mulan/core/log/log.h>
 #include <mulan/core/profiling/profile.h>
@@ -91,6 +91,8 @@ Error RenderThread::threadError(ErrorCode code, std::string_view message) {
 }
 
 Result<std::shared_ptr<RenderThread>> RenderThread::acquire(const RenderDeviceConfig& config) {
+    MULAN_PROFILE_ZONE();
+
     std::scoped_lock registryLock(registry_mutex);
     if (config.backend != engine::GraphicsBackend::OpenGL) {
         for (auto it = registry.begin(); it != registry.end();) {
@@ -160,6 +162,8 @@ RenderThread::~RenderThread() {
 
 Result<RenderChannelId> RenderThread::attachWindow(const RenderSurfaceConfig& config, int width, int height,
                                                    RenderChannelEventCallback eventCallback) {
+    MULAN_PROFILE_ZONE();
+
     return attach(
             [this, config, width, height](RenderExecutor& executor) -> ResultVoid {
                 auto context = ensureDeviceContext();
@@ -171,6 +175,8 @@ Result<RenderChannelId> RenderThread::attachWindow(const RenderSurfaceConfig& co
 }
 
 Result<std::reference_wrapper<RenderDeviceContext>> RenderThread::ensureDeviceContext() {
+    MULAN_PROFILE_ZONE();
+
     if (device_context_)
         return std::ref(*device_context_);
     auto created = RenderDeviceContext::create(config_);
@@ -181,6 +187,8 @@ Result<std::reference_wrapper<RenderDeviceContext>> RenderThread::ensureDeviceCo
 }
 
 Result<RenderChannelId> RenderThread::attach(Initializer initialize, RenderChannelEventCallback eventCallback) {
+    MULAN_PROFILE_ZONE();
+
     auto promise = std::make_shared<std::promise<ResultVoid>>();
     auto future = promise->get_future();
     RenderChannelId channelId = 0;

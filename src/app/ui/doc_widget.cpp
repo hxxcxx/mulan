@@ -5,6 +5,7 @@
 #include "engine_settings.h"
 
 #include <mulan/core/log/log.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/view/core/view_context.h>
 
 #include <QMetaObject>
@@ -16,6 +17,8 @@
 #include <QFocusEvent>
 
 DocWidget::DocWidget(QWidget* parent) : QWidget(parent) {
+    MULAN_PROFILE_ZONE();
+
     setAttribute(Qt::WA_PaintOnScreen);
     setAttribute(Qt::WA_NoSystemBackground);
     setFocusPolicy(Qt::StrongFocus);
@@ -33,6 +36,8 @@ DocWidget::~DocWidget() {
 }
 
 bool DocWidget::init() {
+    MULAN_PROFILE_ZONE();
+
     if (document_view_.isInitialized()) {
         runtime_state_ = RuntimeState::Ready;
         requestFrame();
@@ -146,6 +151,8 @@ bool DocWidget::event(QEvent* e) {
 }
 
 void DocWidget::setDocumentSession(DocumentSession* session) {
+    MULAN_PROFILE_ZONE();
+
     document_view_.setDocumentSession(session);
     if (document_view_.isInitialized() && session) {
         requestFrame();

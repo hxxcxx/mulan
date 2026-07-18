@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include <mulan/view/core/view_state.h>
+#include "../core/view_state.h"
 
 #include <mulan/render/frontend/render_resource_prepare.h>
 #include <mulan/render/frontend/render_world_snapshot.h>

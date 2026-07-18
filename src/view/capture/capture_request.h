@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <mulan/view/core/view_state.h>
+#include "../core/view_state.h"
 
 #include <mulan/render/camera/camera.h>
 #include <mulan/render/frontend/render_capture.h>

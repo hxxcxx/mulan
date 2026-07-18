@@ -14,7 +14,7 @@
 #include "render_surface.h"
 #include "render_surface_state.h"
 
-#include "scene_sync/render_submission.h"
+#include "../../scene_sync/render_submission.h"
 
 #include <mulan/core/result/error.h>
 #include <mulan/render/backend/forward_renderer.h>

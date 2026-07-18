@@ -7,6 +7,8 @@
 
 #include "draw_fallback_resources.h"
 
+#include <mulan/core/profiling/profile.h>
+
 #include "../../rhi/device.h"
 
 #include <algorithm>
@@ -137,6 +139,8 @@ DrawFallbackResources::DrawFallbackResources(RHIDevice& device) : device_(device
 }
 
 ResultVoid DrawFallbackResources::init() {
+    MULAN_PROFILE_ZONE();
+
     if (initialized_) {
         return {};
     }

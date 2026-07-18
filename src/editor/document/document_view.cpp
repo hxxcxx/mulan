@@ -13,6 +13,7 @@
 #include "../core/session/editor_session.h"
 
 #include <mulan/core/log/log.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/interaction/input_event.h>
 #include <mulan/view/core/view_config.h>
 #include <mulan/view/core/view_context.h>
@@ -51,6 +52,8 @@ DocumentInputDisposition documentDisposition(mulan::engine::InputDisposition dis
 }  // namespace
 
 DocumentView::DocumentView() : impl_(std::make_unique<Impl>()) {
+    MULAN_PROFILE_ZONE();
+
     impl_->binding.setFrameInvalidationCallback([this]() { invalidateFrame(); });
 }
 
@@ -62,6 +65,8 @@ DocumentView::~DocumentView() {
 
 bool DocumentView::init(const mulan::view::ViewConfig& config, int width, int height,
                         std::function<void()> runtimeEventCallback) {
+    MULAN_PROFILE_ZONE();
+
     if (impl_->view_context.isInitialized()) {
         return true;
     }
@@ -173,6 +178,8 @@ mulan::editor::CommandHost DocumentView::commandHost() {
 }
 
 void DocumentView::setDocumentSession(DocumentSession* session) {
+    MULAN_PROFILE_ZONE();
+
     clearClickTracking();
     impl_->editor_session.unbind();
     impl_->view_context.clearPreview();

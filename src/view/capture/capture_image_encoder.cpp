@@ -1,4 +1,4 @@
-#include <mulan/view/capture/capture_image_encoder.h>
+#include "capture_image_encoder.h"
 
 #include <mulan/core/profiling/profile.h>
 

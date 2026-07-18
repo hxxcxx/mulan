@@ -4,7 +4,7 @@
  * @author hxxcxx
  * @date 2026-07-11 (原始) / 2026-07-15 (场景级 BVH 宽阶段)
  */
-#include "scene_sync/geometry_query.h"
+#include "geometry_query.h"
 
 #include "detail/asset_picking.h"
 #include "detail/picking_types.h"

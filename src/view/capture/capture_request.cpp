@@ -1,4 +1,5 @@
-#include <mulan/view/capture/capture_request.h>
+#include "capture_request.h"
+#include "../core/view_state.h"
 
 namespace mulan::view {
 

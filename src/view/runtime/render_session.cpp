@@ -3,6 +3,7 @@
 #include "detail/render_channel.h"
 
 #include <mulan/core/log/log.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/rhi/engine_error_code.h>
 
 #include <cassert>
@@ -29,6 +30,8 @@ RenderSession::~RenderSession() {
 
 ResultVoid RenderSession::initWindow(const ViewConfig& config, int width, int height,
                                      std::function<void()> runtimeEventCallback) {
+    MULAN_PROFILE_ZONE();
+
     assertOwnerThread();
     if (isInitialized()) {
         return {};

@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <mulan/view/capture/capture_request.h>
+#include "capture_request.h"
 
 #include <cstddef>
 #include <span>

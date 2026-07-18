@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include <mulan/view/capture/capture_request.h>
+#include "capture_request.h"
 
 #include <mulan/core/image/image.h>
 #include <mulan/core/result/error.h>

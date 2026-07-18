@@ -1,4 +1,4 @@
-#include "runtime/detail/render_executor.h"
+#include "detail/render_executor.h"
 
 #include <mulan/core/log/log.h>
 #include <mulan/core/profiling/profile.h>
@@ -212,6 +212,8 @@ ResultVoid RenderExecutor::clearAssetResources() {
 }
 
 ResultVoid RenderExecutor::initRenderer() {
+    MULAN_PROFILE_ZONE();
+
     if (!device_context_) {
         return std::unexpected(
                 executorError(ErrorCode::InvalidArg, "RenderExecutor cannot initialize without a device."));

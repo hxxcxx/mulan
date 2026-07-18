@@ -1,4 +1,4 @@
-#include "scene_sync/render_item_builder.h"
+#include "render_item_builder.h"
 
 #include <mulan/render/frontend/render_contract.h>
 

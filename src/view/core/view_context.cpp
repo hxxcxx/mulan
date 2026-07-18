@@ -1,8 +1,9 @@
-#include <mulan/view/core/view_context.h>
+#include "view_context.h"
+#include "view_config.h"
+#include "../capture/capture_service.h"
+#include "../runtime/detail/render_session.h"
 
-#include "capture/capture_service.h"
-
-#include "runtime/detail/render_session.h"
+#include <mulan/core/profiling/profile.h>
 
 #include <algorithm>
 #include <cmath>
@@ -45,6 +46,8 @@ ViewContext::~ViewContext() {
 }
 
 bool ViewContext::init(const ViewConfig& cfg, int width, int height, std::function<void()> runtimeEventCallback) {
+    MULAN_PROFILE_ZONE();
+
     if (render_session_->isInitialized())
         return true;
 

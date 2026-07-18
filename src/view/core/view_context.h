@@ -4,12 +4,10 @@
  * @author hxxcxx
  */
 #pragma once
-
-#include <mulan/view/core/view_config.h>
-#include <mulan/view/core/view_state.h>
-#include <mulan/view/core/preview_layer.h>
-
-#include <mulan/view/capture/capture_batch.h>
+#include "view_config.h"
+#include "view_state.h"
+#include "preview_layer.h"
+#include "../capture/capture_batch.h"
 
 #include "mulan/core/result/error.h"
 #include "mulan/interaction/camera_manipulator.h"

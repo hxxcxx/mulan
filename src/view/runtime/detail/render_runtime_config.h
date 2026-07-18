@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include <mulan/view/core/view_config.h>
+#include "../../core/view_config.h"
 
 #include <cstdint>
 

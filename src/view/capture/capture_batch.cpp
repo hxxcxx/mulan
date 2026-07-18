@@ -1,4 +1,4 @@
-#include <mulan/view/capture/capture_batch.h>
+#include "capture_batch.h"
 
 #include <utility>
 

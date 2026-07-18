@@ -8,7 +8,8 @@
 
 #pragma once
 
-#include <mulan/view/capture/capture_batch.h>
+#include "capture_batch.h"
+
 #include <mulan/core/result/error.h>
 #include <mulan/render/frontend/render_capture.h>
 

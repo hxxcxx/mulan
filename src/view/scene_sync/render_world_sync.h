@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "scene_sync/render_item_builder.h"
+#include "render_item_builder.h"
 
 #include <mulan/asset/asset_id.h>
 #include <mulan/asset/asset_change.h>

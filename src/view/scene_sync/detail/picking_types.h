@@ -8,7 +8,7 @@
  */
 #pragma once
 
-#include <mulan/view/scene_sync/render_scene.h>
+#include "../render_scene.h"
 #include <mulan/math/math.h>
 
 #include <limits>

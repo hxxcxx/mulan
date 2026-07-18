@@ -5,12 +5,12 @@
  * @date 2026-07-10
  */
 
-#include "scene_sync/render_submission_builder.h"
+#include "render_submission_builder.h"
+#include "render_scene.h"
+#include "../core/preview_layer.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/core/profiling/profile.h>
-#include <mulan/view/core/preview_layer.h>
-#include <mulan/view/scene_sync/render_scene.h>
 
 namespace mulan::view {
 namespace {

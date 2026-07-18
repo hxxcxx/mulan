@@ -12,12 +12,11 @@
 #pragma once
 
 #include "render_surface_state.h"
-
-#include "scene_sync/render_submission_builder.h"
+#include "../../core/view_config.h"
+#include "../../scene_sync/render_submission_builder.h"
 
 #include <mulan/core/result/error.h>
 #include <mulan/render/frontend/render_capture.h>
-#include <mulan/view/core/view_config.h>
 
 #include <cstdint>
 #include <functional>
