@@ -191,142 +191,145 @@ if(MULAN_ENABLE_TRUCK_BACKEND)
 endif()
 
 # ── OpenCASCADE ──
-# 查找路径优先级: CMakePresets / -DOCCT_ROOT / 环境变量 OCCT_ROOT
-# 即使变量已设置，也需要验证目录是否真实存在
+# Windows 使用 OCCT 官方预编译包，Linux 使用系统开发包。两端均从官方 CMake
+# package 取得真实的头文件、库与传递依赖，不再在项目中硬编译工具链目录。
 if(MULAN_ENABLE_OCCT_BACKEND)
-if(NOT WIN32)
-    message(FATAL_ERROR
-        "The OCCT backend is not part of the Linux M1 build yet. "
-        "Configure with -DMULAN_ENABLE_OCCT_BACKEND=OFF."
+    # OCCT 官方 package 会向当前 CMake 目录注入其自身的编译宏。本项目只需要
+    # imported targets，因此保存并恢复目录属性，避免 HAVE_* 等宏污染其他模块。
+    get_property(MULAN_COMPILE_DEFINITIONS_BEFORE_OCCT DIRECTORY PROPERTY COMPILE_DEFINITIONS)
+    # DataExchange 的官方导出集会引用 Visualization/ApplicationFramework targets；
+    # 必须一并导入它们，但下方只链接建模与 STEP/IGES 实际所需的 toolkit。
+    set(MULAN_OCCT_COMPONENTS
+        FoundationClasses
+        ModelingData
+        ModelingAlgorithms
+        Visualization
+        ApplicationFramework
+        DataExchange
     )
-endif()
-set(MULAN_OCCT_ROOT_CANDIDATE "${OCCT_ROOT}")
-if((NOT MULAN_OCCT_ROOT_CANDIDATE OR NOT EXISTS "${MULAN_OCCT_ROOT_CANDIDATE}") AND DEFINED ENV{OCCT_ROOT})
-    if(MULAN_OCCT_ROOT_CANDIDATE AND NOT EXISTS "${MULAN_OCCT_ROOT_CANDIDATE}")
-        message(WARNING "OCCT_ROOT is set to '${MULAN_OCCT_ROOT_CANDIDATE}' but the directory does not exist, falling back...")
-    endif()
-    set(MULAN_OCCT_ROOT_CANDIDATE "$ENV{OCCT_ROOT}")
-endif()
-if(NOT MULAN_OCCT_ROOT_CANDIDATE OR NOT EXISTS "${MULAN_OCCT_ROOT_CANDIDATE}")
-    message(FATAL_ERROR
-        "OCCT_ROOT not set or directory does not exist. "
-        "Use CMakePresets.json, -DOCCT_ROOT=..., or set OCCT_ROOT env var, "
-        "and make sure the path points to an existing directory."
-    )
-endif()
-set(OCCT_ROOT "${MULAN_OCCT_ROOT_CANDIDATE}" CACHE PATH "OpenCASCADE root directory" FORCE)
-message(STATUS "OCCT_ROOT: ${OCCT_ROOT}")
 
-set(OCCT_INCLUDE_DIR "${OCCT_ROOT}/inc")
-set(OCCT_LIB_DIR "${OCCT_ROOT}/win64/vc14/lib")
-set(OCCT_BIN_DIR "${OCCT_ROOT}/win64/vc14/bin")
-
-if(NOT EXISTS "${OCCT_INCLUDE_DIR}")
-    message(FATAL_ERROR "OCCT include dir not found: ${OCCT_INCLUDE_DIR}")
-endif()
-
-set(OCCT_VERSION_HEADER "${OCCT_INCLUDE_DIR}/Standard_Version.hxx")
-if(NOT EXISTS "${OCCT_VERSION_HEADER}")
-    message(FATAL_ERROR "OCCT version header not found: ${OCCT_VERSION_HEADER}")
-endif()
-file(STRINGS "${OCCT_VERSION_HEADER}" OCCT_VERSION_LINE
-    REGEX "^#define OCC_VERSION_COMPLETE \"[0-9]+\\.[0-9]+\\.[0-9]+\""
-)
-string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" OCCT_VERSION "${OCCT_VERSION_LINE}")
-if(OCCT_VERSION VERSION_LESS "7.9" OR NOT OCCT_VERSION VERSION_LESS "8.0")
-    message(FATAL_ERROR "Unsupported OCCT version ${OCCT_VERSION}; expected 7.9.x")
-endif()
-message(STATUS "OCCT version: ${OCCT_VERSION}")
-
-set(OCCT_LIBS
-    TKernel TKMath
-    TKG2d TKG3d TKGeomBase TKBRep
-    TKGeomAlgo TKTopAlgo TKPrim TKBO TKShHealing TKMesh
-    TKDE TKXSBase TKDESTEP TKDEIGES
-)
-
-set(OCCT_RUNTIME_REQUIRED_EXTRA_DLLS
-    TKBool
-    TKCAF
-    TKCDF
-    TKHLR
-    TKLCAF
-    TKService
-    TKV3d
-    TKVCAF
-    TKXCAF
-)
-set(OCCT_RUNTIME_USER_EXTRA_DLLS "" CACHE STRING "Additional OCCT runtime DLL names copied next to the app executable")
-set(OCCT_RUNTIME_EXTRA_DLLS
-    ${OCCT_RUNTIME_REQUIRED_EXTRA_DLLS}
-    ${OCCT_RUNTIME_USER_EXTRA_DLLS}
-)
-
-set(OCCT_LIBRARY_FILES)
-set(OCCT_MISSING_LIBS)
-set(OCCT_RUNTIME_DLL_FILES)
-foreach(lib IN LISTS OCCT_LIBS)
-    find_library(OCCT_LIBRARY_${lib} NAMES ${lib} PATHS "${OCCT_LIB_DIR}" NO_DEFAULT_PATH)
-    if(OCCT_LIBRARY_${lib})
-        list(APPEND OCCT_LIBRARY_FILES "${OCCT_LIBRARY_${lib}}")
+    if(WIN32)
+        # 查找路径优先级: CMakePresets / -DOCCT_ROOT / 环境变量 OCCT_ROOT。
+        set(MULAN_OCCT_ROOT_CANDIDATE "${OCCT_ROOT}")
+        if((NOT MULAN_OCCT_ROOT_CANDIDATE OR NOT EXISTS "${MULAN_OCCT_ROOT_CANDIDATE}") AND DEFINED ENV{OCCT_ROOT})
+            if(MULAN_OCCT_ROOT_CANDIDATE AND NOT EXISTS "${MULAN_OCCT_ROOT_CANDIDATE}")
+                message(WARNING "OCCT_ROOT is set to '${MULAN_OCCT_ROOT_CANDIDATE}' but the directory does not exist, falling back...")
+            endif()
+            set(MULAN_OCCT_ROOT_CANDIDATE "$ENV{OCCT_ROOT}")
+        endif()
+        if(NOT MULAN_OCCT_ROOT_CANDIDATE OR NOT EXISTS "${MULAN_OCCT_ROOT_CANDIDATE}")
+            message(FATAL_ERROR
+                "OCCT_ROOT not set or directory does not exist. "
+                "Use CMakePresets.json, -DOCCT_ROOT=..., or set OCCT_ROOT env var."
+            )
+        endif()
+        set(OCCT_ROOT "${MULAN_OCCT_ROOT_CANDIDATE}" CACHE PATH "OpenCASCADE root directory" FORCE)
+        set(OpenCASCADE_DIR "${OCCT_ROOT}/cmake" CACHE PATH "OpenCASCADE CMake package directory" FORCE)
+        if(NOT EXISTS "${OpenCASCADE_DIR}/OpenCASCADEConfig.cmake")
+            message(FATAL_ERROR "OpenCASCADEConfig.cmake not found under OCCT_ROOT: ${OpenCASCADE_DIR}")
+        endif()
+        find_package(OpenCASCADE CONFIG REQUIRED COMPONENTS ${MULAN_OCCT_COMPONENTS}
+            PATHS "${OpenCASCADE_DIR}" NO_DEFAULT_PATH)
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        # Ubuntu 的 OCCT imported targets 直接引用 TBB 开发链接文件，但其 OCCT
+        # -dev 包只保证 TBB runtime。在配置期明确验证 libtbb-dev，避免延迟到 Ninja 链接失败。
+        find_package(TBB CONFIG REQUIRED COMPONENTS tbb tbbmalloc)
+        # OCCT 的官方 version file 使用 ExactVersion 策略，不接受 "7.6" 作为
+        # 7.6.3 的兼容下界；先查找 package，下方再按平台验证版本区间。
+        find_package(OpenCASCADE CONFIG REQUIRED COMPONENTS ${MULAN_OCCT_COMPONENTS})
     else()
-        list(APPEND OCCT_MISSING_LIBS "${lib}")
+        message(FATAL_ERROR "The OCCT backend is not supported on ${CMAKE_SYSTEM_NAME}.")
     endif()
+    set_property(DIRECTORY PROPERTY COMPILE_DEFINITIONS "${MULAN_COMPILE_DEFINITIONS_BEFORE_OCCT}")
 
-    set(OCCT_RUNTIME_DLL "${OCCT_BIN_DIR}/${lib}.dll")
-    if(EXISTS "${OCCT_RUNTIME_DLL}")
-        list(APPEND OCCT_RUNTIME_DLL_FILES "${OCCT_RUNTIME_DLL}")
+    set(OCCT_VERSION
+        "${OpenCASCADE_MAJOR_VERSION}.${OpenCASCADE_MINOR_VERSION}.${OpenCASCADE_MAINTENANCE_VERSION}")
+    if(WIN32 AND (OCCT_VERSION VERSION_LESS "7.9" OR NOT OCCT_VERSION VERSION_LESS "8.0"))
+        message(FATAL_ERROR "Unsupported Windows OCCT version ${OCCT_VERSION}; expected 7.9.x")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux"
+           AND (OCCT_VERSION VERSION_LESS "7.6" OR NOT OCCT_VERSION VERSION_LESS "7.7"))
+        message(FATAL_ERROR "Unsupported Linux OCCT version ${OCCT_VERSION}; expected 7.6.x")
     endif()
-endforeach()
-foreach(lib IN LISTS OCCT_RUNTIME_EXTRA_DLLS)
-    set(OCCT_RUNTIME_DLL "${OCCT_BIN_DIR}/${lib}.dll")
-    if(EXISTS "${OCCT_RUNTIME_DLL}")
-        list(APPEND OCCT_RUNTIME_DLL_FILES "${OCCT_RUNTIME_DLL}")
+    message(STATUS "OCCT version: ${OCCT_VERSION}")
+    message(STATUS "OCCT include directory: ${OpenCASCADE_INCLUDE_DIR}")
+
+    if(OpenCASCADE_MINOR_VERSION GREATER_EQUAL 8)
+        set(OCCT_LIBS
+            TKernel TKMath
+            TKG2d TKG3d TKGeomBase TKBRep
+            TKGeomAlgo TKTopAlgo TKPrim TKBO TKShHealing TKMesh
+            TKDE TKXSBase TKDESTEP TKDEIGES
+        )
     else()
-        message(WARNING "OCCT runtime DLL not found: ${OCCT_RUNTIME_DLL}")
+        set(OCCT_LIBS
+            TKernel TKMath
+            TKG2d TKG3d TKGeomBase TKBRep
+            TKGeomAlgo TKTopAlgo TKPrim TKBO TKShHealing TKMesh
+            TKXSBase TKSTEPBase TKSTEPAttr TKSTEP209 TKSTEP TKIGES
+        )
     endif()
-endforeach()
-list(REMOVE_DUPLICATES OCCT_RUNTIME_DLL_FILES)
-if(OCCT_MISSING_LIBS)
-    list(JOIN OCCT_MISSING_LIBS ", " OCCT_MISSING_LIBS_TEXT)
-    message(FATAL_ERROR "OCCT libraries not found in ${OCCT_LIB_DIR}: ${OCCT_MISSING_LIBS_TEXT}")
-endif()
+    foreach(lib IN LISTS OCCT_LIBS)
+        if(NOT TARGET ${lib})
+            message(FATAL_ERROR "Required OCCT imported target is missing: ${lib}")
+        endif()
+    endforeach()
 
-add_library(mulan_occt INTERFACE)
-add_library(OCCT::OCCT ALIAS mulan_occt)
-target_include_directories(mulan_occt INTERFACE "${OCCT_INCLUDE_DIR}")
-target_link_libraries(mulan_occt INTERFACE ${OCCT_LIBRARY_FILES})
+    add_library(mulan_occt INTERFACE)
+    add_library(OCCT::OCCT ALIAS mulan_occt)
+    # Ubuntu 7.6 的 imported targets 没有携带 include directory，Windows 7.9 则携带。
+    # 使用 package 公开的统一变量补齐，不猜测平台目录。
+    target_include_directories(mulan_occt INTERFACE "${OpenCASCADE_INCLUDE_DIR}")
+    target_link_libraries(mulan_occt INTERFACE ${OCCT_LIBS})
 
-set(MULAN_OCCT_REQUIRED_3RDPARTY_DLL_NAMES
-    avcodec-57.dll
-    avformat-57.dll
-    avutil-55.dll
-    FreeImage.dll
-    freetype.dll
-    jemalloc.dll
-    openvr_api.dll
-    swscale-4.dll
-    tbb12.dll
-)
-set(MULAN_OCCT_EXTRA_3RDPARTY_DLL_NAMES "" CACHE STRING "Additional OCCT third-party runtime DLL names copied next to the app executable")
-unset(MULAN_OCCT_3RDPARTY_DLL_NAMES CACHE)
-set(MULAN_OCCT_3RDPARTY_DLL_NAMES
-    ${MULAN_OCCT_REQUIRED_3RDPARTY_DLL_NAMES}
-    ${MULAN_OCCT_EXTRA_3RDPARTY_DLL_NAMES}
-)
-list(REMOVE_DUPLICATES MULAN_OCCT_3RDPARTY_DLL_NAMES)
+    if(WIN32)
+        set(OCCT_BIN_DIR "${OpenCASCADE_BINARY_DIR}")
+        set(OCCT_RUNTIME_REQUIRED_EXTRA_DLLS
+            TKBool TKCAF TKCDF TKHLR TKLCAF TKService TKV3d TKVCAF TKXCAF
+        )
+        set(OCCT_RUNTIME_USER_EXTRA_DLLS "" CACHE STRING
+            "Additional OCCT runtime DLL names copied next to the app executable")
+        set(OCCT_RUNTIME_EXTRA_DLLS
+            ${OCCT_RUNTIME_REQUIRED_EXTRA_DLLS}
+            ${OCCT_RUNTIME_USER_EXTRA_DLLS}
+        )
+        set(OCCT_RUNTIME_DLL_FILES)
+        foreach(lib IN LISTS OCCT_LIBS OCCT_RUNTIME_EXTRA_DLLS)
+            set(OCCT_RUNTIME_DLL "${OCCT_BIN_DIR}/${lib}.dll")
+            if(EXISTS "${OCCT_RUNTIME_DLL}")
+                list(APPEND OCCT_RUNTIME_DLL_FILES "${OCCT_RUNTIME_DLL}")
+            else()
+                message(WARNING "OCCT runtime DLL not found: ${OCCT_RUNTIME_DLL}")
+            endif()
+        endforeach()
+        list(REMOVE_DUPLICATES OCCT_RUNTIME_DLL_FILES)
 
-# ── OCCT 3rdparty ──
-set(MULAN_OCCT_3RDPARTY_CANDIDATE "${OCCT_3RDPARTY_DIR}")
-if((NOT MULAN_OCCT_3RDPARTY_CANDIDATE OR NOT EXISTS "${MULAN_OCCT_3RDPARTY_CANDIDATE}") AND DEFINED ENV{OCCT_3RDPARTY_DIR})
-    set(MULAN_OCCT_3RDPARTY_CANDIDATE "$ENV{OCCT_3RDPARTY_DIR}")
-endif()
-if(MULAN_OCCT_3RDPARTY_CANDIDATE AND EXISTS "${MULAN_OCCT_3RDPARTY_CANDIDATE}")
-    set(OCCT_3RDPARTY_DIR "${MULAN_OCCT_3RDPARTY_CANDIDATE}" CACHE PATH "OpenCASCADE third-party runtime directory" FORCE)
-    message(STATUS "OCCT_3RDPARTY_DIR: ${OCCT_3RDPARTY_DIR}")
-elseif(MULAN_OCCT_3RDPARTY_CANDIDATE)
-    message(WARNING "OCCT_3RDPARTY_DIR is set to '${MULAN_OCCT_3RDPARTY_CANDIDATE}' but the directory does not exist.")
-endif()
+        set(MULAN_OCCT_REQUIRED_3RDPARTY_DLL_NAMES
+            avcodec-57.dll avformat-57.dll avutil-55.dll FreeImage.dll freetype.dll
+            jemalloc.dll openvr_api.dll swscale-4.dll tbb12.dll
+        )
+        set(MULAN_OCCT_EXTRA_3RDPARTY_DLL_NAMES "" CACHE STRING
+            "Additional OCCT third-party runtime DLL names copied next to the app executable")
+        unset(MULAN_OCCT_3RDPARTY_DLL_NAMES CACHE)
+        set(MULAN_OCCT_3RDPARTY_DLL_NAMES
+            ${MULAN_OCCT_REQUIRED_3RDPARTY_DLL_NAMES}
+            ${MULAN_OCCT_EXTRA_3RDPARTY_DLL_NAMES}
+        )
+        list(REMOVE_DUPLICATES MULAN_OCCT_3RDPARTY_DLL_NAMES)
+
+        set(MULAN_OCCT_3RDPARTY_CANDIDATE "${OCCT_3RDPARTY_DIR}")
+        if((NOT MULAN_OCCT_3RDPARTY_CANDIDATE OR NOT EXISTS "${MULAN_OCCT_3RDPARTY_CANDIDATE}")
+           AND DEFINED ENV{OCCT_3RDPARTY_DIR})
+            set(MULAN_OCCT_3RDPARTY_CANDIDATE "$ENV{OCCT_3RDPARTY_DIR}")
+        endif()
+        if(MULAN_OCCT_3RDPARTY_CANDIDATE AND EXISTS "${MULAN_OCCT_3RDPARTY_CANDIDATE}")
+            set(OCCT_3RDPARTY_DIR "${MULAN_OCCT_3RDPARTY_CANDIDATE}" CACHE PATH
+                "OpenCASCADE third-party runtime directory" FORCE)
+            message(STATUS "OCCT_3RDPARTY_DIR: ${OCCT_3RDPARTY_DIR}")
+        elseif(MULAN_OCCT_3RDPARTY_CANDIDATE)
+            message(WARNING
+                "OCCT_3RDPARTY_DIR is set to '${MULAN_OCCT_3RDPARTY_CANDIDATE}' but the directory does not exist.")
+        endif()
+    endif()
 endif()
 
 # ── Qt6 ──

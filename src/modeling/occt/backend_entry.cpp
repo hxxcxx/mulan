@@ -1,5 +1,5 @@
-// OCCT 后端 C 加载入口：由 runtime 经 LoadLibrary + GetProcAddress 调用。
-// 所有 OCCT 类不导出；本符号是 DLL 对外的唯一契约。
+// OCCT 后端 C 加载入口：由 runtime 经平台动态库 API 调用。
+// 所有 OCCT 类不导出；本符号是插件对外的唯一契约。
 #include "step_reader.h"
 #include "occt_shape_ops.h"
 #include "modeling_occt_export.h"

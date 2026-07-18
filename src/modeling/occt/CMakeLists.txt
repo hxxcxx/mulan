@@ -1,8 +1,8 @@
 # modeling_occt - OCCT 后端（SHARED 插件，API 完全不暴露）
 #
-# 编成 DLL，只导出一个 C 符号 mulan_load_backend（见 backend_entry.cpp）。
+# 编成动态库，只导出一个 C 符号 mulan_load_backend（见 backend_entry.cpp）。
 # 所有 C++ 类不导出；头不发布到公共 include 目录。
-# 由 runtime 经 LoadLibrary 加载，任何人不在链接期/源码期依赖本模块。
+# 由 runtime 经平台动态库 API 加载，任何人不在链接期/源码期依赖本模块。
 add_library(modeling_occt SHARED
     occt_shape_storage.cpp
     occt_tessellator_internal.cpp
@@ -20,16 +20,25 @@ target_link_libraries(modeling_occt
 
 set_target_properties(modeling_occt PROPERTIES OUTPUT_NAME mulan_modeling_occt)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # 插件部署在 bin/backends，modeling_core 位于 bin。显式 RPATH 使开发构建不依赖
+    # LD_LIBRARY_PATH，系统 OCCT 库仍由动态加载器从标准路径解析。
+    set_target_properties(modeling_occt PROPERTIES
+        BUILD_RPATH "$ORIGIN/.."
+        INSTALL_RPATH "$ORIGIN/.."
+    )
+endif()
+
 target_compile_definitions(modeling_occt PRIVATE
     BUILDING_MODELING_OCCT
     $<$<CONFIG:Debug>:_DEBUG>
 )
 
-# 部署后端 DLL 到可执行文件同目录的 backends/，供 runtime 扫描加载。
+# 部署后端动态库到可执行文件同目录的 backends/，供 runtime 扫描加载。
 set(OCCT_BACKEND_DEST "$<TARGET_FILE_DIR:mulan>/backends")
 add_custom_command(TARGET modeling_occt POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${OCCT_BACKEND_DEST}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:modeling_occt>" "${OCCT_BACKEND_DEST}/"
-    COMMENT "Deploying OCCT backend DLL to backends/..."
+    COMMENT "Deploying OCCT backend plugin to backends/..."
 )

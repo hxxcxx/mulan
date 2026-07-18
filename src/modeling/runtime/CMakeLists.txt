@@ -21,4 +21,6 @@ target_compile_definitions(runtime PRIVATE
 
 if(WIN32)
     target_link_libraries(runtime PRIVATE wintrust)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(runtime PRIVATE ${CMAKE_DL_LIBS})
 endif()

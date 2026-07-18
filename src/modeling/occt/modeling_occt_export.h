@@ -1,6 +1,6 @@
 /**
  * @file modeling_occt_export.h
- * @brief modeling_occt 导出宏。当前为静态库，宏为空；预留 DLL 化。
+ * @brief modeling_occt 动态插件的跨平台符号导出宏。
  * @author hxxcxx
  * @date 2026-07-09
  */

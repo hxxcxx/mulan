@@ -51,7 +51,7 @@
             "toolchainFile": "$penv{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "MULAN_ENABLE_OCCT_BACKEND": "OFF",
+                "MULAN_ENABLE_OCCT_BACKEND": "ON",
                 "MULAN_ENABLE_TRUCK_BACKEND": "OFF",
                 "MULAN_ENABLE_D3D12_BACKEND": "OFF",
                 "MULAN_ENABLE_D3D11_BACKEND": "OFF",
