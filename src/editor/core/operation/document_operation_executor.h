@@ -7,7 +7,7 @@
 #pragma once
 
 #include "document_operation.h"
-#include "document/document_change.h"
+#include "../../document/document_change.h"
 
 #include <optional>
 
