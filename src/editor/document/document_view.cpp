@@ -60,12 +60,13 @@ DocumentView::~DocumentView() {
     impl_->binding.unbind();
 }
 
-bool DocumentView::init(const mulan::view::ViewConfig& config, int width, int height) {
+bool DocumentView::init(const mulan::view::ViewConfig& config, int width, int height,
+                        std::function<void()> runtimeEventCallback) {
     if (impl_->view_context.isInitialized()) {
         return true;
     }
 
-    if (!impl_->view_context.init(config, width, height)) {
+    if (!impl_->view_context.init(config, width, height, std::move(runtimeEventCallback))) {
         LOG_ERROR("[Editor] Document view initialization failed: name={}, size={}x{}",
                   impl_->session ? std::string_view(impl_->session->displayName()) : std::string_view("<unbound>"),
                   width, height);

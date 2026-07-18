@@ -20,6 +20,7 @@
 #include <mulan/view/core/view_config.h>
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -45,7 +46,7 @@ public:
     RenderSession(const RenderSession&) = delete;
     RenderSession& operator=(const RenderSession&) = delete;
 
-    ResultVoid initWindow(const ViewConfig& config, int width, int height);
+    ResultVoid initWindow(const ViewConfig& config, int width, int height, std::function<void()> runtimeEventCallback);
     void shutdown();
 
     bool isInitialized() const;

@@ -421,29 +421,6 @@ void MainWindow::executeCommand(std::string_view id) {
     updateDisplayActions();
 }
 
-void MainWindow::observeDocumentRuntime(DocWidget* docWidget) {
-    if (!docWidget) {
-        return;
-    }
-
-    const QPointer<DocWidget> guardedWidget(docWidget);
-    connect(docWidget, &DocWidget::renderRuntimeFailed, this, [this, guardedWidget](const QString& message) {
-        if (!guardedWidget) {
-            return;
-        }
-
-        const QString documentName =
-                guardedWidget->documentView().session()
-                        ? QString::fromStdString(guardedWidget->documentView().session()->displayName())
-                        : tr("Document");
-        LOG_ERROR("[App] Document render runtime failed: document={}, error={}", documentName.toStdString(),
-                  message.toStdString());
-        statusBar()->showMessage(tr("Rendering stopped for %1: %2").arg(documentName, message));
-        QMessageBox::critical(this, tr("Rendering stopped"),
-                              tr("The render thread for \"%1\" stopped.\n\n%2").arg(documentName, message));
-    });
-}
-
 void MainWindow::onCurrentDocumentChanged(const QString& name) {
     if (name.isEmpty()) {
         statusBar()->showMessage("Ready");
@@ -555,7 +532,6 @@ void MainWindow::onNewDocument() {
         statusBar()->showMessage(tr("Failed to initialize document view"));
         return;
     }
-    observeDocumentRuntime(docWidget);
     LOG_INFO("[App] New document created: {}", title.toStdString());
 
     updateDisplayActions();
@@ -603,7 +579,6 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
         statusBar()->showMessage("Ready");
         return false;
     }
-    observeDocumentRuntime(docWidget);
     if (recordRecent) {
         doc_area_->recordOpenedFile(filePath);
     }

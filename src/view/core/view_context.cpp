@@ -44,7 +44,7 @@ ViewContext::~ViewContext() {
     shutdown();
 }
 
-bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
+bool ViewContext::init(const ViewConfig& cfg, int width, int height, std::function<void()> runtimeEventCallback) {
     if (render_session_->isInitialized())
         return true;
 
@@ -53,7 +53,7 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height) {
     ibl_enabled_ = cfg.iblEnabled;
     hdr_path_ = cfg.hdrPath;
 
-    if (!render_session_->initWindow(cfg, width, height)) {
+    if (!render_session_->initWindow(cfg, width, height, std::move(runtimeEventCallback))) {
         return false;
     }
     render_session_->setPreviewLayer(&preview_layer_);

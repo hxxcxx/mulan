@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <expected>
+#include <functional>
 #include <memory>
 #include <span>
 #include <string>
@@ -47,7 +48,7 @@ public:
     ViewContext(const ViewContext&) = delete;
     ViewContext& operator=(const ViewContext&) = delete;
 
-    bool init(const ViewConfig& config, int width, int height);
+    bool init(const ViewConfig& config, int width, int height, std::function<void()> runtimeEventCallback);
     void shutdown();
 
     bool isInitialized() const;

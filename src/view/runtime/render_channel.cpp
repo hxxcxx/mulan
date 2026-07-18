@@ -7,13 +7,16 @@
 
 #include "runtime/detail/render_channel.h"
 
+#include <utility>
+
 namespace mulan::view::detail {
 
 RenderChannel::~RenderChannel() {
     shutdown();
 }
 
-ResultVoid RenderChannel::initWindow(const ViewConfig& config, int width, int height) {
+ResultVoid RenderChannel::initWindow(const ViewConfig& config, int width, int height,
+                                     RenderChannelEventCallback eventCallback) {
     if (isInitialized()) {
         return {};
     }
@@ -24,7 +27,7 @@ ResultVoid RenderChannel::initWindow(const ViewConfig& config, int width, int he
     if (!thread) {
         return std::unexpected(thread.error());
     }
-    auto channel = (*thread)->attachWindow(config, width, height);
+    auto channel = (*thread)->attachWindow(config, width, height, std::move(eventCallback));
     if (!channel) {
         return std::unexpected(channel.error());
     }

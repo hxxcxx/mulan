@@ -13,7 +13,7 @@
 #include "render_surface_state.h"
 #include "render_channel_state.h"
 
-#include "scene_sync/render_submission.h"
+#include "../../scene_sync/render_submission.h"
 
 #include <mulan/core/result/error.h>
 #include <mulan/render/frontend/render_capture.h>
@@ -38,6 +38,7 @@ class RenderExecutor;
 class RenderDeviceContext;
 
 using RenderChannelId = uint64_t;
+using RenderChannelEventCallback = std::function<void()>;
 
 enum class RenderThreadState : uint8_t {
     Healthy,
@@ -76,7 +77,8 @@ public:
     RenderThread(const RenderThread&) = delete;
     RenderThread& operator=(const RenderThread&) = delete;
 
-    Result<RenderChannelId> attachWindow(const ViewConfig& config, int width, int height);
+    Result<RenderChannelId> attachWindow(const ViewConfig& config, int width, int height,
+                                         RenderChannelEventCallback eventCallback);
     void detach(RenderChannelId channel);
 
     bool isReady(RenderChannelId channel) const;
@@ -103,7 +105,7 @@ private:
 
     explicit RenderThread(const ViewConfig& config);
 
-    Result<RenderChannelId> attach(Initializer initialize);
+    Result<RenderChannelId> attach(Initializer initialize, RenderChannelEventCallback eventCallback);
     Result<std::reference_wrapper<RenderDeviceContext>> ensureDeviceContext();
     void run(std::stop_token stopToken);
     std::shared_ptr<Channel> selectReadyChannelLocked(bool& hasControl, ControlTask& control,

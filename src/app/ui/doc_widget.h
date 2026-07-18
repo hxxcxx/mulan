@@ -10,8 +10,8 @@
  */
 #pragma once
 
+#include <QObject>
 #include <QString>
-#include <QTimer>
 #include <QWidget>
 
 #include <mulan/interaction/input_event.h>
@@ -20,6 +20,7 @@
 
 #include "qt_viewport_input_adapter.h"
 
+#include <atomic>
 #include <cstdint>
 
 class DocumentSession;
@@ -51,7 +52,6 @@ public:
     void requestFrame();
 
     RuntimeState runtimeState() const { return runtime_state_; }
-    const QString& runtimeFailureMessage() const { return runtime_failure_message_; }
 
     DocumentView& documentView() { return document_view_; }
     const DocumentView& documentView() const { return document_view_; }
@@ -59,8 +59,6 @@ public:
 
 signals:
     void commandStateInvalidated();
-    /// 专用渲染线程停止后在 UI 线程发出，且每次运行域最多一次。
-    void renderRuntimeFailed(const QString& message);
 
 protected:
     void resizeEvent(QResizeEvent* e) override;
@@ -83,17 +81,18 @@ private:
     /// 严格执行 DocumentView 返回的结果，不再根据 consumed/activeTool 猜测状态。
     void applyResult(const DocumentInputOutcome& result);
     void clearPreview(bool refresh = true);
-    void schedulePendingFrame();
+    void queueRuntimeEvent();
     void submitPendingFrame();
-    void checkRuntimeHealth();
+    void consumeRuntimeEvent();
     void transitionToRuntimeFailure(QString message);
 
+    // RenderThread 只向该 QObject 投递 queued invocation，不直接接触 DocWidget。
+    // 它先于 DocumentView 构造，因此析构顺序保证通道完全停止后才销毁代理。
+    QObject runtime_event_proxy_;
     DocumentView document_view_;
     mulan::view::ViewConfig view_config_;
     mulan::app::QtViewportInputAdapter input_adapter_;
-    QTimer frame_dispatch_timer_;
-    QTimer runtime_health_timer_;
     RuntimeState runtime_state_ = RuntimeState::Stopped;
-    QString runtime_failure_message_;
+    std::atomic_bool runtime_event_pending_ = false;
     bool frame_invalidated_ = false;
 };

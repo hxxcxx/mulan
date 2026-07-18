@@ -56,7 +56,8 @@ public:
     DocumentView(const DocumentView&) = delete;
     DocumentView& operator=(const DocumentView&) = delete;
 
-    bool init(const mulan::view::ViewConfig& config, int width, int height);
+    /// runtimeEventCallback 由 RenderThread 调用，只能执行线程安全的 owner-thread 唤醒。
+    bool init(const mulan::view::ViewConfig& config, int width, int height, std::function<void()> runtimeEventCallback);
     void resize(int width, int height);
     /// 帧调度器的最终提交入口；其他调用方应只发失效请求。
     void renderFrame();

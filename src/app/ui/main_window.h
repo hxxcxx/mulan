@@ -51,7 +51,6 @@ private:
     void bindCommandAction(QAction* action, std::string_view commandId);
     mulan::editor::CommandHost currentCommandHost() const;
     void executeCommand(std::string_view id);
-    void observeDocumentRuntime(DocWidget* docWidget);
     bool openFilePath(const QString& filePath, bool recordRecent = true);
     void captureRecentThumbnail(DocWidget* docWidget, const QString& filePath);
 

@@ -4,16 +4,16 @@
 #include "qt_viewport_input_adapter.h"
 #include "engine_settings.h"
 
+#include <mulan/core/log/log.h>
 #include <mulan/view/core/view_context.h>
 
+#include <QMetaObject>
 #include <QShowEvent>
 #include <QResizeEvent>
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
 #include <QFocusEvent>
-
-#include <utility>
 
 DocWidget::DocWidget(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_PaintOnScreen);
@@ -24,19 +24,10 @@ DocWidget::DocWidget(QWidget* parent) : QWidget(parent) {
 
     // Document/View 深层只报告失效，真正提交统一回到本 Qt 所有者。
     document_view_.setFrameInvalidationCallback([this]() { requestFrame(); });
-
-    frame_dispatch_timer_.setSingleShot(true);
-    frame_dispatch_timer_.setInterval(0);
-    frame_dispatch_timer_.setTimerType(Qt::PreciseTimer);
-    connect(&frame_dispatch_timer_, &QTimer::timeout, this, &DocWidget::submitPendingFrame);
-
-    runtime_health_timer_.setInterval(250);
-    runtime_health_timer_.setTimerType(Qt::CoarseTimer);
-    connect(&runtime_health_timer_, &QTimer::timeout, this, &DocWidget::checkRuntimeHealth);
 }
 
 DocWidget::~DocWidget() {
-    // QTimer 成员先于 DocumentView 析构；提前断开反向回调，避免析构期访问已销毁调度状态。
+    // 先停止通道，保证 RenderThread 不再向 runtime_event_proxy_ 投递事件。
     document_view_.setFrameInvalidationCallback({});
     shutdown();
 }
@@ -44,13 +35,11 @@ DocWidget::~DocWidget() {
 bool DocWidget::init() {
     if (document_view_.isInitialized()) {
         runtime_state_ = RuntimeState::Ready;
-        runtime_health_timer_.start();
         requestFrame();
         return true;
     }
 
     runtime_state_ = RuntimeState::Starting;
-    runtime_failure_message_.clear();
 
     EngineSettings::instance().applyTo(view_config_);
     view_config_.window = mulan::app::nativeWindowHandle(*this);
@@ -59,13 +48,12 @@ bool DocWidget::init() {
     input_adapter_.setDevicePixelRatioF(dpr);
     const int pw = static_cast<int>(width() * dpr);
     const int ph = static_cast<int>(height() * dpr);
-    if (!document_view_.init(view_config_, pw, ph)) {
-        transitionToRuntimeFailure(tr("Failed to initialize the dedicated render thread."));
+    if (!document_view_.init(view_config_, pw, ph, [this]() { queueRuntimeEvent(); })) {
+        transitionToRuntimeFailure(tr("Failed to initialize the render channel."));
         return false;
     }
 
     runtime_state_ = RuntimeState::Ready;
-    runtime_health_timer_.start();
     requestFrame();
     return true;
 }
@@ -76,13 +64,10 @@ void DocWidget::shutdown() {
     }
 
     runtime_state_ = RuntimeState::Stopping;
-    frame_dispatch_timer_.stop();
-    runtime_health_timer_.stop();
     frame_invalidated_ = false;
     clearPreview(false);
     document_view_.setDocumentSession(nullptr);
     document_view_.viewContext().shutdown();
-    runtime_failure_message_.clear();
     runtime_state_ = RuntimeState::Stopped;
 }
 
@@ -98,13 +83,18 @@ void DocWidget::resizeEvent(QResizeEvent* e) {
 }
 
 void DocWidget::paintEvent(QPaintEvent*) {
-    if (document_view_.isInitialized())
-        requestFrame();
+    if (runtime_state_ == RuntimeState::Ready && document_view_.isInitialized()) {
+        // update() 会合并同一轮事件循环中的失效；系统 expose 也必须重绘原生 Surface。
+        frame_invalidated_ = true;
+        submitPendingFrame();
+    }
 }
 
 void DocWidget::showEvent(QShowEvent* e) {
     QWidget::showEvent(e);
-    schedulePendingFrame();
+    if (frame_invalidated_) {
+        update();
+    }
 }
 
 void DocWidget::mousePressEvent(QMouseEvent* e) {
@@ -168,13 +158,23 @@ void DocWidget::requestFrame() {
     }
 
     frame_invalidated_ = true;
-    schedulePendingFrame();
+    update();
 }
 
-void DocWidget::schedulePendingFrame() {
-    if (runtime_state_ == RuntimeState::Ready && frame_invalidated_ && document_view_.isInitialized() && isVisible() &&
-        !frame_dispatch_timer_.isActive()) {
-        frame_dispatch_timer_.start();
+void DocWidget::queueRuntimeEvent() {
+    bool expected = false;
+    if (!runtime_event_pending_.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
+        return;
+    }
+    const bool queued = QMetaObject::invokeMethod(
+            &runtime_event_proxy_,
+            [this]() {
+                runtime_event_pending_.store(false, std::memory_order_release);
+                consumeRuntimeEvent();
+            },
+            Qt::QueuedConnection);
+    if (!queued) {
+        runtime_event_pending_.store(false, std::memory_order_release);
     }
 }
 
@@ -188,7 +188,7 @@ void DocWidget::submitPendingFrame() {
         return;
     }
     if (!document_view_.isInitialized()) {
-        transitionToRuntimeFailure(tr("The dedicated render thread stopped unexpectedly."));
+        transitionToRuntimeFailure(tr("The render channel stopped unexpectedly."));
         return;
     }
     if (!isVisible()) {
@@ -204,24 +204,23 @@ void DocWidget::submitPendingFrame() {
         return;
     }
     if (!document_view_.isInitialized()) {
-        transitionToRuntimeFailure(tr("The dedicated render thread rejected the frame and stopped."));
+        transitionToRuntimeFailure(tr("The render channel rejected the frame and stopped."));
     }
 }
 
-void DocWidget::checkRuntimeHealth() {
+void DocWidget::consumeRuntimeEvent() {
     if (runtime_state_ != RuntimeState::Ready) {
         return;
     }
 
-    // 即使画面稳定且没有新帧，也必须持续泵出资源 ACK；否则 builder 会长期
-    // 保留整批 CPU 网格/图像快照。Failure 也在同一 owner 边界完成销毁与失效。
+    // RenderThread 只在资源 ACK 或 failure 发布时唤醒 owner；这里统一消费状态。
     auto runtime = document_view_.pollRenderRuntime();
     if (!runtime) {
         transitionToRuntimeFailure(QString::fromStdString(runtime.error().message));
         return;
     }
     if (!document_view_.isInitialized()) {
-        transitionToRuntimeFailure(tr("The dedicated render thread stopped unexpectedly."));
+        transitionToRuntimeFailure(tr("The render channel stopped unexpectedly."));
     }
 }
 
@@ -230,12 +229,9 @@ void DocWidget::transitionToRuntimeFailure(QString message) {
         return;
     }
 
-    frame_dispatch_timer_.stop();
-    runtime_health_timer_.stop();
     frame_invalidated_ = false;
-    runtime_failure_message_ = std::move(message);
     runtime_state_ = RuntimeState::Failed;
-    emit renderRuntimeFailed(runtime_failure_message_);
+    LOG_ERROR("[App] Document render channel stopped: {}", message.toStdString());
 }
 
 void DocWidget::applyResult(const DocumentInputOutcome& result) {

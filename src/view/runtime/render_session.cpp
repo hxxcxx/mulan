@@ -1,6 +1,6 @@
-#include "runtime/detail/render_session.h"
+#include "detail/render_session.h"
 
-#include "runtime/detail/render_channel.h"
+#include "detail/render_channel.h"
 
 #include <mulan/core/log/log.h>
 #include <mulan/rhi/engine_error_code.h>
@@ -27,7 +27,8 @@ RenderSession::~RenderSession() {
     shutdown();
 }
 
-ResultVoid RenderSession::initWindow(const ViewConfig& config, int width, int height) {
+ResultVoid RenderSession::initWindow(const ViewConfig& config, int width, int height,
+                                     std::function<void()> runtimeEventCallback) {
     assertOwnerThread();
     if (isInitialized()) {
         return {};
@@ -37,7 +38,7 @@ ResultVoid RenderSession::initWindow(const ViewConfig& config, int width, int he
     }
 
     auto candidate = std::make_unique<RenderChannel>();
-    auto initialized = candidate->initWindow(config, width, height);
+    auto initialized = candidate->initWindow(config, width, height, std::move(runtimeEventCallback));
     if (!initialized) {
         return initialized;
     }

@@ -38,6 +38,19 @@ bool compatibleConfig(const ViewConfig& lhs, const ViewConfig& rhs) {
     return std::equal(std::begin(lhs.clearColor), std::end(lhs.clearColor), std::begin(rhs.clearColor));
 }
 
+void notifyChannelEvent(const RenderChannelEventCallback& callback) noexcept {
+    if (!callback) {
+        return;
+    }
+    try {
+        callback();
+    } catch (const std::exception& error) {
+        LOG_ERROR("[RenderThread] Channel event callback failed: {}", error.what());
+    } catch (...) {
+        LOG_ERROR("[RenderThread] Channel event callback failed with an unknown exception");
+    }
+}
+
 }  // namespace
 
 struct RenderThread::ControlTask {
@@ -59,7 +72,8 @@ struct RenderThread::Channel {
         Failed,
     };
 
-    explicit Channel(RenderChannelId value) : id(value), executor(std::make_unique<RenderExecutor>()) {}
+    Channel(RenderChannelId value, RenderChannelEventCallback callback)
+        : id(value), executor(std::make_unique<RenderExecutor>()), eventCallback(std::move(callback)) {}
 
     RenderChannelId id = 0;
     std::unique_ptr<RenderExecutor> executor;
@@ -68,6 +82,7 @@ struct RenderThread::Channel {
     RenderChannelState state;
     RenderSurfaceState surfaceState;
     Lifecycle lifecycle = Lifecycle::Starting;
+    RenderChannelEventCallback eventCallback;
 };
 
 Error RenderThread::threadError(ErrorCode code, std::string_view message) {
@@ -141,13 +156,16 @@ RenderThread::~RenderThread() {
     LOG_INFO("[RenderThread] Thread destroyed: id={}", thread_id_);
 }
 
-Result<RenderChannelId> RenderThread::attachWindow(const ViewConfig& config, int width, int height) {
-    return attach([this, config, width, height](RenderExecutor& executor) -> ResultVoid {
-        auto context = ensureDeviceContext();
-        if (!context)
-            return std::unexpected(context.error());
-        return executor.initWindow(context->get(), config, width, height);
-    });
+Result<RenderChannelId> RenderThread::attachWindow(const ViewConfig& config, int width, int height,
+                                                   RenderChannelEventCallback eventCallback) {
+    return attach(
+            [this, config, width, height](RenderExecutor& executor) -> ResultVoid {
+                auto context = ensureDeviceContext();
+                if (!context)
+                    return std::unexpected(context.error());
+                return executor.initWindow(context->get(), config, width, height);
+            },
+            std::move(eventCallback));
 }
 
 Result<std::reference_wrapper<RenderDeviceContext>> RenderThread::ensureDeviceContext() {
@@ -160,7 +178,7 @@ Result<std::reference_wrapper<RenderDeviceContext>> RenderThread::ensureDeviceCo
     return std::ref(*device_context_);
 }
 
-Result<RenderChannelId> RenderThread::attach(Initializer initialize) {
+Result<RenderChannelId> RenderThread::attach(Initializer initialize, RenderChannelEventCallback eventCallback) {
     auto promise = std::make_shared<std::promise<ResultVoid>>();
     auto future = promise->get_future();
     RenderChannelId channelId = 0;
@@ -173,7 +191,7 @@ Result<RenderChannelId> RenderThread::attach(Initializer initialize) {
         if (channelId == 0) {
             channelId = next_channel_++;
         }
-        auto channel = std::make_shared<Channel>(channelId);
+        auto channel = std::make_shared<Channel>(channelId, std::move(eventCallback));
         channel->controls.push_back(ControlTask{
                 .execute = std::move(initialize),
                 .fatalOnFailure = true,
@@ -544,6 +562,7 @@ void RenderThread::publishSurfaceStateLocked(Channel& channel) {
 
 void RenderThread::failChannel(const std::shared_ptr<Channel>& channel, const Error& error) {
     std::deque<ControlTask> cancelled;
+    RenderChannelEventCallback eventCallback;
     {
         std::scoped_lock lock(mutex_);
         channel->latestFrame.reset();
@@ -553,17 +572,20 @@ void RenderThread::failChannel(const std::shared_ptr<Channel>& channel, const Er
         }
         channel->lifecycle = Channel::Lifecycle::Failed;
         cancelled = std::move(channel->controls);
+        eventCallback = channel->eventCallback;
     }
     for (ControlTask& task : cancelled) {
         if (task.fail) {
             task.fail(error);
         }
     }
+    notifyChannelEvent(eventCallback);
     wake_.notify_all();
 }
 
 void RenderThread::failThread(const Error& error) {
     std::deque<ControlTask> cancelled;
+    std::vector<RenderChannelEventCallback> eventCallbacks;
     {
         std::scoped_lock lock(mutex_);
         if (state_ == RenderThreadState::Failed || state_ == RenderThreadState::Stopped) {
@@ -579,6 +601,9 @@ void RenderThread::failThread(const Error& error) {
                 continue;
             }
             channel->lifecycle = Channel::Lifecycle::Failed;
+            if (channel->eventCallback) {
+                eventCallbacks.push_back(channel->eventCallback);
+            }
             while (!channel->controls.empty()) {
                 cancelled.push_back(std::move(channel->controls.front()));
                 channel->controls.pop_front();
@@ -590,6 +615,9 @@ void RenderThread::failThread(const Error& error) {
         if (task.fail) {
             task.fail(error);
         }
+    }
+    for (const RenderChannelEventCallback& callback : eventCallbacks) {
+        notifyChannelEvent(callback);
     }
     LOG_CRITICAL("[RenderThread] Shared device failed: threadId={}, error={}", thread_id_, error.message);
     wake_.notify_all();
@@ -661,6 +689,7 @@ void RenderThread::run(std::stop_token stopToken) {
                 continue;
             }
 
+            bool resourceBatchCompleted = false;
             {
                 std::scoped_lock lock(mutex_);
                 ++executed_control_count_;
@@ -673,10 +702,14 @@ void RenderThread::run(std::stop_token stopToken) {
                         channel->lifecycle = Channel::Lifecycle::Ready;
                     }
                     channel->state.completeResourceBatch(control.resourceBatchId);
+                    resourceBatchCompleted = control.resourceBatchId != 0;
                 }
             }
             if (control.complete) {
                 control.complete();
+            }
+            if (resourceBatchCompleted) {
+                notifyChannelEvent(channel->eventCallback);
             }
         } catch (const std::exception& error) {
             LOG_CRITICAL("[RenderThread] Control task failed: {}", error.what());
