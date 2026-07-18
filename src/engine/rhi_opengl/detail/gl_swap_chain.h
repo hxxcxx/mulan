@@ -1,6 +1,6 @@
 /**
  * @file gl_swap_chain.h
- * @brief OpenGL 交换链实现（WGL SwapBuffers + 默认 Framebuffer）
+ * @brief OpenGL 平台交换链与默认 Framebuffer 实现
  * @author terry
  * @date 2026-04-16
  */
@@ -20,12 +20,12 @@ class CommandList;
 /**
  * @brief OpenGL 交换链
  *
- * OpenGL 的交换链由平台层管理（WGL SwapBuffers），不像 Vulkan 需要显式创建。
+ * OpenGL 的交换由平台上下文管理，不像 Vulkan 需要显式创建交换链对象。
  * 此类封装了：
- *  - HDC/HWND 持有（从 GLDevice 传入，不拥有生命周期）
+ *  - 平台 GLContext 引用（从 GLDevice 传入，不拥有生命周期）
  *  - beginRenderPass: 绑定默认 FBO 并 glClear
  *  - endRenderPass:   noop（或 glFlush）
- *  - present:         SwapBuffers(hdc)
+ *  - present:         调用平台上下文交换缓冲
  *  - resize:          glViewport
  */
 class GLSwapChain : public SwapChain {

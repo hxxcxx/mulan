@@ -47,10 +47,7 @@
       "name": "xcb",
       "platform": "linux"
     },
-    {
-      "name": "glad",
-      "platform": "windows"
-    },
+    "glad",
     "stb",
     "nlohmann-json",
     "fastgltf",
@@ -75,8 +72,7 @@
     "qtsvg",
     {
       "name": "glslang",
-      "features": ["tools"],
-      "platform": "windows"
+      "features": ["tools"]
     }
   ]
 }

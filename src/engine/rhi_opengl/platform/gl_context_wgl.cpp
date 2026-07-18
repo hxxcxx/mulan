@@ -148,4 +148,8 @@ Result<std::unique_ptr<GLContext>> createGLContext(const GLContextCreateInfo& ci
     return std::unique_ptr<GLContext>(std::move(*result));
 }
 
+bool hasCurrentGLContext() noexcept {
+    return wglGetCurrentContext() != nullptr;
+}
+
 }  // namespace mulan::engine

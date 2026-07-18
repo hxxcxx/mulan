@@ -41,4 +41,11 @@ protected:
 
 Result<std::unique_ptr<GLContext>> createGLContext(const GLContextCreateInfo& ci);
 
+/**
+ * @brief 查询调用线程是否绑定了当前平台的 OpenGL 上下文
+ *
+ * 通用命令实现不得直接依赖 WGL 或 GLX；平台源文件负责提供对应查询。
+ */
+bool hasCurrentGLContext() noexcept;
+
 }  // namespace mulan::engine

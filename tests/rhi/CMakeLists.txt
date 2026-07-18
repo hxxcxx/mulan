@@ -12,7 +12,9 @@ target_compile_definitions(RHISubmissionTests PRIVATE
     MULAN_TEST_HAS_RHI_VULKAN=$<BOOL:$<TARGET_EXISTS:rhi_vulkan>>
     MULAN_TEST_HAS_RHI_D3D12=$<BOOL:$<TARGET_EXISTS:rhi_dx12>>
     MULAN_TEST_HAS_RHI_D3D11=$<BOOL:$<TARGET_EXISTS:rhi_dx11>>
-    MULAN_TEST_HAS_RHI_OPENGL=$<BOOL:$<TARGET_EXISTS:rhi_opengl>>
+    # Linux CI 没有稳定的原生窗口服务器；Linux OpenGL 本轮覆盖编译和链接，
+    # 带窗口的后端契约保留给 Windows，运行验证后续进入专用图形环境。
+    MULAN_TEST_HAS_RHI_OPENGL=$<AND:$<BOOL:$<TARGET_EXISTS:rhi_opengl>>,$<BOOL:${WIN32}>>
 )
 
 if(TARGET rhi_vulkan)

@@ -40,7 +40,7 @@
         },
         {
             "name": "linux",
-            "displayName": "Linux x64 (Vulkan, X11/XCB)",
+            "displayName": "Linux x64 (Vulkan + OpenGL, X11/XCB)",
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
@@ -55,7 +55,7 @@
                 "MULAN_ENABLE_TRUCK_BACKEND": "OFF",
                 "MULAN_ENABLE_D3D12_BACKEND": "OFF",
                 "MULAN_ENABLE_D3D11_BACKEND": "OFF",
-                "MULAN_ENABLE_OPENGL_BACKEND": "OFF",
+                "MULAN_ENABLE_OPENGL_BACKEND": "ON",
                 "MULAN_ENABLE_DEV_RUNTIME_ENV": "OFF",
                 "MULAN_ENABLE_POST_BUILD_DEPLOY": "OFF",
                 "MULAN_ENABLE_RUNTIME_DEPLOY_TARGET": "OFF",

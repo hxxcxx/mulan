@@ -9,7 +9,7 @@
 option(MULAN_ENABLE_VULKAN_BACKEND "Build Vulkan RHI backend" ON)
 option(MULAN_ENABLE_D3D12_BACKEND "Build DX12 RHI backend (Windows only)" ${WIN32})
 option(MULAN_ENABLE_D3D11_BACKEND "Build D3D11 RHI backend (Windows only)" ${WIN32})
-option(MULAN_ENABLE_OPENGL_BACKEND "Build native OpenGL RHI backend (Windows only)" ${WIN32})
+option(MULAN_ENABLE_OPENGL_BACKEND "Build native OpenGL RHI backend (WGL on Windows, GLX on Linux)" ${WIN32})
 
 add_subdirectory(rhi)
 
@@ -27,7 +27,7 @@ if(MULAN_ENABLE_D3D11_BACKEND AND WIN32)
     add_subdirectory(rhi_dx11)
 endif()
 
-if(MULAN_ENABLE_OPENGL_BACKEND AND WIN32)
+if(MULAN_ENABLE_OPENGL_BACKEND AND (WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
     add_subdirectory(rhi_opengl)
 endif()
 

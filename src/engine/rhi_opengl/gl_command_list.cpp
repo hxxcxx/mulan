@@ -1,6 +1,7 @@
 #include "detail/gl_command_list.h"
 #include "detail/gl_bind_group.h"
 #include "detail/gl_buffer.h"
+#include "detail/gl_context.h"
 #include "detail/gl_pipeline_state.h"
 #include "detail/gl_render_target.h"
 #include "detail/gl_sampler.h"
@@ -333,13 +334,11 @@ void GLCommandList::doDraw(const DrawAttribs& attribs) {
 }
 
 void GLCommandList::doDrawIndexed(const DrawIndexedAttribs& attribs) {
-#if defined(_WIN32)
-    if (!wglGetCurrentContext()) {
-        LOG_ERROR("[OpenGL] drawIndexed rejected: no current WGL context");
-        rejectRecording("OpenGL indexed draw requires a current WGL context");
+    if (!hasCurrentGLContext()) {
+        LOG_ERROR("[OpenGL] drawIndexed rejected: no current OpenGL context");
+        rejectRecording("OpenGL indexed draw requires a current context");
         return;
     }
-#endif
     if (!glDrawElements) {
         LOG_ERROR("[OpenGL] drawIndexed rejected: glDrawElements is unavailable");
         rejectRecording("OpenGL indexed draw entry point is unavailable");

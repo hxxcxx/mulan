@@ -135,28 +135,36 @@ void GLShader::createFromGLSL(const char* source, int length) {
 void GLShader::loadGLSLFromFile(std::string_view filePath) {
     FILE* file = nullptr;
 #ifdef _WIN32
-    if (fopen_s(&file, std::string(filePath).c_str(), "r") != 0 || !file) {
+    if (fopen_s(&file, std::string(filePath).c_str(), "rb") != 0 || !file) {
 #else
-    file = fopen(std::string(filePath).c_str(), "r");
+    file = fopen(std::string(filePath).c_str(), "rb");
     if (!file) {
 #endif
         LOG_ERROR("[OpenGL] Failed to open GLSL file: {}", filePath);
         return;
     }
 
-    fseek(file, 0, SEEK_END);
-    long fileSize = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    if (fileSize <= 0) {
-        LOG_ERROR("[OpenGL] GLSL file is empty: {}", filePath);
+    if (fseek(file, 0, SEEK_END) != 0) {
+        LOG_ERROR("[OpenGL] Failed to seek GLSL file: {}", filePath);
         fclose(file);
         return;
     }
 
-    std::vector<char> src(fileSize + 1, '\0');
-    fread(src.data(), 1, fileSize, file);
+    const long fileSize = ftell(file);
+    if (fileSize <= 0 || fseek(file, 0, SEEK_SET) != 0) {
+        LOG_ERROR("[OpenGL] GLSL file is empty or unreadable: {}", filePath);
+        fclose(file);
+        return;
+    }
+
+    std::vector<char> src(static_cast<std::size_t>(fileSize) + 1, '\0');
+    const auto bytesRead = fread(src.data(), 1, static_cast<std::size_t>(fileSize), file);
     fclose(file);
+
+    if (bytesRead != static_cast<std::size_t>(fileSize)) {
+        LOG_ERROR("[OpenGL] Failed to read complete GLSL file: {}", filePath);
+        return;
+    }
 
     createFromGLSL(src.data(), static_cast<int>(fileSize));
 }
