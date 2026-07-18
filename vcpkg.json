@@ -8,6 +8,11 @@
       "supports": "linux",
       "dependencies": [
         {
+          "name": "vulkan-loader",
+          "default-features": false,
+          "features": ["xcb"]
+        },
+        {
           "name": "qtbase",
           "default-features": false,
           "features": ["fontconfig", "freetype", "xcb"]

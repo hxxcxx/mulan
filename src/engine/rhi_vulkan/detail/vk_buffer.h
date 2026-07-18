@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "../rhi/buffer.h"
+#include "../../rhi/buffer.h"
 #include "vk_convert.h"
 
 #include <mulan/core/result/error.h>

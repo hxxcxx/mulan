@@ -4,12 +4,23 @@
 // 由 VKDevice.cpp 提供，此文件不再重复定义。
 
 #include <algorithm>
-#include <cstdlib>
 #include <cstring>
 #include <set>
 #include <span>
+#include <stdexcept>
+
+#if defined(__linux__)
+#include <dlfcn.h>
+#endif
 
 namespace mulan::engine {
+
+#if defined(__linux__)
+void VulkanLoaderHandleDeleter::operator()(void* handle) const noexcept {
+    if (handle)
+        dlclose(handle);
+}
+#endif
 
 // ============================================================
 // Vulkan 验证层调试回调
@@ -271,13 +282,18 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
                 reinterpret_cast<PFN_vkGetInstanceProcAddr>(GetProcAddress(vulkanModule, "vkGetInstanceProcAddr"));
     }
 #elif defined(__linux__)
-    // Linux: 延迟到 SDL/GLFW/vulkan-1.so dlopen
-    // TODO: dlopen("libvulkan.so.1") 加载
+    void* loaderHandle = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
+    if (!loaderHandle)
+        loaderHandle = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+    vulkan_loader_handle_.reset(loaderHandle);
+    if (vulkan_loader_handle_) {
+        vkGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(
+                dlsym(vulkan_loader_handle_.get(), "vkGetInstanceProcAddr"));
+    }
 #endif
 
     if (!vkGetInstanceProcAddr) {
-        LOG_ERROR("[Vulkan] Failed to load the Vulkan loader (vulkan-1.dll)");
-        std::abort();
+        throw std::runtime_error("Failed to load the Vulkan loader");
     }
 
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);

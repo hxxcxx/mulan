@@ -7,7 +7,7 @@
 #pragma once
 
 #include "vk_common.h"
-#include "../rhi/device.h"
+#include "../../rhi/device.h"
 
 #include <memory>
 

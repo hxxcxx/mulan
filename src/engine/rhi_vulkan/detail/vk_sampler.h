@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "../rhi/sampler.h"
+#include "../../rhi/sampler.h"
 #include "vk_common.h"
 
 #include <mulan/core/result/error.h>

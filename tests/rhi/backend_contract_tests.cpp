@@ -252,7 +252,8 @@ TEST_P(BackendContractTest, ReportsUsableCapabilities) {
     EXPECT_FALSE(caps.indirectDispatch && !caps.computeShader);
 
     if (!caps.computeShader) {
-        const auto compute = device->createComputePipelineState({});
+        const ComputePipelineDesc computeDesc;
+        const auto compute = device->createComputePipelineState(computeDesc);
         ASSERT_FALSE(compute);
         EXPECT_EQ(compute.error().code, static_cast<int32_t>(EngineErrorCode::BackendNotSupported));
     }

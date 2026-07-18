@@ -39,7 +39,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     editor
     view
     runtime
-    $<LINK_LIBRARY:WHOLE_ARCHIVE,io>
     $<$<TARGET_EXISTS:rhi_vulkan>:rhi_vulkan>
     $<$<TARGET_EXISTS:rhi_dx12>:rhi_dx12>
     $<$<TARGET_EXISTS:rhi_dx11>:rhi_dx11>

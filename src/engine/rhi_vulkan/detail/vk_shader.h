@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "../rhi/shader.h"
+#include "../../rhi/shader.h"
 #include "vk_convert.h"
 
 #include <mulan/core/result/error.h>

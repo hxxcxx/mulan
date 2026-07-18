@@ -12,6 +12,13 @@
 #endif
 
 int main(int argc, char* argv[]) {
+#if defined(__linux__)
+    // 当前 Linux 窗口与 Vulkan Surface 契约基于 X11/XCB。WSLg 同时暴露 Wayland 时，
+    // Qt 会优先探测未随项目安装的 Wayland 插件；仅在用户未显式指定平台时选择 XCB。
+    if (!qEnvironmentVariableIsSet("QT_QPA_PLATFORM"))
+        qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("xcb"));
+#endif
+
     // HiDPI 支持
     QApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 

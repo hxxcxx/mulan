@@ -8,7 +8,7 @@
 #pragma once
 
 // 确保 Device.h 和 VkCommon.h 都已包含
-#include "../rhi/device.h"
+#include "../../rhi/device.h"
 #include "vk_common.h"
 
 #include <mulan/graphics/vertex/vertex_format.h>

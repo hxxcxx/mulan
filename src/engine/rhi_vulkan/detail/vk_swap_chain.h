@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "../rhi/swap_chain.h"
-#include "../rhi/window.h"
+#include "../../rhi/swap_chain.h"
+#include "../../rhi/window.h"
 #include "vk_convert.h"
 #include "vk_command_list.h"
 #include "vk_texture.h"

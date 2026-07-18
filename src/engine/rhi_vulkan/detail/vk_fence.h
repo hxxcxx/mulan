@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "../rhi/fence.h"
+#include "../../rhi/fence.h"
 #include "vk_convert.h"
 
 #include <mulan/core/result/error.h>

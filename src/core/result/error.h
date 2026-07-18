@@ -15,6 +15,7 @@
 
 #include "../core_export.h"
 
+#include <cstdint>
 #include <expected>
 #include <source_location>
 #include <string>

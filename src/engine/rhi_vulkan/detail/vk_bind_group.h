@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "../rhi/bind_group.h"
+#include "../../rhi/bind_group.h"
 #include "vk_common.h"
 
 #include <array>

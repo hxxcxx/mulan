@@ -10,7 +10,7 @@
 #include "vk_command_list.h"
 #include "vk_descriptor_allocator.h"
 #include "vk_frame_context.h"
-#include "../rhi/swap_chain.h"
+#include "../../rhi/swap_chain.h"
 
 #include <memory>
 #include <vector>

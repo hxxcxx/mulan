@@ -48,7 +48,8 @@ ResultVoid CommandList::begin() {
     push_constant_size_ = 0;
     active_bind_group_layout_.reset();
     active_graphics_pipeline_desc_.reset();
-    active_render_pass_info_ = {};
+    const RenderPassBeginInfo defaultRenderPassInfo;
+    active_render_pass_info_ = defaultRenderPassInfo;
     referenced_resource_set_.clear();
     referenced_resources_.clear();
     resetCachedState();
@@ -480,7 +481,8 @@ void CommandList::endRenderPass() {
     }
     doEndRenderPass();
     render_pass_active_ = false;
-    active_render_pass_info_ = {};
+    const RenderPassBeginInfo defaultRenderPassInfo;
+    active_render_pass_info_ = defaultRenderPassInfo;
 }
 
 bool CommandList::validateGraphicsPipelineRenderPass(const GraphicsPipelineDesc& desc,

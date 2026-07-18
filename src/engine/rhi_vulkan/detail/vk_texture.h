@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "../rhi/texture.h"
+#include "../../rhi/texture.h"
 #include "vk_convert.h"
 
 #include <mulan/core/result/error.h>

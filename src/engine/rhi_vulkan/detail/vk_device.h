@@ -8,8 +8,8 @@
 #pragma once
 
 #include "vk_common.h"
-#include "../rhi/device.h"
-#include "../rhi/window.h"
+#include "../../rhi/device.h"
+#include "../../rhi/window.h"
 #include "vk_convert.h"
 #include "vk_buffer.h"
 #include "vk_texture.h"
@@ -31,6 +31,12 @@
 #include <unordered_map>
 
 namespace mulan::engine {
+
+#if defined(__linux__)
+struct VulkanLoaderHandleDeleter {
+    void operator()(void* handle) const noexcept;
+};
+#endif
 
 class VKDevice : public RHIDevice {
 public:
@@ -108,6 +114,11 @@ private:
     vk::Device device_;
     vk::Queue graphics_queue_;
     VmaAllocator allocator_ = nullptr;
+
+#if defined(__linux__)
+    // Vulkan 分发器持有从 loader 取得的函数指针，句柄必须覆盖整个 Device 生命周期。
+    std::unique_ptr<void, VulkanLoaderHandleDeleter> vulkan_loader_handle_;
+#endif
 
     uint32_t graphics_queue_family_ = 0;
     RenderConfig render_config_;

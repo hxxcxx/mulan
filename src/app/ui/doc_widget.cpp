@@ -16,6 +16,9 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <QApplication>
+#include <QtGui/qguiapplication_platform.h>
 #endif
 
 DocWidget::DocWidget(QWidget* parent) : QWidget(parent) {
@@ -60,6 +63,11 @@ bool DocWidget::init() {
 #ifdef _WIN32
     view_config_.hInstance = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
     view_config_.hWnd = reinterpret_cast<uintptr_t>(HWND(winId()));
+#else
+    if (auto* x11 = qApp->nativeInterface<QNativeInterface::QX11Application>()) {
+        view_config_.displayConnection = reinterpret_cast<uintptr_t>(x11->connection());
+        view_config_.windowHandle = static_cast<uintptr_t>(winId());
+    }
 #endif
 
     const qreal dpr = devicePixelRatioF();
