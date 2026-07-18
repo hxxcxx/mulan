@@ -12,6 +12,7 @@ set(MULAN_APP_SOURCES
     ui/qt_viewport_input_adapter.cpp
     ui/engine_settings.cpp
     ui/engine_settings_dialog.cpp
+    ui/profiler_window.cpp
 )
 
 set(MULAN_APP_QT_HEADERS
@@ -20,6 +21,7 @@ set(MULAN_APP_QT_HEADERS
     ui/main_window.h
     ui/doc_widget.h
     ui/engine_settings_dialog.h
+    ui/profiler_window.h
 )
 
 if(WIN32)

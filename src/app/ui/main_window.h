@@ -20,6 +20,7 @@ class DocumentArea;
 class DocumentSession;
 class DocWidget;
 class EngineSettingsDialog;
+class ProfilerWindow;
 class QCloseEvent;
 
 class MainWindow : public SARibbonMainWindow {
@@ -33,6 +34,7 @@ private slots:
     void onOpenFile();
     void onCurrentDocumentChanged(const QString& name);
     void onEngineSettings();
+    void onProfiler();
 
 private:
     // --- UI 构建 ---
@@ -95,6 +97,8 @@ private:
     QAction* action_surface_solid_ = nullptr;
     QAction* action_surface_material_ = nullptr;
     QAction* action_show_cube_ = nullptr;
+    QAction* action_profiler_ = nullptr;
+    ProfilerWindow* profiler_window_ = nullptr;
 
     // --- Ribbon 结构：Home ---
     SARibbonCategory* category_home_ = nullptr;
@@ -107,4 +111,5 @@ private:
     // --- Ribbon 结构：View ---
     SARibbonCategory* category_view_ = nullptr;
     SARibbonPanel* panel_display_ = nullptr;
+    SARibbonPanel* panel_profiler_ = nullptr;
 };

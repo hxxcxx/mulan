@@ -3,6 +3,7 @@
 #include "document_area.h"
 #include "doc_widget.h"
 #include "engine_settings_dialog.h"
+#include "profiler_window.h"
 #include <mulan/editor/document/document_session.h>
 #include <mulan/editor/command/builtin_commands.h>
 
@@ -252,6 +253,16 @@ void MainWindow::buildRibbonHomeCategory() {
     panel_view_->addLargeAction(action_fit_all_);
     category_home_->addPanel(panel_view_);
 
+#if defined(MULAN_PROFILER_BACKEND_BUILTIN) && defined(MULAN_ENABLE_PROFILING) && MULAN_ENABLE_PROFILING
+    panel_profiler_ = new SARibbonPanel(tr("Diagnostics"), category_home_);
+    action_profiler_ = new QAction(QIcon(":/app/icons/icon/profiler.svg"), tr("Profiler"), this);
+    action_profiler_->setShortcut(QKeySequence("Ctrl+Shift+P"));
+    action_profiler_->setToolTip(tr("Open Mulan Profiler controls"));
+    connect(action_profiler_, &QAction::triggered, this, &MainWindow::onProfiler);
+    panel_profiler_->addLargeAction(action_profiler_);
+    category_home_->addPanel(panel_profiler_);
+#endif
+
     // ── Setting 面板 ──
     panel_setting_ = new SARibbonPanel(tr("Setting"), category_home_);
     auto* actionAbout = new QAction(QIcon(":/app/icons/icon/app-about.svg"), tr("About"), this);
@@ -338,9 +349,18 @@ void MainWindow::buildRibbonViewCategory() {
     panel_display_->addSmallAction(action_show_cube_);
 
     category_view_->addPanel(panel_display_);
+
     ribbonBar()->addCategoryPage(category_view_);
 
     updateDisplayActions();
+}
+
+void MainWindow::onProfiler() {
+    if (!profiler_window_)
+        profiler_window_ = new ProfilerWindow(this);
+    profiler_window_->show();
+    profiler_window_->raise();
+    profiler_window_->activateWindow();
 }
 
 void MainWindow::buildQuickAccessBar() {

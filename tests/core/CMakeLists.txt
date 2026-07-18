@@ -12,3 +12,7 @@ add_test(NAME CoreLogTests COMMAND CoreLogTests)
 add_executable(CoreThreadPoolTests thread_pool_tests.cpp)
 target_link_libraries(CoreThreadPoolTests PRIVATE core GTest::gtest GTest::gtest_main)
 add_test(NAME CoreThreadPoolTests COMMAND CoreThreadPoolTests)
+
+add_executable(CoreProfilingTests profiling_tests.cpp)
+target_link_libraries(CoreProfilingTests PRIVATE mulan::profiling GTest::gtest GTest::gtest_main)
+add_test(NAME CoreProfilingTests COMMAND CoreProfilingTests)

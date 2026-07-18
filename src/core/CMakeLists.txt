@@ -8,6 +8,7 @@ add_library(core SHARED
     image/stb_impl.cpp
     ini/config_file.cpp
     log/log.cpp
+    profiling/profile.cpp
     result/error.cpp
 )
 
@@ -25,7 +26,12 @@ endif()
 # --- spdlog (日志) ---
 find_package(spdlog CONFIG REQUIRED)
 target_link_libraries(core PRIVATE spdlog::spdlog)
-target_link_libraries(core PRIVATE mulan::profiling)
+
+# core 自身不能反向链接 mulan::profiling（该接口会把 core 传递给其他模块）。
+target_compile_definitions(core PRIVATE ${MULAN_PROFILING_COMPILE_DEFINITIONS})
+if(MULAN_PROFILER_BACKEND_NORMALIZED STREQUAL "tracy")
+    target_link_libraries(core PRIVATE Tracy::TracyClient)
+endif()
 
 # --- toml++ (TOML 配置文件) ---
 find_package(tomlplusplus CONFIG REQUIRED)

@@ -10,6 +10,7 @@
             "binaryDir": "${sourceDir}/build/msvc",
             "toolchainFile": "$penv{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
+                "MULAN_PROFILER_BACKEND": "builtin",
                 "VCPKG_OVERLAY_PORTS": "${sourceDir}/cmake/vcpkg-overlay-ports",
                 "OCCT_ROOT": {
                     "type": "PATH",
@@ -19,6 +20,16 @@
                     "type": "PATH",
                     "value": "$penv{OCCT_3RDPARTY_DIR}"
                 }
+            }
+        },
+        {
+            "name": "msvc-tracy",
+            "displayName": "MSVC x64 + Tracy (temporary diagnostics)",
+            "inherits": "msvc",
+            "binaryDir": "${sourceDir}/build/msvc-tracy",
+            "cacheVariables": {
+                "MULAN_PROFILER_BACKEND": "tracy",
+                "VCPKG_MANIFEST_FEATURES": "tracy-profiler"
             }
         }
     ],
@@ -31,6 +42,11 @@
         {
             "name": "relwithdebinfo",
             "configurePreset": "msvc",
+            "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "relwithdebinfo-tracy",
+            "configurePreset": "msvc-tracy",
             "configuration": "RelWithDebInfo"
         }
     ]

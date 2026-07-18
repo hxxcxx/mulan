@@ -34,19 +34,44 @@ option(MULAN_DEPLOY_QT_WITH_WINDEPLOYQT "Run windeployqt from the explicit deplo
 option(MULAN_ENABLE_OCCT_BACKEND "Build the OpenCASCADE modeling backend." ON)
 option(MULAN_ENABLE_TRUCK_BACKEND "Build the experimental truck-bridge modeling backend." OFF)
 option(MULAN_SHADER_DEBUG_INFO "Emit debug info in compiled Slang shaders (symbol names, source line mapping for RenderDoc/PIX)." ON)
-# Profiling 只向最终进入应用进程的目标传播编译期接口。RelWithDebInfo 默认
-# 启用；Release/Debug 编译为空操作且不链接 Tracy。直接按配置生成，避免旧的
-# CMakeCache 开关让性能分析构建在不知情的情况下失效。
-find_package(Tracy CONFIG REQUIRED)
+# Profiling 埋点只在 RelWithDebInfo 中启用。builtin 是日常默认的 Mulan Profiler，
+# tracy 仅用于临时排查时间线/锁竞争，none 可完全移除埋点。
+set(MULAN_PROFILER_BACKEND "builtin" CACHE STRING "Profiler backend: builtin, tracy, or none")
+set_property(CACHE MULAN_PROFILER_BACKEND PROPERTY STRINGS builtin tracy none)
+string(TOLOWER "${MULAN_PROFILER_BACKEND}" MULAN_PROFILER_BACKEND_NORMALIZED)
+if(NOT MULAN_PROFILER_BACKEND_NORMALIZED STREQUAL "builtin"
+   AND NOT MULAN_PROFILER_BACKEND_NORMALIZED STREQUAL "tracy"
+   AND NOT MULAN_PROFILER_BACKEND_NORMALIZED STREQUAL "none")
+    message(FATAL_ERROR "Unsupported MULAN_PROFILER_BACKEND='${MULAN_PROFILER_BACKEND}'")
+endif()
+
+set(MULAN_PROFILING_COMPILE_DEFINITIONS)
+if(MULAN_PROFILER_BACKEND_NORMALIZED STREQUAL "none")
+    list(APPEND MULAN_PROFILING_COMPILE_DEFINITIONS
+        MULAN_ENABLE_PROFILING=0
+        MULAN_PROFILER_BACKEND_NONE=1
+    )
+else()
+    list(APPEND MULAN_PROFILING_COMPILE_DEFINITIONS
+        $<$<CONFIG:RelWithDebInfo>:MULAN_ENABLE_PROFILING=1>
+        $<$<NOT:$<CONFIG:RelWithDebInfo>>:MULAN_ENABLE_PROFILING=0>
+    )
+    if(MULAN_PROFILER_BACKEND_NORMALIZED STREQUAL "tracy")
+        find_package(Tracy CONFIG REQUIRED)
+        list(APPEND MULAN_PROFILING_COMPILE_DEFINITIONS MULAN_PROFILER_BACKEND_TRACY=1)
+    else()
+        list(APPEND MULAN_PROFILING_COMPILE_DEFINITIONS MULAN_PROFILER_BACKEND_BUILTIN=1)
+    endif()
+endif()
+
 add_library(mulan_profiling INTERFACE)
 add_library(mulan::profiling ALIAS mulan_profiling)
-target_compile_definitions(mulan_profiling INTERFACE
-    $<$<CONFIG:RelWithDebInfo>:MULAN_ENABLE_PROFILING=1>
-    $<$<NOT:$<CONFIG:RelWithDebInfo>>:MULAN_ENABLE_PROFILING=0>
-)
-target_link_libraries(mulan_profiling INTERFACE
-    $<$<CONFIG:RelWithDebInfo>:Tracy::TracyClient>
-)
+target_compile_definitions(mulan_profiling INTERFACE ${MULAN_PROFILING_COMPILE_DEFINITIONS})
+target_link_libraries(mulan_profiling INTERFACE core)
+if(MULAN_PROFILER_BACKEND_NORMALIZED STREQUAL "tracy")
+    target_link_libraries(mulan_profiling INTERFACE Tracy::TracyClient)
+endif()
+message(STATUS "Profiler backend: ${MULAN_PROFILER_BACKEND_NORMALIZED}")
 
 set(MULAN_DEFAULT_SHAPE_OPS_BACKEND "occt" CACHE STRING
     "Default IShapeOps backend used when no runtime environment override is set")

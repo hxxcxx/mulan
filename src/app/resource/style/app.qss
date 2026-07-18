@@ -138,3 +138,235 @@ QToolButton[uiRole="startupAction"]:pressed {
     min-height: 24px;
     padding: 3px 8px;
 }
+
+#profilerTitle {
+    color: palette(window-text);
+    font-size: 18px;
+    font-weight: 600;
+}
+
+#profilerHint,
+#profilerReportPath {
+    color: palette(mid);
+}
+
+QLabel#profilerStatus[captureState="ready"] { color: #497CAD; }
+QLabel#profilerStatus[captureState="recording"] { color: #C94F45; font-weight: 600; }
+QLabel#profilerStatus[captureState="complete"] { color: #319F9A; font-weight: 600; }
+
+QPushButton[uiRole="profilerPrimary"],
+QPushButton[uiRole="profilerDanger"],
+QPushButton[uiRole="profilerSecondary"],
+QPushButton[uiRole="profilerGhost"] {
+    border-radius: 6px;
+    min-height: 28px;
+    padding: 2px 14px;
+    outline: none;
+}
+
+QPushButton[uiRole="profilerPrimary"] {
+    background: #319F9A;
+    border: 1px solid #278B87;
+    color: white;
+    font-weight: 600;
+}
+
+QPushButton[uiRole="profilerPrimary"]:hover { background: #38AEA8; }
+QPushButton[uiRole="profilerPrimary"]:pressed { background: #278B87; }
+
+QPushButton[uiRole="profilerDanger"] {
+    background: #C65B52;
+    border: 1px solid #B34C44;
+    color: white;
+    font-weight: 600;
+}
+
+QPushButton[uiRole="profilerDanger"]:hover { background: #D36A61; }
+QPushButton[uiRole="profilerDanger"]:pressed { background: #AD4942; }
+
+QPushButton[uiRole="profilerSecondary"] {
+    background: palette(base);
+    border: 1px solid rgba(71, 121, 145, 74);
+    color: palette(button-text);
+}
+
+QPushButton[uiRole="profilerSecondary"]:hover {
+    background: rgba(49, 159, 154, 18);
+    border-color: #319F9A;
+}
+
+QPushButton[uiRole="profilerGhost"] {
+    background: transparent;
+    border: 1px solid transparent;
+    color: palette(mid);
+}
+
+QPushButton[uiRole="profilerGhost"]:hover {
+    background: rgba(71, 121, 145, 16);
+    color: palette(text);
+}
+
+QPushButton[uiRole="profilerPrimary"]:disabled,
+QPushButton[uiRole="profilerDanger"]:disabled,
+QPushButton[uiRole="profilerSecondary"]:disabled {
+    background: rgba(91, 111, 130, 12);
+    border-color: rgba(91, 111, 130, 38);
+    color: rgba(91, 111, 130, 95);
+}
+
+#profilerSectionTitle {
+    color: #319F9A;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+#profilerSectionHint,
+#profilerMetricLabel,
+#profilerThreadMeta {
+    color: palette(mid);
+    font-size: 11px;
+}
+
+#profilerResultsScroll,
+#profilerResultsContent,
+#profilerMetrics {
+    background: transparent;
+}
+
+QScrollBar#profilerScrollBar:vertical {
+    background: rgba(71, 121, 145, 14);
+    border: none;
+    border-radius: 5px;
+    margin: 0;
+    width: 11px;
+}
+
+QScrollBar#profilerScrollBar::handle:vertical {
+    background: rgba(71, 121, 145, 86);
+    border: 2px solid transparent;
+    border-radius: 5px;
+    min-height: 36px;
+}
+
+QScrollBar#profilerScrollBar::handle:vertical:hover {
+    background: rgba(49, 159, 154, 150);
+}
+
+QScrollBar#profilerScrollBar:horizontal {
+    background: rgba(71, 121, 145, 14);
+    border: none;
+    border-radius: 5px;
+    height: 11px;
+    margin: 0;
+}
+
+QScrollBar#profilerScrollBar::handle:horizontal {
+    background: rgba(71, 121, 145, 86);
+    border: 2px solid transparent;
+    border-radius: 5px;
+    min-width: 36px;
+}
+
+QScrollBar#profilerScrollBar::handle:horizontal:hover {
+    background: rgba(49, 159, 154, 150);
+}
+
+QScrollBar#profilerScrollBar::add-line:vertical,
+QScrollBar#profilerScrollBar::sub-line:vertical {
+    background: transparent;
+    border: none;
+    height: 0;
+}
+
+QScrollBar#profilerScrollBar::add-line:horizontal,
+QScrollBar#profilerScrollBar::sub-line:horizontal {
+    background: transparent;
+    border: none;
+    width: 0;
+}
+
+QScrollBar#profilerScrollBar::add-page:vertical,
+QScrollBar#profilerScrollBar::sub-page:vertical,
+QScrollBar#profilerScrollBar::add-page:horizontal,
+QScrollBar#profilerScrollBar::sub-page:horizontal {
+    background: transparent;
+}
+
+#profilerEmptyResults {
+    background: rgba(49, 159, 154, 10);
+    border: 1px dashed rgba(49, 159, 154, 80);
+    border-radius: 10px;
+    color: palette(mid);
+    padding: 32px;
+}
+
+QFrame#profilerMetricCard {
+    background: rgba(49, 159, 154, 12);
+    border: 1px solid rgba(49, 159, 154, 48);
+    border-radius: 7px;
+}
+
+#profilerMetricValue {
+    color: palette(window-text);
+    font-size: 17px;
+    font-weight: 600;
+}
+
+QFrame#profilerThreadCard {
+    background: palette(base);
+    border: 1px solid rgba(71, 121, 145, 62);
+    border-radius: 8px;
+}
+
+QFrame#profilerReportPanel {
+    background: rgba(71, 121, 145, 9);
+    border: 1px solid rgba(71, 121, 145, 38);
+    border-radius: 7px;
+}
+
+#profilerReportTitle {
+    color: #319F9A;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+#profilerThreadHeader {
+    background: rgba(49, 159, 154, 13);
+    border: none;
+    border-bottom: 1px solid rgba(71, 121, 145, 48);
+}
+
+#profilerThreadIndicator { color: #31AFA7; }
+
+#profilerThreadName {
+    color: palette(window-text);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QTreeView#profilerTree {
+    background: palette(base);
+    border: none;
+    color: palette(text);
+    outline: none;
+}
+
+QTreeView#profilerTree::item {
+    border-bottom: 1px solid rgba(71, 121, 145, 18);
+    padding: 0 4px;
+}
+
+QTreeView#profilerTree::item:hover { background: rgba(49, 159, 154, 24); }
+
+QTreeView#profilerTree::branch { image: none; }
+
+QTreeView#profilerTree QHeaderView::section {
+    background: rgba(71, 121, 145, 18);
+    border: none;
+    border-right: 1px solid rgba(71, 121, 145, 34);
+    border-bottom: 1px solid rgba(71, 121, 145, 45);
+    color: palette(mid);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 6px 8px;
+}

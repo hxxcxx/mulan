@@ -2,6 +2,17 @@
   "name": "mulan",
   "version": "1.0.0",
   "builtin-baseline": "616affa24b974b710a4fc26257e90b7fda6d6826",
+  "features": {
+    "tracy-profiler": {
+      "description": "Temporary Tracy backend for timeline and lock-contention investigations",
+      "dependencies": [
+        {
+          "name": "tracy",
+          "default-features": false
+        }
+      ]
+    }
+  },
   "dependencies": [
     "vulkan",
     "vulkan-memory-allocator",
@@ -20,10 +31,6 @@
       "default-features": false
     },
     "tomlplusplus",
-    {
-      "name": "tracy",
-      "default-features": false
-    },
     "gtest",
     "shader-slang",
     {
