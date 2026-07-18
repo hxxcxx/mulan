@@ -53,7 +53,7 @@ public:
 
     bool isInitialized() const;
     /// owner 主动消费渲染线程 ACK 与失败快照，并在失败时完成通道清理。
-    ResultVoid pollRuntime();
+    ResultVoid consumeRenderEvents();
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
 

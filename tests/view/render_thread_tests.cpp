@@ -10,11 +10,7 @@
 #include "runtime/detail/render_channel_state.h"
 #include "runtime/detail/render_thread.h"
 
-#include <mulan/rhi/engine_error_code.h>
-
 #include <gtest/gtest.h>
-
-#include <vector>
 
 using namespace mulan::view::detail;
 
@@ -79,15 +75,14 @@ TEST(RenderChannelStateTests, FirstFailureRemainsTheRootCause) {
 TEST(RenderThreadTests, CompatibleThreadedViewsReuseOneThread) {
     mulan::view::ViewConfig config;
     config.backend = mulan::engine::GraphicsBackend::Vulkan;
-    auto first = RenderThread::acquire(config);
-    auto second = RenderThread::acquire(config);
+    auto first = RenderThread::acquire(RenderDeviceConfig::fromView(config));
+    auto second = RenderThread::acquire(RenderDeviceConfig::fromView(config));
     ASSERT_TRUE(first);
     ASSERT_TRUE(second);
     EXPECT_EQ(first->get(), second->get());
-    EXPECT_EQ((*first)->stats().threadId, (*second)->stats().threadId);
 
     config.msaa = mulan::engine::RenderConfig::MSAALevel::x8;
-    auto incompatible = RenderThread::acquire(config);
+    auto incompatible = RenderThread::acquire(RenderDeviceConfig::fromView(config));
     ASSERT_TRUE(incompatible);
     EXPECT_NE(first->get(), incompatible->get());
 }
@@ -95,44 +90,43 @@ TEST(RenderThreadTests, CompatibleThreadedViewsReuseOneThread) {
 TEST(RenderThreadTests, OpenGLContextsAlwaysUseIndependentThreads) {
     mulan::view::ViewConfig config;
     config.backend = mulan::engine::GraphicsBackend::OpenGL;
-    auto first = RenderThread::acquire(config);
-    auto second = RenderThread::acquire(config);
+    auto first = RenderThread::acquire(RenderDeviceConfig::fromView(config));
+    auto second = RenderThread::acquire(RenderDeviceConfig::fromView(config));
     ASSERT_TRUE(first);
     ASSERT_TRUE(second);
     EXPECT_NE(first->get(), second->get());
 }
 
-TEST(RenderThreadTests, FairCursorVisitsEveryContinuouslyReadyChannel) {
-    FairChannelCursor cursor;
-    std::vector<size_t> selected;
-    for (size_t iteration = 0; iteration < 9; ++iteration) {
-        const size_t index = cursor.start(3);
-        selected.push_back(index);
-        cursor.selected(index, 3);
-    }
-    EXPECT_EQ(selected, (std::vector<size_t>{ 0, 1, 2, 0, 1, 2, 0, 1, 2 }));
+TEST(RenderThreadTests, SurfaceOnlyConfigurationDoesNotSplitSharedDevice) {
+    mulan::view::ViewConfig firstConfig;
+    firstConfig.backend = mulan::engine::GraphicsBackend::D3D11;
+
+    mulan::view::ViewConfig secondConfig = firstConfig;
+    secondConfig.vsync = !firstConfig.vsync;
+    secondConfig.depthBuffer = !firstConfig.depthBuffer;
+    secondConfig.stencilBuffer = !firstConfig.stencilBuffer;
+    secondConfig.clearColor[0] = 0.9f;
+    secondConfig.clearColor[1] = 0.1f;
+
+    auto first = RenderThread::acquire(RenderDeviceConfig::fromView(firstConfig));
+    auto second = RenderThread::acquire(RenderDeviceConfig::fromView(secondConfig));
+    ASSERT_TRUE(first);
+    ASSERT_TRUE(second);
+    EXPECT_EQ(first->get(), second->get());
 }
 
-TEST(RenderThreadTests, DeviceFailurePoisonsTheOldThreadAndForcesReplacement) {
-    mulan::view::ViewConfig config;
-    config.backend = mulan::engine::GraphicsBackend::Vulkan;
-    auto failedThread = RenderThread::acquire(config);
-    ASSERT_TRUE(failedThread);
-    const uint64_t failedId = (*failedThread)->stats().threadId;
+TEST(RenderThreadTests, DeviceFrameCountSplitsSharedDevice) {
+    mulan::view::ViewConfig firstConfig;
+    firstConfig.backend = mulan::engine::GraphicsBackend::Vulkan;
 
-    const mulan::Error failure =
-            mulan::engine::makeError(mulan::engine::EngineErrorCode::DeviceLost, "injected shared device loss");
-    (*failedThread)->injectFailureForTesting(failure);
-    (*failedThread)->injectFailureForTesting(failure);
-    EXPECT_EQ((*failedThread)->state(), RenderThreadState::Failed);
-    EXPECT_EQ((*failedThread)->stats().failureBroadcastCount, 1u);
-    EXPECT_FALSE((*failedThread)->submitFrame(999, mulan::view::RenderSubmission{}));
-    EXPECT_EQ((*failedThread)->stats().rejectedWorkCount, 1u);
+    mulan::view::ViewConfig secondConfig = firstConfig;
+    secondConfig.bufferCount = static_cast<uint8_t>(firstConfig.bufferCount + 1);
 
-    auto replacement = RenderThread::acquire(config);
-    ASSERT_TRUE(replacement);
-    EXPECT_NE((*replacement)->stats().threadId, failedId);
-    EXPECT_EQ((*replacement)->state(), RenderThreadState::Healthy);
+    auto first = RenderThread::acquire(RenderDeviceConfig::fromView(firstConfig));
+    auto second = RenderThread::acquire(RenderDeviceConfig::fromView(secondConfig));
+    ASSERT_TRUE(first);
+    ASSERT_TRUE(second);
+    EXPECT_NE(first->get(), second->get());
 }
 
 TEST(RenderChannelStateTests, ThousandsOfCompletedBatchesKeepOnlyTheLatestAck) {

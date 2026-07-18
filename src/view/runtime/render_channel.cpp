@@ -23,11 +23,13 @@ ResultVoid RenderChannel::initWindow(const ViewConfig& config, int width, int he
     if (thread_ || channel_ != 0) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is already attached."));
     }
-    auto thread = RenderThread::acquire(config);
+    const RenderDeviceConfig deviceConfig = RenderDeviceConfig::fromView(config);
+    const RenderSurfaceConfig surfaceConfig = RenderSurfaceConfig::fromView(config);
+    auto thread = RenderThread::acquire(deviceConfig);
     if (!thread) {
         return std::unexpected(thread.error());
     }
-    auto channel = (*thread)->attachWindow(config, width, height, std::move(eventCallback));
+    auto channel = (*thread)->attachWindow(surfaceConfig, width, height, std::move(eventCallback));
     if (!channel) {
         return std::unexpected(channel.error());
     }

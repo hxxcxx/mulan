@@ -32,7 +32,7 @@ public:
     RenderExecutor(const RenderExecutor&) = delete;
     RenderExecutor& operator=(const RenderExecutor&) = delete;
 
-    ResultVoid initWindow(RenderDeviceContext& context, const ViewConfig& config, int width, int height);
+    ResultVoid initWindow(RenderDeviceContext& context, const RenderSurfaceConfig& config, int width, int height);
     void shutdown();
 
     bool isInitialized() const;

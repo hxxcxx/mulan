@@ -16,7 +16,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <cassert>
 #include <deque>
 #include <exception>
 #include <future>
@@ -28,15 +27,6 @@ namespace {
 std::mutex registry_mutex;
 std::vector<std::weak_ptr<RenderThread>> registry;
 std::atomic<uint64_t> next_thread_id = 1;
-
-bool compatibleConfig(const ViewConfig& lhs, const ViewConfig& rhs) {
-    if (lhs.backend != rhs.backend || lhs.enableValidation != rhs.enableValidation || lhs.msaa != rhs.msaa ||
-        lhs.bufferCount != rhs.bufferCount || lhs.vsync != rhs.vsync || lhs.depthBuffer != rhs.depthBuffer ||
-        lhs.stencilBuffer != rhs.stencilBuffer) {
-        return false;
-    }
-    return std::equal(std::begin(lhs.clearColor), std::end(lhs.clearColor), std::begin(rhs.clearColor));
-}
 
 void notifyChannelEvent(const RenderChannelEventCallback& callback) noexcept {
     if (!callback) {
@@ -54,10 +44,21 @@ void notifyChannelEvent(const RenderChannelEventCallback& callback) noexcept {
 }  // namespace
 
 struct RenderThread::ControlTask {
+    enum class Kind : uint8_t {
+        Command,
+        Initialize,
+        Shutdown,
+        ResourcePrepare,
+    };
+
+    enum class FailurePolicy : uint8_t {
+        Request,
+        Channel,
+    };
+
     std::function<ResultVoid(RenderExecutor&)> execute;
-    bool fatalOnFailure = false;
-    bool initializesChannel = false;
-    bool stopsChannel = false;
+    Kind kind = Kind::Command;
+    FailurePolicy failurePolicy = FailurePolicy::Request;
     uint64_t resourceBatchId = 0;
     std::function<void()> complete;
     std::function<void(const Error&)> fail;
@@ -89,12 +90,12 @@ Error RenderThread::threadError(ErrorCode code, std::string_view message) {
     return Error::make(code, message);
 }
 
-Result<std::shared_ptr<RenderThread>> RenderThread::acquire(const ViewConfig& config) {
+Result<std::shared_ptr<RenderThread>> RenderThread::acquire(const RenderDeviceConfig& config) {
     std::scoped_lock registryLock(registry_mutex);
     if (config.backend != engine::GraphicsBackend::OpenGL) {
         for (auto it = registry.begin(); it != registry.end();) {
             if (auto thread = it->lock()) {
-                if (thread->state() == RenderThreadState::Healthy && compatibleConfig(thread->config_, config)) {
+                if (thread->isHealthy() && thread->config_.sharesDeviceWith(config)) {
                     return thread;
                 }
                 ++it;
@@ -118,11 +119,12 @@ Result<std::shared_ptr<RenderThread>> RenderThread::acquire(const ViewConfig& co
     return std::unexpected(threadError(ErrorCode::Internal, "Failed to create render thread."));
 }
 
-RenderThread::RenderThread(const ViewConfig& config) : config_(config), thread_id_(next_thread_id.fetch_add(1)) {
+RenderThread::RenderThread(const RenderDeviceConfig& config)
+    : config_(config), thread_id_(next_thread_id.fetch_add(1)) {
     thread_ = std::jthread([this](std::stop_token token) { run(token); });
     {
         std::scoped_lock lock(mutex_);
-        state_ = RenderThreadState::Healthy;
+        state_ = State::Healthy;
     }
     LOG_INFO("[RenderThread] Thread created: id={}, backend={}", thread_id_, static_cast<int>(config.backend));
 }
@@ -132,8 +134,8 @@ RenderThread::~RenderThread() {
     {
         std::scoped_lock lock(mutex_);
         stopping_ = true;
-        state_ = RenderThreadState::Stopped;
-        for (auto& [id, channel] : channels_) {
+        state_ = State::Stopped;
+        for (auto& channel : channels_) {
             channel->lifecycle = Channel::Lifecycle::Stopping;
             channel->latestFrame.reset();
             while (!channel->controls.empty()) {
@@ -156,7 +158,7 @@ RenderThread::~RenderThread() {
     LOG_INFO("[RenderThread] Thread destroyed: id={}", thread_id_);
 }
 
-Result<RenderChannelId> RenderThread::attachWindow(const ViewConfig& config, int width, int height,
+Result<RenderChannelId> RenderThread::attachWindow(const RenderSurfaceConfig& config, int width, int height,
                                                    RenderChannelEventCallback eventCallback) {
     return attach(
             [this, config, width, height](RenderExecutor& executor) -> ResultVoid {
@@ -184,24 +186,22 @@ Result<RenderChannelId> RenderThread::attach(Initializer initialize, RenderChann
     RenderChannelId channelId = 0;
     {
         std::scoped_lock lock(mutex_);
-        if (stopping_ || state_ != RenderThreadState::Healthy) {
+        if (stopping_ || state_ != State::Healthy) {
             return std::unexpected(threadError(ErrorCode::InvalidArg, "Render thread is stopping."));
         }
         channelId = next_channel_++;
         if (channelId == 0) {
             channelId = next_channel_++;
         }
-        auto channel = std::make_shared<Channel>(channelId, std::move(eventCallback));
+        auto channel = std::make_unique<Channel>(channelId, std::move(eventCallback));
         channel->controls.push_back(ControlTask{
                 .execute = std::move(initialize),
-                .fatalOnFailure = true,
-                .initializesChannel = true,
+                .kind = ControlTask::Kind::Initialize,
+                .failurePolicy = ControlTask::FailurePolicy::Channel,
                 .complete = [promise] { promise->set_value(ResultVoid{}); },
                 .fail = [promise](const Error& error) { promise->set_value(std::unexpected(error)); },
         });
-        channels_.emplace(channelId, std::move(channel));
-        channel_order_.push_back(channelId);
-        assertInvariantsLocked();
+        channels_.push_back(std::move(channel));
     }
     wake_.notify_one();
 
@@ -233,23 +233,22 @@ void RenderThread::detach(RenderChannelId channelId) {
     std::deque<ControlTask> cancelled;
     {
         std::scoped_lock lock(mutex_);
-        const auto known = channels_.find(channelId);
-        if (known == channels_.end()) {
+        Channel* channel = findChannelLocked(channelId);
+        if (!channel) {
             return;
         }
-        Channel& channel = *known->second;
-        if (channel.lifecycle == Channel::Lifecycle::Stopped) {
+        if (channel->lifecycle == Channel::Lifecycle::Stopped) {
             promise->set_value();
         } else {
-            channel.lifecycle = Channel::Lifecycle::Stopping;
-            channel.latestFrame.reset();
-            cancelled = std::move(channel.controls);
-            channel.controls.push_back(ControlTask{
+            channel->lifecycle = Channel::Lifecycle::Stopping;
+            channel->latestFrame.reset();
+            cancelled = std::move(channel->controls);
+            channel->controls.push_back(ControlTask{
                     .execute = [](RenderExecutor& executor) -> ResultVoid {
                         executor.shutdown();
                         return {};
                     },
-                    .stopsChannel = true,
+                    .kind = ControlTask::Kind::Shutdown,
                     .complete = [promise] { promise->set_value(); },
                     .fail = [promise](const Error&) { promise->set_value(); },
             });
@@ -266,36 +265,30 @@ void RenderThread::detach(RenderChannelId channelId) {
 
     {
         std::scoped_lock lock(mutex_);
-        channels_.erase(channelId);
-        std::erase(channel_order_, channelId);
-        cursor_.clamp(channel_order_.size());
-        assertInvariantsLocked();
+        std::erase_if(channels_, [channelId](const auto& channel) { return channel->id == channelId; });
+        next_channel_index_ = channels_.empty() ? 0 : next_channel_index_ % channels_.size();
     }
 }
 
 bool RenderThread::isReady(RenderChannelId channelId) const {
     std::scoped_lock lock(mutex_);
-    const auto known = channels_.find(channelId);
-    return state_ == RenderThreadState::Healthy && known != channels_.end() &&
-           known->second->lifecycle == Channel::Lifecycle::Ready;
+    const Channel* channel = findChannelLocked(channelId);
+    return state_ == State::Healthy && channel && channel->lifecycle == Channel::Lifecycle::Ready;
 }
 
 ResultVoid RenderThread::submitFrame(RenderChannelId channelId, RenderSubmission submission) {
     {
         std::scoped_lock lock(mutex_);
-        const auto known = channels_.find(channelId);
-        if (state_ != RenderThreadState::Healthy || known == channels_.end() ||
-            known->second->lifecycle != Channel::Lifecycle::Ready) {
-            ++rejected_work_count_;
+        Channel* channel = findChannelLocked(channelId);
+        if (state_ != State::Healthy || !channel || channel->lifecycle != Channel::Lifecycle::Ready) {
             return std::unexpected(
                     thread_failure_.value_or(threadError(ErrorCode::InvalidArg, "Render channel is not ready.")));
         }
-        Channel& channel = *known->second;
-        auto enqueued = enqueueSubmissionResourcesLocked(channel, submission);
+        auto enqueued = enqueueSubmissionResourcesLocked(*channel, submission);
         if (!enqueued) {
             return std::unexpected(enqueued.error());
         }
-        channel.latestFrame = std::move(submission);
+        channel->latestFrame = std::move(submission);
     }
     wake_.notify_one();
     return {};
@@ -316,7 +309,8 @@ ResultVoid RenderThread::enqueueSubmissionResourcesLocked(Channel& channel, Rend
             channel.controls.push_back(ControlTask{
                     .execute = [prepare = std::move(prepare)](
                                        RenderExecutor& executor) { return executor.prepareResources(prepare); },
-                    .fatalOnFailure = true,
+                    .kind = ControlTask::Kind::ResourcePrepare,
+                    .failurePolicy = ControlTask::FailurePolicy::Channel,
                     .resourceBatchId = submission.resourceBatchId,
             });
         } else {
@@ -338,19 +332,16 @@ Result<engine::RenderCaptureResult> RenderThread::capture(RenderChannelId channe
     auto future = promise->get_future();
     {
         std::scoped_lock lock(mutex_);
-        const auto known = channels_.find(channelId);
-        if (state_ != RenderThreadState::Healthy || known == channels_.end() ||
-            known->second->lifecycle != Channel::Lifecycle::Ready) {
-            ++rejected_work_count_;
+        Channel* channel = findChannelLocked(channelId);
+        if (state_ != State::Healthy || !channel || channel->lifecycle != Channel::Lifecycle::Ready) {
             return std::unexpected(
                     thread_failure_.value_or(threadError(ErrorCode::InvalidArg, "Render channel is not available.")));
         }
-        Channel& channel = *known->second;
-        auto enqueued = enqueueSubmissionResourcesLocked(channel, submission);
+        auto enqueued = enqueueSubmissionResourcesLocked(*channel, submission);
         if (!enqueued) {
             return std::unexpected(enqueued.error());
         }
-        channel.controls.push_back(ControlTask{
+        channel->controls.push_back(ControlTask{
                 .execute = [submission = std::move(submission), desc,
                             outcome](RenderExecutor& executor) mutable -> ResultVoid {
                     *outcome = executor.capture(submission, desc);
@@ -380,16 +371,13 @@ Result<RenderSurfaceState> RenderThread::resize(RenderChannelId channelId, int w
     auto future = promise->get_future();
     {
         std::scoped_lock lock(mutex_);
-        const auto known = channels_.find(channelId);
-        if (state_ != RenderThreadState::Healthy || known == channels_.end() ||
-            known->second->lifecycle != Channel::Lifecycle::Ready) {
-            ++rejected_work_count_;
+        Channel* channel = findChannelLocked(channelId);
+        if (state_ != State::Healthy || !channel || channel->lifecycle != Channel::Lifecycle::Ready) {
             return std::unexpected(
                     thread_failure_.value_or(threadError(ErrorCode::InvalidArg, "Render channel is not available.")));
         }
-        Channel& channel = *known->second;
-        channel.latestFrame.reset();
-        channel.controls.push_back(ControlTask{
+        channel->latestFrame.reset();
+        channel->controls.push_back(ControlTask{
                 .execute = [width, height, outcome](RenderExecutor& executor) -> ResultVoid {
                     *outcome = executor.resize(width, height);
                     if (!outcome->value()) {
@@ -397,7 +385,7 @@ Result<RenderSurfaceState> RenderThread::resize(RenderChannelId channelId, int w
                     }
                     return {};
                 },
-                .fatalOnFailure = true,
+                .failurePolicy = ControlTask::FailurePolicy::Channel,
                 .complete = [promise, outcome] { promise->set_value(std::move(outcome->value())); },
                 .fail = [promise](const Error& error) { promise->set_value(std::unexpected(error)); },
         });
@@ -420,19 +408,16 @@ void RenderThread::enableIBL(RenderChannelId channelId, std::string hdrPath) {
 ResultVoid RenderThread::clearAssetResources(RenderChannelId channelId) {
     {
         std::scoped_lock lock(mutex_);
-        const auto known = channels_.find(channelId);
-        if (state_ != RenderThreadState::Healthy || known == channels_.end() ||
-            known->second->lifecycle != Channel::Lifecycle::Ready) {
-            ++rejected_work_count_;
+        Channel* channel = findChannelLocked(channelId);
+        if (state_ != State::Healthy || !channel || channel->lifecycle != Channel::Lifecycle::Ready) {
             return std::unexpected(
                     thread_failure_.value_or(threadError(ErrorCode::InvalidArg, "Render channel is not ready.")));
         }
-        Channel& channel = *known->second;
-        channel.latestFrame.reset();
-        channel.state.invalidateResourceBatch();
-        channel.controls.push_back(ControlTask{
+        channel->latestFrame.reset();
+        channel->state.invalidateResourceBatch();
+        channel->controls.push_back(ControlTask{
                 .execute = [](RenderExecutor& executor) -> ResultVoid { return executor.clearAssetResources(); },
-                .fatalOnFailure = true,
+                .failurePolicy = ControlTask::FailurePolicy::Channel,
         });
     }
     wake_.notify_one();
@@ -442,13 +427,11 @@ ResultVoid RenderThread::clearAssetResources(RenderChannelId channelId) {
 bool RenderThread::enqueue(RenderChannelId channelId, ControlTask task) {
     {
         std::scoped_lock lock(mutex_);
-        const auto known = channels_.find(channelId);
-        if (state_ != RenderThreadState::Healthy || known == channels_.end() ||
-            known->second->lifecycle != Channel::Lifecycle::Ready) {
-            ++rejected_work_count_;
+        Channel* channel = findChannelLocked(channelId);
+        if (state_ != State::Healthy || !channel || channel->lifecycle != Channel::Lifecycle::Ready) {
             return false;
         }
-        known->second->controls.push_back(std::move(task));
+        channel->controls.push_back(std::move(task));
     }
     wake_.notify_one();
     return true;
@@ -456,50 +439,20 @@ bool RenderThread::enqueue(RenderChannelId channelId, ControlTask task) {
 
 std::optional<uint64_t> RenderThread::takeCompletedResourceBatch(RenderChannelId channelId) {
     std::scoped_lock lock(mutex_);
-    const auto known = channels_.find(channelId);
-    return known == channels_.end() ? std::nullopt : known->second->state.takeCompletedResourceBatch();
+    Channel* channel = findChannelLocked(channelId);
+    return channel ? channel->state.takeCompletedResourceBatch() : std::nullopt;
 }
 
 std::optional<Error> RenderThread::failureSnapshot(RenderChannelId channelId) const {
     std::scoped_lock lock(mutex_);
-    const auto known = channels_.find(channelId);
-    return known == channels_.end() ? std::nullopt : known->second->state.failure();
+    const Channel* channel = findChannelLocked(channelId);
+    return channel ? channel->state.failure() : std::nullopt;
 }
 
 RenderSurfaceState RenderThread::surfaceState(RenderChannelId channelId) const {
     std::scoped_lock lock(mutex_);
-    const auto known = channels_.find(channelId);
-    return known == channels_.end() ? RenderSurfaceState{} : known->second->surfaceState;
-}
-
-RenderThreadStats RenderThread::stats() const {
-    std::scoped_lock lock(mutex_);
-    size_t pendingControls = 0;
-    size_t pendingFrames = 0;
-    for (const auto& [id, channel] : channels_) {
-        pendingControls += channel->controls.size();
-        pendingFrames += channel->latestFrame.has_value() ? 1u : 0u;
-    }
-    return RenderThreadStats{
-        .threadId = thread_id_,
-        .channelCount = channels_.size(),
-        .executedControlCount = executed_control_count_,
-        .executedFrameCount = executed_frame_count_,
-        .rejectedWorkCount = rejected_work_count_,
-        .failureBroadcastCount = failure_broadcast_count_,
-        .pendingControlCount = pendingControls,
-        .pendingFrameCount = pendingFrames,
-        .state = state_,
-    };
-}
-
-RenderThreadState RenderThread::state() const {
-    std::scoped_lock lock(mutex_);
-    return state_;
-}
-
-void RenderThread::injectFailureForTesting(Error error) {
-    failThread(error);
+    const Channel* channel = findChannelLocked(channelId);
+    return channel ? channel->surfaceState : RenderSurfaceState{};
 }
 
 bool RenderThread::channelHasWorkLocked(const Channel& channel) const {
@@ -509,70 +462,71 @@ bool RenderThread::channelHasWorkLocked(const Channel& channel) const {
     return channel.lifecycle == Channel::Lifecycle::Ready && channel.latestFrame.has_value();
 }
 
-void RenderThread::assertInvariantsLocked() const {
-#ifndef NDEBUG
-    assert(channel_order_.size() == channels_.size());
-    for (size_t index = 0; index < channel_order_.size(); ++index) {
-        assert(channel_order_[index] != 0);
-        assert(channels_.contains(channel_order_[index]));
-        assert(std::find(channel_order_.begin() + static_cast<std::ptrdiff_t>(index + 1), channel_order_.end(),
-                         channel_order_[index]) == channel_order_.end());
-    }
-    assert(state_ != RenderThreadState::Failed || thread_failure_.has_value());
-#endif
+RenderThread::Channel* RenderThread::findChannelLocked(RenderChannelId channelId) {
+    const auto found = std::find_if(channels_.begin(), channels_.end(),
+                                    [channelId](const auto& channel) { return channel->id == channelId; });
+    return found == channels_.end() ? nullptr : found->get();
+}
+
+const RenderThread::Channel* RenderThread::findChannelLocked(RenderChannelId channelId) const {
+    const auto found = std::find_if(channels_.begin(), channels_.end(),
+                                    [channelId](const auto& channel) { return channel->id == channelId; });
+    return found == channels_.end() ? nullptr : found->get();
+}
+
+bool RenderThread::isHealthy() const {
+    std::scoped_lock lock(mutex_);
+    return state_ == State::Healthy;
 }
 
 bool RenderThread::hasWorkLocked() const {
     return std::any_of(channels_.begin(), channels_.end(),
-                       [this](const auto& entry) { return channelHasWorkLocked(*entry.second); });
+                       [this](const auto& channel) { return channelHasWorkLocked(*channel); });
 }
 
-std::shared_ptr<RenderThread::Channel> RenderThread::selectReadyChannelLocked(bool& hasControl, ControlTask& control,
-                                                                              std::optional<RenderSubmission>& frame) {
-    hasControl = false;
-    if (channel_order_.empty()) {
-        return {};
+RenderThread::Channel* RenderThread::selectReadyChannelLocked(std::optional<ControlTask>& control,
+                                                              std::optional<RenderSubmission>& frame) {
+    if (channels_.empty()) {
+        return nullptr;
     }
-    const size_t count = channel_order_.size();
-    const size_t start = cursor_.start(count);
+    const size_t count = channels_.size();
+    const size_t start = next_channel_index_ % count;
     for (size_t offset = 0; offset < count; ++offset) {
         const size_t index = (start + offset) % count;
-        const auto known = channels_.find(channel_order_[index]);
-        if (known == channels_.end() || !channelHasWorkLocked(*known->second)) {
+        Channel& channel = *channels_[index];
+        if (!channelHasWorkLocked(channel)) {
             continue;
         }
-        std::shared_ptr<Channel> channel = known->second;
-        cursor_.selected(index, count);
-        if (!channel->controls.empty()) {
-            control = std::move(channel->controls.front());
-            channel->controls.pop_front();
-            hasControl = true;
+        next_channel_index_ = (index + 1) % count;
+        if (!channel.controls.empty()) {
+            control.emplace(std::move(channel.controls.front()));
+            channel.controls.pop_front();
         } else {
-            frame = std::move(channel->latestFrame);
-            channel->latestFrame.reset();
+            frame = std::move(channel.latestFrame);
+            channel.latestFrame.reset();
         }
-        return channel;
+        return &channel;
     }
-    return {};
+    return nullptr;
 }
 
 void RenderThread::publishSurfaceStateLocked(Channel& channel) {
     channel.surfaceState = channel.executor->surfaceState();
 }
 
-void RenderThread::failChannel(const std::shared_ptr<Channel>& channel, const Error& error) {
+void RenderThread::failChannel(Channel& channel, const Error& error) {
     std::deque<ControlTask> cancelled;
     RenderChannelEventCallback eventCallback;
     {
         std::scoped_lock lock(mutex_);
-        channel->latestFrame.reset();
-        channel->state.fail(error);
-        if (channel->lifecycle == Channel::Lifecycle::Stopping) {
+        channel.latestFrame.reset();
+        channel.state.fail(error);
+        if (channel.lifecycle == Channel::Lifecycle::Stopping) {
             return;
         }
-        channel->lifecycle = Channel::Lifecycle::Failed;
-        cancelled = std::move(channel->controls);
-        eventCallback = channel->eventCallback;
+        channel.lifecycle = Channel::Lifecycle::Failed;
+        cancelled = std::move(channel.controls);
+        eventCallback = channel.eventCallback;
     }
     for (ControlTask& task : cancelled) {
         if (task.fail) {
@@ -588,13 +542,12 @@ void RenderThread::failThread(const Error& error) {
     std::vector<RenderChannelEventCallback> eventCallbacks;
     {
         std::scoped_lock lock(mutex_);
-        if (state_ == RenderThreadState::Failed || state_ == RenderThreadState::Stopped) {
+        if (state_ == State::Failed || state_ == State::Stopped) {
             return;
         }
-        state_ = RenderThreadState::Failed;
+        state_ = State::Failed;
         thread_failure_ = error;
-        ++failure_broadcast_count_;
-        for (auto& [id, channel] : channels_) {
+        for (auto& channel : channels_) {
             channel->latestFrame.reset();
             channel->state.fail(error);
             if (channel->lifecycle == Channel::Lifecycle::Stopping) {
@@ -609,7 +562,6 @@ void RenderThread::failThread(const Error& error) {
                 channel->controls.pop_front();
             }
         }
-        assertInvariantsLocked();
     }
     for (ControlTask& task : cancelled) {
         if (task.fail) {
@@ -623,119 +575,115 @@ void RenderThread::failThread(const Error& error) {
     wake_.notify_all();
 }
 
+void RenderThread::executeFrame(Channel& channel, RenderSubmission submission) {
+    try {
+        MULAN_PROFILE_FRAME();
+        auto rendered = [&] {
+            MULAN_PROFILE_ZONE_N("RenderThread/ExecuteFrame");
+            return channel.executor->executeFrame(submission);
+        }();
+        if (!rendered) {
+            if (engine::isDeviceFatalError(rendered.error())) {
+                failThread(rendered.error());
+            } else {
+                failChannel(channel, rendered.error());
+            }
+            return;
+        }
+        std::scoped_lock lock(mutex_);
+        publishSurfaceStateLocked(channel);
+    } catch (...) {
+        failChannel(channel, threadError(ErrorCode::Internal, "Visual frame execution threw an exception."));
+    }
+}
+
+void RenderThread::executeControl(Channel& channel, ControlTask control) {
+    try {
+        auto executed = [&] {
+            MULAN_PROFILE_ZONE_N("RenderThread/ControlTask");
+            return control.execute(*channel.executor);
+        }();
+        if (!executed) {
+            if (control.fail) {
+                control.fail(executed.error());
+            }
+            if (engine::isDeviceFatalError(executed.error())) {
+                // 同步控制即使只影响请求，DeviceLost 也必须广播到共享 Device 的所有通道。
+                failThread(executed.error());
+            } else if (control.failurePolicy == ControlTask::FailurePolicy::Channel) {
+                failChannel(channel, executed.error());
+            }
+            return;
+        }
+
+        bool resourceBatchCompleted = false;
+        {
+            std::scoped_lock lock(mutex_);
+            switch (control.kind) {
+            case ControlTask::Kind::Shutdown:
+                channel.lifecycle = Channel::Lifecycle::Stopped;
+                channel.surfaceState = {};
+                break;
+            case ControlTask::Kind::Initialize:
+                publishSurfaceStateLocked(channel);
+                channel.lifecycle = Channel::Lifecycle::Ready;
+                break;
+            case ControlTask::Kind::ResourcePrepare:
+                publishSurfaceStateLocked(channel);
+                channel.state.completeResourceBatch(control.resourceBatchId);
+                resourceBatchCompleted = true;
+                break;
+            case ControlTask::Kind::Command: publishSurfaceStateLocked(channel); break;
+            }
+        }
+        if (control.complete) {
+            control.complete();
+        }
+        if (resourceBatchCompleted) {
+            notifyChannelEvent(channel.eventCallback);
+        }
+    } catch (const std::exception& error) {
+        LOG_CRITICAL("[RenderThread] Control task failed: {}", error.what());
+        const Error failure = threadError(ErrorCode::Internal, "Render control task threw an exception.");
+        if (control.fail) {
+            control.fail(failure);
+        }
+        failChannel(channel, failure);
+    } catch (...) {
+        const Error failure = threadError(ErrorCode::Internal, "Render control task threw an unknown exception.");
+        if (control.fail) {
+            control.fail(failure);
+        }
+        failChannel(channel, failure);
+    }
+}
+
 void RenderThread::run(std::stop_token stopToken) {
     MULAN_PROFILE_THREAD("RenderThread");
 
     while (!stopToken.stop_requested()) {
-        bool hasControl = false;
-        ControlTask control;
+        std::optional<ControlTask> control;
         std::optional<RenderSubmission> frame;
-        std::shared_ptr<Channel> channel;
+        Channel* channel = nullptr;
         {
             std::unique_lock lock(mutex_);
             wake_.wait(lock, stopToken, [this] { return stopping_ || hasWorkLocked(); });
             if (stopToken.stop_requested() || stopping_) {
                 break;
             }
-            channel = selectReadyChannelLocked(hasControl, control, frame);
+            channel = selectReadyChannelLocked(control, frame);
         }
         if (!channel) {
             continue;
         }
-
-        if (!hasControl) {
-            if (!frame) {
-                continue;
-            }
-            try {
-                MULAN_PROFILE_FRAME();
-                auto rendered = [&] {
-                    MULAN_PROFILE_ZONE_N("RenderThread/ExecuteFrame");
-                    return channel->executor->executeFrame(*frame);
-                }();
-                if (!rendered) {
-                    if (engine::isDeviceFatalError(rendered.error())) {
-                        failThread(rendered.error());
-                    } else {
-                        failChannel(channel, rendered.error());
-                    }
-                    continue;
-                }
-                std::scoped_lock lock(mutex_);
-                ++executed_frame_count_;
-                publishSurfaceStateLocked(*channel);
-            } catch (...) {
-                failChannel(channel, threadError(ErrorCode::Internal, "Visual frame execution threw an exception."));
-            }
-            continue;
-        }
-
-        try {
-            auto executed = [&] {
-                MULAN_PROFILE_ZONE_N("RenderThread/ControlTask");
-                return control.execute(*channel->executor);
-            }();
-            if (!executed) {
-                if (control.fail) {
-                    control.fail(executed.error());
-                }
-                if (engine::isDeviceFatalError(executed.error())) {
-                    // capture 等同步控制即使自身不定义为“通道致命”，DeviceLost 也必须
-                    // 立即使共享渲染线程失败，不能等其他 Surface 下一次提交才被动发现。
-                    failThread(executed.error());
-                } else if (control.fatalOnFailure) {
-                    failChannel(channel, executed.error());
-                }
-                continue;
-            }
-
-            bool resourceBatchCompleted = false;
-            {
-                std::scoped_lock lock(mutex_);
-                ++executed_control_count_;
-                if (control.stopsChannel) {
-                    channel->lifecycle = Channel::Lifecycle::Stopped;
-                    channel->surfaceState = {};
-                } else {
-                    publishSurfaceStateLocked(*channel);
-                    if (control.initializesChannel) {
-                        channel->lifecycle = Channel::Lifecycle::Ready;
-                    }
-                    channel->state.completeResourceBatch(control.resourceBatchId);
-                    resourceBatchCompleted = control.resourceBatchId != 0;
-                }
-            }
-            if (control.complete) {
-                control.complete();
-            }
-            if (resourceBatchCompleted) {
-                notifyChannelEvent(channel->eventCallback);
-            }
-        } catch (const std::exception& error) {
-            LOG_CRITICAL("[RenderThread] Control task failed: {}", error.what());
-            const Error failure = threadError(ErrorCode::Internal, "Render control task threw an exception.");
-            if (control.fail) {
-                control.fail(failure);
-            }
-            failChannel(channel, failure);
-        } catch (...) {
-            const Error failure = threadError(ErrorCode::Internal, "Render control task threw an unknown exception.");
-            if (control.fail) {
-                control.fail(failure);
-            }
-            failChannel(channel, failure);
+        if (control) {
+            executeControl(*channel, std::move(*control));
+        } else if (frame) {
+            executeFrame(*channel, std::move(*frame));
         }
     }
 
-    std::vector<std::shared_ptr<Channel>> remaining;
-    {
-        std::scoped_lock lock(mutex_);
-        remaining.reserve(channels_.size());
-        for (auto& [id, channel] : channels_) {
-            remaining.push_back(channel);
-        }
-    }
-    for (const auto& channel : remaining) {
+    for (const auto& channel : channels_) {
         channel->executor->shutdown();
     }
 

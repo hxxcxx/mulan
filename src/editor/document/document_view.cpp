@@ -101,8 +101,8 @@ void DocumentView::renderFrame() {
     impl_->view_context.renderFrame();
 }
 
-mulan::ResultVoid DocumentView::pollRenderRuntime() {
-    return impl_->view_context.pollRuntime();
+mulan::ResultVoid DocumentView::consumeRenderEvents() {
+    return impl_->view_context.consumeRenderEvents();
 }
 
 void DocumentView::fitAll() {

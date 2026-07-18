@@ -78,8 +78,8 @@ bool ViewContext::isInitialized() const {
     return render_session_->isInitialized();
 }
 
-ResultVoid ViewContext::pollRuntime() {
-    return render_session_->pollRuntime();
+ResultVoid ViewContext::consumeRenderEvents() {
+    return render_session_->consumeRuntimeEvents();
 }
 
 void ViewContext::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {

@@ -10,17 +10,10 @@ RenderDeviceContext::RenderDeviceContext(std::unique_ptr<engine::RHIDevice> devi
     resource_service_ = std::make_unique<engine::DeviceResourceService>(*device_);
 }
 
-Result<std::unique_ptr<RenderDeviceContext>> RenderDeviceContext::create(const ViewConfig& config) {
+Result<std::unique_ptr<RenderDeviceContext>> RenderDeviceContext::create(const RenderDeviceConfig& config) {
     MULAN_PROFILE_ZONE();
 
-    const engine::RenderConfig renderConfig = config.toRenderConfig();
-
-    engine::DeviceCreateInfo createInfo;
-    createInfo.backend = config.backend;
-    if (config.backend == engine::GraphicsBackend::OpenGL)
-        createInfo.window = config.window;
-    createInfo.renderConfig = renderConfig;
-    createInfo.enableValidation = config.enableValidation;
+    const engine::DeviceCreateInfo createInfo = config.toCreateInfo();
 
     auto device = engine::RHIDevice::create(createInfo);
     if (!device) {

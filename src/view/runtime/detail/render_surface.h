@@ -15,7 +15,7 @@
 #include <mulan/rhi/buffer.h>
 #include <mulan/rhi/render_target.h>
 #include <mulan/rhi/swap_chain.h>
-#include <mulan/view/core/view_config.h>
+#include "render_runtime_config.h"
 
 #include <cstdint>
 #include <memory>
@@ -46,7 +46,7 @@ public:
     RenderSurface& operator=(const RenderSurface&) = delete;
 
     /// 窗口表面：创建 SwapChain。device 由调用方持有。
-    ResultVoid initWindowSurface(engine::RHIDevice& device, const ViewConfig& config, int width, int height);
+    ResultVoid initWindowSurface(engine::RHIDevice& device, const RenderSurfaceConfig& config, int width, int height);
 
     /// 离屏表面：创建 RenderTarget + readback staging buffer。
     ResultVoid initOffscreenSurface(engine::RHIDevice& device, const RenderSurfaceDesc& desc);

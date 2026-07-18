@@ -67,7 +67,8 @@ RenderExecutor::~RenderExecutor() {
     shutdown();
 }
 
-ResultVoid RenderExecutor::initWindow(RenderDeviceContext& context, const ViewConfig& config, int width, int height) {
+ResultVoid RenderExecutor::initWindow(RenderDeviceContext& context, const RenderSurfaceConfig& config, int width,
+                                      int height) {
     MULAN_PROFILE_ZONE();
 
     if (initialized_) {
@@ -101,8 +102,8 @@ ResultVoid RenderExecutor::initWindow(RenderDeviceContext& context, const ViewCo
     }
 
     initialized_ = true;
-    LOG_INFO("[RenderExecutor] Window executor initialized: backend={}, size={}x{}", static_cast<int>(config.backend),
-             width, height);
+    LOG_INFO("[RenderExecutor] Window executor initialized: backend={}, size={}x{}",
+             static_cast<int>(context.device().backend()), width, height);
     return {};
 }
 

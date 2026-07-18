@@ -50,8 +50,8 @@ public:
     void shutdown();
 
     bool isInitialized() const;
-    /// owner 线程消费资源 ACK 与失败快照；失败时同步销毁渲染通道并使 builder 资源失效。
-    ResultVoid pollRuntime();
+    /// 主动通知到达后由 owner 线程消费资源 ACK 与失败快照。
+    ResultVoid consumeRuntimeEvents();
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
     void setPreviewLayer(const PreviewLayer* preview);

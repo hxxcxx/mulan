@@ -124,7 +124,7 @@ RenderSurface::~RenderSurface() {
     // 资源由 shutdown() 显式释放；这里兜底 reset。
 }
 
-ResultVoid RenderSurface::initWindowSurface(engine::RHIDevice& device, const ViewConfig& config, int width,
+ResultVoid RenderSurface::initWindowSurface(engine::RHIDevice& device, const RenderSurfaceConfig& config, int width,
                                             int height) {
     if (swapchain_ || render_target_)
         return {};
@@ -135,18 +135,18 @@ ResultVoid RenderSurface::initWindowSurface(engine::RHIDevice& device, const Vie
     if (!window.valid())
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Window surface requires a native window."));
 
-    engine::RenderConfig renderCfg = device.renderConfig();
+    const engine::RenderConfig& renderConfig = config.render;
 
     engine::SwapChainDesc scDesc;
     scDesc.window = window;
     scDesc.width = static_cast<uint32_t>(width);
     scDesc.height = static_cast<uint32_t>(height);
     scDesc.format = engine::TextureFormat::BGRA8_UNorm;
-    scDesc.bufferCount = config.bufferCount;
-    scDesc.sampleCount = renderCfg.sampleCount();
-    scDesc.vsync = config.vsync;
-    std::memcpy(scDesc.clearColor, renderCfg.clearColor, sizeof(scDesc.clearColor));
-    scDesc.clearDepth = renderCfg.clearDepth;
+    scDesc.bufferCount = renderConfig.bufferCount;
+    scDesc.sampleCount = renderConfig.sampleCount();
+    scDesc.vsync = renderConfig.vsync;
+    std::memcpy(scDesc.clearColor, renderConfig.clearColor, sizeof(scDesc.clearColor));
+    scDesc.clearDepth = renderConfig.clearDepth;
 
     auto sc = device.createSwapChain(scDesc);
     if (!sc)

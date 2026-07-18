@@ -64,7 +64,7 @@ bool RenderSession::isInitialized() const {
     return channel_ && channel_->isInitialized();
 }
 
-ResultVoid RenderSession::pollRuntime() {
+ResultVoid RenderSession::consumeRuntimeEvents() {
     assertOwnerThread();
     if (last_runtime_failure_) {
         return std::unexpected(*last_runtime_failure_);
@@ -94,9 +94,6 @@ ResultVoid RenderSession::pollRuntime() {
 
 void RenderSession::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
     assertOwnerThread();
-    if (channel_ && !pollRuntime()) {
-        // pollRuntime 已记录并销毁失败通道；CPU 场景仍可更新，供下次初始化恢复。
-    }
     if (assets != asset_source_) {
         clearAssetResources();
     }
@@ -119,9 +116,6 @@ void RenderSession::submitFrame(const ViewState& viewState) {
     if (!channel_) {
         return;
     }
-    if (!pollRuntime() || !channel_) {
-        return;
-    }
 
     RenderSubmission submission = submission_builder_.build(viewState);
 
@@ -141,12 +135,8 @@ Result<engine::RenderCaptureResult> RenderSession::capture(const ViewState& view
     if (!channel_) {
         return std::unexpected(sessionError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
-    auto polled = pollRuntime();
-    if (!polled) {
-        return std::unexpected(polled.error());
-    }
-    if (!channel_ || !channel_->isInitialized()) {
-        const std::optional<Error> snapshot = channel_ ? channel_->failureSnapshot() : std::nullopt;
+    if (!channel_->isInitialized()) {
+        const std::optional<Error> snapshot = channel_->failureSnapshot();
         const Error failure =
                 snapshot ? *snapshot
                          : sessionError(ErrorCode::Internal, "Render channel stopped before capture submission.");
@@ -173,9 +163,6 @@ RenderSurfaceState RenderSession::resize(int width, int height) {
     if (!channel_) {
         return {};
     }
-    if (!pollRuntime() || !channel_) {
-        return {};
-    }
     auto resized = channel_->resize(width, height);
     if (!resized) {
         LOG_ERROR("[RenderSession] Surface resize failed: {}", resized.error().message);
@@ -191,9 +178,6 @@ RenderSurfaceState RenderSession::resize(int width, int height) {
 void RenderSession::enableIBL(const std::string& hdrPath) {
     assertOwnerThread();
     if (!channel_) {
-        return;
-    }
-    if (!pollRuntime() || !channel_) {
         return;
     }
     channel_->enableIBL(hdrPath);
@@ -246,9 +230,6 @@ void RenderSession::discardRenderChannel() {
 
 void RenderSession::clearAssetResources() {
     if (!channel_) {
-        return;
-    }
-    if (!pollRuntime() || !channel_) {
         return;
     }
     auto cleared = channel_->clearAssetResources();

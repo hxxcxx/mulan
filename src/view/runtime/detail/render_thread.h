@@ -12,12 +12,12 @@
 
 #include "render_surface_state.h"
 #include "render_channel_state.h"
+#include "render_runtime_config.h"
 
 #include "../../scene_sync/render_submission.h"
 
 #include <mulan/core/result/error.h>
 #include <mulan/render/frontend/render_capture.h>
-#include <mulan/view/core/view_config.h>
 
 #include <condition_variable>
 #include <cstddef>
@@ -29,7 +29,6 @@
 #include <string>
 #include <string_view>
 #include <thread>
-#include <unordered_map>
 #include <vector>
 
 namespace mulan::view::detail {
@@ -40,44 +39,15 @@ class RenderDeviceContext;
 using RenderChannelId = uint64_t;
 using RenderChannelEventCallback = std::function<void()>;
 
-enum class RenderThreadState : uint8_t {
-    Healthy,
-    Failed,
-    Stopped,
-};
-
-struct RenderThreadStats {
-    uint64_t threadId = 0;
-    size_t channelCount = 0;
-    size_t executedControlCount = 0;
-    size_t executedFrameCount = 0;
-    size_t rejectedWorkCount = 0;
-    size_t failureBroadcastCount = 0;
-    size_t pendingControlCount = 0;
-    size_t pendingFrameCount = 0;
-    RenderThreadState state = RenderThreadState::Stopped;
-};
-
-/// 轮转游标只负责公平起点；调度器仍会跳过当前无任务的通道。
-class FairChannelCursor {
-public:
-    size_t start(size_t count) const { return count == 0 ? 0 : next_ % count; }
-    void selected(size_t index, size_t count) { next_ = count == 0 ? 0 : (index + 1) % count; }
-    void clamp(size_t count) { next_ = count == 0 ? 0 : next_ % count; }
-
-private:
-    size_t next_ = 0;
-};
-
 class RenderThread {
 public:
-    static Result<std::shared_ptr<RenderThread>> acquire(const ViewConfig& config);
+    static Result<std::shared_ptr<RenderThread>> acquire(const RenderDeviceConfig& config);
     ~RenderThread();
 
     RenderThread(const RenderThread&) = delete;
     RenderThread& operator=(const RenderThread&) = delete;
 
-    Result<RenderChannelId> attachWindow(const ViewConfig& config, int width, int height,
+    Result<RenderChannelId> attachWindow(const RenderSurfaceConfig& config, int width, int height,
                                          RenderChannelEventCallback eventCallback);
     void detach(RenderChannelId channel);
 
@@ -92,48 +62,47 @@ public:
     std::optional<uint64_t> takeCompletedResourceBatch(RenderChannelId channel);
     std::optional<Error> failureSnapshot(RenderChannelId channel) const;
     RenderSurfaceState surfaceState(RenderChannelId channel) const;
-    RenderThreadStats stats() const;
-    RenderThreadState state() const;
-
-    /// 无真实 GPU 的状态机测试入口；仅供测试代码显式调用。
-    void injectFailureForTesting(Error error);
 
 private:
+    enum class State : uint8_t {
+        Healthy,
+        Failed,
+        Stopped,
+    };
+
     struct Channel;
     struct ControlTask;
     using Initializer = std::function<ResultVoid(RenderExecutor&)>;
 
-    explicit RenderThread(const ViewConfig& config);
+    explicit RenderThread(const RenderDeviceConfig& config);
 
     Result<RenderChannelId> attach(Initializer initialize, RenderChannelEventCallback eventCallback);
     Result<std::reference_wrapper<RenderDeviceContext>> ensureDeviceContext();
     void run(std::stop_token stopToken);
-    std::shared_ptr<Channel> selectReadyChannelLocked(bool& hasControl, ControlTask& control,
-                                                      std::optional<RenderSubmission>& frame);
+    Channel* findChannelLocked(RenderChannelId channel);
+    const Channel* findChannelLocked(RenderChannelId channel) const;
+    Channel* selectReadyChannelLocked(std::optional<ControlTask>& control, std::optional<RenderSubmission>& frame);
     bool hasWorkLocked() const;
     bool channelHasWorkLocked(const Channel& channel) const;
-    void assertInvariantsLocked() const;
+    bool isHealthy() const;
     bool enqueue(RenderChannelId channel, ControlTask task);
     ResultVoid enqueueSubmissionResourcesLocked(Channel& channel, RenderSubmission& submission);
     void publishSurfaceStateLocked(Channel& channel);
-    void failChannel(const std::shared_ptr<Channel>& channel, const Error& error);
+    void executeFrame(Channel& channel, RenderSubmission submission);
+    void executeControl(Channel& channel, ControlTask control);
+    void failChannel(Channel& channel, const Error& error);
     void failThread(const Error& error);
     static Error threadError(ErrorCode code, std::string_view message);
 
-    ViewConfig config_;
+    RenderDeviceConfig config_;
     std::unique_ptr<RenderDeviceContext> device_context_;
     mutable std::mutex mutex_;
     std::condition_variable_any wake_;
-    std::unordered_map<RenderChannelId, std::shared_ptr<Channel>> channels_;
-    std::vector<RenderChannelId> channel_order_;
-    FairChannelCursor cursor_;
+    std::vector<std::unique_ptr<Channel>> channels_;
+    size_t next_channel_index_ = 0;
     RenderChannelId next_channel_ = 1;
     uint64_t thread_id_ = 0;
-    size_t executed_control_count_ = 0;
-    size_t executed_frame_count_ = 0;
-    size_t rejected_work_count_ = 0;
-    size_t failure_broadcast_count_ = 0;
-    RenderThreadState state_ = RenderThreadState::Stopped;
+    State state_ = State::Stopped;
     std::optional<Error> thread_failure_;
     bool stopping_ = false;
     // 必须最后声明并在构造函数体启动，禁止线程观察到尚未构造的状态成员。

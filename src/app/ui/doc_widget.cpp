@@ -182,11 +182,6 @@ void DocWidget::submitPendingFrame() {
     if (runtime_state_ != RuntimeState::Ready || !frame_invalidated_) {
         return;
     }
-    auto runtime = document_view_.pollRenderRuntime();
-    if (!runtime) {
-        transitionToRuntimeFailure(QString::fromStdString(runtime.error().message));
-        return;
-    }
     if (!document_view_.isInitialized()) {
         transitionToRuntimeFailure(tr("The render channel stopped unexpectedly."));
         return;
@@ -198,11 +193,6 @@ void DocWidget::submitPendingFrame() {
 
     frame_invalidated_ = false;
     document_view_.renderFrame();
-    runtime = document_view_.pollRenderRuntime();
-    if (!runtime) {
-        transitionToRuntimeFailure(QString::fromStdString(runtime.error().message));
-        return;
-    }
     if (!document_view_.isInitialized()) {
         transitionToRuntimeFailure(tr("The render channel rejected the frame and stopped."));
     }
@@ -214,7 +204,7 @@ void DocWidget::consumeRuntimeEvent() {
     }
 
     // RenderThread 只在资源 ACK 或 failure 发布时唤醒 owner；这里统一消费状态。
-    auto runtime = document_view_.pollRenderRuntime();
+    auto runtime = document_view_.consumeRenderEvents();
     if (!runtime) {
         transitionToRuntimeFailure(QString::fromStdString(runtime.error().message));
         return;

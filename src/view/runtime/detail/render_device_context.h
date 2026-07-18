@@ -12,7 +12,7 @@
 #include <mulan/core/result/error.h>
 #include <mulan/rhi/device.h>
 #include <mulan/render/device_resource_service.h>
-#include <mulan/view/core/view_config.h>
+#include "render_runtime_config.h"
 
 #include <memory>
 
@@ -20,7 +20,7 @@ namespace mulan::view::detail {
 
 class RenderDeviceContext {
 public:
-    static Result<std::unique_ptr<RenderDeviceContext>> create(const ViewConfig& config);
+    static Result<std::unique_ptr<RenderDeviceContext>> create(const RenderDeviceConfig& config);
 
     RenderDeviceContext(const RenderDeviceContext&) = delete;
     RenderDeviceContext& operator=(const RenderDeviceContext&) = delete;
