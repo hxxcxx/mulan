@@ -5,12 +5,18 @@
         {
             "name": "msvc",
             "displayName": "MSVC x64",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
             "generator": "Visual Studio 18 2026",
             "architecture": "x64",
             "binaryDir": "${sourceDir}/build/msvc",
             "toolchainFile": "$penv{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "MULAN_PROFILER_BACKEND": "builtin",
+                "VCPKG_MANIFEST_FEATURES": "windows-qt-deploy",
                 "VCPKG_OVERLAY_PORTS": "${sourceDir}/cmake/vcpkg-overlay-ports",
                 "OCCT_ROOT": {
                     "type": "PATH",
@@ -29,7 +35,35 @@
             "binaryDir": "${sourceDir}/build/msvc-tracy",
             "cacheVariables": {
                 "MULAN_PROFILER_BACKEND": "tracy",
-                "VCPKG_MANIFEST_FEATURES": "tracy-profiler"
+                "VCPKG_MANIFEST_FEATURES": "windows-qt-deploy;tracy-profiler"
+            }
+        },
+        {
+            "name": "linux",
+            "displayName": "Linux x64 (Vulkan, X11/XCB)",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/linux",
+            "toolchainFile": "$penv{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "MULAN_ENABLE_OCCT_BACKEND": "OFF",
+                "MULAN_ENABLE_TRUCK_BACKEND": "OFF",
+                "MULAN_ENABLE_D3D12_BACKEND": "OFF",
+                "MULAN_ENABLE_D3D11_BACKEND": "OFF",
+                "MULAN_ENABLE_OPENGL_BACKEND": "OFF",
+                "MULAN_ENABLE_DEV_RUNTIME_ENV": "OFF",
+                "MULAN_ENABLE_POST_BUILD_DEPLOY": "OFF",
+                "MULAN_ENABLE_RUNTIME_DEPLOY_TARGET": "OFF",
+                "MULAN_DEPLOY_QT_WITH_WINDEPLOYQT": "OFF",
+                "MULAN_PROFILER_BACKEND": "builtin",
+                "VCPKG_TARGET_TRIPLET": "x64-linux",
+                "VCPKG_MANIFEST_FEATURES": "linux-desktop",
+                "VCPKG_OVERLAY_PORTS": "${sourceDir}/cmake/vcpkg-overlay-ports"
             }
         }
     ],
@@ -48,6 +82,19 @@
             "name": "relwithdebinfo-tracy",
             "configurePreset": "msvc-tracy",
             "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "linux-relwithdebinfo",
+            "configurePreset": "linux"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "linux-relwithdebinfo",
+            "configurePreset": "linux",
+            "output": {
+                "outputOnFailure": true
+            }
         }
     ]
 }

@@ -34,7 +34,11 @@ struct CORE_API Config {
     int32_t maxFiles = 5;
     bool enableConsole = true;
     bool enableFile = true;
-    bool enableMSVC = true;          // VS OutputDebugString
+#ifdef _WIN32
+    bool enableMSVC = true;  // VS OutputDebugString
+#else
+    bool enableMSVC = false;  // 非 Windows 平台没有 MSVC 调试器 sink
+#endif
     bool asyncMode = true;
     Level logLevel = Level::Info;    // 默认输出级别
     Level flushLevel = Level::Warn;  // 达到该级别立即落盘

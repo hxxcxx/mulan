@@ -32,6 +32,12 @@ target_link_libraries(rhi_vulkan
         GPUOpen::VulkanMemoryAllocator
 )
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_path(MULAN_XCB_INCLUDE_DIR NAMES xcb/xcb.h REQUIRED)
+    target_include_directories(rhi_vulkan PRIVATE "${MULAN_XCB_INCLUDE_DIR}")
+    target_link_libraries(rhi_vulkan PRIVATE ${CMAKE_DL_LIBS})
+endif()
+
 target_precompile_headers(rhi_vulkan PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../pch.h
 )

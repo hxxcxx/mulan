@@ -7,10 +7,12 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#endif
 
 #include <cassert>
 #include <cstdio>
@@ -40,18 +42,35 @@ inline spdlog::level::level_enum toSpdlogLevel(Level lvl) {
     return kLevelMap[idx];
 }
 
-void reportInitError(const char* message) noexcept {
-    constexpr const char* prefix = "mulan log init skipped: ";
-    ::OutputDebugStringA(prefix);
+void reportDiagnostic(const char* message) noexcept {
+#ifdef _WIN32
     ::OutputDebugStringA(message);
     ::OutputDebugStringA("\n");
-    std::fputs(prefix, stderr);
+#else
+    std::fputs(message, stderr);
+    std::fputc('\n', stderr);
+#endif
+}
+
+void reportInitError(const char* message) noexcept {
+    constexpr std::string_view prefix = "mulan log init skipped: ";
+#ifdef _WIN32
+    ::OutputDebugStringA(prefix.data());
+    ::OutputDebugStringA(message);
+    ::OutputDebugStringA("\n");
+#endif
+    std::fwrite(prefix.data(), 1, prefix.size(), stderr);
     std::fputs(message, stderr);
     std::fputc('\n', stderr);
 }
 
 bool isValidConfig(const Config& cfg) noexcept {
-    if (!cfg.enableConsole && !cfg.enableFile && !cfg.enableMSVC) {
+#ifdef _WIN32
+    const bool debuggerSinkEnabled = cfg.enableMSVC;
+#else
+    constexpr bool debuggerSinkEnabled = false;
+#endif
+    if (!cfg.enableConsole && !cfg.enableFile && !debuggerSinkEnabled) {
         reportInitError("at least one log sink must be enabled");
         return false;
     }
@@ -71,6 +90,7 @@ bool isValidConfig(const Config& cfg) noexcept {
 }
 
 // 同步 logger 会从多个调用线程进入每个 sink；自定义 sink 自己必须加锁。
+#ifdef _WIN32
 class MsvcSink final : public spdlog::sinks::sink {
 public:
     void log(const spdlog::details::log_msg& msg) override {
@@ -98,6 +118,7 @@ private:
     std::unique_ptr<spdlog::formatter> formatter_ =
             std::make_unique<spdlog::pattern_formatter>("[%Y-%m-%d %H:%M:%S] [%l] [%t] [%s:%#] %v");
 };
+#endif
 
 }  // namespace
 
@@ -142,9 +163,11 @@ void init(const Config& cfg) {
             }
 
             if (cfg.enableMSVC) {
+#ifdef _WIN32
                 auto msvc = std::make_shared<MsvcSink>();
                 msvc->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] [%t] [%s:%#] %v");
                 sinks.push_back(msvc);
+#endif
             }
 
             std::shared_ptr<spdlog::logger> logger;
@@ -159,8 +182,10 @@ void init(const Config& cfg) {
 
             logger->set_level(toSpdlogLevel(cfg.logLevel));
             logger->flush_on(toSpdlogLevel(cfg.flushLevel));
-            logger->set_error_handler(
-                    [](const std::string& err) { ::OutputDebugStringA(("spdlog error: " + err + "\n").c_str()); });
+            logger->set_error_handler([](const std::string& err) {
+                const std::string message = "spdlog error: " + err;
+                reportDiagnostic(message.c_str());
+            });
 
             // 不注册为 spdlog 的 default logger，避免与项目中其他 spdlog 使用者互相覆盖。
             g_logger = std::move(logger);

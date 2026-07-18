@@ -3,7 +3,8 @@
 #include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"
 
-#include <cstdio>
+#include <fstream>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -19,22 +20,26 @@ Result<std::unique_ptr<VKShader>> VKShader::create(const ShaderDesc& desc, vk::D
         codeSize = desc.byteCodeSize;
         codePtr = reinterpret_cast<const uint32_t*>(desc.byteCode);
     } else if (!desc.filePath.empty()) {
-        FILE* f = nullptr;
-        if (fopen_s(&f, std::string(desc.filePath).c_str(), "rb") != 0 || !f) {
-            return std::unexpected(makeError(EngineErrorCode::ShaderFileNotFound,
-                                             "Failed to open SPIR-V file: " + std::string(desc.filePath)));
+        const std::string filePath(desc.filePath);
+        std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+        if (!file) {
+            return std::unexpected(
+                    makeError(EngineErrorCode::ShaderFileNotFound, "Failed to open SPIR-V file: " + filePath));
         }
-        fseek(f, 0, SEEK_END);
-        long fileSize = ftell(f);
-        fseek(f, 0, SEEK_SET);
-        if (fileSize <= 0 || (fileSize % 4) != 0) {
-            fclose(f);
-            return std::unexpected(makeError(EngineErrorCode::ShaderCompileFailed,
-                                             "Invalid SPIR-V file size: " + std::string(desc.filePath)));
+
+        const std::streamoff fileSize = file.tellg();
+        if (fileSize <= 0 || (fileSize % sizeof(uint32_t)) != 0 ||
+            fileSize > static_cast<std::streamoff>(std::numeric_limits<uint32_t>::max())) {
+            return std::unexpected(
+                    makeError(EngineErrorCode::ShaderCompileFailed, "Invalid SPIR-V file size: " + filePath));
         }
-        codeOwned.resize(fileSize / 4);
-        fread(codeOwned.data(), 1, fileSize, f);
-        fclose(f);
+
+        file.seekg(0, std::ios::beg);
+        codeOwned.resize(static_cast<size_t>(fileSize) / sizeof(uint32_t));
+        if (!file.read(reinterpret_cast<char*>(codeOwned.data()), fileSize)) {
+            return std::unexpected(
+                    makeError(EngineErrorCode::ShaderCompileFailed, "Failed to read SPIR-V file: " + filePath));
+        }
         codeSize = static_cast<uint32_t>(fileSize);
         codePtr = codeOwned.data();
     } else {

@@ -3,14 +3,20 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <memory>
 #include <mutex>
-#include <process.h>
 #include <sstream>
 #include <thread>
+
+#ifdef _WIN32
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 
 namespace mulan::profiling {
 namespace {
@@ -158,9 +164,15 @@ void appendHtmlNode(std::ostringstream& output, const ProfileNode& node, std::ui
 std::string sessionName() {
     const std::time_t now = std::time(nullptr);
     std::tm local{};
+#ifdef _WIN32
     localtime_s(&local, &now);
+    const auto processId = _getpid();
+#else
+    localtime_r(&now, &local);
+    const auto processId = getpid();
+#endif
     std::ostringstream output;
-    output << std::put_time(&local, "%Y%m%d-%H%M%S") << "-p" << _getpid();
+    output << std::put_time(&local, "%Y%m%d-%H%M%S") << "-p" << processId;
     return output.str();
 }
 

@@ -9,10 +9,5 @@
  */
 #pragma once
 
-#ifdef BUILDING_MATH
-#define MATH_API __declspec(dllexport)
-#elif defined(USING_MATH_DLL)
-#define MATH_API __declspec(dllimport)
-#else
+// math 当前始终以静态库使用，不跨共享库边界导出符号。
 #define MATH_API
-#endif

@@ -1,17 +1,42 @@
 cmake_minimum_required(VERSION 3.24)
 project(mulan VERSION 1.0.0 LANGUAGES C CXX)
 
-# 当前平台层、建模后端和运行时部署仅支持 Windows。
-if(NOT WIN32)
-    message(FATAL_ERROR "Mulan currently supports Windows only.")
+# 当前构建目标支持 Windows 与 Linux。其他平台必须先完成明确的平台接入，
+# 不能以 UNIX 分支静默落入 Linux 实现。
+if(NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message(FATAL_ERROR "Mulan currently supports Windows and Linux only.")
 endif()
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif()
 
 include(CTest)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    include(CheckCXXSourceCompiles)
+    check_cxx_source_compiles([=[
+        #include <expected>
+        #include <format>
+        #include <thread>
+        #include <type_traits>
+        int main() {
+            std::expected<int, int> value = 1;
+            static_assert(std::is_destructible_v<std::jthread>);
+            return std::format("{}", *value).empty();
+        }
+    ]=] MULAN_HAS_REQUIRED_CXX23_LIBRARY)
+    if(NOT MULAN_HAS_REQUIRED_CXX23_LIBRARY)
+        message(FATAL_ERROR
+            "The Linux toolchain must provide C++23 std::expected, std::format, and std::jthread support."
+        )
+    endif()
+endif()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(MulanHeaders)
 include(MulanDeploy)
@@ -27,11 +52,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(MULAN_SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
 
-option(MULAN_ENABLE_DEV_RUNTIME_ENV "Configure debugger runtime paths for F5 without copying runtime DLLs." ON)
+option(MULAN_ENABLE_DEV_RUNTIME_ENV "Configure debugger runtime paths for F5 without copying runtime DLLs." ${WIN32})
 option(MULAN_ENABLE_POST_BUILD_DEPLOY "Copy runtime dependencies after every app build." OFF)
-option(MULAN_ENABLE_RUNTIME_DEPLOY_TARGET "Create an explicit runtime deploy target for standalone runs." ON)
-option(MULAN_DEPLOY_QT_WITH_WINDEPLOYQT "Run windeployqt from the explicit deploy target." ON)
-option(MULAN_ENABLE_OCCT_BACKEND "Build the OpenCASCADE modeling backend." ON)
+option(MULAN_ENABLE_RUNTIME_DEPLOY_TARGET "Create an explicit runtime deploy target for standalone runs." ${WIN32})
+option(MULAN_DEPLOY_QT_WITH_WINDEPLOYQT "Run windeployqt from the explicit deploy target." ${WIN32})
+option(MULAN_ENABLE_OCCT_BACKEND "Build the OpenCASCADE modeling backend." ${WIN32})
 option(MULAN_ENABLE_TRUCK_BACKEND "Build the experimental truck-bridge modeling backend." OFF)
 option(MULAN_SHADER_DEBUG_INFO "Emit debug info in compiled Slang shaders (symbol names, source line mapping for RenderDoc/PIX)." ON)
 # Profiling 埋点只在 RelWithDebInfo 中启用。builtin 是日常默认的 Mulan Profiler，
@@ -108,6 +133,10 @@ set(MULAN_TRUCK_BRIDGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/truck-br
     "truck-bridge source directory")
 
 if(MULAN_ENABLE_TRUCK_BACKEND)
+    if(NOT WIN32)
+        message(FATAL_ERROR "The experimental truck backend is not available on Linux yet.")
+    endif()
+
     find_program(CARGO_EXECUTABLE cargo REQUIRED)
 
     if(NOT EXISTS "${MULAN_TRUCK_BRIDGE_SOURCE_DIR}/Cargo.toml")
@@ -165,6 +194,12 @@ endif()
 # 查找路径优先级: CMakePresets / -DOCCT_ROOT / 环境变量 OCCT_ROOT
 # 即使变量已设置，也需要验证目录是否真实存在
 if(MULAN_ENABLE_OCCT_BACKEND)
+if(NOT WIN32)
+    message(FATAL_ERROR
+        "The OCCT backend is not part of the Linux M1 build yet. "
+        "Configure with -DMULAN_ENABLE_OCCT_BACKEND=OFF."
+    )
+endif()
 set(MULAN_OCCT_ROOT_CANDIDATE "${OCCT_ROOT}")
 if((NOT MULAN_OCCT_ROOT_CANDIDATE OR NOT EXISTS "${MULAN_OCCT_ROOT_CANDIDATE}") AND DEFINED ENV{OCCT_ROOT})
     if(MULAN_OCCT_ROOT_CANDIDATE AND NOT EXISTS "${MULAN_OCCT_ROOT_CANDIDATE}")
@@ -298,9 +333,11 @@ endif()
 # Qt 由 vcpkg manifest 统一提供；builtin-baseline 锁定当前使用的 6.11.1 版本。
 find_package(Qt6 6.11.1 EXACT REQUIRED COMPONENTS Core Gui Widgets Svg)
 message(STATUS "Qt version: ${Qt6_VERSION}")
-message(STATUS "MSVC version: ${MSVC_VERSION}")
-message(STATUS "Generator platform: ${CMAKE_GENERATOR_PLATFORM}")
-message(STATUS "MSVC runtime: ${CMAKE_MSVC_RUNTIME_LIBRARY}")
+message(STATUS "Target platform: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+if(MSVC)
+    message(STATUS "MSVC runtime: ${CMAKE_MSVC_RUNTIME_LIBRARY}")
+endif()
 
 # ── 3rdparty ──
 add_subdirectory(3rdparty/SARibbon)

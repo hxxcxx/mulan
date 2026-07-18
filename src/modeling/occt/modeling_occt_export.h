@@ -6,10 +6,12 @@
  */
 #pragma once
 
+#include <mulan/core/platform/symbol_visibility.h>
+
 #ifdef BUILDING_MODELING_OCCT
-#define MODELING_OCCT_API __declspec(dllexport)
+#define MODELING_OCCT_API MULAN_SYMBOL_EXPORT
 #elif defined(BUILDING_MODELING_OCCT_DLL)
-#define MODELING_OCCT_API __declspec(dllimport)
+#define MODELING_OCCT_API MULAN_SYMBOL_IMPORT
 #else
 #define MODELING_OCCT_API
 #endif

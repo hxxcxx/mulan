@@ -11,9 +11,11 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#define VK_USE_PLATFORM_WIN32_KHR
+#elif defined(__linux__)
+#define VK_USE_PLATFORM_XCB_KHR
 #endif
 
-#define VK_USE_PLATFORM_WIN32_KHR
 #define VK_NO_PROTOTYPES
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC    1
 #define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 1

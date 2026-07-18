@@ -31,4 +31,4 @@ jobs:
             vcpkg-binary-windows-2025-vs2026-v1-
 
       - name: Warm up vcpkg packages
-        run: vcpkg install --triplet x64-windows
+        run: vcpkg install --triplet x64-windows --x-feature=windows-qt-deploy

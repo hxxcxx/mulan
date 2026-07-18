@@ -32,5 +32,7 @@ if(MULAN_ENABLE_OPENGL_BACKEND AND WIN32)
 endif()
 
 add_subdirectory(render)
-add_subdirectory(platform)
+if(WIN32)
+    add_subdirectory(platform)
+endif()
 add_subdirectory(interaction)

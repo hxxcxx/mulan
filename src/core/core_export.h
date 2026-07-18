@@ -6,10 +6,12 @@
  */
 #pragma once
 
+#include "platform/symbol_visibility.h"
+
 #ifdef BUILDING_CORE
-#define CORE_API __declspec(dllexport)
+#define CORE_API MULAN_SYMBOL_EXPORT
 #elif defined(BUILDING_CORE_DLL)
-#define CORE_API __declspec(dllimport)
+#define CORE_API MULAN_SYMBOL_IMPORT
 #else
 #define CORE_API
 #endif

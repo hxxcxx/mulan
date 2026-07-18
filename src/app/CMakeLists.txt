@@ -38,7 +38,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     mulan::profiling
     editor
     view
-    platform
     runtime
     $<LINK_LIBRARY:WHOLE_ARCHIVE,io>
     $<$<TARGET_EXISTS:rhi_vulkan>:rhi_vulkan>
@@ -60,27 +59,28 @@ if(TARGET modeling_truck)
     add_dependencies(${PROJECT_NAME} modeling_truck)
 endif()
 
-# truck 实验关闭后清理可能由旧构建遗留的运行库，避免 runtime 继续扫描加载。
-if(NOT MULAN_ENABLE_TRUCK_BACKEND)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E rm -f
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/mulan_modeling_truck.dll"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/mulan_modeling_truck.pdb"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/truck_bridge.dll"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/backends/mulan_modeling_truck.dll"
-        COMMENT "Removing disabled truck backend runtime artifacts..."
-    )
-endif()
+if(WIN32)
+    # Windows 开发目录可能残留上一次启用的插件；禁用后清理固定名称，避免 runtime 误加载。
+    if(NOT MULAN_ENABLE_TRUCK_BACKEND)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E rm -f
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/mulan_modeling_truck.dll"
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/mulan_modeling_truck.pdb"
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/truck_bridge.dll"
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/backends/mulan_modeling_truck.dll"
+            COMMENT "Removing disabled truck backend runtime artifacts..."
+        )
+    endif()
 
-# OCCT 关闭后清理旧构建遗留的后端，避免 runtime 继续扫描加载。
-if(NOT MULAN_ENABLE_OCCT_BACKEND)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E rm -f
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/mulan_modeling_occt.dll"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/mulan_modeling_occt.pdb"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/backends/mulan_modeling_occt.dll"
-        COMMENT "Removing disabled OCCT backend runtime artifacts..."
-    )
+    if(NOT MULAN_ENABLE_OCCT_BACKEND)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E rm -f
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/mulan_modeling_occt.dll"
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/mulan_modeling_occt.pdb"
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/backends/mulan_modeling_occt.dll"
+            COMMENT "Removing disabled OCCT backend runtime artifacts..."
+        )
+    endif()
 endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -99,6 +99,11 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 target_precompile_headers(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/pch.h
 )
+
+if(NOT WIN32)
+    # Linux M1 直接从构建树运行；安装布局与运行时部署在后续里程碑实现。
+    return()
+endif()
 
 set(MULAN_OCCT_3RDPARTY_RUNTIME_DIRS)
 if(OCCT_3RDPARTY_DIR)

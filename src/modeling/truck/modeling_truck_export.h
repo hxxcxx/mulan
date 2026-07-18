@@ -6,12 +6,10 @@
  */
 #pragma once
 
-#ifdef _WIN32
+#include <mulan/core/platform/symbol_visibility.h>
+
 #ifdef BUILDING_MODELING_TRUCK
-#define MODELING_TRUCK_API __declspec(dllexport)
+#define MODELING_TRUCK_API MULAN_SYMBOL_EXPORT
 #else
-#define MODELING_TRUCK_API __declspec(dllimport)
-#endif
-#else
-#define MODELING_TRUCK_API
+#define MODELING_TRUCK_API MULAN_SYMBOL_IMPORT
 #endif
