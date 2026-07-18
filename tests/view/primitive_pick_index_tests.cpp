@@ -7,11 +7,11 @@
 
 #include "scene_sync/detail/asset_picking.h"
 #include "scene_sync/detail/primitive_pick_index.h"
+#include "scene_sync/render_scene.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/scene/scene.h>
-#include <mulan/view/scene_sync/render_scene.h>
 
 #include <gtest/gtest.h>
 

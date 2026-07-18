@@ -47,8 +47,8 @@ public:
     RenderThread(const RenderThread&) = delete;
     RenderThread& operator=(const RenderThread&) = delete;
 
-    Result<RenderChannelId> attachWindow(const RenderSurfaceConfig& config, int width, int height,
-                                         RenderChannelEventCallback eventCallback);
+    Result<RenderChannelId> attachChannel(const RenderSurfaceConfig& config, int width, int height,
+                                          RenderChannelEventCallback eventCallback);
     void detach(RenderChannelId channel);
 
     bool isReady(RenderChannelId channel) const;
@@ -76,7 +76,7 @@ private:
 
     explicit RenderThread(const RenderDeviceConfig& config);
 
-    Result<RenderChannelId> attach(Initializer initialize, RenderChannelEventCallback eventCallback);
+    Result<RenderChannelId> createChannel(Initializer initialize, RenderChannelEventCallback eventCallback);
     Result<std::reference_wrapper<RenderDeviceContext>> ensureDeviceContext();
     void run(std::stop_token stopToken);
     Channel* findChannelLocked(RenderChannelId channel);

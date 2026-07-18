@@ -17,8 +17,8 @@ RenderChannel::~RenderChannel() {
     shutdown();
 }
 
-ResultVoid RenderChannel::initWindow(const ViewConfig& config, int width, int height,
-                                     RenderChannelEventCallback eventCallback) {
+ResultVoid RenderChannel::init(const ViewConfig& config, int width, int height,
+                               RenderChannelEventCallback eventCallback) {
     MULAN_PROFILE_ZONE();
 
     if (isInitialized()) {
@@ -33,7 +33,7 @@ ResultVoid RenderChannel::initWindow(const ViewConfig& config, int width, int he
     if (!thread) {
         return std::unexpected(thread.error());
     }
-    auto channel = (*thread)->attachWindow(surfaceConfig, width, height, std::move(eventCallback));
+    auto channel = (*thread)->attachChannel(surfaceConfig, width, height, std::move(eventCallback));
     if (!channel) {
         return std::unexpected(channel.error());
     }

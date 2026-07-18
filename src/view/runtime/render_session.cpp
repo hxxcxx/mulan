@@ -28,8 +28,8 @@ RenderSession::~RenderSession() {
     shutdown();
 }
 
-ResultVoid RenderSession::initWindow(const ViewConfig& config, int width, int height,
-                                     std::function<void()> runtimeEventCallback) {
+ResultVoid RenderSession::init(const ViewConfig& config, int width, int height,
+                               std::function<void()> runtimeEventCallback) {
     MULAN_PROFILE_ZONE();
 
     assertOwnerThread();
@@ -41,7 +41,7 @@ ResultVoid RenderSession::initWindow(const ViewConfig& config, int width, int he
     }
 
     auto candidate = std::make_unique<RenderChannel>();
-    auto initialized = candidate->initWindow(config, width, height, std::move(runtimeEventCallback));
+    auto initialized = candidate->init(config, width, height, std::move(runtimeEventCallback));
     if (!initialized) {
         return initialized;
     }

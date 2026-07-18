@@ -52,8 +52,6 @@ DocumentInputDisposition documentDisposition(mulan::engine::InputDisposition dis
 }  // namespace
 
 DocumentView::DocumentView() : impl_(std::make_unique<Impl>()) {
-    MULAN_PROFILE_ZONE();
-
     impl_->binding.setFrameInvalidationCallback([this]() { invalidateFrame(); });
 }
 

@@ -67,29 +67,27 @@ RenderExecutor::~RenderExecutor() {
     shutdown();
 }
 
-ResultVoid RenderExecutor::initWindow(RenderDeviceContext& context, const RenderSurfaceConfig& config, int width,
-                                      int height) {
+ResultVoid RenderExecutor::init(RenderDeviceContext& context, const RenderSurfaceConfig& config, int width,
+                                int height) {
     MULAN_PROFILE_ZONE();
 
     if (initialized_) {
         return {};
     }
     if (width <= 0 || height <= 0) {
-        return std::unexpected(
-                executorError(ErrorCode::InvalidArg, "Window render surface size must be greater than zero."));
+        return std::unexpected(executorError(ErrorCode::InvalidArg, "Render surface size must be greater than zero."));
     }
     if (!config.window.valid()) {
-        LOG_ERROR("[RenderExecutor] Window initialization rejected: invalid native window handle");
-        return std::unexpected(
-                executorError(ErrorCode::InvalidArg, "Window render session requires a valid native window."));
+        LOG_ERROR("[RenderExecutor] Initialization rejected: invalid native window handle");
+        return std::unexpected(executorError(ErrorCode::InvalidArg, "Render surface requires a valid native window."));
     }
 
     device_context_ = &context;
 
     auto& device = device_context_->device();
-    if (auto surfaceInitialized = surface_.initWindowSurface(device, config, width, height); !surfaceInitialized) {
+    if (auto surfaceInitialized = surface_.initSwapChain(device, config, width, height); !surfaceInitialized) {
         shutdownResources();
-        LOG_ERROR("[RenderExecutor] Window surface initialization failed: size={}x{}, error={}", width, height,
+        LOG_ERROR("[RenderExecutor] SwapChain initialization failed: size={}x{}, error={}", width, height,
                   surfaceInitialized.error().message);
         return std::unexpected(surfaceInitialized.error());
     }
@@ -102,8 +100,8 @@ ResultVoid RenderExecutor::initWindow(RenderDeviceContext& context, const Render
     }
 
     initialized_ = true;
-    LOG_INFO("[RenderExecutor] Window executor initialized: backend={}, size={}x{}",
-             static_cast<int>(context.device().backend()), width, height);
+    LOG_INFO("[RenderExecutor] Initialized: backend={}, size={}x{}", static_cast<int>(context.device().backend()),
+             width, height);
     return {};
 }
 

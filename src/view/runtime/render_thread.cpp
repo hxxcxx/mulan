@@ -160,16 +160,16 @@ RenderThread::~RenderThread() {
     LOG_INFO("[RenderThread] Thread destroyed: id={}", thread_id_);
 }
 
-Result<RenderChannelId> RenderThread::attachWindow(const RenderSurfaceConfig& config, int width, int height,
-                                                   RenderChannelEventCallback eventCallback) {
+Result<RenderChannelId> RenderThread::attachChannel(const RenderSurfaceConfig& config, int width, int height,
+                                                    RenderChannelEventCallback eventCallback) {
     MULAN_PROFILE_ZONE();
 
-    return attach(
+    return createChannel(
             [this, config, width, height](RenderExecutor& executor) -> ResultVoid {
                 auto context = ensureDeviceContext();
                 if (!context)
                     return std::unexpected(context.error());
-                return executor.initWindow(context->get(), config, width, height);
+                return executor.init(context->get(), config, width, height);
             },
             std::move(eventCallback));
 }
@@ -186,7 +186,7 @@ Result<std::reference_wrapper<RenderDeviceContext>> RenderThread::ensureDeviceCo
     return std::ref(*device_context_);
 }
 
-Result<RenderChannelId> RenderThread::attach(Initializer initialize, RenderChannelEventCallback eventCallback) {
+Result<RenderChannelId> RenderThread::createChannel(Initializer initialize, RenderChannelEventCallback eventCallback) {
     MULAN_PROFILE_ZONE();
 
     auto promise = std::make_shared<std::promise<ResultVoid>>();

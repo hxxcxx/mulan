@@ -45,8 +45,8 @@ public:
     RenderSurface(const RenderSurface&) = delete;
     RenderSurface& operator=(const RenderSurface&) = delete;
 
-    /// 窗口表面：创建 SwapChain。device 由调用方持有。
-    ResultVoid initWindowSurface(engine::RHIDevice& device, const RenderSurfaceConfig& config, int width, int height);
+    /// 使用原生窗口创建 SwapChain。device 由调用方持有。
+    ResultVoid initSwapChain(engine::RHIDevice& device, const RenderSurfaceConfig& config, int width, int height);
 
     /// 离屏表面：创建 RenderTarget + readback staging buffer。
     ResultVoid initOffscreenSurface(engine::RHIDevice& device, const RenderSurfaceDesc& desc);

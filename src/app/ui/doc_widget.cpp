@@ -17,8 +17,6 @@
 #include <QFocusEvent>
 
 DocWidget::DocWidget(QWidget* parent) : QWidget(parent) {
-    MULAN_PROFILE_ZONE();
-
     setAttribute(Qt::WA_PaintOnScreen);
     setAttribute(Qt::WA_NoSystemBackground);
     setFocusPolicy(Qt::StrongFocus);
@@ -151,8 +149,6 @@ bool DocWidget::event(QEvent* e) {
 }
 
 void DocWidget::setDocumentSession(DocumentSession* session) {
-    MULAN_PROFILE_ZONE();
-
     document_view_.setDocumentSession(session);
     if (document_view_.isInitialized() && session) {
         requestFrame();

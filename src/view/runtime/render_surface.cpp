@@ -122,18 +122,18 @@ Result<OffscreenResources> createOffscreenResources(engine::RHIDevice& device, c
 
 }  // namespace
 
-ResultVoid RenderSurface::initWindowSurface(engine::RHIDevice& device, const RenderSurfaceConfig& config, int width,
-                                            int height) {
+ResultVoid RenderSurface::initSwapChain(engine::RHIDevice& device, const RenderSurfaceConfig& config, int width,
+                                        int height) {
     MULAN_PROFILE_ZONE();
 
     if (swapchain_ || render_target_)
         return {};
     if (width <= 0 || height <= 0)
-        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Window surface size must be positive."));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "SwapChain size must be positive."));
 
     const engine::NativeWindowHandle window = config.window;
     if (!window.valid())
-        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Window surface requires a native window."));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "SwapChain requires a native window."));
 
     const engine::RenderConfig& renderConfig = config.render;
 

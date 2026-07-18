@@ -56,7 +56,7 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height, std::functi
     ibl_enabled_ = cfg.iblEnabled;
     hdr_path_ = cfg.hdrPath;
 
-    if (!render_session_->initWindow(cfg, width, height, std::move(runtimeEventCallback))) {
+    if (!render_session_->init(cfg, width, height, std::move(runtimeEventCallback))) {
         return false;
     }
     render_session_->setPreviewLayer(&preview_layer_);

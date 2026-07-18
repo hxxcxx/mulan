@@ -45,7 +45,7 @@ public:
     RenderSession(const RenderSession&) = delete;
     RenderSession& operator=(const RenderSession&) = delete;
 
-    ResultVoid initWindow(const ViewConfig& config, int width, int height, std::function<void()> runtimeEventCallback);
+    ResultVoid init(const ViewConfig& config, int width, int height, std::function<void()> runtimeEventCallback);
     void shutdown();
 
     bool isInitialized() const;

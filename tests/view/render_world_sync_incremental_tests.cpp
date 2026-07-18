@@ -5,12 +5,12 @@
  * @date 2026-07-16
  */
 
+#include "scene_sync/render_scene.h"
 #include "scene_sync/render_world_sync.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/render/asset_gpu_key.h>
 #include <mulan/scene/scene.h>
-#include <mulan/view/scene_sync/render_scene.h>
 
 #include <gtest/gtest.h>
 

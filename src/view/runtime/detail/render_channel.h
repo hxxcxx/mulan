@@ -24,7 +24,7 @@ public:
     RenderChannel(const RenderChannel&) = delete;
     RenderChannel& operator=(const RenderChannel&) = delete;
 
-    ResultVoid initWindow(const ViewConfig& config, int width, int height, RenderChannelEventCallback eventCallback);
+    ResultVoid init(const ViewConfig& config, int width, int height, RenderChannelEventCallback eventCallback);
     void shutdown();
 
     bool isInitialized() const;
