@@ -62,7 +62,6 @@ public:
 
     GraphicsBackend backend() const override { return GraphicsBackend::Vulkan; }
     const GPUDeviceCapabilities& capabilities() const override { return capabilities_; }
-    const RenderConfig& renderConfig() const override { return render_config_; }
     math::Mat4 clipSpaceCorrectionMatrix() const override { return math::Mat4(1.0); }
 
     Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc&) override { return std::unique_ptr<Buffer>{}; }
@@ -106,7 +105,6 @@ private:
 
     TestFence* fence_ = nullptr;
     GPUDeviceCapabilities capabilities_;
-    RenderConfig render_config_;
 };
 
 class TestResource final : public RHITrackedResource {

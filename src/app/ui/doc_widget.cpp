@@ -1,6 +1,6 @@
 #include "doc_widget.h"
 
-#include "platform/qt_native_window_handle.h"
+#include "../platform/qt_native_window_handle.h"
 #include "qt_viewport_input_adapter.h"
 #include "engine_settings.h"
 

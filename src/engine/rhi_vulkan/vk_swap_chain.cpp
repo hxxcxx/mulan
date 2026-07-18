@@ -11,9 +11,8 @@
 
 namespace mulan::engine {
 
-Result<std::unique_ptr<VKSwapChain>> VKSwapChain::create(const SwapChainDesc& desc, const InitParams& params,
-                                                         const RenderConfig& renderConfig) {
-    auto obj = std::unique_ptr<VKSwapChain>(new VKSwapChain(desc, params, renderConfig));
+Result<std::unique_ptr<VKSwapChain>> VKSwapChain::create(const SwapChainDesc& desc, const InitParams& params) {
+    auto obj = std::unique_ptr<VKSwapChain>(new VKSwapChain(desc, params));
     if (auto e = obj->createSwapChain(); e.code != 0)
         return std::unexpected(e);
     return obj;

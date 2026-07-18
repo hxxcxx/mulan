@@ -19,46 +19,33 @@ namespace mulan::view::detail {
 
 struct RenderDeviceConfig {
     engine::GraphicsBackend backend = engine::GraphicsBackend::Vulkan;
-    engine::RenderConfig::MSAALevel msaa = engine::RenderConfig::MSAALevel::x4;
-    uint8_t frameCount = 2;
     bool enableValidation = true;
 
     // 仅 OpenGL Context 创建使用；其他后端必须忽略。
     engine::NativeWindowHandle contextWindow;
     bool contextVsync = true;
-    bool contextDepth = true;
-    bool contextStencil = false;
 
     static RenderDeviceConfig fromView(const ViewConfig& config) {
         return RenderDeviceConfig{
             .backend = config.backend,
-            .msaa = config.msaa,
-            .frameCount = config.bufferCount > 0 ? config.bufferCount : uint8_t{ 2 },
             .enableValidation = config.enableValidation,
             .contextWindow =
                     config.backend == engine::GraphicsBackend::OpenGL ? config.window : engine::NativeWindowHandle{},
             .contextVsync = config.vsync,
-            .contextDepth = config.depthBuffer,
-            .contextStencil = config.stencilBuffer,
         };
     }
 
     bool sharesDeviceWith(const RenderDeviceConfig& other) const {
-        return backend == other.backend && msaa == other.msaa && frameCount == other.frameCount &&
-               enableValidation == other.enableValidation;
+        return backend == other.backend && enableValidation == other.enableValidation;
     }
 
     engine::DeviceCreateInfo toCreateInfo() const {
         engine::DeviceCreateInfo info;
         info.backend = backend;
         info.enableValidation = enableValidation;
-        info.renderConfig.msaa = msaa;
-        info.renderConfig.bufferCount = frameCount;
         if (backend == engine::GraphicsBackend::OpenGL) {
             info.window = contextWindow;
             info.renderConfig.vsync = contextVsync;
-            info.renderConfig.depthBuffer = contextDepth;
-            info.renderConfig.stencilBuffer = contextStencil;
         }
         return info;
     }

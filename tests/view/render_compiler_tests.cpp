@@ -61,7 +61,6 @@ class CompilerTestDevice final : public RHIDevice {
 public:
     GraphicsBackend backend() const override { return GraphicsBackend::Vulkan; }
     const GPUDeviceCapabilities& capabilities() const override { return capabilities_; }
-    const RenderConfig& renderConfig() const override { return render_config_; }
     math::Mat4 clipSpaceCorrectionMatrix() const override { return math::Mat4(1.0); }
 
     Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc) override {
@@ -106,7 +105,6 @@ private:
     bool isInitialized() const noexcept override { return true; }
 
     GPUDeviceCapabilities capabilities_;
-    RenderConfig render_config_;
 };
 
 graphics::Mesh makeEdgeMesh() {

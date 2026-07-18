@@ -91,7 +91,7 @@ Result<std::unique_ptr<SwapChain>> VKDevice::createSwapChain(const SwapChainDesc
     params.presentQueue = device_.getQueue(presentQueueFamily, 0);
     params.surface = surface;
 
-    auto result = VKSwapChain::create(desc, params, render_config_);
+    auto result = VKSwapChain::create(desc, params);
     if (!result) {
         instance_.destroySurfaceKHR(surface);
         return std::unexpected(result.error());

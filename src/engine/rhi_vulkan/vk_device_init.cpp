@@ -50,15 +50,6 @@ static uint32_t sampleCountFromFlags(vk::SampleCountFlags flags, uint32_t reques
     return 1;
 }
 
-static RenderConfig::MSAALevel toMsaaLevel(uint32_t samples) {
-    switch (samples) {
-    case 8: return RenderConfig::MSAALevel::x8;
-    case 4: return RenderConfig::MSAALevel::x4;
-    case 2: return RenderConfig::MSAALevel::x2;
-    default: return RenderConfig::MSAALevel::None;
-    }
-}
-
 static bool hasInstanceLayer(std::span<const vk::LayerProperties> layers, const char* name) {
     return std::any_of(layers.begin(), layers.end(), [name](const vk::LayerProperties& layer) {
         return std::strcmp(layer.layerName.data(), name) == 0;
@@ -93,10 +84,6 @@ GraphicsBackend VKDevice::backend() const {
 
 const GPUDeviceCapabilities& VKDevice::capabilities() const {
     return caps_;
-}
-
-const RenderConfig& VKDevice::renderConfig() const {
-    return render_config_;
 }
 
 math::Mat4 VKDevice::clipSpaceCorrectionMatrix() const {
@@ -229,8 +216,6 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
 // ============================================================
 
 void VKDevice::init(const DeviceCreateInfo& ci) {
-    render_config_ = ci.renderConfig;
-
     // --- Dynamic dispatch loader ---
     const PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = platform_loader_.loadEntryPoint();
 
@@ -349,7 +334,6 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     const auto framebufferSampleCounts =
             props.limits.framebufferColorSampleCounts & props.limits.framebufferDepthSampleCounts;
     caps_.maxSampleCount = sampleCountFromFlags(framebufferSampleCounts, 8);
-    render_config_.msaa = toMsaaLevel(sampleCountFromFlags(framebufferSampleCounts, render_config_.sampleCount()));
     caps_.minUniformBufferOffsetAlignment = props.limits.minUniformBufferOffsetAlignment;
     caps_.maxUniformBufferBindingSize = static_cast<uint32_t>(props.limits.maxUniformBufferRange);
     caps_.geometryShader = false;
@@ -360,7 +344,7 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     frame_scheduler_ = std::make_unique<VKFrameScheduler>(device_, graphics_queue_, graphics_queue_family_, allocator_,
                                                           caps_.minUniformBufferOffsetAlignment,
                                                           caps_.maxUniformBufferBindingSize);
-    frame_scheduler_->initFrameContexts(ci.renderConfig.bufferCount > 0 ? ci.renderConfig.bufferCount : 2);
+    frame_scheduler_->initFrameContexts(ci.frameContextCount > 0 ? ci.frameContextCount : 2);
     resource_factory_ = std::make_unique<VKResourceFactory>(*this, device_, allocator_, *upload_context_);
     auto submissionFenceResult = createFence(0);
     if (!submissionFenceResult) {

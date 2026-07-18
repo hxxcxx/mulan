@@ -14,15 +14,6 @@ namespace {
 
 using namespace mulan::engine;
 
-RenderConfig::MSAALevel toMSAALevel(uint32_t sampleCount) {
-    switch (sampleCount) {
-    case 8: return RenderConfig::MSAALevel::x8;
-    case 4: return RenderConfig::MSAALevel::x4;
-    case 2: return RenderConfig::MSAALevel::x2;
-    default: return RenderConfig::MSAALevel::None;
-    }
-}
-
 template <typename Base, typename Impl, typename... Args>
 mulan::Result<std::unique_ptr<Base>> createDX11Resource(RHIDevice& device, EngineErrorCode errorCode,
                                                         RHIResourceKind resourceKind, std::string_view name,
@@ -132,11 +123,6 @@ DX11Device::~DX11Device() {
 }
 
 void DX11Device::init(const DeviceCreateInfo& ci) {
-    m_window = ci.window;
-    m_renderConfig = ci.renderConfig;
-    if (m_renderConfig.bufferCount == 0)
-        m_renderConfig.bufferCount = 2;
-
     if (!checkDX11(CreateDXGIFactory1(IID_PPV_ARGS(&m_factory)), "CreateDXGIFactory1"))
         return;
 
@@ -222,9 +208,6 @@ void DX11Device::init(const DeviceCreateInfo& ci) {
     m_caps.indirectDispatch = false;
     m_caps.pushConstants = false;
 
-    const uint32_t selectedSamples = resolveSampleCount(TextureFormat::RGBA8_UNorm, TextureFormat::D24_UNorm_S8_UInt,
-                                                        true, m_renderConfig.sampleCount());
-    m_renderConfig.msaa = toMSAALevel(selectedSamples);
     LOG_INFO("[DX11] Device initialized: featureLevel=0x{:X}, debugLayer={}, context1={}, maxMSAA={}",
              static_cast<unsigned>(achievedLevel), m_debugDevice != nullptr, m_immediateCtx1 != nullptr,
              m_caps.maxSampleCount);
@@ -327,7 +310,7 @@ Result<std::unique_ptr<SwapChain>> DX11Device::createSwapChain(const SwapChainDe
 
     SwapChainDesc resolvedDesc = desc;
     resolvedDesc.sampleCount = resolveSampleCount(resolvedDesc.format, resolvedDesc.depthFormat, resolvedDesc.hasDepth,
-                                                  m_renderConfig.sampleCount());
+                                                  resolvedDesc.sampleCount);
     return createDX11Resource<SwapChain, DX11SwapChain>(
             *this, EngineErrorCode::SwapChainCreateFailed, RHIResourceKind::SwapChain, "DX11SwapChain", resolvedDesc,
             m_device.Get(), m_factory.Get(), m_immediateCtx.Get(), resolvedDesc.window);

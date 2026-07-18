@@ -69,8 +69,12 @@ struct GPUDeviceCapabilities {
 
 struct DeviceCreateInfo {
     GraphicsBackend backend = GraphicsBackend::Vulkan;
+    /// 仅 OpenGL Context 创建需要原生窗口；显式图形 API 的窗口属于 SwapChainDesc。
     NativeWindowHandle window = {};
+    /// OpenGL Context 像素格式配置；其他后端的呈现参数必须来自 SwapChainDesc。
     RenderConfig renderConfig = {};
+    /// Device 内部可复用的帧执行上下文数量，与任一 SwapChain 的 bufferCount 无关。
+    uint8_t frameContextCount = 2;
     bool enableValidation = true;
     const char* appName = "mulan";
 };
@@ -105,7 +109,6 @@ public:
 
     virtual GraphicsBackend backend() const = 0;
     virtual const GPUDeviceCapabilities& capabilities() const = 0;
-    virtual const RenderConfig& renderConfig() const = 0;
     uint64_t deviceGeneration() const { return device_generation_; }
     SubmissionToken lastSubmissionToken() const;
 

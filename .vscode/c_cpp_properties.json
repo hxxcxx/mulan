@@ -10,7 +10,12 @@
                 "${env:WIN10_SDK_INCLUDE}/shared",
                 "${env:WIN10_SDK_INCLUDE}/ucrt",
                 "${workspaceFolder}/build/msvc/vcpkg_installed/x64-windows/include",
-                "${workspaceFolder}/build/msvc/include"
+                "${workspaceFolder}/build/msvc/vcpkg_installed/x64-windows/include/Qt6",
+                "${workspaceFolder}/build/msvc/vcpkg_installed/x64-windows/include/Qt6/QtCore",
+                "${workspaceFolder}/build/msvc/vcpkg_installed/x64-windows/include/Qt6/QtGui",
+                "${workspaceFolder}/build/msvc/vcpkg_installed/x64-windows/include/Qt6/QtWidgets",
+                "${workspaceFolder}/build/msvc/include",
+                "${workspaceFolder}/3rdparty/SARibbon"
             ],
             "defines": [
                 "_DEBUG",

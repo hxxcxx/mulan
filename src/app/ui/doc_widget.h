@@ -10,15 +10,15 @@
  */
 #pragma once
 
-#include <QObject>
-#include <QString>
-#include <QWidget>
+#include "qt_viewport_input_adapter.h"
 
 #include <mulan/interaction/input_event.h>
 #include <mulan/view/core/view_config.h>
 #include <mulan/editor/document/document_view.h>
 
-#include "qt_viewport_input_adapter.h"
+#include <QObject>
+#include <QString>
+#include <QWidget>
 
 #include <atomic>
 #include <cstdint>

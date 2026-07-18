@@ -49,8 +49,8 @@ public:
 private:
     ResultVoid initRenderer();
     ResultVoid configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
-    RenderSurfaceState surfaceStateLocked() const;
-    void shutdownLocked();
+    RenderSurfaceState makeSurfaceState() const;
+    void shutdownResources();
 
     // 非拥有借用；RenderThread 保证先关闭全部 Executor，再销毁设备上下文。
     RenderDeviceContext* device_context_ = nullptr;

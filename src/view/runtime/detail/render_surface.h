@@ -40,7 +40,7 @@ struct RenderSurfaceDesc {
 class RenderSurface {
 public:
     RenderSurface() = default;
-    ~RenderSurface();
+    ~RenderSurface() = default;
 
     RenderSurface(const RenderSurface&) = delete;
     RenderSurface& operator=(const RenderSurface&) = delete;
@@ -61,8 +61,6 @@ public:
     ResultVoid readbackPixels(engine::RHIDevice& device, std::vector<uint8_t>& pixels);
 
     bool isInitialized() const { return swapchain_ || render_target_; }
-    bool isOffscreen() const { return !swapchain_ && static_cast<bool>(render_target_); }
-
     engine::SwapChain* swapChain() const { return swapchain_.get(); }
     engine::RenderTarget* renderTarget() const { return render_target_.get(); }
 
@@ -70,8 +68,9 @@ public:
     int height() const { return height_; }
     uint32_t bytesPerPixel() const { return bytes_per_pixel_; }
     uint32_t rowBytes() const { return row_bytes_; }
-    engine::TextureFormat colorFormat(engine::RHIDevice& device) const;
-    engine::TextureFormat depthFormat(engine::RHIDevice& device) const;
+    engine::TextureFormat colorFormat() const;
+    engine::TextureFormat depthFormat() const;
+    bool hasDepth() const;
     uint32_t sampleCount() const;
 
 private:

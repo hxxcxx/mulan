@@ -36,15 +36,6 @@ uint32_t dx12SupportedSamples(ID3D12Device* device, DXGI_FORMAT format, uint32_t
     return 1;
 }
 
-RenderConfig::MSAALevel toMsaaLevel(uint32_t samples) {
-    switch (samples) {
-    case 8: return RenderConfig::MSAALevel::x8;
-    case 4: return RenderConfig::MSAALevel::x4;
-    case 2: return RenderConfig::MSAALevel::x2;
-    default: return RenderConfig::MSAALevel::None;
-    }
-}
-
 }  // namespace
 
 // ============================================================
@@ -75,9 +66,7 @@ DX12Device::~DX12Device() {
 // ============================================================
 
 void DX12Device::init(const DeviceCreateInfo& ci) {
-    window_ = ci.window;
-    render_config_ = ci.renderConfig;
-    frame_count_ = ci.renderConfig.bufferCount > 0 ? ci.renderConfig.bufferCount : 2;
+    frame_count_ = ci.frameContextCount > 0 ? ci.frameContextCount : 2;
     if (ci.enableValidation)
         enableDebugLayer();
     createFactory();
@@ -130,15 +119,10 @@ void DX12Device::init(const DeviceCreateInfo& ci) {
     caps_.pushConstants = false;
     caps_.maxTextureSize = D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION;  // 16384
     caps_.maxTextureAniso = D3D12_DEFAULT_MAX_ANISOTROPY;         // 16
-    const uint32_t colorSamples =
-            dx12SupportedSamples(device_.Get(), DXGI_FORMAT_B8G8R8A8_UNORM, render_config_.sampleCount());
-    const uint32_t depthSamples =
-            dx12SupportedSamples(device_.Get(), DXGI_FORMAT_D24_UNORM_S8_UINT, render_config_.sampleCount());
     caps_.maxSampleCount = dx12SupportedSamples(device_.Get(), DXGI_FORMAT_B8G8R8A8_UNORM, 8);
-    render_config_.msaa = toMsaaLevel((std::min) (colorSamples, depthSamples));
     // minUniformBufferOffsetAlignment 保持默认 256（D3D12 常量缓冲对齐）
-    LOG_INFO("[DX12] Device initialized: validation={}, maxMSAA={}, activeMSAA={}, frames={}", ci.enableValidation,
-             caps_.maxSampleCount, (std::min) (colorSamples, depthSamples), frame_count_);
+    LOG_INFO("[DX12] Device initialized: validation={}, maxMSAA={}, frames={}", ci.enableValidation,
+             caps_.maxSampleCount, frame_count_);
 }
 
 void DX12Device::enableDebugLayer() {
@@ -377,10 +361,21 @@ Result<std::unique_ptr<CommandList>> DX12Device::createCommandList() {
 
 Result<std::unique_ptr<SwapChain>> DX12Device::createSwapChain(const SwapChainDesc& desc) {
     SwapChainDesc resolvedDesc = desc;
-    resolvedDesc.sampleCount = render_config_.sampleCount();
     if (!resolvedDesc.window.valid()) {
         return std::unexpected(
                 makeError(EngineErrorCode::SwapChainCreateFailed, "DX12 swap chain requires a native window handle"));
+    }
+    const DXGI_FORMAT colorFormat = toDXGIFormat(resolvedDesc.format);
+    const DXGI_FORMAT depthFormat = toDXGIFormat(resolvedDesc.depthFormat);
+    if (colorFormat == DXGI_FORMAT_UNKNOWN || (resolvedDesc.hasDepth && depthFormat == DXGI_FORMAT_UNKNOWN)) {
+        return std::unexpected(
+                makeError(EngineErrorCode::FormatNotSupported, "DX12 swap chain attachment format is unsupported"));
+    }
+    resolvedDesc.sampleCount = dx12SupportedSamples(device_.Get(), colorFormat, resolvedDesc.sampleCount);
+    if (resolvedDesc.hasDepth) {
+        resolvedDesc.sampleCount =
+                (std::min) (resolvedDesc.sampleCount,
+                            dx12SupportedSamples(device_.Get(), depthFormat, resolvedDesc.sampleCount));
     }
     auto result = DX12SwapChain::create(resolvedDesc, device_.Get(), factory_.Get(), command_queue_.Get(),
                                         resolvedDesc.window);

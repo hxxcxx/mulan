@@ -20,6 +20,7 @@
 #include "../draw/draw_fallback_resources.h"
 #include "../draw/geometry_draw_shared_resources.h"
 #include "../device_resource_service.h"
+#include "../frame/render_target_info.h"
 
 #include <mulan/core/result/error.h>
 
@@ -43,8 +44,7 @@ public:
     ForwardRenderer(const ForwardRenderer&) = delete;
     ForwardRenderer& operator=(const ForwardRenderer&) = delete;
 
-    ResultVoid init(RHIDevice& device, DeviceResourceService& resources, TextureFormat colorFmt, TextureFormat depthFmt,
-                    uint32_t sampleCount);
+    ResultVoid init(RHIDevice& device, DeviceResourceService& resources, const RenderTargetInfo& target);
     void shutdown(RHIDevice& device);
 
     void enableIBL(RHIDevice& device, const std::string& hdrPath);

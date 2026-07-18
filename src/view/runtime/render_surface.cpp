@@ -10,6 +10,7 @@
 #include <mulan/rhi/device.h>
 #include <mulan/rhi/engine_error_code.h>
 
+#include <algorithm>
 #include <cstring>
 #include <limits>
 #include <utility>
@@ -120,10 +121,6 @@ Result<OffscreenResources> createOffscreenResources(engine::RHIDevice& device, c
 
 }  // namespace
 
-RenderSurface::~RenderSurface() {
-    // 资源由 shutdown() 显式释放；这里兜底 reset。
-}
-
 ResultVoid RenderSurface::initWindowSurface(engine::RHIDevice& device, const RenderSurfaceConfig& config, int width,
                                             int height) {
     if (swapchain_ || render_target_)
@@ -143,7 +140,8 @@ ResultVoid RenderSurface::initWindowSurface(engine::RHIDevice& device, const Ren
     scDesc.height = static_cast<uint32_t>(height);
     scDesc.format = engine::TextureFormat::BGRA8_UNorm;
     scDesc.bufferCount = renderConfig.bufferCount;
-    scDesc.sampleCount = renderConfig.sampleCount();
+    const uint32_t maxSampleCount = (std::max) (device.capabilities().maxSampleCount, 1u);
+    scDesc.sampleCount = (std::min) (renderConfig.sampleCount(), maxSampleCount);
     scDesc.vsync = renderConfig.vsync;
     std::memcpy(scDesc.clearColor, renderConfig.clearColor, sizeof(scDesc.clearColor));
     scDesc.clearDepth = renderConfig.clearDepth;
@@ -314,14 +312,18 @@ bool RenderSurface::offscreenDescMatches(const RenderSurfaceDesc& desc) const {
            offscreen_desc_.readback == desc.readback;
 }
 
-engine::TextureFormat RenderSurface::colorFormat(engine::RHIDevice& /*device*/) const {
+engine::TextureFormat RenderSurface::colorFormat() const {
     return render_target_ ? render_target_->colorFormat()
                           : (swapchain_ ? swapchain_->colorFormat() : engine::TextureFormat::RGBA8_UNorm);
 }
 
-engine::TextureFormat RenderSurface::depthFormat(engine::RHIDevice& /*device*/) const {
+engine::TextureFormat RenderSurface::depthFormat() const {
     return render_target_ ? render_target_->depthFormat()
                           : (swapchain_ ? swapchain_->depthFormat() : engine::TextureFormat::D32_Float);
+}
+
+bool RenderSurface::hasDepth() const {
+    return render_target_ ? render_target_->hasDepth() : (swapchain_ && swapchain_->hasDepth());
 }
 
 uint32_t RenderSurface::sampleCount() const {

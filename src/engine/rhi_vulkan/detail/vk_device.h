@@ -41,7 +41,6 @@ public:
     // --- Device 信息 ---
     GraphicsBackend backend() const override;
     const GPUDeviceCapabilities& capabilities() const override;
-    const RenderConfig& renderConfig() const override;
     math::Mat4 clipSpaceCorrectionMatrix() const override;
 
     // --- 资源创建 ---
@@ -111,7 +110,6 @@ private:
     VmaAllocator allocator_ = nullptr;
 
     uint32_t graphics_queue_family_ = 0;
-    RenderConfig render_config_;
 
     GPUDeviceCapabilities caps_;
 

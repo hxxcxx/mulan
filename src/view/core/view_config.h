@@ -26,9 +26,6 @@ struct ViewConfig {
     uint8_t bufferCount = 2;
     bool vsync = true;
 
-    bool depthBuffer = true;
-    bool stencilBuffer = false;
-
     bool enableValidation = true;
     float clearColor[4] = { 97.0f / 255, 101.0f / 255, 118.0f / 255, 1.0f };
 
@@ -46,8 +43,6 @@ struct ViewConfig {
         rc.msaa = msaa;
         rc.bufferCount = bufferCount;
         rc.vsync = vsync;
-        rc.depthBuffer = depthBuffer;
-        rc.stencilBuffer = stencilBuffer;
         for (int i = 0; i < 4; ++i)
             rc.clearColor[i] = clearColor[i];
         return rc;

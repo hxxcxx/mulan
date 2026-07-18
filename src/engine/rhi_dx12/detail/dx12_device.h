@@ -36,7 +36,6 @@ public:
     // --- Device 信息 ---
     GraphicsBackend backend() const override { return GraphicsBackend::D3D12; }
     const GPUDeviceCapabilities& capabilities() const override { return caps_; }
-    const RenderConfig& renderConfig() const override { return render_config_; }
     math::Mat4 clipSpaceCorrectionMatrix() const override;
 
     // --- 资源创建 ---
@@ -96,8 +95,6 @@ private:
     ComPtr<ID3D12CommandSignature> draw_indirect_sig_;
 
     GPUDeviceCapabilities caps_;
-    RenderConfig render_config_;
-    NativeWindowHandle window_;
     uint32_t frame_count_ = 2;
     uint32_t frame_index_ = 0;
     uint64_t frame_token_ = 0;  // 单调递增，BindGroup 句柄版本化用

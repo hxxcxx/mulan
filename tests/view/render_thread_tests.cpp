@@ -80,11 +80,6 @@ TEST(RenderThreadTests, CompatibleThreadedViewsReuseOneThread) {
     ASSERT_TRUE(first);
     ASSERT_TRUE(second);
     EXPECT_EQ(first->get(), second->get());
-
-    config.msaa = mulan::engine::RenderConfig::MSAALevel::x8;
-    auto incompatible = RenderThread::acquire(RenderDeviceConfig::fromView(config));
-    ASSERT_TRUE(incompatible);
-    EXPECT_NE(first->get(), incompatible->get());
 }
 
 TEST(RenderThreadTests, OpenGLContextsAlwaysUseIndependentThreads) {
@@ -103,8 +98,8 @@ TEST(RenderThreadTests, SurfaceOnlyConfigurationDoesNotSplitSharedDevice) {
 
     mulan::view::ViewConfig secondConfig = firstConfig;
     secondConfig.vsync = !firstConfig.vsync;
-    secondConfig.depthBuffer = !firstConfig.depthBuffer;
-    secondConfig.stencilBuffer = !firstConfig.stencilBuffer;
+    secondConfig.msaa = mulan::engine::RenderConfig::MSAALevel::x8;
+    secondConfig.bufferCount = static_cast<uint8_t>(firstConfig.bufferCount + 1);
     secondConfig.clearColor[0] = 0.9f;
     secondConfig.clearColor[1] = 0.1f;
 
@@ -113,20 +108,6 @@ TEST(RenderThreadTests, SurfaceOnlyConfigurationDoesNotSplitSharedDevice) {
     ASSERT_TRUE(first);
     ASSERT_TRUE(second);
     EXPECT_EQ(first->get(), second->get());
-}
-
-TEST(RenderThreadTests, DeviceFrameCountSplitsSharedDevice) {
-    mulan::view::ViewConfig firstConfig;
-    firstConfig.backend = mulan::engine::GraphicsBackend::Vulkan;
-
-    mulan::view::ViewConfig secondConfig = firstConfig;
-    secondConfig.bufferCount = static_cast<uint8_t>(firstConfig.bufferCount + 1);
-
-    auto first = RenderThread::acquire(RenderDeviceConfig::fromView(firstConfig));
-    auto second = RenderThread::acquire(RenderDeviceConfig::fromView(secondConfig));
-    ASSERT_TRUE(first);
-    ASSERT_TRUE(second);
-    EXPECT_NE(first->get(), second->get());
 }
 
 TEST(RenderChannelStateTests, ThousandsOfCompletedBatchesKeepOnlyTheLatestAck) {

@@ -20,8 +20,7 @@ namespace mulan::engine {
 ForwardRenderer::ForwardRenderer() = default;
 ForwardRenderer::~ForwardRenderer() = default;
 
-ResultVoid ForwardRenderer::init(RHIDevice& device, DeviceResourceService& resources, TextureFormat colorFmt,
-                                 TextureFormat depthFmt, uint32_t sampleCount) {
+ResultVoid ForwardRenderer::init(RHIDevice& device, DeviceResourceService& resources, const RenderTargetInfo& target) {
     MULAN_PROFILE_ZONE();
 
     if (initialized_)
@@ -32,42 +31,36 @@ ResultVoid ForwardRenderer::init(RHIDevice& device, DeviceResourceService& resou
     geometry_resources_ = &resources.geometryDrawResources();
     fallback_resources_ = &resources.drawFallbackResources();
 
-    RenderTargetInfo targetInfo;
-    targetInfo.colorFormat = colorFmt;
-    targetInfo.depthFormat = depthFmt;
-    targetInfo.hasDepth = true;
-    targetInfo.sampleCount = sampleCount;
-
     face_stage_ =
             std::make_unique<FaceStage>(device, *geometry_resources_, *fallback_resources_, resources.pipelines());
-    if (auto initialized = face_stage_->init(device, targetInfo); !initialized)
+    if (auto initialized = face_stage_->init(device, target); !initialized)
         return std::unexpected(initialized.error());
 
     edge_stage_ =
             std::make_unique<EdgeStage>(device, *geometry_resources_, *fallback_resources_, resources.pipelines());
-    if (auto initialized = edge_stage_->init(device, targetInfo); !initialized)
+    if (auto initialized = edge_stage_->init(device, target); !initialized)
         return std::unexpected(initialized.error());
 
     highlight_stage_ =
             std::make_unique<HighlightStage>(device, *geometry_resources_, *fallback_resources_, resources.pipelines());
-    if (auto initialized = highlight_stage_->init(device, targetInfo); !initialized)
+    if (auto initialized = highlight_stage_->init(device, target); !initialized)
         return std::unexpected(initialized.error());
 
     view_cube_stage_ = std::make_unique<ViewCubeStage>(device);
-    if (!view_cube_stage_->init(device, targetInfo)) {
+    if (!view_cube_stage_->init(device, target)) {
         LOG_WARN("[ForwardRenderer] ViewCube stage initialization failed; continuing without it");
         view_cube_stage_.reset();
     }
 
-    text_stage_ = resources.acquireTextStage(targetInfo);
+    text_stage_ = resources.acquireTextStage(target);
     if (!text_stage_) {
         LOG_WARN("[ForwardRenderer] Text stage initialization failed; continuing without it");
     }
 
     initialized_ = true;
     LOG_INFO("[ForwardRenderer] Initialized: colorFormat={}, depthFormat={}, sampleCount={}, viewCube={}, text={}",
-             static_cast<int>(colorFmt), static_cast<int>(depthFmt), sampleCount, view_cube_stage_ != nullptr,
-             text_stage_ != nullptr);
+             static_cast<int>(target.colorFormat), static_cast<int>(target.depthFormat), target.sampleCount,
+             view_cube_stage_ != nullptr, text_stage_ != nullptr);
     return {};
 }
 

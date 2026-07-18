@@ -56,8 +56,6 @@ public:
 
     const GPUDeviceCapabilities& capabilities() const override { return caps_; }
 
-    const RenderConfig& renderConfig() const override { return render_config_; }
-
     math::Mat4 clipSpaceCorrectionMatrix() const override {
         return math::Mat4(1.0);  // OpenGL: 标准右手坐标，无需修正
     }
@@ -107,7 +105,6 @@ private:
 
     bool initialized_ = false;
     NativeWindowHandle native_window_;
-    RenderConfig render_config_;
     GPUDeviceCapabilities caps_;
     std::unique_ptr<GLContext> context_;
 

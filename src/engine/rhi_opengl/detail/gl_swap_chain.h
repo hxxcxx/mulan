@@ -30,7 +30,7 @@ class CommandList;
  */
 class GLSwapChain : public SwapChain {
 public:
-    GLSwapChain(const SwapChainDesc& desc, GLContext& context, const RenderConfig& renderConfig);
+    GLSwapChain(const SwapChainDesc& desc, GLContext& context);
 
     ~GLSwapChain() override = default;
 
@@ -49,8 +49,6 @@ public:
 
 private:
     SwapChainDesc desc_;
-    RenderConfig render_config_;
-
     GLContext& context_;
     std::unique_ptr<GLRenderTarget> msaa_target_;
 };

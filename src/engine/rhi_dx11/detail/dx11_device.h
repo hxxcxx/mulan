@@ -33,7 +33,6 @@ public:
     // --- Device 信息 ---
     GraphicsBackend backend() const override { return GraphicsBackend::D3D11; }
     const GPUDeviceCapabilities& capabilities() const override { return m_caps; }
-    const RenderConfig& renderConfig() const override { return m_renderConfig; }
     math::Mat4 clipSpaceCorrectionMatrix() const override;
 
     // --- 资源创建 ---
@@ -80,9 +79,6 @@ private:
     ComPtr<ID3D11Debug> m_debugDevice;
 
     GPUDeviceCapabilities m_caps;
-    RenderConfig m_renderConfig;
-    NativeWindowHandle m_window;
-
     std::unique_ptr<DX11CommandList> m_frameCmdList;
 };
 

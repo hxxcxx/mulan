@@ -88,7 +88,7 @@ ResultVoid RenderExecutor::initWindow(RenderDeviceContext& context, const Render
 
     auto& device = device_context_->device();
     if (auto surfaceInitialized = surface_.initWindowSurface(device, config, width, height); !surfaceInitialized) {
-        shutdownLocked();
+        shutdownResources();
         LOG_ERROR("[RenderExecutor] Window surface initialization failed: size={}x{}, error={}", width, height,
                   surfaceInitialized.error().message);
         return std::unexpected(surfaceInitialized.error());
@@ -96,7 +96,7 @@ ResultVoid RenderExecutor::initWindow(RenderDeviceContext& context, const Render
 
     auto initialized = initRenderer();
     if (!initialized) {
-        shutdownLocked();
+        shutdownResources();
         LOG_ERROR("[RenderExecutor] Renderer initialization failed: {}", initialized.error().message);
         return initialized;
     }
@@ -108,7 +108,7 @@ ResultVoid RenderExecutor::initWindow(RenderDeviceContext& context, const Render
 }
 
 void RenderExecutor::shutdown() {
-    shutdownLocked();
+    shutdownResources();
 }
 
 bool RenderExecutor::isInitialized() const {
@@ -116,7 +116,7 @@ bool RenderExecutor::isInitialized() const {
 }
 
 RenderSurfaceState RenderExecutor::surfaceState() const {
-    return surfaceStateLocked();
+    return makeSurfaceState();
 }
 
 ResultVoid RenderExecutor::prepareResources(const engine::RenderResourcePrepareList& prepare) {
@@ -130,7 +130,7 @@ ResultVoid RenderExecutor::executeFrame(const RenderSubmission& submission) {
     if (!initialized_ || !device_context_) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
-    const RenderSurfaceState state = surfaceStateLocked();
+    const RenderSurfaceState state = makeSurfaceState();
     if (!state.valid || (!surface_.renderTarget() && !surface_.swapChain())) {
         return std::unexpected(executorError(ErrorCode::Internal, "Render surface is not available."));
     }
@@ -166,7 +166,7 @@ Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmissi
     result.width = width;
     result.height = height;
     // 截图目标匹配视图渲染器的目标签名；图像编码器负责处理 BGRA 等存储格式。
-    result.format = capture_surface_.colorFormat(device_context_->device());
+    result.format = capture_surface_.colorFormat();
     result.bytesPerPixel = capture_surface_.bytesPerPixel();
     result.rowBytes = capture_surface_.rowBytes();
     if (desc.readback) {
@@ -185,7 +185,7 @@ Result<RenderSurfaceState> RenderExecutor::resize(int width, int height) {
     if (auto resized = surface_.resize(device_context_->device(), width, height); !resized) {
         return std::unexpected(resized.error());
     }
-    return surfaceStateLocked();
+    return makeSurfaceState();
 }
 
 void RenderExecutor::enableIBL(const std::string& hdrPath) {
@@ -221,8 +221,13 @@ ResultVoid RenderExecutor::initRenderer() {
     if (resource_client_ == 0) {
         resource_client_ = device_context_->resources().registerClient();
     }
-    return forward_renderer_.init(device, device_context_->resources(), surface_.colorFormat(device),
-                                  surface_.depthFormat(device), surface_.sampleCount());
+    const engine::RenderTargetInfo target{
+        .colorFormat = surface_.colorFormat(),
+        .depthFormat = surface_.hasDepth() ? surface_.depthFormat() : engine::TextureFormat::Unknown,
+        .hasDepth = surface_.hasDepth(),
+        .sampleCount = surface_.sampleCount(),
+    };
+    return forward_renderer_.init(device, device_context_->resources(), target);
 }
 
 ResultVoid RenderExecutor::configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width,
@@ -236,15 +241,15 @@ ResultVoid RenderExecutor::configureCaptureSurface(const engine::RenderCaptureDe
     captureDesc.width = static_cast<int>(width);
     captureDesc.height = static_cast<int>(height);
     // 保持截图表面与主表面管线签名兼容，以复用渲染器和资产 GPU 缓存。
-    captureDesc.colorFormat = surface_.colorFormat(device);
-    captureDesc.depthFormat = surface_.depthFormat(device);
-    captureDesc.hasDepth = true;
+    captureDesc.colorFormat = surface_.colorFormat();
+    captureDesc.depthFormat = surface_.depthFormat();
+    captureDesc.hasDepth = surface_.hasDepth();
     captureDesc.sampleCount = surface_.sampleCount();
     captureDesc.readback = desc.readback;
     return capture_surface_.configureOffscreenSurface(device, captureDesc);
 }
 
-RenderSurfaceState RenderExecutor::surfaceStateLocked() const {
+RenderSurfaceState RenderExecutor::makeSurfaceState() const {
     return RenderSurfaceState{
         .width = surface_.width() > 0 ? static_cast<uint32_t>(surface_.width()) : 0,
         .height = surface_.height() > 0 ? static_cast<uint32_t>(surface_.height()) : 0,
@@ -252,7 +257,7 @@ RenderSurfaceState RenderExecutor::surfaceStateLocked() const {
     };
 }
 
-void RenderExecutor::shutdownLocked() {
+void RenderExecutor::shutdownResources() {
     const bool hadResources = initialized_ || device_context_ != nullptr;
     if (device_context_) {
         auto& device = device_context_->device();

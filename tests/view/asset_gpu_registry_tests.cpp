@@ -127,7 +127,6 @@ public:
 
     GraphicsBackend backend() const override { return GraphicsBackend::Vulkan; }
     const GPUDeviceCapabilities& capabilities() const override { return capabilities_; }
-    const RenderConfig& renderConfig() const override { return render_config_; }
     math::Mat4 clipSpaceCorrectionMatrix() const override { return math::Mat4(1.0); }
 
     Result<std::unique_ptr<Buffer>> createBuffer(const BufferDesc& desc) override {
@@ -207,7 +206,6 @@ private:
 
     RegistryTestFence* fence_ = nullptr;
     GPUDeviceCapabilities capabilities_;
-    RenderConfig render_config_;
     size_t create_count_ = 0;
     size_t upload_count_ = 0;
     size_t live_texture_count_ = 0;

@@ -39,8 +39,7 @@ public:
     };
 
     /// 创建 VKSwapChain。失败返回 SwapChainCreateFailed / SurfaceNotSupported。
-    static Result<std::unique_ptr<VKSwapChain>> create(const SwapChainDesc& desc, const InitParams& params,
-                                                       const RenderConfig& renderConfig);
+    static Result<std::unique_ptr<VKSwapChain>> create(const SwapChainDesc& desc, const InitParams& params);
     ~VKSwapChain();
 
     const SwapChainDesc& desc() const override { return desc_; }
@@ -72,8 +71,8 @@ public:
     vk::Extent2D extent() const { return swapchain_extent_; }
 
 private:
-    VKSwapChain(const SwapChainDesc& desc, const InitParams& params, const RenderConfig& renderConfig)
-        : desc_(desc), params_(params), surface_(params.surface), render_config_(renderConfig) {}
+    VKSwapChain(const SwapChainDesc& desc, const InitParams& params)
+        : desc_(desc), params_(params), surface_(params.surface) {}
 
     /// 创建/重建 swapchain 与子资源。成功返回默认 Error(code=0)。
     /// 被 create() 与 resize() 共用。
@@ -99,7 +98,6 @@ private:
     std::vector<std::unique_ptr<VKTexture>> back_buffers_;
 
     uint32_t current_image_index_ = 0;
-    RenderConfig render_config_;
 };
 
 }  // namespace mulan::engine

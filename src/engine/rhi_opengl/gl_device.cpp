@@ -62,8 +62,6 @@ void APIENTRY glDebugMessageCallbackProc(GLenum source, GLenum type, GLuint id, 
 
 void GLDevice::init(const CreateInfo& ci) {
     native_window_ = ci.window;
-    render_config_ = ci.renderConfig;
-
     GLContextCreateInfo context_info;
     context_info.window = ci.window;
     context_info.renderConfig = ci.renderConfig;
@@ -252,7 +250,7 @@ Result<std::unique_ptr<CommandList>> GLDevice::createCommandList() {
 Result<std::unique_ptr<SwapChain>> GLDevice::createSwapChain(const SwapChainDesc& desc) {
     if (!context_)
         return std::unexpected(makeError(EngineErrorCode::SwapChainCreateFailed, "OpenGL context is not initialized"));
-    auto swap_chain = std::make_unique<GLSwapChain>(desc, *context_, render_config_);
+    auto swap_chain = std::make_unique<GLSwapChain>(desc, *context_);
     swap_chain->trackResource(*this, RHIResourceKind::SwapChain, "OpenGLSwapChain");
     return std::unique_ptr<SwapChain>(std::move(swap_chain));
 }

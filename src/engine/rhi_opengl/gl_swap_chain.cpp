@@ -6,8 +6,7 @@
 
 namespace mulan::engine {
 
-GLSwapChain::GLSwapChain(const SwapChainDesc& desc, GLContext& context, const RenderConfig& renderConfig)
-    : desc_(desc), render_config_(renderConfig), context_(context) {
+GLSwapChain::GLSwapChain(const SwapChainDesc& desc, GLContext& context) : desc_(desc), context_(context) {
     context_.setSwapInterval(desc_.vsync ? 1 : 0);
     if (desc_.sampleCount > 1) {
         RenderTargetDesc target_desc;
