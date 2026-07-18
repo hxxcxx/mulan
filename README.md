@@ -1,6 +1,6 @@
 # Mulan
 
-Mulan（木兰）的想法来自 Mayo。我希望实现一个能够查看多种三维模型，
+Mulan（木兰）的想法来自 [Mayo](https://github.com/fougue/mayo.git)。我希望实现一个能够查看多种三维模型，
 并可继续扩展编辑与建模能力的跨平台项目。Mulan 使用 C++23 和 Qt 6，
 渲染器与 RHI 均在项目中独立实现。
 
