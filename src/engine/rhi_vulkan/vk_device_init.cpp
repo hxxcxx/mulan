@@ -9,18 +9,7 @@
 #include <span>
 #include <stdexcept>
 
-#if defined(__linux__)
-#include <dlfcn.h>
-#endif
-
 namespace mulan::engine {
-
-#if defined(__linux__)
-void VulkanLoaderHandleDeleter::operator()(void* handle) const noexcept {
-    if (handle)
-        dlclose(handle);
-}
-#endif
 
 // ============================================================
 // Vulkan 验证层调试回调
@@ -236,34 +225,6 @@ void VKDevice::createLogicalDevice(bool enableValidation) {
 }
 
 // ============================================================
-// Surface 创建
-// ============================================================
-
-vk::SurfaceKHR VKDevice::createSurface(const NativeWindowHandle& window) {
-    switch (window.type) {
-#ifdef _WIN32
-    case NativeWindowHandle::Type::Win32: {
-        vk::Win32SurfaceCreateInfoKHR ci;
-        ci.hinstance = reinterpret_cast<HINSTANCE>(window.win32.hInstance);
-        ci.hwnd = reinterpret_cast<HWND>(window.win32.hWnd);
-        return instance_.createWin32SurfaceKHR(ci);
-    }
-#endif
-
-#ifdef VK_USE_PLATFORM_XCB_KHR
-    case NativeWindowHandle::Type::X11: {
-        vk::XcbSurfaceCreateInfoKHR ci;
-        ci.connection = reinterpret_cast<xcb_connection_t*>(window.x11.connection);
-        ci.window = static_cast<xcb_window_t>(window.x11.window);
-        return instance_.createXcbSurfaceKHR(ci);
-    }
-#endif
-
-    default: return nullptr;
-    }
-}
-
-// ============================================================
 // 完整初始化流程
 // ============================================================
 
@@ -271,26 +232,7 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     render_config_ = ci.renderConfig;
 
     // --- Dynamic dispatch loader ---
-    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
-
-#ifdef _WIN32
-    HMODULE vulkanModule = GetModuleHandleW(L"vulkan-1.dll");
-    if (!vulkanModule)
-        vulkanModule = LoadLibraryW(L"vulkan-1.dll");
-    if (vulkanModule) {
-        vkGetInstanceProcAddr =
-                reinterpret_cast<PFN_vkGetInstanceProcAddr>(GetProcAddress(vulkanModule, "vkGetInstanceProcAddr"));
-    }
-#elif defined(__linux__)
-    void* loaderHandle = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
-    if (!loaderHandle)
-        loaderHandle = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
-    vulkan_loader_handle_.reset(loaderHandle);
-    if (vulkan_loader_handle_) {
-        vkGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(
-                dlsym(vulkan_loader_handle_.get(), "vkGetInstanceProcAddr"));
-    }
-#endif
+    const PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = platform_loader_.loadEntryPoint();
 
     if (!vkGetInstanceProcAddr) {
         throw std::runtime_error("Failed to load the Vulkan loader");
@@ -306,17 +248,10 @@ void VKDevice::init(const DeviceCreateInfo& ci) {
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion = VK_API_VERSION_1_3;
 
-    std::vector<const char*> instanceExtensions;
-
     // Device 有意不绑定 surface：窗口和截图目标可在 Device 创建后再附加。
     // 因此预先启用平台 surface 扩展，而不是从第一个窗口推导扩展集合。
-    instanceExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-#ifdef VK_KHR_win32_surface
-    instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-#endif
-#ifdef VK_KHR_xcb_surface
-    instanceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
-#endif
+    const auto platformSurfaceExtensions = vulkanPlatformSurfaceExtensions();
+    std::vector<const char*> instanceExtensions(platformSurfaceExtensions.begin(), platformSurfaceExtensions.end());
 
     constexpr const char* validationLayerName = "VK_LAYER_KHRONOS_validation";
     bool validationEnabled = false;

@@ -1,7 +1,17 @@
 # rhi_vulkan - Vulkan RHI 后端。
 # 全平台可用，导出 BackendModule，由最终应用显式注册。
+set(MULAN_VULKAN_PLATFORM_SOURCE)
+if(WIN32)
+    set(MULAN_VULKAN_PLATFORM_SOURCE platform/vk_platform_win32.cpp)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(MULAN_VULKAN_PLATFORM_SOURCE platform/vk_platform_x11.cpp)
+else()
+    message(FATAL_ERROR "The Vulkan backend has no platform implementation for ${CMAKE_SYSTEM_NAME}")
+endif()
+
 add_library(rhi_vulkan STATIC
     backend_register.cpp
+    ${MULAN_VULKAN_PLATFORM_SOURCE}
     vk_buffer.cpp
     vk_transient_uniform_arena.cpp
     vk_bind_group.cpp

@@ -57,7 +57,7 @@ Result<std::unique_ptr<SwapChain>> VKDevice::createSwapChain(const SwapChainDesc
 
     vk::SurfaceKHR surface;
     try {
-        surface = createSurface(desc.window);
+        surface = createVulkanPlatformSurface(instance_, desc.window);
     } catch (const std::exception& e) {
         return std::unexpected(makeError(EngineErrorCode::SwapChainCreateFailed, e.what()));
     }

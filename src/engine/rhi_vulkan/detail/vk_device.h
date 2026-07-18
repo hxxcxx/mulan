@@ -23,6 +23,7 @@
 #include "vk_upload_context.h"
 #include "vk_frame_scheduler.h"
 #include "vk_resource_factory.h"
+#include "../platform/vk_platform.h"
 
 #include <vector>
 #include <memory>
@@ -31,12 +32,6 @@
 #include <unordered_map>
 
 namespace mulan::engine {
-
-#if defined(__linux__)
-struct VulkanLoaderHandleDeleter {
-    void operator()(void* handle) const noexcept;
-};
-#endif
 
 class VKDevice : public RHIDevice {
 public:
@@ -105,20 +100,15 @@ private:
     void shutdown();
     void pickPhysicalDevice(const std::vector<vk::PhysicalDevice>& devices);
     void createLogicalDevice(bool enableValidation);
-    vk::SurfaceKHR createSurface(const NativeWindowHandle& window);
 
     // --- Vulkan 核心 ---
+    VulkanPlatformLoader platform_loader_;
     vk::Instance instance_;
     vk::DebugUtilsMessengerEXT debug_messenger_;
     vk::PhysicalDevice physical_device_;
     vk::Device device_;
     vk::Queue graphics_queue_;
     VmaAllocator allocator_ = nullptr;
-
-#if defined(__linux__)
-    // Vulkan 分发器持有从 loader 取得的函数指针，句柄必须覆盖整个 Device 生命周期。
-    std::unique_ptr<void, VulkanLoaderHandleDeleter> vulkan_loader_handle_;
-#endif
 
     uint32_t graphics_queue_family_ = 0;
     RenderConfig render_config_;
