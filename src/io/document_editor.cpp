@@ -5,6 +5,7 @@
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/brep_asset.h>
 #include <mulan/asset/tessellated_asset.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/components/name_component.h>
 #include <mulan/scene/components/render_component.h>
@@ -80,7 +81,10 @@ bool DocumentEditor::booleanSubtract(scene::EntityId target, scene::EntityId too
     }
 
     const modeling::Shape previousTargetShape = targetBRep->shape();
-    auto result = ops->boolean(previousTargetShape, toolBRep->shape(), op);
+    auto result = [&] {
+        MULAN_PROFILE_ZONE_N("ShapeOps::boolean");
+        return ops->boolean(previousTargetShape, toolBRep->shape(), op);
+    }();
     if (!result) {
         return false;
     }

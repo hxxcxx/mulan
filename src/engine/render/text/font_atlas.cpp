@@ -5,6 +5,7 @@
 #include <msdf-atlas-gen/msdf-atlas-gen.h>
 
 #include <mulan/core/log/log.h>
+#include <mulan/core/profiling/profile.h>
 
 #include <cstdio>
 #include <algorithm>
@@ -70,6 +71,8 @@ FontAtlas::~FontAtlas() = default;
 // ============================================================
 
 bool FontAtlas::load(const char* fontPath, float fontSize, uint32_t atlasWidth, uint32_t atlasHeight) {
+    MULAN_PROFILE_ZONE();
+
     FontAtlasCpuData data;
     if (!generateCpuData(fontPath, fontSize, atlasWidth, atlasHeight, data)) {
         return false;
@@ -79,6 +82,8 @@ bool FontAtlas::load(const char* fontPath, float fontSize, uint32_t atlasWidth, 
 
 bool FontAtlas::generateCpuData(const char* fontPath, float fontSize, uint32_t atlasWidth, uint32_t atlasHeight,
                                 FontAtlasCpuData& outData) {
+    MULAN_PROFILE_ZONE();
+
     // 预检：文件是否存在
     FILE* testFile = nullptr;
 #ifdef _WIN32
@@ -267,6 +272,8 @@ const GlyphInfo* FontAtlas::getGlyph(uint32_t unicode) const {
 // ============================================================
 
 bool FontAtlas::uploadAtlas(const std::vector<uint8_t>& rgbaData) {
+    MULAN_PROFILE_ZONE();
+
     if (!device_ || rgbaData.empty() || atlas_width_ == 0 || atlas_height_ == 0) {
         LOG_ERROR("[FontAtlas] Invalid atlas upload request");
         return false;

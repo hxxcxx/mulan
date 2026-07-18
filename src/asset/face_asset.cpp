@@ -1,6 +1,7 @@
 #include "face_asset.h"
 
 #include <mulan/graphics/vertex/vertex_buffer.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/math/algo2d/segment_intersect.h>
 #include <mulan/math/algo2d/triangulation.h>
 
@@ -355,6 +356,8 @@ math::AABB3 FaceAsset::localBounds() const {
 }
 
 void FaceAsset::rebuildRenderMeshes() {
+    MULAN_PROFILE_ZONE();
+
     FaceRenderMeshes renderMeshes = buildFaceRenderMeshes(face_);
     solid_mesh_ = std::move(renderMeshes.solid);
     wire_mesh_ = std::move(renderMeshes.wire);

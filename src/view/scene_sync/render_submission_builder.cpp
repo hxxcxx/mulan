@@ -8,6 +8,7 @@
 #include "scene_sync/render_submission_builder.h"
 
 #include <mulan/asset/asset_library.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/view/core/preview_layer.h>
 #include <mulan/view/scene_sync/render_scene.h>
 
@@ -88,6 +89,8 @@ void RenderSubmissionBuilder::setLightEnvironment(const engine::LightEnvironment
 }
 
 RenderSubmission RenderSubmissionBuilder::build(const ViewState& viewState) {
+    MULAN_PROFILE_ZONE();
+
     RenderSubmission submission;
     submission.view = viewState;
     submission.lightEnvironment = light_environment_;

@@ -13,6 +13,7 @@
 #include <mulan/io/document.h>
 #include <mulan/io/document_editor.h>
 #include <mulan/modeling/core/shape_ops.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/components/transform_component.h>
 #include <mulan/scene/components/hierarchy_component.h>
@@ -240,6 +241,8 @@ void DocumentOperationExecutor::unbind() {
 }
 
 bool DocumentOperationExecutor::execute(DocumentOperation operation) {
+    MULAN_PROFILE_ZONE();
+
     if (!history_) {
         return false;
     }
@@ -260,6 +263,8 @@ bool DocumentOperationExecutor::execute(DocumentOperation operation) {
 }
 
 bool DocumentOperationExecutor::undo() {
+    MULAN_PROFILE_ZONE();
+
     if (!history_) {
         return false;
     }
@@ -285,6 +290,8 @@ bool DocumentOperationExecutor::undo() {
 }
 
 bool DocumentOperationExecutor::redo() {
+    MULAN_PROFILE_ZONE();
+
     if (!history_) {
         return false;
     }
@@ -369,7 +376,10 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
                                result.changed = false;
                                return;
                            }
-                           auto shapeResult = ops->extrude(op.params);
+                           auto shapeResult = [&] {
+                               MULAN_PROFILE_ZONE_N("ShapeOps::extrude");
+                               return ops->extrude(op.params);
+                           }();
                            if (!shapeResult) {
                                result.changed = false;
                                return;

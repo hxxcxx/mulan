@@ -9,6 +9,8 @@
 
 #include "curve_mesh_builder.h"
 
+#include <mulan/core/profiling/profile.h>
+
 #include <algorithm>
 #include <span>
 
@@ -194,6 +196,8 @@ math::AABB3 CurveAsset::localBounds() const {
 }
 
 void CurveAsset::rebuildRenderMesh() {
+    MULAN_PROFILE_ZONE();
+
     wire_mesh_ = buildCurveWireMesh(elements_);
     element_wire_meshes_.clear();
     element_wire_meshes_.reserve(elements_.size());

@@ -620,7 +620,11 @@ void RenderThread::run(std::stop_token stopToken) {
                 continue;
             }
             try {
-                auto rendered = channel->executor->executeFrame(*frame);
+                MULAN_PROFILE_FRAME();
+                auto rendered = [&] {
+                    MULAN_PROFILE_ZONE_N("RenderThread/ExecuteFrame");
+                    return channel->executor->executeFrame(*frame);
+                }();
                 if (!rendered) {
                     if (engine::isDeviceFatalError(rendered.error())) {
                         failThread(rendered.error());
@@ -639,7 +643,10 @@ void RenderThread::run(std::stop_token stopToken) {
         }
 
         try {
-            auto executed = control.execute(*channel->executor);
+            auto executed = [&] {
+                MULAN_PROFILE_ZONE_N("RenderThread/ControlTask");
+                return control.execute(*channel->executor);
+            }();
             if (!executed) {
                 if (control.fail) {
                     control.fail(executed.error());

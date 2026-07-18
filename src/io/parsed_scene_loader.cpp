@@ -207,6 +207,8 @@ void ParsedSceneLoader::loadTextures(ParsedScene& scene) {
 }
 
 void ParsedSceneLoader::loadMaterials(ParsedScene& scene) {
+    MULAN_PROFILE_ZONE();
+
     auto* library = document_.assets();
     materialIds_.assign(scene.materials.size(), asset::AssetId::invalid());
     if (!library)

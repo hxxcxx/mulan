@@ -12,6 +12,7 @@
 #include "detail/scene_spatial_index.h"
 
 #include <mulan/asset/asset_library.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/math/algo/intersect.h>
 
 #include <algorithm>
@@ -46,6 +47,8 @@ GeometryQueryWorld::GeometryQueryWorld(const RenderScene& scene) : scene_(&scene
 
 void GeometryQueryWorld::collectPickCandidates(const math::Ray3& ray, double lineToleranceWorld,
                                                std::vector<RenderScene::PickResult>& out, PickQueryStats* stats) const {
+    MULAN_PROFILE_ZONE();
+
     out.clear();
     if (stats) {
         *stats = {};
@@ -100,6 +103,8 @@ void GeometryQueryWorld::collectPickCandidates(const math::Ray3& ray, double lin
 
 std::optional<RenderScene::PickResult> GeometryQueryWorld::pick(const math::Ray3& ray, double lineToleranceWorld,
                                                                 PickQueryStats* stats) const {
+    MULAN_PROFILE_ZONE();
+
     if (stats) {
         *stats = {};
     }

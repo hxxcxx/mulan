@@ -14,6 +14,8 @@ target_link_libraries(asset
     PUBLIC
         graphics
         modeling_core
+    PRIVATE
+        mulan::profiling
 )
 
 target_precompile_headers(asset PRIVATE

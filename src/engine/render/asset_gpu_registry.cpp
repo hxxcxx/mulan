@@ -221,6 +221,8 @@ void AssetGpuRegistry::advanceRevision() noexcept {
 }
 
 Result<GpuGeometry> AssetGpuRegistry::createGpuBuffer(const graphics::Mesh& mesh) {
+    MULAN_PROFILE_ZONE();
+
     GpuGeometry geo;
     if (mesh.empty()) {
         return geo;

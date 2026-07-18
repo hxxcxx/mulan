@@ -45,7 +45,10 @@ Result<ParsedScene> parseShapeFile(const std::string& path, const std::string& e
         return std::unexpected(Error::make(ErrorCode::NotSupported, "No shape reader for extension: ." + ext));
     }
 
-    auto shapes = reader->read(path);
+    auto shapes = [&] {
+        MULAN_PROFILE_ZONE_N("ShapeFileReader::read");
+        return reader->read(path);
+    }();
     if (!shapes)
         return std::unexpected(shapes.error());
 

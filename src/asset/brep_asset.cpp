@@ -1,5 +1,7 @@
 #include "brep_asset.h"
 
+#include <mulan/core/profiling/profile.h>
+
 namespace mulan::asset {
 
 BRepAsset::BRepAsset(AssetId id, std::string name, modeling::Shape shape)
@@ -24,6 +26,7 @@ bool BRepAsset::ensureTessellated() const {
         return false;
     }
 
+    MULAN_PROFILE_ZONE_N("Shape::tessellate");
     auto result = shape_.tessellate(tess_options_);
     geometry_dirty_ = false;
     if (!result)

@@ -233,16 +233,20 @@ ResultVoid ForwardRenderer::compile(const RenderRequest& request) {
         .highlightEdgePipeline = highlight_stage_ ? highlight_stage_->edgePipeline() : nullptr,
     };
     if (request.sceneWorld) {
-        auto compiled =
-                scene_compiler_.compile(*request.sceneWorld, request.options, compileContext, &request.view, true);
+        auto compiled = [&] {
+            MULAN_PROFILE_ZONE_N("Render/CompileScene");
+            return scene_compiler_.compile(*request.sceneWorld, request.options, compileContext, &request.view, true);
+        }();
         if (!compiled)
             return compiled;
     } else {
         scene_compiler_.clear();
     }
     if (request.overlayWorld) {
-        auto compiled =
-                overlay_compiler_.compile(*request.overlayWorld, request.options, compileContext, nullptr, false);
+        auto compiled = [&] {
+            MULAN_PROFILE_ZONE_N("Render/CompileOverlay");
+            return overlay_compiler_.compile(*request.overlayWorld, request.options, compileContext, nullptr, false);
+        }();
         if (!compiled)
             return compiled;
     } else {
@@ -333,13 +337,20 @@ void ForwardRenderer::executeStages(RenderFrame& frame) {
     if (text_stage_)
         text_stage_->beginFrame(frame.view.width, frame.view.height);
     TextDrawList textDraws;
-    if (face_stage_)
+    if (face_stage_) {
+        MULAN_PROFILE_ZONE_N("RenderStage/Faces");
         face_stage_->execute(frame);
-    if (edge_stage_)
+    }
+    if (edge_stage_) {
+        MULAN_PROFILE_ZONE_N("RenderStage/Edges");
         edge_stage_->execute(frame);
-    if (highlight_stage_)
+    }
+    if (highlight_stage_) {
+        MULAN_PROFILE_ZONE_N("RenderStage/Highlight");
         highlight_stage_->execute(frame);
+    }
     if (view_cube_stage_ && frame.view.showOverlay && frame.view.showViewCube) {
+        MULAN_PROFILE_ZONE_N("RenderStage/ViewCube");
         view_cube_stage_->setPipelines(face_stage_ ? face_stage_->viewCubePipelineState() : nullptr,
                                        edge_stage_ ? edge_stage_->viewCubePipelineState() : nullptr);
         view_cube_stage_->setFallbackResources(fallback_resources_ ? fallback_resources_->whiteTexture() : nullptr,
@@ -350,6 +361,7 @@ void ForwardRenderer::executeStages(RenderFrame& frame) {
         view_cube_stage_->collectLabels(textDraws, frame.view.viewMatrix, frame.view.width, frame.view.height);
     }
     if (text_stage_) {
+        MULAN_PROFILE_ZONE_N("RenderStage/Text");
         text_stage_->addTextList(textDraws);
         text_stage_->execute(frame);
     }

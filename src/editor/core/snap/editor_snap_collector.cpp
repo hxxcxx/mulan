@@ -1,5 +1,7 @@
 #include "editor_snap_collector.h"
 
+#include <mulan/core/profiling/profile.h>
+
 #include "../selection/editor_scene_snap_provider.h"
 
 #include <algorithm>
@@ -208,10 +210,15 @@ void addGeometryCandidates(const EditorSnapCollectInput& input, std::vector<Edit
 }  // namespace
 
 void EditorSnapCollector::collect(const EditorSnapCollectInput& input, std::vector<EditorSnapCandidate>& out) {
+    MULAN_PROFILE_ZONE();
+
     addWorkPlaneCandidate(input, out);
     addGridCandidate(input, out);
     addAxisCandidate(input, out);
-    EditorSceneSnapProvider::collect(input.query, out);
+    {
+        MULAN_PROFILE_ZONE_N("Editor/SnapSceneCandidates");
+        EditorSceneSnapProvider::collect(input.query, out);
+    }
     addGeometryCandidates(input, out);
 }
 

@@ -1,6 +1,7 @@
 #include "capture/capture_service.h"
 
 #include <mulan/view/core/view_context.h>
+#include <mulan/core/profiling/profile.h>
 
 #include <utility>
 
@@ -58,6 +59,8 @@ std::optional<CaptureResult> CaptureService::validateCaptureInput(ViewContext& c
 
 Result<engine::RenderCaptureResult> CaptureService::capture(ViewContext& context,
                                                             const engine::RenderCaptureDesc& desc) const {
+    MULAN_PROFILE_ZONE();
+
     const uint32_t width = captureWidth(context, desc);
     const uint32_t height = captureHeight(context, desc);
     if (auto failure = validateCaptureInput(context, {}, width, height)) {
@@ -67,6 +70,8 @@ Result<engine::RenderCaptureResult> CaptureService::capture(ViewContext& context
 }
 
 Result<CaptureImage> CaptureService::capture(ViewContext& context, const CaptureRequest& request) const {
+    MULAN_PROFILE_ZONE();
+
     const uint32_t width = captureWidth(context, request.desc);
     const uint32_t height = captureHeight(context, request.desc);
     if (auto failure = validateCaptureInput(context, request.name, width, height)) {
@@ -84,6 +89,8 @@ Result<CaptureImage> CaptureService::capture(ViewContext& context, const Capture
 }
 
 CaptureBatchResult CaptureService::capture(ViewContext& context, const CaptureBatch& batch) const {
+    MULAN_PROFILE_ZONE();
+
     CaptureBatchResult batchResult;
     batchResult.items.reserve(batch.size());
     for (const auto& request : batch.requests()) {

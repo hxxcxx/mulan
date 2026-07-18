@@ -10,6 +10,7 @@
 #include "mesh_picking.h"
 
 #include <mulan/math/algo/intersect.h>
+#include <mulan/core/profiling/profile.h>
 
 #include <algorithm>
 #include <array>
@@ -58,6 +59,8 @@ math::AABB3 expanded(const math::AABB3& bounds, double padding) {
 }  // namespace
 
 bool PrimitivePickIndex::build(std::span<const asset::Drawable> drawables) {
+    MULAN_PROFILE_ZONE();
+
     primitives_.clear();
     nodes_.clear();
 

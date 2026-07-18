@@ -1,5 +1,7 @@
 #include <mulan/view/capture/capture_image_encoder.h>
 
+#include <mulan/core/profiling/profile.h>
+
 #include <algorithm>
 #include <cstddef>
 #include <utility>
@@ -25,6 +27,8 @@ bool isBGRA(engine::TextureFormat format) {
 }  // namespace
 
 Result<std::shared_ptr<core::Image>> CaptureImageEncoder::toImage(const engine::RenderCaptureResult& result) {
+    MULAN_PROFILE_ZONE();
+
     const auto pixelFormat = capturePixelFormat(result.format);
     if (pixelFormat == core::PixelFormat::Unknown || result.width == 0 || result.height == 0) {
         return std::unexpected(
@@ -61,6 +65,8 @@ Result<std::shared_ptr<core::Image>> CaptureImageEncoder::toImage(const engine::
 }
 
 ResultVoid CaptureImageEncoder::savePNG(const engine::RenderCaptureResult& result, std::string_view path) {
+    MULAN_PROFILE_ZONE();
+
     auto image = toImage(result);
     if (!image)
         return std::unexpected(image.error());

@@ -2,6 +2,7 @@
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/io/document_editor.h>
+#include <mulan/core/profiling/profile.h>
 
 #include <algorithm>
 #include <utility>
@@ -40,6 +41,8 @@ std::optional<asset::CurvePrimitive> curvePrimitive(const asset::CurveAsset& cur
 }  // namespace
 
 GeometryEditResult GeometryEditService::apply(GeometryEditRequest request) const {
+    MULAN_PROFILE_ZONE();
+
     io::DocumentEditor editor(document_);
     GeometryEditResult result;
 

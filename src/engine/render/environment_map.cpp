@@ -17,6 +17,7 @@
 
 #include <mulan/core/image/image.h>
 #include <mulan/core/log/log.h>
+#include <mulan/core/profiling/profile.h>
 
 #include <array>
 
@@ -66,6 +67,8 @@ std::unique_ptr<PipelineState> createBakePSO(RHIDevice& device, Shader* vs, Shad
 IBLPipeline::~IBLPipeline() = default;
 
 bool IBLPipeline::bake(RHIDevice& device, const std::string& hdrPath) {
+    MULAN_PROFILE_ZONE();
+
     // 1. 加载 equirect HDR → RGBA32F 2D 纹理
     auto image = mulan::core::FloatImage::loadHDRExpected(hdrPath, 4);
     if (!image || !(*image)->valid()) {

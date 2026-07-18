@@ -6,6 +6,7 @@
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/geometry_asset.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/components/light_component.h>
 #include <mulan/scene/components/render_component.h>
@@ -283,6 +284,8 @@ void RenderScene::untrackMissingGeometry(scene::EntityId entity) {
 // ============================================================
 
 void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& assets) {
+    MULAN_PROFILE_ZONE();
+
     // 地址不足以唯一标识 Scene 生命周期：对象可能在同一存储上析构后重建。
     // journal domain 随 Scene 实例变化，可阻止这种同址换源复用旧 PickId。
     const bool sceneDomainChanged =
@@ -744,6 +747,8 @@ engine::PickId RenderScene::pickIdForEntity(scene::EntityId entity) {
 }
 
 void RenderScene::rebuildSpatialIndex() {
+    MULAN_PROFILE_ZONE();
+
     std::vector<detail::SpatialIndexEntry> entries;
     entries.reserve(proxies_.size());
     for (const auto& [id, proxy] : proxies_) {

@@ -4,6 +4,7 @@
 #include <mulan/asset/geometry_asset.h>
 #include <mulan/asset/material_asset.h>
 #include <mulan/asset/texture_asset.h>
+#include <mulan/core/profiling/profile.h>
 #include <mulan/view/core/preview_layer.h>
 #include <mulan/view/scene_sync/render_scene.h>
 #include <mulan/view/scene_sync/scene_proxy.h>
@@ -545,6 +546,8 @@ RenderWorldSync::~RenderWorldSync() = default;
 void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetLibrary& assets,
                                    engine::ResourceDomainId assetDomain, engine::RenderWorld& world,
                                    engine::RenderResourcePrepareList* prepare) {
+    MULAN_PROFILE_ZONE();
+
     last_stats_.reset();
     if (prepare) {
         prepare->clear();
@@ -856,6 +859,8 @@ void RenderWorldSync::rebuildOverlay(const RenderScene* scene, const asset::Asse
                                      engine::ResourceDomainId assetDomain, engine::ResourceDomainId previewDomain,
                                      const PreviewLayer* preview, engine::RenderWorld& world,
                                      engine::RenderResourcePrepareList* prepare) {
+    MULAN_PROFILE_ZONE();
+
     last_stats_.reset();
     last_stats_.fullRebuild = true;
     world.clear();

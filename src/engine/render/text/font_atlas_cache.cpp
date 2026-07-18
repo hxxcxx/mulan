@@ -12,6 +12,8 @@
 #include <system_error>
 #include <vector>
 
+#include <mulan/core/profiling/profile.h>
+
 namespace mulan::engine {
 namespace {
 
@@ -246,6 +248,8 @@ FontAtlasCacheKey FontAtlasCache::makeKey(const char* fontPath, float fontSize, 
 }
 
 bool FontAtlasCache::tryLoad(const FontAtlasCacheKey& key, FontAtlasCpuData& outData) {
+    MULAN_PROFILE_ZONE();
+
     std::ifstream in(key.filePath, std::ios::binary);
     if (!in) {
         return false;
@@ -313,6 +317,8 @@ bool FontAtlasCache::tryLoad(const FontAtlasCacheKey& key, FontAtlasCpuData& out
 }
 
 bool FontAtlasCache::save(const FontAtlasCacheKey& key, const FontAtlasCpuData& data) {
+    MULAN_PROFILE_ZONE();
+
     if (key.filePath.empty() || data.atlasWidth == 0 || data.atlasHeight == 0 || data.rgbaPixels.empty() ||
         data.charsetHash != key.charsetHash) {
         return false;

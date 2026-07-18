@@ -11,6 +11,8 @@
 #include "../rhi/pipeline_state.h"
 #include "../rhi/device.h"
 
+#include <mulan/core/profiling/profile.h>
+
 namespace mulan::engine {
 
 DevicePipelineLibrary::~DevicePipelineLibrary() = default;
@@ -32,6 +34,7 @@ PipelineState* DevicePipelineLibrary::acquire(const DevicePipelineKey& key) {
     if (const auto known = entries_.find(key); known != entries_.end()) {
         return known->second.pipeline.get();
     }
+    MULAN_PROFILE_ZONE_N("RHI/CreatePipeline");
     const TechniqueDesc& technique = TechniqueRegistry::builtin(key.technique);
     const char* vertexShaderName = technique.shader.vertex;
     if (key.objectBindingMode == ObjectBindingMode::InstancedBatch) {
