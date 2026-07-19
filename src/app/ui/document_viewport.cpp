@@ -1,4 +1,4 @@
-#include "doc_widget.h"
+#include "document_viewport.h"
 
 #include "../platform/qt_native_window_handle.h"
 #include "qt_viewport_input_adapter.h"
@@ -16,7 +16,7 @@
 #include <QKeyEvent>
 #include <QFocusEvent>
 
-DocWidget::DocWidget(QWidget* parent) : QWidget(parent) {
+DocumentViewport::DocumentViewport(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_PaintOnScreen);
     setAttribute(Qt::WA_NoSystemBackground);
     setFocusPolicy(Qt::StrongFocus);
@@ -27,13 +27,13 @@ DocWidget::DocWidget(QWidget* parent) : QWidget(parent) {
     document_view_.setFrameInvalidationCallback([this]() { requestFrame(); });
 }
 
-DocWidget::~DocWidget() {
+DocumentViewport::~DocumentViewport() {
     // 先停止通道，保证 RenderThread 不再向 runtime_event_proxy_ 投递事件。
     document_view_.setFrameInvalidationCallback({});
     shutdown();
 }
 
-bool DocWidget::init() {
+bool DocumentViewport::init() {
     MULAN_PROFILE_ZONE();
 
     if (document_view_.isReady()) {
@@ -61,7 +61,7 @@ bool DocWidget::init() {
     return true;
 }
 
-void DocWidget::shutdown() {
+void DocumentViewport::shutdown() {
     if (runtime_state_ == RuntimeState::Stopping) {
         return;
     }
@@ -74,7 +74,7 @@ void DocWidget::shutdown() {
     runtime_state_ = RuntimeState::Stopped;
 }
 
-void DocWidget::resizeEvent(QResizeEvent* e) {
+void DocumentViewport::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);
     if (document_view_.isReady()) {
         const qreal dpr = devicePixelRatioF();
@@ -85,7 +85,7 @@ void DocWidget::resizeEvent(QResizeEvent* e) {
     }
 }
 
-void DocWidget::paintEvent(QPaintEvent*) {
+void DocumentViewport::paintEvent(QPaintEvent*) {
     if (runtime_state_ == RuntimeState::Ready && document_view_.isReady()) {
         // update() 会合并同一轮事件循环中的失效；系统 expose 也必须重绘原生 Surface。
         frame_invalidated_ = true;
@@ -93,53 +93,53 @@ void DocWidget::paintEvent(QPaintEvent*) {
     }
 }
 
-void DocWidget::showEvent(QShowEvent* e) {
+void DocumentViewport::showEvent(QShowEvent* e) {
     QWidget::showEvent(e);
     if (frame_invalidated_) {
         update();
     }
 }
 
-void DocWidget::mousePressEvent(QMouseEvent* e) {
+void DocumentViewport::mousePressEvent(QMouseEvent* e) {
     applyResult(document_view_.handleInput(input_adapter_.mousePress(*e)));
 }
 
-void DocWidget::mouseReleaseEvent(QMouseEvent* e) {
+void DocumentViewport::mouseReleaseEvent(QMouseEvent* e) {
     applyResult(document_view_.handleInput(input_adapter_.mouseRelease(*e)));
 }
 
-void DocWidget::mouseMoveEvent(QMouseEvent* e) {
+void DocumentViewport::mouseMoveEvent(QMouseEvent* e) {
     applyResult(document_view_.handleInput(input_adapter_.mouseMove(*e)));
 }
 
-void DocWidget::mouseDoubleClickEvent(QMouseEvent* e) {
+void DocumentViewport::mouseDoubleClickEvent(QMouseEvent* e) {
     applyResult(document_view_.handleInput(input_adapter_.mouseDoubleClick(*e)));
 }
 
-void DocWidget::wheelEvent(QWheelEvent* e) {
+void DocumentViewport::wheelEvent(QWheelEvent* e) {
     applyResult(document_view_.handleInput(input_adapter_.wheel(*e)));
 }
 
-void DocWidget::keyPressEvent(QKeyEvent* e) {
+void DocumentViewport::keyPressEvent(QKeyEvent* e) {
     applyResult(document_view_.handleInput(input_adapter_.keyPress(*e)));
 }
 
-void DocWidget::keyReleaseEvent(QKeyEvent* e) {
+void DocumentViewport::keyReleaseEvent(QKeyEvent* e) {
     applyResult(document_view_.handleInput(input_adapter_.keyRelease(*e)));
 }
 
-void DocWidget::leaveEvent(QEvent* e) {
+void DocumentViewport::leaveEvent(QEvent* e) {
     QWidget::leaveEvent(e);
     // 离开视口：所有临时状态在 DocumentView 的统一取消边界内清理。
     applyResult(document_view_.cancelInteraction());
 }
 
-void DocWidget::focusOutEvent(QFocusEvent* e) {
+void DocumentViewport::focusOutEvent(QFocusEvent* e) {
     applyResult(document_view_.cancelInteraction());
     QWidget::focusOutEvent(e);
 }
 
-bool DocWidget::event(QEvent* e) {
+bool DocumentViewport::event(QEvent* e) {
     switch (e->type()) {
     case QEvent::WindowDeactivate:
     case QEvent::UngrabMouse: applyResult(document_view_.cancelInteraction()); break;
@@ -148,14 +148,14 @@ bool DocWidget::event(QEvent* e) {
     return QWidget::event(e);
 }
 
-void DocWidget::setDocumentSession(DocumentSession* session) {
+void DocumentViewport::setDocumentSession(mulan::editor::DocumentSession* session) {
     document_view_.setDocumentSession(session);
     if (document_view_.isReady() && session) {
         requestFrame();
     }
 }
 
-void DocWidget::requestFrame() {
+void DocumentViewport::requestFrame() {
     if (runtime_state_ != RuntimeState::Ready) {
         return;
     }
@@ -164,7 +164,7 @@ void DocWidget::requestFrame() {
     update();
 }
 
-void DocWidget::queueRuntimeEvent() {
+void DocumentViewport::queueRuntimeEvent() {
     bool expected = false;
     if (!runtime_event_pending_.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
         return;
@@ -181,7 +181,7 @@ void DocWidget::queueRuntimeEvent() {
     }
 }
 
-void DocWidget::submitPendingFrame() {
+void DocumentViewport::submitPendingFrame() {
     if (runtime_state_ != RuntimeState::Ready || !frame_invalidated_) {
         return;
     }
@@ -201,7 +201,7 @@ void DocWidget::submitPendingFrame() {
     }
 }
 
-void DocWidget::consumeRuntimeEvent() {
+void DocumentViewport::consumeRuntimeEvent() {
     if (runtime_state_ != RuntimeState::Ready) {
         return;
     }
@@ -217,7 +217,7 @@ void DocWidget::consumeRuntimeEvent() {
     }
 }
 
-void DocWidget::transitionToRuntimeFailure(QString message) {
+void DocumentViewport::transitionToRuntimeFailure(QString message) {
     if (runtime_state_ == RuntimeState::Failed || runtime_state_ == RuntimeState::Stopping) {
         return;
     }
@@ -227,7 +227,7 @@ void DocWidget::transitionToRuntimeFailure(QString message) {
     LOG_ERROR("[App] Document render channel stopped: {}", message.toStdString());
 }
 
-void DocWidget::applyResult(const DocumentInputOutcome& result) {
+void DocumentViewport::applyResult(const mulan::editor::DocumentInputOutcome& result) {
     if (result.needsFrame()) {
         requestFrame();
     }
@@ -236,7 +236,7 @@ void DocWidget::applyResult(const DocumentInputOutcome& result) {
     }
 }
 
-void DocWidget::clearPreview(bool refresh) {
+void DocumentViewport::clearPreview(bool refresh) {
     document_view_.viewContext().clearPreview();
     if (refresh) {
         requestFrame();

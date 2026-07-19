@@ -10,7 +10,7 @@
  *  - timestamp 填充。
  *
  * 不负责：click/drag 判定、hover/selection、capture owner、frame 请求。
- * 这些是 ViewportController / DocWidget 交互层的职责。
+ * 这些是 ViewportController / DocumentViewport 交互层的职责。
  *
  * @author hxxcxx
  * @date 2026-07-14
@@ -19,7 +19,7 @@
 
 #include <mulan/interaction/input_event.h>
 
-#include <QtGlobal>      // qreal
+#include <QtGlobal>  // qreal
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
@@ -30,7 +30,7 @@ namespace mulan::app {
 
 class QtViewportInputAdapter {
 public:
-    /// devicePixelRatioF 由 DocWidget 在调用时传入（adapter 不持有 QWidget）。
+    /// devicePixelRatioF 由 DocumentViewport 在调用时传入（adapter 不持有 QWidget）。
     explicit QtViewportInputAdapter(qreal devicePixelRatioF = 1.0);
 
     void setDevicePixelRatioF(qreal dpr) { dpr_ = dpr; }
@@ -50,7 +50,7 @@ public:
     engine::InputEvent pointerCancel() const { return engine::InputEvent::pointerCancel(); }
     engine::InputEvent focusLost() const { return engine::InputEvent::focusLost(); }
 
-    // ── 坐标转换（供 DocWidget 做 picking/select 时复用）──
+    // ── 坐标转换（供 DocumentViewport 做 picking/select 时复用）──
 
     /// 浮点 framebuffer 坐标，用于 ray picking（避免 DPR 截断误差）。
     QPointF framebufferPosition(const QPointF& logicalPos) const;

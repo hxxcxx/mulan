@@ -14,7 +14,9 @@
 #include <memory>
 #include <string_view>
 
+namespace mulan::editor {
 class DocumentSession;
+}
 
 namespace mulan::engine {
 struct InputEvent;
@@ -25,8 +27,10 @@ struct ViewConfig;
 class ViewContext;
 }  // namespace mulan::view
 
+namespace mulan::editor {
+
 /// 文档输入最终由哪一层处理。该枚举是 app 层可依赖的稳定边界，避免把
-/// ViewContext/EditorSession 的内部 bool 组合逻辑泄漏到 DocWidget。
+/// ViewContext/EditorSession 的内部 bool 组合逻辑泄漏到 DocumentViewport。
 enum class DocumentInputDisposition : uint8_t {
     Ignored = 0,
     ViewNavigation,
@@ -81,7 +85,7 @@ public:
     DocumentInputOutcome handleInput(const mulan::engine::InputEvent& event);
 
     /// 取消当前所有临时交互（工具 / grip / camera drag / ViewCube press）。
-    /// 供 DocWidget 在 FocusOut / UngrabMouse / WindowDeactivate / leaveEvent 调用。
+    /// 供 DocumentViewport 在 FocusOut / UngrabMouse / WindowDeactivate / leaveEvent 调用。
     DocumentInputOutcome cancelInteraction();
 
     // ── 编辑器交互（转发，app 层不直接接触 EditorSession）──
@@ -112,3 +116,5 @@ private:
 
     std::unique_ptr<Impl> impl_;
 };
+
+}  // namespace mulan::editor

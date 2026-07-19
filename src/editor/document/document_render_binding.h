@@ -17,13 +17,13 @@
 #include <functional>
 #include <span>
 
-class DocumentSession;
-
 namespace mulan::view {
 class ViewContext;
 }
 
 namespace mulan::editor {
+
+class DocumentSession;
 
 enum class ClipUpdateMode : uint8_t {
     Settled,

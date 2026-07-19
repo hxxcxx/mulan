@@ -2,6 +2,8 @@
 
 #include <utility>
 
+namespace mulan::editor {
+
 DocumentViewBinding::DocumentViewBinding() = default;
 
 DocumentViewBinding::~DocumentViewBinding() {
@@ -33,7 +35,7 @@ void DocumentViewBinding::fitAll() {
     render_binding_.fitAll();
 }
 
-void DocumentViewBinding::prepareFrame(mulan::editor::ClipUpdateMode mode) {
+void DocumentViewBinding::prepareFrame(ClipUpdateMode mode) {
     render_binding_.prepareFrame(mode);
 }
 
@@ -53,3 +55,5 @@ bool DocumentViewBinding::selectSingle(mulan::scene::EntityId entity) {
 bool DocumentViewBinding::clearSelection() {
     return selection_bridge_.clearSelection();
 }
+
+}  // namespace mulan::editor

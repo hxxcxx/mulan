@@ -9,9 +9,9 @@
 
 #include <mulan/scene/entity_id.h>
 
-class DocumentSession;
-
 namespace mulan::editor {
+
+class DocumentSession;
 
 class DocumentSelectionBridge {
 public:

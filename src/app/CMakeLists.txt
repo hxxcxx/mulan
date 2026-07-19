@@ -8,7 +8,7 @@ set(MULAN_APP_SOURCES
     ui/document_area.cpp
     ui/startup_page.cpp
     ui/main_window.cpp
-    ui/doc_widget.cpp
+    ui/document_viewport.cpp
     ui/qt_viewport_input_adapter.cpp
     ui/engine_settings.cpp
     ui/engine_settings_dialog.cpp
@@ -19,7 +19,7 @@ set(MULAN_APP_QT_HEADERS
     ui/document_area.h
     ui/startup_page.h
     ui/main_window.h
-    ui/doc_widget.h
+    ui/document_viewport.h
     ui/engine_settings_dialog.h
     ui/profiler_window.h
 )
@@ -44,6 +44,9 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE
     mulan::profiling
     editor
+    interaction
+    io
+    rhi
     view
     runtime
     $<$<TARGET_EXISTS:rhi_vulkan>:rhi_vulkan>

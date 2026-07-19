@@ -11,8 +11,11 @@
 #include <memory>
 #include <unordered_map>
 
-class DocWidget;
+namespace mulan::editor {
 class DocumentSession;
+}
+
+class DocumentViewport;
 class StartupPage;
 class SARibbonStackedWidget;
 class SARibbonTabBar;
@@ -24,10 +27,7 @@ public:
     ~DocumentArea();
 
     /// 接管文档会话的唯一所有权并添加标签；初始化失败时销毁会话并返回 nullptr。
-    DocWidget* addDocument(std::unique_ptr<DocumentSession> session, const QString& title);
-
-    /// 关闭当前激活的文档标签；用户取消丢弃未保存修改时返回 false。
-    bool closeCurrentDocument();
+    DocumentViewport* addDocument(std::unique_ptr<mulan::editor::DocumentSession> session, const QString& title);
 
     /// 关闭指定索引的标签；用户取消丢弃未保存修改时返回 false。
     bool closeDocument(int index);
@@ -35,28 +35,18 @@ public:
     /// 在应用退出前统一确认需要保护的 dirty 文档；草稿当前没有保存流程，直接关闭。
     bool closeAllDocuments();
 
-    /// 获取当前激活的 DocWidget（可能为 nullptr）
-    DocWidget* currentDocWidget() const;
-
-    /// 当前打开的文档数量
-    int documentCount() const;
+    /// 获取当前激活的文档视口（可能为 nullptr）。
+    DocumentViewport* currentViewport() const;
 
     void recordOpenedFile(const QString& filePath);
-    void removeRecentFile(const QString& filePath);
     void setRecentThumbnail(const QString& filePath, const QString& thumbnailPath);
 
 signals:
     /// 文档切换，name 为文档显示名，空表示切到了欢迎页
     void currentDocumentChanged(const QString& name);
 
-    /// 文档被打开
-    void documentOpened(const QString& name);
-
-    /// 文档被关闭
-    void documentClosed();
-
     /// 文档即将关闭；此时视图和会话仍有效，可同步保存最终视角的缩略图。
-    void documentClosing(DocWidget* document, const QString& filePath);
+    void documentClosing(DocumentViewport* viewport, const QString& filePath);
 
     /// 当前文档的编辑状态变化，需要刷新命令可用性
     void currentDocumentCommandStateInvalidated();
@@ -78,6 +68,6 @@ private:
     SARibbonStackedWidget* document_stack_ = nullptr;
     StartupPage* startup_page_ = nullptr;
 
-    // DocumentArea 唯一持有会话；DocWidget/DocumentView 只借用指针，销毁会话前必须先 shutdown。
-    std::unordered_map<DocWidget*, std::unique_ptr<DocumentSession>> docs_;
+    // DocumentArea 唯一持有会话；DocumentViewport/DocumentView 只借用指针，销毁会话前必须先 shutdown。
+    std::unordered_map<DocumentViewport*, std::unique_ptr<mulan::editor::DocumentSession>> sessions_by_viewport_;
 };

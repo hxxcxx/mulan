@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+namespace mulan::editor {
 namespace {
 
 DocumentRenderPreferences makePreferences(const mulan::io::ImportReport& report) {
@@ -32,7 +33,7 @@ DocumentRenderPreferences makePreferences(const mulan::io::ImportReport& report)
 
 DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc)
     : document_(std::move(doc)),
-      command_history_(std::make_unique<mulan::editor::CommandHistory>()),
+      command_history_(std::make_unique<CommandHistory>()),
       preferences_(makePreferences({})),
       kind_(DocumentSessionKind::Draft) {
     LOG_INFO("[Editor] Draft document session created: name={}", displayName());
@@ -40,7 +41,7 @@ DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc)
 
 DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc, mulan::io::ImportReport report)
     : document_(std::move(doc)),
-      command_history_(std::make_unique<mulan::editor::CommandHistory>()),
+      command_history_(std::make_unique<CommandHistory>()),
       preferences_(makePreferences(report)),
       kind_(DocumentSessionKind::Imported) {
     LOG_INFO("[Editor] Imported document session created: name={}, entities={}, meshes={}, breps={}, warnings={}",
@@ -52,7 +53,7 @@ DocumentSession::~DocumentSession() {
              document_ ? document_->isDirty() : false);
 }
 
-mulan::editor::CommandHistory& DocumentSession::commandHistory() noexcept {
+CommandHistory& DocumentSession::commandHistory() noexcept {
     return *command_history_;
 }
 
@@ -74,15 +75,15 @@ void DocumentSession::unsubscribeChanges(ChangeSubscriptionId subscription) {
     }
 }
 
-mulan::editor::DocumentChangeStamp DocumentSession::publishChange(mulan::editor::DocumentChangeKind kinds) {
-    if (kinds == mulan::editor::DocumentChangeKind::None) {
+DocumentChangeStamp DocumentSession::publishChange(DocumentChangeKind kinds) {
+    if (kinds == DocumentChangeKind::None) {
         return {};
     }
     ++change_revision_;
     if (change_revision_ == 0) {
         change_revision_ = 1;
     }
-    const mulan::editor::DocumentChangeStamp stamp{ .revision = change_revision_, .kinds = kinds };
+    const DocumentChangeStamp stamp{ .revision = change_revision_, .kinds = kinds };
 
     // 回调允许在通知过程中解除自身订阅，因此先复制当前回调集合。
     std::vector<ChangeCallback> callbacks;
@@ -101,3 +102,5 @@ const std::string& DocumentSession::displayName() const {
     static const std::string empty;
     return document_ ? document_->displayName() : empty;
 }
+
+}  // namespace mulan::editor

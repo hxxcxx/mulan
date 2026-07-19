@@ -13,8 +13,8 @@
 
 #include <type_traits>
 
-static_assert(!std::is_copy_constructible_v<DocumentView>);
-static_assert(!std::is_copy_assignable_v<DocumentView>);
+static_assert(!std::is_copy_constructible_v<mulan::editor::DocumentView>);
+static_assert(!std::is_copy_assignable_v<mulan::editor::DocumentView>);
 
 int main() {
     return 0;

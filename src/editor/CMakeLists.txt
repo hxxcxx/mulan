@@ -86,7 +86,7 @@ target_link_libraries(editor
 )
 
 target_precompile_headers(editor PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../app/pch.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/pch.h
 )
 
 set_target_properties(editor PROPERTIES OUTPUT_NAME mulan_editor)

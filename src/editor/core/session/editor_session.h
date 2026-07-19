@@ -24,14 +24,14 @@
 #include <memory>
 #include <string_view>
 
-class DocumentSession;
-class DocumentViewBinding;
-
 namespace mulan::view {
 class ViewContext;
 }
 
 namespace mulan::editor {
+
+class DocumentSession;
+class DocumentViewBinding;
 
 class EditorToolOperator;
 

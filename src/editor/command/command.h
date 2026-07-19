@@ -13,10 +13,9 @@
 #include <string_view>
 #include <utility>
 
-class DocumentView;
-
 namespace mulan::editor {
 
+class DocumentView;
 class EditorSession;
 
 class CommandHost {

@@ -13,14 +13,14 @@
 
 #include <optional>
 
-class DocumentSession;
-class DocumentViewBinding;
-
 namespace mulan::view {
 class ViewContext;
 }  // namespace mulan::view
 
 namespace mulan::editor {
+
+class DocumentSession;
+class DocumentViewBinding;
 
 struct EditorPickInput {
     bool tested = false;

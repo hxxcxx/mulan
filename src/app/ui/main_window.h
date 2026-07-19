@@ -17,8 +17,7 @@
 #include <vector>
 
 class DocumentArea;
-class DocumentSession;
-class DocWidget;
+class DocumentViewport;
 class EngineSettingsDialog;
 class ProfilerWindow;
 class QCloseEvent;
@@ -52,7 +51,7 @@ private:
     mulan::editor::CommandHost currentCommandHost() const;
     void executeCommand(std::string_view id);
     bool openFilePath(const QString& filePath, bool recordRecent = true);
-    void captureRecentThumbnail(DocWidget* docWidget, const QString& filePath);
+    void captureRecentThumbnail(DocumentViewport* viewport, const QString& filePath);
 
     void dragEnterEvent(QDragEnterEvent* e) override;
     void dropEvent(QDropEvent* e) override;
@@ -62,7 +61,7 @@ private:
     DocumentArea* doc_area_ = nullptr;
 
     // --- 文档管理 ---
-    mulan::io::FileManager doc_manager_;
+    mulan::io::FileManager file_manager_;
     mulan::editor::CommandManager command_manager_;
 
     struct CommandActionBinding {

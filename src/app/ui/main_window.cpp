@@ -1,7 +1,7 @@
 #include "main_window.h"
 #include "recent_thumbnail_spec.h"
 #include "document_area.h"
-#include "doc_widget.h"
+#include "document_viewport.h"
 #include "engine_settings_dialog.h"
 #include "profiler_window.h"
 #include <mulan/editor/document/document_session.h>
@@ -106,7 +106,9 @@ MainWindow::MainWindow(QWidget* parent) : SARibbonMainWindow(parent) {
     connect(doc_area_, &DocumentArea::currentDocumentChanged, this, &MainWindow::onCurrentDocumentChanged);
     connect(doc_area_, &DocumentArea::currentDocumentCommandStateInvalidated, this, &MainWindow::updateDisplayActions);
     connect(doc_area_, &DocumentArea::documentClosing, this,
-            [this](DocWidget* document, const QString& filePath) { captureRecentThumbnail(document, filePath); });
+            [this](DocumentViewport* viewport, const QString& filePath) {
+                captureRecentThumbnail(viewport, filePath);
+            });
     connect(doc_area_, &DocumentArea::startupNewRequested, this, &MainWindow::onNewDocument);
     connect(doc_area_, &DocumentArea::startupOpenRequested, this, &MainWindow::onOpenFile);
     connect(doc_area_, &DocumentArea::startupRecentFileRequested, this,
@@ -336,7 +338,7 @@ void MainWindow::buildRibbonViewCategory() {
     action_show_cube_->setCheckable(true);
     action_show_cube_->setChecked(true);
     connect(action_show_cube_, &QAction::toggled, this, [this](bool checked) {
-        auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
+        auto* doc = doc_area_ ? doc_area_->currentViewport() : nullptr;
         if (!doc) {
             updateDisplayActions();
             return;
@@ -393,13 +395,13 @@ void MainWindow::buildRightButtonBar() {
 //===================================================
 
 mulan::editor::CommandHost MainWindow::currentCommandHost() const {
-    auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
+    auto* doc = doc_area_ ? doc_area_->currentViewport() : nullptr;
     auto* view = doc ? &doc->documentView() : nullptr;
     return view ? view->commandHost() : mulan::editor::CommandHost{};
 }
 
 void MainWindow::executeCommand(std::string_view id) {
-    auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
+    auto* doc = doc_area_ ? doc_area_->currentViewport() : nullptr;
     auto* view = doc ? &doc->documentView() : nullptr;
 
     if (view && view->activeEditorToolId() == id) {
@@ -409,7 +411,7 @@ void MainWindow::executeCommand(std::string_view id) {
         return;
     }
 
-    const QPointer<DocWidget> guardedDoc(doc);
+    const QPointer<DocumentViewport> guardedDoc(doc);
     mulan::editor::CommandHost host = currentCommandHost();
     auto result = command_manager_.execute(id, host);
     if (!result) {
@@ -431,7 +433,7 @@ void MainWindow::onCurrentDocumentChanged(const QString& name) {
 }
 
 void MainWindow::setCurrentRenderMode(mulan::view::RenderMode mode) {
-    auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
+    auto* doc = doc_area_ ? doc_area_->currentViewport() : nullptr;
     if (!doc) {
         updateDisplayActions();
         return;
@@ -443,7 +445,7 @@ void MainWindow::setCurrentRenderMode(mulan::view::RenderMode mode) {
 }
 
 void MainWindow::setCurrentSurfaceShading(mulan::view::SurfaceShading shading) {
-    auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
+    auto* doc = doc_area_ ? doc_area_->currentViewport() : nullptr;
     if (!doc) {
         updateDisplayActions();
         return;
@@ -455,7 +457,7 @@ void MainWindow::setCurrentSurfaceShading(mulan::view::SurfaceShading shading) {
 }
 
 void MainWindow::updateDisplayActions() {
-    auto* doc = doc_area_ ? doc_area_->currentDocWidget() : nullptr;
+    auto* doc = doc_area_ ? doc_area_->currentViewport() : nullptr;
     const bool hasDocument = doc != nullptr;
     updateCommandActions();
 
@@ -525,9 +527,9 @@ void MainWindow::onNewDocument() {
 
     const QString title = tr("Untitled %1").arg(untitledIndex++);
     auto doc = std::make_unique<mulan::io::Document>(title.toStdString());
-    auto session = std::make_unique<DocumentSession>(std::move(doc));
-    DocWidget* docWidget = doc_area_->addDocument(std::move(session), title);
-    if (!docWidget) {
+    auto session = std::make_unique<mulan::editor::DocumentSession>(std::move(doc));
+    DocumentViewport* viewport = doc_area_->addDocument(std::move(session), title);
+    if (!viewport) {
         LOG_ERROR("[App] New document view initialization failed: title={}", title.toStdString());
         statusBar()->showMessage(tr("Failed to initialize document view"));
         return;
@@ -539,7 +541,7 @@ void MainWindow::onNewDocument() {
 }
 
 void MainWindow::onOpenFile() {
-    auto exts = doc_manager_.supportedExtensions();
+    auto exts = file_manager_.supportedExtensions();
     QString filter = "Model Files (";
     for (const auto& ext : exts) {
         filter += QString(" *.%1").arg(QString::fromStdString(ext));
@@ -560,7 +562,7 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
     LOG_INFO("[App] Opening document: {}", filePath.toStdString());
     statusBar()->showMessage("Loading: " + filePath);
 
-    auto opened = doc_manager_.openFile(filePath.toStdString());
+    auto opened = file_manager_.openFile(filePath.toStdString());
     if (!opened) {
         LOG_ERROR("[App] Document open failed: path={}, error={}", filePath.toStdString(), opened.error().message);
         QMessageBox::warning(this, "Import Error", QString::fromStdString(opened.error().message));
@@ -571,9 +573,9 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
     logImportReport(opened->import.report);
     auto doc = std::move(opened->document);
     QString title = QString::fromStdString(doc->displayName());
-    auto session = std::make_unique<DocumentSession>(std::move(doc), std::move(opened->import.report));
-    DocWidget* docWidget = doc_area_->addDocument(std::move(session), title);
-    if (!docWidget) {
+    auto session = std::make_unique<mulan::editor::DocumentSession>(std::move(doc), std::move(opened->import.report));
+    DocumentViewport* viewport = doc_area_->addDocument(std::move(session), title);
+    if (!viewport) {
         LOG_ERROR("[App] Document view initialization failed after import: path={}", filePath.toStdString());
         QMessageBox::warning(this, tr("Rendering Error"), tr("Failed to initialize the document rendering view."));
         statusBar()->showMessage("Ready");
@@ -590,8 +592,8 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
     return true;
 }
 
-void MainWindow::captureRecentThumbnail(DocWidget* docWidget, const QString& filePath) {
-    if (!docWidget || filePath.isEmpty())
+void MainWindow::captureRecentThumbnail(DocumentViewport* viewport, const QString& filePath) {
+    if (!viewport || filePath.isEmpty())
         return;
 
     const QString cacheRoot = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
@@ -607,7 +609,7 @@ void MainWindow::captureRecentThumbnail(DocWidget* docWidget, const QString& fil
 
     // 截图复用文档视图已有的 RHI Device。运行时持有同级离屏表面，
     // 因此既不读取 Qt 像素，也不会为缩略图创建第二个 Device 或后端。
-    auto& viewContext = docWidget->viewContext();
+    auto& viewContext = viewport->viewContext();
     if (!viewContext.isReady())
         return;
 

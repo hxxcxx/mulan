@@ -5,7 +5,7 @@
  * @date 2026-06-01
  *
  * ViewConfig 是 UI 端可控制的引擎初始化参数。
- * 由 DocWidget 等上层填充，传入 ViewContext::init()。
+ * 由应用层文档视口填充，传入 ViewContext::init()。
  */
 
 #pragma once

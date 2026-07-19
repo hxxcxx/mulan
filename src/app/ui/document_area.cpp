@@ -1,7 +1,7 @@
 #include "document_area.h"
 
 #include <mulan/core/profiling/profile.h>
-#include "doc_widget.h"
+#include "document_viewport.h"
 #include <mulan/editor/document/document_session.h>
 #include "startup_page.h"
 
@@ -62,43 +62,44 @@ DocumentArea::DocumentArea(QWidget* parent) : QWidget(parent) {
 
 DocumentArea::~DocumentArea() {
     // 先让全部视图停止并解除借用，再统一销毁会话。
-    for (const auto& entry : docs_) {
+    for (const auto& entry : sessions_by_viewport_) {
         if (entry.first) {
             entry.first->shutdown();
         }
     }
-    docs_.clear();
+    sessions_by_viewport_.clear();
 }
 
-DocWidget* DocumentArea::addDocument(std::unique_ptr<DocumentSession> session, const QString& title) {
+DocumentViewport* DocumentArea::addDocument(std::unique_ptr<mulan::editor::DocumentSession> session,
+                                            const QString& title) {
     MULAN_PROFILE_ZONE();
 
     if (!session) {
         return nullptr;
     }
 
-    auto pendingWidget = std::make_unique<DocWidget>(this);
-    auto* docWidget = pendingWidget.get();
-    const auto [sessionIt, inserted] = docs_.emplace(docWidget, std::move(session));
+    auto pendingViewport = std::make_unique<DocumentViewport>(this);
+    auto* viewport = pendingViewport.get();
+    const auto [sessionIt, inserted] = sessions_by_viewport_.emplace(viewport, std::move(session));
     if (!inserted) {
         return nullptr;
     }
-    docWidget->setDocumentSession(sessionIt->second.get());
-    connect(docWidget, &DocWidget::commandStateInvalidated, this, [this, docWidget]() {
-        if (currentDocWidget() == docWidget) {
+    viewport->setDocumentSession(sessionIt->second.get());
+    connect(viewport, &DocumentViewport::commandStateInvalidated, this, [this, viewport]() {
+        if (currentViewport() == viewport) {
             emit currentDocumentCommandStateInvalidated();
         }
     });
 
-    const int idx = document_stack_->addWidget(docWidget);
+    const int idx = document_stack_->addWidget(viewport);
     document_tab_bar_->addTab(title);
     auto* closeButton = new QToolButton(document_tab_bar_);
     closeButton->setProperty("uiRole", "documentClose");
     closeButton->setAutoRaise(true);
     closeButton->setFixedSize(24, 24);
     closeButton->setToolTip(tr("Close document"));
-    connect(closeButton, &QToolButton::clicked, this, [this, docWidget]() {
-        const int tabIndex = document_stack_->indexOf(docWidget);
+    connect(closeButton, &QToolButton::clicked, this, [this, viewport]() {
+        const int tabIndex = document_stack_->indexOf(viewport);
         if (tabIndex >= 0)
             closeDocument(tabIndex);
     });
@@ -109,10 +110,10 @@ DocWidget* DocumentArea::addDocument(std::unique_ptr<DocumentSession> session, c
     stack_->setCurrentIndex(1);  // 切到标签区
 
     // Widget 已加入布局并设为当前页，此时 winId() 已就绪，安全初始化 Vulkan
-    if (!docWidget->init()) {
-        docWidget->shutdown();
-        docs_.erase(docWidget);
-        document_stack_->removeWidget(docWidget);
+    if (!viewport->init()) {
+        viewport->shutdown();
+        sessions_by_viewport_.erase(viewport);
+        document_stack_->removeWidget(viewport);
         document_tab_bar_->removeTab(idx);
         if (document_stack_->count() == 0) {
             document_tab_bar_->hide();
@@ -121,15 +122,9 @@ DocWidget* DocumentArea::addDocument(std::unique_ptr<DocumentSession> session, c
         return nullptr;
     }
 
-    pendingWidget.release();
-    emit documentOpened(title);
+    pendingViewport.release();
     emit currentDocumentChanged(title);
-    return docWidget;
-}
-
-bool DocumentArea::closeCurrentDocument() {
-    const int idx = document_tab_bar_->currentIndex();
-    return idx < 0 || closeDocument(idx);
+    return viewport;
 }
 
 bool DocumentArea::closeDocument(int index) {
@@ -156,13 +151,13 @@ bool DocumentArea::closeAllDocuments() {
 }
 
 bool DocumentArea::confirmDiscard(int index) {
-    auto* docWidget = qobject_cast<DocWidget*>(document_stack_->widget(index));
-    if (!docWidget) {
+    auto* viewport = qobject_cast<DocumentViewport*>(document_stack_->widget(index));
+    if (!viewport) {
         return true;
     }
 
-    const auto it = docs_.find(docWidget);
-    if (it == docs_.end() || !it->second || !it->second->requiresDiscardConfirmation()) {
+    const auto it = sessions_by_viewport_.find(viewport);
+    if (it == sessions_by_viewport_.end() || !it->second || !it->second->requiresDiscardConfirmation()) {
         return true;
     }
 
@@ -176,27 +171,25 @@ bool DocumentArea::confirmDiscard(int index) {
 
 bool DocumentArea::closeDocumentUnchecked(int index) {
     auto* w = document_stack_->widget(index);
-    auto* docWidget = qobject_cast<DocWidget*>(w);
-    if (!docWidget)
+    auto* viewport = qobject_cast<DocumentViewport*>(w);
+    if (!viewport)
         return false;
 
     // 会话销毁前先停止视图并解除借用；控件交给 Qt 事件循环延迟销毁。
-    auto it = docs_.find(docWidget);
-    if (it != docs_.end()) {
+    auto it = sessions_by_viewport_.find(viewport);
+    if (it != sessions_by_viewport_.end()) {
         const auto* document = it->second ? it->second->document() : nullptr;
         const QString filePath = document ? QString::fromStdString(document->filePath()) : QString{};
         if (!filePath.isEmpty()) {
-            emit documentClosing(docWidget, filePath);
+            emit documentClosing(viewport, filePath);
         }
-        docWidget->shutdown();
-        docs_.erase(it);
+        viewport->shutdown();
+        sessions_by_viewport_.erase(it);
     }
 
-    document_stack_->removeWidget(docWidget);
+    document_stack_->removeWidget(viewport);
     document_tab_bar_->removeTab(index);
-    docWidget->deleteLater();
-
-    emit documentClosed();
+    viewport->deleteLater();
 
     if (document_stack_->count() == 0) {
         document_tab_bar_->hide();
@@ -205,21 +198,13 @@ bool DocumentArea::closeDocumentUnchecked(int index) {
     return true;
 }
 
-DocWidget* DocumentArea::currentDocWidget() const {
+DocumentViewport* DocumentArea::currentViewport() const {
     auto* w = document_stack_->currentWidget();
-    return qobject_cast<DocWidget*>(w);
-}
-
-int DocumentArea::documentCount() const {
-    return static_cast<int>(docs_.size());
+    return qobject_cast<DocumentViewport*>(w);
 }
 
 void DocumentArea::recordOpenedFile(const QString& filePath) {
     startup_page_->recordOpenedFile(filePath);
-}
-
-void DocumentArea::removeRecentFile(const QString& filePath) {
-    startup_page_->removeRecentFile(filePath);
 }
 
 void DocumentArea::setRecentThumbnail(const QString& filePath, const QString& thumbnailPath) {
@@ -238,14 +223,14 @@ void DocumentArea::onCurrentTabChanged(int index) {
 
     document_stack_->setCurrentIndex(index);
     auto* w = document_stack_->widget(index);
-    auto* docWidget = qobject_cast<DocWidget*>(w);
-    if (!docWidget) {
+    auto* viewport = qobject_cast<DocumentViewport*>(w);
+    if (!viewport) {
         emit currentDocumentChanged({});
         return;
     }
 
-    auto it = docs_.find(docWidget);
-    if (it != docs_.end()) {
+    auto it = sessions_by_viewport_.find(viewport);
+    if (it != sessions_by_viewport_.end()) {
         QString name = QString::fromStdString(it->second->displayName());
         emit currentDocumentChanged(name);
     }

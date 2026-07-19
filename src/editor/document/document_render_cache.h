@@ -10,9 +10,9 @@
 
 #include <span>
 
-class DocumentSession;
-
 namespace mulan::editor {
+
+class DocumentSession;
 
 class DocumentRenderCache {
 public:

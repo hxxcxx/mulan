@@ -13,14 +13,13 @@
 #include <optional>
 #include <vector>
 
-class DocumentSession;
-
 namespace mulan::view {
 class ViewContext;
 }
 
 namespace mulan::editor {
 
+class DocumentSession;
 class EditorOverlayService;
 
 class EditorGripController {

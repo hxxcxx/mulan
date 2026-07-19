@@ -17,11 +17,13 @@
 #include <mulan/render/camera/camera.h>
 #include <mulan/scene/entity_id.h>
 
-class DocumentSession;
-
 namespace mulan::view {
 class ViewContext;
 }
+
+namespace mulan::editor {
+
+class DocumentSession;
 
 class DocumentViewBinding {
 public:
@@ -40,7 +42,7 @@ public:
 
     void refresh();
     void fitAll();
-    void prepareFrame(mulan::editor::ClipUpdateMode mode = mulan::editor::ClipUpdateMode::Settled);
+    void prepareFrame(ClipUpdateMode mode = ClipUpdateMode::Settled);
     const mulan::view::RenderScene* renderScene() const;
     std::optional<mulan::view::RenderScene::PickResult> pickAt(const mulan::engine::Camera& camera, double x, double y);
     std::optional<mulan::view::RenderScene::PickResult> pickEntityAt(const mulan::engine::Camera& camera, double x,
@@ -51,7 +53,9 @@ public:
     bool clearSelection();
 
 private:
-    mulan::editor::DocumentRenderBinding render_binding_;
-    mulan::editor::DocumentPickBridge pick_bridge_;
-    mulan::editor::DocumentSelectionBridge selection_bridge_;
+    DocumentRenderBinding render_binding_;
+    DocumentPickBridge pick_bridge_;
+    DocumentSelectionBridge selection_bridge_;
 };
+
+}  // namespace mulan::editor

@@ -20,14 +20,16 @@
 
 #include <utility>
 
+namespace mulan::editor {
+
 struct DocumentView::Impl {
     DocumentSession* session = nullptr;
     DocumentViewBinding binding;
     mulan::view::ViewContext view_context;
-    mulan::editor::EditorSession editor_session;
+    EditorSession editor_session;
     std::function<void()> frame_invalidation_callback;
 
-    // 左键 click/drag/select 跟踪（从 DocWidget 下移；用 QApplication::startDragDistance 风格阈值）。
+    // 左键 click/drag/select 跟踪（从 DocumentViewport 下移；使用与 Qt drag threshold 相同的语义）。
     int left_press_x = 0;
     int left_press_y = 0;
     bool left_press_pending = false;
@@ -97,8 +99,7 @@ void DocumentView::resize(int width, int height) {
 
 mulan::ResultVoid DocumentView::renderFrame() {
     const bool interactionActive = impl_->editor_session.hasActiveTool() || impl_->view_context.isCameraNavigating();
-    impl_->binding.prepareFrame(interactionActive ? mulan::editor::ClipUpdateMode::Interactive
-                                                  : mulan::editor::ClipUpdateMode::Settled);
+    impl_->binding.prepareFrame(interactionActive ? ClipUpdateMode::Interactive : ClipUpdateMode::Settled);
     return impl_->view_context.renderFrame();
 }
 
@@ -169,8 +170,8 @@ bool DocumentView::canEditorRedo() const {
     return impl_->editor_session.canRedo();
 }
 
-mulan::editor::CommandHost DocumentView::commandHost() {
-    return mulan::editor::CommandHost(this, &impl_->editor_session);
+CommandHost DocumentView::commandHost() {
+    return CommandHost(this, &impl_->editor_session);
 }
 
 void DocumentView::setDocumentSession(DocumentSession* session) {
@@ -253,7 +254,7 @@ DocumentInputOutcome DocumentView::handleInput(const mulan::engine::InputEvent& 
         }
     }
 
-    // Hover 也属于文档交互，不再由 DocWidget 根据 consumed 猜测是否执行。
+    // Hover 也属于文档交互，不再由 DocumentViewport 根据 consumed 猜测是否执行。
     if (event.type == mulan::engine::InputEvent::Type::MouseMove && event.buttons == mulan::engine::MouseButton::None) {
         if (impl_->view_context.hasHoveredViewCubeFace() || impl_->editor_session.hasActiveTool()) {
             impl_->editor_session.clearHover();
@@ -305,7 +306,7 @@ void DocumentView::clearClickTracking() {
 }
 
 bool DocumentView::isLeftDragExceedingThreshold(const mulan::engine::InputEvent& event) const {
-    // 阈值使用 framebuffer 坐标；4 像素对应原 DocWidget logical 阈值在 DPR=1 下的行为。
+    // 阈值使用 framebuffer 坐标；4 像素对应原 DocumentViewport logical 阈值在 DPR=1 下的行为。
     // 后续可改为从 QtViewportInputAdapter 传入 QApplication::startDragDistance()。
     const int dx = event.x - impl_->left_press_x;
     const int dy = event.y - impl_->left_press_y;
@@ -338,3 +339,5 @@ void DocumentView::invalidateFrame() const {
         impl_->frame_invalidation_callback();
     }
 }
+
+}  // namespace mulan::editor

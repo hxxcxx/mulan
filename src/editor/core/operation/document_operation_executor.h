@@ -11,10 +11,9 @@
 
 #include <optional>
 
-class DocumentSession;
-
 namespace mulan::editor {
 
+class DocumentSession;
 class CommandHistory;
 
 class DocumentOperationExecutor {
