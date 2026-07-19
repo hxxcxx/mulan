@@ -90,9 +90,13 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
     }
 
     float3 diffuseColor = BaseColor * baseSample.rgb;
-    float3 ambientColor = AmbientFactor;
+    // map_Ka 存在时使用显式环境反射贴图；否则以 diffuse 反射率调制 Ka。
+    // 许多 MTL 导出器固定写入 Ka=1，若直接作为白色环境项会把贴图整体洗白。
+    float3 ambientReflectance = AmbientFactor;
     if ((TextureFlags & TF_AMBIENT) != 0u)
-        ambientColor *= MULAN_SAMPLE_2D(AmbientTex, MaterialSampler, input.texcoord).rgb;
+        ambientReflectance *= MULAN_SAMPLE_2D(AmbientTex, MaterialSampler, input.texcoord).rgb;
+    else
+        ambientReflectance *= diffuseColor;
     float3 specularColor = Specular;
     if ((TextureFlags & TF_SPECULAR) != 0u)
         specularColor *= MULAN_SAMPLE_2D(SpecularTex, MaterialSampler, input.texcoord).rgb;
@@ -116,7 +120,7 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
         direct += contribution * light.radiance;
     }
 
-    float3 color = (ambientColor * AmbientColor + direct + emissive) * Exposure;
+    float3 color = (ambientReflectance * AmbientColor + direct + emissive) * Exposure;
     color = acesTonemap(color);
     color = pow(color, float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
     return float4(color, alpha);
