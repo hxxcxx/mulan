@@ -72,8 +72,8 @@ private:
     mutable Assimp::DefaultIOSystem delegate_;
 };
 
-constexpr std::array<const char*, 14> kSupportedExtensions = { "obj", "fbx",   "dae", "3ds", "ply", "stl", "gltf",
-                                                               "glb", "blend", "x",   "ase", "lwo", "off", "dxf" };
+constexpr std::array<const char*, 13> kSupportedExtensions = { "fbx",   "dae", "3ds", "ply", "stl", "gltf", "glb",
+                                                               "blend", "x",   "ase", "lwo", "off", "dxf" };
 
 math::FVec3 toFVec3(const aiVector3D& value) {
     return { value.x, value.y, value.z };

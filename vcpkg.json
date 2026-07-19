@@ -51,6 +51,7 @@
     "stb",
     "nlohmann-json",
     "fastgltf",
+    "rapidobj",
     "mikktspace",
     "assimp",
     {

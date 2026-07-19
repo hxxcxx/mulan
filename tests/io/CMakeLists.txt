@@ -6,6 +6,7 @@ add_test(NAME IOImportSecurityTests COMMAND IOImportSecurityTests)
 
 add_executable(IOImportTests
     gltf_importer_tests.cpp
+    obj_importer_tests.cpp
     mesh_attribute_generator_tests.cpp
     parsed_scene_loader_tests.cpp
 )

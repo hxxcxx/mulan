@@ -1,6 +1,7 @@
 # IO - file import/export and document persistence helpers.
 add_library(io STATIC
     assimp_importer.cpp
+    obj_importer.cpp
     gltf_importer.cpp
     importer_registry.cpp
     importer_factory.cpp
@@ -16,6 +17,7 @@ mulan_copy_public_headers(io io)
 
 find_package(assimp CONFIG REQUIRED)
 find_package(fastgltf CONFIG REQUIRED)
+find_package(RapidObj CONFIG REQUIRED)
 find_package(mikktspace CONFIG REQUIRED)
 
 target_link_libraries(io
@@ -29,6 +31,7 @@ target_link_libraries(io
         mulan::profiling
         assimp::assimp
         fastgltf::fastgltf
+        rapidobj::rapidobj
         mikktspace::mikktspace
 )
 
