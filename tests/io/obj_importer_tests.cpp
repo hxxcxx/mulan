@@ -6,6 +6,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -159,6 +160,40 @@ f 1 4 2
     ASSERT_EQ(result->meshes[1].primitives.size(), 1u);
     EXPECT_EQ(result->meshes[0].primitives[0].mesh.vertexCount(), 4u);
     EXPECT_EQ(result->meshes[1].primitives[0].mesh.vertexCount(), 6u);
+}
+
+TEST(ObjImporterTests, ConvertsBottomLeftTextureCoordinatesToCanonicalTopLeftOrigin) {
+    TemporaryObjDirectory files;
+    const auto obj = files.write("scene.obj", R"(v 0 0 0
+v 1 0 0
+v 0 1 0
+vt 0.25 0.75
+vt 1.25 1.75
+vt 0.5 0.5
+f 1/1 2/2 3/3
+)");
+
+    const auto result = ObjImporter{}.parse(obj.string());
+
+    ASSERT_TRUE(result) << result.error().message;
+    ASSERT_EQ(result->meshes.size(), 1u);
+    ASSERT_EQ(result->meshes.front().primitives.size(), 1u);
+    const graphics::Mesh& mesh = result->meshes.front().primitives.front().mesh;
+    ASSERT_EQ(mesh.vertexCount(), 3u);
+    const uint16_t offset = mesh.layout.offsetOf(graphics::VertexSemantic::TexCoord0);
+    ASSERT_NE(offset, 0xFFFFu);
+
+    const auto readTexcoord = [&mesh, offset](size_t vertex) {
+        float value[2]{};
+        std::memcpy(value, mesh.vertices.data() + vertex * mesh.vertexStride() + offset, sizeof(value));
+        return math::FVec2(value[0], value[1]);
+    };
+    const math::FVec2 first = readTexcoord(0);
+    const math::FVec2 tiled = readTexcoord(1);
+    EXPECT_FLOAT_EQ(first.x, 0.25f);
+    EXPECT_FLOAT_EQ(first.y, 0.25f);
+    EXPECT_FLOAT_EQ(tiled.x, 1.25f);
+    EXPECT_FLOAT_EQ(tiled.y, -0.75f);
 }
 
 TEST(ObjImporterTests, RejectsMaterialLibraryOutsideModelDirectory) {

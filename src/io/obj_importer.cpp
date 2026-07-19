@@ -282,7 +282,9 @@ math::FVec3 normalAt(const rapidobj::Attributes& attributes, int32_t index) {
 
 math::FVec2 texcoordAt(const rapidobj::Attributes& attributes, int32_t index) {
     const size_t offset = static_cast<size_t>(index) * 2u;
-    return math::FVec2(attributes.texcoords[offset], attributes.texcoords[offset + 1u]);
+    // OBJ 的纹理坐标以图片左下角为原点；渲染资产统一采用与 glTF 一致的左上原点。
+    // 在导入边界完成转换，避免把格式差异泄漏到材质、shader 或各 RHI 后端。
+    return math::FVec2(attributes.texcoords[offset], 1.0f - attributes.texcoords[offset + 1u]);
 }
 
 uint64_t smoothNormalKey(int32_t positionIndex, uint32_t smoothingGroup) {
