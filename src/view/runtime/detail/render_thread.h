@@ -72,12 +72,12 @@ private:
 
     struct Channel;
     struct ControlTask;
-    using Initializer = std::function<ResultVoid(RenderExecutor&)>;
+    using Initializer = std::function<ResultVoid(Channel&)>;
 
     explicit RenderThread(const RenderDeviceConfig& config);
 
     Result<RenderChannelId> createChannel(Initializer initialize, RenderChannelEventCallback eventCallback);
-    Result<std::reference_wrapper<RenderDeviceContext>> ensureDeviceContext();
+    ResultVoid ensureDeviceContext();
     void run(std::stop_token stopToken);
     Channel* findChannelLocked(RenderChannelId channel);
     const Channel* findChannelLocked(RenderChannelId channel) const;

@@ -26,13 +26,13 @@ namespace mulan::view::detail {
 
 class RenderExecutor {
 public:
-    RenderExecutor() = default;
+    explicit RenderExecutor(RenderDeviceContext& context);
     ~RenderExecutor();
 
     RenderExecutor(const RenderExecutor&) = delete;
     RenderExecutor& operator=(const RenderExecutor&) = delete;
 
-    ResultVoid init(RenderDeviceContext& context, const RenderSurfaceConfig& config, int width, int height);
+    ResultVoid init(const RenderSurfaceConfig& config, int width, int height);
     void shutdown();
 
     bool isInitialized() const;
@@ -52,8 +52,8 @@ private:
     RenderSurfaceState makeSurfaceState() const;
     void shutdownResources();
 
-    // 非拥有借用；RenderThread 保证先关闭全部 Executor，再销毁设备上下文。
-    RenderDeviceContext* device_context_ = nullptr;
+    // 非拥有引用；RenderThread 保证先销毁全部 Executor，再销毁设备上下文。
+    RenderDeviceContext& device_context_;
     RenderSurface surface_;
     RenderSurface capture_surface_;
     engine::ForwardRenderer forward_renderer_;

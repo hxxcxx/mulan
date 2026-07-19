@@ -56,7 +56,7 @@ struct RenderThread::ControlTask {
         Channel,
     };
 
-    std::function<ResultVoid(RenderExecutor&)> execute;
+    std::function<ResultVoid(Channel&)> execute;
     Kind kind = Kind::Command;
     FailurePolicy failurePolicy = FailurePolicy::Request;
     uint64_t resourceBatchId = 0;
@@ -74,7 +74,7 @@ struct RenderThread::Channel {
     };
 
     Channel(RenderChannelId value, RenderChannelEventCallback callback)
-        : id(value), executor(std::make_unique<RenderExecutor>()), eventCallback(std::move(callback)) {}
+        : id(value), eventCallback(std::move(callback)) {}
 
     RenderChannelId id = 0;
     std::unique_ptr<RenderExecutor> executor;
@@ -165,25 +165,28 @@ Result<RenderChannelId> RenderThread::attachChannel(const RenderSurfaceConfig& c
     MULAN_PROFILE_ZONE();
 
     return createChannel(
-            [this, config, width, height](RenderExecutor& executor) -> ResultVoid {
-                auto context = ensureDeviceContext();
-                if (!context)
-                    return std::unexpected(context.error());
-                return executor.init(context->get(), config, width, height);
+            [this, config, width, height](Channel& channel) -> ResultVoid {
+                if (auto ensured = ensureDeviceContext(); !ensured)
+                    return ensured;
+                auto executor = std::make_unique<RenderExecutor>(*device_context_);
+                if (auto initialized = executor->init(config, width, height); !initialized)
+                    return initialized;
+                channel.executor = std::move(executor);
+                return {};
             },
             std::move(eventCallback));
 }
 
-Result<std::reference_wrapper<RenderDeviceContext>> RenderThread::ensureDeviceContext() {
+ResultVoid RenderThread::ensureDeviceContext() {
     MULAN_PROFILE_ZONE();
 
     if (device_context_)
-        return std::ref(*device_context_);
+        return {};
     auto created = RenderDeviceContext::create(config_);
     if (!created)
         return std::unexpected(created.error());
     device_context_ = std::move(*created);
-    return std::ref(*device_context_);
+    return {};
 }
 
 Result<RenderChannelId> RenderThread::createChannel(Initializer initialize, RenderChannelEventCallback eventCallback) {
@@ -252,8 +255,11 @@ void RenderThread::detach(RenderChannelId channelId) {
             channel->latestFrame.reset();
             cancelled = std::move(channel->controls);
             channel->controls.push_back(ControlTask{
-                    .execute = [](RenderExecutor& executor) -> ResultVoid {
-                        executor.shutdown();
+                    .execute = [](Channel& channel) -> ResultVoid {
+                        if (channel.executor) {
+                            channel.executor->shutdown();
+                            channel.executor.reset();
+                        }
                         return {};
                     },
                     .kind = ControlTask::Kind::Shutdown,
@@ -316,7 +322,7 @@ ResultVoid RenderThread::enqueueSubmissionResourcesLocked(Channel& channel, Rend
             engine::RenderResourcePrepareList prepare = std::move(submission.prepare);
             channel.controls.push_back(ControlTask{
                     .execute = [prepare = std::move(prepare)](
-                                       RenderExecutor& executor) { return executor.prepareResources(prepare); },
+                                       Channel& channel) { return channel.executor->prepareResources(prepare); },
                     .kind = ControlTask::Kind::ResourcePrepare,
                     .failurePolicy = ControlTask::FailurePolicy::Channel,
                     .resourceBatchId = submission.resourceBatchId,
@@ -350,9 +356,8 @@ Result<engine::RenderCaptureResult> RenderThread::capture(RenderChannelId channe
             return std::unexpected(enqueued.error());
         }
         channel->controls.push_back(ControlTask{
-                .execute = [submission = std::move(submission), desc,
-                            outcome](RenderExecutor& executor) mutable -> ResultVoid {
-                    *outcome = executor.capture(submission, desc);
+                .execute = [submission = std::move(submission), desc, outcome](Channel& channel) mutable -> ResultVoid {
+                    *outcome = channel.executor->capture(submission, desc);
                     if (!outcome->value()) {
                         return std::unexpected(outcome->value().error());
                     }
@@ -386,8 +391,8 @@ Result<RenderSurfaceState> RenderThread::resize(RenderChannelId channelId, int w
         }
         channel->latestFrame.reset();
         channel->controls.push_back(ControlTask{
-                .execute = [width, height, outcome](RenderExecutor& executor) -> ResultVoid {
-                    *outcome = executor.resize(width, height);
+                .execute = [width, height, outcome](Channel& channel) -> ResultVoid {
+                    *outcome = channel.executor->resize(width, height);
                     if (!outcome->value()) {
                         return std::unexpected(outcome->value().error());
                     }
@@ -404,8 +409,8 @@ Result<RenderSurfaceState> RenderThread::resize(RenderChannelId channelId, int w
 
 void RenderThread::enableIBL(RenderChannelId channelId, std::string hdrPath) {
     if (!enqueue(channelId, ControlTask{
-                                    .execute = [path = std::move(hdrPath)](RenderExecutor& executor) -> ResultVoid {
-                                        executor.enableIBL(path);
+                                    .execute = [path = std::move(hdrPath)](Channel& channel) -> ResultVoid {
+                                        channel.executor->enableIBL(path);
                                         return {};
                                     },
                             })) {
@@ -424,7 +429,7 @@ ResultVoid RenderThread::clearAssetResources(RenderChannelId channelId) {
         channel->latestFrame.reset();
         channel->state.invalidateResourceBatch();
         channel->controls.push_back(ControlTask{
-                .execute = [](RenderExecutor& executor) -> ResultVoid { return executor.clearAssetResources(); },
+                .execute = [](Channel& channel) -> ResultVoid { return channel.executor->clearAssetResources(); },
                 .failurePolicy = ControlTask::FailurePolicy::Channel,
         });
     }
@@ -519,7 +524,7 @@ RenderThread::Channel* RenderThread::selectReadyChannelLocked(std::optional<Cont
 }
 
 void RenderThread::publishSurfaceStateLocked(Channel& channel) {
-    channel.surfaceState = channel.executor->surfaceState();
+    channel.surfaceState = channel.executor ? channel.executor->surfaceState() : RenderSurfaceState{};
 }
 
 void RenderThread::failChannel(Channel& channel, const Error& error) {
@@ -585,6 +590,10 @@ void RenderThread::failThread(const Error& error) {
 
 void RenderThread::executeFrame(Channel& channel, RenderSubmission submission) {
     try {
+        if (!channel.executor) {
+            failChannel(channel, threadError(ErrorCode::Internal, "Ready render channel has no executor."));
+            return;
+        }
         MULAN_PROFILE_FRAME();
         auto rendered = [&] {
             MULAN_PROFILE_ZONE_N("RenderThread/ExecuteFrame");
@@ -609,7 +618,7 @@ void RenderThread::executeControl(Channel& channel, ControlTask control) {
     try {
         auto executed = [&] {
             MULAN_PROFILE_ZONE_N("RenderThread/ControlTask");
-            return control.execute(*channel.executor);
+            return control.execute(channel);
         }();
         if (!executed) {
             if (control.fail) {
@@ -692,7 +701,10 @@ void RenderThread::run(std::stop_token stopToken) {
     }
 
     for (const auto& channel : channels_) {
-        channel->executor->shutdown();
+        if (channel->executor) {
+            channel->executor->shutdown();
+            channel->executor.reset();
+        }
     }
 
     // Device 及其共享 GPU 资源必须在执行线程上完成析构。尤其是 OpenGL，

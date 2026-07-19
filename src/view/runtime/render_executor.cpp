@@ -63,12 +63,14 @@ engine::RenderRequest buildRenderRequest(const RenderSubmission& submission) {
 
 }  // namespace
 
+RenderExecutor::RenderExecutor(RenderDeviceContext& context) : device_context_(context) {
+}
+
 RenderExecutor::~RenderExecutor() {
     shutdown();
 }
 
-ResultVoid RenderExecutor::init(RenderDeviceContext& context, const RenderSurfaceConfig& config, int width,
-                                int height) {
+ResultVoid RenderExecutor::init(const RenderSurfaceConfig& config, int width, int height) {
     MULAN_PROFILE_ZONE();
 
     if (initialized_) {
@@ -82,9 +84,7 @@ ResultVoid RenderExecutor::init(RenderDeviceContext& context, const RenderSurfac
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render surface requires a valid native window."));
     }
 
-    device_context_ = &context;
-
-    auto& device = device_context_->device();
+    auto& device = device_context_.device();
     if (auto surfaceInitialized = surface_.initSwapChain(device, config, width, height); !surfaceInitialized) {
         shutdownResources();
         LOG_ERROR("[RenderExecutor] SwapChain initialization failed: size={}x{}, error={}", width, height,
@@ -100,8 +100,8 @@ ResultVoid RenderExecutor::init(RenderDeviceContext& context, const RenderSurfac
     }
 
     initialized_ = true;
-    LOG_INFO("[RenderExecutor] Initialized: backend={}, size={}x{}", static_cast<int>(context.device().backend()),
-             width, height);
+    LOG_INFO("[RenderExecutor] Initialized: backend={}, size={}x{}",
+             static_cast<int>(device_context_.device().backend()), width, height);
     return {};
 }
 
@@ -118,14 +118,14 @@ RenderSurfaceState RenderExecutor::surfaceState() const {
 }
 
 ResultVoid RenderExecutor::prepareResources(const engine::RenderResourcePrepareList& prepare) {
-    if (!initialized_ || !device_context_) {
+    if (!initialized_) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
-    return device_context_->resources().preparePersistentResources(resource_client_, prepare);
+    return device_context_.resources().preparePersistentResources(resource_client_, prepare);
 }
 
 ResultVoid RenderExecutor::executeFrame(const RenderSubmission& submission) {
-    if (!initialized_ || !device_context_) {
+    if (!initialized_) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
     const RenderSurfaceState state = makeSurfaceState();
@@ -134,13 +134,13 @@ ResultVoid RenderExecutor::executeFrame(const RenderSubmission& submission) {
     }
 
     auto request = buildRenderRequest(submission);
-    return forward_renderer_.render(device_context_->device(), bindSurface(surface_), request,
+    return forward_renderer_.render(device_context_.device(), bindSurface(surface_), request,
                                     submission.lightEnvironment);
 }
 
 Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmission& submission,
                                                             const engine::RenderCaptureDesc& desc) {
-    if (!initialized_ || !device_context_) {
+    if (!initialized_) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
     }
     const uint32_t width = desc.width ? desc.width : static_cast<uint32_t>(surface_.width());
@@ -154,7 +154,7 @@ Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmissi
     }
 
     auto request = buildRenderRequest(submission);
-    auto rendered = forward_renderer_.render(device_context_->device(), bindSurface(capture_surface_), request,
+    auto rendered = forward_renderer_.render(device_context_.device(), bindSurface(capture_surface_), request,
                                              submission.lightEnvironment);
     if (!rendered) {
         return std::unexpected(rendered.error());
@@ -168,7 +168,7 @@ Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmissi
     result.bytesPerPixel = capture_surface_.bytesPerPixel();
     result.rowBytes = capture_surface_.rowBytes();
     if (desc.readback) {
-        auto readback = capture_surface_.readbackPixels(device_context_->device(), result.pixels);
+        auto readback = capture_surface_.readbackPixels(device_context_.device(), result.pixels);
         if (!readback) {
             return std::unexpected(readback.error());
         }
@@ -177,49 +177,44 @@ Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmissi
 }
 
 Result<RenderSurfaceState> RenderExecutor::resize(int width, int height) {
-    if (!device_context_ || !initialized_ || width <= 0 || height <= 0) {
+    if (!initialized_ || width <= 0 || height <= 0) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render surface resize is invalid."));
     }
-    if (auto resized = surface_.resize(device_context_->device(), width, height); !resized) {
+    if (auto resized = surface_.resize(device_context_.device(), width, height); !resized) {
         return std::unexpected(resized.error());
     }
     return makeSurfaceState();
 }
 
 void RenderExecutor::enableIBL(const std::string& hdrPath) {
-    if (!device_context_ || hdrPath.empty()) {
+    if (hdrPath.empty()) {
         return;
     }
 
-    forward_renderer_.enableIBL(device_context_->device(), hdrPath);
+    forward_renderer_.enableIBL(device_context_.device(), hdrPath);
 }
 
 ResultVoid RenderExecutor::clearAssetResources() {
-    if (!device_context_ || !forward_renderer_.isInitialized()) {
+    if (!forward_renderer_.isInitialized()) {
         return std::unexpected(executorError(ErrorCode::InvalidArg, "Render executor is not initialized."));
     }
     if (resource_client_ != 0) {
         const engine::DeviceResourceClientId releasedClient = std::exchange(resource_client_, 0);
-        auto released = device_context_->resources().releaseClient(releasedClient);
+        auto released = device_context_.resources().releaseClient(releasedClient);
         if (!released) {
             return std::unexpected(released.error());
         }
     }
-    resource_client_ = device_context_->resources().registerClient();
+    resource_client_ = device_context_.resources().registerClient();
     return {};
 }
 
 ResultVoid RenderExecutor::initRenderer() {
     MULAN_PROFILE_ZONE();
 
-    if (!device_context_) {
-        return std::unexpected(
-                executorError(ErrorCode::InvalidArg, "RenderExecutor cannot initialize without a device."));
-    }
-
-    auto& device = device_context_->device();
+    auto& device = device_context_.device();
     if (resource_client_ == 0) {
-        resource_client_ = device_context_->resources().registerClient();
+        resource_client_ = device_context_.resources().registerClient();
     }
     const engine::RenderTargetInfo target{
         .colorFormat = surface_.colorFormat(),
@@ -227,16 +222,12 @@ ResultVoid RenderExecutor::initRenderer() {
         .hasDepth = surface_.hasDepth(),
         .sampleCount = surface_.sampleCount(),
     };
-    return forward_renderer_.init(device, device_context_->resources(), target);
+    return forward_renderer_.init(device, device_context_.resources(), target);
 }
 
 ResultVoid RenderExecutor::configureCaptureSurface(const engine::RenderCaptureDesc& desc, uint32_t width,
                                                    uint32_t height) {
-    if (!device_context_) {
-        return std::unexpected(executorError(ErrorCode::InvalidArg, "Capture requires a device context."));
-    }
-
-    auto& device = device_context_->device();
+    auto& device = device_context_.device();
     RenderSurfaceDesc captureDesc;
     captureDesc.width = static_cast<int>(width);
     captureDesc.height = static_cast<int>(height);
@@ -258,24 +249,21 @@ RenderSurfaceState RenderExecutor::makeSurfaceState() const {
 }
 
 void RenderExecutor::shutdownResources() {
-    const bool hadResources = initialized_ || device_context_ != nullptr;
-    if (device_context_) {
-        auto& device = device_context_->device();
-        // 先移除所有 Surface，确保通道释放后再也没有窗口/截图后备缓冲引用 Device。
-        capture_surface_.shutdown(device);
-        surface_.shutdown(device);
-        // 即使初始化只完成了一部分，也必须让 ForwardRenderer 无条件清理已创建资源。
-        forward_renderer_.shutdown(device);
-        if (resource_client_ != 0) {
-            auto released = device_context_->resources().releaseClient(resource_client_);
-            if (!released) {
-                LOG_ERROR("[RenderExecutor] Device resource client shutdown failed: {}", released.error().message);
-            }
-            resource_client_ = 0;
+    const bool hadResources =
+            initialized_ || surface_.isInitialized() || forward_renderer_.isInitialized() || resource_client_ != 0;
+    auto& device = device_context_.device();
+    // 先移除所有 Surface，确保通道释放后再也没有窗口/截图后备缓冲引用 Device。
+    capture_surface_.shutdown(device);
+    surface_.shutdown(device);
+    // 即使初始化只完成了一部分，也必须让 ForwardRenderer 无条件清理已创建资源。
+    forward_renderer_.shutdown(device);
+    if (resource_client_ != 0) {
+        auto released = device_context_.resources().releaseClient(resource_client_);
+        if (!released) {
+            LOG_ERROR("[RenderExecutor] Device resource client shutdown failed: {}", released.error().message);
         }
+        resource_client_ = 0;
     }
-    device_context_ = nullptr;
-    resource_client_ = 0;
     initialized_ = false;
     if (hadResources) {
         LOG_INFO("[RenderExecutor] Executor shut down");
