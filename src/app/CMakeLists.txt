@@ -5,7 +5,12 @@ set(CMAKE_AUTORCC ON)
 set(MULAN_APP_SOURCES
     main.cpp
     bootstrap/rhi_backends.cpp
-    ui/document_area.cpp
+    services/recent_files_store.cpp
+    services/recent_files_store.h
+    services/recent_thumbnail_service.cpp
+    services/recent_thumbnail_service.h
+    ui/document_page.cpp
+    ui/document_workspace.cpp
     ui/startup_page.cpp
     ui/main_window.cpp
     ui/document_viewport.cpp
@@ -16,7 +21,8 @@ set(MULAN_APP_SOURCES
 )
 
 set(MULAN_APP_QT_HEADERS
-    ui/document_area.h
+    ui/document_page.h
+    ui/document_workspace.h
     ui/startup_page.h
     ui/main_window.h
     ui/document_viewport.h

@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include "../services/recent_thumbnail_service.h"
+
 #include <mulan/editor/command/command_manager.h>
 
 #include <SARibbon.h>
@@ -16,7 +18,7 @@
 #include <string_view>
 #include <vector>
 
-class DocumentArea;
+class DocumentWorkspace;
 class DocumentViewport;
 class EngineSettingsDialog;
 class ProfilerWindow;
@@ -51,18 +53,18 @@ private:
     mulan::editor::CommandHost currentCommandHost() const;
     void executeCommand(std::string_view id);
     bool openFilePath(const QString& filePath, bool recordRecent = true);
-    void captureRecentThumbnail(DocumentViewport* viewport, const QString& filePath);
 
     void dragEnterEvent(QDragEnterEvent* e) override;
     void dropEvent(QDropEvent* e) override;
     void closeEvent(QCloseEvent* e) override;
 
     // --- 核心组件 ---
-    DocumentArea* doc_area_ = nullptr;
+    DocumentWorkspace* document_workspace_ = nullptr;
 
     // --- 文档管理 ---
     mulan::io::FileManager file_manager_;
     mulan::editor::CommandManager command_manager_;
+    RecentThumbnailService recent_thumbnail_service_;
 
     struct CommandActionBinding {
         std::string commandId;

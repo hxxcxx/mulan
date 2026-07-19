@@ -10,7 +10,6 @@
 #include <QMessageBox>
 #include <QPixmap>
 #include <QFrame>
-#include <QSettings>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -19,15 +18,12 @@
 
 namespace {
 
-constexpr int kMaximumRecentFiles = 10;
 constexpr int kContentMaximumWidth = 1420;
 constexpr int kContentHorizontalMargin = 32;
 constexpr int kRecentTileWidth = recent_thumbnail::kDisplayWidth;
 constexpr int kRecentThumbnailHeight = recent_thumbnail::kDisplayHeight;
 constexpr int kRecentTileHeight = 160;
 constexpr int kRecentTileSpacing = 12;
-constexpr auto kSettingsOrganization = "mulan";
-constexpr auto kSettingsApplication = "MuLan";
 
 QString readableFileSize(qint64 bytes) {
     static constexpr const char* suffixes[] = { "B", "KB", "MB", "GB", "TB" };
@@ -149,100 +145,22 @@ StartupPage::StartupPage(QWidget* parent) : QWidget(parent) {
     pageLayout->addWidget(content_, 1);
     pageLayout->addStretch();
 
-    loadRecentFiles();
     rebuildItems();
 }
 
-QString StartupPage::normalizedPath(const QString& filePath) {
-    QFileInfo info(filePath);
-    const QString canonical = info.canonicalFilePath();
-    return QDir::cleanPath(canonical.isEmpty() ? info.absoluteFilePath() : canonical);
-}
-
-void StartupPage::recordOpenedFile(const QString& filePath) {
-    const QString path = normalizedPath(filePath);
-    if (path.isEmpty())
-        return;
-
-    QString thumbnailPath;
-    for (auto it = recent_files_.begin(); it != recent_files_.end();) {
-        if (normalizedPath(it->path).compare(path, Qt::CaseInsensitive) == 0) {
-            thumbnailPath = it->thumbnailPath;
-            it = recent_files_.erase(it);
-        } else {
-            ++it;
-        }
-    }
-    recent_files_.prepend({ path, QDateTime::currentDateTime(), thumbnailPath });
-    while (recent_files_.size() > kMaximumRecentFiles)
-        recent_files_.removeLast();
-    saveRecentFiles();
+void StartupPage::setRecentFiles(QList<RecentFileEntry> recentFiles) {
+    recent_files_ = std::move(recentFiles);
     rebuildItems();
-}
-
-void StartupPage::removeRecentFile(const QString& filePath) {
-    const QString path = normalizedPath(filePath);
-    for (auto it = recent_files_.begin(); it != recent_files_.end();) {
-        if (normalizedPath(it->path).compare(path, Qt::CaseInsensitive) == 0)
-            it = recent_files_.erase(it);
-        else
-            ++it;
-    }
-    saveRecentFiles();
-    rebuildItems();
-}
-
-void StartupPage::setRecentThumbnail(const QString& filePath, const QString& thumbnailPath) {
-    const QString path = normalizedPath(filePath);
-    for (RecentFileEntry& entry : recent_files_) {
-        if (normalizedPath(entry.path).compare(path, Qt::CaseInsensitive) == 0) {
-            entry.thumbnailPath = thumbnailPath;
-            saveRecentFiles();
-            rebuildItems();
-            return;
-        }
-    }
 }
 
 void StartupPage::activateRecentFile(const QString& path) {
     if (!QFileInfo::exists(path)) {
         QMessageBox::warning(this, tr("Recent File Missing"),
                              tr("The file no longer exists and will be removed from Recent Files:\n%1").arg(path));
-        removeRecentFile(path);
+        emit recentFileMissing(path);
         return;
     }
     emit recentFileRequested(path);
-}
-
-void StartupPage::loadRecentFiles() {
-    // Do not rely on QApplication's implicit identity here: it can differ
-    // between a debug executable and an installed build, making recents look
-    // as if they vanished after restarting the application.
-    QSettings settings(kSettingsOrganization, kSettingsApplication);
-    const int count = settings.beginReadArray("recentFiles");
-    for (int i = 0; i < count; ++i) {
-        settings.setArrayIndex(i);
-        RecentFileEntry entry;
-        entry.path = settings.value("path").toString();
-        entry.lastOpened = settings.value("lastOpened").toDateTime();
-        entry.thumbnailPath = settings.value("thumbnailPath").toString();
-        if (!entry.path.isEmpty())
-            recent_files_.append(std::move(entry));
-    }
-    settings.endArray();
-}
-
-void StartupPage::saveRecentFiles() const {
-    QSettings settings(kSettingsOrganization, kSettingsApplication);
-    settings.beginWriteArray("recentFiles");
-    for (int i = 0; i < recent_files_.size(); ++i) {
-        settings.setArrayIndex(i);
-        settings.setValue("path", recent_files_[i].path);
-        settings.setValue("lastOpened", recent_files_[i].lastOpened);
-        settings.setValue("thumbnailPath", recent_files_[i].thumbnailPath);
-    }
-    settings.endArray();
-    settings.sync();
 }
 
 QIcon StartupPage::recentFileIcon(const RecentFileEntry& entry, const QSize& size) const {
@@ -251,7 +169,7 @@ QIcon StartupPage::recentFileIcon(const RecentFileEntry& entry, const QSize& siz
         if (!thumbnail.isNull())
             return QIcon(cropRecentThumbnail(thumbnail, size));
     }
-    // TODO: 离屏渲染完成后由 setRecentThumbnail() 回填；当前按文件类型显示占位图。
+    // 尚未生成缩略图时，按文件类型显示稳定的占位图标。
     const QString suffix = QFileInfo(entry.path).suffix().toLower();
     if (suffix == "step" || suffix == "stp" || suffix == "iges" || suffix == "igs")
         return QIcon(":/app/icons/icon/view-cube.svg");

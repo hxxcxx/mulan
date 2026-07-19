@@ -1,6 +1,5 @@
 #include "main_window.h"
-#include "recent_thumbnail_spec.h"
-#include "document_area.h"
+#include "document_workspace.h"
 #include "document_viewport.h"
 #include "engine_settings.h"
 #include "engine_settings_dialog.h"
@@ -12,7 +11,6 @@
 #include <mulan/core/profiling/profile.h>
 #include <mulan/io/file_manager.h>
 #include <mulan/io/import_result.h>
-#include <mulan/view/capture/capture_image_encoder.h>
 
 #include <QFileDialog>
 #include <QStatusBar>
@@ -23,17 +21,11 @@
 #include <QFileInfo>
 #include <QMenu>
 #include <QActionGroup>
-#include <QCryptographicHash>
 #include <QCloseEvent>
-#include <QDir>
-#include <QImage>
-#include <QPainter>
 #include <QSignalBlocker>
-#include <QStandardPaths>
 #include <QToolButton>
 
 #include <algorithm>
-#include <cstdlib>
 #include <memory>
 
 namespace {
@@ -64,43 +56,6 @@ mulan::editor::DocumentSessionOptions importedSessionOptions(const mulan::io::Im
     };
 }
 
-QImage frameThumbnailToContent(const QImage& image) {
-    if (image.isNull() || image.width() < 2 || image.height() < 2)
-        return image;
-
-    const QColor background = image.pixelColor(0, 0);
-    QRect contentBounds;
-    constexpr int kBackgroundTolerance = 20;
-    for (int y = 0; y < image.height(); ++y) {
-        for (int x = 0; x < image.width(); ++x) {
-            const QColor pixel = image.pixelColor(x, y);
-            const int difference =
-                    std::max({ std::abs(pixel.red() - background.red()), std::abs(pixel.green() - background.green()),
-                               std::abs(pixel.blue() - background.blue()) });
-            if (pixel.alpha() > 0 && difference > kBackgroundTolerance) {
-                contentBounds |= QRect(x, y, 1, 1);
-            }
-        }
-    }
-    if (contentBounds.isNull())
-        return image;
-
-    const int padding = std::max(8, std::min(image.width(), image.height()) / 14);
-    contentBounds.adjust(-padding, -padding, padding, padding);
-    contentBounds = contentBounds.intersected(image.rect());
-
-    const QImage cropped = image.copy(contentBounds);
-    QImage framed(image.size(), image.format());
-    framed.fill(background);
-
-    QPainter painter(&framed);
-    const QSize targetSize = cropped.size().scaled(framed.size(), Qt::KeepAspectRatio);
-    const QRect targetRect((framed.width() - targetSize.width()) / 2, (framed.height() - targetSize.height()) / 2,
-                           targetSize.width(), targetSize.height());
-    painter.drawImage(targetRect, cropped);
-    return framed;
-}
-
 }  // namespace
 
 //===================================================
@@ -113,23 +68,32 @@ MainWindow::MainWindow(QWidget* parent) : SARibbonMainWindow(parent) {
     setAcceptDrops(true);
 
     // 中央多文档区
-    doc_area_ = new DocumentArea(this);
-    setCentralWidget(doc_area_);
+    document_workspace_ = new DocumentWorkspace(this);
+    setCentralWidget(document_workspace_);
     mulan::editor::registerBuiltinCommands(command_manager_);
 
-    connect(doc_area_, &DocumentArea::currentDocumentChanged, this, &MainWindow::onCurrentDocumentChanged);
-    connect(doc_area_, &DocumentArea::currentDocumentCommandStateInvalidated, this, &MainWindow::updateDisplayActions);
-    connect(doc_area_, &DocumentArea::currentDocumentRuntimeFailed, this, [this](const QString& message) {
-        statusBar()->showMessage(tr("Rendering stopped: %1").arg(message));
-        updateDisplayActions();
-    });
-    connect(doc_area_, &DocumentArea::documentClosing, this,
-            [this](DocumentViewport* viewport, const QString& filePath) {
-                captureRecentThumbnail(viewport, filePath);
+    connect(document_workspace_, &DocumentWorkspace::currentDocumentChanged, this,
+            &MainWindow::onCurrentDocumentChanged);
+    connect(document_workspace_, &DocumentWorkspace::currentDocumentCommandStateInvalidated, this,
+            &MainWindow::updateDisplayActions);
+    connect(document_workspace_, &DocumentWorkspace::currentDocumentRuntimeFailed, this,
+            [this](const QString& message) {
+                statusBar()->showMessage(tr("Rendering stopped: %1").arg(message));
+                updateDisplayActions();
             });
-    connect(doc_area_, &DocumentArea::startupNewRequested, this, &MainWindow::onNewDocument);
-    connect(doc_area_, &DocumentArea::startupOpenRequested, this, &MainWindow::onOpenFile);
-    connect(doc_area_, &DocumentArea::startupRecentFileRequested, this,
+    connect(document_workspace_, &DocumentWorkspace::documentClosing, this,
+            [this](DocumentViewport* viewport, const QString& filePath) {
+                if (!viewport) {
+                    return;
+                }
+                const QString thumbnailPath = recent_thumbnail_service_.capture(*viewport, filePath);
+                if (!thumbnailPath.isEmpty()) {
+                    document_workspace_->setRecentThumbnail(filePath, thumbnailPath);
+                }
+            });
+    connect(document_workspace_, &DocumentWorkspace::startupNewRequested, this, &MainWindow::onNewDocument);
+    connect(document_workspace_, &DocumentWorkspace::startupOpenRequested, this, &MainWindow::onOpenFile);
+    connect(document_workspace_, &DocumentWorkspace::startupRecentFileRequested, this,
             [this](const QString& path) { openFilePath(path); });
 
     // 构建 Ribbon
@@ -141,7 +105,7 @@ MainWindow::MainWindow(QWidget* parent) : SARibbonMainWindow(parent) {
 MainWindow::~MainWindow() = default;
 
 void MainWindow::closeEvent(QCloseEvent* e) {
-    if (!doc_area_ || doc_area_->closeAllDocuments()) {
+    if (!document_workspace_ || document_workspace_->closeAllDocuments()) {
         e->accept();
         return;
     }
@@ -356,7 +320,7 @@ void MainWindow::buildRibbonViewCategory() {
     action_show_cube_->setCheckable(true);
     action_show_cube_->setChecked(true);
     connect(action_show_cube_, &QAction::toggled, this, [this](bool checked) {
-        auto* doc = doc_area_ ? doc_area_->currentViewport() : nullptr;
+        auto* doc = document_workspace_ ? document_workspace_->currentViewport() : nullptr;
         if (!doc) {
             updateDisplayActions();
             return;
@@ -412,7 +376,7 @@ void MainWindow::buildRightButtonBar() {
 //===================================================
 
 mulan::editor::CommandHost MainWindow::currentCommandHost() const {
-    auto* doc = doc_area_ ? doc_area_->currentViewport() : nullptr;
+    auto* doc = document_workspace_ ? document_workspace_->currentViewport() : nullptr;
     return doc ? doc->commandHost() : mulan::editor::CommandHost{};
 }
 
@@ -435,7 +399,7 @@ void MainWindow::onCurrentDocumentChanged(const QString& name) {
 }
 
 void MainWindow::setCurrentRenderMode(mulan::view::RenderMode mode) {
-    auto* doc = doc_area_ ? doc_area_->currentViewport() : nullptr;
+    auto* doc = document_workspace_ ? document_workspace_->currentViewport() : nullptr;
     if (!doc) {
         updateDisplayActions();
         return;
@@ -446,7 +410,7 @@ void MainWindow::setCurrentRenderMode(mulan::view::RenderMode mode) {
 }
 
 void MainWindow::setCurrentSurfaceShading(mulan::view::SurfaceShading shading) {
-    auto* doc = doc_area_ ? doc_area_->currentViewport() : nullptr;
+    auto* doc = document_workspace_ ? document_workspace_->currentViewport() : nullptr;
     if (!doc) {
         updateDisplayActions();
         return;
@@ -457,7 +421,7 @@ void MainWindow::setCurrentSurfaceShading(mulan::view::SurfaceShading shading) {
 }
 
 void MainWindow::updateDisplayActions() {
-    auto* doc = doc_area_ ? doc_area_->currentViewport() : nullptr;
+    auto* doc = document_workspace_ ? document_workspace_->currentViewport() : nullptr;
     const bool hasDocument = doc && doc->isReady();
     updateCommandActions();
 
@@ -530,7 +494,7 @@ void MainWindow::onNewDocument() {
     auto session = std::make_unique<mulan::editor::DocumentSession>(std::move(doc));
     mulan::view::ViewConfig viewConfig;
     EngineSettings::instance().applyTo(viewConfig);
-    DocumentViewport* viewport = doc_area_->addDocument(std::move(session), title, viewConfig);
+    DocumentViewport* viewport = document_workspace_->addDocument(std::move(session), title, viewConfig);
     if (!viewport) {
         LOG_ERROR("[App] New document view initialization failed: title={}", title.toStdString());
         statusBar()->showMessage(tr("Failed to initialize document view"));
@@ -579,7 +543,7 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
                                                                     importedSessionOptions(opened->import.report));
     mulan::view::ViewConfig viewConfig;
     EngineSettings::instance().applyTo(viewConfig);
-    DocumentViewport* viewport = doc_area_->addDocument(std::move(session), title, viewConfig);
+    DocumentViewport* viewport = document_workspace_->addDocument(std::move(session), title, viewConfig);
     if (!viewport) {
         LOG_ERROR("[App] Document view initialization failed after import: path={}", filePath.toStdString());
         QMessageBox::warning(this, tr("Rendering Error"), tr("Failed to initialize the document rendering view."));
@@ -587,7 +551,7 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
         return false;
     }
     if (recordRecent) {
-        doc_area_->recordOpenedFile(filePath);
+        document_workspace_->recordOpenedFile(filePath);
     }
     LOG_INFO("[App] Document opened: title={}", title.toStdString());
     LOG_DEBUG("[App] Document source: {}", filePath.toStdString());
@@ -595,48 +559,6 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
     updateDisplayActions();
     statusBar()->showMessage(QString("Loaded: %1").arg(title));
     return true;
-}
-
-void MainWindow::captureRecentThumbnail(DocumentViewport* viewport, const QString& filePath) {
-    if (!viewport || filePath.isEmpty())
-        return;
-
-    const QString cacheRoot = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    if (cacheRoot.isEmpty())
-        return;
-    const QString thumbnailDirectory = QDir(cacheRoot).filePath("recent-thumbnails");
-    if (!QDir().mkpath(thumbnailDirectory))
-        return;
-
-    const QString absolutePath = QFileInfo(filePath).absoluteFilePath();
-    const QByteArray key = QCryptographicHash::hash(absolutePath.toUtf8(), QCryptographicHash::Sha256).toHex();
-    const QString thumbnailPath = QDir(thumbnailDirectory).filePath(QString::fromLatin1(key) + ".png");
-
-    // 截图复用文档视图已有的 RHI Device。运行时持有同级离屏表面，
-    // 因此既不读取 Qt 像素，也不会为缩略图创建第二个 Device 或后端。
-    if (!viewport->isReady())
-        return;
-
-    mulan::view::CaptureRequest request;
-    request.name = "recent-thumbnail";
-    request.desc.width = recent_thumbnail::kCaptureWidth;
-    request.desc.height = recent_thumbnail::kCaptureHeight;
-    request.desc.readback = true;
-    request.visual.style = mulan::view::CaptureRenderStyle::ShadedWithEdges;
-    request.visual.showViewCube = false;
-    request.visual.showOverlays = false;
-
-    auto captured = viewport->capture(std::move(request));
-    if (!captured)
-        return;
-    auto saved = mulan::view::CaptureImageEncoder::savePNG(*captured, thumbnailPath.toStdString());
-    if (!saved)
-        return;
-
-    const QImage framed = frameThumbnailToContent(QImage(thumbnailPath));
-    if (!framed.isNull() && framed.save(thumbnailPath, "PNG")) {
-        doc_area_->setRecentThumbnail(filePath, thumbnailPath);
-    }
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* e) {

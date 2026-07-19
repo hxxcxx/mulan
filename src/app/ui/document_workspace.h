@@ -1,15 +1,16 @@
 /**
- * @file document_area.h
- * @brief 多文档标签管理区 — 封装 SARibbonTabBar + SARibbonStackedWidget + 启动页 + 文档生命周期
+ * @file document_workspace.h
+ * @brief 多文档工作区，统一管理标签、页面和文档生命周期。
  * @author hxxcxx
  * @date 2026-04-23 (原始) / 2026-07-15 (文档会话所有权收口)
  */
 #pragma once
 
+#include "../services/recent_files_store.h"
+
 #include <QStackedWidget>
 
 #include <memory>
-#include <unordered_map>
 
 namespace mulan::editor {
 class DocumentSession;
@@ -19,15 +20,16 @@ struct ViewConfig;
 }
 
 class DocumentViewport;
+class DocumentPage;
 class StartupPage;
 class SARibbonStackedWidget;
 class SARibbonTabBar;
 
-class DocumentArea : public QWidget {
+class DocumentWorkspace : public QWidget {
     Q_OBJECT
 public:
-    explicit DocumentArea(QWidget* parent = nullptr);
-    ~DocumentArea();
+    explicit DocumentWorkspace(QWidget* parent = nullptr);
+    ~DocumentWorkspace() override;
 
     /// 接管文档会话的唯一所有权并添加标签；初始化失败时销毁会话并返回 nullptr。
     DocumentViewport* addDocument(std::unique_ptr<mulan::editor::DocumentSession> session, const QString& title,
@@ -66,13 +68,13 @@ private slots:
 private:
     bool confirmDiscard(int index);
     bool closeDocumentUnchecked(int index);
+    DocumentPage* pageAt(int index) const;
+    void refreshRecentFiles();
 
+    RecentFilesStore recent_files_store_;
     QStackedWidget* stack_ = nullptr;
-    QWidget* document_page_ = nullptr;
+    QWidget* documents_page_ = nullptr;
     SARibbonTabBar* document_tab_bar_ = nullptr;
     SARibbonStackedWidget* document_stack_ = nullptr;
     StartupPage* startup_page_ = nullptr;
-
-    // DocumentArea 唯一持有会话；DocumentViewport/DocumentView 只借用指针，销毁会话前必须先 shutdown。
-    std::unordered_map<DocumentViewport*, std::unique_ptr<mulan::editor::DocumentSession>> sessions_by_viewport_;
 };
