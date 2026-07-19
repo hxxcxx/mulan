@@ -16,8 +16,8 @@
 #include "document/document_view_binding.h"
 
 #include <mulan/editor/document/document_session.h>
-#include <mulan/io/document.h>
-#include <mulan/io/document_editor.h>
+#include <mulan/document/document.h>
+#include <mulan/editor/document/document_editor.h>
 #include <mulan/modeling/core/shape_ops.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/scene.h>
@@ -30,17 +30,17 @@
 
 namespace {
 
+using mulan::Document;
 using mulan::asset::AssetId;
 using mulan::asset::CurveAsset;
 using mulan::asset::CurvePrimitive;
+using mulan::editor::DocumentEditor;
 using mulan::editor::DocumentOperation;
 using mulan::editor::DocumentOperationExecutor;
 using mulan::editor::DocumentRenderPreferences;
 using mulan::editor::DocumentSession;
 using mulan::editor::DocumentSessionKind;
 using mulan::editor::DocumentViewBinding;
-using mulan::io::Document;
-using mulan::io::DocumentEditor;
 using mulan::math::Mat4;
 using mulan::math::Point3;
 using mulan::math::Segment3;

@@ -1,6 +1,6 @@
 #include "document_editor.h"
 
-#include "document.h"
+#include <mulan/document/document.h>
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/brep_asset.h>
@@ -11,7 +11,7 @@
 #include <mulan/scene/components/render_component.h>
 #include <mulan/scene/scene.h>
 
-namespace mulan::io {
+namespace mulan::editor {
 
 CurveCreateResult DocumentEditor::createCurve(std::string name, asset::CurvePrimitive primitive) {
     if (!document_.assets() || !document_.scene()) {
@@ -338,4 +338,4 @@ asset::FaceAsset* DocumentEditor::faceAsset(asset::AssetId geometry) const {
     return document_.assets() ? dynamic_cast<asset::FaceAsset*>(document_.assets()->asset(geometry)) : nullptr;
 }
 
-}  // namespace mulan::io
+}  // namespace mulan::editor

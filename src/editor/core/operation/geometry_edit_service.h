@@ -8,13 +8,13 @@
 
 #include "geometry_mutation.h"
 
-#include <mulan/io/document.h>
+#include <mulan/document/document.h>
 
 namespace mulan::editor {
 
 class GeometryEditService {
 public:
-    explicit GeometryEditService(io::Document& document) : document_(document) {}
+    explicit GeometryEditService(Document& document) : document_(document) {}
 
     GeometryEditResult apply(GeometryEditRequest request) const;
 
@@ -22,7 +22,7 @@ private:
     std::optional<GeometryMutation> currentMutation(asset::AssetId geometry, const GeometryMutation& mutation) const;
     bool applyMutation(scene::EntityId entity, asset::AssetId geometry, GeometryMutation mutation) const;
 
-    io::Document& document_;
+    Document& document_;
 };
 
 }  // namespace mulan::editor

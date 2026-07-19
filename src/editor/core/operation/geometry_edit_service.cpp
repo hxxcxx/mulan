@@ -1,7 +1,7 @@
 #include "geometry_edit_service.h"
+#include "document/document_editor.h"
 
 #include <mulan/asset/asset_library.h>
-#include <mulan/io/document_editor.h>
 #include <mulan/core/profiling/profile.h>
 
 #include <algorithm>
@@ -18,12 +18,12 @@ struct Overloaded : T... {
 template <typename... T>
 Overloaded(T...) -> Overloaded<T...>;
 
-const asset::CurveAsset* curveAsset(const io::Document& document, asset::AssetId geometry) {
+const asset::CurveAsset* curveAsset(const Document& document, asset::AssetId geometry) {
     const asset::AssetLibrary* assets = document.assets();
     return assets ? dynamic_cast<const asset::CurveAsset*>(assets->asset(geometry)) : nullptr;
 }
 
-const asset::FaceAsset* faceAsset(const io::Document& document, asset::AssetId geometry) {
+const asset::FaceAsset* faceAsset(const Document& document, asset::AssetId geometry) {
     const asset::AssetLibrary* assets = document.assets();
     return assets ? dynamic_cast<const asset::FaceAsset*>(assets->asset(geometry)) : nullptr;
 }
@@ -43,7 +43,7 @@ std::optional<asset::CurvePrimitive> curvePrimitive(const asset::CurveAsset& cur
 GeometryEditResult GeometryEditService::apply(GeometryEditRequest request) const {
     MULAN_PROFILE_ZONE();
 
-    io::DocumentEditor editor(document_);
+    DocumentEditor editor(document_);
     GeometryEditResult result;
 
     const asset::AssetId currentGeometry = editor.geometryAssetForEntity(request.entity);
@@ -129,7 +129,7 @@ std::optional<GeometryMutation> GeometryEditService::currentMutation(asset::Asse
 
 bool GeometryEditService::applyMutation(scene::EntityId entity, asset::AssetId geometry,
                                         GeometryMutation mutation) const {
-    io::DocumentEditor editor(document_);
+    DocumentEditor editor(document_);
     return std::visit(Overloaded{
                               [&editor, entity, geometry](CurveElementGeometryMutation& curve) {
                                   return editor.updateCurveAsset(entity, geometry, curve.element,

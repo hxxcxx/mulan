@@ -9,8 +9,6 @@
  */
 #pragma once
 
-#include "io_export.h"
-
 #include <mulan/asset/curve_asset.h>
 #include <mulan/asset/face_asset.h>
 #include <mulan/asset/mesh_asset.h>
@@ -22,9 +20,11 @@
 #include <string>
 #include <vector>
 
-namespace mulan::io {
+namespace mulan {
 
 class Document;
+
+namespace editor {
 
 struct CurveCreateResult {
     scene::EntityId entity;
@@ -34,7 +34,7 @@ struct CurveCreateResult {
     explicit operator bool() const { return valid(); }
 };
 
-class IO_API DocumentEditor {
+class DocumentEditor {
 public:
     explicit DocumentEditor(Document& document) : document_(document) {}
 
@@ -66,4 +66,5 @@ private:
     Document& document_;
 };
 
-}  // namespace mulan::io
+}  // namespace editor
+}  // namespace mulan

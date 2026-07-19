@@ -4,7 +4,7 @@
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/curve_asset.h>
-#include <mulan/io/document.h>
+#include <mulan/document/document.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/components/transform_component.h>
 #include <mulan/scene/scene.h>
@@ -23,7 +23,7 @@ constexpr double kMinimumExtrudeDistance = 1.0e-9;
 constexpr double kPixelsPerProfileExtent = 180.0;
 constexpr size_t kCircleSegments = 64;
 
-const asset::GeometryAsset* geometryFor(const io::Document& document, scene::EntityId entity) {
+const asset::GeometryAsset* geometryFor(const Document& document, scene::EntityId entity) {
     const scene::Scene* scene = document.scene();
     const asset::AssetLibrary* assets = document.assets();
     if (!scene || !assets) {
@@ -34,7 +34,7 @@ const asset::GeometryAsset* geometryFor(const io::Document& document, scene::Ent
                                           : nullptr;
 }
 
-math::Mat4 worldTransformFor(const io::Document& document, scene::EntityId entity) {
+math::Mat4 worldTransformFor(const Document& document, scene::EntityId entity) {
     const scene::Scene* scene = document.scene();
     if (const scene::TransformComponent* transform = scene ? scene->transform(entity) : nullptr) {
         return transform->world;
@@ -173,7 +173,7 @@ asset::CurvePrimitive closedLoop(const std::vector<math::Point3>& points) {
 }  // namespace
 
 std::optional<SelectionExtrudeTool::ExtrudeSource> SelectionExtrudeTool::sourceFromSelection(
-        const io::Document& document, const EditorSelectionReference& selection) {
+        const Document& document, const EditorSelectionReference& selection) {
     const asset::GeometryAsset* geometry = geometryFor(document, selection.entity);
     if (!geometry) {
         return std::nullopt;

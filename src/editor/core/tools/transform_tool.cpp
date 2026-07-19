@@ -7,13 +7,13 @@
 
 namespace mulan::editor {
 
-TransformTool::TransformTool(const io::Document* document, TransformEditContext context, TransformEditMode mode,
+TransformTool::TransformTool(const Document* document, TransformEditContext context, TransformEditMode mode,
                              TransformEditCommitMode commitMode)
     : context_(std::move(context)), mode_(mode), commit_mode_(commitMode) {
     (void) document;
 }
 
-TransformTool::TransformTool(const io::Document* document, TransformEditContext context, math::Point3 dragStartWorld,
+TransformTool::TransformTool(const Document* document, TransformEditContext context, math::Point3 dragStartWorld,
                              TransformEditMode mode, TransformEditCommitMode commitMode)
     : TransformTool(document, std::move(context), mode, commitMode) {
     setDragStart(dragStartWorld);

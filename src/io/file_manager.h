@@ -11,6 +11,7 @@
 
 #include <mulan/core/concurrency/thread_pool.h>
 #include <mulan/core/result/error.h>
+#include <mulan/document/document.h>
 
 #include <expected>
 #include <memory>
@@ -18,13 +19,9 @@
 #include <vector>
 
 namespace mulan::io {
-class Document;
-}
-
-namespace mulan::io {
 
 struct OpenDocumentResult {
-    std::unique_ptr<mulan::io::Document> document;
+    std::unique_ptr<mulan::Document> document;
     ImportResult import;
 };
 

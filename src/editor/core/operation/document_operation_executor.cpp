@@ -3,6 +3,7 @@
 #include "command_history.h"
 #include "geometry_edit_service.h"
 #include "document/document_session.h"
+#include "document/document_editor.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/curve_asset.h>
@@ -10,8 +11,7 @@
 #include <mulan/asset/face_asset.h>
 #include <mulan/asset/mesh_asset.h>
 #include <mulan/asset/tessellated_asset.h>
-#include <mulan/io/document.h>
-#include <mulan/io/document_editor.h>
+#include <mulan/document/document.h>
 #include <mulan/modeling/core/shape_ops.h>
 #include <mulan/core/profiling/profile.h>
 #include <mulan/scene/components/geometry_component.h>
@@ -40,7 +40,7 @@ struct Overloaded : T... {
 template <typename... T>
 Overloaded(T...) -> Overloaded<T...>;
 
-std::optional<math::Mat4> entityWorldTransform(const io::Document& document, scene::EntityId entity) {
+std::optional<math::Mat4> entityWorldTransform(const Document& document, scene::EntityId entity) {
     const scene::Scene* scene = document.scene();
     if (!scene || !scene->isValid(entity)) {
         return std::nullopt;
@@ -50,7 +50,7 @@ std::optional<math::Mat4> entityWorldTransform(const io::Document& document, sce
     return transform ? std::optional<math::Mat4>(transform->world) : std::nullopt;
 }
 
-bool containsDistinctValidEntities(const io::Document& document, const std::vector<scene::EntityId>& entities,
+bool containsDistinctValidEntities(const Document& document, const std::vector<scene::EntityId>& entities,
                                    bool requireGeometry) {
     const scene::Scene* scene = document.scene();
     const asset::AssetLibrary* assets = document.assets();
@@ -96,7 +96,7 @@ std::optional<GeometryAssetSnapshot> captureGeometryAsset(const asset::AssetLibr
     return snapshot;
 }
 
-std::optional<RestoreEntitiesOperation> captureEntities(const io::Document& document,
+std::optional<RestoreEntitiesOperation> captureEntities(const Document& document,
                                                         const std::vector<scene::EntityId>& entities,
                                                         bool removeGeometryAssetsOnInverse,
                                                         bool restoreExistingEntities = false,
@@ -338,13 +338,13 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
         return {};
     }
 
-    io::Document& document = *session_->document();
-    io::DocumentEditor editor(document);
+    Document& document = *session_->document();
+    DocumentEditor editor(document);
     ApplyResult result;
 
     std::visit(Overloaded{
                        [&editor, &result](CreateCurveOperation& create) {
-                           const io::CurveCreateResult created =
+                           const CurveCreateResult created =
                                    editor.createCurve(std::move(create.name), std::move(create.primitive));
                            result.changed = static_cast<bool>(created);
                            if (result.changed) {

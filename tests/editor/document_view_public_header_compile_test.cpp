@@ -9,6 +9,7 @@
 #include <mulan/editor/command/command.h>
 #include <mulan/editor/command/command_manager.h>
 #include <mulan/editor/document/document_session.h>
+#include <mulan/editor/document/document_editor.h>
 #include <mulan/editor/document/document_view.h>
 
 #include <type_traits>

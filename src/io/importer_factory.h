@@ -38,10 +38,4 @@ private:
     std::unordered_map<std::string, Creator> creators_;
 };
 
-/// 自动注册辅助类 — 放在 .cpp 文件全局作用域即可完成注册
-class IO_API AutoRegisterImporter {
-public:
-    AutoRegisterImporter(const std::string& extension, ImporterFactory::Creator creator);
-};
-
 }  // namespace mulan::io

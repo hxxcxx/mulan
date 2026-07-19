@@ -1,4 +1,5 @@
 #include "file_manager.h"
+#include "detail/importer_registry.h"
 #include "file_importer.h"
 #include "importer_factory.h"
 #include "parsed_scene_loader.h"
@@ -6,7 +7,7 @@
 #include <mulan/core/result/error.h>
 #include <mulan/core/log/log.h>
 #include <mulan/core/profiling/profile.h>
-#include <mulan/io/document.h>
+#include <mulan/document/document.h>
 #include <mulan/modeling/core/shape_file_reader.h>
 
 #include <algorithm>
@@ -73,6 +74,7 @@ Result<ParsedScene> parseShapeFile(const std::string& path, const std::string& e
 }  // namespace
 
 FileManager::FileManager() : worker_pool_(fileWorkerCount()) {
+    detail::ensureBuiltinImportersRegistered();
 }
 
 Result<OpenDocumentResult> FileManager::openFile(const std::string& path, const ImportOptions& options) {
@@ -83,7 +85,7 @@ Result<OpenDocumentResult> FileManager::openFile(const std::string& path, const 
     LOG_INFO("[IO] Import started: path={}, extension={}", path, ext.empty() ? "<none>" : ext);
 
     std::string displayName = std::filesystem::path(path).filename().string();
-    auto doc = std::make_unique<mulan::io::Document>(std::move(displayName));
+    auto doc = std::make_unique<mulan::Document>(std::move(displayName));
     doc->setFilePath(path);
 
     // 解析 → ParsedScene(两条路:io 自有 importer 或 shape reader)

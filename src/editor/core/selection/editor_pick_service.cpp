@@ -4,7 +4,7 @@
 #include "document/document_session.h"
 #include "document/document_view_binding.h"
 
-#include <mulan/io/document.h>
+#include <mulan/document/document.h>
 #include <mulan/view/core/view_context.h>
 
 namespace mulan::editor {

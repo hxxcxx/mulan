@@ -1,7 +1,7 @@
 #include "editor_grip_provider.h"
 
 #include <mulan/asset/asset_library.h>
-#include <mulan/io/document.h>
+#include <mulan/document/document.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/components/selection_component.h>
 #include <mulan/scene/components/transform_component.h>
@@ -159,7 +159,7 @@ void addCurveElementGrips(CurveGripBuildContext& context, const asset::CurveElem
     }
 }
 
-const asset::CurveAsset* curveAssetForEntity(const io::Document& document, scene::EntityId entity) {
+const asset::CurveAsset* curveAssetForEntity(const Document& document, scene::EntityId entity) {
     const scene::Scene* scene = document.scene();
     const asset::AssetLibrary* assets = document.assets();
     if (!scene || !assets) {
@@ -283,7 +283,7 @@ void EditorGripProvider::addSource(std::unique_ptr<EditorGripSource> source) {
     }
 }
 
-std::vector<EditorGrip> EditorGripProvider::build(const io::Document& document,
+std::vector<EditorGrip> EditorGripProvider::build(const Document& document,
                                                   const EditorSelectionContext& selection) const {
     std::vector<EditorGrip> grips;
     uint64_t nextId = 1;

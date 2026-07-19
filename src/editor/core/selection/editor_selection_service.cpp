@@ -1,6 +1,6 @@
 #include "editor_selection_service.h"
 
-#include <mulan/io/document.h>
+#include <mulan/document/document.h>
 #include <mulan/render/frontend/selection_visual_state.h>
 #include <mulan/view/core/view_context.h>
 
@@ -167,7 +167,7 @@ void EditorSelectionService::setFilter(EditorSelectionFilter filter) {
     syncVisualState();
 }
 
-bool EditorSelectionService::pruneInvalid(const io::Document& document) {
+bool EditorSelectionService::pruneInvalid(const Document& document) {
     const bool changed = context_.pruneInvalid(document);
     if (changed) {
         if (view_ && !context_.hovered())

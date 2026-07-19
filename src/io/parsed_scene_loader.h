@@ -25,13 +25,15 @@ namespace mulan::core {
 class ThreadPool;
 }
 
-namespace mulan::io {
-
+namespace mulan {
 class Document;
+}
+
+namespace mulan::io {
 
 class IO_API ParsedSceneLoader {
 public:
-    ParsedSceneLoader(Document& document, core::ThreadPool& workerPool);
+    ParsedSceneLoader(mulan::Document& document, core::ThreadPool& workerPool);
 
     /// 消费解析结果并把其中的大块资源所有权移交给 Document；调用后 scene 不再可复用。
     ImportResult load(ParsedScene&& scene, const ImportOptions& options = {});
@@ -51,7 +53,7 @@ private:
     asset::AssetId meshAssetId(size_t parsedIndex) const;
     asset::AssetId brepAssetId(size_t parsedIndex) const;
 
-    Document& document_;
+    mulan::Document& document_;
     core::ThreadPool& worker_pool_;
     ImportReport report_;
 

@@ -2,7 +2,7 @@
 
 #include "document_session.h"
 
-#include <mulan/io/document.h>
+#include <mulan/document/document.h>
 #include <mulan/scene/scene.h>
 
 namespace mulan::editor {

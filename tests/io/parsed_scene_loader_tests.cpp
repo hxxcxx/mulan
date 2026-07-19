@@ -4,7 +4,7 @@
 #include <mulan/asset/texture_asset.h>
 #include <mulan/core/image/image.h>
 #include <mulan/core/concurrency/thread_pool.h>
-#include <mulan/io/document.h>
+#include <mulan/document/document.h>
 #include <mulan/io/import_builder.h>
 #include <mulan/io/parsed_scene_loader.h>
 

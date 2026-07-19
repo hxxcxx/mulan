@@ -8,7 +8,7 @@
 #include <memory>
 #include <optional>
 
-namespace mulan::io {
+namespace mulan {
 class Document;
 }
 
@@ -17,7 +17,7 @@ namespace mulan::editor {
 /// 启动后点击 FaceAsset 或闭合曲线，再执行法线拉伸。
 class SelectionExtrudeTool final : public EditorTool {
 public:
-    explicit SelectionExtrudeTool(const io::Document& document) : document_(&document) {}
+    explicit SelectionExtrudeTool(const Document& document) : document_(&document) {}
 
     std::string_view id() const override { return "model.extrude"; }
     EditorAction begin() override;
@@ -31,7 +31,7 @@ private:
         std::optional<math::Circle3> circleProfile;
     };
 
-    static std::optional<ExtrudeSource> sourceFromSelection(const io::Document& document,
+    static std::optional<ExtrudeSource> sourceFromSelection(const Document& document,
                                                             const EditorSelectionReference& selection);
     EditorAction selectSource(const EditorInput& input);
 
@@ -40,7 +40,7 @@ private:
     double signedDistanceFor(const EditorInput& input) const;
     double profileScale() const;
 
-    const io::Document* document_ = nullptr;
+    const Document* document_ = nullptr;
     std::optional<asset::FaceDefinition> profile_;
     std::optional<math::Circle3> circle_profile_;
     bool source_is_face_ = false;

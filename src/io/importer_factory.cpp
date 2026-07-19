@@ -41,8 +41,4 @@ std::vector<std::string> ImporterFactory::allSupportedExtensions() const {
     return exts;
 }
 
-AutoRegisterImporter::AutoRegisterImporter(const std::string& extension, ImporterFactory::Creator creator) {
-    ImporterFactory::instance().registerImporter(extension, std::move(creator));
-}
-
 }  // namespace mulan::io

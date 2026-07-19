@@ -8,44 +8,14 @@
 #include <vector>
 
 namespace mulan::editor {
-namespace {
 
-DocumentRenderPreferences makePreferences(const mulan::io::ImportReport& report) {
-    if (report.entityCount == 0 && report.meshAssetCount == 0 && report.brepAssetCount == 0) {
-        return DocumentRenderPreferences{
-            .preferOrthographic = true,
-            .preferIBL = false,
-            .preferPBRSurface = false,
-        };
-    }
-
-    const bool isCad =
-            report.brepAssetCount > 0 && (report.meshAssetCount == 0 || report.brepAssetCount >= report.meshAssetCount);
-    const bool hasImportedMaterialData = report.materialCount > 0 || report.textureCount > 0;
-    return DocumentRenderPreferences{
-        .preferOrthographic = isCad,
-        .preferIBL = false,
-        .preferPBRSurface = !isCad && hasImportedMaterialData,
-    };
-}
-
-}  // namespace
-
-DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc)
+DocumentSession::DocumentSession(std::unique_ptr<mulan::Document> doc, DocumentSessionOptions options)
     : document_(std::move(doc)),
       command_history_(std::make_unique<CommandHistory>()),
-      preferences_(makePreferences({})),
-      kind_(DocumentSessionKind::Draft) {
-    LOG_INFO("[Editor] Draft document session created: name={}", displayName());
-}
-
-DocumentSession::DocumentSession(std::unique_ptr<mulan::io::Document> doc, mulan::io::ImportReport report)
-    : document_(std::move(doc)),
-      command_history_(std::make_unique<CommandHistory>()),
-      preferences_(makePreferences(report)),
-      kind_(DocumentSessionKind::Imported) {
-    LOG_INFO("[Editor] Imported document session created: name={}, entities={}, meshes={}, breps={}, warnings={}",
-             displayName(), report.entityCount, report.meshAssetCount, report.brepAssetCount, report.warnings.size());
+      preferences_(options.renderPreferences),
+      kind_(options.kind) {
+    LOG_INFO("[Editor] Document session created: name={}, kind={}", displayName(),
+             kind_ == DocumentSessionKind::Draft ? "draft" : "imported");
 }
 
 DocumentSession::~DocumentSession() {

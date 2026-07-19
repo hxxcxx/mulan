@@ -1,6 +1,6 @@
 #include "transform_edit_context.h"
 
-#include <mulan/io/document.h>
+#include <mulan/document/document.h>
 #include <mulan/scene/components/transform_component.h>
 #include <mulan/scene/scene.h>
 
@@ -15,7 +15,7 @@ TransformEditSubjectKind subjectKindForTarget(const SelectionTarget& target) {
 
 }  // namespace
 
-TransformEditContext TransformEditContext::fromSelection(const io::Document& document,
+TransformEditContext TransformEditContext::fromSelection(const Document& document,
                                                          std::span<const SelectionTarget> selection) {
     TransformEditContext context;
     for (const SelectionTarget& target : selection) {
@@ -24,7 +24,7 @@ TransformEditContext TransformEditContext::fromSelection(const io::Document& doc
     return context;
 }
 
-TransformEditContext TransformEditContext::fromTarget(const io::Document& document, const SelectionTarget& target) {
+TransformEditContext TransformEditContext::fromTarget(const Document& document, const SelectionTarget& target) {
     TransformEditContext context;
     context.addSubject(document, target);
     return context;
@@ -49,7 +49,7 @@ std::vector<EntityTransformUpdate> TransformEditContext::entityUpdates(const mat
     return updates;
 }
 
-void TransformEditContext::addSubject(const io::Document& document, const SelectionTarget& target) {
+void TransformEditContext::addSubject(const Document& document, const SelectionTarget& target) {
     if (!target.valid()) {
         return;
     }

@@ -8,12 +8,20 @@ add_library(io STATIC
     file_manager.cpp
     import_builder.cpp
     parsed_scene_loader.cpp
-    document.cpp
-    document_editor.cpp
     detail/mesh_attribute_generator.cpp
 )
 
-mulan_copy_public_headers(io io)
+mulan_copy_public_headers(io io
+    file_importer.h
+    file_manager.h
+    gltf_importer.h
+    import_builder.h
+    import_result.h
+    io_export.h
+    obj_importer.h
+    parsed_scene.h
+    parsed_scene_loader.h
+)
 
 find_package(assimp CONFIG REQUIRED)
 find_package(fastgltf CONFIG REQUIRED)
@@ -23,6 +31,7 @@ find_package(mikktspace CONFIG REQUIRED)
 target_link_libraries(io
     PUBLIC
         core
+        document
         graphics
         scene
         asset

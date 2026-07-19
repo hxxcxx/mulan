@@ -49,6 +49,21 @@ void logImportReport(const mulan::io::ImportReport& report) {
     }
 }
 
+mulan::editor::DocumentSessionOptions importedSessionOptions(const mulan::io::ImportReport& report) {
+    const bool isCad =
+            report.brepAssetCount > 0 && (report.meshAssetCount == 0 || report.brepAssetCount >= report.meshAssetCount);
+    const bool hasImportedMaterialData = report.materialCount > 0 || report.textureCount > 0;
+    return mulan::editor::DocumentSessionOptions{
+        .kind = mulan::editor::DocumentSessionKind::Imported,
+        .renderPreferences =
+                {
+                        .preferOrthographic = isCad,
+                        .preferIBL = false,
+                        .preferPBRSurface = !isCad && hasImportedMaterialData,
+                },
+    };
+}
+
 QImage frameThumbnailToContent(const QImage& image) {
     if (image.isNull() || image.width() < 2 || image.height() < 2)
         return image;
@@ -511,7 +526,7 @@ void MainWindow::onNewDocument() {
     static int untitledIndex = 1;
 
     const QString title = tr("Untitled %1").arg(untitledIndex++);
-    auto doc = std::make_unique<mulan::io::Document>(title.toStdString());
+    auto doc = std::make_unique<mulan::Document>(title.toStdString());
     auto session = std::make_unique<mulan::editor::DocumentSession>(std::move(doc));
     mulan::view::ViewConfig viewConfig;
     EngineSettings::instance().applyTo(viewConfig);
@@ -560,7 +575,8 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
     logImportReport(opened->import.report);
     auto doc = std::move(opened->document);
     QString title = QString::fromStdString(doc->displayName());
-    auto session = std::make_unique<mulan::editor::DocumentSession>(std::move(doc), std::move(opened->import.report));
+    auto session = std::make_unique<mulan::editor::DocumentSession>(std::move(doc),
+                                                                    importedSessionOptions(opened->import.report));
     mulan::view::ViewConfig viewConfig;
     EngineSettings::instance().applyTo(viewConfig);
     DocumentViewport* viewport = doc_area_->addDocument(std::move(session), title, viewConfig);

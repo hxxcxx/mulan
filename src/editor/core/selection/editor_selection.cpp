@@ -2,7 +2,7 @@
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/face_asset.h>
-#include <mulan/io/document.h>
+#include <mulan/document/document.h>
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/scene.h>
 
@@ -12,7 +12,7 @@
 namespace mulan::editor {
 namespace {
 
-const asset::CurveAsset* curveAssetForEntity(const io::Document& document, scene::EntityId entity) {
+const asset::CurveAsset* curveAssetForEntity(const Document& document, scene::EntityId entity) {
     const scene::Scene* scene = document.scene();
     const asset::AssetLibrary* assets = document.assets();
     if (!scene || !assets) {
@@ -27,7 +27,7 @@ const asset::CurveAsset* curveAssetForEntity(const io::Document& document, scene
     return dynamic_cast<const asset::CurveAsset*>(assets->asset(geometry->geometry));
 }
 
-const asset::FaceAsset* faceAssetForEntity(const io::Document& document, scene::EntityId entity) {
+const asset::FaceAsset* faceAssetForEntity(const Document& document, scene::EntityId entity) {
     const scene::Scene* scene = document.scene();
     const asset::AssetLibrary* assets = document.assets();
     if (!scene || !assets) {
@@ -198,7 +198,7 @@ bool EditorSelectionContext::clearSelection() {
     return true;
 }
 
-bool EditorSelectionContext::pruneInvalid(const io::Document& document) {
+bool EditorSelectionContext::pruneInvalid(const Document& document) {
     const scene::Scene* scene = document.scene();
     const auto isValidReference = [&](const EditorSelectionReference& reference) {
         if (!scene || !scene->isValid(reference.entity))
@@ -235,7 +235,7 @@ bool EditorSelectionContext::accepts(const EditorSelectionReference& reference) 
     return reference.valid() && domainAllowed(filter_, reference.domain) && kindAllowed(filter_, reference.kind);
 }
 
-EditorSelectionHit makeEditorSelectionHit(const EditorPickHit& pick, const io::Document& document) {
+EditorSelectionHit makeEditorSelectionHit(const EditorPickHit& pick, const Document& document) {
     EditorSelectionReference reference{
         .entity = pick.entity,
         .pickId = pick.pickId,

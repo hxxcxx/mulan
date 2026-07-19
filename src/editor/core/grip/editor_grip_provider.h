@@ -7,14 +7,14 @@
 #include <memory>
 #include <vector>
 
-namespace mulan::io {
+namespace mulan {
 class Document;
 }
 
 namespace mulan::editor {
 
 struct EditorGripBuildContext {
-    const io::Document& document;
+    const Document& document;
     const EditorSelectionContext& selection;
     uint64_t& nextId;
 };
@@ -34,7 +34,7 @@ public:
     EditorGripProvider& operator=(const EditorGripProvider&) = delete;
 
     void addSource(std::unique_ptr<EditorGripSource> source);
-    std::vector<EditorGrip> build(const io::Document& document, const EditorSelectionContext& selection) const;
+    std::vector<EditorGrip> build(const Document& document, const EditorSelectionContext& selection) const;
 
 private:
     std::vector<std::unique_ptr<EditorGripSource>> sources_;

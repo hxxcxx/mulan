@@ -50,6 +50,7 @@ add_library(editor STATIC
     core/session/editor_preview_controller.cpp
     # document/ — 纯逻辑文档桥接层
     document/document_session.cpp
+    document/document_editor.cpp
     document/document_render_cache.cpp
     document/document_render_binding.cpp
     document/document_pick_bridge.cpp
@@ -67,6 +68,7 @@ mulan_copy_public_headers(editor editor
     command/command_manager.h
     command/builtin_commands.h
     document/document_session.h
+    document/document_editor.h
     document/document_change.h
     document/document_view.h
 )
@@ -74,7 +76,7 @@ mulan_copy_public_headers(editor editor
 target_link_libraries(editor
     PUBLIC
         core
-        $<LINK_LIBRARY:WHOLE_ARCHIVE,io>
+        document
         view
     PRIVATE
         mulan::profiling

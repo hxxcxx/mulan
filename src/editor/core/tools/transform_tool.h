@@ -12,7 +12,7 @@
 
 #include <optional>
 
-namespace mulan::io {
+namespace mulan {
 class Document;
 }
 
@@ -20,10 +20,10 @@ namespace mulan::editor {
 
 class TransformTool final : public DragFromAnchorTool {
 public:
-    TransformTool(const io::Document* document, TransformEditContext context,
+    TransformTool(const Document* document, TransformEditContext context,
                   TransformEditMode mode = TransformEditMode::Translate,
                   TransformEditCommitMode commitMode = TransformEditCommitMode::Move);
-    TransformTool(const io::Document* document, TransformEditContext context, math::Point3 dragStartWorld,
+    TransformTool(const Document* document, TransformEditContext context, math::Point3 dragStartWorld,
                   TransformEditMode mode = TransformEditMode::Translate,
                   TransformEditCommitMode commitMode = TransformEditCommitMode::Move);
 

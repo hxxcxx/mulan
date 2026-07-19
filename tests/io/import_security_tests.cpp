@@ -1,12 +1,22 @@
 #include <mulan/io/gltf_importer.h>
+#include <mulan/io/file_manager.h>
 
 #include <gtest/gtest.h>
 
 #include <filesystem>
 #include <fstream>
+#include <algorithm>
 
 namespace mulan::io {
 namespace {
+
+TEST(BuiltinImporterRegistrationTests, FileManagerExposesEveryBuiltinImporterWithoutWholeArchiveLinking) {
+    FileManager manager;
+    const std::vector<std::string> extensions = manager.supportedExtensions();
+    for (const std::string_view expected : { "gltf", "glb", "obj", "fbx", "stl" }) {
+        EXPECT_NE(std::find(extensions.begin(), extensions.end(), expected), extensions.end()) << expected;
+    }
+}
 
 class TemporaryImportDirectory {
 public:

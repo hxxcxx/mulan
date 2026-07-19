@@ -19,7 +19,7 @@
 #include "core/tools/transform_tool.h"
 
 #include <mulan/editor/document/document_view.h>
-#include <mulan/io/document.h>
+#include <mulan/document/document.h>
 #include <mulan/view/core/view_context.h>
 #include <mulan/scene/entity_id.h>
 #include <mulan/scene/scene.h>
@@ -35,7 +35,7 @@ using mulan::scene::EntityId;
 namespace {
 
 TEST(EditorSelectionTests, PrunesEntityIdsInvalidatedBySceneGeneration) {
-    mulan::io::Document document("stale-selection");
+    mulan::Document document("stale-selection");
     const EntityId entity = document.scene()->createEntity("Selected");
     EditorSelectionContext selection;
     ASSERT_TRUE(selection.selectSingle(EditorSelectionReference{ .entity = entity }));
@@ -229,7 +229,7 @@ TEST(ToolControllerEndAction, RunningLifecycleKeepsToolActive) {
 }
 
 TEST(TransformToolInteraction, FirstAnchorReleaseKeepsClickClickMoveActive) {
-    mulan::io::Document document("move-click-click");
+    mulan::Document document("move-click-click");
     const EntityId entity = document.scene()->createEntity("Target");
     TransformEditContext context = TransformEditContext::fromTarget(document, SelectionTarget{ .entity = entity });
     TransformTool tool(&document, std::move(context), TransformEditMode::Translate, TransformEditCommitMode::Move);
@@ -270,7 +270,7 @@ TEST(TransformToolInteraction, FirstAnchorReleaseKeepsClickClickMoveActive) {
 }
 
 TEST(TransformToolInteraction, AnchorReleaseWithoutWorldPointDoesNotCancelMove) {
-    mulan::io::Document document("move-missing-release-point");
+    mulan::Document document("move-missing-release-point");
     const EntityId entity = document.scene()->createEntity("Target");
     TransformEditContext context = TransformEditContext::fromTarget(document, SelectionTarget{ .entity = entity });
     TransformTool tool(&document, std::move(context));
@@ -286,7 +286,7 @@ TEST(TransformToolInteraction, AnchorReleaseWithoutWorldPointDoesNotCancelMove) 
 }
 
 TEST(TransformToolInteraction, ClickClickCopyProducesCopyOperation) {
-    mulan::io::Document document("copy-click-click");
+    mulan::Document document("copy-click-click");
     const EntityId entity = document.scene()->createEntity("Target");
     TransformEditContext context = TransformEditContext::fromTarget(document, SelectionTarget{ .entity = entity });
     TransformTool tool(&document, std::move(context), TransformEditMode::Translate, TransformEditCommitMode::Copy);
@@ -313,7 +313,7 @@ TEST(TransformToolInteraction, ClickClickCopyProducesCopyOperation) {
 }
 
 TEST(TransformToolInteraction, DragReleaseCommitsCopyWithLastPreviewTransform) {
-    mulan::io::Document document("copy-drag");
+    mulan::Document document("copy-drag");
     const EntityId entity = document.scene()->createEntity("Target");
     TransformEditContext context = TransformEditContext::fromTarget(document, SelectionTarget{ .entity = entity });
     TransformTool tool(&document, std::move(context), mulan::math::Point3::origin(), TransformEditMode::Translate,

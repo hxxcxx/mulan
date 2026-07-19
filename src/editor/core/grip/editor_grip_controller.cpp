@@ -4,7 +4,7 @@
 #include "grip_marker_builder.h"
 #include "document/document_session.h"
 
-#include <mulan/io/document.h>
+#include <mulan/document/document.h>
 #include <mulan/view/core/view_context.h>
 
 #include <cmath>

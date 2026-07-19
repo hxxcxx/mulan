@@ -9,8 +9,7 @@
 
 #include "document_change.h"
 
-#include <mulan/io/document.h>
-#include <mulan/io/import_result.h>
+#include <mulan/document/document.h>
 
 #include <cstdint>
 #include <functional>
@@ -30,21 +29,25 @@ enum class DocumentSessionKind : uint8_t {
 
 struct DocumentRenderPreferences {
     bool preferOrthographic = true;
-    bool preferIBL = true;
+    bool preferIBL = false;
     bool preferPBRSurface = false;
+};
+
+struct DocumentSessionOptions {
+    DocumentSessionKind kind = DocumentSessionKind::Draft;
+    DocumentRenderPreferences renderPreferences;
 };
 
 class DocumentSession {
 public:
-    explicit DocumentSession(std::unique_ptr<mulan::io::Document> doc);
-    DocumentSession(std::unique_ptr<mulan::io::Document> doc, mulan::io::ImportReport report);
+    explicit DocumentSession(std::unique_ptr<mulan::Document> doc, DocumentSessionOptions options = {});
     ~DocumentSession();
 
     DocumentSession(const DocumentSession&) = delete;
     DocumentSession& operator=(const DocumentSession&) = delete;
 
-    mulan::io::Document* document() { return document_.get(); }
-    const mulan::io::Document* document() const { return document_.get(); }
+    mulan::Document* document() { return document_.get(); }
+    const mulan::Document* document() const { return document_.get(); }
 
     const std::string& displayName() const;
 
@@ -75,7 +78,7 @@ private:
     CommandHistory& commandHistory() noexcept;
     DocumentChangeStamp publishChange(DocumentChangeKind kinds);
 
-    std::unique_ptr<mulan::io::Document> document_;
+    std::unique_ptr<mulan::Document> document_;
     /// 命令历史属于文档会话，视图/executor 重绑定不会改变其生命周期。
     std::unique_ptr<CommandHistory> command_history_;
     DocumentRenderPreferences preferences_;

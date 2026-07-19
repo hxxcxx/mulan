@@ -14,7 +14,7 @@
 #include <span>
 #include <vector>
 
-namespace mulan::io {
+namespace mulan {
 class Document;
 }
 
@@ -55,7 +55,7 @@ public:
     bool selectSingle(EditorSelectionHit hit);
     bool selectSingle(EditorSelectionReference reference);
     bool clearSelection();
-    bool pruneInvalid(const io::Document& document);
+    bool pruneInvalid(const Document& document);
     void clear();
 
 private:
@@ -67,6 +67,6 @@ private:
 };
 
 bool sameSelectionReference(const EditorSelectionReference& lhs, const EditorSelectionReference& rhs);
-EditorSelectionHit makeEditorSelectionHit(const EditorPickHit& pick, const io::Document& document);
+EditorSelectionHit makeEditorSelectionHit(const EditorPickHit& pick, const Document& document);
 
 }  // namespace mulan::editor

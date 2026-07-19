@@ -7,7 +7,7 @@
  * STEP/IGES 本身就是 B-Rep 结构，读取是建模内核的能力。当前文件 IO 固定由
  * OCCT 提供，与可配置的 IShapeOps 分离；读取分发仍归 modeling_core：
  *
- *   - IShapeFileReader 是中立虚接口，产出 NamedShape（不接触 io::Document）
+ *   - IShapeFileReader 是中立虚接口，产出 NamedShape（不接触 Document）
  *   - modeling_occt 实现该接口，插件加载时注册到 ShapeFileReaderRegistry
  *   - io 的导入调度经 ShapeFileReaderRegistry 查找 reader，拿到 NamedShape 后
  *     灌进 Document::addBody —— io 只依赖 modeling_core，任何后端不可见
@@ -37,7 +37,7 @@ struct NamedShape {
 };
 
 /// 中立形状文件读取接口：把 B-Rep 格式文件解析为命名形状列表。
-/// 不接触 io::Document；Document 装载是 io 的职责。
+/// 不接触 Document；Document 装载是 io 的职责。
 class IShapeFileReader {
 public:
     virtual ~IShapeFileReader() = default;

@@ -8,7 +8,7 @@
 #include <mulan/scene/components/geometry_component.h>
 #include <mulan/scene/scene.h>
 
-namespace mulan::io {
+namespace mulan {
 
 Document::Document(std::string displayName)
     : scene_(std::make_unique<scene::Scene>()),
@@ -145,4 +145,4 @@ bool Document::removeEntity(scene::EntityId entity, bool removeGeometryAsset) {
     return true;
 }
 
-}  // namespace mulan::io
+}  // namespace mulan

@@ -8,7 +8,7 @@
 #include <mulan/core/image/image.h>
 #include <mulan/core/profiling/profile.h>
 #include <mulan/core/concurrency/thread_pool.h>
-#include <mulan/io/document.h>
+#include <mulan/document/document.h>
 #include <mulan/scene/scene.h>
 
 #include <algorithm>
@@ -71,7 +71,7 @@ void decodeTexture(TextureWorkItem& item) {
 
 }  // namespace
 
-ParsedSceneLoader::ParsedSceneLoader(Document& document, core::ThreadPool& workerPool)
+ParsedSceneLoader::ParsedSceneLoader(mulan::Document& document, core::ThreadPool& workerPool)
     : document_(document), worker_pool_(workerPool) {
 }
 

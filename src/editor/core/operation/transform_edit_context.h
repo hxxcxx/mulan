@@ -17,7 +17,7 @@
 #include <span>
 #include <vector>
 
-namespace mulan::io {
+namespace mulan {
 class Document;
 }
 
@@ -52,8 +52,8 @@ struct TransformEditSubject {
 
 class TransformEditContext {
 public:
-    static TransformEditContext fromSelection(const io::Document& document, std::span<const SelectionTarget> selection);
-    static TransformEditContext fromTarget(const io::Document& document, const SelectionTarget& target);
+    static TransformEditContext fromSelection(const Document& document, std::span<const SelectionTarget> selection);
+    static TransformEditContext fromTarget(const Document& document, const SelectionTarget& target);
 
     bool empty() const { return subjects_.empty(); }
     std::span<const TransformEditSubject> subjects() const { return subjects_; }
@@ -68,7 +68,7 @@ public:
     std::vector<EntityTransformUpdate> entityUpdates(const math::Mat4& worldDelta) const;
 
 private:
-    void addSubject(const io::Document& document, const SelectionTarget& target);
+    void addSubject(const Document& document, const SelectionTarget& target);
 
     std::vector<TransformEditSubject> subjects_;
     math::Point3 anchor_world_;
