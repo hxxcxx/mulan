@@ -80,6 +80,8 @@ struct ParsedMaterial {
     graphics::AlphaMode alphaMode = graphics::AlphaMode::Opaque;
     double alphaCutoff = 0.5;
     bool doubleSided = false;
+    /// OBJ 等未声明 alpha mode 的格式可在贴图解码后根据 Base Color alpha 推断 cutout。
+    bool inferAlphaMaskFromBaseColor = false;
 };
 
 /// 多边形网格:多个 primitive,每个带材质索引(指向 ParsedScene.materials)。

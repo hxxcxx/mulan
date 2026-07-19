@@ -52,7 +52,21 @@ struct TextureWorkItem {
     int height = 0;
     std::shared_ptr<core::Image> image;
     std::string decodeError;
+    bool inspectTransparency = false;
+    bool hasTransparency = false;
 };
+
+bool hasTransparentPixels(const core::Image& image) {
+    if (image.format() != core::PixelFormat::RGBA8)
+        return false;
+
+    const uint8_t* pixels = image.data();
+    for (size_t offset = 3; offset < image.totalBytes(); offset += 4) {
+        if (pixels[offset] != 255u)
+            return true;
+    }
+    return false;
+}
 
 void decodeTexture(TextureWorkItem& item) {
     if (item.encodedBytes.empty())
@@ -64,6 +78,8 @@ void decodeTexture(TextureWorkItem& item) {
     auto decoded = core::Image::loadFromMemory(std::span<const std::byte>(item.encodedBytes), decodeOptions);
     if (decoded) {
         item.image = std::move(decoded).value();
+        if (item.inspectTransparency)
+            item.hasTransparency = hasTransparentPixels(*item.image);
     } else {
         item.decodeError = decoded.error().message;
     }
@@ -124,10 +140,15 @@ void ParsedSceneLoader::loadTextures(ParsedScene& scene) {
 
     auto* library = document_.assets();
     textureIds_.assign(scene.textures.size(), asset::AssetId::invalid());
+    textureHasTransparency_.assign(scene.textures.size(), 0u);
     if (!library)
         return;
 
     std::vector<TextureWorkItem> workItems(scene.textures.size());
+    for (const ParsedMaterial& material : scene.materials) {
+        if (material.inferAlphaMaskFromBaseColor && material.baseColorTexture < workItems.size())
+            workItems[material.baseColorTexture].inspectTransparency = true;
+    }
     for (size_t i = 0; i < scene.textures.size(); ++i) {
         auto& desc = scene.textures[i];
         auto& item = workItems[i];
@@ -186,6 +207,7 @@ void ParsedSceneLoader::loadTextures(ParsedScene& scene) {
             continue;
 
         if (item.image && item.image->valid()) {
+            textureHasTransparency_[i] = static_cast<uint8_t>(item.hasTransparency);
             texture->setImage(std::move(item.image));
         } else if (!texture->sourcePath().empty() || !item.encodedBytes.empty()) {
             const std::string& source = texture->sourcePath().empty() ? texture->name() : texture->sourcePath();
@@ -246,7 +268,13 @@ void ParsedSceneLoader::loadMaterials(ParsedScene& scene) {
         material->setSpecularTextureSrgb(desc.specularTextureSrgb);
         material->setShininessTexture(textureAssetId(desc.shininessTexture));
         material->setOpacityTexture(textureAssetId(desc.opacityTexture));
-        material->setAlphaMode(desc.alphaMode);
+        graphics::AlphaMode alphaMode = desc.alphaMode;
+        if (alphaMode == graphics::AlphaMode::Opaque && desc.inferAlphaMaskFromBaseColor &&
+            desc.baseColorTexture < textureHasTransparency_.size() &&
+            textureHasTransparency_[desc.baseColorTexture] != 0u) {
+            alphaMode = graphics::AlphaMode::Mask;
+        }
+        material->setAlphaMode(alphaMode);
         material->setAlphaCutoff(desc.alphaCutoff);
         material->setDoubleSided(desc.doubleSided);
 

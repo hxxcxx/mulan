@@ -399,6 +399,7 @@ Result<std::vector<size_t>> importMaterials(const rapidobj::Result& source, Pars
             if (!baseColor)
                 return std::unexpected(baseColor.error());
             parsed.baseColorTexture = *baseColor;
+            parsed.inferAlphaMaskFromBaseColor = parsed.baseColorTexture != SIZE_MAX;
 
             auto normal = textures.add(material.normal_texname);
             if (!normal)

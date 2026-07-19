@@ -23,10 +23,10 @@
 namespace mulan::io {
 namespace {
 
-std::filesystem::path writeTestPng(std::string_view name) {
+std::filesystem::path writeTestPng(std::string_view name, uint8_t firstPixelAlpha = 255u) {
     const auto path = std::filesystem::temp_directory_path() / name;
     std::vector<uint8_t> pixels = {
-        255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255,
+        255, 0, 0, firstPixelAlpha, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255,
     };
     auto image = core::Image::createFromBuffer(2, 2, core::PixelFormat::RGBA8, std::move(pixels));
     EXPECT_TRUE(image->savePNG(path.string()));
@@ -155,6 +155,70 @@ TEST(ParsedSceneLoaderTests, PreservesImporterWarningsInTheFinalReport) {
 
     ASSERT_EQ(result.report.warnings.size(), 1u);
     EXPECT_EQ(result.report.warnings.front(), "Unsupported material model was downgraded");
+}
+
+TEST(ParsedSceneLoaderTests, InfersCutoutFromBaseColorAlphaOnlyWhenRequested) {
+    const auto transparentPath = writeTestPng("mulan_parsed_scene_loader_alpha.png", 0u);
+    const auto opaquePath = writeTestPng("mulan_parsed_scene_loader_opaque.png");
+
+    ParsedScene scene;
+    scene.textures.push_back(ParsedTexture{ .name = "Transparent", .sourcePath = transparentPath.string() });
+    scene.textures.push_back(ParsedTexture{ .name = "Opaque", .sourcePath = opaquePath.string() });
+    scene.materials.push_back(ParsedMaterial{
+            .name = "InferredCutout",
+            .baseColorTexture = 0,
+            .inferAlphaMaskFromBaseColor = true,
+    });
+    scene.materials.push_back(ParsedMaterial{
+            .name = "ExplicitOpaque",
+            .baseColorTexture = 0,
+    });
+    scene.materials.push_back(ParsedMaterial{
+            .name = "OpaqueImage",
+            .baseColorTexture = 1,
+            .inferAlphaMaskFromBaseColor = true,
+    });
+    scene.materials.push_back(ParsedMaterial{
+            .name = "ExplicitBlend",
+            .baseColorTexture = 0,
+            .alphaMode = graphics::AlphaMode::Blend,
+            .inferAlphaMaskFromBaseColor = true,
+    });
+
+    Document document("LoaderAlphaTest");
+    core::ThreadPool workerPool(2);
+    ParsedSceneLoader loader(document, workerPool);
+    const ImportResult result = loader.load(std::move(scene));
+    std::filesystem::remove(transparentPath);
+    std::filesystem::remove(opaquePath);
+
+    EXPECT_TRUE(result.report.warnings.empty());
+    const asset::MaterialAsset* inferredCutout = nullptr;
+    const asset::MaterialAsset* explicitOpaque = nullptr;
+    const asset::MaterialAsset* opaqueImage = nullptr;
+    const asset::MaterialAsset* explicitBlend = nullptr;
+    document.assets()->forEachAsset([&](const asset::Asset& value) {
+        if (value.kind() != asset::AssetKind::Material)
+            return;
+        const auto* material = static_cast<const asset::MaterialAsset*>(&value);
+        if (material->name() == "InferredCutout")
+            inferredCutout = material;
+        else if (material->name() == "ExplicitOpaque")
+            explicitOpaque = material;
+        else if (material->name() == "OpaqueImage")
+            opaqueImage = material;
+        else if (material->name() == "ExplicitBlend")
+            explicitBlend = material;
+    });
+
+    ASSERT_NE(inferredCutout, nullptr);
+    ASSERT_NE(explicitOpaque, nullptr);
+    ASSERT_NE(opaqueImage, nullptr);
+    ASSERT_NE(explicitBlend, nullptr);
+    EXPECT_EQ(inferredCutout->alphaMode(), graphics::AlphaMode::Mask);
+    EXPECT_EQ(explicitOpaque->alphaMode(), graphics::AlphaMode::Opaque);
+    EXPECT_EQ(opaqueImage->alphaMode(), graphics::AlphaMode::Opaque);
+    EXPECT_EQ(explicitBlend->alphaMode(), graphics::AlphaMode::Blend);
 }
 
 TEST(ParsedSceneLoaderTests, ReadsExternalTextureOnceAndKeepsItsEncodedSource) {

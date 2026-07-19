@@ -87,6 +87,7 @@ f 1/1 2/2 3/3 4/4
     EXPECT_EQ(material.shadingModel, graphics::MaterialShadingModel::MetallicRoughness);
     EXPECT_EQ(material.alphaMode, graphics::AlphaMode::Blend);
     EXPECT_LT(material.baseColorTexture, result->textures.size());
+    EXPECT_TRUE(material.inferAlphaMaskFromBaseColor);
     EXPECT_LT(material.normalTexture, result->textures.size());
     EXPECT_LT(material.emissiveTexture, result->textures.size());
     EXPECT_EQ(result->textures[material.baseColorTexture].name, "albedo.png");

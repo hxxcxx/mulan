@@ -58,6 +58,7 @@ private:
     ImportReport report_;
 
     std::vector<asset::AssetId> textureIds_;
+    std::vector<uint8_t> textureHasTransparency_;
     std::vector<asset::AssetId> materialIds_;
     std::vector<asset::AssetId> meshIds_;
     std::vector<asset::AssetId> brepIds_;
