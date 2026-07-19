@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cassert>
 #include <deque>
 #include <exception>
 #include <future>
@@ -97,7 +98,7 @@ Result<std::shared_ptr<RenderThread>> RenderThread::acquire(const RenderDeviceCo
     if (config.backend != engine::GraphicsBackend::OpenGL) {
         for (auto it = registry.begin(); it != registry.end();) {
             if (auto thread = it->lock()) {
-                if (thread->isHealthy() && thread->config_.sharesDeviceWith(config)) {
+                if (thread->isHealthy() && thread->config_.sharesExecutionThreadWith(config)) {
                     return thread;
                 }
                 ++it;
@@ -132,23 +133,11 @@ RenderThread::RenderThread(const RenderDeviceConfig& config)
 }
 
 RenderThread::~RenderThread() {
-    std::deque<ControlTask> cancelled;
     {
         std::scoped_lock lock(mutex_);
+        assert(channels_.empty() && "RenderThread must not be destroyed with attached RenderChannels.");
         stopping_ = true;
         state_ = State::Stopped;
-        for (auto& channel : channels_) {
-            channel->lifecycle = Channel::Lifecycle::Stopping;
-            channel->latestFrame.reset();
-            while (!channel->controls.empty()) {
-                cancelled.push_back(std::move(channel->controls.front()));
-                channel->controls.pop_front();
-            }
-        }
-    }
-    const Error cancellation = threadError(ErrorCode::InvalidArg, "Render request was cancelled during shutdown.");
-    for (ControlTask& task : cancelled) {
-        finishControlTask(task, std::unexpected(cancellation));
     }
     thread_.request_stop();
     wake_.notify_all();

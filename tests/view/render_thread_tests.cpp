@@ -1,6 +1,6 @@
 /**
  * @file render_thread_tests.cpp
- * @brief RenderThread 共享策略与 RenderChannelState 资源回执测试。
+ * @brief 渲染线程共享配置与 RenderChannelState 资源回执测试。
  * @author hxxcxx
  * @date 2026-07-17
  *
@@ -8,7 +8,7 @@
  */
 
 #include "runtime/detail/render_channel_state.h"
-#include "runtime/detail/render_thread.h"
+#include "runtime/detail/render_runtime_config.h"
 
 #include <gtest/gtest.h>
 
@@ -72,27 +72,25 @@ TEST(RenderChannelStateTests, FirstFailureRemainsTheRootCause) {
     EXPECT_EQ(state.failure()->message, first.message);
 }
 
-TEST(RenderThreadTests, CompatibleThreadedViewsReuseOneThread) {
+TEST(RenderDeviceConfigTests, CompatibleThreadedViewsCanShareOneThread) {
     mulan::view::ViewConfig config;
     config.backend = mulan::engine::GraphicsBackend::Vulkan;
-    auto first = RenderThread::acquire(RenderDeviceConfig::fromView(config));
-    auto second = RenderThread::acquire(RenderDeviceConfig::fromView(config));
-    ASSERT_TRUE(first);
-    ASSERT_TRUE(second);
-    EXPECT_EQ(first->get(), second->get());
+    const RenderDeviceConfig first = RenderDeviceConfig::fromView(config);
+    const RenderDeviceConfig second = RenderDeviceConfig::fromView(config);
+
+    EXPECT_TRUE(first.sharesExecutionThreadWith(second));
 }
 
-TEST(RenderThreadTests, OpenGLContextsAlwaysUseIndependentThreads) {
+TEST(RenderDeviceConfigTests, OpenGLContextsCannotShareExecutionThreads) {
     mulan::view::ViewConfig config;
     config.backend = mulan::engine::GraphicsBackend::OpenGL;
-    auto first = RenderThread::acquire(RenderDeviceConfig::fromView(config));
-    auto second = RenderThread::acquire(RenderDeviceConfig::fromView(config));
-    ASSERT_TRUE(first);
-    ASSERT_TRUE(second);
-    EXPECT_NE(first->get(), second->get());
+    const RenderDeviceConfig first = RenderDeviceConfig::fromView(config);
+    const RenderDeviceConfig second = RenderDeviceConfig::fromView(config);
+
+    EXPECT_FALSE(first.sharesExecutionThreadWith(second));
 }
 
-TEST(RenderThreadTests, SurfaceOnlyConfigurationDoesNotSplitSharedDevice) {
+TEST(RenderDeviceConfigTests, SurfaceOnlyConfigurationDoesNotSplitExecutionThread) {
     mulan::view::ViewConfig firstConfig;
     firstConfig.backend = mulan::engine::GraphicsBackend::D3D11;
 
@@ -103,11 +101,10 @@ TEST(RenderThreadTests, SurfaceOnlyConfigurationDoesNotSplitSharedDevice) {
     secondConfig.clearColor[0] = 0.9f;
     secondConfig.clearColor[1] = 0.1f;
 
-    auto first = RenderThread::acquire(RenderDeviceConfig::fromView(firstConfig));
-    auto second = RenderThread::acquire(RenderDeviceConfig::fromView(secondConfig));
-    ASSERT_TRUE(first);
-    ASSERT_TRUE(second);
-    EXPECT_EQ(first->get(), second->get());
+    const RenderDeviceConfig first = RenderDeviceConfig::fromView(firstConfig);
+    const RenderDeviceConfig second = RenderDeviceConfig::fromView(secondConfig);
+
+    EXPECT_TRUE(first.sharesExecutionThreadWith(second));
 }
 
 TEST(RenderChannelStateTests, ThousandsOfCompletedBatchesKeepOnlyTheLatestAck) {

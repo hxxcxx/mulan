@@ -35,8 +35,9 @@ struct RenderDeviceConfig {
         };
     }
 
-    bool sharesDeviceWith(const RenderDeviceConfig& other) const {
-        return backend == other.backend && enableValidation == other.enableValidation;
+    bool sharesExecutionThreadWith(const RenderDeviceConfig& other) const {
+        return backend != engine::GraphicsBackend::OpenGL && backend == other.backend &&
+               enableValidation == other.enableValidation;
     }
 
     engine::DeviceCreateInfo toCreateInfo() const {

@@ -35,17 +35,22 @@ namespace mulan::view::detail {
 
 class RenderExecutor;
 class RenderDeviceContext;
+class RenderChannel;
 
 using RenderChannelId = uint64_t;
 using RenderChannelEventCallback = std::function<void()>;
 
 class RenderThread {
 public:
-    static Result<std::shared_ptr<RenderThread>> acquire(const RenderDeviceConfig& config);
     ~RenderThread();
 
     RenderThread(const RenderThread&) = delete;
     RenderThread& operator=(const RenderThread&) = delete;
+
+private:
+    friend class RenderChannel;
+
+    static Result<std::shared_ptr<RenderThread>> acquire(const RenderDeviceConfig& config);
 
     Result<RenderChannelId> attachChannel(const RenderSurfaceConfig& config, int width, int height,
                                           RenderChannelEventCallback eventCallback);
@@ -63,7 +68,6 @@ public:
     std::optional<Error> failureSnapshot(RenderChannelId channel) const;
     RenderSurfaceState surfaceState(RenderChannelId channel) const;
 
-private:
     enum class State : uint8_t {
         Healthy,
         Failed,
