@@ -169,6 +169,35 @@ Result<std::unordered_set<std::string>> findPbrMaterialDeclarations(
     return materials;
 }
 
+Result<std::string> loadCompatibleMaterialLibrary(const std::filesystem::path& materialPath) {
+    std::ifstream stream(materialPath, std::ios::binary);
+    if (!stream)
+        return std::unexpected(Error::make(ErrorCode::Io, "Failed to open OBJ material library"));
+
+    std::string text;
+    std::array<char, kRapidObjMaxLineLength + 1u> lineBuffer{};
+    while (stream.getline(lineBuffer.data(), static_cast<std::streamsize>(lineBuffer.size()))) {
+        std::string_view line(lineBuffer.data(), static_cast<size_t>(stream.gcount()));
+        if (!line.empty() && line.back() == '\0')
+            line.remove_suffix(1);
+
+        const std::string_view content = trim(line);
+        const size_t separator = content.find_first_of(" \t");
+        const std::string_view directive = content.substr(0, separator);
+        // Mineways 写入的采样提示不属于 Wavefront MTL，也不改变本项目的材质语义。
+        if (directive == "interpolateMode")
+            continue;
+
+        text.append(line);
+        text.push_back('\n');
+    }
+    if (stream.bad())
+        return std::unexpected(Error::make(ErrorCode::Io, "Failed while reading OBJ material library"));
+    if (stream.fail() && !stream.eof())
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "OBJ material library contains an overlong line"));
+    return text;
+}
+
 bool addByteCount(size_t count, size_t elementSize, uint64_t& total) {
     if (count > std::numeric_limits<uint64_t>::max() / elementSize)
         return false;
@@ -766,8 +795,10 @@ Result<ParsedScene> ObjImporter::parse(const std::string& path, const ImportOpti
         if (!options.importMaterials) {
             source = rapidobj::ParseFile(*sourcePath, rapidobj::MaterialLibrary::Ignore());
         } else if (materialPath) {
-            source = rapidobj::ParseFile(
-                    *sourcePath, rapidobj::MaterialLibrary::SearchPath(*materialPath, rapidobj::Load::Optional));
+            auto materialLibrary = loadCompatibleMaterialLibrary(*materialPath);
+            if (!materialLibrary)
+                return std::unexpected(materialLibrary.error());
+            source = rapidobj::ParseFile(*sourcePath, rapidobj::MaterialLibrary::String(*materialLibrary));
         } else {
             source = rapidobj::ParseFile(*sourcePath, rapidobj::MaterialLibrary::Ignore());
         }

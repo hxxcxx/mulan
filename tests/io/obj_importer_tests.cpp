@@ -103,6 +103,40 @@ f 1/1 2/2 3/3 4/4
     EXPECT_EQ(result->nodes[1].meshIndex, 0u);
 }
 
+TEST(ObjImporterTests, IgnoresMinewaysSamplerMetadataWithoutDroppingMaterialLibrary) {
+    TemporaryObjDirectory files;
+    files.write("atlas.png", "atlas");
+    files.write("scene.mtl", R"(newmtl Stone
+Ns 0
+Ka 0.1 0.1 0.1
+Kd 0.5 0.5 0.5
+Ks 0 0 0
+interpolateMode NEAREST_MAGNIFICATION_TRILINEAR_MIPMAP_MINIFICATION
+map_Ka atlas.png
+map_Kd atlas.png
+illum 2
+)");
+    const auto obj = files.write("scene.obj", R"(mtllib scene.mtl
+v 0 0 0
+v 1 0 0
+v 0 1 0
+vt 0 0
+vt 1 0
+vt 0 1
+usemtl Stone
+f 1/1 2/2 3/3
+)");
+
+    const auto result = ObjImporter{}.parse(obj.string());
+
+    ASSERT_TRUE(result) << result.error().message;
+    ASSERT_EQ(result->materials.size(), 1u);
+    ASSERT_EQ(result->textures.size(), 1u);
+    EXPECT_EQ(result->materials[0].baseColorTexture, 0u);
+    EXPECT_EQ(result->materials[0].ambientTexture, 0u);
+    EXPECT_EQ(result->materials[0].shadingModel, graphics::MaterialShadingModel::BlinnPhong);
+}
+
 TEST(ObjImporterTests, MapsIllumModelsWithoutConfusingEmissionWithUnlit) {
     TemporaryObjDirectory files;
     files.write("scene.mtl", R"(newmtl Constant
