@@ -27,7 +27,7 @@ public:
     ResultVoid init(const ViewConfig& config, int width, int height, RenderChannelEventCallback eventCallback);
     void shutdown();
 
-    bool isInitialized() const;
+    bool isReady() const;
     ResultVoid submitFrame(RenderSubmission submission);
     Result<engine::RenderCaptureResult> capture(RenderSubmission submission, engine::RenderCaptureDesc desc);
     Result<RenderSurfaceState> resize(int width, int height);

@@ -49,13 +49,13 @@ public:
     bool init(const ViewConfig& config, int width, int height, std::function<void()> runtimeEventCallback);
     void shutdown();
 
-    bool isInitialized() const;
+    bool isReady() const;
     /// owner 主动消费渲染线程 ACK 与失败快照，并在失败时完成通道清理。
     ResultVoid consumeRenderEvents();
 
     void setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets);
 
-    void renderFrame();
+    ResultVoid renderFrame();
     void resize(int width, int height);
 
     /// 兼容入口：仅返回是否处理。需要判断导航/覆盖层/模态语义时使用 dispatchInput。
@@ -130,7 +130,7 @@ private:
     friend class CaptureService;
 
     ViewState buildViewState() const;
-    void renderFrame(const ViewState& viewState);
+    ResultVoid renderFrame(const ViewState& viewState);
     ViewState snapshotViewState(uint32_t width, uint32_t height) const;
     ViewState snapshotViewState(const engine::Camera& camera, const CaptureVisual& visual, uint32_t width,
                                 uint32_t height) const;

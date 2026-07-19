@@ -48,7 +48,7 @@ ViewContext::~ViewContext() {
 bool ViewContext::init(const ViewConfig& cfg, int width, int height, std::function<void()> runtimeEventCallback) {
     MULAN_PROFILE_ZONE();
 
-    if (render_session_->isInitialized())
+    if (render_session_->isReady())
         return true;
 
     width_ = width;
@@ -77,8 +77,8 @@ void ViewContext::shutdown() {
     render_session_->shutdown();
 }
 
-bool ViewContext::isInitialized() const {
-    return render_session_->isInitialized();
+bool ViewContext::isReady() const {
+    return render_session_->isReady();
 }
 
 ResultVoid ViewContext::consumeRenderEvents() {
@@ -195,14 +195,12 @@ void ViewContext::setCameraToWorldXY() {
     setCameraToViewCubePart(engine::ViewCubePart{ engine::ViewCubePartType::Face, 0, 0, 1, 0 });
 }
 
-void ViewContext::renderFrame() {
-    // submitFrame 自身会先 drain worker ACK/失败；这里不能用 isInitialized 前置短路，
-    // 否则 worker 刚失败时 owner 永远没有机会消费真实失败事件。
-    renderFrame(buildViewState());
+ResultVoid ViewContext::renderFrame() {
+    return renderFrame(buildViewState());
 }
 
-void ViewContext::renderFrame(const ViewState& viewState) {
-    render_session_->submitFrame(viewState);
+ResultVoid ViewContext::renderFrame(const ViewState& viewState) {
+    return render_session_->submitFrame(viewState);
 }
 
 ViewState ViewContext::snapshotViewState(uint32_t width, uint32_t height) const {
@@ -256,7 +254,7 @@ ViewState ViewContext::snapshotViewState(const engine::Camera& camera, const Cap
 void ViewContext::resize(int width, int height) {
     width_ = width;
     height_ = height;
-    if (render_session_->isInitialized()) {
+    if (render_session_->isReady()) {
         const auto surface = render_session_->resize(width, height);
         width_ = static_cast<int>(surface.width);
         height_ = static_cast<int>(surface.height);

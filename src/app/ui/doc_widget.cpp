@@ -36,7 +36,7 @@ DocWidget::~DocWidget() {
 bool DocWidget::init() {
     MULAN_PROFILE_ZONE();
 
-    if (document_view_.isInitialized()) {
+    if (document_view_.isReady()) {
         runtime_state_ = RuntimeState::Ready;
         requestFrame();
         return true;
@@ -76,7 +76,7 @@ void DocWidget::shutdown() {
 
 void DocWidget::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);
-    if (document_view_.isInitialized()) {
+    if (document_view_.isReady()) {
         const qreal dpr = devicePixelRatioF();
         input_adapter_.setDevicePixelRatioF(dpr);
         const int pw = static_cast<int>(width() * dpr);
@@ -86,7 +86,7 @@ void DocWidget::resizeEvent(QResizeEvent* e) {
 }
 
 void DocWidget::paintEvent(QPaintEvent*) {
-    if (runtime_state_ == RuntimeState::Ready && document_view_.isInitialized()) {
+    if (runtime_state_ == RuntimeState::Ready && document_view_.isReady()) {
         // update() 会合并同一轮事件循环中的失效；系统 expose 也必须重绘原生 Surface。
         frame_invalidated_ = true;
         submitPendingFrame();
@@ -150,7 +150,7 @@ bool DocWidget::event(QEvent* e) {
 
 void DocWidget::setDocumentSession(DocumentSession* session) {
     document_view_.setDocumentSession(session);
-    if (document_view_.isInitialized() && session) {
+    if (document_view_.isReady() && session) {
         requestFrame();
     }
 }
@@ -185,7 +185,7 @@ void DocWidget::submitPendingFrame() {
     if (runtime_state_ != RuntimeState::Ready || !frame_invalidated_) {
         return;
     }
-    if (!document_view_.isInitialized()) {
+    if (!document_view_.isReady()) {
         transitionToRuntimeFailure(tr("The render channel stopped unexpectedly."));
         return;
     }
@@ -195,9 +195,9 @@ void DocWidget::submitPendingFrame() {
     }
 
     frame_invalidated_ = false;
-    document_view_.renderFrame();
-    if (!document_view_.isInitialized()) {
-        transitionToRuntimeFailure(tr("The render channel rejected the frame and stopped."));
+    auto submitted = document_view_.renderFrame();
+    if (!submitted) {
+        transitionToRuntimeFailure(QString::fromStdString(submitted.error().message));
     }
 }
 
@@ -212,7 +212,7 @@ void DocWidget::consumeRuntimeEvent() {
         transitionToRuntimeFailure(QString::fromStdString(runtime.error().message));
         return;
     }
-    if (!document_view_.isInitialized()) {
+    if (!document_view_.isReady()) {
         transitionToRuntimeFailure(tr("The render channel stopped unexpectedly."));
     }
 }

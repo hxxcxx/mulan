@@ -79,7 +79,7 @@ void EditorSession::unbind() {
 }
 
 bool EditorSession::isReady() const {
-    return session_ != nullptr && view_ != nullptr && view_->isInitialized() && binding_ != nullptr;
+    return session_ != nullptr && view_ != nullptr && view_->isReady() && binding_ != nullptr;
 }
 
 void EditorSession::startTool(std::unique_ptr<EditorTool> tool) {

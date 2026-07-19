@@ -60,7 +60,7 @@ public:
     bool init(const mulan::view::ViewConfig& config, int width, int height, std::function<void()> runtimeEventCallback);
     void resize(int width, int height);
     /// 帧调度器的最终提交入口；其他调用方应只发失效请求。
-    void renderFrame();
+    mulan::ResultVoid renderFrame();
     /// 在文档视图 owner 线程回收渲染资源 ACK 与异步失败。
     mulan::ResultVoid consumeRenderEvents();
     void fitAll();
@@ -70,7 +70,7 @@ public:
     /// 设置视图状态变化后的统一帧失效出口。
     void setFrameInvalidationCallback(std::function<void()> callback);
 
-    bool isInitialized() const;
+    bool isReady() const;
 
     void setDocumentSession(DocumentSession* session);
     DocumentSession* session() const;

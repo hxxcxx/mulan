@@ -608,7 +608,7 @@ void MainWindow::captureRecentThumbnail(DocWidget* docWidget, const QString& fil
     // 截图复用文档视图已有的 RHI Device。运行时持有同级离屏表面，
     // 因此既不读取 Qt 像素，也不会为缩略图创建第二个 Device 或后端。
     auto& viewContext = docWidget->viewContext();
-    if (!viewContext.isInitialized())
+    if (!viewContext.isReady())
         return;
 
     mulan::view::CaptureRequest request;

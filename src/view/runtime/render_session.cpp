@@ -33,7 +33,7 @@ ResultVoid RenderSession::init(const ViewConfig& config, int width, int height,
     MULAN_PROFILE_ZONE();
 
     assertOwnerThread();
-    if (isInitialized()) {
+    if (isReady()) {
         return {};
     }
     if (channel_) {
@@ -62,9 +62,9 @@ void RenderSession::shutdown() {
     last_runtime_failure_.reset();
 }
 
-bool RenderSession::isInitialized() const {
+bool RenderSession::isReady() const {
     assertOwnerThread();
-    return channel_ && channel_->isInitialized();
+    return channel_ && channel_->isReady();
 }
 
 ResultVoid RenderSession::consumeRuntimeEvents() {
@@ -83,7 +83,7 @@ ResultVoid RenderSession::consumeRuntimeEvents() {
     if (!channel_) {
         return {};
     }
-    if (channel_->isInitialized()) {
+    if (channel_->isReady()) {
         return {};
     }
 
@@ -114,10 +114,10 @@ void RenderSession::setLightEnvironment(const engine::LightEnvironment& lightEnv
     submission_builder_.setLightEnvironment(lightEnvironment);
 }
 
-void RenderSession::submitFrame(const ViewState& viewState) {
+ResultVoid RenderSession::submitFrame(const ViewState& viewState) {
     assertOwnerThread();
     if (!channel_) {
-        return;
+        return std::unexpected(sessionError(ErrorCode::InvalidArg, "Render session is not ready."));
     }
 
     RenderSubmission submission = submission_builder_.build(viewState);
@@ -129,16 +129,18 @@ void RenderSession::submitFrame(const ViewState& viewState) {
         const Error failure = snapshot ? *snapshot : submitted.error();
         LOG_ERROR("[RenderSession] Frame submission failed: {}", failure.message);
         failExecution(failure);
+        return std::unexpected(failure);
     }
+    return {};
 }
 
 Result<engine::RenderCaptureResult> RenderSession::capture(const ViewState& viewState,
                                                            const engine::RenderCaptureDesc& desc) {
     assertOwnerThread();
     if (!channel_) {
-        return std::unexpected(sessionError(ErrorCode::InvalidArg, "Render session is not initialized."));
+        return std::unexpected(sessionError(ErrorCode::InvalidArg, "Render session is not ready."));
     }
-    if (!channel_->isInitialized()) {
+    if (!channel_->isReady()) {
         const std::optional<Error> snapshot = channel_->failureSnapshot();
         const Error failure =
                 snapshot ? *snapshot
@@ -155,7 +157,7 @@ Result<engine::RenderCaptureResult> RenderSession::capture(const ViewState& view
     if (!consumed) {
         return std::unexpected(consumed.error());
     }
-    if (!result && (engine::isDeviceFatalError(result.error()) || (channel_ && !channel_->isInitialized()))) {
+    if (!result && (engine::isDeviceFatalError(result.error()) || (channel_ && !channel_->isReady()))) {
         failExecution(result.error());
     }
     return result;

@@ -10,7 +10,7 @@ namespace {
 
 ErrorCode errorCodeFor(CaptureFailureCode code) {
     switch (code) {
-    case CaptureFailureCode::ContextNotInitialized: return ErrorCode::InvalidArg;
+    case CaptureFailureCode::ContextNotReady: return ErrorCode::InvalidArg;
     case CaptureFailureCode::InvalidSize: return ErrorCode::InvalidArg;
     case CaptureFailureCode::CaptureFailed: return ErrorCode::Generic;
     case CaptureFailureCode::None: return ErrorCode::Generic;
@@ -46,9 +46,8 @@ uint32_t CaptureService::captureHeight(ViewContext& context, const engine::Rende
 
 std::optional<CaptureResult> CaptureService::validateCaptureInput(ViewContext& context, std::string name,
                                                                   uint32_t width, uint32_t height) {
-    if (!context.isInitialized()) {
-        return makeFailure(std::move(name), CaptureFailureCode::ContextNotInitialized,
-                           "ViewContext is not initialized.");
+    if (!context.isReady()) {
+        return makeFailure(std::move(name), CaptureFailureCode::ContextNotReady, "ViewContext is not ready.");
     }
     if (width == 0 || height == 0) {
         return makeFailure(std::move(name), CaptureFailureCode::InvalidSize,

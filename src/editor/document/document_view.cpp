@@ -65,7 +65,7 @@ bool DocumentView::init(const mulan::view::ViewConfig& config, int width, int he
                         std::function<void()> runtimeEventCallback) {
     MULAN_PROFILE_ZONE();
 
-    if (impl_->view_context.isInitialized()) {
+    if (impl_->view_context.isReady()) {
         return true;
     }
 
@@ -88,20 +88,18 @@ bool DocumentView::init(const mulan::view::ViewConfig& config, int width, int he
 }
 
 void DocumentView::resize(int width, int height) {
-    if (impl_->view_context.isInitialized()) {
+    if (impl_->view_context.isReady()) {
         impl_->view_context.resize(width, height);
         impl_->editor_session.refreshGrips();
         invalidateFrame();
     }
 }
 
-void DocumentView::renderFrame() {
-    // ViewContext 会先泵出 worker ACK/Failure。这里不能以 Ready 状态前置短路，
-    // 否则异步失败事件和最后一个资源批次的 ACK 都可能无人消费。
+mulan::ResultVoid DocumentView::renderFrame() {
     const bool interactionActive = impl_->editor_session.hasActiveTool() || impl_->view_context.isCameraNavigating();
     impl_->binding.prepareFrame(interactionActive ? mulan::editor::ClipUpdateMode::Interactive
                                                   : mulan::editor::ClipUpdateMode::Settled);
-    impl_->view_context.renderFrame();
+    return impl_->view_context.renderFrame();
 }
 
 mulan::ResultVoid DocumentView::consumeRenderEvents() {
@@ -109,7 +107,7 @@ mulan::ResultVoid DocumentView::consumeRenderEvents() {
 }
 
 void DocumentView::fitAll() {
-    if (!impl_->view_context.isInitialized()) {
+    if (!impl_->view_context.isReady()) {
         return;
     }
 
@@ -118,7 +116,7 @@ void DocumentView::fitAll() {
 }
 
 void DocumentView::setCameraToWorldXY() {
-    if (!impl_->view_context.isInitialized()) {
+    if (!impl_->view_context.isReady()) {
         return;
     }
 
@@ -131,8 +129,8 @@ void DocumentView::setFrameInvalidationCallback(std::function<void()> callback) 
     impl_->frame_invalidation_callback = std::move(callback);
 }
 
-bool DocumentView::isInitialized() const {
-    return impl_->view_context.isInitialized();
+bool DocumentView::isReady() const {
+    return impl_->view_context.isReady();
 }
 
 DocumentSession* DocumentView::session() const {
@@ -186,7 +184,7 @@ void DocumentView::setDocumentSession(DocumentSession* session) {
     LOG_DEBUG("[Editor] Document view session changed: name={}",
               impl_->session ? std::string_view(impl_->session->displayName()) : std::string_view("<none>"));
 
-    if (impl_->view_context.isInitialized() && impl_->session) {
+    if (impl_->view_context.isReady() && impl_->session) {
         impl_->binding.bind(*impl_->session, impl_->view_context);
         impl_->editor_session.bind(impl_->session, &impl_->view_context, &impl_->binding);
     }

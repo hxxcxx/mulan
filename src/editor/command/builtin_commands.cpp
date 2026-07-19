@@ -102,13 +102,13 @@ public:
     std::string_view shortcut() const override { return "F"; }
     CommandState state(const CommandHost& host) const override {
         DocumentView* view = host.documentView();
-        return commandState(*this, view && view->isInitialized() && view->session(), "No active document view");
+        return commandState(*this, view && view->isReady() && view->session(), "No active document view");
     }
 
 protected:
     CommandOutcome perform(CommandHost& host) override {
         DocumentView* view = host.documentView();
-        if (!view || !view->isInitialized() || !view->session()) {
+        if (!view || !view->isReady() || !view->session()) {
             return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active document view"));
         }
 
@@ -127,7 +127,7 @@ CommandOutcome startDrawTool(CommandHost& host) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active editor session"));
     }
 
-    if (DocumentView* view = host.documentView(); view && view->isInitialized()) {
+    if (DocumentView* view = host.documentView(); view && view->isReady()) {
         view->setCameraToWorldXY();
     }
     editor->setWorkPlane(mulan::engine::WorkPlane::worldXY());
@@ -160,7 +160,7 @@ CommandOutcome startParametricCurveTool(CommandHost& host, ParametricCurveToolKi
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active editor session"));
     }
 
-    if (DocumentView* view = host.documentView(); view && view->isInitialized()) {
+    if (DocumentView* view = host.documentView(); view && view->isReady()) {
         view->setCameraToWorldXY();
     }
     editor->setWorkPlane(mulan::engine::WorkPlane::worldXY());
@@ -175,7 +175,7 @@ CommandOutcome startViewPlaneDrawTool(CommandHost& host) {
     if (!canUseDrawingCommands(host)) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Drawing is unavailable for imported documents"));
     }
-    if (!editor || !editor->isReady() || !view || !view->isInitialized()) {
+    if (!editor || !editor->isReady() || !view || !view->isReady()) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active editor session"));
     }
 

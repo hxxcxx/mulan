@@ -21,7 +21,7 @@ ResultVoid RenderChannel::init(const ViewConfig& config, int width, int height,
                                RenderChannelEventCallback eventCallback) {
     MULAN_PROFILE_ZONE();
 
-    if (isInitialized()) {
+    if (isReady()) {
         return {};
     }
     if (thread_ || channel_ != 0) {
@@ -50,13 +50,13 @@ void RenderChannel::shutdown() {
     thread_.reset();
 }
 
-bool RenderChannel::isInitialized() const {
+bool RenderChannel::isReady() const {
     return thread_ && channel_ != 0 && thread_->isReady(channel_);
 }
 
 ResultVoid RenderChannel::submitFrame(RenderSubmission submission) {
     if (!thread_ || channel_ == 0) {
-        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is not initialized."));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is not ready."));
     }
     return thread_->submitFrame(channel_, std::move(submission));
 }
@@ -64,14 +64,14 @@ ResultVoid RenderChannel::submitFrame(RenderSubmission submission) {
 Result<engine::RenderCaptureResult> RenderChannel::capture(RenderSubmission submission,
                                                            engine::RenderCaptureDesc desc) {
     if (!thread_ || channel_ == 0) {
-        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is not initialized."));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is not ready."));
     }
     return thread_->capture(channel_, std::move(submission), desc);
 }
 
 Result<RenderSurfaceState> RenderChannel::resize(int width, int height) {
     if (!thread_ || channel_ == 0) {
-        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is not initialized."));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is not ready."));
     }
     return thread_->resize(channel_, width, height);
 }
@@ -84,7 +84,7 @@ void RenderChannel::enableIBL(std::string hdrPath) {
 
 ResultVoid RenderChannel::clearAssetResources() {
     if (!thread_ || channel_ == 0) {
-        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is not initialized."));
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is not ready."));
     }
     return thread_->clearAssetResources(channel_);
 }

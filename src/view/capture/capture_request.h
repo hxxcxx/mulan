@@ -48,7 +48,7 @@ struct CaptureImage {
 
 enum class CaptureFailureCode : uint8_t {
     None,
-    ContextNotInitialized,
+    ContextNotReady,
     InvalidSize,
     CaptureFailed,
 };

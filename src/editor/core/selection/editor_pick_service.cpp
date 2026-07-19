@@ -22,7 +22,7 @@ void EditorPickService::unbind() {
 }
 
 bool EditorPickService::isBound() const {
-    return session_ != nullptr && view_ != nullptr && view_->isInitialized() && binding_ != nullptr;
+    return session_ != nullptr && view_ != nullptr && view_->isReady() && binding_ != nullptr;
 }
 
 bool EditorPickService::hasCursorPosition(const engine::InputEvent& event) {

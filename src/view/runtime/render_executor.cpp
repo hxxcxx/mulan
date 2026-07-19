@@ -119,14 +119,14 @@ RenderSurfaceState RenderExecutor::surfaceState() const {
 
 ResultVoid RenderExecutor::prepareResources(const engine::RenderResourcePrepareList& prepare) {
     if (!initialized_) {
-        return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
+        return std::unexpected(executorError(ErrorCode::InvalidArg, "Render executor is not initialized."));
     }
     return device_context_.resources().preparePersistentResources(resource_client_, prepare);
 }
 
 ResultVoid RenderExecutor::executeFrame(const RenderSubmission& submission) {
     if (!initialized_) {
-        return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
+        return std::unexpected(executorError(ErrorCode::InvalidArg, "Render executor is not initialized."));
     }
     const RenderSurfaceState state = makeSurfaceState();
     if (!state.valid || (!surface_.renderTarget() && !surface_.swapChain())) {
@@ -141,7 +141,7 @@ ResultVoid RenderExecutor::executeFrame(const RenderSubmission& submission) {
 Result<engine::RenderCaptureResult> RenderExecutor::capture(const RenderSubmission& submission,
                                                             const engine::RenderCaptureDesc& desc) {
     if (!initialized_) {
-        return std::unexpected(executorError(ErrorCode::InvalidArg, "Render session is not initialized."));
+        return std::unexpected(executorError(ErrorCode::InvalidArg, "Render executor is not initialized."));
     }
     const uint32_t width = desc.width ? desc.width : static_cast<uint32_t>(surface_.width());
     const uint32_t height = desc.height ? desc.height : static_cast<uint32_t>(surface_.height());

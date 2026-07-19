@@ -48,7 +48,7 @@ public:
     ResultVoid init(const ViewConfig& config, int width, int height, std::function<void()> runtimeEventCallback);
     void shutdown();
 
-    bool isInitialized() const;
+    bool isReady() const;
     /// 主动通知到达后由 owner 线程消费资源 ACK 与失败快照。
     ResultVoid consumeRuntimeEvents();
 
@@ -56,7 +56,7 @@ public:
     void setPreviewLayer(const PreviewLayer* preview);
     void setLightEnvironment(const engine::LightEnvironment& lightEnvironment);
 
-    void submitFrame(const ViewState& viewState);
+    ResultVoid submitFrame(const ViewState& viewState);
     Result<engine::RenderCaptureResult> capture(const ViewState& viewState, const engine::RenderCaptureDesc& desc);
     RenderSurfaceState resize(int width, int height);
     void enableIBL(const std::string& hdrPath);

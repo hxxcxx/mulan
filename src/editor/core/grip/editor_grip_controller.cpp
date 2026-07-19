@@ -55,7 +55,7 @@ void EditorGripController::unbind() {
 }
 
 void EditorGripController::refresh(const EditorSelectionContext& selection, bool enabled) {
-    if (!enabled || !session_ || !session_->document() || !view_ || !view_->isInitialized()) {
+    if (!enabled || !session_ || !session_->document() || !view_ || !view_->isReady()) {
         clear();
         return;
     }
@@ -77,7 +77,7 @@ void EditorGripController::clear() {
 }
 
 bool EditorGripController::updateHoverAtFramebuffer(double screenX, double screenY) {
-    if (!view_ || !view_->isInitialized()) {
+    if (!view_ || !view_->isReady()) {
         clearHover();
         return false;
     }
