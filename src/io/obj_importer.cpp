@@ -494,9 +494,8 @@ Result<std::optional<ParsedMesh>> buildParsedMesh(const rapidobj::Result& source
     for (PrimitiveBuildState& builder : builders) {
         auto& geometry = builder.geometry;
         if (auto valid = detail::validateTriangleMesh(geometry); !valid) {
-            return std::unexpected(Error::make(
-                    ErrorCode::InvalidArg,
-                    "OBJ mesh conversion failed: " + std::string(detail::meshAttributeErrorMessage(valid.error()))));
+            return std::unexpected(
+                    Error::make(valid.error().code, "OBJ mesh conversion failed: " + valid.error().message));
         }
 
         const bool wantsTangents = options.generateMissingTangents ||

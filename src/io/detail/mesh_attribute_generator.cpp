@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <string_view>
 
 namespace mulan::io::detail {
 namespace {
@@ -13,6 +14,11 @@ namespace {
 constexpr uint32_t kInvalidIndex = std::numeric_limits<uint32_t>::max();
 constexpr float kMinimumVectorLengthSquared = 1.0e-20f;
 constexpr float kEquivalentTangentDot = 1.0f - 1.0e-5f;
+constexpr std::string_view kInvalidVertexStreams = "invalid or non-finite vertex attribute streams";
+constexpr std::string_view kInvalidTriangleIndices = "invalid triangle-list indices";
+constexpr std::string_view kMeshTooLarge = "mesh exceeds supported 32-bit attribute generation limits";
+constexpr std::string_view kTangentGenerationFailed = "MikkTSpace tangent generation failed";
+constexpr std::string_view kInvalidGeneratedTangents = "MikkTSpace produced an invalid tangent basis";
 
 bool isFinite(const math::FVec2& value) noexcept {
     return std::isfinite(value.x) && std::isfinite(value.y);
@@ -107,40 +113,29 @@ bool equivalentTangent(const math::FVec4& lhs, const math::FVec4& rhs) noexcept 
 
 }  // namespace
 
-std::string_view meshAttributeErrorMessage(MeshAttributeError error) noexcept {
-    switch (error) {
-    case MeshAttributeError::InvalidVertexStreams: return "invalid or non-finite vertex attribute streams";
-    case MeshAttributeError::InvalidTriangleIndices: return "invalid triangle-list indices";
-    case MeshAttributeError::MeshTooLarge: return "mesh exceeds supported 32-bit attribute generation limits";
-    case MeshAttributeError::TangentGenerationFailed: return "MikkTSpace tangent generation failed";
-    case MeshAttributeError::InvalidGeneratedTangents: return "MikkTSpace produced an invalid tangent basis";
-    }
-    return "unknown mesh attribute generation error";
-}
-
-std::expected<void, MeshAttributeError> validateTriangleMesh(const TriangleMeshData& mesh) {
+ResultVoid validateTriangleMesh(const TriangleMeshData& mesh) {
     const size_t corners = cornerCount(mesh);
     if (mesh.positions.empty() || corners < 3u || corners % 3u != 0u)
-        return std::unexpected(MeshAttributeError::InvalidTriangleIndices);
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, kInvalidTriangleIndices));
     if (mesh.positions.size() > std::numeric_limits<uint32_t>::max() || corners > std::numeric_limits<uint32_t>::max())
-        return std::unexpected(MeshAttributeError::MeshTooLarge);
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, kMeshTooLarge));
 
     if (!isFiniteStream(mesh.positions))
-        return std::unexpected(MeshAttributeError::InvalidVertexStreams);
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, kInvalidVertexStreams));
     if ((!mesh.normals.empty() && (mesh.normals.size() != mesh.positions.size() || !isFiniteStream(mesh.normals))) ||
         (!mesh.texcoords.empty() &&
          (mesh.texcoords.size() != mesh.positions.size() || !isFiniteStream(mesh.texcoords))) ||
         (!mesh.tangents.empty() && (mesh.tangents.size() != mesh.positions.size() || !isFiniteStream(mesh.tangents))))
-        return std::unexpected(MeshAttributeError::InvalidVertexStreams);
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, kInvalidVertexStreams));
 
     if (!mesh.indices.empty() && std::any_of(mesh.indices.begin(), mesh.indices.end(),
                                              [&](uint32_t index) { return index >= mesh.positions.size(); }))
-        return std::unexpected(MeshAttributeError::InvalidTriangleIndices);
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, kInvalidTriangleIndices));
 
     return {};
 }
 
-std::expected<void, MeshAttributeError> generateFlatNormals(TriangleMeshData& mesh) {
+ResultVoid generateFlatNormals(TriangleMeshData& mesh) {
     if (auto valid = validateTriangleMesh(mesh); !valid)
         return valid;
 
@@ -173,20 +168,20 @@ std::expected<void, MeshAttributeError> generateFlatNormals(TriangleMeshData& me
     return {};
 }
 
-std::expected<void, MeshAttributeError> generateMikkTangents(TriangleMeshData& mesh) {
+ResultVoid generateMikkTangents(TriangleMeshData& mesh) {
     if (auto valid = validateTriangleMesh(mesh); !valid)
         return valid;
     if (mesh.normals.size() != mesh.positions.size() || mesh.texcoords.size() != mesh.positions.size())
-        return std::unexpected(MeshAttributeError::InvalidVertexStreams);
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, kInvalidVertexStreams));
 
     const size_t corners = cornerCount(mesh);
     const size_t faceCount = corners / 3u;
     if (faceCount > static_cast<size_t>(std::numeric_limits<int>::max()))
-        return std::unexpected(MeshAttributeError::MeshTooLarge);
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, kMeshTooLarge));
 
     for (const auto& normal : mesh.normals) {
         if (normal.lengthSq() <= kMinimumVectorLengthSquared)
-            return std::unexpected(MeshAttributeError::InvalidVertexStreams);
+            return std::unexpected(Error::make(ErrorCode::InvalidArg, kInvalidVertexStreams));
     }
 
     MikkUserData data;
@@ -207,12 +202,12 @@ std::expected<void, MeshAttributeError> generateMikkTangents(TriangleMeshData& m
         .m_pUserData = &data,
     };
     if (!genTangSpaceDefault(&context))
-        return std::unexpected(MeshAttributeError::TangentGenerationFailed);
+        return std::unexpected(Error::make(ErrorCode::Internal, kTangentGenerationFailed));
 
     for (size_t corner = 0; corner < corners; ++corner) {
         auto& tangent = data.cornerTangents[corner];
         if (!isFinite(tangent))
-            return std::unexpected(MeshAttributeError::InvalidGeneratedTangents);
+            return std::unexpected(Error::make(ErrorCode::Internal, kInvalidGeneratedTangents));
 
         const auto normal = mesh.normals[sourceIndexAt(mesh, corner)].normalizedOr(math::FVec3::unitZ());
         auto direction = tangent.xyz() - normal * normal.dot(tangent.xyz());
@@ -224,7 +219,7 @@ std::expected<void, MeshAttributeError> generateMikkTangents(TriangleMeshData& m
     for (size_t corner = 0; corner < corners; corner += 3u) {
         const float sign = data.cornerTangents[corner].w;
         if (data.cornerTangents[corner + 1u].w != sign || data.cornerTangents[corner + 2u].w != sign)
-            return std::unexpected(MeshAttributeError::InvalidGeneratedTangents);
+            return std::unexpected(Error::make(ErrorCode::Internal, kInvalidGeneratedTangents));
     }
 
     TriangleMeshData output;
@@ -249,7 +244,7 @@ std::expected<void, MeshAttributeError> generateMikkTangents(TriangleMeshData& m
 
         if (outputIndex == kInvalidIndex) {
             if (output.positions.size() >= std::numeric_limits<uint32_t>::max())
-                return std::unexpected(MeshAttributeError::MeshTooLarge);
+                return std::unexpected(Error::make(ErrorCode::InvalidArg, kMeshTooLarge));
             outputIndex = static_cast<uint32_t>(output.positions.size());
             output.positions.push_back(mesh.positions[sourceIndex]);
             output.normals.push_back(mesh.normals[sourceIndex].normalizedOr(math::FVec3::unitZ()));

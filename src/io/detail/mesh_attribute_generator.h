@@ -9,11 +9,10 @@
  */
 #pragma once
 
+#include <mulan/core/result/error.h>
 #include <mulan/math/math.h>
 
 #include <cstdint>
-#include <expected>
-#include <string_view>
 #include <vector>
 
 namespace mulan::io::detail {
@@ -27,24 +26,13 @@ struct TriangleMeshData {
     std::vector<uint32_t> indices;
 };
 
-enum class MeshAttributeError : uint8_t {
-    InvalidVertexStreams,
-    InvalidTriangleIndices,
-    MeshTooLarge,
-    TangentGenerationFailed,
-    InvalidGeneratedTangents,
-};
-
-/// 返回适合日志和测试诊断的稳定错误文本。
-[[nodiscard]] std::string_view meshAttributeErrorMessage(MeshAttributeError error) noexcept;
-
 /// 校验三角列表、索引范围以及现有属性流的基本数值有效性。
-[[nodiscard]] std::expected<void, MeshAttributeError> validateTriangleMesh(const TriangleMeshData& mesh);
+[[nodiscard]] ResultVoid validateTriangleMesh(const TriangleMeshData& mesh);
 
 /// 在缺少法线时按 glTF 规则生成平面法线；成功时会按面角拆分顶点并忽略旧切线。
-[[nodiscard]] std::expected<void, MeshAttributeError> generateFlatNormals(TriangleMeshData& mesh);
+[[nodiscard]] ResultVoid generateFlatNormals(TriangleMeshData& mesh);
 
 /// 使用 MikkTSpace 生成切线，并仅在切线空间不连续处拆分共享顶点。
-[[nodiscard]] std::expected<void, MeshAttributeError> generateMikkTangents(TriangleMeshData& mesh);
+[[nodiscard]] ResultVoid generateMikkTangents(TriangleMeshData& mesh);
 
 }  // namespace mulan::io::detail

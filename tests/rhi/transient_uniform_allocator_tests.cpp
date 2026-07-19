@@ -10,8 +10,7 @@ TEST(TransientUniformAllocatorTest, RequiresARecording) {
 
     const auto result = allocator.allocate(128);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error(), UniformAllocationError::RecordingNotStarted);
+    EXPECT_FALSE(result);
 }
 
 TEST(TransientUniformAllocatorTest, RejectsAllocationsAfterRecordingEnds) {
@@ -24,8 +23,7 @@ TEST(TransientUniformAllocatorTest, RejectsAllocationsAfterRecordingEnds) {
     EXPECT_FALSE(allocator.isRecording());
     EXPECT_FALSE(allocator.owns(generation));
     const auto result = allocator.allocate(128);
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error(), UniformAllocationError::RecordingNotStarted);
+    EXPECT_FALSE(result);
 }
 
 TEST(TransientUniformAllocatorTest, AlignsAllocationsWithinAPage) {
@@ -80,12 +78,12 @@ TEST(TransientUniformAllocatorTest, ResetsCurrentStatsButPreservesPeaks) {
 TEST(TransientUniformAllocatorTest, RejectsInvalidAndOversizedRequests) {
     TransientUniformAllocator invalid({ 0, 256, 512 });
     invalid.beginRecording();
-    EXPECT_EQ(invalid.allocate(1).error(), UniformAllocationError::InvalidConfiguration);
+    EXPECT_FALSE(invalid.allocate(1));
 
     TransientUniformAllocator allocator({ 1024, 256, 512 });
     allocator.beginRecording();
-    EXPECT_EQ(allocator.allocate(0).error(), UniformAllocationError::EmptyAllocation);
-    EXPECT_EQ(allocator.allocate(513).error(), UniformAllocationError::AllocationTooLarge);
+    EXPECT_FALSE(allocator.allocate(0));
+    EXPECT_FALSE(allocator.allocate(513));
 }
 
 TEST(TransientUniformAllocatorTest, SupportsNonPowerOfTwoAlignment) {

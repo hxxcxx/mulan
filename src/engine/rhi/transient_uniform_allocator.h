@@ -8,17 +8,9 @@
 #pragma once
 
 #include <cstdint>
-#include <expected>
+#include <optional>
 
 namespace mulan::engine {
-
-enum class UniformAllocationError : uint8_t {
-    InvalidConfiguration,
-    RecordingNotStarted,
-    EmptyAllocation,
-    AllocationTooLarge,
-    ArithmeticOverflow,
-};
 
 struct UniformAllocatorConfig {
     uint32_t pageSize = 64 * 1024;
@@ -54,7 +46,8 @@ public:
 
     uint64_t beginRecording() noexcept;
     void endRecording() noexcept;
-    std::expected<UniformAllocationPlan, UniformAllocationError> allocate(uint32_t size) noexcept;
+    /// 失败仅表示当前请求不能分配；高频调用方没有可恢复分支，因此不构造通用 Error。
+    std::optional<UniformAllocationPlan> allocate(uint32_t size) noexcept;
 
     uint64_t recordingGeneration() const noexcept { return recording_generation_; }
     bool isRecording() const noexcept { return recording_; }

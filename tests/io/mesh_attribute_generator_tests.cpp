@@ -20,7 +20,7 @@ TEST(MeshAttributeGeneratorTests, GeneratesFlatNormalsBySplittingFaceCorners) {
 
     const auto result = generateFlatNormals(mesh);
 
-    ASSERT_TRUE(result) << meshAttributeErrorMessage(result.error());
+    ASSERT_TRUE(result) << result.error().message;
     ASSERT_EQ(mesh.positions.size(), 6u);
     ASSERT_EQ(mesh.normals.size(), 6u);
     EXPECT_TRUE(mesh.tangents.empty());
@@ -50,7 +50,7 @@ TEST(MeshAttributeGeneratorTests, GeneratesStableMikkTangentsForIndexedQuad) {
 
     const auto result = generateMikkTangents(mesh);
 
-    ASSERT_TRUE(result) << meshAttributeErrorMessage(result.error());
+    ASSERT_TRUE(result) << result.error().message;
     ASSERT_EQ(mesh.tangents.size(), mesh.positions.size());
     EXPECT_EQ(mesh.positions.size(), 4u);
     for (const auto& tangent : mesh.tangents) {
@@ -73,7 +73,7 @@ TEST(MeshAttributeGeneratorTests, SplitsOnlyTheSharedVertexAtMirroredUvDiscontin
 
     const auto result = generateMikkTangents(mesh);
 
-    ASSERT_TRUE(result) << meshAttributeErrorMessage(result.error());
+    ASSERT_TRUE(result) << result.error().message;
     ASSERT_EQ(mesh.indices.size(), 6u);
     ASSERT_EQ(mesh.positions.size(), 6u);
     const uint32_t firstSharedVariant = mesh.indices[0];
@@ -97,7 +97,8 @@ TEST(MeshAttributeGeneratorTests, RejectsOutOfRangeIndicesWithoutMutatingMesh) {
     const auto result = generateMikkTangents(mesh);
 
     ASSERT_FALSE(result);
-    EXPECT_EQ(result.error(), MeshAttributeError::InvalidTriangleIndices);
+    EXPECT_EQ(result.error().code, static_cast<int32_t>(ErrorCode::InvalidArg));
+    EXPECT_EQ(result.error().message, "invalid triangle-list indices");
     EXPECT_EQ(mesh.positions, originalPositions);
     EXPECT_TRUE(mesh.tangents.empty());
 }

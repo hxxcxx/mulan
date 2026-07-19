@@ -29,30 +29,29 @@ void TransientUniformAllocator::endRecording() noexcept {
     recording_ = false;
 }
 
-std::expected<UniformAllocationPlan, UniformAllocationError> TransientUniformAllocator::allocate(
-        uint32_t size) noexcept {
+std::optional<UniformAllocationPlan> TransientUniformAllocator::allocate(uint32_t size) noexcept {
     if (!valid_)
-        return std::unexpected(UniformAllocationError::InvalidConfiguration);
+        return std::nullopt;
     if (!recording_)
-        return std::unexpected(UniformAllocationError::RecordingNotStarted);
+        return std::nullopt;
     if (size == 0)
-        return std::unexpected(UniformAllocationError::EmptyAllocation);
+        return std::nullopt;
     if (size > config_.maxAllocationSize)
-        return std::unexpected(UniformAllocationError::AllocationTooLarge);
+        return std::nullopt;
 
     uint32_t reservedSize = 0;
     if (!alignUp(size, config_.alignment, reservedSize))
-        return std::unexpected(UniformAllocationError::ArithmeticOverflow);
+        return std::nullopt;
     if (reservedSize > config_.pageSize)
-        return std::unexpected(UniformAllocationError::AllocationTooLarge);
+        return std::nullopt;
 
     uint32_t offset = 0;
     if (!alignUp(cursor_, config_.alignment, offset))
-        return std::unexpected(UniformAllocationError::ArithmeticOverflow);
+        return std::nullopt;
 
     if (offset > config_.pageSize || reservedSize > config_.pageSize - offset) {
         if (active_page_ == std::numeric_limits<uint32_t>::max())
-            return std::unexpected(UniformAllocationError::ArithmeticOverflow);
+            return std::nullopt;
         ++active_page_;
         offset = 0;
     }
