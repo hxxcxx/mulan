@@ -71,14 +71,14 @@ DocumentArea::~DocumentArea() {
 }
 
 DocumentViewport* DocumentArea::addDocument(std::unique_ptr<mulan::editor::DocumentSession> session,
-                                            const QString& title) {
+                                            const QString& title, const mulan::view::ViewConfig& viewConfig) {
     MULAN_PROFILE_ZONE();
 
     if (!session) {
         return nullptr;
     }
 
-    auto pendingViewport = std::make_unique<DocumentViewport>(this);
+    auto pendingViewport = std::make_unique<DocumentViewport>(viewConfig, this);
     auto* viewport = pendingViewport.get();
     const auto [sessionIt, inserted] = sessions_by_viewport_.emplace(viewport, std::move(session));
     if (!inserted) {
@@ -88,6 +88,11 @@ DocumentViewport* DocumentArea::addDocument(std::unique_ptr<mulan::editor::Docum
     connect(viewport, &DocumentViewport::commandStateInvalidated, this, [this, viewport]() {
         if (currentViewport() == viewport) {
             emit currentDocumentCommandStateInvalidated();
+        }
+    });
+    connect(viewport, &DocumentViewport::runtimeFailed, this, [this, viewport](const QString& message) {
+        if (currentViewport() == viewport) {
+            emit currentDocumentRuntimeFailed(message);
         }
     });
 

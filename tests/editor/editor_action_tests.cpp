@@ -435,7 +435,7 @@ TEST(DocumentViewInputBoundary, ActiveToolReleaseNeverFallsBackToSelection) {
 
     EXPECT_EQ(release.disposition, DocumentInputDisposition::EditorTool);
     EXPECT_NE(release.disposition, DocumentInputDisposition::Selection);
-    documentView.cancelActiveEditorTool();
+    session->cancelActiveTool();
     session->unbind();
 }
 

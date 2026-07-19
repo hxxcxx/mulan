@@ -21,8 +21,6 @@
 #include "document/document_session.h"
 #include "document/document_view.h"
 
-#include <mulan/view/core/view_context.h>
-
 #include <memory>
 #include <string>
 #include <utility>
@@ -179,7 +177,7 @@ CommandOutcome startViewPlaneDrawTool(CommandHost& host) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active editor session"));
     }
 
-    editor->setWorkPlane(mulan::engine::WorkPlane::fromView(view->viewContext().camera()));
+    editor->setWorkPlane(view->viewWorkPlane());
     editor->startTool(std::make_unique<Tool>());
     return {};
 }

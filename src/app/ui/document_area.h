@@ -14,6 +14,9 @@
 namespace mulan::editor {
 class DocumentSession;
 }
+namespace mulan::view {
+struct ViewConfig;
+}
 
 class DocumentViewport;
 class StartupPage;
@@ -27,7 +30,8 @@ public:
     ~DocumentArea();
 
     /// 接管文档会话的唯一所有权并添加标签；初始化失败时销毁会话并返回 nullptr。
-    DocumentViewport* addDocument(std::unique_ptr<mulan::editor::DocumentSession> session, const QString& title);
+    DocumentViewport* addDocument(std::unique_ptr<mulan::editor::DocumentSession> session, const QString& title,
+                                  const mulan::view::ViewConfig& viewConfig);
 
     /// 关闭指定索引的标签；用户取消丢弃未保存修改时返回 false。
     bool closeDocument(int index);
@@ -50,6 +54,7 @@ signals:
 
     /// 当前文档的编辑状态变化，需要刷新命令可用性
     void currentDocumentCommandStateInvalidated();
+    void currentDocumentRuntimeFailed(const QString& message);
     void startupNewRequested();
     void startupOpenRequested();
     void startupRecentFileRequested(const QString& filePath);

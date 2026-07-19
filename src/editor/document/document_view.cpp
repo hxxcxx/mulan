@@ -58,9 +58,16 @@ DocumentView::DocumentView() : impl_(std::make_unique<Impl>()) {
 }
 
 DocumentView::~DocumentView() {
+    shutdown();
+}
+
+void DocumentView::shutdown() {
+    clearClickTracking();
     impl_->editor_session.unbind();
     impl_->view_context.clearPreview();
     impl_->binding.unbind();
+    impl_->session = nullptr;
+    impl_->view_context.shutdown();
 }
 
 bool DocumentView::init(const mulan::view::ViewConfig& config, int width, int height,
@@ -134,6 +141,54 @@ bool DocumentView::isReady() const {
     return impl_->view_context.isReady();
 }
 
+mulan::view::RenderMode DocumentView::renderMode() const {
+    return impl_->view_context.renderMode();
+}
+
+void DocumentView::setRenderMode(mulan::view::RenderMode mode) {
+    if (impl_->view_context.renderMode() == mode) {
+        return;
+    }
+    impl_->view_context.setRenderMode(mode);
+    invalidateFrame();
+}
+
+mulan::view::SurfaceShading DocumentView::surfaceShading() const {
+    return impl_->view_context.surfaceShading();
+}
+
+void DocumentView::setSurfaceShading(mulan::view::SurfaceShading shading) {
+    if (impl_->view_context.surfaceShading() == shading) {
+        return;
+    }
+    impl_->view_context.setSurfaceShading(shading);
+    invalidateFrame();
+}
+
+bool DocumentView::viewCubeVisible() const {
+    return impl_->view_context.showViewCube();
+}
+
+void DocumentView::setViewCubeVisible(bool visible) {
+    if (impl_->view_context.showViewCube() == visible) {
+        return;
+    }
+    impl_->view_context.setShowViewCube(visible);
+    invalidateFrame();
+}
+
+mulan::Result<mulan::view::CaptureImage> DocumentView::capture(mulan::view::CaptureRequest request) {
+    if (!isReady()) {
+        return std::unexpected(mulan::Error::make(mulan::ErrorCode::InvalidArg, "Document view is not ready"));
+    }
+    request.camera = impl_->view_context.camera();
+    return impl_->view_context.capture(request);
+}
+
+mulan::engine::WorkPlane DocumentView::viewWorkPlane() const {
+    return mulan::engine::WorkPlane::fromView(impl_->view_context.camera());
+}
+
 DocumentSession* DocumentView::session() const {
     return impl_->session;
 }
@@ -144,30 +199,6 @@ mulan::view::ViewContext& DocumentView::viewContext() {
 
 const mulan::view::ViewContext& DocumentView::viewContext() const {
     return impl_->view_context;
-}
-
-bool DocumentView::isEditorReady() const {
-    return impl_->editor_session.isReady();
-}
-
-bool DocumentView::hasActiveEditorTool() const {
-    return impl_->editor_session.hasActiveTool();
-}
-
-std::string_view DocumentView::activeEditorToolId() const {
-    return impl_->editor_session.activeToolId();
-}
-
-void DocumentView::clearEditorHover() {
-    impl_->editor_session.clearHover();
-}
-
-bool DocumentView::canEditorUndo() const {
-    return impl_->editor_session.canUndo();
-}
-
-bool DocumentView::canEditorRedo() const {
-    return impl_->editor_session.canRedo();
 }
 
 CommandHost DocumentView::commandHost() {
@@ -322,12 +353,6 @@ void DocumentView::selectAtFramebuffer(double x, double y) {
     impl_->editor_session.selectAtFramebuffer(x, y);
 }
 
-void DocumentView::cancelActiveEditorTool() {
-    impl_->editor_session.cancelActiveTool();
-    clearClickTracking();
-    invalidateFrame();
-}
-
 DocumentInputOutcome DocumentView::cancelInteraction() {
     // FocusLost 统一走 handleInput 的生命周期路径：工具、camera delegate、默认相机、
     // ViewCube click 事务与文档 click tracker 在同一个边界内清理。
@@ -338,6 +363,10 @@ void DocumentView::invalidateFrame() const {
     if (impl_->frame_invalidation_callback) {
         impl_->frame_invalidation_callback();
     }
+}
+
+void DocumentView::onCommandCompleted() {
+    invalidateFrame();
 }
 
 }  // namespace mulan::editor

@@ -9,6 +9,10 @@
 
 #include "../command/command.h"
 
+#include <mulan/interaction/work_plane.h>
+#include <mulan/view/capture/capture_request.h>
+#include <mulan/view/core/view_state.h>
+
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -62,6 +66,8 @@ public:
 
     /// runtimeEventCallback 由 RenderThread 调用，只能执行线程安全的 owner-thread 唤醒。
     bool init(const mulan::view::ViewConfig& config, int width, int height, std::function<void()> runtimeEventCallback);
+    /// 幂等解除编辑会话、文档绑定与渲染运行时；析构和应用层关闭走同一条路径。
+    void shutdown();
     void resize(int width, int height);
     /// 帧调度器的最终提交入口；其他调用方应只发失效请求。
     mulan::ResultVoid renderFrame();
@@ -75,6 +81,16 @@ public:
     void setFrameInvalidationCallback(std::function<void()> callback);
 
     bool isReady() const;
+
+    mulan::view::RenderMode renderMode() const;
+    void setRenderMode(mulan::view::RenderMode mode);
+    mulan::view::SurfaceShading surfaceShading() const;
+    void setSurfaceShading(mulan::view::SurfaceShading shading);
+    bool viewCubeVisible() const;
+    void setViewCubeVisible(bool visible);
+    /// 使用当前文档视图相机执行截图，调用方不能注入陈旧相机快照。
+    mulan::Result<mulan::view::CaptureImage> capture(mulan::view::CaptureRequest request);
+    mulan::engine::WorkPlane viewWorkPlane() const;
 
     void setDocumentSession(DocumentSession* session);
     DocumentSession* session() const;
@@ -90,21 +106,12 @@ public:
 
     // ── 编辑器交互（转发，app 层不直接接触 EditorSession）──
 
-    bool isEditorReady() const;
-    bool hasActiveEditorTool() const;
-    std::string_view activeEditorToolId() const;
-    void cancelActiveEditorTool();
-    void clearEditorHover();
-    bool canEditorUndo() const;
-    bool canEditorRedo() const;
-
     /// 构造命令宿主，供 CommandManager 执行命令。
     mulan::editor::CommandHost commandHost();
 
-    void updateHoverAtFramebuffer(double x, double y);
-    void selectAtFramebuffer(double x, double y);
-
 private:
+    friend class CommandManager;
+
     struct Impl;
 
     /// 在 handleInput 内部跟踪左键 press，release 时据此判定 click-vs-drag 选择。
@@ -113,6 +120,9 @@ private:
     void clearClickTracking();
     bool isLeftDragExceedingThreshold(const mulan::engine::InputEvent& event) const;
     void invalidateFrame() const;
+    void onCommandCompleted();
+    void updateHoverAtFramebuffer(double x, double y);
+    void selectAtFramebuffer(double x, double y);
 
     std::unique_ptr<Impl> impl_;
 };

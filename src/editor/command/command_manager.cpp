@@ -8,6 +8,9 @@
 
 #include "command_manager.h"
 
+#include "../core/session/editor_session.h"
+#include "../document/document_view.h"
+
 namespace mulan::editor {
 
 bool CommandManager::add(std::unique_ptr<Command> command) {
@@ -42,7 +45,25 @@ CommandOutcome CommandManager::execute(std::string_view id, CommandHost host) {
         return std::unexpected(Error::make(ErrorCode::NotFound, "Command not found"));
     }
 
-    return command->execute(host);
+    const CommandState currentState = command->state(host);
+    if (currentState.visible && currentState.enabled && currentState.checkable && currentState.checked) {
+        EditorSession* editor = host.editorSession();
+        if (editor && editor->activeToolId() == id) {
+            editor->cancelActiveTool();
+            if (DocumentView* view = host.documentView()) {
+                view->onCommandCompleted();
+            }
+            return {};
+        }
+    }
+
+    CommandOutcome result = command->execute(host);
+    if (result) {
+        if (DocumentView* view = host.documentView()) {
+            view->onCommandCompleted();
+        }
+    }
+    return result;
 }
 
 }  // namespace mulan::editor

@@ -75,9 +75,9 @@ target_link_libraries(editor
     PUBLIC
         core
         $<LINK_LIBRARY:WHOLE_ARCHIVE,io>
+        view
     PRIVATE
         mulan::profiling
-        view
         render
         interaction
         asset

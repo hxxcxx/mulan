@@ -36,27 +36,27 @@ public:
     };
     Q_ENUM(RuntimeState)
 
-    explicit DocumentViewport(QWidget* parent = nullptr);
+    explicit DocumentViewport(const mulan::view::ViewConfig& viewConfig, QWidget* parent = nullptr);
     ~DocumentViewport();
 
     void setDocumentSession(mulan::editor::DocumentSession* session);
 
-    void setViewConfig(const mulan::view::ViewConfig& cfg) { view_config_ = cfg; }
-    mulan::view::ViewConfig& viewConfig() { return view_config_; }
-
     bool init();
     void shutdown();
-    /// 只登记帧失效；同一轮 Qt 事件循环内的多次请求合并为一次提交。
-    void requestFrame();
 
-    RuntimeState runtimeState() const { return runtime_state_; }
-
-    mulan::editor::DocumentView& documentView() { return document_view_; }
-    const mulan::editor::DocumentView& documentView() const { return document_view_; }
-    mulan::view::ViewContext& viewContext() { return document_view_.viewContext(); }
+    bool isReady() const;
+    mulan::editor::CommandHost commandHost();
+    mulan::view::RenderMode renderMode() const;
+    void setRenderMode(mulan::view::RenderMode mode);
+    mulan::view::SurfaceShading surfaceShading() const;
+    void setSurfaceShading(mulan::view::SurfaceShading shading);
+    bool viewCubeVisible() const;
+    void setViewCubeVisible(bool visible);
+    mulan::Result<mulan::view::CaptureImage> capture(mulan::view::CaptureRequest request);
 
 signals:
     void commandStateInvalidated();
+    void runtimeFailed(const QString& message);
 
 protected:
     void resizeEvent(QResizeEvent* e) override;
@@ -76,9 +76,10 @@ protected:
     bool event(QEvent* e) override;
 
 private:
+    /// 只登记帧失效；同一轮 Qt 事件循环内的多次请求合并为一次提交。
+    void requestFrame();
     /// 严格执行 DocumentView 返回的结果，不再根据 consumed/activeTool 猜测状态。
     void applyResult(const mulan::editor::DocumentInputOutcome& result);
-    void clearPreview(bool refresh = true);
     void queueRuntimeEvent();
     void submitPendingFrame();
     void consumeRuntimeEvent();

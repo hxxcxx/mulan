@@ -2,7 +2,6 @@
 
 #include "../platform/qt_native_window_handle.h"
 #include "qt_viewport_input_adapter.h"
-#include "engine_settings.h"
 
 #include <mulan/core/log/log.h>
 #include <mulan/core/profiling/profile.h>
@@ -13,10 +12,13 @@
 #include <QResizeEvent>
 #include <QMouseEvent>
 #include <QWheelEvent>
+
+#include <utility>
 #include <QKeyEvent>
 #include <QFocusEvent>
 
-DocumentViewport::DocumentViewport(QWidget* parent) : QWidget(parent) {
+DocumentViewport::DocumentViewport(const mulan::view::ViewConfig& viewConfig, QWidget* parent)
+    : QWidget(parent), view_config_(viewConfig) {
     setAttribute(Qt::WA_PaintOnScreen);
     setAttribute(Qt::WA_NoSystemBackground);
     setFocusPolicy(Qt::StrongFocus);
@@ -44,7 +46,6 @@ bool DocumentViewport::init() {
 
     runtime_state_ = RuntimeState::Starting;
 
-    EngineSettings::instance().applyTo(view_config_);
     view_config_.window = mulan::app::nativeWindowHandle(*this);
 
     const qreal dpr = devicePixelRatioF();
@@ -68,9 +69,7 @@ void DocumentViewport::shutdown() {
 
     runtime_state_ = RuntimeState::Stopping;
     frame_invalidated_ = false;
-    clearPreview(false);
-    document_view_.setDocumentSession(nullptr);
-    document_view_.viewContext().shutdown();
+    document_view_.shutdown();
     runtime_state_ = RuntimeState::Stopped;
 }
 
@@ -101,48 +100,84 @@ void DocumentViewport::showEvent(QShowEvent* e) {
 }
 
 void DocumentViewport::mousePressEvent(QMouseEvent* e) {
+    if (!isReady()) {
+        e->ignore();
+        return;
+    }
     applyResult(document_view_.handleInput(input_adapter_.mousePress(*e)));
 }
 
 void DocumentViewport::mouseReleaseEvent(QMouseEvent* e) {
+    if (!isReady()) {
+        e->ignore();
+        return;
+    }
     applyResult(document_view_.handleInput(input_adapter_.mouseRelease(*e)));
 }
 
 void DocumentViewport::mouseMoveEvent(QMouseEvent* e) {
+    if (!isReady()) {
+        e->ignore();
+        return;
+    }
     applyResult(document_view_.handleInput(input_adapter_.mouseMove(*e)));
 }
 
 void DocumentViewport::mouseDoubleClickEvent(QMouseEvent* e) {
+    if (!isReady()) {
+        e->ignore();
+        return;
+    }
     applyResult(document_view_.handleInput(input_adapter_.mouseDoubleClick(*e)));
 }
 
 void DocumentViewport::wheelEvent(QWheelEvent* e) {
+    if (!isReady()) {
+        e->ignore();
+        return;
+    }
     applyResult(document_view_.handleInput(input_adapter_.wheel(*e)));
 }
 
 void DocumentViewport::keyPressEvent(QKeyEvent* e) {
+    if (!isReady()) {
+        e->ignore();
+        return;
+    }
     applyResult(document_view_.handleInput(input_adapter_.keyPress(*e)));
 }
 
 void DocumentViewport::keyReleaseEvent(QKeyEvent* e) {
+    if (!isReady()) {
+        e->ignore();
+        return;
+    }
     applyResult(document_view_.handleInput(input_adapter_.keyRelease(*e)));
 }
 
 void DocumentViewport::leaveEvent(QEvent* e) {
     QWidget::leaveEvent(e);
     // 离开视口：所有临时状态在 DocumentView 的统一取消边界内清理。
-    applyResult(document_view_.cancelInteraction());
+    if (isReady()) {
+        applyResult(document_view_.cancelInteraction());
+    }
 }
 
 void DocumentViewport::focusOutEvent(QFocusEvent* e) {
-    applyResult(document_view_.cancelInteraction());
+    if (isReady()) {
+        applyResult(document_view_.cancelInteraction());
+    }
     QWidget::focusOutEvent(e);
 }
 
 bool DocumentViewport::event(QEvent* e) {
     switch (e->type()) {
     case QEvent::WindowDeactivate:
-    case QEvent::UngrabMouse: applyResult(document_view_.cancelInteraction()); break;
+    case QEvent::UngrabMouse:
+        if (isReady()) {
+            applyResult(document_view_.cancelInteraction());
+        }
+        break;
     default: break;
     }
     return QWidget::event(e);
@@ -153,6 +188,48 @@ void DocumentViewport::setDocumentSession(mulan::editor::DocumentSession* sessio
     if (document_view_.isReady() && session) {
         requestFrame();
     }
+}
+
+bool DocumentViewport::isReady() const {
+    return runtime_state_ == RuntimeState::Ready && document_view_.isReady();
+}
+
+mulan::editor::CommandHost DocumentViewport::commandHost() {
+    return isReady() ? document_view_.commandHost() : mulan::editor::CommandHost{};
+}
+
+mulan::view::RenderMode DocumentViewport::renderMode() const {
+    return document_view_.renderMode();
+}
+
+void DocumentViewport::setRenderMode(mulan::view::RenderMode mode) {
+    if (isReady()) {
+        document_view_.setRenderMode(mode);
+    }
+}
+
+mulan::view::SurfaceShading DocumentViewport::surfaceShading() const {
+    return document_view_.surfaceShading();
+}
+
+void DocumentViewport::setSurfaceShading(mulan::view::SurfaceShading shading) {
+    if (isReady()) {
+        document_view_.setSurfaceShading(shading);
+    }
+}
+
+bool DocumentViewport::viewCubeVisible() const {
+    return document_view_.viewCubeVisible();
+}
+
+void DocumentViewport::setViewCubeVisible(bool visible) {
+    if (isReady()) {
+        document_view_.setViewCubeVisible(visible);
+    }
+}
+
+mulan::Result<mulan::view::CaptureImage> DocumentViewport::capture(mulan::view::CaptureRequest request) {
+    return document_view_.capture(std::move(request));
 }
 
 void DocumentViewport::requestFrame() {
@@ -225,6 +302,8 @@ void DocumentViewport::transitionToRuntimeFailure(QString message) {
     frame_invalidated_ = false;
     runtime_state_ = RuntimeState::Failed;
     LOG_ERROR("[App] Document render channel stopped: {}", message.toStdString());
+    emit commandStateInvalidated();
+    emit runtimeFailed(message);
 }
 
 void DocumentViewport::applyResult(const mulan::editor::DocumentInputOutcome& result) {
@@ -233,12 +312,5 @@ void DocumentViewport::applyResult(const mulan::editor::DocumentInputOutcome& re
     }
     if (result.needsCommandStateRefresh()) {
         emit commandStateInvalidated();
-    }
-}
-
-void DocumentViewport::clearPreview(bool refresh) {
-    document_view_.viewContext().clearPreview();
-    if (refresh) {
-        requestFrame();
     }
 }
