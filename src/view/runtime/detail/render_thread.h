@@ -77,6 +77,7 @@ private:
     explicit RenderThread(const RenderDeviceConfig& config);
 
     Result<RenderChannelId> createChannel(Initializer initialize, RenderChannelEventCallback eventCallback);
+    ResultVoid initializeChannel(Channel& channel, const RenderSurfaceConfig& config, int width, int height);
     ResultVoid ensureDeviceContext();
     void run(std::stop_token stopToken);
     Channel* findChannelLocked(RenderChannelId channel);
@@ -90,6 +91,7 @@ private:
     void publishSurfaceStateLocked(Channel& channel);
     void executeFrame(Channel& channel, RenderSubmission submission);
     void executeControl(Channel& channel, ControlTask control);
+    static void finishControlTask(ControlTask& control, ResultVoid result) noexcept;
     void failChannel(Channel& channel, const Error& error);
     void failThread(const Error& error);
     static Error threadError(ErrorCode code, std::string_view message);

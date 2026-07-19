@@ -56,12 +56,12 @@ struct RenderThread::ControlTask {
         Channel,
     };
 
-    std::function<ResultVoid(Channel&)> execute;
+    std::function<ResultVoid(Channel&)> run;
+    /// 在任务成功、失败、异常或取消后恰好结算一次；空回调表示 fire-and-forget。
+    std::function<void(ResultVoid)> finish;
     Kind kind = Kind::Command;
     FailurePolicy failurePolicy = FailurePolicy::Request;
     uint64_t resourceBatchId = 0;
-    std::function<void()> complete;
-    std::function<void(const Error&)> fail;
 };
 
 struct RenderThread::Channel {
@@ -148,9 +148,7 @@ RenderThread::~RenderThread() {
     }
     const Error cancellation = threadError(ErrorCode::InvalidArg, "Render request was cancelled during shutdown.");
     for (ControlTask& task : cancelled) {
-        if (task.fail) {
-            task.fail(cancellation);
-        }
+        finishControlTask(task, std::unexpected(cancellation));
     }
     thread_.request_stop();
     wake_.notify_all();
@@ -166,15 +164,25 @@ Result<RenderChannelId> RenderThread::attachChannel(const RenderSurfaceConfig& c
 
     return createChannel(
             [this, config, width, height](Channel& channel) -> ResultVoid {
-                if (auto ensured = ensureDeviceContext(); !ensured)
-                    return ensured;
-                auto executor = std::make_unique<RenderExecutor>(*device_context_);
-                if (auto initialized = executor->init(config, width, height); !initialized)
-                    return initialized;
-                channel.executor = std::move(executor);
-                return {};
+                return initializeChannel(channel, config, width, height);
             },
             std::move(eventCallback));
+}
+
+ResultVoid RenderThread::initializeChannel(Channel& channel, const RenderSurfaceConfig& config, int width, int height) {
+    MULAN_PROFILE_ZONE();
+
+    if (auto ensured = ensureDeviceContext(); !ensured) {
+        return ensured;
+    }
+
+    auto executor = std::make_unique<RenderExecutor>(*device_context_);
+    if (auto initialized = executor->init(config, width, height); !initialized) {
+        return initialized;
+    }
+
+    channel.executor = std::move(executor);
+    return {};
 }
 
 ResultVoid RenderThread::ensureDeviceContext() {
@@ -206,11 +214,10 @@ Result<RenderChannelId> RenderThread::createChannel(Initializer initialize, Rend
         }
         auto channel = std::make_unique<Channel>(channelId, std::move(eventCallback));
         channel->controls.push_back(ControlTask{
-                .execute = std::move(initialize),
+                .run = std::move(initialize),
+                .finish = [promise](ResultVoid result) { promise->set_value(std::move(result)); },
                 .kind = ControlTask::Kind::Initialize,
                 .failurePolicy = ControlTask::FailurePolicy::Channel,
-                .complete = [promise] { promise->set_value(ResultVoid{}); },
-                .fail = [promise](const Error& error) { promise->set_value(std::unexpected(error)); },
         });
         channels_.push_back(std::move(channel));
     }
@@ -255,24 +262,21 @@ void RenderThread::detach(RenderChannelId channelId) {
             channel->latestFrame.reset();
             cancelled = std::move(channel->controls);
             channel->controls.push_back(ControlTask{
-                    .execute = [](Channel& channel) -> ResultVoid {
+                    .run = [](Channel& channel) -> ResultVoid {
                         if (channel.executor) {
                             channel.executor->shutdown();
                             channel.executor.reset();
                         }
                         return {};
                     },
+                    .finish = [promise](ResultVoid) { promise->set_value(); },
                     .kind = ControlTask::Kind::Shutdown,
-                    .complete = [promise] { promise->set_value(); },
-                    .fail = [promise](const Error&) { promise->set_value(); },
             });
         }
     }
     const Error cancellation = threadError(ErrorCode::InvalidArg, "Render request was cancelled during shutdown.");
     for (ControlTask& task : cancelled) {
-        if (task.fail) {
-            task.fail(cancellation);
-        }
+        finishControlTask(task, std::unexpected(cancellation));
     }
     wake_.notify_one();
     future.wait();
@@ -321,8 +325,8 @@ ResultVoid RenderThread::enqueueSubmissionResourcesLocked(Channel& channel, Rend
             channel.latestFrame.reset();
             engine::RenderResourcePrepareList prepare = std::move(submission.prepare);
             channel.controls.push_back(ControlTask{
-                    .execute = [prepare = std::move(prepare)](
-                                       Channel& channel) { return channel.executor->prepareResources(prepare); },
+                    .run = [prepare = std::move(prepare)](
+                                   Channel& channel) { return channel.executor->prepareResources(prepare); },
                     .kind = ControlTask::Kind::ResourcePrepare,
                     .failurePolicy = ControlTask::FailurePolicy::Channel,
                     .resourceBatchId = submission.resourceBatchId,
@@ -356,15 +360,21 @@ Result<engine::RenderCaptureResult> RenderThread::capture(RenderChannelId channe
             return std::unexpected(enqueued.error());
         }
         channel->controls.push_back(ControlTask{
-                .execute = [submission = std::move(submission), desc, outcome](Channel& channel) mutable -> ResultVoid {
+                .run = [submission = std::move(submission), desc, outcome](Channel& channel) mutable -> ResultVoid {
                     *outcome = channel.executor->capture(submission, desc);
                     if (!outcome->value()) {
                         return std::unexpected(outcome->value().error());
                     }
                     return {};
                 },
-                .complete = [promise, outcome] { promise->set_value(std::move(outcome->value())); },
-                .fail = [promise](const Error& error) { promise->set_value(std::unexpected(error)); },
+                .finish =
+                        [promise, outcome](ResultVoid result) {
+                            if (!result) {
+                                promise->set_value(std::unexpected(result.error()));
+                                return;
+                            }
+                            promise->set_value(std::move(outcome->value()));
+                        },
         });
     }
     wake_.notify_one();
@@ -391,16 +401,22 @@ Result<RenderSurfaceState> RenderThread::resize(RenderChannelId channelId, int w
         }
         channel->latestFrame.reset();
         channel->controls.push_back(ControlTask{
-                .execute = [width, height, outcome](Channel& channel) -> ResultVoid {
+                .run = [width, height, outcome](Channel& channel) -> ResultVoid {
                     *outcome = channel.executor->resize(width, height);
                     if (!outcome->value()) {
                         return std::unexpected(outcome->value().error());
                     }
                     return {};
                 },
+                .finish =
+                        [promise, outcome](ResultVoid result) {
+                            if (!result) {
+                                promise->set_value(std::unexpected(result.error()));
+                                return;
+                            }
+                            promise->set_value(std::move(outcome->value()));
+                        },
                 .failurePolicy = ControlTask::FailurePolicy::Channel,
-                .complete = [promise, outcome] { promise->set_value(std::move(outcome->value())); },
-                .fail = [promise](const Error& error) { promise->set_value(std::unexpected(error)); },
         });
     }
     wake_.notify_one();
@@ -409,7 +425,7 @@ Result<RenderSurfaceState> RenderThread::resize(RenderChannelId channelId, int w
 
 void RenderThread::enableIBL(RenderChannelId channelId, std::string hdrPath) {
     if (!enqueue(channelId, ControlTask{
-                                    .execute = [path = std::move(hdrPath)](Channel& channel) -> ResultVoid {
+                                    .run = [path = std::move(hdrPath)](Channel& channel) -> ResultVoid {
                                         channel.executor->enableIBL(path);
                                         return {};
                                     },
@@ -429,7 +445,7 @@ ResultVoid RenderThread::clearAssetResources(RenderChannelId channelId) {
         channel->latestFrame.reset();
         channel->state.invalidateResourceBatch();
         channel->controls.push_back(ControlTask{
-                .execute = [](Channel& channel) -> ResultVoid { return channel.executor->clearAssetResources(); },
+                .run = [](Channel& channel) -> ResultVoid { return channel.executor->clearAssetResources(); },
                 .failurePolicy = ControlTask::FailurePolicy::Channel,
         });
     }
@@ -542,9 +558,7 @@ void RenderThread::failChannel(Channel& channel, const Error& error) {
         eventCallback = channel.eventCallback;
     }
     for (ControlTask& task : cancelled) {
-        if (task.fail) {
-            task.fail(error);
-        }
+        finishControlTask(task, std::unexpected(error));
     }
     notifyChannelEvent(eventCallback);
     wake_.notify_all();
@@ -577,9 +591,7 @@ void RenderThread::failThread(const Error& error) {
         }
     }
     for (ControlTask& task : cancelled) {
-        if (task.fail) {
-            task.fail(error);
-        }
+        finishControlTask(task, std::unexpected(error));
     }
     for (const RenderChannelEventCallback& callback : eventCallbacks) {
         notifyChannelEvent(callback);
@@ -614,16 +626,30 @@ void RenderThread::executeFrame(Channel& channel, RenderSubmission submission) {
     }
 }
 
+void RenderThread::finishControlTask(ControlTask& control, ResultVoid result) noexcept {
+    auto finish = std::move(control.finish);
+    if (!finish) {
+        return;
+    }
+    try {
+        finish(std::move(result));
+    } catch (const std::exception& error) {
+        LOG_ERROR("[RenderThread] Control task completion callback failed: {}", error.what());
+    } catch (...) {
+        LOG_ERROR("[RenderThread] Control task completion callback failed with an unknown exception");
+    }
+}
+
 void RenderThread::executeControl(Channel& channel, ControlTask control) {
     try {
-        auto executed = [&] {
+        ResultVoid executed;
+        {
             MULAN_PROFILE_ZONE_N("RenderThread/ControlTask");
-            return control.execute(channel);
-        }();
+            executed = control.run(channel);
+        }
+
         if (!executed) {
-            if (control.fail) {
-                control.fail(executed.error());
-            }
+            finishControlTask(control, std::unexpected(executed.error()));
             if (engine::isDeviceFatalError(executed.error())) {
                 // 同步控制即使只影响请求，DeviceLost 也必须广播到共享 Device 的所有通道。
                 failThread(executed.error());
@@ -653,24 +679,18 @@ void RenderThread::executeControl(Channel& channel, ControlTask control) {
             case ControlTask::Kind::Command: publishSurfaceStateLocked(channel); break;
             }
         }
-        if (control.complete) {
-            control.complete();
-        }
+        finishControlTask(control, ResultVoid{});
         if (resourceBatchCompleted) {
             notifyChannelEvent(channel.eventCallback);
         }
     } catch (const std::exception& error) {
         LOG_CRITICAL("[RenderThread] Control task failed: {}", error.what());
         const Error failure = threadError(ErrorCode::Internal, "Render control task threw an exception.");
-        if (control.fail) {
-            control.fail(failure);
-        }
+        finishControlTask(control, std::unexpected(failure));
         failChannel(channel, failure);
     } catch (...) {
         const Error failure = threadError(ErrorCode::Internal, "Render control task threw an unknown exception.");
-        if (control.fail) {
-            control.fail(failure);
-        }
+        finishControlTask(control, std::unexpected(failure));
         failChannel(channel, failure);
     }
 }
