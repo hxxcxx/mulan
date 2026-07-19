@@ -9,7 +9,7 @@
 
 #include "../../rhi/device.h"
 #include "../../rhi/shader.h"
-#include <mulan/rhi/engine_error_code.h>
+#include "../../rhi/engine_error_code.h"
 
 #include <mulan/core/result/error.h>
 

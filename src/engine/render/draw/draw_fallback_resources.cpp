@@ -6,10 +6,9 @@
  */
 
 #include "draw_fallback_resources.h"
+#include "../../rhi/device.h"
 
 #include <mulan/core/profiling/profile.h>
-
-#include "../../rhi/device.h"
 
 #include <algorithm>
 #include <array>

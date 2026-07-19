@@ -17,12 +17,13 @@
 
 #pragma once
 
+#include "rotation_mode.h"
+
 #include <cstdint>
 #include <memory>
 #include <optional>
 
 #include <mulan/math/math.h>
-#include "rotation_mode.h"
 
 namespace mulan::engine {
 
