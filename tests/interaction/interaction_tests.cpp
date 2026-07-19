@@ -188,7 +188,7 @@ TEST(CameraClipPlanesTest, OffAxisSmallSphereUsesForwardDepth) {
     // 小图元位于屏幕边缘时，欧氏距离明显大于沿视线的真实深度。
     // near/far 必须按前向投影深度计算，否则 near 会越过整个图元。
     const mulan::math::Sphere3 sphere{ mulan::math::Point3(5.0, 0.0, 0.0), 0.01 };
-    const double depth = (sphere.center.asVec() - camera.eyePosition()).dot(camera.forward());
+    const double depth = (sphere.center - camera.eyePosition()).dot(camera.forward());
 
     camera.fitClipPlanesToSphere(sphere);
 
@@ -243,7 +243,7 @@ TEST(CameraClipPlanesTest, OrthographicFitMovesEyeBehindLargeBoundsWithoutChangi
 
     camera.fitClipPlanesToSphere(sphere, 1.2, ClipPlaneFitMode::ExpandOnly);
 
-    const double centerDepth = (sphere.center.asVec() - camera.eyePosition()).dot(camera.forward());
+    const double centerDepth = (sphere.center - camera.eyePosition()).dot(camera.forward());
     EXPECT_GT(centerDepth - sphere.radius, camera.nearPlane());
     EXPECT_GT(camera.distance(), sphere.radius);
     EXPECT_DOUBLE_EQ(camera.orthoSize(), originalOrthoSize);

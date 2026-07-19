@@ -45,7 +45,7 @@ double controlMarkerWorldSize(const engine::Camera& camera, const math::Point3& 
         return safePixels * (2.0 * camera.orthoSize()) / viewportHeight;
     }
 
-    const double depth = std::max(camera.nearPlane(), (point.asVec() - camera.eyePosition()).dot(camera.forward()));
+    const double depth = std::max(camera.nearPlane(), (point - camera.eyePosition()).dot(camera.forward()));
     const double viewHeightAtPoint = 2.0 * depth * std::tan(camera.fieldOfView() * 0.5);
     return safePixels * viewHeightAtPoint / viewportHeight;
 }

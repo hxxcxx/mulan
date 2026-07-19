@@ -75,13 +75,12 @@ set(SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../shaders")
 set(SHADER_OUTPUT_DIR "${MULAN_SHADER_OUTPUT_DIR}")
 set(SHADER_SOURCES
     solid.vert.slang
-    solid.frag.slang
-    albedo.vert.slang
-    albedo.frag.slang
+    unlit.frag.slang
+    legacy.frag.slang
+    legacy_tangent.frag.slang
     pbr.vert.slang
     pbr.frag.slang
     pbr_tangent.vert.slang
-    solid_instanced.vert.slang
     pbr_instanced.vert.slang
     pbr_tangent_instanced.vert.slang
     edge_instanced.vert.slang

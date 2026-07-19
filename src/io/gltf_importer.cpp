@@ -204,28 +204,27 @@ std::map<size_t, size_t> importTextures(const fastgltf::Asset& gltf, ParsedScene
 // ============================================================
 // 材质:产出 ParsedMaterial,纹理引用用 ParsedScene.textures 索引
 // ============================================================
-struct TextureSlotResolve {
-    size_t parsedTextureIndex = SIZE_MAX;  // 指向 ParsedScene.textures
-    bool found = false;
-};
+graphics::AlphaMode materialAlphaMode(fastgltf::AlphaMode mode) {
+    switch (mode) {
+    case fastgltf::AlphaMode::Opaque: return graphics::AlphaMode::Opaque;
+    case fastgltf::AlphaMode::Mask: return graphics::AlphaMode::Mask;
+    case fastgltf::AlphaMode::Blend: return graphics::AlphaMode::Blend;
+    }
+    return graphics::AlphaMode::Opaque;
+}
 
 std::map<size_t, size_t> importMaterials(const fastgltf::Asset& gltf, ParsedScene& scene,
-                                         const std::map<size_t, size_t>& texMap, std::vector<std::string>& warnings) {
+                                         const std::map<size_t, size_t>& texMap) {
     std::map<size_t, size_t> matMap;
 
-    auto resolveTexture = [&](size_t texIdx) -> TextureSlotResolve {
-        TextureSlotResolve r;
+    auto resolveTexture = [&](size_t texIdx) -> size_t {
         if (texIdx >= gltf.textures.size())
-            return r;
+            return SIZE_MAX;
         const auto& texture = gltf.textures[texIdx];
         if (!texture.imageIndex.has_value())
-            return r;
-        auto it = texMap.find(*texture.imageIndex);
-        if (it != texMap.end()) {
-            r.parsedTextureIndex = it->second;
-            r.found = true;
-        }
-        return r;
+            return SIZE_MAX;
+        const auto it = texMap.find(*texture.imageIndex);
+        return it != texMap.end() ? it->second : SIZE_MAX;
     };
 
     for (size_t i = 0; i < gltf.materials.size(); ++i) {
@@ -234,6 +233,8 @@ std::map<size_t, size_t> importMaterials(const fastgltf::Asset& gltf, ParsedScen
 
         ParsedMaterial desc;
         desc.name = mat.name.empty() ? "Material_" + std::to_string(i) : std::string(mat.name);
+        desc.shadingModel =
+                mat.unlit ? graphics::MaterialShadingModel::Unlit : graphics::MaterialShadingModel::MetallicRoughness;
 
         desc.baseColorFactor = { pbr.baseColorFactor[0], pbr.baseColorFactor[1], pbr.baseColorFactor[2],
                                  pbr.baseColorFactor[3] };
@@ -241,20 +242,20 @@ std::map<size_t, size_t> importMaterials(const fastgltf::Asset& gltf, ParsedScen
         desc.metallic = static_cast<double>(pbr.metallicFactor);
 
         if (pbr.baseColorTexture.has_value())
-            desc.baseColorTexture = resolveTexture(pbr.baseColorTexture->textureIndex).parsedTextureIndex;
+            desc.baseColorTexture = resolveTexture(pbr.baseColorTexture->textureIndex);
         if (pbr.metallicRoughnessTexture.has_value())
-            desc.metallicRoughnessTexture =
-                    resolveTexture(pbr.metallicRoughnessTexture->textureIndex).parsedTextureIndex;
+            desc.metallicRoughnessTexture = resolveTexture(pbr.metallicRoughnessTexture->textureIndex);
         if (mat.normalTexture.has_value())
-            desc.normalTexture = resolveTexture(mat.normalTexture->textureIndex).parsedTextureIndex;
+            desc.normalTexture = resolveTexture(mat.normalTexture->textureIndex);
         if (mat.emissiveTexture.has_value())
-            desc.emissiveTexture = resolveTexture(mat.emissiveTexture->textureIndex).parsedTextureIndex;
+            desc.emissiveTexture = resolveTexture(mat.emissiveTexture->textureIndex);
         if (mat.occlusionTexture.has_value())
-            desc.occlusionTexture = resolveTexture(mat.occlusionTexture->textureIndex).parsedTextureIndex;
+            desc.occlusionTexture = resolveTexture(mat.occlusionTexture->textureIndex);
 
         desc.emissiveFactor = { mat.emissiveFactor[0], mat.emissiveFactor[1], mat.emissiveFactor[2] };
         desc.emissiveStrength = static_cast<double>(mat.emissiveStrength);
-        desc.alphaMode = static_cast<graphics::AlphaMode>(mat.alphaMode);
+        desc.alphaMode = materialAlphaMode(mat.alphaMode);
+        desc.alphaCutoff = static_cast<double>(mat.alphaCutoff);
         desc.doubleSided = mat.doubleSided;
 
         size_t idx = scene.materials.size();
@@ -262,13 +263,6 @@ std::map<size_t, size_t> importMaterials(const fastgltf::Asset& gltf, ParsedScen
         matMap[i] = idx;
     }
 
-    if (matMap.empty()) {
-        ParsedMaterial def;
-        def.name = "DefaultPBR";
-        size_t idx = scene.materials.size();
-        scene.materials.push_back(std::move(def));
-        matMap[0] = idx;
-    }
     return matMap;
 }
 
@@ -414,8 +408,9 @@ Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOpt
     if (fileData.error() != fastgltf::Error::None)
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Failed to read glTF file: " + path));
 
-    const auto extensions =
-            fastgltf::Extensions::KHR_lights_punctual | fastgltf::Extensions::KHR_materials_emissive_strength;
+    const auto extensions = fastgltf::Extensions::KHR_lights_punctual |
+                            fastgltf::Extensions::KHR_materials_emissive_strength |
+                            fastgltf::Extensions::KHR_materials_unlit;
     fastgltf::Parser preflightParser(extensions);
     auto preflight = [&] {
         MULAN_PROFILE_ZONE_N("fastgltf::Parser::loadGltf");
@@ -453,9 +448,21 @@ Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOpt
 
     // 纹理 → 材质
     auto texMap = importTextures(*gltf, scene, sourceDir, path);
-    std::vector<std::string> warnings;
-    auto matMap = importMaterials(*gltf, scene, texMap, warnings);
-    (void) matMap;
+    auto matMap = importMaterials(*gltf, scene, texMap);
+    std::optional<size_t> defaultMaterialIndex;
+    const auto defaultGltfMaterial = [&]() -> size_t {
+        if (defaultMaterialIndex)
+            return *defaultMaterialIndex;
+        ParsedMaterial material;
+        material.name = "DefaultGLTFMaterial";
+        material.shadingModel = graphics::MaterialShadingModel::MetallicRoughness;
+        material.baseColorFactor = math::Vec4(1.0, 1.0, 1.0, 1.0);
+        material.metallic = 1.0;
+        material.roughness = 1.0;
+        defaultMaterialIndex = scene.materials.size();
+        scene.materials.push_back(std::move(material));
+        return *defaultMaterialIndex;
+    };
 
     // 网格:每个 glTF mesh → ParsedMesh,primitive 材质用 matMap 索引
     std::vector<size_t> meshIndices(gltf->meshes.size(), SIZE_MAX);
@@ -527,8 +534,8 @@ Result<ParsedScene> GltfImporter::parse(const std::string& path, const ImportOpt
                     auto it = matMap.find(*primitive.materialIndex);
                     if (it != matMap.end())
                         matIdx = it->second;
-                } else if (!matMap.empty()) {
-                    matIdx = matMap.begin()->second;
+                } else {
+                    matIdx = defaultGltfMaterial();
                 }
                 parsed.primitives.push_back(std::move(prim));
                 parsed.materialIndices.push_back(matIdx);

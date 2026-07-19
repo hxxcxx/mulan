@@ -209,17 +209,10 @@ ResultVoid ForwardRenderer::compile(const RenderRequest& request) {
         return {};
     }
 
-    if (face_stage_) {
-        face_stage_->setSurfaceTechnique(request.options.surfaceTechnique);
-    }
-
     RenderCompileContext compileContext{
         .assets = *asset_gpu_registry_,
         .materials = *material_cache_,
-        .surfacePipeline = face_stage_ ? face_stage_->pipelineState() : nullptr,
-        .surfaceTangentPipeline = face_stage_ && request.options.surfaceTechnique == SurfaceTechnique::SurfacePBR
-                                          ? face_stage_->tangentPipelineState()
-                                          : nullptr,
+        .surfacePipelines = face_stage_.get(),
         .edgePipeline = edge_stage_ ? edge_stage_->pipelineState() : nullptr,
         .highlightSurfacePipeline = highlight_stage_ ? highlight_stage_->surfacePipeline() : nullptr,
         .highlightSurfaceTangentPipeline = highlight_stage_ ? highlight_stage_->surfaceTangentPipeline() : nullptr,

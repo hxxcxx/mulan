@@ -79,6 +79,7 @@ ImportResult ParsedSceneLoader::load(ParsedScene&& scene, const ImportOptions& o
     MULAN_PROFILE_ZONE();
 
     report_ = {};
+    report_.warnings = std::move(scene.warnings);
     ImportResult result;
     if (scene.nodes.size() > options.maxNodeCount) {
         result.report.warnings.push_back("Scene node count exceeds configured import limit");
@@ -220,7 +221,11 @@ void ParsedSceneLoader::loadMaterials(ParsedScene& scene) {
         if (!material)
             continue;
 
+        material->setShadingModel(desc.shadingModel);
         material->setBaseColorFactor(desc.baseColorFactor);
+        material->setAmbientFactor(desc.ambientFactor);
+        material->setSpecularFactor(desc.specularFactor);
+        material->setShininess(desc.shininess);
         material->setRoughness(desc.roughness);
         material->setMetallic(desc.metallic);
         material->setBaseColorTexture(textureAssetId(desc.baseColorTexture));
@@ -235,7 +240,14 @@ void ParsedSceneLoader::loadMaterials(ParsedScene& scene) {
         material->setEmissiveStrength(desc.emissiveStrength);
         material->setOcclusionTexture(textureAssetId(desc.occlusionTexture));
         material->setOcclusionTextureSrgb(desc.occlusionTextureSrgb);
+        material->setAmbientTexture(textureAssetId(desc.ambientTexture));
+        material->setAmbientTextureSrgb(desc.ambientTextureSrgb);
+        material->setSpecularTexture(textureAssetId(desc.specularTexture));
+        material->setSpecularTextureSrgb(desc.specularTextureSrgb);
+        material->setShininessTexture(textureAssetId(desc.shininessTexture));
+        material->setOpacityTexture(textureAssetId(desc.opacityTexture));
         material->setAlphaMode(desc.alphaMode);
+        material->setAlphaCutoff(desc.alphaCutoff);
         material->setDoubleSided(desc.doubleSided);
 
         materialIds_[i] = material->id();

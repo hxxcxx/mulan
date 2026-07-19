@@ -23,14 +23,6 @@ engine::DisplayMode toDisplayMode(RenderMode mode) {
     return engine::DisplayMode::ShadedWithEdges;
 }
 
-engine::SurfaceTechnique toSurfaceTechnique(SurfaceShading shading) {
-    switch (shading) {
-    case SurfaceShading::SolidLit: return engine::SurfaceTechnique::SolidLit;
-    case SurfaceShading::SurfacePBR: return engine::SurfaceTechnique::SurfacePBR;
-    }
-    return engine::SurfaceTechnique::SolidLit;
-}
-
 engine::RenderSurfaceBinding bindSurface(RenderSurface& surface) {
     return engine::RenderSurfaceBinding{
         .swapChain = surface.swapChain(),
@@ -49,7 +41,6 @@ engine::RenderRequest buildRenderRequest(const RenderSubmission& submission) {
     request.view.width = static_cast<uint32_t>(viewState.width);
     request.view.height = static_cast<uint32_t>(viewState.height);
     request.options.displayMode = toDisplayMode(viewState.renderMode);
-    request.options.surfaceTechnique = toSurfaceTechnique(viewState.surfaceShading);
     request.options.hoveredPickId = viewState.hoveredPickId;
     request.options.selectionVisuals = viewState.selectionVisuals;
     request.options.showSurfaces = viewState.showFaces;

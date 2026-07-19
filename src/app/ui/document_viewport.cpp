@@ -208,16 +208,6 @@ void DocumentViewport::setRenderMode(mulan::view::RenderMode mode) {
     }
 }
 
-mulan::view::SurfaceShading DocumentViewport::surfaceShading() const {
-    return document_view_.surfaceShading();
-}
-
-void DocumentViewport::setSurfaceShading(mulan::view::SurfaceShading shading) {
-    if (isReady()) {
-        document_view_.setSurfaceShading(shading);
-    }
-}
-
 bool DocumentViewport::viewCubeVisible() const {
     return document_view_.viewCubeVisible();
 }

@@ -197,11 +197,43 @@ std::vector<size_t> importMaterials(const aiScene& scene, ParsedScene& parsed,
         ParsedMaterial desc;
         desc.name = materialName(*source, i);
 
+        int shadingMode = aiShadingMode_Phong;
+        if (source->Get(AI_MATKEY_SHADING_MODEL, shadingMode) == AI_SUCCESS) {
+            switch (static_cast<aiShadingMode>(shadingMode)) {
+            case aiShadingMode_NoShading: desc.shadingModel = graphics::MaterialShadingModel::Unlit; break;
+            case aiShadingMode_Flat:
+            case aiShadingMode_Gouraud: desc.shadingModel = graphics::MaterialShadingModel::Lambert; break;
+            case aiShadingMode_PBR_BRDF:
+            case aiShadingMode_CookTorrance:
+                desc.shadingModel = graphics::MaterialShadingModel::MetallicRoughness;
+                break;
+            default: desc.shadingModel = graphics::MaterialShadingModel::BlinnPhong; break;
+            }
+        } else {
+            desc.shadingModel = graphics::MaterialShadingModel::BlinnPhong;
+        }
+
         aiColor4D baseColor;
         if (aiGetMaterialColor(source, AI_MATKEY_BASE_COLOR, &baseColor) == AI_SUCCESS ||
             aiGetMaterialColor(source, AI_MATKEY_COLOR_DIFFUSE, &baseColor) == AI_SUCCESS) {
             desc.baseColorFactor = toColor(baseColor);
         }
+
+        aiColor3D ambient;
+        if (source->Get(AI_MATKEY_COLOR_AMBIENT, ambient) == AI_SUCCESS)
+            desc.ambientFactor = math::Vec3(ambient.r, ambient.g, ambient.b);
+
+        aiColor3D specular;
+        if (source->Get(AI_MATKEY_COLOR_SPECULAR, specular) == AI_SUCCESS)
+            desc.specularFactor = math::Vec3(specular.r, specular.g, specular.b);
+
+        float shininess = 32.0f;
+        if (source->Get(AI_MATKEY_SHININESS, shininess) == AI_SUCCESS)
+            desc.shininess = std::max(0.0f, shininess);
+
+        aiColor3D emissive;
+        if (source->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)
+            desc.emissiveFactor = math::Vec3(emissive.r, emissive.g, emissive.b);
 
         float roughness = 0.5f;
         if (source->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness) == AI_SUCCESS)
@@ -216,6 +248,17 @@ std::vector<size_t> importMaterials(const aiScene& scene, ParsedScene& parsed,
             desc.doubleSided = twoSided != 0;
 
         desc.alphaMode = alphaModeFromAssimp(*source);
+        float opacity = 1.0f;
+        if (source->Get(AI_MATKEY_OPACITY, opacity) == AI_SUCCESS) {
+            desc.baseColorFactor.w *= std::clamp(static_cast<double>(opacity), 0.0, 1.0);
+            if (opacity < 0.999f && desc.alphaMode == graphics::AlphaMode::Opaque)
+                desc.alphaMode = graphics::AlphaMode::Blend;
+        }
+#ifdef AI_MATKEY_GLTF_ALPHACUTOFF
+        float alphaCutoff = 0.5f;
+        if (source->Get(AI_MATKEY_GLTF_ALPHACUTOFF, alphaCutoff) == AI_SUCCESS)
+            desc.alphaCutoff = std::clamp(static_cast<double>(alphaCutoff), 0.0, 1.0);
+#endif
         desc.baseColorTextureSrgb = true;
         desc.normalTextureSrgb = false;
         desc.metallicRoughnessTextureSrgb = false;
@@ -225,8 +268,20 @@ std::vector<size_t> importMaterials(const aiScene& scene, ParsedScene& parsed,
             if (desc.baseColorTexture == SIZE_MAX)
                 desc.baseColorTexture = importTexture(scene, *source, aiTextureType_DIFFUSE, parsed, baseDirectory);
             desc.normalTexture = importTexture(scene, *source, aiTextureType_NORMALS, parsed, baseDirectory);
-            desc.metallicRoughnessTexture =
-                    importTexture(scene, *source, aiTextureType_METALNESS, parsed, baseDirectory);
+            if (source->GetTextureCount(aiTextureType_METALNESS) != 0 ||
+                source->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS) != 0) {
+                parsed.warnings.push_back("Material '" + desc.name +
+                                          "' uses separate metallic/roughness maps; packed glTF MR data is required");
+            }
+            desc.emissiveTexture = importTexture(scene, *source, aiTextureType_EMISSIVE, parsed, baseDirectory);
+            desc.occlusionTexture =
+                    importTexture(scene, *source, aiTextureType_AMBIENT_OCCLUSION, parsed, baseDirectory);
+            desc.ambientTexture = importTexture(scene, *source, aiTextureType_AMBIENT, parsed, baseDirectory);
+            desc.specularTexture = importTexture(scene, *source, aiTextureType_SPECULAR, parsed, baseDirectory);
+            desc.shininessTexture = importTexture(scene, *source, aiTextureType_SHININESS, parsed, baseDirectory);
+            desc.opacityTexture = importTexture(scene, *source, aiTextureType_OPACITY, parsed, baseDirectory);
+            if (desc.opacityTexture != SIZE_MAX && desc.alphaMode == graphics::AlphaMode::Opaque)
+                desc.alphaMode = graphics::AlphaMode::Blend;
         }
 
         size_t idx = parsed.materials.size();

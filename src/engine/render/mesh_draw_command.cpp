@@ -34,15 +34,25 @@ void MeshDrawCommand::executePrepared(CommandList& cmd, BindGroup& frameBg, cons
 
     cmd.setPipelineState(activePipeline);
 
-    // 纹理 + sampler：仅当 defaultWhite 非 null（即该 pass 的 PSO 声明了纹理 binding）时才绑定。
-    // 空纹理由 default* 退化：albedo→白, normal→(0,0,1)平面, mr→(1,1,0), emissive→黑, ao→白。
-    if (defaultWhite) {
+    // 材质 profile 与 PSO layout 一致；只更新该 family 声明的 binding。
+    if (materialBindings != MaterialBindingProfile::None && defaultWhite) {
         frameBg.updateTexture(3, albedoTex ? albedoTex : defaultWhite);
-        frameBg.updateTexture(4, normalTex ? normalTex : (defaultNormal ? defaultNormal : defaultWhite));
-        frameBg.updateTexture(5, mrTex ? mrTex : (defaultMetallicRoughness ? defaultMetallicRoughness : defaultWhite));
-        frameBg.updateTexture(6, emissiveTex ? emissiveTex : (defaultBlack ? defaultBlack : defaultWhite));
-        frameBg.updateTexture(7, aoTex ? aoTex : defaultWhite);
         frameBg.updateSampler(8, sampler ? sampler : defaultSampler);
+        frameBg.updateTexture(13, opacityTex ? opacityTex : defaultWhite);
+    }
+    if ((materialBindings == MaterialBindingProfile::Legacy || materialBindings == MaterialBindingProfile::PBR) &&
+        defaultWhite) {
+        frameBg.updateTexture(4, normalTex ? normalTex : (defaultNormal ? defaultNormal : defaultWhite));
+        frameBg.updateTexture(6, emissiveTex ? emissiveTex : (defaultBlack ? defaultBlack : defaultWhite));
+    }
+    if (materialBindings == MaterialBindingProfile::Legacy && defaultWhite) {
+        frameBg.updateTexture(5, specularTex ? specularTex : defaultWhite);
+        frameBg.updateTexture(7, shininessTex ? shininessTex : defaultWhite);
+        frameBg.updateTexture(12, ambientTex ? ambientTex : defaultWhite);
+    }
+    if (materialBindings == MaterialBindingProfile::PBR && defaultWhite) {
+        frameBg.updateTexture(5, mrTex ? mrTex : (defaultMetallicRoughness ? defaultMetallicRoughness : defaultWhite));
+        frameBg.updateTexture(7, aoTex ? aoTex : defaultWhite);
     }
 
     const std::array uniforms{ DynamicUniformBinding{ 0, sceneUniform }, DynamicUniformBinding{ 1, objectUniform },

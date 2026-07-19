@@ -17,7 +17,10 @@
 namespace mulan::engine {
 
 enum class RenderTechnique : uint8_t {
-    SolidLit,
+    SurfaceUnlit,
+    SurfaceUnlitTangent,
+    SurfaceLegacy,
+    SurfaceLegacyTangent,
     SurfacePBR,
     SurfacePBRTangent,
     EdgeLine,
@@ -26,6 +29,13 @@ enum class RenderTechnique : uint8_t {
     HighlightEdge,
     ViewCube,
     ViewCubeLine,
+};
+
+enum class MaterialBindingProfile : uint8_t {
+    None,
+    Unlit,
+    Legacy,
+    PBR,
 };
 
 struct ShaderProgramId {
@@ -44,7 +54,7 @@ struct TechniqueDesc {
     bool depthTest = true;
     bool depthWrite = true;
     CompareFunc depthFunc = CompareFunc::LessEqual;
-    bool sampleTextures = false;
+    MaterialBindingProfile materialBindings = MaterialBindingProfile::None;
     /// 面技术默认启用背面剔除；线、透明高亮与 UI 保持 None。
     CullMode cullMode = CullMode::None;
     BlendDesc blend;

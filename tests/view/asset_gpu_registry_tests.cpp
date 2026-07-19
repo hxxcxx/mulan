@@ -544,7 +544,7 @@ TEST(DeviceResourceServiceTests, PipelineLibraryUsesTheCompleteTargetSignature) 
     DeviceResourceService resources(device);
     ASSERT_TRUE(resources.init());
     DevicePipelineKey key{
-        .technique = RenderTechnique::SolidLit,
+        .technique = RenderTechnique::SurfaceLegacy,
         .colorFormat = TextureFormat::BGRA8_UNorm,
         .depthFormat = TextureFormat::D24_UNorm_S8_UInt,
         .sampleCount = 1,
@@ -564,7 +564,7 @@ TEST(DeviceResourceServiceTests, PipelineLibraryUsesTheCompleteTargetSignature) 
     EXPECT_EQ(device.pipelineCreateCount(), 2u);
 
     key.objectBindingMode = ObjectBindingMode::Single;
-    EXPECT_EQ(first->desc().cullMode, CullMode::None);
+    EXPECT_EQ(first->desc().cullMode, CullMode::Back);
     key.sampleCount = 4;
     PipelineState* multisampled = resources.pipelines().acquire(key);
     ASSERT_NE(multisampled, nullptr);
@@ -575,6 +575,45 @@ TEST(DeviceResourceServiceTests, PipelineLibraryUsesTheCompleteTargetSignature) 
     EXPECT_NE(depthless, multisampled);
     EXPECT_EQ(device.pipelineCreateCount(), 4u);
     EXPECT_EQ(resources.stats().pipelineCount, 4u);
+}
+
+TEST(DeviceResourceServiceTests, PipelineLibraryHonorsMaterialAlphaSidednessAndWinding) {
+    RegistryTestDevice device;
+    DeviceResourceService resources(device);
+    ASSERT_TRUE(resources.init());
+    const DevicePipelineKey base{
+        .technique = RenderTechnique::SurfaceLegacy,
+        .colorFormat = TextureFormat::BGRA8_UNorm,
+        .depthFormat = TextureFormat::D24_UNorm_S8_UInt,
+        .sampleCount = 1,
+        .hasDepth = true,
+    };
+
+    PipelineState* opaque = resources.pipelines().acquire(base);
+    ASSERT_NE(opaque, nullptr);
+    EXPECT_EQ(opaque->desc().cullMode, CullMode::Back);
+    EXPECT_EQ(opaque->desc().frontFace, FrontFace::CounterClockwise);
+    EXPECT_TRUE(opaque->desc().depthStencil.depthWrite);
+    EXPECT_FALSE(opaque->desc().blend.renderTargets[0].blendEnable);
+
+    auto doubleSidedKey = base;
+    doubleSidedKey.doubleSided = true;
+    PipelineState* doubleSided = resources.pipelines().acquire(doubleSidedKey);
+    ASSERT_NE(doubleSided, nullptr);
+    EXPECT_EQ(doubleSided->desc().cullMode, CullMode::None);
+
+    auto reversedKey = base;
+    reversedKey.reverseWinding = true;
+    PipelineState* reversed = resources.pipelines().acquire(reversedKey);
+    ASSERT_NE(reversed, nullptr);
+    EXPECT_EQ(reversed->desc().frontFace, FrontFace::Clockwise);
+
+    auto blendKey = base;
+    blendKey.alphaMode = graphics::AlphaMode::Blend;
+    PipelineState* blended = resources.pipelines().acquire(blendKey);
+    ASSERT_NE(blended, nullptr);
+    EXPECT_FALSE(blended->desc().depthStencil.depthWrite);
+    EXPECT_TRUE(blended->desc().blend.renderTargets[0].blendEnable);
 }
 
 TEST(DeviceResourceServiceTests, TextStageIsSharedByCompleteTargetSignature) {

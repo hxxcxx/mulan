@@ -84,8 +84,6 @@ public:
 
     mulan::view::RenderMode renderMode() const;
     void setRenderMode(mulan::view::RenderMode mode);
-    mulan::view::SurfaceShading surfaceShading() const;
-    void setSurfaceShading(mulan::view::SurfaceShading shading);
     bool viewCubeVisible() const;
     void setViewCubeVisible(bool visible);
     /// 使用当前文档视图相机执行截图，调用方不能注入陈旧相机快照。

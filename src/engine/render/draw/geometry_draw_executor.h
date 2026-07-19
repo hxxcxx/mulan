@@ -51,6 +51,7 @@ public:
 
     bool init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth, uint32_t sampleCount);
     void execute(const DrawExecutionContext& ctx);
+    void execute(const DrawExecutionContext& ctx, std::span<const MeshDrawCommand> commands);
 
     void setDrawCommands(std::span<const MeshDrawCommand> cmds) { commands_ = cmds; }
 

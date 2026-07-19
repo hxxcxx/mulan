@@ -126,6 +126,10 @@ void collectMaterialTextureResources(TextureResourceCandidateMap& resources,
     collectTextureResource(resources, material.metallicRoughnessTexture);
     collectTextureResource(resources, material.emissiveTexture);
     collectTextureResource(resources, material.ambientOcclusionTexture);
+    collectTextureResource(resources, material.ambientTexture);
+    collectTextureResource(resources, material.specularTexture);
+    collectTextureResource(resources, material.shininessTexture);
+    collectTextureResource(resources, material.opacityTexture);
 }
 
 engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::AssetId materialId,
@@ -179,14 +183,19 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
             engine::makeRenderResourceKey(assetDomain, materialId.value, engine::RenderResourceKind::Material);
     desc.material = engine::Material::defaultPBR();
     desc.material.name = material->name();
+    desc.material.shadingModel = material->shadingModel();
     const auto& color = material->baseColorFactor();
     desc.material.baseColor = { color.x, color.y, color.z };
     desc.material.alpha = color.w;
+    desc.material.ambient = material->ambientFactor();
+    desc.material.specular = material->specularFactor();
+    desc.material.shininess = material->shininess();
     desc.material.metallic = material->metallic();
     desc.material.roughness = material->roughness();
     desc.material.emissive = material->emissiveFactor();
     desc.material.emissiveStrength = material->emissiveStrength();
     desc.material.alphaMode = material->alphaMode();
+    desc.material.alphaCutoff = material->alphaCutoff();
     desc.material.doubleSided = material->doubleSided();
     desc.baseColorTexture = textureDesc(assets, materialId, &asset::MaterialAsset::baseColorTexture,
                                         &asset::MaterialAsset::baseColorTextureSrgb, assetDomain, revisions);
@@ -199,6 +208,14 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
                                        &asset::MaterialAsset::emissiveTextureSrgb, assetDomain, revisions);
     desc.ambientOcclusionTexture = textureDesc(assets, materialId, &asset::MaterialAsset::occlusionTexture,
                                                &asset::MaterialAsset::occlusionTextureSrgb, assetDomain, revisions);
+    desc.ambientTexture = textureDesc(assets, materialId, &asset::MaterialAsset::ambientTexture,
+                                      &asset::MaterialAsset::ambientTextureSrgb, assetDomain, revisions);
+    desc.specularTexture = textureDesc(assets, materialId, &asset::MaterialAsset::specularTexture,
+                                       &asset::MaterialAsset::specularTextureSrgb, assetDomain, revisions);
+    desc.shininessTexture = textureDesc(assets, materialId, &asset::MaterialAsset::shininessTexture,
+                                        &asset::MaterialAsset::shininessTextureSrgb, assetDomain, revisions);
+    desc.opacityTexture = textureDesc(assets, materialId, &asset::MaterialAsset::opacityTexture,
+                                      &asset::MaterialAsset::opacityTextureSrgb, assetDomain, revisions);
 
     // 点亮 Material::textureSlots —— MaterialGPU::fromMaterial 据此生成 textureFlags 位掩码，
     // shader 用 (flags & TF_*) 决定是否采样。未点亮则纹理虽绑定到 descriptor 但被跳过。
@@ -217,6 +234,14 @@ engine::RenderMaterialDesc materialDesc(const asset::AssetLibrary& assets, asset
         desc.material.textureSlots |= engine::TextureSlotFlags::HasEmissive;
     if (hasTexture(desc.ambientOcclusionTexture))
         desc.material.textureSlots |= engine::TextureSlotFlags::HasAO;
+    if (hasTexture(desc.ambientTexture))
+        desc.material.textureSlots |= engine::TextureSlotFlags::HasAmbient;
+    if (hasTexture(desc.specularTexture))
+        desc.material.textureSlots |= engine::TextureSlotFlags::HasSpecular;
+    if (hasTexture(desc.shininessTexture))
+        desc.material.textureSlots |= engine::TextureSlotFlags::HasShininess;
+    if (hasTexture(desc.opacityTexture))
+        desc.material.textureSlots |= engine::TextureSlotFlags::HasOpacity;
 
     return desc;
 }

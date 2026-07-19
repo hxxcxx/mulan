@@ -13,10 +13,6 @@ bool finitePoint(const math::Point3& point) {
     return std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z);
 }
 
-bool finiteVector(const math::Vec3& vector) {
-    return std::isfinite(vector.x) && std::isfinite(vector.y) && std::isfinite(vector.z);
-}
-
 bool finiteQuaternion(const math::Quat& rotation) {
     return std::isfinite(rotation.w) && std::isfinite(rotation.x) && std::isfinite(rotation.y) &&
            std::isfinite(rotation.z) && rotation.normSq() > std::numeric_limits<double>::epsilon();
@@ -110,8 +106,8 @@ void Camera::setClipPlanes(double nearZ, double farZ) {
     far_z_ = farZ;
 }
 
-void Camera::setTarget(const math::Vec3& target) {
-    if (!finiteVector(target)) {
+void Camera::setTarget(const math::Point3& target) {
+    if (!finitePoint(target)) {
         return;
     }
     target_ = target;
@@ -283,7 +279,7 @@ void Camera::fitToSphere(const math::Sphere3& sphere, double padding) {
         return;
     }
 
-    target_ = sphere.center.asVec();
+    target_ = sphere.center;
     pan_offset_ = { 0, 0, 0 };  // 重新适配时清除平移偏移
     ortho_size_ = nextOrthoSize;
     distance_ = nextDistance;
@@ -296,7 +292,7 @@ void Camera::fitClipPlanesToBox(const math::AABB3& box, double padding, ClipPlan
         return;
     }
 
-    const math::Vec3 eye = eyePosition();
+    const math::Point3 eye = eyePosition();
     const math::Vec3 fwd = forward();
     double minDepth = std::numeric_limits<double>::max();
     double maxDepth = -std::numeric_limits<double>::max();
@@ -304,7 +300,7 @@ void Camera::fitClipPlanesToBox(const math::AABB3& box, double padding, ClipPlan
     for (int i = 0; i < 8; ++i) {
         const math::Point3 corner((i & 1) ? box.max.x : box.min.x, (i & 2) ? box.max.y : box.min.y,
                                   (i & 4) ? box.max.z : box.min.z);
-        const double depth = (corner.asVec() - eye).dot(fwd);
+        const double depth = (corner - eye).dot(fwd);
         minDepth = std::min(minDepth, depth);
         maxDepth = std::max(maxDepth, depth);
     }
@@ -331,7 +327,7 @@ void Camera::fitClipPlanesToSphere(const math::Sphere3& sphere, double padding, 
 
     // 裁剪面垂直于视线，必须使用沿前向的投影深度。欧氏距离会把离轴小图元
     // 误判得更远，使 near 越过图元并造成整个场景突然消失。
-    double centerDepth = (sphere.center.asVec() - eyePosition()).dot(forward());
+    double centerDepth = (sphere.center - eyePosition()).dot(forward());
     const double radius = std::max(sphere.radius, kMinOrbitDistance);
     const double margin = std::max(radius * (std::max(1.0, padding) - 1.0), kMinClipSpan);
     if (!std::isfinite(centerDepth) || !std::isfinite(radius) || !std::isfinite(margin)) {
@@ -399,7 +395,7 @@ void Camera::setZoomSpeed(double speed) {
 // 矩阵计算
 // ============================================================
 
-math::Vec3 Camera::eyePosition() const {
+math::Point3 Camera::eyePosition() const {
     return target_ - active_->forward() * distance_;
 }
 
@@ -407,7 +403,7 @@ math::Mat4 Camera::viewMatrix() const {
     math::Vec3 r = active_->right();
     math::Vec3 u = active_->up();
     math::Vec3 fwd = active_->forward();
-    math::Vec3 eye = target_ - fwd * distance_;
+    const math::Vec3 eye = (target_ - fwd * distance_).asVec();
 
     math::Mat4 v(1.0);
     v[0][0] = r.x;

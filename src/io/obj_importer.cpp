@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -128,6 +129,46 @@ std::string rapidObjErrorMessage(const rapidobj::Error& error) {
     return message;
 }
 
+Result<std::unordered_set<std::string>> findPbrMaterialDeclarations(
+        const std::optional<std::filesystem::path>& materialPath) {
+    std::unordered_set<std::string> materials;
+    if (!materialPath)
+        return materials;
+
+    std::ifstream stream(*materialPath, std::ios::binary);
+    if (!stream)
+        return std::unexpected(Error::make(ErrorCode::Io, "Failed to open OBJ material library"));
+
+    std::array<char, kRapidObjMaxLineLength + 1u> lineBuffer{};
+    std::string currentMaterial;
+    while (stream.getline(lineBuffer.data(), static_cast<std::streamsize>(lineBuffer.size()))) {
+        std::string_view line(lineBuffer.data(), static_cast<size_t>(stream.gcount()));
+        if (!line.empty() && line.back() == '\0')
+            line.remove_suffix(1);
+        line = trim(line);
+        if (line.empty() || line.front() == '#')
+            continue;
+
+        const size_t separator = line.find_first_of(" \t");
+        const std::string_view directive = line.substr(0, separator);
+        const std::string_view value =
+                separator == std::string_view::npos ? std::string_view{} : trim(line.substr(separator));
+        if (directive == "newmtl") {
+            currentMaterial.assign(value);
+        } else if (!currentMaterial.empty() &&
+                   (directive == "Pr" || directive == "Pm" || directive == "Ps" || directive == "Pc" ||
+                    directive == "Pcr" || directive == "aniso" || directive == "anisor" || directive == "map_Pr" ||
+                    directive == "map_Pm" || directive == "map_Ps")) {
+            materials.insert(currentMaterial);
+        }
+    }
+    if (stream.bad())
+        return std::unexpected(Error::make(ErrorCode::Io, "Failed while scanning OBJ material library"));
+    if (stream.fail() && !stream.eof())
+        return std::unexpected(Error::make(ErrorCode::InvalidArg, "OBJ material library contains an overlong line"));
+    return materials;
+}
+
 bool addByteCount(size_t count, size_t elementSize, uint64_t& total) {
     if (count > std::numeric_limits<uint64_t>::max() / elementSize)
         return false;
@@ -225,9 +266,54 @@ double clampUnit(float value, double fallback = 0.0) {
     return static_cast<double>(std::clamp(value, 0.0f, 1.0f));
 }
 
+bool hasNonDefaultTextureOptions(const rapidobj::TextureOption& option) {
+    return option.type != rapidobj::TextureType::None || option.sharpness != 1.0f || option.brightness != 0.0f ||
+           option.contrast != 1.0f || option.origin_offset != rapidobj::Float3{ 0.0f, 0.0f, 0.0f } ||
+           option.scale != rapidobj::Float3{ 1.0f, 1.0f, 1.0f } ||
+           option.turbulence != rapidobj::Float3{ 0.0f, 0.0f, 0.0f } || option.texture_resolution != -1 ||
+           option.clamp || option.imfchan != 'm' || !option.blendu || !option.blendv || option.bump_multiplier != 1.0f;
+}
+
+bool materialUsesTextureOptions(const rapidobj::Material& material) {
+    const std::array<std::pair<std::string_view, const rapidobj::TextureOption*>, 13> textures = {
+        std::pair{ std::string_view(material.ambient_texname), &material.ambient_texopt },
+        std::pair{ std::string_view(material.diffuse_texname), &material.diffuse_texopt },
+        std::pair{ std::string_view(material.specular_texname), &material.specular_texopt },
+        std::pair{ std::string_view(material.specular_highlight_texname), &material.specular_highlight_texopt },
+        std::pair{ std::string_view(material.bump_texname), &material.bump_texopt },
+        std::pair{ std::string_view(material.displacement_texname), &material.displacement_texopt },
+        std::pair{ std::string_view(material.alpha_texname), &material.alpha_texopt },
+        std::pair{ std::string_view(material.reflection_texname), &material.reflection_texopt },
+        std::pair{ std::string_view(material.roughness_texname), &material.roughness_texopt },
+        std::pair{ std::string_view(material.metallic_texname), &material.metallic_texopt },
+        std::pair{ std::string_view(material.sheen_texname), &material.sheen_texopt },
+        std::pair{ std::string_view(material.emissive_texname), &material.emissive_texopt },
+        std::pair{ std::string_view(material.normal_texname), &material.normal_texopt },
+    };
+    return std::ranges::any_of(textures, [](const auto& texture) {
+        return !texture.first.empty() && hasNonDefaultTextureOptions(*texture.second);
+    });
+}
+
+graphics::MaterialShadingModel shadingModel(const rapidobj::Material& material, bool hasPbrDeclaration,
+                                            ParsedScene& scene) {
+    if (hasPbrDeclaration)
+        return graphics::MaterialShadingModel::MetallicRoughness;
+    switch (material.illum) {
+    case 0: return graphics::MaterialShadingModel::Unlit;
+    case 1: return graphics::MaterialShadingModel::Lambert;
+    case 2: return graphics::MaterialShadingModel::BlinnPhong;
+    default:
+        scene.warnings.push_back("OBJ material '" + material.name + "' uses unsupported illum " +
+                                 std::to_string(material.illum) + "; falling back to Blinn-Phong");
+        return graphics::MaterialShadingModel::BlinnPhong;
+    }
+}
+
 Result<std::vector<size_t>> importMaterials(const rapidobj::Result& source, ParsedScene& scene,
                                             const std::filesystem::path& modelDirectory,
                                             const std::filesystem::path& materialDirectory,
+                                            const std::unordered_set<std::string>& pbrMaterials,
                                             const ImportOptions& options) {
     std::vector<size_t> indices(source.materials.size(), SIZE_MAX);
     if (!options.importMaterials)
@@ -238,8 +324,14 @@ Result<std::vector<size_t>> importMaterials(const rapidobj::Result& source, Pars
         const rapidobj::Material& material = source.materials[i];
         ParsedMaterial parsed;
         parsed.name = material.name.empty() ? "Material_" + std::to_string(i) : material.name;
+        parsed.shadingModel = shadingModel(material, pbrMaterials.contains(material.name), scene);
         parsed.baseColorFactor = math::Vec4(clampUnit(material.diffuse[0]), clampUnit(material.diffuse[1]),
                                             clampUnit(material.diffuse[2]), clampUnit(material.dissolve, 1.0));
+        parsed.ambientFactor = math::Vec3(clampUnit(material.ambient[0]), clampUnit(material.ambient[1]),
+                                          clampUnit(material.ambient[2]));
+        parsed.specularFactor = math::Vec3(clampUnit(material.specular[0]), clampUnit(material.specular[1]),
+                                           clampUnit(material.specular[2]));
+        parsed.shininess = std::isfinite(material.shininess) ? std::max(0.0f, material.shininess) : 32.0;
         parsed.roughness = material.roughness > 0.0f ? clampUnit(material.roughness) : 0.5;
         parsed.metallic = clampUnit(material.metallic);
         parsed.emissiveFactor = math::Vec3(clampUnit(material.emission[0]), clampUnit(material.emission[1]),
@@ -257,10 +349,54 @@ Result<std::vector<size_t>> importMaterials(const rapidobj::Result& source, Pars
                 return std::unexpected(normal.error());
             parsed.normalTexture = *normal;
 
+            if (parsed.normalTexture == SIZE_MAX) {
+                normal = textures.add(material.bump_texname);
+                if (!normal)
+                    return std::unexpected(normal.error());
+                parsed.normalTexture = *normal;
+            }
+
             auto emissive = textures.add(material.emissive_texname);
             if (!emissive)
                 return std::unexpected(emissive.error());
             parsed.emissiveTexture = *emissive;
+
+            auto ambient = textures.add(material.ambient_texname);
+            if (!ambient)
+                return std::unexpected(ambient.error());
+            parsed.ambientTexture = *ambient;
+
+            auto specular = textures.add(material.specular_texname);
+            if (!specular)
+                return std::unexpected(specular.error());
+            parsed.specularTexture = *specular;
+
+            auto shininess = textures.add(material.specular_highlight_texname);
+            if (!shininess)
+                return std::unexpected(shininess.error());
+            parsed.shininessTexture = *shininess;
+
+            auto opacity = textures.add(material.alpha_texname);
+            if (!opacity)
+                return std::unexpected(opacity.error());
+            parsed.opacityTexture = *opacity;
+            if (parsed.opacityTexture != SIZE_MAX)
+                parsed.alphaMode = graphics::AlphaMode::Blend;
+
+            if (!material.roughness_texname.empty() || !material.metallic_texname.empty()) {
+                scene.warnings.push_back("OBJ material '" + parsed.name +
+                                         "' uses separate PBR maps; only scalar Pr/Pm values are currently imported");
+            }
+        }
+
+        if (!material.displacement_texname.empty() || !material.reflection_texname.empty() ||
+            !material.sheen_texname.empty()) {
+            scene.warnings.push_back("OBJ material '" + parsed.name +
+                                     "' contains unsupported displacement, reflection, or sheen properties");
+        }
+        if (materialUsesTextureOptions(material)) {
+            scene.warnings.push_back("OBJ material '" + parsed.name +
+                                     "' contains texture options that are not represented by the material model");
         }
 
         indices[i] = scene.materials.size();
@@ -625,7 +761,11 @@ Result<ParsedScene> ObjImporter::parse(const std::string& path, const ImportOpti
     scene.unitScale = options.unitScale > 0.0 ? options.unitScale : 1.0;
     const std::filesystem::path materialDirectory =
             materialPath ? materialPath->parent_path() : sourcePath->parent_path();
-    auto materialIndices = importMaterials(source, scene, sourcePath->parent_path(), materialDirectory, options);
+    auto pbrMaterials = findPbrMaterialDeclarations(materialPath);
+    if (!pbrMaterials)
+        return std::unexpected(pbrMaterials.error());
+    auto materialIndices =
+            importMaterials(source, scene, sourcePath->parent_path(), materialDirectory, *pbrMaterials, options);
     if (!materialIndices)
         return std::unexpected(materialIndices.error());
     if (auto imported = importMeshes(source, scene, *materialIndices, *sourcePath, options); !imported)

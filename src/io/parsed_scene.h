@@ -47,10 +47,14 @@ struct ParsedTexture {
     int height = 0;
 };
 
-/// 材质:PBR 参数 + 5 个纹理槽(各带 sRGB 标志),纹理用 ParsedScene.textures 索引。
+/// 中立材质语义。PBR 与传统 MTL 参数共用此结构，纹理使用 ParsedScene.textures 索引。
 struct ParsedMaterial {
     std::string name;
+    graphics::MaterialShadingModel shadingModel = graphics::MaterialShadingModel::MetallicRoughness;
     math::Vec4 baseColorFactor{ 0.8, 0.8, 0.8, 1.0 };
+    math::Vec3 ambientFactor{ 0.0, 0.0, 0.0 };
+    math::Vec3 specularFactor{ 0.5, 0.5, 0.5 };
+    double shininess = 32.0;
     double roughness = 0.5;
     double metallic = 0.0;
     size_t baseColorTexture = SIZE_MAX;
@@ -63,9 +67,18 @@ struct ParsedMaterial {
     bool emissiveTextureSrgb = true;
     size_t occlusionTexture = SIZE_MAX;
     bool occlusionTextureSrgb = false;
+    size_t ambientTexture = SIZE_MAX;
+    bool ambientTextureSrgb = true;
+    size_t specularTexture = SIZE_MAX;
+    bool specularTextureSrgb = true;
+    size_t shininessTexture = SIZE_MAX;
+    bool shininessTextureSrgb = false;
+    size_t opacityTexture = SIZE_MAX;
+    bool opacityTextureSrgb = false;
     math::Vec3 emissiveFactor{ 0.0, 0.0, 0.0 };
     double emissiveStrength = 1.0;
     graphics::AlphaMode alphaMode = graphics::AlphaMode::Opaque;
+    double alphaCutoff = 0.5;
     bool doubleSided = false;
 };
 
@@ -119,6 +132,9 @@ struct ParsedNode {
 
 struct ParsedScene {
     double unitScale = 1.0;
+
+    /// importer 产生的非致命诊断，由 ParsedSceneLoader 原样并入 ImportReport。
+    std::vector<std::string> warnings;
 
     std::vector<ParsedTexture> textures;
     std::vector<ParsedMaterial> materials;

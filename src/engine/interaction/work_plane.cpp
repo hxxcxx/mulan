@@ -17,7 +17,7 @@ WorkPlane WorkPlane::worldYZ() {
 }
 
 WorkPlane WorkPlane::fromView(const Camera& camera) {
-    return WorkPlane(math::Plane3::fromPointNormal(math::Point3(camera.target()), -camera.forward()));
+    return WorkPlane(math::Plane3::fromPointNormal(camera.target(), -camera.forward()));
 }
 
 std::optional<math::Point3> WorkPlane::intersectScreen(const Camera& camera, double screenX, double screenY) const {

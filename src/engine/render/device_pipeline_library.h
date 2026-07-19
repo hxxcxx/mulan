@@ -10,6 +10,8 @@
 #include "technique/render_technique.h"
 #include "../rhi/texture.h"
 
+#include <mulan/graphics/material_types.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -27,12 +29,15 @@ enum class ObjectBindingMode : uint8_t {
 };
 
 struct DevicePipelineKey {
-    RenderTechnique technique = RenderTechnique::SolidLit;
+    RenderTechnique technique = RenderTechnique::SurfaceLegacy;
     TextureFormat colorFormat = TextureFormat::Unknown;
     TextureFormat depthFormat = TextureFormat::Unknown;
     uint32_t sampleCount = 1;
     bool hasDepth = true;
     ObjectBindingMode objectBindingMode = ObjectBindingMode::Single;
+    graphics::AlphaMode alphaMode = graphics::AlphaMode::Opaque;
+    bool doubleSided = false;
+    bool reverseWinding = false;
 
     bool operator==(const DevicePipelineKey&) const = default;
 };

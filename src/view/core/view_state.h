@@ -15,19 +15,17 @@
 namespace mulan::view {
 
 enum class RenderMode { Shaded, ShadedWithEdges, Wireframe };
-enum class SurfaceShading { SolidLit, SurfacePBR };
 
 struct ViewState {
     math::Mat4 viewMatrix = math::Mat4(1.0);
     math::Mat4 projectionMatrix = math::Mat4(1.0);
-    math::Vec3 cameraPosition = math::Vec3(0.0f);
+    math::Point3 cameraPosition = math::Point3::origin();
 
     int width = 0;
     int height = 0;
     float dpiScale = 1.0f;
 
     RenderMode renderMode = RenderMode::ShadedWithEdges;
-    SurfaceShading surfaceShading = SurfaceShading::SolidLit;
     engine::PickId hoveredPickId;
     engine::SelectionVisualState selectionVisuals;
     bool showFaces = true;

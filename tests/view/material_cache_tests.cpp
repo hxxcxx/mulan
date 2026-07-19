@@ -16,6 +16,15 @@
 namespace mulan::engine {
 namespace {
 
+TEST(MaterialCacheTests, DefaultFallbackIsAnUnmaterializedDoubleSidedSurface) {
+    MaterialCache cache;
+    const Material* fallback = cache.find(0);
+    ASSERT_NE(fallback, nullptr);
+    EXPECT_EQ(fallback->name, "DefaultSurface");
+    EXPECT_EQ(fallback->shadingModel, MaterialShadingModel::Lambert);
+    EXPECT_TRUE(fallback->doubleSided);
+}
+
 TEST(MaterialCacheTests, RevisionChangesOnlyForRealRegistrationAndUpdates) {
     MaterialCache cache;
     EXPECT_NE(cache.revision(), 0u);
@@ -78,7 +87,7 @@ TEST(MaterialCacheTests, RevisionChangesOnlyForSuccessfulRemoveAndNonEmptyClear)
     const uint64_t beforeClear = cache.revision();
     const uint64_t layoutBeforeClear = cache.layoutRevision();
     cache.clear();
-    EXPECT_EQ(cache.size(), 3u);
+    EXPECT_EQ(cache.size(), MaterialCache::kBuiltinMaterialCount);
     EXPECT_EQ(cache.revision(), beforeClear + 1);
     EXPECT_EQ(cache.layoutRevision(), layoutBeforeClear + 1);
 
@@ -101,7 +110,7 @@ TEST(MaterialCacheTests, AcceptsMoreMaterialsThanLegacy256Limit) {
     }
 
     EXPECT_GT(cache.size(), 256u);
-    EXPECT_EQ(cache.size(), kAddedMaterialCount + 3u);
+    EXPECT_EQ(cache.size(), kAddedMaterialCount + MaterialCache::kBuiltinMaterialCount);
     EXPECT_NE(cache.find(lastHandle), nullptr);
     EXPECT_NE(kInvalidMaterialHandle, MaterialHandle{ 0 });
 }
@@ -128,17 +137,19 @@ TEST(MaterialCacheTests, ClearDropsAssetDomainMaterialsAndPreservesBuiltins) {
     MaterialCache cache;
     ASSERT_NE(cache.registerMaterial("render-material:1", Material::defaultPBR()), kInvalidMaterialHandle);
     ASSERT_NE(cache.registerMaterial("render-material:2", Material::defaultPBR()), kInvalidMaterialHandle);
-    ASSERT_EQ(cache.size(), 5u);
+    ASSERT_EQ(cache.size(), MaterialCache::kBuiltinMaterialCount + 2u);
 
     cache.clear();
 
-    EXPECT_EQ(cache.size(), 3u);
+    EXPECT_EQ(cache.size(), MaterialCache::kBuiltinMaterialCount);
+    EXPECT_NE(cache.findByName("DefaultSurface"), nullptr);
     EXPECT_NE(cache.findByName("DefaultPBR"), nullptr);
     EXPECT_NE(cache.findByName("DefaultPhong"), nullptr);
     EXPECT_NE(cache.findByName("Wireframe"), nullptr);
     EXPECT_EQ(cache.findByName("render-material:1"), nullptr);
     EXPECT_EQ(cache.findByName("render-material:2"), nullptr);
-    EXPECT_EQ(cache.registerMaterial("render-material:1", Material::defaultPBR()), MaterialHandle{ 3 });
+    EXPECT_EQ(cache.registerMaterial("render-material:1", Material::defaultPBR()),
+              MaterialHandle{ MaterialCache::kBuiltinMaterialCount });
 }
 
 }  // namespace

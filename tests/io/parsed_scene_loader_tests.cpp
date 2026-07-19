@@ -82,6 +82,7 @@ TEST(ParsedSceneLoaderTests, MovesEmbeddedTextureAndMeshIntoDocumentWithoutChang
     });
     scene.materials.push_back(ParsedMaterial{
             .name = "Material",
+            .shadingModel = graphics::MaterialShadingModel::Lambert,
             .baseColorTexture = 0,
     });
 
@@ -129,6 +130,7 @@ TEST(ParsedSceneLoaderTests, MovesEmbeddedTextureAndMeshIntoDocumentWithoutChang
     EXPECT_EQ(texture->height(), 2);
 
     ASSERT_NE(material, nullptr);
+    EXPECT_EQ(material->shadingModel(), graphics::MaterialShadingModel::Lambert);
     ASSERT_NE(mesh, nullptr);
     ASSERT_EQ(mesh->primitiveCount(), 1u);
     const auto& primitive = mesh->primitives().front();
@@ -140,6 +142,19 @@ TEST(ParsedSceneLoaderTests, MovesEmbeddedTextureAndMeshIntoDocumentWithoutChang
     EXPECT_DOUBLE_EQ(primitive.mesh.bounds.min.y, expectedBounds.min.y);
     EXPECT_DOUBLE_EQ(primitive.mesh.bounds.max.x, expectedBounds.max.x);
     EXPECT_DOUBLE_EQ(primitive.mesh.bounds.max.y, expectedBounds.max.y);
+}
+
+TEST(ParsedSceneLoaderTests, PreservesImporterWarningsInTheFinalReport) {
+    ParsedScene scene;
+    scene.warnings.push_back("Unsupported material model was downgraded");
+    Document document("LoaderWarningTest");
+    core::ThreadPool workerPool(1);
+    ParsedSceneLoader loader(document, workerPool);
+
+    const ImportResult result = loader.load(std::move(scene));
+
+    ASSERT_EQ(result.report.warnings.size(), 1u);
+    EXPECT_EQ(result.report.warnings.front(), "Unsupported material model was downgraded");
 }
 
 TEST(ParsedSceneLoaderTests, ReadsExternalTextureOnceAndKeepsItsEncodedSource) {

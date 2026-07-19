@@ -47,12 +47,16 @@ inline constexpr RenderResourceKey defaultRenderMaterialResourceKey() {
 
 struct RenderMaterialDesc {
     RenderResourceKey resourceKey;
-    Material material = Material::defaultPBR();
+    Material material = Material::defaultSurface();
     RenderTextureDesc baseColorTexture;
     RenderTextureDesc normalTexture;
     RenderTextureDesc metallicRoughnessTexture;
     RenderTextureDesc emissiveTexture;
     RenderTextureDesc ambientOcclusionTexture;
+    RenderTextureDesc ambientTexture;
+    RenderTextureDesc specularTexture;
+    RenderTextureDesc shininessTexture;
+    RenderTextureDesc opacityTexture;
 };
 
 struct RenderGeometryDesc {

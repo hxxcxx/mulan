@@ -4,12 +4,14 @@
 #include "../frontend/render_contract.h"
 #include "../material/material_cache.h"
 #include "../render_geometry.h"
+#include "surface_pipeline_provider.h"
 #include "../../rhi/engine_error_code.h"
 
 #include <mulan/core/profiling/profile.h>
 #include <mulan/math/spatial/dynamic_bvh.h>
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <limits>
 #include <optional>
@@ -47,6 +49,14 @@ bool opaqueCommandLess(const MeshDrawCommand& lhs, const MeshDrawCommand& rhs) n
         return order < 0;
     if (const int order = compareValue(lhs.aoTex, rhs.aoTex); order != 0)
         return order < 0;
+    if (const int order = compareValue(lhs.ambientTex, rhs.ambientTex); order != 0)
+        return order < 0;
+    if (const int order = compareValue(lhs.specularTex, rhs.specularTex); order != 0)
+        return order < 0;
+    if (const int order = compareValue(lhs.shininessTex, rhs.shininessTex); order != 0)
+        return order < 0;
+    if (const int order = compareValue(lhs.opacityTex, rhs.opacityTex); order != 0)
+        return order < 0;
     if (const int order = compareValue(lhs.sampler, rhs.sampler); order != 0)
         return order < 0;
     if (lhs.materialIndex != rhs.materialIndex)
@@ -76,10 +86,23 @@ bool opaqueCommandLess(const MeshDrawCommand& lhs, const MeshDrawCommand& rhs) n
     return lhs.pickId < rhs.pickId;
 }
 
-void sortDrawCommands(std::vector<MeshDrawCommand>& commands) {
+void sortDrawCommands(std::vector<MeshDrawCommand>& commands, const math::Mat4* viewMatrix = nullptr) {
     const auto opaqueEnd = std::stable_partition(commands.begin(), commands.end(),
                                                  [](const MeshDrawCommand& command) { return !command.translucent; });
     std::sort(commands.begin(), opaqueEnd, opaqueCommandLess);
+    if (viewMatrix) {
+        std::stable_sort(opaqueEnd, commands.end(), [&](const MeshDrawCommand& lhs, const MeshDrawCommand& rhs) {
+            const double lhsViewZ = lhs.sortCenter.transformedBy(*viewMatrix).z;
+            const double rhsViewZ = rhs.sortCenter.transformedBy(*viewMatrix).z;
+            const bool lhsFinite = std::isfinite(lhsViewZ);
+            const bool rhsFinite = std::isfinite(rhsViewZ);
+            if (lhsFinite != rhsFinite)
+                return lhsFinite;
+            if (lhsFinite && lhsViewZ != rhsViewZ)
+                return lhsViewZ < rhsViewZ;
+            return lhs.pickId < rhs.pickId;
+        });
+    }
 }
 
 bool objectIdLess(RenderObjectId lhs, RenderObjectId rhs) noexcept {
@@ -103,10 +126,9 @@ bool selectionTargetEqual(const SelectionVisualTarget& lhs, const SelectionVisua
 }
 
 bool commandOptionsEqual(const RenderOptions& lhs, const RenderOptions& rhs) noexcept {
-    if (lhs.displayMode != rhs.displayMode || lhs.surfaceTechnique != rhs.surfaceTechnique ||
-        lhs.hoveredPickId != rhs.hoveredPickId || lhs.showSurfaces != rhs.showSurfaces ||
-        lhs.showEdges != rhs.showEdges || lhs.showOverlays != rhs.showOverlays ||
-        lhs.selectionVisuals.active() != rhs.selectionVisuals.active()) {
+    if (lhs.displayMode != rhs.displayMode || lhs.hoveredPickId != rhs.hoveredPickId ||
+        lhs.showSurfaces != rhs.showSurfaces || lhs.showEdges != rhs.showEdges ||
+        lhs.showOverlays != rhs.showOverlays || lhs.selectionVisuals.active() != rhs.selectionVisuals.active()) {
         return false;
     }
     const auto lhsTargets = lhs.selectionVisuals.targets();
@@ -181,8 +203,7 @@ struct ContextIdentity {
     const MaterialCache* materials = nullptr;
     uint64_t assetRevision = 0;
     uint64_t materialLayoutRevision = 0;
-    PipelineState* surfacePipeline = nullptr;
-    PipelineState* surfaceTangentPipeline = nullptr;
+    const SurfacePipelineProvider* surfacePipelines = nullptr;
     PipelineState* edgePipeline = nullptr;
     PipelineState* highlightSurfacePipeline = nullptr;
     PipelineState* highlightSurfaceTangentPipeline = nullptr;
@@ -192,8 +213,8 @@ struct ContextIdentity {
         return assets == &context.assets && materials == &context.materials &&
                assetRevision == context.assets.revision() &&
                materialLayoutRevision == context.materials.layoutRevision() &&
-               surfacePipeline == context.surfacePipeline && surfaceTangentPipeline == context.surfaceTangentPipeline &&
-               edgePipeline == context.edgePipeline && highlightSurfacePipeline == context.highlightSurfacePipeline &&
+               surfacePipelines == context.surfacePipelines && edgePipeline == context.edgePipeline &&
+               highlightSurfacePipeline == context.highlightSurfacePipeline &&
                highlightSurfaceTangentPipeline == context.highlightSurfaceTangentPipeline &&
                highlightEdgePipeline == context.highlightEdgePipeline;
     }
@@ -203,8 +224,7 @@ struct ContextIdentity {
                  .materials = &context.materials,
                  .assetRevision = context.assets.revision(),
                  .materialLayoutRevision = context.materials.layoutRevision(),
-                 .surfacePipeline = context.surfacePipeline,
-                 .surfaceTangentPipeline = context.surfaceTangentPipeline,
+                 .surfacePipelines = context.surfacePipelines,
                  .edgePipeline = context.edgePipeline,
                  .highlightSurfacePipeline = context.highlightSurfacePipeline,
                  .highlightSurfaceTangentPipeline = context.highlightSurfaceTangentPipeline,
@@ -298,11 +318,40 @@ RenderPacket buildPacket(const RenderWorldSnapshot& snapshot, const RenderObject
         }
 
         const bool tangentLayout = geometry->layout.has(graphics::VertexSemantic::Tangent);
+        const RenderMaterialRecord* materialRecord = snapshot.material(drawable.material);
+        static const Material fallbackMaterial = Material::defaultSurface();
+        const Material& materialSemantics = materialRecord ? materialRecord->desc.material : fallbackMaterial;
+        const auto shadingModel = materialSemantics.shadingModel;
+        const auto alphaMode = materialSemantics.alphaMode;
+        const bool doubleSided = materialSemantics.doubleSided;
+        const double transformDeterminant = math::Mat3(object.desc.worldTransform).determinant();
+        const bool singularTransform = !std::isfinite(transformDeterminant) || std::abs(transformDeterminant) <= 1e-12;
         switch (renderBucketPass(drawable.bucket)) {
         case RenderPassKind::Surface:
-            cached.baseCommand.pipelineState = tangentLayout && context.surfaceTangentPipeline
-                                                       ? context.surfaceTangentPipeline
-                                                       : context.surfacePipeline;
+            cached.baseCommand.surfaceFamily = surfacePipelineFamily(shadingModel, tangentLayout);
+            switch (cached.baseCommand.surfaceFamily) {
+            case SurfacePipelineFamily::Unlit:
+            case SurfacePipelineFamily::UnlitTangent:
+                cached.baseCommand.materialBindings = MaterialBindingProfile::Unlit;
+                break;
+            case SurfacePipelineFamily::Legacy:
+            case SurfacePipelineFamily::LegacyTangent:
+                cached.baseCommand.materialBindings = MaterialBindingProfile::Legacy;
+                break;
+            case SurfacePipelineFamily::PBR:
+            case SurfacePipelineFamily::PBRTangent:
+                cached.baseCommand.materialBindings = MaterialBindingProfile::PBR;
+                break;
+            }
+            cached.baseCommand.pipelineState =
+                    context.surfacePipelines ? context.surfacePipelines->acquireSurfacePipeline(SurfacePipelineRequest{
+                                                       .family = cached.baseCommand.surfaceFamily,
+                                                       .alphaMode = alphaMode,
+                                                       .doubleSided = doubleSided || singularTransform,
+                                                       .reverseWinding = transformDeterminant < 0.0,
+                                               })
+                                             : nullptr;
+            cached.baseCommand.translucent = alphaMode == graphics::AlphaMode::Blend;
             cached.highlightPipeline = tangentLayout && context.highlightSurfaceTangentPipeline
                                                ? context.highlightSurfaceTangentPipeline
                                                : context.highlightSurfacePipeline;
@@ -331,11 +380,12 @@ RenderPacket buildPacket(const RenderWorldSnapshot& snapshot, const RenderObject
         command.instanceCount = 1;
         command.topology = geometryRecord->desc.topology;
         command.worldTransform = object.desc.worldTransform;
+        command.sortCenter = object.desc.worldBounds.center();
         command.pickId = object.desc.pickId.valueOr(0);
         command.isWire = renderBucketPass(drawable.bucket) == RenderPassKind::Edge;
 
         if (renderBucketPass(drawable.bucket) == RenderPassKind::Surface) {
-            if (const RenderMaterialRecord* materialRecord = snapshot.material(drawable.material)) {
+            if (materialRecord) {
                 command.albedoTex = resolveTexture(context.assets, materialRecord->desc.baseColorTexture,
                                                    cached.missingTextureCount);
                 command.normalTex =
@@ -346,6 +396,14 @@ RenderPacket buildPacket(const RenderWorldSnapshot& snapshot, const RenderObject
                                                      cached.missingTextureCount);
                 command.aoTex = resolveTexture(context.assets, materialRecord->desc.ambientOcclusionTexture,
                                                cached.missingTextureCount);
+                command.ambientTex =
+                        resolveTexture(context.assets, materialRecord->desc.ambientTexture, cached.missingTextureCount);
+                command.specularTex = resolveTexture(context.assets, materialRecord->desc.specularTexture,
+                                                     cached.missingTextureCount);
+                command.shininessTex = resolveTexture(context.assets, materialRecord->desc.shininessTexture,
+                                                      cached.missingTextureCount);
+                command.opacityTex =
+                        resolveTexture(context.assets, materialRecord->desc.opacityTexture, cached.missingTextureCount);
             }
             if (cached.missingTextureCount != 0)
                 cached.textureStatus = DrawableStatus::MissingGpuTexture;
@@ -382,6 +440,8 @@ struct RenderCompiler::Impl {
     uint64_t packetRevision = 1;
     uint64_t assembledPacketRevision = 0;
     std::optional<RenderOptions> assembledOptions;
+    math::Mat4 assembledViewMatrix{ 1.0 };
+    bool assembledHasTranslucent = false;
     std::vector<RenderObjectId> assembledVisibleIds;
 
     std::vector<MeshDrawCommand> surfaceCommands;
@@ -536,6 +596,8 @@ struct RenderCompiler::Impl {
 
         MeshDrawCommand command = drawable.baseCommand;
         command.pipelineState = pipeline;
+        if (highlight)
+            command.materialBindings = MaterialBindingProfile::None;
         command.selected = selected;
         command.hovered = hovered;
         command.batchInstancingEligible = !highlight && !renderBucketIsOverlay(drawable.bucket) && !command.translucent;
@@ -544,11 +606,14 @@ struct RenderCompiler::Impl {
         return {};
     }
 
-    ResultVoid assemble(const RenderOptions& options, const std::vector<RenderObjectId>& visibleIds) {
+    ResultVoid assemble(const RenderOptions& options, const std::vector<RenderObjectId>& visibleIds,
+                        const RenderViewDesc* view) {
         MULAN_PROFILE_ZONE();
 
+        const bool transparentOrderStable =
+                !assembledHasTranslucent || !view || matricesEqual(assembledViewMatrix, view->viewMatrix);
         if (assembledOptions && assembledPacketRevision == packetRevision && assembledVisibleIds == visibleIds &&
-            commandOptionsEqual(*assembledOptions, options)) {
+            commandOptionsEqual(*assembledOptions, options) && transparentOrderStable) {
             packetStats.assemblyCacheHit = true;
             packetStats.assembledCommandCount = surfaceCommands.size() + edgeCommands.size() +
                                                 highlightSurfaceCommands.size() + highlightEdgeCommands.size();
@@ -629,10 +694,13 @@ struct RenderCompiler::Impl {
             }
         }
 
-        sortDrawCommands(surfaceCommands);
+        sortDrawCommands(surfaceCommands, view ? &view->viewMatrix : nullptr);
         sortDrawCommands(edgeCommands);
         assembledPacketRevision = packetRevision;
         assembledOptions = options;
+        assembledViewMatrix = view ? view->viewMatrix : math::Mat4(1.0);
+        assembledHasTranslucent = std::ranges::any_of(
+                surfaceCommands, [](const MeshDrawCommand& command) { return command.translucent; });
         assembledVisibleIds = visibleIds;
         advanceCommandRevision();
         packetStats.assembledCommandCount = surfaceCommands.size() + edgeCommands.size() +
@@ -664,7 +732,7 @@ ResultVoid RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const Re
     }
 
     const std::vector<RenderObjectId> visibleIds = impl_->visiblePacketIds(view, sceneFrustumCulling);
-    return impl_->assemble(options, visibleIds);
+    return impl_->assemble(options, visibleIds, view);
 }
 
 void RenderCompiler::clear() {

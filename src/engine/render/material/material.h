@@ -6,9 +6,9 @@
  *
  * 设计思路：
  *  - Material 是值类型，可直接存入容器或节点
- *  - MaterialType 枚举标识着色器变体选择
+ *  - MaterialShadingModel 标识文件材质的光照语义
  *  - MaterialGPU 是跨后端一致的 GPU Uniform 数据布局
- *  - 上层通过 Material::toGPU() 转换后写入瞬态 Uniform
+ *  - 上层通过 MaterialGPU::fromMaterial() 转换后写入瞬态 Uniform
  *  - 纹理槽位使用枚举 TextureSlot 统一索引
  */
 
@@ -24,34 +24,9 @@
 
 namespace mulan::engine {
 
-// ============================================================
-// 材质渲染类型 — 决定着色器选择
-// ============================================================
-
-enum class MaterialType : uint8_t {
-    Unlit,       // 无光照（调试、线框叠加）
-    BlinnPhong,  // 经典 Blinn-Phong 光照
-    PBR,         // 金属度-粗糙度 PBR 工作流
-};
-
-/// MaterialType 枚举转字符串
-inline const char* materialTypeToString(MaterialType t) {
-    switch (t) {
-    case MaterialType::Unlit: return "Unlit";
-    case MaterialType::BlinnPhong: return "BlinnPhong";
-    case MaterialType::PBR: return "PBR";
-    }
-    return "Unknown";
-}
-
-/// 字符串转 MaterialType 枚举
-inline MaterialType materialTypeFromString(const std::string& s) {
-    if (s == "Unlit" || s == "unlit")
-        return MaterialType::Unlit;
-    if (s == "BlinnPhong" || s == "blinnphong")
-        return MaterialType::BlinnPhong;
-    return MaterialType::PBR;
-}
+using graphics::MaterialShadingModel;
+using graphics::materialShadingModelFromString;
+using graphics::materialShadingModelToString;
 
 // ============================================================
 // Alpha 模式 — 透明度处理策略
@@ -71,7 +46,11 @@ enum class TextureSlot : uint8_t {
     MetallicRoughness = 2,
     Emissive = 3,
     AO = 4,
-    Count = 5,
+    Ambient = 5,
+    Specular = 6,
+    Shininess = 7,
+    Opacity = 8,
+    Count = 9,
 };
 
 /// 纹理槽位名称
@@ -82,6 +61,10 @@ inline const char* textureSlotName(TextureSlot slot) {
     case TextureSlot::MetallicRoughness: return "metallicRoughness";
     case TextureSlot::Emissive: return "emissive";
     case TextureSlot::AO: return "ao";
+    case TextureSlot::Ambient: return "ambient";
+    case TextureSlot::Specular: return "specular";
+    case TextureSlot::Shininess: return "shininess";
+    case TextureSlot::Opacity: return "opacity";
     default: return "unknown";
     }
 }
@@ -96,30 +79,30 @@ inline const char* textureSlotName(TextureSlot slot) {
 // 的 (textureFlags & TF_*) 采样开关。
 // ============================================================
 
-enum class TextureSlotFlags : uint8_t {
+enum class TextureSlotFlags : uint16_t {
     None = 0,
     HasAlbedo = 1u << 0,
     HasNormal = 1u << 1,
     HasMetallicRough = 1u << 2,
     HasEmissive = 1u << 3,
     HasAO = 1u << 4,
+    HasAmbient = 1u << 5,
+    HasSpecular = 1u << 6,
+    HasShininess = 1u << 7,
+    HasOpacity = 1u << 8,
 };
 
 inline TextureSlotFlags operator|(TextureSlotFlags a, TextureSlotFlags b) {
-    return static_cast<TextureSlotFlags>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+    return static_cast<TextureSlotFlags>(static_cast<uint16_t>(a) | static_cast<uint16_t>(b));
 }
 
 inline TextureSlotFlags operator&(TextureSlotFlags a, TextureSlotFlags b) {
-    return static_cast<TextureSlotFlags>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
+    return static_cast<TextureSlotFlags>(static_cast<uint16_t>(a) & static_cast<uint16_t>(b));
 }
 
 inline TextureSlotFlags& operator|=(TextureSlotFlags& a, TextureSlotFlags b) {
     a = a | b;
     return a;
-}
-
-inline bool operator!=(TextureSlotFlags a, int b) {
-    return static_cast<int>(a) != b;
 }
 
 // ============================================================
@@ -129,12 +112,15 @@ inline bool operator!=(TextureSlotFlags a, int b) {
 struct Material {
     std::string name;
 
-    MaterialType type = MaterialType::PBR;
+    MaterialShadingModel shadingModel = MaterialShadingModel::MetallicRoughness;
     AlphaMode alphaMode = AlphaMode::Opaque;
 
-    // --- 基础颜色 (sRGB 空间) ---
+    // --- 基础颜色（线性空间；sRGB 贴图由采样格式完成解码）---
     math::Vec3 baseColor = { 0.8, 0.8, 0.8 };
     double alpha = 1.0;
+
+    // --- 传统光照参数 ---
+    math::Vec3 ambient = { 0.0, 0.0, 0.0 };
 
     // --- PBR 参数 ---
     double metallic = 0.0;   ///< 金属度 [0, 1]
@@ -162,23 +148,32 @@ struct Material {
 
     // --- 便捷工厂 ---
 
+    static Material defaultSurface() {
+        Material m;
+        m.name = "DefaultSurface";
+        m.shadingModel = MaterialShadingModel::Lambert;
+        m.ambient = m.baseColor;
+        m.doubleSided = true;
+        return m;
+    }
+
     static Material defaultPBR() {
         Material m;
-        m.type = MaterialType::PBR;
+        m.shadingModel = MaterialShadingModel::MetallicRoughness;
         m.name = "DefaultPBR";
         return m;
     }
 
     static Material defaultPhong() {
         Material m;
-        m.type = MaterialType::BlinnPhong;
+        m.shadingModel = MaterialShadingModel::BlinnPhong;
         m.name = "DefaultPhong";
         return m;
     }
 
     static Material unlit(const math::Vec3& color) {
         Material m;
-        m.type = MaterialType::Unlit;
+        m.shadingModel = MaterialShadingModel::Unlit;
         m.baseColor = color;
         m.name = "Unlit";
         return m;
@@ -186,7 +181,7 @@ struct Material {
 
     static Material transparent(const math::Vec3& color, double a) {
         Material m;
-        m.type = MaterialType::PBR;
+        m.shadingModel = MaterialShadingModel::MetallicRoughness;
         m.alphaMode = AlphaMode::Blend;
         m.baseColor = color;
         m.alpha = a;
@@ -195,19 +190,18 @@ struct Material {
     }
 
     /// 是否半透明
-    bool isTransparent() const {
-        return alphaMode == AlphaMode::Blend || (alphaMode == AlphaMode::Opaque && alpha < 1.0 - 1e-6);
-    }
+    bool isTransparent() const { return alphaMode == AlphaMode::Blend; }
 
     /// 是否有纹理
     bool hasAnyTexture() const { return textureSlots != TextureSlotFlags::None; }
 
     /// 是否等于（忽略 name）
     bool equals(const Material& o) const {
-        return type == o.type && alphaMode == o.alphaMode && baseColor == o.baseColor && alpha == o.alpha &&
-               metallic == o.metallic && roughness == o.roughness && ao == o.ao && specular == o.specular &&
-               shininess == o.shininess && emissive == o.emissive && emissiveStrength == o.emissiveStrength &&
-               alphaCutoff == o.alphaCutoff && doubleSided == o.doubleSided && textureSlots == o.textureSlots;
+        return shadingModel == o.shadingModel && alphaMode == o.alphaMode && baseColor == o.baseColor &&
+               ambient == o.ambient && alpha == o.alpha && metallic == o.metallic && roughness == o.roughness &&
+               ao == o.ao && specular == o.specular && shininess == o.shininess && emissive == o.emissive &&
+               emissiveStrength == o.emissiveStrength && alphaCutoff == o.alphaCutoff && doubleSided == o.doubleSided &&
+               textureSlots == o.textureSlots;
     }
 
     bool operator==(const Material& o) const { return equals(o); }
@@ -218,7 +212,7 @@ struct Material {
 // GPU 端材质常量布局 (std140 / std430 compatible)
 //
 // 与 shader 中 MaterialUBO 1:1 对应
-// 总大小 = 80 bytes (5 × vec4)
+// 总大小 = 96 bytes (6 × vec4)
 // ============================================================
 
 struct alignas(16) MaterialGPU {
@@ -240,13 +234,17 @@ struct alignas(16) MaterialGPU {
     float emissiveStrength;
     float alphaCutoff;
 
-    // --- vec4[4]: type + alphaMode + texture flags ---
-    uint32_t materialType;  // MaterialType 枚举
+    // --- vec4[4]: shading model + alphaMode + texture flags ---
+    uint32_t shadingModel;  // MaterialShadingModel 枚举
     uint32_t alphaMode;     // AlphaMode 枚举
-    uint32_t textureFlags;  // 位掩码: bit0=albedo, bit1=normal, bit2=mr, bit3=emissive, bit4=ao
+    uint32_t textureFlags;  // 位掩码: bit0..8 对应 TextureSlotFlags
     uint32_t doubleSided;   // 0 或 1
 
-    static constexpr size_t kSize = 80;
+    // --- vec4[5]: 传统材质环境反射率 ---
+    float ambient[3];
+    float reserved = 0.0f;
+
+    static constexpr size_t kSize = 96;
 
     /// 从 CPU Material 转换
     static MaterialGPU fromMaterial(const Material& m) {
@@ -271,13 +269,19 @@ struct alignas(16) MaterialGPU {
         g.emissiveStrength = static_cast<float>(m.emissiveStrength);
         g.alphaCutoff = static_cast<float>(m.alphaCutoff);
 
-        g.materialType = static_cast<uint32_t>(m.type);
+        g.shadingModel = static_cast<uint32_t>(m.shadingModel);
         g.alphaMode = static_cast<uint32_t>(m.alphaMode);
         g.textureFlags = static_cast<uint32_t>(m.textureSlots);  // TextureSlotFlags 位定义与 shader TF_* 一致
         g.doubleSided = m.doubleSided ? 1u : 0u;
 
+        g.ambient[0] = static_cast<float>(m.ambient.x);
+        g.ambient[1] = static_cast<float>(m.ambient.y);
+        g.ambient[2] = static_cast<float>(m.ambient.z);
+
         return g;
     }
 };
+
+static_assert(sizeof(MaterialGPU) == MaterialGPU::kSize, "MaterialGPU must match shaders/common.slang");
 
 }  // namespace mulan::engine

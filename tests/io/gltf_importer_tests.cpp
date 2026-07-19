@@ -147,6 +147,56 @@ TEST(GltfImporterTests, LoadsValidatedExternalBufferThroughSecondStage) {
     EXPECT_EQ(result->meshes.front().primitives.front().mesh.vertexCount(), 3u);
 }
 
+TEST(GltfImporterTests, PreservesKhrMaterialsUnlitSemantics) {
+    TemporaryGltfDirectory files;
+    std::vector<std::byte> binary = trianglePositionBytes();
+    std::ostringstream json;
+    json << R"({"asset":{"version":"2.0"},"extensionsUsed":["KHR_materials_unlit"],)"
+         << R"("buffers":[{"byteLength":36}],"bufferViews":[{"buffer":0,"byteLength":36}],)"
+         << R"("accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"}],)"
+         << R"("materials":[{"extensions":{"KHR_materials_unlit":{}}}],)"
+         << R"("meshes":[{"primitives":[{"attributes":{"POSITION":0},"material":0}]}],)"
+         << R"("nodes":[{"mesh":0}],"scenes":[{"nodes":[0]}],"scene":0})";
+    const auto model = files.path / "unlit.glb";
+    writeGlb(model, json.str(), std::move(binary));
+
+    const auto result = GltfImporter{}.parse(model.string());
+
+    ASSERT_TRUE(result) << result.error().message;
+    ASSERT_EQ(result->materials.size(), 1u);
+    EXPECT_EQ(result->materials.front().shadingModel, graphics::MaterialShadingModel::Unlit);
+}
+
+TEST(GltfImporterTests, GivesMateriallessPrimitiveItsOwnSpecificationDefaultMaterial) {
+    TemporaryGltfDirectory files;
+    std::vector<std::byte> binary = trianglePositionBytes();
+    std::ostringstream json;
+    json << R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":36}],)"
+         << R"("bufferViews":[{"buffer":0,"byteLength":36}],)"
+         << R"("accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"}],)"
+         << R"("materials":[{"pbrMetallicRoughness":{"baseColorFactor":[0.2,0.3,0.4,1.0]}}],)"
+         << R"("meshes":[{"primitives":[{"attributes":{"POSITION":0},"material":0},)"
+         << R"({"attributes":{"POSITION":0}}]}],)"
+         << R"("nodes":[{"mesh":0}],"scenes":[{"nodes":[0]}],"scene":0})";
+    const auto model = files.path / "mixed_materials.glb";
+    writeGlb(model, json.str(), std::move(binary));
+
+    const auto result = GltfImporter{}.parse(model.string());
+
+    ASSERT_TRUE(result) << result.error().message;
+    ASSERT_EQ(result->materials.size(), 2u);
+    ASSERT_EQ(result->meshes.size(), 1u);
+    ASSERT_EQ(result->meshes.front().materialIndices.size(), 2u);
+    EXPECT_EQ(result->meshes.front().materialIndices[0], 0u);
+    EXPECT_EQ(result->meshes.front().materialIndices[1], 1u);
+    const ParsedMaterial& fallback = result->materials[1];
+    EXPECT_EQ(fallback.name, "DefaultGLTFMaterial");
+    EXPECT_EQ(fallback.shadingModel, graphics::MaterialShadingModel::MetallicRoughness);
+    EXPECT_EQ(fallback.baseColorFactor, math::Vec4(1.0, 1.0, 1.0, 1.0));
+    EXPECT_DOUBLE_EQ(fallback.metallic, 1.0);
+    EXPECT_DOUBLE_EQ(fallback.roughness, 1.0);
+}
+
 TEST(GltfImporterTests, GeneratesMikkTangentsForNormalMappedPrimitive) {
     TemporaryGltfDirectory files;
     std::vector<std::byte> binary;

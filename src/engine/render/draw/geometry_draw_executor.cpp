@@ -64,16 +64,32 @@ bool GeometryDrawExecutor::createFrameBindGroup(TextureFormat, TextureFormat, bo
     // Uniform binding 由每次 draw 提供切片；这里只保存纹理和采样器。
     BindGroupDesc bg;
 
-    if (technique_.sampleTextures && fallback_resources_.whiteTexture() && fallback_resources_.sampler()) {
+    if (technique_.materialBindings != MaterialBindingProfile::None &&
+        (!fallback_resources_.whiteTexture() || !fallback_resources_.sampler())) {
+        return false;
+    }
+
+    if (technique_.materialBindings != MaterialBindingProfile::None) {
         bg.addTexture(3, fallback_resources_.whiteTexture());
+        bg.addSampler(8, fallback_resources_.sampler());
+        bg.addTexture(13, fallback_resources_.whiteTexture());
+    }
+    if (technique_.materialBindings == MaterialBindingProfile::Legacy ||
+        technique_.materialBindings == MaterialBindingProfile::PBR) {
         bg.addTexture(4, fallback_resources_.normalTexture() ? fallback_resources_.normalTexture()
                                                              : fallback_resources_.whiteTexture());
-        bg.addTexture(5, fallback_resources_.metallicRoughnessTexture() ? fallback_resources_.metallicRoughnessTexture()
-                                                                        : fallback_resources_.whiteTexture());
+        bg.addTexture(5, technique_.materialBindings == MaterialBindingProfile::PBR &&
+                                         fallback_resources_.metallicRoughnessTexture()
+                                 ? fallback_resources_.metallicRoughnessTexture()
+                                 : fallback_resources_.whiteTexture());
         bg.addTexture(6, fallback_resources_.blackTexture() ? fallback_resources_.blackTexture()
                                                             : fallback_resources_.whiteTexture());
         bg.addTexture(7, fallback_resources_.whiteTexture());
-        bg.addSampler(8, fallback_resources_.sampler());
+    }
+    if (technique_.materialBindings == MaterialBindingProfile::Legacy) {
+        bg.addTexture(12, fallback_resources_.whiteTexture());
+    }
+    if (technique_.materialBindings == MaterialBindingProfile::PBR) {
         // IBL 三件套：先用内置默认环境光照，每帧 execute 时刷新为真实烘焙产物。
         // 若 fallback 创建失败，退化到 defaultWhite 以保证 descriptor 非 null
         // —— 避免 Vulkan 验证层 "descriptor never updated" 错误。
@@ -96,6 +112,10 @@ bool GeometryDrawExecutor::createFrameBindGroup(TextureFormat, TextureFormat, bo
 }
 
 void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
+    execute(ctx, commands_);
+}
+
+void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx, std::span<const MeshDrawCommand> commands) {
     execution_stats_ = {};
     if (!initialized_ || !pso_ || !ctx.cmd || !frame_bg_)
         return;
@@ -104,17 +124,17 @@ void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
         return;
 
     // binding=9/10/11 (IBL 三件套) 在 setIBLTextures 后生效，每帧刷新一次。
-    if (technique_.sampleTextures) {
+    if (technique_.materialBindings == MaterialBindingProfile::PBR) {
         frame_bg_->updateTexture(9, ibl_irradiance_ ? ibl_irradiance_ : fallback_resources_.environmentTexture());
         frame_bg_->updateTexture(10, ibl_prefilter_ ? ibl_prefilter_ : fallback_resources_.environmentTexture());
         frame_bg_->updateTexture(11, ibl_brdf_lut_ ? ibl_brdf_lut_ : fallback_resources_.brdfLutTexture());
     }
 
-    planGeometryDrawBatches(commands_, pso_, instanced_pso_ != nullptr, batch_plan_);
+    planGeometryDrawBatches(commands, pso_, instanced_pso_ != nullptr, batch_plan_);
     for (const GeometryDrawBatchRange& range : batch_plan_) {
         if (!range.instanced || range.count > kObjectBatchCapacity) {
             for (size_t offset = 0; offset < range.count; ++offset) {
-                const MeshDrawCommand& command = commands_[range.first + offset];
+                const MeshDrawCommand& command = commands[range.first + offset];
                 if (!command.visible || command.instanceCount == 0)
                     continue;
                 const auto materialUniform = shared_resources_.materialUniform(*ctx.cmd, command.materialIndex);
@@ -129,14 +149,14 @@ void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
             continue;
         }
 
-        const MeshDrawCommand& first = commands_[range.first];
+        const MeshDrawCommand& first = commands[range.first];
         const auto materialUniform = shared_resources_.materialUniform(*ctx.cmd, first.materialIndex);
         if (!materialUniform)
             continue;
 
         // 固定写满 16 KiB：未使用项清零，descriptor range 在所有批次与后端上保持稳定。
         ObjectBatchUniforms objects{};
-        if (!packGeometryDrawObjectBatch(commands_.subspan(range.first, range.count), objects))
+        if (!packGeometryDrawObjectBatch(commands.subspan(range.first, range.count), objects))
             continue;
         const auto objectUniform = ctx.cmd->writeUniform(objects);
         if (!objectUniform)

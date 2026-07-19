@@ -11,6 +11,7 @@
 #include "../frame/render_frame.h"
 #include "../frame/render_target_info.h"
 #include "../frontend/render_request.h"
+#include "../backend/surface_pipeline_provider.h"
 
 #include <mulan/core/result/error.h>
 
@@ -23,7 +24,7 @@ class GeometryDrawSharedResources;
 class DrawFallbackResources;
 class DevicePipelineLibrary;
 
-class FaceStage final {
+class FaceStage final : public SurfacePipelineProvider {
 public:
     FaceStage(RHIDevice& device, GeometryDrawSharedResources& sharedResources, DrawFallbackResources& fallbackResources,
               DevicePipelineLibrary& pipelineLibrary);
@@ -34,25 +35,32 @@ public:
     void execute(RenderFrame& frame);
 
     void setDrawCommands(std::span<const MeshDrawCommand> commands);
-    void setSurfaceTechnique(SurfaceTechnique technique);
     void setIBLTextures(Texture* irradiance, Texture* prefilter, Texture* brdfLUT);
 
-    PipelineState* pipelineState() const;
-    PipelineState* tangentPipelineState() const;
+    PipelineState* acquireSurfacePipeline(const SurfacePipelineRequest& request) override;
+
     PipelineState* viewCubePipelineState() const;
 
 private:
-    GeometryDrawExecutor& activeExecutor();
-    const GeometryDrawExecutor& activeExecutor() const;
+    GeometryDrawExecutor& executorFor(SurfacePipelineFamily family);
 
-    GeometryDrawExecutor solid_executor_;
+    GeometryDrawExecutor unlit_executor_;
+    GeometryDrawExecutor unlit_tangent_executor_;
+    GeometryDrawExecutor legacy_executor_;
+    GeometryDrawExecutor legacy_tangent_executor_;
     GeometryDrawExecutor pbr_executor_;
     GeometryDrawExecutor pbr_tangent_executor_;
     DevicePipelineLibrary& pipeline_library_;
     PipelineState* view_cube_pipeline_ = nullptr;
+    RenderTargetInfo target_;
+    bool initialized_ = false;
+    std::vector<MeshDrawCommand> unlit_commands_;
+    std::vector<MeshDrawCommand> unlit_tangent_commands_;
+    std::vector<MeshDrawCommand> legacy_commands_;
+    std::vector<MeshDrawCommand> legacy_tangent_commands_;
     std::vector<MeshDrawCommand> pbr_commands_;
     std::vector<MeshDrawCommand> pbr_tangent_commands_;
-    SurfaceTechnique surface_technique_ = SurfaceTechnique::SolidLit;
+    std::vector<MeshDrawCommand> translucent_commands_;
 };
 
 }  // namespace mulan::engine

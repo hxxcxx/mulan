@@ -84,6 +84,7 @@ f 1/1 2/2 3/3 4/4
     EXPECT_NEAR(material.baseColorFactor.w, 0.75, 1.0e-6);
     EXPECT_NEAR(material.roughness, 0.7, 1.0e-6);
     EXPECT_NEAR(material.metallic, 0.3, 1.0e-6);
+    EXPECT_EQ(material.shadingModel, graphics::MaterialShadingModel::MetallicRoughness);
     EXPECT_EQ(material.alphaMode, graphics::AlphaMode::Blend);
     EXPECT_LT(material.baseColorTexture, result->textures.size());
     EXPECT_LT(material.normalTexture, result->textures.size());
@@ -100,6 +101,47 @@ f 1/1 2/2 3/3 4/4
     ASSERT_EQ(result->nodes.size(), 2u);
     EXPECT_EQ(result->nodes[1].parent, 0u);
     EXPECT_EQ(result->nodes[1].meshIndex, 0u);
+}
+
+TEST(ObjImporterTests, MapsIllumModelsWithoutConfusingEmissionWithUnlit) {
+    TemporaryObjDirectory files;
+    files.write("scene.mtl", R"(newmtl Constant
+illum 0
+Kd 1 0 0
+newmtl Diffuse
+illum 1
+Kd 0 1 0
+Ke 0.2 0.1 0.0
+newmtl Specular
+illum 2
+Kd 0 0 1
+Ks 0.4 0.5 0.6
+Ns 48
+)");
+    const auto obj = files.write("scene.obj", R"(mtllib scene.mtl
+v 0 0 0
+v 1 0 0
+v 0 1 0
+usemtl Constant
+f 1 2 3
+usemtl Diffuse
+f 1 2 3
+usemtl Specular
+f 1 2 3
+)");
+
+    const auto result = ObjImporter{}.parse(obj.string());
+
+    ASSERT_TRUE(result) << result.error().message;
+    ASSERT_EQ(result->materials.size(), 3u);
+    EXPECT_EQ(result->materials[0].shadingModel, graphics::MaterialShadingModel::Unlit);
+    EXPECT_EQ(result->materials[1].shadingModel, graphics::MaterialShadingModel::Lambert);
+    EXPECT_EQ(result->materials[2].shadingModel, graphics::MaterialShadingModel::BlinnPhong);
+    EXPECT_GT(result->materials[1].emissiveFactor.x, 0.0);
+    EXPECT_NEAR(result->materials[2].specularFactor.x, 0.4, 1.0e-6);
+    EXPECT_NEAR(result->materials[2].specularFactor.y, 0.5, 1.0e-6);
+    EXPECT_NEAR(result->materials[2].specularFactor.z, 0.6, 1.0e-6);
+    EXPECT_DOUBLE_EQ(result->materials[2].shininess, 48.0);
 }
 
 TEST(ObjImporterTests, KeepsMaterialBoundariesAsSeparatePrimitives) {

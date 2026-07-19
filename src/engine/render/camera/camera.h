@@ -79,8 +79,8 @@ public:
 
     // ==================== 轨道参数 ====================
 
-    void setTarget(const math::Vec3& target);
-    const math::Vec3& target() const { return target_; }
+    void setTarget(const math::Point3& target);
+    const math::Point3& target() const { return target_; }
 
     void setDistance(double dist);
     double distance() const { return distance_; }
@@ -144,7 +144,7 @@ public:
 
     // ==================== 矩阵计算 ====================
 
-    math::Vec3 eyePosition() const;
+    math::Point3 eyePosition() const;
     math::Mat4 viewMatrix() const;
     math::Mat4 projectionMatrix() const;
     math::Mat4 viewProjectionMatrix() const;
@@ -205,7 +205,7 @@ private:
 
     std::unique_ptr<RotationMode> active_;
 
-    math::Vec3 target_ = { 0, 0, 0 };      ///< 轨道旋转中心（模型中心，pan 不改它）
+    math::Point3 target_ = { 0, 0, 0 };    ///< 轨道旋转中心（模型中心，pan 不改它）
     math::Vec3 pan_offset_ = { 0, 0, 0 };  ///< 视图空间平移偏移（与旋转中心解耦）
     double distance_ = 10.0;
 

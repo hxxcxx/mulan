@@ -7,6 +7,7 @@
 
 #include <mulan/render/asset_gpu_registry.h>
 #include <mulan/render/backend/render_compiler.h>
+#include <mulan/render/backend/surface_pipeline_provider.h>
 #include <mulan/render/frontend/render_world.h>
 #include <mulan/render/material/material_cache.h>
 #include <mulan/rhi/device.h>
@@ -55,6 +56,47 @@ public:
 
 private:
     GraphicsPipelineDesc desc_;
+};
+
+class CompilerTestSurfacePipelines final : public SurfacePipelineProvider {
+public:
+    CompilerTestSurfacePipelines(PipelineState& pbr, PipelineState& unlit, PipelineState& legacy,
+                                 PipelineState& tangent, PipelineState& doubleSided, PipelineState& reversed,
+                                 PipelineState& blended)
+        : pbr_(pbr),
+          unlit_(unlit),
+          legacy_(legacy),
+          tangent_(tangent),
+          double_sided_(doubleSided),
+          reversed_(reversed),
+          blended_(blended) {}
+
+    PipelineState* acquireSurfacePipeline(const SurfacePipelineRequest& request) override {
+        if (request.alphaMode == graphics::AlphaMode::Blend)
+            return &blended_;
+        if (request.doubleSided)
+            return &double_sided_;
+        if (request.reverseWinding)
+            return &reversed_;
+        switch (request.family) {
+        case SurfacePipelineFamily::Unlit: return &unlit_;
+        case SurfacePipelineFamily::UnlitTangent: return &tangent_;
+        case SurfacePipelineFamily::Legacy: return &legacy_;
+        case SurfacePipelineFamily::LegacyTangent: return &tangent_;
+        case SurfacePipelineFamily::PBR: return &pbr_;
+        case SurfacePipelineFamily::PBRTangent: return &tangent_;
+        }
+        return &pbr_;
+    }
+
+private:
+    PipelineState& pbr_;
+    PipelineState& unlit_;
+    PipelineState& legacy_;
+    PipelineState& tangent_;
+    PipelineState& double_sided_;
+    PipelineState& reversed_;
+    PipelineState& blended_;
 };
 
 class CompilerTestDevice final : public RHIDevice {
@@ -123,6 +165,14 @@ graphics::Mesh makeSurfaceMesh() {
     return mesh;
 }
 
+graphics::Mesh makeTangentSurfaceMesh() {
+    graphics::Mesh mesh;
+    mesh.layout = graphics::layouts::pbr();
+    mesh.topology = graphics::PrimitiveTopology::TriangleList;
+    mesh.vertices.resize(static_cast<size_t>(mesh.layout.stride()) * 3u);
+    return mesh;
+}
+
 RenderGeometryDesc makeEdgeGeometryDesc(RenderResourceKey key) {
     RenderGeometryDesc desc;
     desc.resourceKey = key;
@@ -141,8 +191,18 @@ RenderGeometryDesc makeSurfaceGeometryDesc(RenderResourceKey key) {
     return desc;
 }
 
+RenderGeometryDesc makeTangentSurfaceGeometryDesc(RenderResourceKey key) {
+    RenderGeometryDesc desc = makeSurfaceGeometryDesc(key);
+    desc.vertexLayout = graphics::layouts::pbr();
+    return desc;
+}
+
 math::AABB3 boundsAt(double x) {
     return math::AABB3(math::Point3(x - 0.1, -0.1, -0.1), math::Point3(x + 0.1, 0.1, 0.1));
+}
+
+math::AABB3 boundsAtZ(double z) {
+    return math::AABB3(math::Point3(-0.1, -0.1, z - 0.1), math::Point3(0.1, 0.1, z + 0.1));
 }
 
 RenderObjectDesc makeEdgeObjectDesc(GeometryHandle geometry, uint32_t pickId, const math::AABB3& bounds,
@@ -189,7 +249,7 @@ protected:
 
     RenderCompileContext makeContext() {
         RenderCompileContext context{ .assets = assets_, .materials = materials_ };
-        context.surfacePipeline = &surface_pipeline_;
+        context.surfacePipelines = &surface_pipelines_;
         context.highlightSurfacePipeline = &surface_pipeline_;
         context.edgePipeline = &edge_pipeline_;
         context.highlightEdgePipeline = &edge_pipeline_;
@@ -200,17 +260,28 @@ protected:
     AssetGpuRegistry assets_{ device_ };
     MaterialCache materials_;
     CompilerTestPipeline surface_pipeline_{ graphics::PrimitiveTopology::TriangleList };
+    CompilerTestPipeline unlit_pipeline_{ graphics::PrimitiveTopology::TriangleList };
+    CompilerTestPipeline legacy_pipeline_{ graphics::PrimitiveTopology::TriangleList };
+    CompilerTestPipeline tangent_pipeline_{ graphics::PrimitiveTopology::TriangleList };
+    CompilerTestPipeline double_sided_pipeline_{ graphics::PrimitiveTopology::TriangleList };
+    CompilerTestPipeline reversed_pipeline_{ graphics::PrimitiveTopology::TriangleList };
+    CompilerTestPipeline blended_pipeline_{ graphics::PrimitiveTopology::TriangleList };
+    CompilerTestSurfacePipelines surface_pipelines_{ surface_pipeline_, unlit_pipeline_,        legacy_pipeline_,
+                                                     tangent_pipeline_, double_sided_pipeline_, reversed_pipeline_,
+                                                     blended_pipeline_ };
     CompilerTestPipeline edge_pipeline_{ graphics::PrimitiveTopology::LineList };
     RenderCompiler compiler_;
 };
 
-TEST_F(RenderCompilerTests, SurfacePipelineDoesNotDependOnMaterialSidednessOrTransformWinding) {
+TEST_F(RenderCompilerTests, SurfacePipelineHonorsMaterialSidednessAndTransformWinding) {
     const RenderResourceKey key = makeAssetGpuKey(99);
     prepareGeometry(key, makeSurfaceMesh());
     RenderWorld world;
     const GeometryHandle geometry = world.addGeometry(makeSurfaceGeometryDesc(key));
     RenderMaterialDesc singleSided;
-    singleSided.resourceKey = defaultRenderMaterialResourceKey();
+    singleSided.resourceKey = makeRenderResourceKey(ResourceDomainId{ 1 }, 1, RenderResourceKind::Material);
+    singleSided.material = Material::defaultSurface();
+    singleSided.material.doubleSided = false;
     const RenderMaterialHandle singleMaterial = world.addMaterial(singleSided);
     RenderMaterialDesc doubleSided = singleSided;
     doubleSided.resourceKey = makeRenderResourceKey(ResourceDomainId{ 1 }, 2, RenderResourceKind::Material);
@@ -233,10 +304,127 @@ TEST_F(RenderCompilerTests, SurfacePipelineDoesNotDependOnMaterialSidednessOrTra
     const RenderViewDesc view = identityView();
     ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
     ASSERT_EQ(compiler_.surfaceCommands().size(), 4u);
-    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 90)->pipelineState, &surface_pipeline_);
-    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 91)->pipelineState, &surface_pipeline_);
-    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 92)->pipelineState, &surface_pipeline_);
-    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 93)->pipelineState, &surface_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 90)->pipelineState, &legacy_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 91)->pipelineState, &reversed_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 92)->pipelineState, &double_sided_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 93)->pipelineState, &double_sided_pipeline_);
+}
+
+TEST_F(RenderCompilerTests, RoutesMixedSurfaceMaterialsByTheirShadingModel) {
+    const RenderResourceKey key = makeAssetGpuKey(120);
+    prepareGeometry(key, makeSurfaceMesh());
+    RenderWorld world;
+    const GeometryHandle geometry = world.addGeometry(makeSurfaceGeometryDesc(key));
+
+    const auto addMaterial = [&](uint64_t source, graphics::MaterialShadingModel model) {
+        RenderMaterialDesc desc;
+        desc.resourceKey = makeRenderResourceKey(ResourceDomainId{ 7 }, source, RenderResourceKind::Material);
+        desc.material.shadingModel = model;
+        desc.material.doubleSided = false;
+        return world.addMaterial(std::move(desc));
+    };
+    const auto unlit = addMaterial(1, graphics::MaterialShadingModel::Unlit);
+    const auto lambert = addMaterial(2, graphics::MaterialShadingModel::Lambert);
+    const auto phong = addMaterial(3, graphics::MaterialShadingModel::BlinnPhong);
+    const auto pbr = addMaterial(4, graphics::MaterialShadingModel::MetallicRoughness);
+    world.addObject(makeSurfaceObjectDesc(geometry, unlit, 121, boundsAt(-0.3)));
+    world.addObject(makeSurfaceObjectDesc(geometry, lambert, 122, boundsAt(-0.1)));
+    world.addObject(makeSurfaceObjectDesc(geometry, phong, 123, boundsAt(0.1)));
+    world.addObject(makeSurfaceObjectDesc(geometry, pbr, 124, boundsAt(0.3)));
+
+    RenderCompileContext context = makeContext();
+    const RenderViewDesc view = identityView();
+    ASSERT_TRUE(compiler_.compile(world.snapshot(), RenderOptions{}, context, &view, true));
+
+    ASSERT_EQ(compiler_.surfaceCommands().size(), 4u);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 121)->pipelineState, &unlit_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 122)->pipelineState, &legacy_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 123)->pipelineState, &legacy_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 124)->pipelineState, &surface_pipeline_);
+}
+
+TEST_F(RenderCompilerTests, PreservesTangentVertexLayoutForEveryShadingModel) {
+    const RenderResourceKey key = makeAssetGpuKey(130);
+    prepareGeometry(key, makeTangentSurfaceMesh());
+    RenderWorld world;
+    const GeometryHandle geometry = world.addGeometry(makeTangentSurfaceGeometryDesc(key));
+
+    const auto addMaterial = [&](uint64_t source, graphics::MaterialShadingModel model) {
+        RenderMaterialDesc desc;
+        desc.resourceKey = makeRenderResourceKey(ResourceDomainId{ 8 }, source, RenderResourceKind::Material);
+        desc.material.shadingModel = model;
+        desc.material.doubleSided = false;
+        return world.addMaterial(std::move(desc));
+    };
+    const auto unlit = addMaterial(1, graphics::MaterialShadingModel::Unlit);
+    const auto legacy = addMaterial(2, graphics::MaterialShadingModel::BlinnPhong);
+    const auto pbr = addMaterial(3, graphics::MaterialShadingModel::MetallicRoughness);
+    world.addObject(makeSurfaceObjectDesc(geometry, unlit, 131, boundsAt(-0.2)));
+    world.addObject(makeSurfaceObjectDesc(geometry, legacy, 132, boundsAt(0.0)));
+    world.addObject(makeSurfaceObjectDesc(geometry, pbr, 133, boundsAt(0.2)));
+
+    RenderCompileContext context = makeContext();
+    const RenderViewDesc view = identityView();
+    ASSERT_TRUE(compiler_.compile(world.snapshot(), RenderOptions{}, context, &view, true));
+
+    ASSERT_EQ(compiler_.surfaceCommands().size(), 3u);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 131)->pipelineState, &tangent_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 131)->materialBindings, MaterialBindingProfile::Unlit);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 132)->pipelineState, &tangent_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 132)->materialBindings, MaterialBindingProfile::Legacy);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 133)->pipelineState, &tangent_pipeline_);
+    EXPECT_EQ(findCommandByPickId(compiler_.surfaceCommands(), 133)->materialBindings, MaterialBindingProfile::PBR);
+}
+
+TEST_F(RenderCompilerTests, RoutesBlendMaterialToBlendPipeline) {
+    const RenderResourceKey key = makeAssetGpuKey(125);
+    prepareGeometry(key, makeSurfaceMesh());
+    RenderWorld world;
+    const GeometryHandle geometry = world.addGeometry(makeSurfaceGeometryDesc(key));
+    RenderMaterialDesc desc;
+    desc.resourceKey = makeRenderResourceKey(ResourceDomainId{ 7 }, 5, RenderResourceKind::Material);
+    desc.material.alphaMode = graphics::AlphaMode::Blend;
+    const auto material = world.addMaterial(std::move(desc));
+    world.addObject(makeSurfaceObjectDesc(geometry, material, 126, boundsAt(0.0)));
+
+    RenderCompileContext context = makeContext();
+    const RenderViewDesc view = identityView();
+    ASSERT_TRUE(compiler_.compile(world.snapshot(), RenderOptions{}, context, &view, true));
+
+    ASSERT_EQ(compiler_.surfaceCommands().size(), 1u);
+    EXPECT_EQ(compiler_.surfaceCommands().front().pipelineState, &blended_pipeline_);
+    EXPECT_TRUE(compiler_.surfaceCommands().front().translucent);
+    EXPECT_FALSE(compiler_.surfaceCommands().front().batchInstancingEligible);
+}
+
+TEST_F(RenderCompilerTests, SortsBlendCommandsBackToFrontAndUpdatesOnCameraMovement) {
+    const RenderResourceKey key = makeAssetGpuKey(127);
+    prepareGeometry(key, makeSurfaceMesh());
+    RenderWorld world;
+    const GeometryHandle geometry = world.addGeometry(makeSurfaceGeometryDesc(key));
+    RenderMaterialDesc desc;
+    desc.resourceKey = makeRenderResourceKey(ResourceDomainId{ 7 }, 6, RenderResourceKind::Material);
+    desc.material.alphaMode = graphics::AlphaMode::Blend;
+    const auto material = world.addMaterial(std::move(desc));
+    world.addObject(makeSurfaceObjectDesc(geometry, material, 128, boundsAtZ(-1.0)));
+    world.addObject(makeSurfaceObjectDesc(geometry, material, 129, boundsAtZ(-3.0)));
+
+    RenderCompileContext context = makeContext();
+    RenderViewDesc view = identityView();
+    view.cameraPosition = math::Point3(0.0, 0.0, 0.0);
+    view.viewMatrix = math::Mat4::lookAt(view.cameraPosition.asVec(), math::Vec3(0.0, 0.0, -1.0), math::Vec3::unitY());
+    ASSERT_TRUE(compiler_.compile(world.snapshot(), RenderOptions{}, context, &view, false));
+    ASSERT_EQ(compiler_.surfaceCommands().size(), 2u);
+    EXPECT_EQ(compiler_.surfaceCommands()[0].pickId, 129u);
+    EXPECT_EQ(compiler_.surfaceCommands()[1].pickId, 128u);
+
+    view.cameraPosition = math::Point3(0.0, 0.0, -4.0);
+    view.viewMatrix = math::Mat4::lookAt(view.cameraPosition.asVec(), math::Vec3(0.0, 0.0, 0.0), math::Vec3::unitY());
+    ASSERT_TRUE(compiler_.compile(world.snapshot(), RenderOptions{}, context, &view, false));
+    ASSERT_EQ(compiler_.surfaceCommands().size(), 2u);
+    EXPECT_EQ(compiler_.surfaceCommands()[0].pickId, 128u);
+    EXPECT_EQ(compiler_.surfaceCommands()[1].pickId, 129u);
+    EXPECT_TRUE(compiler_.lastPacketCacheStats().cacheHit);
 }
 
 TEST_F(RenderCompilerTests, ReusesEveryPacketForAnIdenticalSnapshot) {

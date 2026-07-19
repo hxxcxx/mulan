@@ -123,7 +123,7 @@ cbuffer Object : register(b1) {
 #endif
 
 // ============================================================
-// 材质常量（仅切换时更新, 80 bytes = MaterialGPU 直传）
+// 材质常量（仅切换时更新, 96 bytes = MaterialGPU 直传）
 // ============================================================
 [[vk::binding(2, 0)]]
 cbuffer Material : register(b2) {
@@ -132,8 +132,9 @@ cbuffer Material : register(b2) {
     float3 Specular;   float  Shininess;
     float  Alpha;      float  AO;
     float  EmissiveStrength; float AlphaCutoff;
-    uint   MaterialType; uint AlphaMode;
+    uint   ShadingModel; uint AlphaMode;
     uint   TextureFlags; uint DoubleSided;
+    float3 AmbientFactor; float _MaterialReserved;
 };
 
 // ============================================================

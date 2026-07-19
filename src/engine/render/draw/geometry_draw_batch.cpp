@@ -65,7 +65,9 @@ bool geometryDrawBatchCompatible(const MeshDrawCommand& lhs, const MeshDrawComma
            lhs.firstIndex == rhs.firstIndex && lhs.baseVertex == rhs.baseVertex && lhs.vertexCount == rhs.vertexCount &&
            lhs.topology == rhs.topology && lhs.materialIndex == rhs.materialIndex && lhs.albedoTex == rhs.albedoTex &&
            lhs.normalTex == rhs.normalTex && lhs.mrTex == rhs.mrTex && lhs.emissiveTex == rhs.emissiveTex &&
-           lhs.aoTex == rhs.aoTex && lhs.sampler == rhs.sampler && lhs.isWire == rhs.isWire &&
+           lhs.aoTex == rhs.aoTex && lhs.ambientTex == rhs.ambientTex && lhs.specularTex == rhs.specularTex &&
+           lhs.shininessTex == rhs.shininessTex && lhs.opacityTex == rhs.opacityTex && lhs.sampler == rhs.sampler &&
+           lhs.materialBindings == rhs.materialBindings && lhs.isWire == rhs.isWire &&
            lhs.batchInstancingEligible == rhs.batchInstancingEligible;
 }
 

@@ -18,6 +18,8 @@
 #include "../rhi/command_list.h"
 #include "../rhi/texture.h"
 #include "../rhi/sampler.h"
+#include "backend/surface_pipeline_provider.h"
+#include "technique/render_technique.h"
 #include <mulan/math/math.h>
 
 #include <cstdint>
@@ -27,6 +29,8 @@ namespace mulan::engine {
 struct MeshDrawCommand {
     // Pipeline
     PipelineState* pipelineState = nullptr;
+    SurfacePipelineFamily surfaceFamily = SurfacePipelineFamily::Legacy;
+    MaterialBindingProfile materialBindings = MaterialBindingProfile::None;
 
     // Geometry（来自 AssetGpuRegistry 的 GpuGeometry）
     Buffer* vertexBuffer = nullptr;
@@ -41,17 +45,22 @@ struct MeshDrawCommand {
 
     uint32_t materialIndex = 0;
 
-    // 纹理（binding 3~7, binding 8=sampler）。
-    // 由 RenderCompiler 解析材质填充。空纹理由 execute 用 default* 退化。
-    Texture* albedoTex = nullptr;    // binding 3
-    Texture* normalTex = nullptr;    // binding 4
-    Texture* mrTex = nullptr;        // binding 5 (metallicRoughness)
-    Texture* emissiveTex = nullptr;  // binding 6
-    Texture* aoTex = nullptr;        // binding 7
-    Sampler* sampler = nullptr;      // binding 8
+    // 三类材质 profile 共用稳定 binding 编号；每个 PSO 只声明自身实际使用的槽位。
+    // 由 RenderCompiler 解析材质填充，空纹理由 execute 使用对应默认纹理退化。
+    Texture* albedoTex = nullptr;     // binding 3
+    Texture* normalTex = nullptr;     // binding 4
+    Texture* mrTex = nullptr;         // binding 5 (metallicRoughness)
+    Texture* emissiveTex = nullptr;   // binding 6
+    Texture* aoTex = nullptr;         // binding 7
+    Texture* ambientTex = nullptr;    // binding 12 (Legacy)
+    Texture* specularTex = nullptr;   // binding 5 (Legacy)
+    Texture* shininessTex = nullptr;  // binding 7 (Legacy)
+    Texture* opacityTex = nullptr;    // binding 13
+    Sampler* sampler = nullptr;       // binding 8
 
     // 对象数据（提交绘制时写入瞬态 Uniform 切片）
     math::Mat4 worldTransform{ 1.0f };
+    math::Point3 sortCenter;
 
     // Meta
     uint32_t pickId = 0;

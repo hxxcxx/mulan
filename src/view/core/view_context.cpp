@@ -224,7 +224,6 @@ ViewState ViewContext::snapshotViewState(const engine::Camera& camera, const Cap
     state.cameraPosition = camera.eyePosition();
     state.width = static_cast<int>(width);
     state.height = static_cast<int>(height);
-    state.surfaceShading = surface_shading_;
     state.showOverlays = visual.showOverlays;
     state.showViewCube = visual.showViewCube;
     state.viewCubeLayout = view_cube_model_.layout();
@@ -456,7 +455,6 @@ ViewState ViewContext::buildViewState() const {
     state.width = width_;
     state.height = height_;
     state.renderMode = render_mode_;
-    state.surfaceShading = surface_shading_;
     state.hoveredPickId = hovered_pick_id_;
     state.selectionVisuals = selection_visual_state_;
     state.showFaces = render_mode_ != RenderMode::Wireframe;

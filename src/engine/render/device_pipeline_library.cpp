@@ -27,6 +27,9 @@ size_t DevicePipelineKeyHash::operator()(const DevicePipelineKey& key) const noe
     combine(std::hash<uint32_t>{}(key.sampleCount));
     combine(std::hash<bool>{}(key.hasDepth));
     combine(std::hash<uint8_t>{}(static_cast<uint8_t>(key.objectBindingMode)));
+    combine(std::hash<uint8_t>{}(static_cast<uint8_t>(key.alphaMode)));
+    combine(std::hash<bool>{}(key.doubleSided));
+    combine(std::hash<bool>{}(key.reverseWinding));
     return value;
 }
 
@@ -58,13 +61,25 @@ PipelineState* DevicePipelineLibrary::acquire(const DevicePipelineKey& key) {
     desc.ps = pixelShader->get();
     desc.vertexLayout = technique.vertexLayout;
     desc.topology = technique.topology;
-    desc.cullMode = technique.cullMode;
-    desc.frontFace = FrontFace::CounterClockwise;
+    const bool materialSurface = technique.materialBindings != MaterialBindingProfile::None;
+    desc.cullMode = materialSurface ? (key.doubleSided ? CullMode::None : CullMode::Back) : technique.cullMode;
+    desc.frontFace = key.reverseWinding ? FrontFace::Clockwise : FrontFace::CounterClockwise;
     desc.fillMode = FillMode::Solid;
     desc.depthStencil.depthEnable = technique.depthTest;
-    desc.depthStencil.depthWrite = technique.depthWrite;
+    desc.depthStencil.depthWrite =
+            technique.depthWrite && (!materialSurface || key.alphaMode != graphics::AlphaMode::Blend);
     desc.depthStencil.depthFunc = technique.depthFunc;
     desc.blend = technique.blend;
+    if (materialSurface && key.alphaMode == graphics::AlphaMode::Blend) {
+        auto& target = desc.blend.renderTargets[0];
+        target.blendEnable = true;
+        target.srcBlend = BlendFactor::SrcAlpha;
+        target.dstBlend = BlendFactor::InvSrcAlpha;
+        target.blendOp = BlendOp::Add;
+        target.srcBlendAlpha = BlendFactor::One;
+        target.dstBlendAlpha = BlendFactor::InvSrcAlpha;
+        target.blendOpAlpha = BlendOp::Add;
+    }
 
     using PB = PipelineBinding;
     desc.descriptorBindings[0] = { .binding = 0,
@@ -83,20 +98,41 @@ PipelineState* DevicePipelineLibrary::acquire(const DevicePipelineKey& key) {
                                    .stages = PB::kStageFragment,
                                    .mode = BindingMode::Dynamic };
     uint8_t bindingCount = 3;
-    if (technique.sampleTextures) {
+    const auto addTextureBinding = [&](uint8_t binding) {
+        desc.descriptorBindings[bindingCount++] = {
+            .binding = binding, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
+        };
+    };
+    const auto addSamplerBinding = [&] {
+        desc.descriptorBindings[bindingCount++] = {
+            .binding = 8, .count = 1, .type = DescriptorType::Sampler, .stages = PB::kStageFragment
+        };
+    };
+    switch (technique.materialBindings) {
+    case MaterialBindingProfile::None: break;
+    case MaterialBindingProfile::Unlit:
+        addTextureBinding(3);
+        addSamplerBinding();
+        addTextureBinding(13);
+        break;
+    case MaterialBindingProfile::Legacy:
+        for (uint8_t binding = 3; binding <= 7; ++binding)
+            addTextureBinding(binding);
+        addSamplerBinding();
+        addTextureBinding(12);
+        addTextureBinding(13);
+        break;
+    case MaterialBindingProfile::PBR:
         for (uint8_t binding = 3; binding <= 7; ++binding) {
             desc.descriptorBindings[bindingCount++] = {
                 .binding = binding, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
             };
         }
-        desc.descriptorBindings[bindingCount++] = {
-            .binding = 8, .count = 1, .type = DescriptorType::Sampler, .stages = PB::kStageFragment
-        };
-        for (uint8_t binding = 9; binding <= 11; ++binding) {
-            desc.descriptorBindings[bindingCount++] = {
-                .binding = binding, .count = 1, .type = DescriptorType::TextureSRV, .stages = PB::kStageFragment
-            };
-        }
+        addSamplerBinding();
+        for (uint8_t binding = 9; binding <= 11; ++binding)
+            addTextureBinding(binding);
+        addTextureBinding(13);
+        break;
     }
     desc.descriptorBindingCount = bindingCount;
     desc.colorFormats[0] = key.colorFormat;

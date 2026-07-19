@@ -17,7 +17,7 @@ namespace mulan::engine {
 struct DrawCameraSnapshot {
     math::Mat4 viewMatrix = math::Mat4(1.0);
     math::Mat4 projectionMatrix = math::Mat4(1.0);
-    math::Vec3 eyePosition = math::Vec3(0.0f);
+    math::Point3 eyePosition = math::Point3::origin();
 };
 
 struct DrawExecutionContext {

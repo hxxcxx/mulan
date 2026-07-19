@@ -491,7 +491,7 @@ TEST(DocumentCameraClipPlanes, CommittedOffAxisSmallCircleKeepsTheCurrentComposi
     ASSERT_NE(renderScene, nullptr);
     const auto& sphere = renderScene->sceneBoundsSphere();
     ASSERT_TRUE(sphere.isValid());
-    const double depth = (sphere.center.asVec() - camera.eyePosition()).dot(camera.forward());
+    const double depth = (sphere.center - camera.eyePosition()).dot(camera.forward());
     EXPECT_LT(camera.nearPlane(), depth - sphere.radius);
     EXPECT_GT(camera.farPlane(), depth + sphere.radius);
     EXPECT_EQ(camera.target(), initialTarget);
@@ -502,7 +502,7 @@ TEST(DocumentCameraClipPlanes, CommittedOffAxisSmallCircleKeepsTheCurrentComposi
     binding.refresh();
     binding.prepareFrame();
     const auto& expandedSphere = renderScene->sceneBoundsSphere();
-    const double expandedDepth = (expandedSphere.center.asVec() - camera.eyePosition()).dot(camera.forward());
+    const double expandedDepth = (expandedSphere.center - camera.eyePosition()).dot(camera.forward());
     EXPECT_LT(camera.nearPlane(), expandedDepth - expandedSphere.radius);
     EXPECT_GT(camera.farPlane(), expandedDepth + expandedSphere.radius);
 }
@@ -521,7 +521,7 @@ TEST(DocumentCameraLifecycle, EmptyDocumentBindResetsThePreviousComposition) {
     binding.bind(session, view);
 
     EXPECT_TRUE(view.camera().isOrthographic());
-    EXPECT_EQ(view.camera().target(), mulan::math::Vec3(0.0, 0.0, 0.0));
+    EXPECT_EQ(view.camera().target(), mulan::math::Point3::origin());
     EXPECT_DOUBLE_EQ(view.camera().distance(), 10.0);
     EXPECT_DOUBLE_EQ(view.camera().orthoSize(), 5.0);
     EXPECT_DOUBLE_EQ(view.camera().nearPlane(), 0.1);
@@ -568,7 +568,7 @@ TEST(DocumentCameraClipPlanes, PreviewAndCommittedLargeCircleStayInFrontDuringOr
     ASSERT_FALSE(view.previewLayer().drawables().empty());
     const auto previewSphere = mulan::math::Sphere3::fromAABB(view.previewLayer().drawables().front().mesh.bounds);
     ASSERT_TRUE(previewSphere.isValid());
-    double depth = (previewSphere.center.asVec() - camera.eyePosition()).dot(camera.forward());
+    double depth = (previewSphere.center - camera.eyePosition()).dot(camera.forward());
     EXPECT_GT(depth - previewSphere.radius, camera.nearPlane());
     EXPECT_GT(camera.farPlane(), depth + previewSphere.radius);
 
@@ -582,7 +582,7 @@ TEST(DocumentCameraClipPlanes, PreviewAndCommittedLargeCircleStayInFrontDuringOr
     binding.prepareFrame(mulan::editor::ClipUpdateMode::Interactive);
     const auto& sceneSphere = binding.renderScene()->sceneBoundsSphere();
     ASSERT_TRUE(sceneSphere.isValid());
-    depth = (sceneSphere.center.asVec() - camera.eyePosition()).dot(camera.forward());
+    depth = (sceneSphere.center - camera.eyePosition()).dot(camera.forward());
     EXPECT_GT(depth - sceneSphere.radius, camera.nearPlane());
     EXPECT_GT(camera.farPlane(), depth + sceneSphere.radius);
 }

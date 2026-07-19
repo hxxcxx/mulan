@@ -6,7 +6,7 @@
 #include "common.slang"
 
 float4 main(VS_OUTPUT_SIMPLE input) : SV_TARGET {
-    static const uint MaterialTypeUnlit = 0;
-    float3 color = (MaterialType == MaterialTypeUnlit) ? BaseColor : EdgeColor;
+    static const uint ShadingModelUnlit = 0;
+    float3 color = (ShadingModel == ShadingModelUnlit) ? BaseColor : EdgeColor;
     return float4(color, 1.0);
 }

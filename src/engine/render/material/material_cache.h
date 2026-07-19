@@ -25,7 +25,7 @@
 namespace mulan::engine {
 
 // ============================================================
-// 材质句柄 — vector index，0 = 默认材质(DefaultPBR)
+// 材质句柄 — vector index，0 = 无材质几何的 DefaultSurface
 // ============================================================
 using MaterialHandle = size_t;
 static constexpr MaterialHandle kInvalidMaterialHandle = static_cast<size_t>(-1);
@@ -36,7 +36,7 @@ static constexpr MaterialHandle kInvalidMaterialHandle = static_cast<size_t>(-1)
 
 class MaterialCache {
 public:
-    /// 构造时注册默认材质(DefaultPBR/DefaultPhong/Wireframe)
+    /// 构造时注册内建 fallback 与调试材质。
     MaterialCache();
     ~MaterialCache() = default;
 
@@ -97,6 +97,7 @@ public:
 
     /// MeshDrawCommand 使用 uint32_t 材质索引，因此只保留真实的可表示边界。
     static constexpr size_t kMaxMaterials = static_cast<size_t>(std::numeric_limits<uint32_t>::max());
+    static constexpr size_t kBuiltinMaterialCount = 4;
 
 private:
     void advanceRevision() noexcept;

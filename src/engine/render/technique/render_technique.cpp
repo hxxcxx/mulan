@@ -3,20 +3,57 @@
 namespace mulan::engine {
 namespace {
 
-consteval TechniqueDesc makeSolidLit() {
+consteval TechniqueDesc makeSurfaceUnlit() {
     return TechniqueDesc{
-        .technique = RenderTechnique::SolidLit,
-        .debugName = "SolidLit",
-        .shader = { .vertex = "solid.vert", .pixel = "solid.frag" },
-        .instancedVertexShader = "solid_instanced.vert",
+        .technique = RenderTechnique::SurfaceUnlit,
+        .debugName = "SurfaceUnlit",
+        .shader = { .vertex = "pbr.vert", .pixel = "unlit.frag" },
+        .instancedVertexShader = "pbr_instanced.vert",
         .vertexLayout = graphics::layouts::surface(),
         .topology = PrimitiveTopology::TriangleList,
         .depthTest = true,
         .depthWrite = true,
         .depthFunc = CompareFunc::LessEqual,
-        .sampleTextures = false,
+        .materialBindings = MaterialBindingProfile::Unlit,
         .cullMode = CullMode::None,
     };
+}
+
+consteval TechniqueDesc makeSurfaceUnlitTangent() {
+    TechniqueDesc desc = makeSurfaceUnlit();
+    desc.technique = RenderTechnique::SurfaceUnlitTangent;
+    desc.debugName = "SurfaceUnlitTangent";
+    desc.shader.vertex = "pbr_tangent.vert";
+    desc.instancedVertexShader = "pbr_tangent_instanced.vert";
+    desc.vertexLayout = graphics::layouts::pbr();
+    return desc;
+}
+
+consteval TechniqueDesc makeSurfaceLegacy() {
+    return TechniqueDesc{
+        .technique = RenderTechnique::SurfaceLegacy,
+        .debugName = "SurfaceLegacy",
+        .shader = { .vertex = "pbr.vert", .pixel = "legacy.frag" },
+        .instancedVertexShader = "pbr_instanced.vert",
+        .vertexLayout = graphics::layouts::surface(),
+        .topology = PrimitiveTopology::TriangleList,
+        .depthTest = true,
+        .depthWrite = true,
+        .depthFunc = CompareFunc::LessEqual,
+        .materialBindings = MaterialBindingProfile::Legacy,
+        .cullMode = CullMode::None,
+    };
+}
+
+consteval TechniqueDesc makeSurfaceLegacyTangent() {
+    TechniqueDesc desc = makeSurfaceLegacy();
+    desc.technique = RenderTechnique::SurfaceLegacyTangent;
+    desc.debugName = "SurfaceLegacyTangent";
+    desc.shader.vertex = "pbr_tangent.vert";
+    desc.shader.pixel = "legacy_tangent.frag";
+    desc.instancedVertexShader = "pbr_tangent_instanced.vert";
+    desc.vertexLayout = graphics::layouts::pbr();
+    return desc;
 }
 
 consteval TechniqueDesc makeSurfacePBR() {
@@ -30,7 +67,7 @@ consteval TechniqueDesc makeSurfacePBR() {
         .depthTest = true,
         .depthWrite = true,
         .depthFunc = CompareFunc::LessEqual,
-        .sampleTextures = true,
+        .materialBindings = MaterialBindingProfile::PBR,
         .cullMode = CullMode::None,
     };
 }
@@ -46,7 +83,7 @@ consteval TechniqueDesc makeSurfacePBRTangent() {
         .depthTest = true,
         .depthWrite = true,
         .depthFunc = CompareFunc::LessEqual,
-        .sampleTextures = true,
+        .materialBindings = MaterialBindingProfile::PBR,
         .cullMode = CullMode::None,
     };
 }
@@ -62,7 +99,7 @@ consteval TechniqueDesc makeEdgeLine() {
         .depthTest = true,
         .depthWrite = false,
         .depthFunc = CompareFunc::LessEqual,
-        .sampleTextures = false,
+        .materialBindings = MaterialBindingProfile::None,
     };
 }
 
@@ -88,7 +125,7 @@ consteval TechniqueDesc makeHighlightSurface() {
         .depthTest = true,
         .depthWrite = false,
         .depthFunc = CompareFunc::LessEqual,
-        .sampleTextures = false,
+        .materialBindings = MaterialBindingProfile::None,
         .blend = makeAlphaBlend(),
     };
 }
@@ -103,7 +140,7 @@ consteval TechniqueDesc makeHighlightSurfaceTangent() {
         .depthTest = true,
         .depthWrite = false,
         .depthFunc = CompareFunc::LessEqual,
-        .sampleTextures = false,
+        .materialBindings = MaterialBindingProfile::None,
         .blend = makeAlphaBlend(),
     };
 }
@@ -118,7 +155,7 @@ consteval TechniqueDesc makeHighlightEdge() {
         .depthTest = true,
         .depthWrite = false,
         .depthFunc = CompareFunc::LessEqual,
-        .sampleTextures = false,
+        .materialBindings = MaterialBindingProfile::None,
     };
 }
 
@@ -132,7 +169,7 @@ consteval TechniqueDesc makeViewCube() {
         .depthTest = true,
         .depthWrite = true,
         .depthFunc = CompareFunc::LessEqual,
-        .sampleTextures = false,
+        .materialBindings = MaterialBindingProfile::None,
     };
 }
 
@@ -146,11 +183,14 @@ consteval TechniqueDesc makeViewCubeLine() {
         .depthTest = true,
         .depthWrite = false,
         .depthFunc = CompareFunc::LessEqual,
-        .sampleTextures = false,
+        .materialBindings = MaterialBindingProfile::None,
     };
 }
 
-constexpr TechniqueDesc kSolidLit = makeSolidLit();
+constexpr TechniqueDesc kSurfaceUnlit = makeSurfaceUnlit();
+constexpr TechniqueDesc kSurfaceUnlitTangent = makeSurfaceUnlitTangent();
+constexpr TechniqueDesc kSurfaceLegacy = makeSurfaceLegacy();
+constexpr TechniqueDesc kSurfaceLegacyTangent = makeSurfaceLegacyTangent();
 constexpr TechniqueDesc kSurfacePBR = makeSurfacePBR();
 constexpr TechniqueDesc kSurfacePBRTangent = makeSurfacePBRTangent();
 constexpr TechniqueDesc kEdgeLine = makeEdgeLine();
@@ -164,7 +204,10 @@ constexpr TechniqueDesc kViewCubeLine = makeViewCubeLine();
 
 const TechniqueDesc& TechniqueRegistry::builtin(RenderTechnique technique) {
     switch (technique) {
-    case RenderTechnique::SolidLit: return kSolidLit;
+    case RenderTechnique::SurfaceUnlit: return kSurfaceUnlit;
+    case RenderTechnique::SurfaceUnlitTangent: return kSurfaceUnlitTangent;
+    case RenderTechnique::SurfaceLegacy: return kSurfaceLegacy;
+    case RenderTechnique::SurfaceLegacyTangent: return kSurfaceLegacyTangent;
     case RenderTechnique::SurfacePBR: return kSurfacePBR;
     case RenderTechnique::SurfacePBRTangent: return kSurfacePBRTangent;
     case RenderTechnique::EdgeLine: return kEdgeLine;

@@ -12,6 +12,34 @@
 
 namespace mulan::graphics {
 
+/// 材质的光照语义。该值从文件导入一直传递到渲染管线选择，不能由视图模式猜测。
+enum class MaterialShadingModel : uint8_t {
+    Unlit,
+    Lambert,
+    BlinnPhong,
+    MetallicRoughness,
+};
+
+inline const char* materialShadingModelToString(MaterialShadingModel model) {
+    switch (model) {
+    case MaterialShadingModel::Unlit: return "Unlit";
+    case MaterialShadingModel::Lambert: return "Lambert";
+    case MaterialShadingModel::BlinnPhong: return "BlinnPhong";
+    case MaterialShadingModel::MetallicRoughness: return "MetallicRoughness";
+    }
+    return "MetallicRoughness";
+}
+
+inline MaterialShadingModel materialShadingModelFromString(const std::string& value) {
+    if (value == "Unlit" || value == "unlit")
+        return MaterialShadingModel::Unlit;
+    if (value == "Lambert" || value == "lambert")
+        return MaterialShadingModel::Lambert;
+    if (value == "BlinnPhong" || value == "blinnphong")
+        return MaterialShadingModel::BlinnPhong;
+    return MaterialShadingModel::MetallicRoughness;
+}
+
 enum class AlphaMode : uint8_t {
     Opaque,
     Mask,

@@ -12,12 +12,12 @@ namespace mulan::engine {
 class AssetGpuRegistry;
 class MaterialCache;
 class PipelineState;
+class SurfacePipelineProvider;
 
 struct RenderCompileContext {
     AssetGpuRegistry& assets;
     MaterialCache& materials;
-    PipelineState* surfacePipeline = nullptr;
-    PipelineState* surfaceTangentPipeline = nullptr;
+    SurfacePipelineProvider* surfacePipelines = nullptr;
     PipelineState* edgePipeline = nullptr;
     PipelineState* highlightSurfacePipeline = nullptr;
     PipelineState* highlightSurfaceTangentPipeline = nullptr;

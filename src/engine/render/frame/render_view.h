@@ -18,7 +18,7 @@ namespace mulan::engine {
 struct RenderView {
     math::Mat4 viewMatrix = math::Mat4(1.0);
     math::Mat4 projectionMatrix = math::Mat4(1.0);
-    math::Vec3 cameraPosition = math::Vec3(0.0);
+    math::Point3 cameraPosition = math::Point3::origin();
 
     uint32_t width = 0;
     uint32_t height = 0;

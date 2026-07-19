@@ -36,7 +36,7 @@ std::optional<double> markerSizeFromCamera(const EditorInput& input) {
     }
 
     const double depth =
-            std::max(camera.nearPlane(), (input.point->world.asVec() - camera.eyePosition()).dot(camera.forward()));
+            std::max(camera.nearPlane(), (input.point->world - camera.eyePosition()).dot(camera.forward()));
     const double viewHeightAtPoint = 2.0 * depth * std::tan(camera.fieldOfView() * 0.5);
     return pixels * viewHeightAtPoint / viewportHeight;
 }

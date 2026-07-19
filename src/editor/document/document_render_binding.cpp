@@ -211,8 +211,6 @@ void DocumentRenderBinding::applyViewPreferences() {
     view_->camera().setOrthographic(preferences.preferOrthographic);
     // 每个新建、打开或切换到的文档都从世界 XY 正视图开始；后续 fit 只调整中心和距离。
     view_->setCameraToWorldXY();
-    view_->setSurfaceShading(preferences.preferPBRSurface ? view::SurfaceShading::SurfacePBR
-                                                          : view::SurfaceShading::SolidLit);
     if (preferences.preferIBL) {
         view_->enableIBL();
     }

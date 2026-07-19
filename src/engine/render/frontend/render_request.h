@@ -24,14 +24,8 @@ enum class DisplayMode : uint8_t {
     XRay,
 };
 
-enum class SurfaceTechnique : uint8_t {
-    SolidLit,
-    SurfacePBR,
-};
-
 struct RenderOptions {
     DisplayMode displayMode = DisplayMode::ShadedWithEdges;
-    SurfaceTechnique surfaceTechnique = SurfaceTechnique::SolidLit;
     PickId hoveredPickId;
     SelectionVisualState selectionVisuals;
     bool showSurfaces = true;

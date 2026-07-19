@@ -45,7 +45,6 @@ private:
     void buildQuickAccessBar();
     void buildRightButtonBar();
     void setCurrentRenderMode(mulan::view::RenderMode mode);
-    void setCurrentSurfaceShading(mulan::view::SurfaceShading shading);
     void updateDisplayActions();
     void updateCommandActions();
     QAction* createCommandAction(const QString& iconPath, std::string_view commandId);
@@ -94,8 +93,6 @@ private:
     QAction* action_display_edges_ = nullptr;
     QAction* action_display_wireframe_ = nullptr;
     QAction* action_display_shaded_ = nullptr;
-    QAction* action_surface_solid_ = nullptr;
-    QAction* action_surface_material_ = nullptr;
     QAction* action_show_cube_ = nullptr;
     QAction* action_profiler_ = nullptr;
     ProfilerWindow* profiler_window_ = nullptr;

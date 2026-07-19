@@ -7,10 +7,11 @@ namespace mulan::engine {
 // ============================================================
 
 MaterialCache::MaterialCache() {
-    // 注册默认材质：index 0 = DefaultPBR（也是渲染端的回退目标）
-    registerMaterial("DefaultPBR", Material::defaultPBR());             // index 0
-    registerMaterial("DefaultPhong", Material::defaultPhong());         // index 1
-    registerMaterial("Wireframe", Material::unlit({ 0.2, 0.2, 0.8 }));  // index 2
+    // index 0 是无材质几何的稳定 fallback；其余内建项保留显式名称供工具使用。
+    registerMaterial("DefaultSurface", Material::defaultSurface());     // index 0
+    registerMaterial("DefaultPBR", Material::defaultPBR());             // index 1
+    registerMaterial("DefaultPhong", Material::defaultPhong());         // index 2
+    registerMaterial("Wireframe", Material::unlit({ 0.2, 0.2, 0.8 }));  // index 3
 }
 
 MaterialHandle MaterialCache::registerMaterial(Material material) {
@@ -111,8 +112,7 @@ bool MaterialCache::updateMaterial(const std::string& name, const Material& mate
 bool MaterialCache::remove(MaterialHandle handle) {
     if (handle >= materials_.size())
         return false;
-    // 不删除默认材质(index 0-2)
-    if (handle < 3)
+    if (handle < kBuiltinMaterialCount)
         return false;
     materials_.erase(materials_.begin() + static_cast<std::ptrdiff_t>(handle));
     rebuildNameIndex();
@@ -122,8 +122,7 @@ bool MaterialCache::remove(MaterialHandle handle) {
 }
 
 void MaterialCache::clear() {
-    // 保留默认材质（前3个）
-    size_t keepCount = std::min(materials_.size(), size_t(3));
+    const size_t keepCount = std::min(materials_.size(), kBuiltinMaterialCount);
     if (materials_.size() == keepCount) {
         return;
     }

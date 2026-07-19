@@ -48,8 +48,6 @@ public:
     mulan::editor::CommandHost commandHost();
     mulan::view::RenderMode renderMode() const;
     void setRenderMode(mulan::view::RenderMode mode);
-    mulan::view::SurfaceShading surfaceShading() const;
-    void setSurfaceShading(mulan::view::SurfaceShading shading);
     bool viewCubeVisible() const;
     void setViewCubeVisible(bool visible);
     mulan::Result<mulan::view::CaptureImage> capture(mulan::view::CaptureRequest request);

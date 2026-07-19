@@ -30,7 +30,6 @@ enum class DocumentSessionKind : uint8_t {
 struct DocumentRenderPreferences {
     bool preferOrthographic = true;
     bool preferIBL = false;
-    bool preferPBRSurface = false;
 };
 
 struct DocumentSessionOptions {
@@ -54,7 +53,6 @@ public:
     const DocumentRenderPreferences& renderPreferences() const { return preferences_; }
     bool preferOrthographic() const { return preferences_.preferOrthographic; }
     bool preferIBL() const { return preferences_.preferIBL; }
-    bool preferPBRSurface() const { return preferences_.preferPBRSurface; }
     DocumentSessionKind kind() const { return kind_; }
     bool allowsDrawingCommands() const { return kind_ == DocumentSessionKind::Draft; }
     /// 草稿文档当前没有保存工作流，关闭时不应伪装成可保存文档打断用户。

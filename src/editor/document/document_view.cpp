@@ -153,18 +153,6 @@ void DocumentView::setRenderMode(mulan::view::RenderMode mode) {
     invalidateFrame();
 }
 
-mulan::view::SurfaceShading DocumentView::surfaceShading() const {
-    return impl_->view_context.surfaceShading();
-}
-
-void DocumentView::setSurfaceShading(mulan::view::SurfaceShading shading) {
-    if (impl_->view_context.surfaceShading() == shading) {
-        return;
-    }
-    impl_->view_context.setSurfaceShading(shading);
-    invalidateFrame();
-}
-
 bool DocumentView::viewCubeVisible() const {
     return impl_->view_context.showViewCube();
 }

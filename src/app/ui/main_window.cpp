@@ -44,14 +44,12 @@ void logImportReport(const mulan::io::ImportReport& report) {
 mulan::editor::DocumentSessionOptions importedSessionOptions(const mulan::io::ImportReport& report) {
     const bool isCad =
             report.brepAssetCount > 0 && (report.meshAssetCount == 0 || report.brepAssetCount >= report.meshAssetCount);
-    const bool hasImportedMaterialData = report.materialCount > 0 || report.textureCount > 0;
     return mulan::editor::DocumentSessionOptions{
         .kind = mulan::editor::DocumentSessionKind::Imported,
         .renderPreferences =
                 {
                         .preferOrthographic = isCad,
                         .preferIBL = false,
-                        .preferPBRSurface = !isCad && hasImportedMaterialData,
                 },
     };
 }
@@ -298,24 +296,6 @@ void MainWindow::buildRibbonViewCategory() {
 
     panel_display_->addSeparator();
 
-    action_surface_solid_ = new QAction(QIcon(":/app/icons/icon/surface-solid.svg"), tr("Solid"), this);
-    action_surface_solid_->setCheckable(true);
-    connect(action_surface_solid_, &QAction::triggered, this,
-            [this]() { setCurrentSurfaceShading(mulan::view::SurfaceShading::SolidLit); });
-    panel_display_->addSmallAction(action_surface_solid_);
-
-    action_surface_material_ = new QAction(QIcon(":/app/icons/icon/surface-material.svg"), tr("Material"), this);
-    action_surface_material_->setCheckable(true);
-    connect(action_surface_material_, &QAction::triggered, this,
-            [this]() { setCurrentSurfaceShading(mulan::view::SurfaceShading::SurfacePBR); });
-    panel_display_->addSmallAction(action_surface_material_);
-
-    auto* surfaceGroup = new QActionGroup(this);
-    surfaceGroup->addAction(action_surface_solid_);
-    surfaceGroup->addAction(action_surface_material_);
-
-    panel_display_->addSeparator();
-
     action_show_cube_ = new QAction(QIcon(":/app/icons/icon/view-cube.svg"), tr("Show Cube"), this);
     action_show_cube_->setCheckable(true);
     action_show_cube_->setChecked(true);
@@ -409,17 +389,6 @@ void MainWindow::setCurrentRenderMode(mulan::view::RenderMode mode) {
     updateDisplayActions();
 }
 
-void MainWindow::setCurrentSurfaceShading(mulan::view::SurfaceShading shading) {
-    auto* doc = document_workspace_ ? document_workspace_->currentViewport() : nullptr;
-    if (!doc) {
-        updateDisplayActions();
-        return;
-    }
-
-    doc->setSurfaceShading(shading);
-    updateDisplayActions();
-}
-
 void MainWindow::updateDisplayActions() {
     auto* doc = document_workspace_ ? document_workspace_->currentViewport() : nullptr;
     const bool hasDocument = doc && doc->isReady();
@@ -445,12 +414,6 @@ void MainWindow::updateDisplayActions() {
     if (action_display_edges_) {
         action_display_edges_->setEnabled(hasDocument);
     }
-    if (action_surface_solid_) {
-        action_surface_solid_->setEnabled(hasDocument);
-    }
-    if (action_surface_material_) {
-        action_surface_material_->setEnabled(hasDocument);
-    }
     if (action_show_cube_) {
         action_show_cube_->setEnabled(hasDocument);
     }
@@ -468,13 +431,6 @@ void MainWindow::updateDisplayActions() {
         action_display_edges_->setChecked(mode == mulan::view::RenderMode::ShadedWithEdges);
     }
 
-    const auto shading = doc->surfaceShading();
-    if (action_surface_solid_) {
-        action_surface_solid_->setChecked(shading == mulan::view::SurfaceShading::SolidLit);
-    }
-    if (action_surface_material_) {
-        action_surface_material_->setChecked(shading == mulan::view::SurfaceShading::SurfacePBR);
-    }
     if (action_show_cube_) {
         const QSignalBlocker blocker(action_show_cube_);
         action_show_cube_->setChecked(doc->viewCubeVisible());

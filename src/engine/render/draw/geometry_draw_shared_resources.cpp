@@ -48,7 +48,7 @@ SceneUniforms GeometryDrawSharedResources::buildSceneUniforms(const DrawExecutio
     math::Mat4 view = ctx.camera.viewMatrix;
     math::Mat4 proj = ctx.camera.projectionMatrix;
     math::Mat4 vp = clip * proj * view;
-    math::Vec3 eye = ctx.camera.eyePosition;
+    const math::Vec3 eye = ctx.camera.eyePosition.asVec();
 
     const ResolvedLighting lighting = resolveLighting(lightEnv, view);
     const Light legacyLight = lighting.lightCount != 0

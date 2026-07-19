@@ -29,6 +29,7 @@
 [[vk::binding(9, 0)]]  Sampler2D IrradianceMap;
 [[vk::binding(10, 0)]] Sampler2D PrefilterMap;
 [[vk::binding(11, 0)]] Sampler2D BrdfLUT;
+[[vk::binding(13, 0)]] Sampler2D OpacityTex;
 #else
 [[vk::binding(3, 0)]]  Texture2D    AlbedoTex     : register(t3);
 [[vk::binding(4, 0)]]  Texture2D    NormalTex     : register(t4);
@@ -39,6 +40,7 @@
 [[vk::binding(9, 0)]]  Texture2D    IrradianceMap : register(t9);
 [[vk::binding(10, 0)]] Texture2D    PrefilterMap  : register(t10);
 [[vk::binding(11, 0)]] Texture2D    BrdfLUT       : register(t11);
+[[vk::binding(13, 0)]] Texture2D    OpacityTex    : register(t13);
 #endif
 
 #define TF_ALBEDO   0x01u
@@ -46,6 +48,10 @@
 #define TF_MR       0x04u
 #define TF_EMISSIVE 0x08u
 #define TF_AO       0x10u
+#define TF_OPACITY  0x100u
+
+static const uint ALPHA_MASK = 1u;
+static const uint ALPHA_BLEND = 2u;
 
 static const float PI = 3.14159265359;
 
@@ -140,10 +146,17 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
     // ── 纹理采样 ──
     uint flags = TextureFlags;
 
-    float3 albedo = ((flags & TF_ALBEDO) != 0u)
-        ? MULAN_SAMPLE_2D(AlbedoTex, PbrSampler, input.texcoord).rgb
-        : float3(1, 1, 1);
-    albedo *= BaseColor;
+    float4 albedoSample = ((flags & TF_ALBEDO) != 0u)
+        ? MULAN_SAMPLE_2D(AlbedoTex, PbrSampler, input.texcoord)
+        : float4(1, 1, 1, 1);
+    float3 albedo = albedoSample.rgb * BaseColor;
+    float alpha = Alpha * albedoSample.a;
+    if ((flags & TF_OPACITY) != 0u)
+        alpha *= MULAN_SAMPLE_2D(OpacityTex, PbrSampler, input.texcoord).r;
+    if (AlphaMode == ALPHA_MASK && alpha < AlphaCutoff)
+        discard;
+    if (AlphaMode != ALPHA_BLEND)
+        alpha = 1.0;
 
     if ((flags & TF_NORMAL) != 0u) {
 #ifdef MULAN_USE_VERTEX_TANGENT
@@ -216,5 +229,5 @@ float4 main(VS_OUTPUT input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET {
     color = acesTonemap(color);
     color = pow(color, 1.0 / 2.2);
 
-    return float4(color, Alpha);
+    return float4(color, alpha);
 }
