@@ -144,6 +144,63 @@ f 1 2 3
     EXPECT_DOUBLE_EQ(result->materials[2].shininess, 48.0);
 }
 
+TEST(ObjImporterTests, RecognizesBakedLightingMaterialSetWithoutChangingOrdinaryLambert) {
+    TemporaryObjDirectory files;
+    files.write("baked.jpg", "texture");
+    files.write("scene.mtl", R"(newmtl BakedA
+illum 1
+Kd 1 1 1
+Ks 0 0 0
+Ke 0 0 0
+map_Kd baked.jpg
+map_Ke baked.jpg
+newmtl BakedB
+illum 1
+Kd 1 1 1
+Ks 0 0 0
+Ke 0 0 0
+map_Kd baked.jpg
+map_Ke baked.jpg
+newmtl ExporterTypo
+illum 1
+Kd 1 1 1
+Ks 0 0 0
+Ke 0 0 0
+map_Kd baked.jpg
+newmtl OrdinaryLambert
+illum 1
+Kd 0.5 0.5 0.5
+Ks 0.1 0.1 0.1
+map_Kd baked.jpg
+)");
+    const auto obj = files.write("scene.obj", R"(mtllib scene.mtl
+v 0 0 0
+v 1 0 0
+v 0 1 0
+usemtl BakedA
+f 1 2 3
+usemtl BakedB
+f 1 2 3
+usemtl ExporterTypo
+f 1 2 3
+usemtl OrdinaryLambert
+f 1 2 3
+)");
+
+    const auto result = ObjImporter{}.parse(obj.string());
+
+    ASSERT_TRUE(result) << result.error().message;
+    ASSERT_EQ(result->materials.size(), 4u);
+    EXPECT_EQ(result->materials[0].shadingModel, graphics::MaterialShadingModel::Unlit);
+    EXPECT_EQ(result->materials[1].shadingModel, graphics::MaterialShadingModel::Unlit);
+    EXPECT_EQ(result->materials[2].shadingModel, graphics::MaterialShadingModel::Unlit);
+    EXPECT_EQ(result->materials[3].shadingModel, graphics::MaterialShadingModel::Lambert);
+    EXPECT_TRUE(result->materials[0].doubleSided);
+    EXPECT_TRUE(result->materials[1].doubleSided);
+    EXPECT_TRUE(result->materials[2].doubleSided);
+    EXPECT_FALSE(result->materials[3].doubleSided);
+}
+
 TEST(ObjImporterTests, KeepsMaterialBoundariesAsSeparatePrimitives) {
     TemporaryObjDirectory files;
     files.write("scene.mtl", R"(newmtl Red

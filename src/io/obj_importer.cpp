@@ -295,10 +295,35 @@ bool materialUsesTextureOptions(const rapidobj::Material& material) {
     });
 }
 
+bool isZeroColor(const rapidobj::Float3& color) {
+    constexpr float epsilon = 1.0e-6f;
+    return std::abs(color[0]) <= epsilon && std::abs(color[1]) <= epsilon && std::abs(color[2]) <= epsilon;
+}
+
+bool isBakedDiffuseCandidate(const rapidobj::Material& material) {
+    return material.illum == 1 && !material.diffuse_texname.empty() && isZeroColor(material.specular) &&
+           isZeroColor(material.emission);
+}
+
+bool usesBakedDiffuseLighting(const rapidobj::Materials& materials) {
+    size_t candidateCount = 0;
+    size_t echoedTextureCount = 0;
+    for (const rapidobj::Material& material : materials) {
+        if (!isBakedDiffuseCandidate(material))
+            continue;
+        ++candidateCount;
+        if (!material.emissive_texname.empty() && material.emissive_texname == material.diffuse_texname)
+            ++echoedTextureCount;
+    }
+    return candidateCount != 0 && echoedTextureCount > candidateCount / 2u;
+}
+
 graphics::MaterialShadingModel shadingModel(const rapidobj::Material& material, bool hasPbrDeclaration,
-                                            ParsedScene& scene) {
+                                            bool bakedDiffuseLighting, ParsedScene& scene) {
     if (hasPbrDeclaration)
         return graphics::MaterialShadingModel::MetallicRoughness;
+    if (bakedDiffuseLighting && isBakedDiffuseCandidate(material))
+        return graphics::MaterialShadingModel::Unlit;
     switch (material.illum) {
     case 0: return graphics::MaterialShadingModel::Unlit;
     case 1: return graphics::MaterialShadingModel::Lambert;
@@ -314,7 +339,7 @@ Result<std::vector<size_t>> importMaterials(const rapidobj::Result& source, Pars
                                             const std::filesystem::path& modelDirectory,
                                             const std::filesystem::path& materialDirectory,
                                             const std::unordered_set<std::string>& pbrMaterials,
-                                            const ImportOptions& options) {
+                                            bool bakedDiffuseLighting, const ImportOptions& options) {
     std::vector<size_t> indices(source.materials.size(), SIZE_MAX);
     if (!options.importMaterials)
         return indices;
@@ -324,7 +349,9 @@ Result<std::vector<size_t>> importMaterials(const rapidobj::Result& source, Pars
         const rapidobj::Material& material = source.materials[i];
         ParsedMaterial parsed;
         parsed.name = material.name.empty() ? "Material_" + std::to_string(i) : material.name;
-        parsed.shadingModel = shadingModel(material, pbrMaterials.contains(material.name), scene);
+        const bool bakedDiffuseMaterial = bakedDiffuseLighting && isBakedDiffuseCandidate(material);
+        parsed.shadingModel = shadingModel(material, pbrMaterials.contains(material.name), bakedDiffuseLighting, scene);
+        parsed.doubleSided = bakedDiffuseMaterial;
         parsed.baseColorFactor = math::Vec4(clampUnit(material.diffuse[0]), clampUnit(material.diffuse[1]),
                                             clampUnit(material.diffuse[2]), clampUnit(material.dissolve, 1.0));
         parsed.ambientFactor = math::Vec3(clampUnit(material.ambient[0]), clampUnit(material.ambient[1]),
@@ -764,8 +791,8 @@ Result<ParsedScene> ObjImporter::parse(const std::string& path, const ImportOpti
     auto pbrMaterials = findPbrMaterialDeclarations(materialPath);
     if (!pbrMaterials)
         return std::unexpected(pbrMaterials.error());
-    auto materialIndices =
-            importMaterials(source, scene, sourcePath->parent_path(), materialDirectory, *pbrMaterials, options);
+    auto materialIndices = importMaterials(source, scene, sourcePath->parent_path(), materialDirectory, *pbrMaterials,
+                                           usesBakedDiffuseLighting(source.materials), options);
     if (!materialIndices)
         return std::unexpected(materialIndices.error());
     if (auto imported = importMeshes(source, scene, *materialIndices, *sourcePath, options); !imported)
