@@ -596,10 +596,12 @@ void RenderThread::executeFrame(Channel& channel, RenderSubmission submission) {
             return;
         }
         MULAN_PROFILE_FRAME();
-        auto rendered = [&] {
+        ResultVoid rendered;
+        {
             MULAN_PROFILE_ZONE_N("RenderThread/ExecuteFrame");
-            return channel.executor->executeFrame(submission);
-        }();
+            rendered = channel.executor->executeFrame(submission);
+        }
+
         if (!rendered) {
             if (engine::isDeviceFatalError(rendered.error())) {
                 failThread(rendered.error());
