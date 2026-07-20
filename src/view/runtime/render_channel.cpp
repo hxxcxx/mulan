@@ -28,12 +28,12 @@ ResultVoid RenderChannel::init(const ViewConfig& config, int width, int height,
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is already attached."));
     }
     const RenderDeviceConfig deviceConfig = RenderDeviceConfig::fromView(config);
-    const RenderSurfaceConfig surfaceConfig = RenderSurfaceConfig::fromView(config);
+    const PresentSurfaceConfig presentConfig = PresentSurfaceConfig::fromView(config);
     auto thread = RenderThread::acquire(deviceConfig);
     if (!thread) {
         return std::unexpected(thread.error());
     }
-    auto channel = (*thread)->attachChannel(surfaceConfig, width, height, std::move(eventCallback));
+    auto channel = (*thread)->attachChannel(presentConfig, width, height, std::move(eventCallback));
     if (!channel) {
         return std::unexpected(channel.error());
     }
@@ -69,7 +69,7 @@ Result<engine::RenderCaptureResult> RenderChannel::capture(RenderSubmission subm
     return thread_->capture(channel_, std::move(submission), desc);
 }
 
-Result<RenderSurfaceState> RenderChannel::resize(int width, int height) {
+Result<PresentSurfaceState> RenderChannel::resize(int width, int height) {
     if (!thread_ || channel_ == 0) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is not ready."));
     }
@@ -97,8 +97,8 @@ std::optional<Error> RenderChannel::failureSnapshot() const {
     return thread_ && channel_ != 0 ? thread_->failureSnapshot(channel_) : std::nullopt;
 }
 
-RenderSurfaceState RenderChannel::surfaceState() const {
-    return thread_ && channel_ != 0 ? thread_->surfaceState(channel_) : RenderSurfaceState{};
+PresentSurfaceState RenderChannel::presentSurfaceState() const {
+    return thread_ && channel_ != 0 ? thread_->presentSurfaceState(channel_) : PresentSurfaceState{};
 }
 
 }  // namespace mulan::view::detail

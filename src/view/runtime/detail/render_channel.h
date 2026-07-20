@@ -30,13 +30,13 @@ public:
     bool isReady() const;
     ResultVoid submitFrame(RenderSubmission submission);
     Result<engine::RenderCaptureResult> capture(RenderSubmission submission, engine::RenderCaptureDesc desc);
-    Result<RenderSurfaceState> resize(int width, int height);
+    Result<PresentSurfaceState> resize(int width, int height);
     void enableIBL(std::string hdrPath);
     ResultVoid clearAssetResources();
 
     std::optional<uint64_t> takeCompletedResourceBatch();
     std::optional<Error> failureSnapshot() const;
-    RenderSurfaceState surfaceState() const;
+    PresentSurfaceState presentSurfaceState() const;
 
 private:
     std::shared_ptr<RenderThread> thread_;

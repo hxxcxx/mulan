@@ -163,7 +163,7 @@ Result<engine::RenderCaptureResult> RenderSession::capture(const ViewState& view
     return result;
 }
 
-RenderSurfaceState RenderSession::resize(int width, int height) {
+PresentSurfaceState RenderSession::resize(int width, int height) {
     assertOwnerThread();
     if (!channel_) {
         return {};
@@ -171,7 +171,7 @@ RenderSurfaceState RenderSession::resize(int width, int height) {
     auto resized = channel_->resize(width, height);
     if (!resized) {
         LOG_ERROR("[RenderSession] Surface resize failed: {}", resized.error().message);
-        const RenderSurfaceState fallback = channel_->surfaceState();
+        const PresentSurfaceState fallback = channel_->presentSurfaceState();
         // resize 控制任务被定义为 fatal；任何失败都可能留下半失效表面，
         // 必须立即销毁渲染通道，不能只在 DeviceLost 错误码时处理。
         failExecution(resized.error());
@@ -188,9 +188,9 @@ void RenderSession::enableIBL(const std::string& hdrPath) {
     channel_->enableIBL(hdrPath);
 }
 
-RenderSurfaceState RenderSession::surfaceState() const {
+PresentSurfaceState RenderSession::presentSurfaceState() const {
     assertOwnerThread();
-    return channel_ ? channel_->surfaceState() : RenderSurfaceState{};
+    return channel_ ? channel_->presentSurfaceState() : PresentSurfaceState{};
 }
 
 void RenderSession::assertOwnerThread() const {

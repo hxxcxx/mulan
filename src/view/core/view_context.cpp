@@ -62,9 +62,9 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height, std::functi
     render_session_->setPreviewLayer(&preview_layer_);
     render_session_->setLightEnvironment(light_env_);
 
-    const auto surface = render_session_->surfaceState();
-    width_ = static_cast<int>(surface.width);
-    height_ = static_cast<int>(surface.height);
+    const auto presentState = render_session_->presentSurfaceState();
+    width_ = static_cast<int>(presentState.width);
+    height_ = static_cast<int>(presentState.height);
 
     camera_.setViewport(width_, height_);
     camera_.fitToBox(math::AABB3(math::Point3(-1, -1, -1), math::Point3(1, 1, 1)));

@@ -82,7 +82,7 @@ struct RenderThread::Channel {
     std::deque<ControlTask> controls;
     std::optional<RenderSubmission> latestFrame;
     RenderChannelState state;
-    RenderSurfaceState surfaceState;
+    PresentSurfaceState presentSurfaceState;
     Lifecycle lifecycle = Lifecycle::Starting;
     RenderChannelEventCallback eventCallback;
 };
@@ -147,7 +147,7 @@ RenderThread::~RenderThread() {
     LOG_INFO("[RenderThread] Thread destroyed: id={}", thread_id_);
 }
 
-Result<RenderChannelId> RenderThread::attachChannel(const RenderSurfaceConfig& config, int width, int height,
+Result<RenderChannelId> RenderThread::attachChannel(const PresentSurfaceConfig& config, int width, int height,
                                                     RenderChannelEventCallback eventCallback) {
     MULAN_PROFILE_ZONE();
 
@@ -188,7 +188,8 @@ Result<RenderChannelId> RenderThread::attachChannel(const RenderSurfaceConfig& c
     return channelId;
 }
 
-ResultVoid RenderThread::initializeChannel(const RenderSurfaceConfig& config, int width, int height, Channel& channel) {
+ResultVoid RenderThread::initializeChannel(const PresentSurfaceConfig& config, int width, int height,
+                                           Channel& channel) {
     MULAN_PROFILE_ZONE();
 
     if (auto ensured = ensureDeviceContext(); !ensured) {
@@ -360,14 +361,14 @@ Result<engine::RenderCaptureResult> RenderThread::capture(RenderChannelId channe
     return future.get();
 }
 
-Result<RenderSurfaceState> RenderThread::resize(RenderChannelId channelId, int width, int height) {
+Result<PresentSurfaceState> RenderThread::resize(RenderChannelId channelId, int width, int height) {
     if (thread_.joinable() && thread_.get_id() == std::this_thread::get_id()) {
         return std::unexpected(threadError(ErrorCode::InvalidArg, "Resize cannot wait on the render thread."));
     }
     if (width <= 0 || height <= 0) {
         return std::unexpected(threadError(ErrorCode::InvalidArg, "Resize dimensions must be positive."));
     }
-    using ResizeResult = Result<RenderSurfaceState>;
+    using ResizeResult = Result<PresentSurfaceState>;
     auto promise = std::make_shared<std::promise<ResizeResult>>();
     auto outcome = std::make_shared<std::optional<ResizeResult>>();
     auto future = promise->get_future();
@@ -457,10 +458,10 @@ std::optional<Error> RenderThread::failureSnapshot(RenderChannelId channelId) co
     return channel ? channel->state.failure() : std::nullopt;
 }
 
-RenderSurfaceState RenderThread::surfaceState(RenderChannelId channelId) const {
+PresentSurfaceState RenderThread::presentSurfaceState(RenderChannelId channelId) const {
     std::scoped_lock lock(mutex_);
     const Channel* channel = findChannelLocked(channelId);
-    return channel ? channel->surfaceState : RenderSurfaceState{};
+    return channel ? channel->presentSurfaceState : PresentSurfaceState{};
 }
 
 bool RenderThread::channelHasWorkLocked(const Channel& channel) const {
@@ -519,7 +520,7 @@ RenderThread::Channel* RenderThread::selectReadyChannelLocked(std::optional<Cont
 }
 
 void RenderThread::publishSurfaceStateLocked(Channel& channel) {
-    channel.surfaceState = channel.executor ? channel.executor->surfaceState() : RenderSurfaceState{};
+    channel.presentSurfaceState = channel.executor ? channel.executor->presentSurfaceState() : PresentSurfaceState{};
 }
 
 void RenderThread::failChannel(Channel& channel, const Error& error) {
@@ -646,7 +647,7 @@ void RenderThread::executeControl(Channel& channel, ControlTask control) {
             switch (control.kind) {
             case ControlTask::Kind::Shutdown:
                 channel.lifecycle = Channel::Lifecycle::Stopped;
-                channel.surfaceState = {};
+                channel.presentSurfaceState = {};
                 break;
             case ControlTask::Kind::Initialize:
                 publishSurfaceStateLocked(channel);

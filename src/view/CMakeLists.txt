@@ -10,7 +10,8 @@ add_library(view STATIC
     runtime/render_thread.cpp
     runtime/render_executor.cpp
     runtime/render_session.cpp
-    runtime/render_surface.cpp
+    runtime/present_surface.cpp
+    runtime/capture_target.cpp
     runtime/render_channel.cpp
     scene_sync/render_item_builder.cpp
     scene_sync/render_submission_builder.cpp

@@ -124,17 +124,13 @@ void ForwardRenderer::enableIBL(RHIDevice& device, const std::string& hdrPath) {
     }
 }
 
-ResultVoid ForwardRenderer::render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request,
+ResultVoid ForwardRenderer::render(RHIDevice& device, const RenderOutput& output, const RenderRequest& request,
                                    const LightEnvironment& lightEnvironment) {
     MULAN_PROFILE_ZONE();
 
     if (!initialized_) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Forward renderer is not initialized."));
     }
-    if (!validateSurface(surface)) {
-        return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render output is invalid."));
-    }
-
     auto compiled = compile(request);
     if (!compiled) {
         clearCompiledCommands();
@@ -142,7 +138,7 @@ ResultVoid ForwardRenderer::render(RHIDevice& device, const RenderSurfaceBinding
         return std::unexpected(compiled.error());
     }
 
-    auto commandList = beginFrame(device, surface, request.view);
+    auto commandList = beginFrame(device, output, request.view);
     if (!commandList) {
         return std::unexpected(commandList.error());
     }
@@ -167,15 +163,7 @@ ResultVoid ForwardRenderer::render(RHIDevice& device, const RenderSurfaceBinding
 
     cmd->endRenderPass();
 
-    return endFrame(device, surface);
-}
-
-bool ForwardRenderer::validateSurface(const RenderSurfaceBinding& surface) const {
-    if (!surface.isValid()) {
-        LOG_ERROR("[ForwardRenderer] Exactly one SwapChain or RenderTarget must be bound");
-        return false;
-    }
-    return true;
+    return endFrame(device, output);
 }
 
 void ForwardRenderer::clearCompiledCommands() {
@@ -284,19 +272,19 @@ ResultVoid ForwardRenderer::compile(const RenderRequest& request) {
     return {};
 }
 
-Result<CommandList*> ForwardRenderer::beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface,
+Result<CommandList*> ForwardRenderer::beginFrame(RHIDevice& device, const RenderOutput& output,
                                                  const RenderViewDesc& view) {
     MULAN_PROFILE_ZONE();
 
-    auto commandListResult = device.beginFrame(surface.swapChain ? surface.swapChain : nullptr);
+    auto commandListResult = device.beginFrame(output.swapChain());
     if (!commandListResult) {
         LOG_ERROR("[ForwardRenderer] Frame begin failed: {}", commandListResult.error().message);
         return std::unexpected(commandListResult.error());
     }
     auto* cmd = *commandListResult;
 
-    const RenderPassBeginInfo renderPass = surface.isPresentable() ? surface.swapChain->renderPassBeginInfo()
-                                                                   : surface.renderTarget->renderPassBeginInfo();
+    const RenderPassBeginInfo renderPass = output.isPresentable() ? output.swapChain()->renderPassBeginInfo()
+                                                                  : output.renderTarget()->renderPassBeginInfo();
     cmd->beginRenderPass(renderPass);
 
     Viewport vp;
@@ -364,10 +352,10 @@ DrawExecutionContext ForwardRenderer::buildDrawContext(CommandList& cmd, const R
     return ctx;
 }
 
-ResultVoid ForwardRenderer::endFrame(RHIDevice& device, const RenderSurfaceBinding& surface) {
+ResultVoid ForwardRenderer::endFrame(RHIDevice& device, const RenderOutput& output) {
     MULAN_PROFILE_ZONE();
 
-    auto result = device.endFrame(surface.swapChain);
+    auto result = device.endFrame(output.swapChain());
     if (!result) {
         LOG_ERROR("[ForwardRenderer] Frame submission failed: {}", result.error().message);
         return std::unexpected(result.error());

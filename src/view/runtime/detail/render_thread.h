@@ -1,16 +1,16 @@
 /**
  * @file render_thread.h
- * @brief RenderThread 在兼容 Device 范围内统一调度多个渲染表面
+ * @brief RenderThread 在兼容 Device 范围内统一调度多个窗口呈现通道
  * @author hxxcxx
  * @date 2026-07-15
  *
  * 每个通道保留独立的可靠控制队列、资源状态和 latest-frame 邮箱；一个 RenderThread
- * 只使用一条 GPU 线程，以轮转方式公平执行各 Surface。OpenGL 上下文不共享线程。
+ * 只使用一条 GPU 线程，以轮转方式公平执行各 PresentSurface。OpenGL 上下文不共享线程。
  */
 
 #pragma once
 
-#include "render_surface_state.h"
+#include "present_surface_state.h"
 #include "render_channel_state.h"
 #include "render_runtime_config.h"
 
@@ -52,7 +52,7 @@ private:
 
     static Result<std::shared_ptr<RenderThread>> acquire(const RenderDeviceConfig& config);
 
-    Result<RenderChannelId> attachChannel(const RenderSurfaceConfig& config, int width, int height,
+    Result<RenderChannelId> attachChannel(const PresentSurfaceConfig& config, int width, int height,
                                           RenderChannelEventCallback eventCallback);
     void detach(RenderChannelId channel);
 
@@ -60,13 +60,13 @@ private:
     ResultVoid submitFrame(RenderChannelId channel, RenderSubmission submission);
     Result<engine::RenderCaptureResult> capture(RenderChannelId channel, RenderSubmission submission,
                                                 engine::RenderCaptureDesc desc);
-    Result<RenderSurfaceState> resize(RenderChannelId channel, int width, int height);
+    Result<PresentSurfaceState> resize(RenderChannelId channel, int width, int height);
     void enableIBL(RenderChannelId channel, std::string hdrPath);
     ResultVoid clearAssetResources(RenderChannelId channel);
 
     std::optional<uint64_t> takeCompletedResourceBatch(RenderChannelId channel);
     std::optional<Error> failureSnapshot(RenderChannelId channel) const;
-    RenderSurfaceState surfaceState(RenderChannelId channel) const;
+    PresentSurfaceState presentSurfaceState(RenderChannelId channel) const;
 
     enum class State : uint8_t {
         Healthy,
@@ -79,7 +79,7 @@ private:
 
     explicit RenderThread(const RenderDeviceConfig& config);
 
-    ResultVoid initializeChannel(const RenderSurfaceConfig& config, int width, int height, Channel& channel);
+    ResultVoid initializeChannel(const PresentSurfaceConfig& config, int width, int height, Channel& channel);
     ResultVoid ensureDeviceContext();
     void run(std::stop_token stopToken);
     Channel* findChannelLocked(RenderChannelId channel);

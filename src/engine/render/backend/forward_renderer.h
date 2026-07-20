@@ -8,7 +8,7 @@
 #pragma once
 
 #include "render_compiler.h"
-#include "render_surface_binding.h"
+#include "render_output.h"
 #include "../environment_map.h"
 #include "../forward/edge_stage.h"
 #include "../forward/face_stage.h"
@@ -48,19 +48,18 @@ public:
     void shutdown(RHIDevice& device);
 
     void enableIBL(RHIDevice& device, const std::string& hdrPath);
-    ResultVoid render(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderRequest& request,
+    ResultVoid render(RHIDevice& device, const RenderOutput& output, const RenderRequest& request,
                       const LightEnvironment& lightEnvironment);
 
     bool isInitialized() const { return initialized_; }
 
 private:
-    bool validateSurface(const RenderSurfaceBinding& surface) const;
     void clearCompiledCommands();
     ResultVoid compile(const RenderRequest& request);
     DrawExecutionContext buildDrawContext(CommandList& cmd, const RenderFrame& frame) const;
-    Result<CommandList*> beginFrame(RHIDevice& device, const RenderSurfaceBinding& surface, const RenderViewDesc& view);
+    Result<CommandList*> beginFrame(RHIDevice& device, const RenderOutput& output, const RenderViewDesc& view);
     void executeStages(RenderFrame& frame);
-    ResultVoid endFrame(RHIDevice& device, const RenderSurfaceBinding& surface);
+    ResultVoid endFrame(RHIDevice& device, const RenderOutput& output);
 
     MaterialCache* material_cache_ = nullptr;
     std::unique_ptr<IBLPipeline> ibl_;

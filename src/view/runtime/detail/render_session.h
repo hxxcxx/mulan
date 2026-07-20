@@ -5,13 +5,13 @@
  * @date 2026-07-15
  *
  * 会话在调用线程构建自持有 RenderSubmission，并将其交给 RenderChannel。
- * Device、Surface、渲染线程和 engine renderer 均属于内部实现，不向 view 模块外暴露。
+ * Device、PresentSurface、渲染线程和 engine renderer 均属于内部实现，不向 view 模块外暴露。
  * RenderSession 由创建它的调用线程独占；只有 RenderChannel 内部跨越线程边界。
  */
 
 #pragma once
 
-#include "render_surface_state.h"
+#include "present_surface_state.h"
 #include "../../core/view_config.h"
 #include "../../scene_sync/render_submission_builder.h"
 
@@ -58,10 +58,10 @@ public:
 
     ResultVoid submitFrame(const ViewState& viewState);
     Result<engine::RenderCaptureResult> capture(const ViewState& viewState, const engine::RenderCaptureDesc& desc);
-    RenderSurfaceState resize(int width, int height);
+    PresentSurfaceState resize(int width, int height);
     void enableIBL(const std::string& hdrPath);
 
-    RenderSurfaceState surfaceState() const;
+    PresentSurfaceState presentSurfaceState() const;
 
 private:
     void assertOwnerThread() const;

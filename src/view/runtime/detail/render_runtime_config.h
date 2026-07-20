@@ -1,11 +1,11 @@
 /**
  * @file render_runtime_config.h
- * @brief 渲染执行域内部的 Device 与 Surface 配置边界
+ * @brief 渲染执行域内部的 Device 与窗口呈现配置边界
  * @author hxxcxx
  * @date 2026-07-18
  *
  * ViewConfig 是 UI 侧的一体化配置；进入渲染执行域后必须拆分。非 OpenGL 后端只按
- * Device 配置共享线程，窗口、呈现和清屏参数始终由各 Surface 独立持有。OpenGL 的
+ * Device 配置共享线程，窗口、呈现和清屏参数始终由各 PresentSurface 独立持有。OpenGL 的
  * Context 当前仍由 Device 创建，因此其原生窗口和像素格式参数保留在 Device 配置中，
  * 但 OpenGL 从不参与线程共享。
  */
@@ -52,12 +52,12 @@ struct RenderDeviceConfig {
     }
 };
 
-struct RenderSurfaceConfig {
+struct PresentSurfaceConfig {
     engine::NativeWindowHandle window;
     engine::RenderConfig render;
 
-    static RenderSurfaceConfig fromView(const ViewConfig& config) {
-        RenderSurfaceConfig result{
+    static PresentSurfaceConfig fromView(const ViewConfig& config) {
+        PresentSurfaceConfig result{
             .window = config.window,
             .render = config.toRenderConfig(),
         };
