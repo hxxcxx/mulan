@@ -5,7 +5,7 @@
  * @date 2026-07-15
  */
 
-#include <mulan/render/material/material_cache.h>
+#include "../../src/engine/render/material/material_cache.h"
 
 #include <gtest/gtest.h>
 

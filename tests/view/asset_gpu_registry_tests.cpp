@@ -5,13 +5,13 @@
  * @date 2026-07-15
  */
 
-#include <mulan/render/asset_gpu_registry.h>
-#include <mulan/render/device_resource_service.h>
-#include <mulan/render/draw/draw_fallback_resources.h>
-#include <mulan/render/frame/render_target_info.h>
-#include <mulan/render/gpu_scene_contract.h>
-#include <mulan/render/light_environment.h>
-#include <mulan/rhi/device.h>
+#include "../../src/engine/render/asset_gpu_registry.h"
+#include "../../src/engine/render/device_resource_service.h"
+#include "../../src/engine/render/draw/draw_fallback_resources.h"
+#include "../../src/engine/render/frame/render_target_info.h"
+#include "../../src/engine/render/gpu_scene_contract.h"
+#include "../../src/engine/render/light_environment.h"
+#include "../../src/engine/rhi/device.h"
 
 #include <gtest/gtest.h>
 

@@ -19,6 +19,7 @@
 #include "texture.h"
 #include "bind_group.h"
 #include <mulan/math/math.h>
+#include <mulan/graphics/graphics_backend.h>
 #include "window.h"
 
 #include <mulan/core/result/error.h>
@@ -37,12 +38,6 @@
 #include <vector>
 
 namespace mulan::engine {
-
-// ============================================================
-// 后端类型
-// ============================================================
-
-enum class GraphicsBackend : uint8_t { OpenGL, Vulkan, D3D11, D3D12 };
 
 // ============================================================
 // 设备能力信息（后端初始化后填充）

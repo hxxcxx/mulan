@@ -12,7 +12,7 @@
 
 #include <mulan/core/log/log.h>
 #include <mulan/core/profiling/profile.h>
-#include <mulan/rhi/engine_error_code.h>
+#include "../../rhi/engine_error_code.h"
 
 #include <algorithm>
 #include <atomic>
@@ -22,7 +22,7 @@
 #include <future>
 #include <utility>
 
-namespace mulan::view::detail {
+namespace mulan::engine::detail {
 namespace {
 
 std::mutex registry_mutex;
@@ -80,9 +80,9 @@ struct RenderThread::Channel {
     RenderChannelId id = 0;
     std::unique_ptr<RenderExecutor> executor;
     std::deque<ControlTask> controls;
-    std::optional<RenderSubmission> latestFrame;
+    std::optional<RenderFrameSubmission> latestFrame;
     RenderChannelState state;
-    PresentSurfaceState presentSurfaceState;
+    RenderSurfaceState presentSurfaceState;
     Lifecycle lifecycle = Lifecycle::Starting;
     RenderChannelEventCallback eventCallback;
 };
@@ -147,7 +147,7 @@ RenderThread::~RenderThread() {
     LOG_INFO("[RenderThread] Thread destroyed: id={}", thread_id_);
 }
 
-Result<RenderChannelId> RenderThread::attachChannel(const PresentSurfaceConfig& config, int width, int height,
+Result<RenderChannelId> RenderThread::attachChannel(const RenderSurfaceConfig& config, int width, int height,
                                                     RenderChannelEventCallback eventCallback) {
     MULAN_PROFILE_ZONE();
 
@@ -188,8 +188,7 @@ Result<RenderChannelId> RenderThread::attachChannel(const PresentSurfaceConfig& 
     return channelId;
 }
 
-ResultVoid RenderThread::initializeChannel(const PresentSurfaceConfig& config, int width, int height,
-                                           Channel& channel) {
+ResultVoid RenderThread::initializeChannel(const RenderSurfaceConfig& config, int width, int height, Channel& channel) {
     MULAN_PROFILE_ZONE();
 
     if (auto ensured = ensureDeviceContext(); !ensured) {
@@ -274,7 +273,7 @@ bool RenderThread::isReady(RenderChannelId channelId) const {
     return state_ == State::Healthy && channel && channel->lifecycle == Channel::Lifecycle::Ready;
 }
 
-ResultVoid RenderThread::submitFrame(RenderChannelId channelId, RenderSubmission submission) {
+ResultVoid RenderThread::submitFrame(RenderChannelId channelId, RenderFrameSubmission submission) {
     {
         std::scoped_lock lock(mutex_);
         Channel* channel = findChannelLocked(channelId);
@@ -292,7 +291,7 @@ ResultVoid RenderThread::submitFrame(RenderChannelId channelId, RenderSubmission
     return {};
 }
 
-ResultVoid RenderThread::enqueueSubmissionResourcesLocked(Channel& channel, RenderSubmission& submission) {
+ResultVoid RenderThread::enqueueSubmissionResourcesLocked(Channel& channel, RenderFrameSubmission& submission) {
     const bool hasPrepare = !submission.prepare.empty();
     const bool hasBatch = submission.resourceBatchId != 0;
     if (hasPrepare != hasBatch) {
@@ -319,7 +318,7 @@ ResultVoid RenderThread::enqueueSubmissionResourcesLocked(Channel& channel, Rend
     return {};
 }
 
-Result<engine::RenderCaptureResult> RenderThread::capture(RenderChannelId channelId, RenderSubmission submission,
+Result<engine::RenderCaptureResult> RenderThread::capture(RenderChannelId channelId, RenderFrameSubmission submission,
                                                           engine::RenderCaptureDesc desc) {
     if (thread_.joinable() && thread_.get_id() == std::this_thread::get_id()) {
         return std::unexpected(threadError(ErrorCode::InvalidArg, "Capture cannot wait on the render thread."));
@@ -361,14 +360,14 @@ Result<engine::RenderCaptureResult> RenderThread::capture(RenderChannelId channe
     return future.get();
 }
 
-Result<PresentSurfaceState> RenderThread::resize(RenderChannelId channelId, int width, int height) {
+Result<RenderSurfaceState> RenderThread::resize(RenderChannelId channelId, int width, int height) {
     if (thread_.joinable() && thread_.get_id() == std::this_thread::get_id()) {
         return std::unexpected(threadError(ErrorCode::InvalidArg, "Resize cannot wait on the render thread."));
     }
     if (width <= 0 || height <= 0) {
         return std::unexpected(threadError(ErrorCode::InvalidArg, "Resize dimensions must be positive."));
     }
-    using ResizeResult = Result<PresentSurfaceState>;
+    using ResizeResult = Result<RenderSurfaceState>;
     auto promise = std::make_shared<std::promise<ResizeResult>>();
     auto outcome = std::make_shared<std::optional<ResizeResult>>();
     auto future = promise->get_future();
@@ -458,10 +457,10 @@ std::optional<Error> RenderThread::failureSnapshot(RenderChannelId channelId) co
     return channel ? channel->state.failure() : std::nullopt;
 }
 
-PresentSurfaceState RenderThread::presentSurfaceState(RenderChannelId channelId) const {
+RenderSurfaceState RenderThread::presentSurfaceState(RenderChannelId channelId) const {
     std::scoped_lock lock(mutex_);
     const Channel* channel = findChannelLocked(channelId);
-    return channel ? channel->presentSurfaceState : PresentSurfaceState{};
+    return channel ? channel->presentSurfaceState : RenderSurfaceState{};
 }
 
 bool RenderThread::channelHasWorkLocked(const Channel& channel) const {
@@ -494,7 +493,7 @@ bool RenderThread::hasWorkLocked() const {
 }
 
 RenderThread::Channel* RenderThread::selectReadyChannelLocked(std::optional<ControlTask>& control,
-                                                              std::optional<RenderSubmission>& frame) {
+                                                              std::optional<RenderFrameSubmission>& frame) {
     if (channels_.empty()) {
         return nullptr;
     }
@@ -520,7 +519,7 @@ RenderThread::Channel* RenderThread::selectReadyChannelLocked(std::optional<Cont
 }
 
 void RenderThread::publishSurfaceStateLocked(Channel& channel) {
-    channel.presentSurfaceState = channel.executor ? channel.executor->presentSurfaceState() : PresentSurfaceState{};
+    channel.presentSurfaceState = channel.executor ? channel.executor->presentSurfaceState() : RenderSurfaceState{};
 }
 
 void RenderThread::failChannel(Channel& channel, const Error& error) {
@@ -580,7 +579,7 @@ void RenderThread::failThread(const Error& error) {
     wake_.notify_all();
 }
 
-void RenderThread::executeFrame(Channel& channel, RenderSubmission submission) {
+void RenderThread::executeFrame(Channel& channel, RenderFrameSubmission submission) {
     try {
         if (!channel.executor) {
             failChannel(channel, threadError(ErrorCode::Internal, "Ready render channel has no executor."));
@@ -682,7 +681,7 @@ void RenderThread::run(std::stop_token stopToken) {
 
     while (!stopToken.stop_requested()) {
         std::optional<ControlTask> control;
-        std::optional<RenderSubmission> frame;
+        std::optional<RenderFrameSubmission> frame;
         Channel* channel = nullptr;
         {
             std::unique_lock lock(mutex_);
@@ -715,4 +714,4 @@ void RenderThread::run(std::stop_token stopToken) {
     device_context_.reset();
 }
 
-}  // namespace mulan::view::detail
+}  // namespace mulan::engine::detail

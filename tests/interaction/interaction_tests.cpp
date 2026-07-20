@@ -11,7 +11,7 @@
 
 #include <mulan/interaction/input_event.h>
 #include <mulan/interaction/camera_manipulator.h>
-#include <mulan/render/camera/camera.h>
+#include <mulan/interaction/camera/camera.h>
 
 #include <cmath>
 #include <limits>

@@ -7,12 +7,12 @@
  * 纯状态机测试，不初始化 GPU、窗口或真实 RenderExecutor。
  */
 
-#include "runtime/detail/render_channel_state.h"
-#include "runtime/detail/render_runtime_config.h"
+#include "../../src/engine/render/runtime/detail/render_channel_state.h"
+#include "../../src/engine/render/runtime/detail/render_runtime_config.h"
 
 #include <gtest/gtest.h>
 
-using namespace mulan::view::detail;
+using namespace mulan::engine::detail;
 
 TEST(RenderChannelStateTests, RepeatedPendingBatchQueuesOnceAndProducesOneAck) {
     RenderChannelState state;
@@ -73,36 +73,36 @@ TEST(RenderChannelStateTests, FirstFailureRemainsTheRootCause) {
 }
 
 TEST(RenderDeviceConfigTests, CompatibleThreadedViewsCanShareOneThread) {
-    mulan::view::ViewConfig config;
+    mulan::engine::RenderSessionConfig config;
     config.backend = mulan::engine::GraphicsBackend::Vulkan;
-    const RenderDeviceConfig first = RenderDeviceConfig::fromView(config);
-    const RenderDeviceConfig second = RenderDeviceConfig::fromView(config);
+    const RenderDeviceConfig first = RenderDeviceConfig::fromSession(config);
+    const RenderDeviceConfig second = RenderDeviceConfig::fromSession(config);
 
     EXPECT_TRUE(first.sharesExecutionThreadWith(second));
 }
 
 TEST(RenderDeviceConfigTests, OpenGLContextsCannotShareExecutionThreads) {
-    mulan::view::ViewConfig config;
+    mulan::engine::RenderSessionConfig config;
     config.backend = mulan::engine::GraphicsBackend::OpenGL;
-    const RenderDeviceConfig first = RenderDeviceConfig::fromView(config);
-    const RenderDeviceConfig second = RenderDeviceConfig::fromView(config);
+    const RenderDeviceConfig first = RenderDeviceConfig::fromSession(config);
+    const RenderDeviceConfig second = RenderDeviceConfig::fromSession(config);
 
     EXPECT_FALSE(first.sharesExecutionThreadWith(second));
 }
 
 TEST(RenderDeviceConfigTests, SurfaceOnlyConfigurationDoesNotSplitExecutionThread) {
-    mulan::view::ViewConfig firstConfig;
+    mulan::engine::RenderSessionConfig firstConfig;
     firstConfig.backend = mulan::engine::GraphicsBackend::D3D11;
 
-    mulan::view::ViewConfig secondConfig = firstConfig;
-    secondConfig.vsync = !firstConfig.vsync;
-    secondConfig.msaa = mulan::engine::RenderConfig::MSAALevel::x8;
-    secondConfig.bufferCount = static_cast<uint8_t>(firstConfig.bufferCount + 1);
-    secondConfig.clearColor[0] = 0.9f;
-    secondConfig.clearColor[1] = 0.1f;
+    mulan::engine::RenderSessionConfig secondConfig = firstConfig;
+    secondConfig.surface.vsync = !firstConfig.surface.vsync;
+    secondConfig.surface.msaa = mulan::engine::MSAALevel::x8;
+    secondConfig.surface.bufferCount = static_cast<uint8_t>(firstConfig.surface.bufferCount + 1);
+    secondConfig.surface.clearColor[0] = 0.9f;
+    secondConfig.surface.clearColor[1] = 0.1f;
 
-    const RenderDeviceConfig first = RenderDeviceConfig::fromView(firstConfig);
-    const RenderDeviceConfig second = RenderDeviceConfig::fromView(secondConfig);
+    const RenderDeviceConfig first = RenderDeviceConfig::fromSession(firstConfig);
+    const RenderDeviceConfig second = RenderDeviceConfig::fromSession(secondConfig);
 
     EXPECT_TRUE(first.sharesExecutionThreadWith(second));
 }

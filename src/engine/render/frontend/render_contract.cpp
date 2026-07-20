@@ -1,4 +1,6 @@
 #include "render_contract.h"
+#include "../backend/render_gpu_contract.h"
+#include "../render_geometry.h"
 
 namespace mulan::engine {
 namespace {

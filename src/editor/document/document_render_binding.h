@@ -10,7 +10,7 @@
 #include "document_change.h"
 #include "document_render_cache.h"
 
-#include <mulan/render/camera/camera.h>
+#include <mulan/interaction/camera/camera.h>
 #include <mulan/render/light_environment.h>
 
 #include <cstdint>

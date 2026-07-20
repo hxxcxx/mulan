@@ -205,8 +205,8 @@ TEST(RenderResourceDomainTests, EqualAssetIdsFromDifferentLibrariesProduceDiffer
     firstBuilder.setScene(&firstRenderScene, &firstAssets);
     secondBuilder.setScene(&secondRenderScene, &secondAssets);
     const ViewState view;
-    const RenderSubmission first = firstBuilder.build(view);
-    const RenderSubmission second = secondBuilder.build(view);
+    const engine::RenderFrameSubmission first = firstBuilder.build(view);
+    const engine::RenderFrameSubmission second = secondBuilder.build(view);
     ASSERT_EQ(first.prepare.geometries().size(), 1u);
     ASSERT_EQ(second.prepare.geometries().size(), 1u);
     const engine::RenderResourceKey firstKey = first.prepare.geometries().front().resourceKey;
@@ -233,8 +233,8 @@ TEST(RenderResourceDomainTests, BuildersForTheSameAssetLibraryReuseTheDocumentDo
     firstBuilder.setScene(&renderScene, &assets);
     secondBuilder.setScene(&renderScene, &assets);
     const ViewState view;
-    const RenderSubmission first = firstBuilder.build(view);
-    const RenderSubmission second = secondBuilder.build(view);
+    const engine::RenderFrameSubmission first = firstBuilder.build(view);
+    const engine::RenderFrameSubmission second = secondBuilder.build(view);
     ASSERT_EQ(first.prepare.geometries().size(), 1u);
     ASSERT_EQ(second.prepare.geometries().size(), 1u);
     EXPECT_EQ(first.prepare.geometries().front().resourceKey, second.prepare.geometries().front().resourceKey);
@@ -255,7 +255,7 @@ TEST(RenderResourceDomainTests, ReusedAssetLibraryAddressCannotReuseThePreviousG
 
     RenderSubmissionBuilder builder;
     builder.setScene(&renderScene, &*assets);
-    const RenderSubmission first = builder.build(ViewState{});
+    const engine::RenderFrameSubmission first = builder.build(ViewState{});
     ASSERT_EQ(first.prepare.geometries().size(), 1u);
     const engine::RenderResourceKey firstKey = first.prepare.geometries().front().resourceKey;
     builder.acknowledgeResources(first.resourceBatchId);
@@ -270,7 +270,7 @@ TEST(RenderResourceDomainTests, ReusedAssetLibraryAddressCannotReuseThePreviousG
 
     // 指针、AssetId、asset revision 都可与上一代相同；domain 必须仍能识别换代。
     builder.setScene(&renderScene, &*assets);
-    const RenderSubmission replacement = builder.build(ViewState{});
+    const engine::RenderFrameSubmission replacement = builder.build(ViewState{});
     ASSERT_EQ(replacement.prepare.geometries().size(), 2u);
     const auto retired = std::ranges::find_if(replacement.prepare.geometries(),
                                               [&](const auto& resource) { return resource.resourceKey == firstKey; });
@@ -304,7 +304,7 @@ TEST(RenderSubmissionBuilderTests, ReusedRenderSceneAddressCannotReuseThePreviou
     RenderSubmissionBuilder builder;
     builder.setScene(&*renderScene, &assets);
     builder.setPreviewLayer(&preview);
-    const RenderSubmission first = builder.build(ViewState{});
+    const engine::RenderFrameSubmission first = builder.build(ViewState{});
     ASSERT_TRUE(first.sceneWorld);
     ASSERT_TRUE(first.overlayWorld);
     ASSERT_EQ(first.sceneWorld->objects().size(), 1u);
@@ -324,7 +324,7 @@ TEST(RenderSubmissionBuilderTests, ReusedRenderSceneAddressCannotReuseThePreviou
     ASSERT_EQ(renderScene->generation(), collidingGeneration);
 
     builder.setScene(&*renderScene, &assets);
-    const RenderSubmission replacement = builder.build(ViewState{});
+    const engine::RenderFrameSubmission replacement = builder.build(ViewState{});
     ASSERT_TRUE(replacement.sceneWorld);
     ASSERT_TRUE(replacement.overlayWorld);
     EXPECT_NE(replacement.sceneWorld, first.sceneWorld);
@@ -345,12 +345,12 @@ TEST(RenderSubmissionBuilderTests, KeepsPendingResourcesUntilMatchingAck) {
     builder.setPreviewLayer(&preview);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.hasResourceUpdates());
     ASSERT_NE(first.resourceBatchId, 0u);
     ASSERT_EQ(first.prepare.size(), 1u);
 
-    const RenderSubmission repeated = builder.build(view);
+    const engine::RenderFrameSubmission repeated = builder.build(view);
     EXPECT_TRUE(repeated.hasResourceUpdates());
     EXPECT_EQ(repeated.resourceBatchId, first.resourceBatchId);
     EXPECT_EQ(repeated.prepare.size(), first.prepare.size());
@@ -359,7 +359,7 @@ TEST(RenderSubmissionBuilderTests, KeepsPendingResourcesUntilMatchingAck) {
     EXPECT_TRUE(builder.build(view).hasResourceUpdates());
 
     builder.acknowledgeResources(first.resourceBatchId);
-    const RenderSubmission acknowledged = builder.build(view);
+    const engine::RenderFrameSubmission acknowledged = builder.build(view);
     EXPECT_FALSE(acknowledged.hasResourceUpdates());
     EXPECT_TRUE(acknowledged.prepare.empty());
 }
@@ -377,11 +377,11 @@ TEST(RenderSubmissionBuilderTests, NewPreviewRevisionSupersedesPendingBatch) {
     builder.setPreviewLayer(&preview);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.hasResourceUpdates());
 
     preview.setMesh(makePreviewMesh());
-    const RenderSubmission updated = builder.build(view);
+    const engine::RenderFrameSubmission updated = builder.build(view);
     ASSERT_TRUE(updated.hasResourceUpdates());
     EXPECT_NE(updated.resourceBatchId, first.resourceBatchId);
     ASSERT_EQ(first.prepare.size(), 1u);
@@ -407,13 +407,13 @@ TEST(RenderSubmissionBuilderTests, PreviewReferenceOnlyRevisionDoesNotUploadUnch
     builder.setPreviewLayer(&preview);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_EQ(first.prepare.size(), 1u);
     builder.acknowledgeResources(first.resourceBatchId);
 
     // references 变化会推进 PreviewLayer generation，但不应让未变的直接预览 mesh 重传。
     preview.setReferences({ PreviewReference{} });
-    const RenderSubmission referencesChanged = builder.build(view);
+    const engine::RenderFrameSubmission referencesChanged = builder.build(view);
     EXPECT_EQ(referencesChanged.sceneWorld, first.sceneWorld);
     EXPECT_NE(referencesChanged.overlayWorld, first.overlayWorld);
     EXPECT_TRUE(referencesChanged.prepare.empty());
@@ -438,18 +438,18 @@ TEST(RenderSubmissionBuilderTests, PreviewAndViewChangesReuseSceneWorld) {
     builder.setPreviewLayer(&preview);
 
     ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.sceneWorld);
     ASSERT_TRUE(first.overlayWorld);
     const auto stableSceneWorld = first.sceneWorld;
 
     preview.setMesh(makePreviewMesh());
-    const RenderSubmission previewChanged = builder.build(view);
+    const engine::RenderFrameSubmission previewChanged = builder.build(view);
     EXPECT_EQ(previewChanged.sceneWorld, stableSceneWorld);
     EXPECT_NE(previewChanged.overlayWorld, first.overlayWorld);
 
     view.hoveredPickId = engine::PickId{ 7 };
-    const RenderSubmission viewChanged = builder.build(view);
+    const engine::RenderFrameSubmission viewChanged = builder.build(view);
     EXPECT_EQ(viewChanged.sceneWorld, stableSceneWorld);
     EXPECT_EQ(viewChanged.overlayWorld, previewChanged.overlayWorld);
 }
@@ -472,18 +472,18 @@ TEST(RenderSubmissionBuilderTests, PreviewReferencesBorrowSceneResourcesWithoutR
     builder.setPreviewLayer(&preview);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_EQ(first.prepare.geometries().size(), 1u);
     const engine::AssetGpuKey sceneGeometryKey = first.prepare.geometries().front().resourceKey;
     builder.acknowledgeResources(first.resourceBatchId);
 
     preview.setReferences({ PreviewReference{ .entity = entity } });
-    const RenderSubmission referenced = builder.build(view);
+    const engine::RenderFrameSubmission referenced = builder.build(view);
     ASSERT_TRUE(referenced.overlayWorld);
     EXPECT_TRUE(referenced.prepare.empty());
 
     preview.clearReferences();
-    const RenderSubmission cleared = builder.build(view);
+    const engine::RenderFrameSubmission cleared = builder.build(view);
     for (const auto& resource : cleared.prepare.geometries()) {
         EXPECT_FALSE(resource.resourceKey == sceneGeometryKey && resource.isRetire());
     }
@@ -505,13 +505,13 @@ TEST(RenderSubmissionBuilderTests, ReplacingPreviewSourceWithSameGenerationUpdat
     builder.setPreviewLayer(&firstPreview);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_EQ(first.prepare.size(), 1u);
     const engine::AssetGpuKey key = first.prepare.geometries().front().resourceKey;
     builder.acknowledgeResources(first.resourceBatchId);
 
     builder.setPreviewLayer(&secondPreview);
-    const RenderSubmission replaced = builder.build(view);
+    const engine::RenderFrameSubmission replaced = builder.build(view);
 
     ASSERT_EQ(replaced.prepare.size(), 1u);
     const engine::RenderGeometryPrepareDesc& update = replaced.prepare.geometries().front();
@@ -531,7 +531,7 @@ TEST(RenderSubmissionBuilderTests, UpdatingOnePreviewRoleRebuildsOverlayAndPrese
     builder.setScene(&scene, &assets);
     builder.setPreviewLayer(&preview);
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.overlayWorld);
     const OverlayRoleProjection firstTool = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Tool);
     const OverlayRoleProjection firstSnap = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Snap);
@@ -544,7 +544,7 @@ TEST(RenderSubmissionBuilderTests, UpdatingOnePreviewRoleRebuildsOverlayAndPrese
     graphics::Mesh replacement = makePreviewMesh();
     replacement.vertices.back() = std::byte{ 9 };
     preview.setMesh(std::move(replacement));
-    const RenderSubmission updated = builder.build(view);
+    const engine::RenderFrameSubmission updated = builder.build(view);
     ASSERT_TRUE(updated.overlayWorld);
     EXPECT_TRUE(builder.lastOverlayStats().fullRebuild);
     EXPECT_EQ(builder.lastOverlayStats().patchedObjectCount, 1u);
@@ -575,7 +575,7 @@ TEST(RenderSubmissionBuilderTests, ClearingOnePreviewRoleRemovesOnlyThatRoleAndR
     builder.setScene(&scene, &assets);
     builder.setPreviewLayer(&preview);
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.overlayWorld);
     const OverlayRoleProjection tool = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Tool);
     const OverlayRoleProjection snap = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Snap);
@@ -584,7 +584,7 @@ TEST(RenderSubmissionBuilderTests, ClearingOnePreviewRoleRemovesOnlyThatRoleAndR
     builder.acknowledgeResources(first.resourceBatchId);
 
     preview.clearToolGeometry();
-    const RenderSubmission cleared = builder.build(view);
+    const engine::RenderFrameSubmission cleared = builder.build(view);
     ASSERT_TRUE(cleared.overlayWorld);
     EXPECT_TRUE(builder.lastOverlayStats().fullRebuild);
     EXPECT_TRUE(overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Tool).objects.empty());
@@ -613,13 +613,13 @@ TEST(RenderSubmissionBuilderTests, ReferenceOnlyChangesRebuildOverlayWithoutUplo
     builder.setScene(&renderScene, &assets);
     builder.setPreviewLayer(&preview);
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.overlayWorld);
     const OverlayRoleProjection firstSnap = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Snap);
     builder.acknowledgeResources(first.resourceBatchId);
 
     preview.setReferences({ PreviewReference{ .entity = entity, .role = PreviewVisualRole::Tool } });
-    const RenderSubmission referenced = builder.build(view);
+    const engine::RenderFrameSubmission referenced = builder.build(view);
     ASSERT_TRUE(referenced.overlayWorld);
     EXPECT_TRUE(referenced.prepare.empty());
     const OverlayRoleProjection referencedSnap =
@@ -637,7 +637,7 @@ TEST(RenderSubmissionBuilderTests, ReferenceOnlyChangesRebuildOverlayWithoutUplo
             .overrideWorldTransform = true,
             .role = PreviewVisualRole::Tool,
     } });
-    const RenderSubmission transformed = builder.build(view);
+    const engine::RenderFrameSubmission transformed = builder.build(view);
     EXPECT_TRUE(transformed.prepare.empty());
     ASSERT_TRUE(transformed.overlayWorld);
     const OverlayRoleProjection transformedTool =
@@ -664,7 +664,7 @@ TEST(RenderSubmissionBuilderTests, UnrelatedAssetEventsAdvanceOverlayCursorWitho
     builder.setScene(&renderScene, &assets);
     builder.setPreviewLayer(&preview);
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.overlayWorld);
     builder.acknowledgeResources(first.resourceBatchId);
 
@@ -672,7 +672,7 @@ TEST(RenderSubmissionBuilderTests, UnrelatedAssetEventsAdvanceOverlayCursorWitho
     // 从而把仍然稳定的引用角色误判为必须全量重投影。
     for (size_t index = 0; index < 3; ++index) {
         ASSERT_NE(assets.create<asset::MaterialAsset>("Unrelated" + std::to_string(index)), nullptr);
-        const RenderSubmission unchanged = builder.build(view);
+        const engine::RenderFrameSubmission unchanged = builder.build(view);
         EXPECT_EQ(unchanged.overlayWorld, first.overlayWorld);
     }
 }
@@ -687,12 +687,12 @@ TEST(RenderSubmissionBuilderTests, AssetClearDoesNotRebuildOverlayWithoutReferen
     builder.setScene(&scene, &assets);
     builder.setPreviewLayer(&preview);
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.overlayWorld);
     builder.acknowledgeResources(first.resourceBatchId);
 
     assets.clear();
-    const RenderSubmission cleared = builder.build(view);
+    const engine::RenderFrameSubmission cleared = builder.build(view);
     EXPECT_EQ(cleared.overlayWorld, first.overlayWorld);
 }
 
@@ -713,7 +713,7 @@ TEST(RenderSubmissionBuilderTests, AssetClearRebuildsOverlayWithCurrentReference
     builder.setScene(&renderScene, &assets);
     builder.setPreviewLayer(&preview);
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.overlayWorld);
     const OverlayRoleProjection firstTool = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Tool);
     const OverlayRoleProjection firstSnap = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Snap);
@@ -722,7 +722,7 @@ TEST(RenderSubmissionBuilderTests, AssetClearRebuildsOverlayWithCurrentReference
     builder.acknowledgeResources(first.resourceBatchId);
 
     assets.clear();
-    const RenderSubmission cleared = builder.build(view);
+    const engine::RenderFrameSubmission cleared = builder.build(view);
     ASSERT_TRUE(cleared.overlayWorld);
     EXPECT_TRUE(overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Tool).objects.empty());
     const OverlayRoleProjection stableSnap = overlayRoleProjection(*cleared.overlayWorld, PreviewVisualRole::Snap);
@@ -745,7 +745,7 @@ TEST(RenderSubmissionBuilderTests, ReplacingRoleGeometryPreparesOnlyChangedStabl
     builder.setScene(&scene, &assets);
     builder.setPreviewLayer(&preview);
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.overlayWorld);
     const OverlayRoleProjection firstGrip = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Grip);
     const OverlayRoleProjection firstSnap = overlayRoleProjection(*first.overlayWorld, PreviewVisualRole::Snap);
@@ -757,7 +757,7 @@ TEST(RenderSubmissionBuilderTests, ReplacingRoleGeometryPreparesOnlyChangedStabl
     graphics::Mesh added = makePreviewMesh();
     added.vertices.back() = std::byte{ 2 };
     preview.setGripGeometry({}, { std::move(firstReplacement), std::move(added) });
-    const RenderSubmission replaced = builder.build(view);
+    const engine::RenderFrameSubmission replaced = builder.build(view);
     ASSERT_TRUE(replaced.overlayWorld);
     const OverlayRoleProjection replacedGrip = overlayRoleProjection(*replaced.overlayWorld, PreviewVisualRole::Grip);
     EXPECT_NE(replacedGrip.objects, firstGrip.objects);
@@ -789,13 +789,13 @@ TEST(RenderSubmissionBuilderTests, InvalidatingRenderThreadRebuildsCurrentResour
     builder.setPreviewLayer(&preview);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.hasResourceUpdates());
     builder.acknowledgeResources(first.resourceBatchId);
     ASSERT_FALSE(builder.build(view).hasResourceUpdates());
 
     builder.invalidateResources();
-    const RenderSubmission rebuilt = builder.build(view);
+    const engine::RenderFrameSubmission rebuilt = builder.build(view);
     EXPECT_TRUE(rebuilt.hasResourceUpdates());
     EXPECT_NE(rebuilt.resourceBatchId, first.resourceBatchId);
 }
@@ -815,14 +815,14 @@ TEST(RenderSubmissionBuilderTests, TransformOnlyWorldRebuildDoesNotUploadGeometr
     builder.setScene(&renderScene, &assets);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_EQ(first.prepare.size(), 1u);
     builder.acknowledgeResources(first.resourceBatchId);
     ASSERT_FALSE(builder.build(view).hasResourceUpdates());
 
     ASSERT_TRUE(sourceScene.setWorldTransform(entity, math::Mat4::translate(math::Vec3(2.0, 0.0, 0.0))));
     renderScene.sync(sourceScene, assets);
-    const RenderSubmission transformed = builder.build(view);
+    const engine::RenderFrameSubmission transformed = builder.build(view);
 
     EXPECT_TRUE(transformed.prepare.empty());
     EXPECT_NE(transformed.sceneWorld, first.sceneWorld);
@@ -847,14 +847,14 @@ TEST(RenderSubmissionBuilderTests, UpdatingOneAssetOnlyUpsertsItsGeometryKey) {
     builder.setScene(&renderScene, &assets);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_EQ(first.prepare.size(), 2u);
     builder.acknowledgeResources(first.resourceBatchId);
     ASSERT_FALSE(builder.build(view).hasResourceUpdates());
 
     // 不修改 Scene，验证 builder 能直接观察被引用资产的内容版本。
     changedAsset->setRenderMeshes(makeSurfaceMesh(2), {});
-    const RenderSubmission updated = builder.build(view);
+    const engine::RenderFrameSubmission updated = builder.build(view);
 
     ASSERT_EQ(updated.prepare.size(), 1u);
     EXPECT_NE(updated.sceneWorld, first.sceneWorld);
@@ -877,12 +877,12 @@ TEST(RenderSubmissionBuilderTests, RemovingOneDrawableOnlyRetiresItsKey) {
     builder.setScene(&renderScene, &assets);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_EQ(first.prepare.size(), 2u);
     builder.acknowledgeResources(first.resourceBatchId);
 
     geometry->setRenderMeshes(makeSurfaceMesh(), {});
-    const RenderSubmission reduced = builder.build(view);
+    const engine::RenderFrameSubmission reduced = builder.build(view);
 
     ASSERT_EQ(reduced.prepare.size(), 1u);
     EXPECT_TRUE(reduced.prepare.geometries().front().isRetire());
@@ -903,14 +903,14 @@ TEST(RenderSubmissionBuilderTests, RemovingLastSceneReferenceRetiresGeometryKey)
     builder.setScene(&renderScene, &assets);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_EQ(first.prepare.size(), 1u);
     const engine::AssetGpuKey key = first.prepare.geometries().front().resourceKey;
     builder.acknowledgeResources(first.resourceBatchId);
 
     sourceScene.destroyEntity(entity);
     renderScene.sync(sourceScene, assets);
-    const RenderSubmission removed = builder.build(view);
+    const engine::RenderFrameSubmission removed = builder.build(view);
 
     ASSERT_EQ(removed.prepare.size(), 1u);
     EXPECT_TRUE(removed.prepare.geometries().front().isRetire());
@@ -928,13 +928,13 @@ TEST(RenderSubmissionBuilderTests, ClearingPreviewRetiresItsStableGeometryKey) {
     builder.setPreviewLayer(&preview);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_EQ(first.prepare.size(), 1u);
     const engine::AssetGpuKey key = first.prepare.geometries().front().resourceKey;
     builder.acknowledgeResources(first.resourceBatchId);
 
     preview.clear();
-    const RenderSubmission cleared = builder.build(view);
+    const engine::RenderFrameSubmission cleared = builder.build(view);
 
     ASSERT_EQ(cleared.prepare.size(), 1u);
     EXPECT_TRUE(cleared.prepare.geometries().front().isRetire());
@@ -957,13 +957,13 @@ TEST(RenderSubmissionBuilderTests, MaterialRevisionRebuildsWorldWithoutGeometryU
     builder.setScene(&renderScene, &assets);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_EQ(first.prepare.size(), 1u);
     builder.acknowledgeResources(first.resourceBatchId);
     ASSERT_FALSE(builder.build(view).hasResourceUpdates());
 
     material->setRoughness(0.25);
-    const RenderSubmission materialChanged = builder.build(view);
+    const engine::RenderFrameSubmission materialChanged = builder.build(view);
 
     EXPECT_TRUE(materialChanged.prepare.empty());
     EXPECT_NE(materialChanged.sceneWorld, first.sceneWorld);
@@ -988,14 +988,14 @@ TEST(RenderSubmissionBuilderTests, TextureRevisionFlowsIntoWorldWithoutGeometryU
     builder.setScene(&renderScene, &assets);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.sceneWorld);
     ASSERT_EQ(first.sceneWorld->materials().size(), 1u);
     ASSERT_EQ(first.sceneWorld->materials().front().desc.baseColorTexture.contentRevision, texture->revision());
     builder.acknowledgeResources(first.resourceBatchId);
 
     texture->setImage(core::Image::create(1, 1, core::PixelFormat::RGBA8));
-    const RenderSubmission textureChanged = builder.build(view);
+    const engine::RenderFrameSubmission textureChanged = builder.build(view);
 
     EXPECT_TRUE(textureChanged.prepare.geometries().empty());
     EXPECT_NE(textureChanged.sceneWorld, first.sceneWorld);
@@ -1027,14 +1027,14 @@ TEST(RenderSubmissionBuilderTests, RemovingLastTextureReferenceEmitsReliableReti
     builder.setScene(&renderScene, &assets);
 
     const ViewState view;
-    const RenderSubmission initial = builder.build(view);
+    const engine::RenderFrameSubmission initial = builder.build(view);
     ASSERT_EQ(initial.prepare.textures().size(), 1u);
     const engine::RenderTextureResourceKey identity = initial.prepare.textures().front().identity;
     EXPECT_TRUE(initial.prepare.textures().front().isUpsert());
     builder.acknowledgeResources(initial.resourceBatchId);
 
     material->setBaseColorTexture(asset::AssetId::invalid());
-    const RenderSubmission removed = builder.build(view);
+    const engine::RenderFrameSubmission removed = builder.build(view);
 
     EXPECT_TRUE(removed.prepare.geometries().empty());
     EXPECT_NE(removed.sceneWorld, initial.sceneWorld);
@@ -1063,13 +1063,13 @@ TEST(RenderSubmissionBuilderTests, RemovingReferencedTextureAssetEmitsReliableRe
     builder.setScene(&renderScene, &assets);
 
     const ViewState view;
-    const RenderSubmission initial = builder.build(view);
+    const engine::RenderFrameSubmission initial = builder.build(view);
     ASSERT_EQ(initial.prepare.textures().size(), 1u);
     const engine::RenderTextureResourceKey identity = initial.prepare.textures().front().identity;
     builder.acknowledgeResources(initial.resourceBatchId);
 
     ASSERT_TRUE(assets.remove(textureId));
-    const RenderSubmission removed = builder.build(view);
+    const engine::RenderFrameSubmission removed = builder.build(view);
 
     ASSERT_EQ(removed.prepare.textures().size(), 1u);
     EXPECT_NE(removed.sceneWorld, initial.sceneWorld);
@@ -1097,17 +1097,17 @@ TEST(RenderSubmissionBuilderTests, PendingTextureRetireIsSupersededWhenReference
     builder.setScene(&renderScene, &assets);
 
     const ViewState view;
-    const RenderSubmission initial = builder.build(view);
+    const engine::RenderFrameSubmission initial = builder.build(view);
     ASSERT_EQ(initial.prepare.textures().size(), 1u);
     builder.acknowledgeResources(initial.resourceBatchId);
 
     material->setBaseColorTexture(asset::AssetId::invalid());
-    const RenderSubmission retired = builder.build(view);
+    const engine::RenderFrameSubmission retired = builder.build(view);
     ASSERT_EQ(retired.prepare.textures().size(), 1u);
     ASSERT_TRUE(retired.prepare.textures().front().isRetire());
 
     material->setBaseColorTexture(textureId);
-    const RenderSubmission restored = builder.build(view);
+    const engine::RenderFrameSubmission restored = builder.build(view);
     ASSERT_NE(restored.resourceBatchId, retired.resourceBatchId);
     ASSERT_EQ(restored.prepare.textures().size(), 1u);
     EXPECT_TRUE(restored.prepare.textures().front().isUpsert());
@@ -1116,7 +1116,7 @@ TEST(RenderSubmissionBuilderTests, PendingTextureRetireIsSupersededWhenReference
 
     // 迟到的旧 retire ACK 不得清除已覆盖它的新 upsert 批次。
     builder.acknowledgeResources(retired.resourceBatchId);
-    const RenderSubmission afterStaleAck = builder.build(view);
+    const engine::RenderFrameSubmission afterStaleAck = builder.build(view);
     EXPECT_EQ(afterStaleAck.resourceBatchId, restored.resourceBatchId);
     ASSERT_EQ(afterStaleAck.prepare.textures().size(), 1u);
     EXPECT_TRUE(afterStaleAck.prepare.textures().front().isUpsert());
@@ -1141,14 +1141,14 @@ TEST(RenderSubmissionBuilderTests, TextureOptionChangeRetiresOnlyOldIdentityAndU
     builder.setScene(&renderScene, &assets);
 
     const ViewState view;
-    const RenderSubmission initial = builder.build(view);
+    const engine::RenderFrameSubmission initial = builder.build(view);
     ASSERT_EQ(initial.prepare.textures().size(), 1u);
     const engine::RenderTextureResourceKey oldIdentity = initial.prepare.textures().front().identity;
     ASSERT_TRUE(oldIdentity.srgb);
     builder.acknowledgeResources(initial.resourceBatchId);
 
     material->setBaseColorTextureSrgb(false);
-    const RenderSubmission changed = builder.build(view);
+    const engine::RenderFrameSubmission changed = builder.build(view);
 
     ASSERT_EQ(changed.prepare.textures().size(), 2u);
     size_t retireCount = 0;
@@ -1186,14 +1186,14 @@ TEST(RenderSubmissionBuilderTests, InvalidatingRenderThreadRestoresEveryLiveText
     builder.setScene(&renderScene, &assets);
 
     const ViewState view;
-    const RenderSubmission initial = builder.build(view);
+    const engine::RenderFrameSubmission initial = builder.build(view);
     ASSERT_EQ(initial.prepare.textures().size(), 1u);
     const engine::RenderTextureResourceKey identity = initial.prepare.textures().front().identity;
     builder.acknowledgeResources(initial.resourceBatchId);
     ASSERT_FALSE(builder.build(view).hasResourceUpdates());
 
     builder.invalidateResources();
-    const RenderSubmission restored = builder.build(view);
+    const engine::RenderFrameSubmission restored = builder.build(view);
 
     ASSERT_EQ(restored.prepare.textures().size(), 1u);
     EXPECT_TRUE(restored.prepare.textures().front().isUpsert());
@@ -1220,13 +1220,13 @@ TEST(RenderSubmissionBuilderTests, InvalidatingRenderThreadFullyRestoresAllLiveG
     builder.setScene(&renderScene, &assets);
 
     const ViewState view;
-    const RenderSubmission initial = builder.build(view);
+    const engine::RenderFrameSubmission initial = builder.build(view);
     ASSERT_EQ(initial.prepare.size(), 2u);
     builder.acknowledgeResources(initial.resourceBatchId);
     ASSERT_FALSE(builder.build(view).hasResourceUpdates());
 
     builder.invalidateResources();
-    const RenderSubmission restored = builder.build(view);
+    const engine::RenderFrameSubmission restored = builder.build(view);
     ASSERT_EQ(restored.prepare.size(), 2u);
     for (const engine::RenderGeometryPrepareDesc& geometryPrepare : restored.prepare.geometries()) {
         EXPECT_TRUE(geometryPrepare.isUpsert());
@@ -1270,7 +1270,7 @@ TEST(RenderSubmissionBuilderTests, MaterialLessDrawableKeepsStableDefaultIdentit
     builder.setScene(&renderScene, &assets);
 
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.sceneWorld);
     ASSERT_EQ(first.sceneWorld->materials().size(), 1u);
     const engine::AssetGpuKey stableKey = first.sceneWorld->materials().front().desc.resourceKey;
@@ -1282,7 +1282,7 @@ TEST(RenderSubmissionBuilderTests, MaterialLessDrawableKeepsStableDefaultIdentit
                 entity, math::Mat4::translate(math::Vec3(static_cast<double>(rebuild + 1u), 0.0, 0.0))));
         renderScene.sync(sourceScene, assets);
 
-        const RenderSubmission submission = builder.build(view);
+        const engine::RenderFrameSubmission submission = builder.build(view);
         ASSERT_TRUE(submission.sceneWorld);
         ASSERT_EQ(submission.sceneWorld->materials().size(), 1u);
         const auto& material = submission.sceneWorld->materials().front();
@@ -1312,7 +1312,7 @@ TEST(RenderSubmissionBuilderTests, SingleTransformPatchesOneObjectAndPreservesAl
     RenderSubmissionBuilder builder;
     builder.setScene(&renderScene, &assets);
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.sceneWorld);
     ASSERT_EQ(first.sceneWorld->objects().size(), entities.size());
 
@@ -1325,7 +1325,7 @@ TEST(RenderSubmissionBuilderTests, SingleTransformPatchesOneObjectAndPreservesAl
 
     ASSERT_TRUE(sourceScene.setWorldTransform(entities[73], math::Mat4::translate(math::Vec3(9.0, 2.0, 0.0))));
     renderScene.sync(sourceScene, assets);
-    const RenderSubmission patched = builder.build(view);
+    const engine::RenderFrameSubmission patched = builder.build(view);
     ASSERT_TRUE(patched.sceneWorld);
     EXPECT_FALSE(builder.lastStats().fullRebuild);
     EXPECT_EQ(builder.lastStats().patchedObjectCount, 1u);
@@ -1354,7 +1354,7 @@ TEST(RenderSubmissionBuilderTests, RemoveAndAddKeepUnrelatedObjectIdsStable) {
     RenderSubmissionBuilder builder;
     builder.setScene(&renderScene, &assets);
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     const engine::PickId firstPick = renderScene.proxy(firstEntity)->pickId;
     const auto firstObjects = first.sceneWorld->objects();
     const auto firstRecord =
@@ -1366,7 +1366,7 @@ TEST(RenderSubmissionBuilderTests, RemoveAndAddKeepUnrelatedObjectIdsStable) {
     const scene::EntityId addedEntity = sourceScene.createEntity("Added");
     ASSERT_TRUE(sourceScene.setGeometry(addedEntity, meshAsset->id()));
     renderScene.sync(sourceScene, assets);
-    const RenderSubmission patched = builder.build(view);
+    const engine::RenderFrameSubmission patched = builder.build(view);
     ASSERT_TRUE(patched.sceneWorld);
     EXPECT_EQ(builder.lastStats().patchedObjectCount, 2u);
     EXPECT_EQ(builder.lastStats().removedObjectCount, 1u);
@@ -1390,13 +1390,13 @@ TEST(RenderSubmissionBuilderTests, VisibilityUsesAnObjectPatchWithoutChangingIde
     RenderSubmissionBuilder builder;
     builder.setScene(&renderScene, &assets);
     const ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_EQ(first.sceneWorld->objects().size(), 1u);
     const engine::RenderObjectId stableId = first.sceneWorld->objects().front().id;
 
     ASSERT_TRUE(sourceScene.setVisible(entity, false));
     renderScene.sync(sourceScene, assets);
-    const RenderSubmission hidden = builder.build(view);
+    const engine::RenderFrameSubmission hidden = builder.build(view);
     ASSERT_EQ(hidden.sceneWorld->objects().size(), 1u);
     EXPECT_EQ(hidden.sceneWorld->objects().front().id, stableId);
     EXPECT_FALSE(hidden.sceneWorld->objects().front().desc.visible);
@@ -1422,10 +1422,10 @@ TEST(RenderSubmissionBuilderTests, IncrementalProjectionMatchesFreshFullProjecti
 
     ASSERT_TRUE(sourceScene.setWorldTransform(secondEntity, math::Mat4::translate(math::Vec3(4.0, 5.0, 0.0))));
     renderScene.sync(sourceScene, assets);
-    const RenderSubmission incremental = incrementalBuilder.build(view);
+    const engine::RenderFrameSubmission incremental = incrementalBuilder.build(view);
     RenderSubmissionBuilder fullBuilder;
     fullBuilder.setScene(&renderScene, &assets);
-    const RenderSubmission full = fullBuilder.build(view);
+    const engine::RenderFrameSubmission full = fullBuilder.build(view);
     ASSERT_TRUE(incremental.sceneWorld);
     ASSERT_TRUE(full.sceneWorld);
     ASSERT_EQ(incremental.sceneWorld->objects().size(), full.sceneWorld->objects().size());
@@ -1469,7 +1469,7 @@ TEST(RenderSubmissionBuilderTests, ProjectionJournalOverflowRecoversWithFullResy
                 entity, math::Mat4::translate(math::Vec3(static_cast<double>(revision + 1u), 0.0, 0.0))));
         renderScene.sync(sourceScene, assets);
     }
-    const RenderSubmission recovered = builder.build(view);
+    const engine::RenderFrameSubmission recovered = builder.build(view);
     ASSERT_TRUE(recovered.sceneWorld);
     EXPECT_TRUE(builder.lastStats().fullRebuild);
     EXPECT_EQ(builder.lastStats().patchedObjectCount, 1u);
@@ -1493,12 +1493,12 @@ TEST(RenderSubmissionBuilderTests, SelectionChangesOnlyViewVisualState) {
     builder.setScene(&renderScene, &assets);
 
     ViewState view;
-    const RenderSubmission first = builder.build(view);
+    const engine::RenderFrameSubmission first = builder.build(view);
     ASSERT_TRUE(first.sceneWorld);
 
     ASSERT_TRUE(sourceScene.setSelected(entity, true));
     renderScene.sync(sourceScene, assets);
-    const RenderSubmission selected = builder.build(view);
+    const engine::RenderFrameSubmission selected = builder.build(view);
 
     EXPECT_EQ(selected.sceneWorld, first.sceneWorld);
 }

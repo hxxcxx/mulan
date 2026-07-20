@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <mulan/rhi/window.h>
+#include <mulan/render/runtime/render_config.h>
 #include <mulan/view/core/view_config.h>
 #include <QColor>
 #include <QSettings>
@@ -22,8 +22,8 @@ public:
     void setBackend(mulan::engine::GraphicsBackend b);
 
     /// 抗锯齿
-    mulan::engine::RenderConfig::MSAALevel msaa() const;
-    void setMsaa(mulan::engine::RenderConfig::MSAALevel level);
+    mulan::engine::MSAALevel msaa() const;
+    void setMsaa(mulan::engine::MSAALevel level);
 
     /// VSync
     bool vsync() const;
@@ -63,7 +63,7 @@ private:
     QSettings qsettings_{ "mulan", "Engine" };
 
     mulan::engine::GraphicsBackend backend_ = mulan::engine::GraphicsBackend::Vulkan;
-    mulan::engine::RenderConfig::MSAALevel msaa_ = mulan::engine::RenderConfig::MSAALevel::x4;
+    mulan::engine::MSAALevel msaa_ = mulan::engine::MSAALevel::x4;
     bool vsync_ = true;
     QColor bgcolor_;
     bool ibl_enabled_ = false;  // 默认关

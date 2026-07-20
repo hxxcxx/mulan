@@ -10,14 +10,14 @@
 
 #pragma once
 
-#include "present_surface_state.h"
+#include "../render_surface_state.h"
 #include "render_channel_state.h"
 #include "render_runtime_config.h"
 
-#include "../../scene_sync/render_submission.h"
+#include "../../frontend/render_frame_submission.h"
 
 #include <mulan/core/result/error.h>
-#include <mulan/render/frontend/render_capture.h>
+#include "../../frontend/render_capture.h"
 
 #include <condition_variable>
 #include <cstddef>
@@ -31,7 +31,7 @@
 #include <thread>
 #include <vector>
 
-namespace mulan::view::detail {
+namespace mulan::engine::detail {
 
 class RenderExecutor;
 class RenderDeviceContext;
@@ -52,21 +52,21 @@ private:
 
     static Result<std::shared_ptr<RenderThread>> acquire(const RenderDeviceConfig& config);
 
-    Result<RenderChannelId> attachChannel(const PresentSurfaceConfig& config, int width, int height,
+    Result<RenderChannelId> attachChannel(const RenderSurfaceConfig& config, int width, int height,
                                           RenderChannelEventCallback eventCallback);
     void detach(RenderChannelId channel);
 
     bool isReady(RenderChannelId channel) const;
-    ResultVoid submitFrame(RenderChannelId channel, RenderSubmission submission);
-    Result<engine::RenderCaptureResult> capture(RenderChannelId channel, RenderSubmission submission,
+    ResultVoid submitFrame(RenderChannelId channel, RenderFrameSubmission submission);
+    Result<engine::RenderCaptureResult> capture(RenderChannelId channel, RenderFrameSubmission submission,
                                                 engine::RenderCaptureDesc desc);
-    Result<PresentSurfaceState> resize(RenderChannelId channel, int width, int height);
+    Result<RenderSurfaceState> resize(RenderChannelId channel, int width, int height);
     void enableIBL(RenderChannelId channel, std::string hdrPath);
     ResultVoid clearAssetResources(RenderChannelId channel);
 
     std::optional<uint64_t> takeCompletedResourceBatch(RenderChannelId channel);
     std::optional<Error> failureSnapshot(RenderChannelId channel) const;
-    PresentSurfaceState presentSurfaceState(RenderChannelId channel) const;
+    RenderSurfaceState presentSurfaceState(RenderChannelId channel) const;
 
     enum class State : uint8_t {
         Healthy,
@@ -79,19 +79,19 @@ private:
 
     explicit RenderThread(const RenderDeviceConfig& config);
 
-    ResultVoid initializeChannel(const PresentSurfaceConfig& config, int width, int height, Channel& channel);
+    ResultVoid initializeChannel(const RenderSurfaceConfig& config, int width, int height, Channel& channel);
     ResultVoid ensureDeviceContext();
     void run(std::stop_token stopToken);
     Channel* findChannelLocked(RenderChannelId channel);
     const Channel* findChannelLocked(RenderChannelId channel) const;
-    Channel* selectReadyChannelLocked(std::optional<ControlTask>& control, std::optional<RenderSubmission>& frame);
+    Channel* selectReadyChannelLocked(std::optional<ControlTask>& control, std::optional<RenderFrameSubmission>& frame);
     bool hasWorkLocked() const;
     bool channelHasWorkLocked(const Channel& channel) const;
     bool isHealthy() const;
     bool enqueue(RenderChannelId channel, ControlTask task);
-    ResultVoid enqueueSubmissionResourcesLocked(Channel& channel, RenderSubmission& submission);
+    ResultVoid enqueueSubmissionResourcesLocked(Channel& channel, RenderFrameSubmission& submission);
     void publishSurfaceStateLocked(Channel& channel);
-    void executeFrame(Channel& channel, RenderSubmission submission);
+    void executeFrame(Channel& channel, RenderFrameSubmission submission);
     void executeControl(Channel& channel, ControlTask control);
     static void finishControlTask(ControlTask& control, ResultVoid result) noexcept;
     void failChannel(Channel& channel, const Error& error);
@@ -113,4 +113,4 @@ private:
     std::jthread thread_;
 };
 
-}  // namespace mulan::view::detail
+}  // namespace mulan::engine::detail

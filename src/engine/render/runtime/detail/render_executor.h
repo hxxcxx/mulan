@@ -12,19 +12,19 @@
 
 #include "capture_target.h"
 #include "present_surface.h"
-#include "present_surface_state.h"
+#include "../render_surface_state.h"
 #include "render_device_context.h"
 
-#include "../../scene_sync/render_submission.h"
+#include "../../frontend/render_frame_submission.h"
 
 #include <mulan/core/result/error.h>
-#include <mulan/render/backend/forward_renderer.h>
-#include <mulan/render/frontend/render_capture.h>
+#include "../../backend/forward_renderer.h"
+#include "../../frontend/render_capture.h"
 
 #include <optional>
 #include <string>
 
-namespace mulan::view::detail {
+namespace mulan::engine::detail {
 
 class RenderExecutor {
 public:
@@ -34,24 +34,24 @@ public:
     RenderExecutor(const RenderExecutor&) = delete;
     RenderExecutor& operator=(const RenderExecutor&) = delete;
 
-    ResultVoid init(const PresentSurfaceConfig& config, int width, int height);
+    ResultVoid init(const RenderSurfaceConfig& config, int width, int height);
     void shutdown();
 
     bool isInitialized() const;
-    PresentSurfaceState presentSurfaceState() const;
+    RenderSurfaceState presentSurfaceState() const;
 
     ResultVoid prepareResources(const engine::RenderResourcePrepareList& prepare);
-    ResultVoid executeFrame(const RenderSubmission& submission);
-    Result<engine::RenderCaptureResult> capture(const RenderSubmission& submission,
+    ResultVoid executeFrame(const RenderFrameSubmission& submission);
+    Result<engine::RenderCaptureResult> capture(const RenderFrameSubmission& submission,
                                                 const engine::RenderCaptureDesc& desc);
-    Result<PresentSurfaceState> resize(int width, int height);
+    Result<RenderSurfaceState> resize(int width, int height);
     void enableIBL(const std::string& hdrPath);
     ResultVoid clearAssetResources();
 
 private:
     ResultVoid initRenderer();
     ResultVoid configureCaptureTarget(const engine::RenderCaptureDesc& desc, uint32_t width, uint32_t height);
-    PresentSurfaceState makePresentSurfaceState() const;
+    RenderSurfaceState makeRenderSurfaceState() const;
     void shutdownResources();
 
     // 非拥有引用；RenderThread 保证先销毁全部 Executor，再销毁设备上下文。
@@ -63,4 +63,4 @@ private:
     bool initialized_ = false;
 };
 
-}  // namespace mulan::view::detail
+}  // namespace mulan::engine::detail

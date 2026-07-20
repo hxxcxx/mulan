@@ -14,7 +14,7 @@
 #include <optional>
 #include <string>
 
-namespace mulan::view::detail {
+namespace mulan::engine::detail {
 
 class RenderChannel {
 public:
@@ -24,23 +24,23 @@ public:
     RenderChannel(const RenderChannel&) = delete;
     RenderChannel& operator=(const RenderChannel&) = delete;
 
-    ResultVoid init(const ViewConfig& config, int width, int height, RenderChannelEventCallback eventCallback);
+    ResultVoid init(const RenderSessionConfig& config, int width, int height, RenderChannelEventCallback eventCallback);
     void shutdown();
 
     bool isReady() const;
-    ResultVoid submitFrame(RenderSubmission submission);
-    Result<engine::RenderCaptureResult> capture(RenderSubmission submission, engine::RenderCaptureDesc desc);
-    Result<PresentSurfaceState> resize(int width, int height);
+    ResultVoid submitFrame(RenderFrameSubmission submission);
+    Result<engine::RenderCaptureResult> capture(RenderFrameSubmission submission, engine::RenderCaptureDesc desc);
+    Result<RenderSurfaceState> resize(int width, int height);
     void enableIBL(std::string hdrPath);
     ResultVoid clearAssetResources();
 
     std::optional<uint64_t> takeCompletedResourceBatch();
     std::optional<Error> failureSnapshot() const;
-    PresentSurfaceState presentSurfaceState() const;
+    RenderSurfaceState presentSurfaceState() const;
 
 private:
     std::shared_ptr<RenderThread> thread_;
     RenderChannelId channel_ = 0;
 };
 
-}  // namespace mulan::view::detail
+}  // namespace mulan::engine::detail

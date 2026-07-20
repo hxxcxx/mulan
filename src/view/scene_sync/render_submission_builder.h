@@ -7,9 +7,10 @@
 
 #pragma once
 
-#include "render_submission.h"
+#include "../core/view_state.h"
 #include "render_world_sync.h"
 
+#include <mulan/render/frontend/render_frame_submission.h>
 #include <mulan/render/frontend/render_world.h>
 #include <mulan/render/light_environment.h>
 
@@ -33,7 +34,7 @@ public:
     void setPreviewLayer(const PreviewLayer* preview);
     void setLightEnvironment(const engine::LightEnvironment& lightEnvironment);
 
-    RenderSubmission build(const ViewState& viewState);
+    engine::RenderFrameSubmission build(const ViewState& viewState);
 
     /// 仅在执行端确认整个上传批次后清除 pending；过期 ACK 不影响更新批次。
     void acknowledgeResources(uint64_t batchId);
@@ -46,8 +47,8 @@ public:
 private:
     bool needsSceneRebuild() const;
     bool needsOverlayRebuild() const;
-    void rebuildScene(RenderSubmission& submission);
-    void rebuildOverlay(RenderSubmission& submission);
+    void rebuildScene(engine::RenderFrameSubmission& submission);
+    void rebuildOverlay(engine::RenderFrameSubmission& submission);
     void advanceResourceBatch();
 
     const RenderScene* scene_ = nullptr;

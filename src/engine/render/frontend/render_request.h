@@ -10,7 +10,7 @@
 #include "selection_visual_state.h"
 #include "render_view_desc.h"
 #include "render_world_snapshot.h"
-#include "../overlay/view_cube_model.h"
+#include "../overlay/view_cube_contract.h"
 
 #include <cstdint>
 

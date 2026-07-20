@@ -5,12 +5,12 @@
  * @date 2026-07-16
  */
 
-#include <mulan/render/asset_gpu_registry.h>
-#include <mulan/render/backend/render_compiler.h>
-#include <mulan/render/backend/surface_pipeline_provider.h>
-#include <mulan/render/frontend/render_world.h>
-#include <mulan/render/material/material_cache.h>
-#include <mulan/rhi/device.h>
+#include "../../src/engine/render/asset_gpu_registry.h"
+#include "../../src/engine/render/backend/render_compiler.h"
+#include "../../src/engine/render/backend/surface_pipeline_provider.h"
+#include "../../src/engine/render/frontend/render_world.h"
+#include "../../src/engine/render/material/material_cache.h"
+#include "../../src/engine/rhi/device.h"
 
 #include <gtest/gtest.h>
 

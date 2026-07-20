@@ -3,7 +3,7 @@
 #include <mulan/core/log/log.h>
 #include <mulan/core/profiling/profile.h>
 
-namespace mulan::view::detail {
+namespace mulan::engine::detail {
 
 RenderDeviceContext::RenderDeviceContext(std::unique_ptr<engine::RHIDevice> device) : device_(std::move(device)) {
     MULAN_PROFILE_ZONE();
@@ -34,4 +34,4 @@ Result<std::unique_ptr<RenderDeviceContext>> RenderDeviceContext::create(const R
     return context;
 }
 
-}  // namespace mulan::view::detail
+}  // namespace mulan::engine::detail

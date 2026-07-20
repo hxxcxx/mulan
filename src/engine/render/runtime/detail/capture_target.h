@@ -7,8 +7,8 @@
 #pragma once
 
 #include <mulan/core/result/error.h>
-#include <mulan/rhi/buffer.h>
-#include <mulan/rhi/render_target.h>
+#include "../../../rhi/buffer.h"
+#include "../../../rhi/render_target.h"
 
 #include <cstdint>
 #include <memory>
@@ -18,7 +18,7 @@ namespace mulan::engine {
 class RHIDevice;
 }
 
-namespace mulan::view::detail {
+namespace mulan::engine::detail {
 
 struct CaptureTargetDesc {
     int width = 0;
@@ -60,4 +60,4 @@ private:
     uint32_t row_bytes_ = 0;
 };
 
-}  // namespace mulan::view::detail
+}  // namespace mulan::engine::detail

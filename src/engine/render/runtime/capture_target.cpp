@@ -8,14 +8,14 @@
 #include "detail/capture_target.h"
 
 #include <mulan/core/log/log.h>
-#include <mulan/rhi/device.h>
-#include <mulan/rhi/engine_error_code.h>
+#include "../../rhi/device.h"
+#include "../../rhi/engine_error_code.h"
 
 #include <cassert>
 #include <limits>
 #include <utility>
 
-namespace mulan::view::detail {
+namespace mulan::engine::detail {
 namespace {
 
 uint32_t readbackRowBytes(const engine::RHIDevice& device, int width, uint32_t bytesPerPixel) {
@@ -209,4 +209,4 @@ bool CaptureTarget::descMatches(const CaptureTargetDesc& desc) const {
            desc_.hasDepth == desc.hasDepth && desc_.sampleCount == desc.sampleCount && desc_.readback == desc.readback;
 }
 
-}  // namespace mulan::view::detail
+}  // namespace mulan::engine::detail

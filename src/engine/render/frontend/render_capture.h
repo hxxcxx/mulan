@@ -7,12 +7,17 @@
 
 #pragma once
 
-#include "../../rhi/texture.h"
-
 #include <cstdint>
 #include <vector>
 
 namespace mulan::engine {
+
+enum class RenderCapturePixelFormat : uint8_t {
+    Unknown,
+    R8,
+    RGBA8,
+    BGRA8,
+};
 
 struct RenderCaptureDesc {
     /// 0 表示沿用当前窗口 Surface 的对应尺寸。
@@ -25,7 +30,7 @@ struct RenderCaptureDesc {
 struct RenderCaptureResult {
     uint32_t width = 0;
     uint32_t height = 0;
-    TextureFormat format = TextureFormat::RGBA8_UNorm;
+    RenderCapturePixelFormat format = RenderCapturePixelFormat::RGBA8;
     uint32_t bytesPerPixel = 0;
     uint32_t rowBytes = 0;
     std::vector<uint8_t> pixels;

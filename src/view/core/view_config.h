@@ -10,8 +10,7 @@
 
 #pragma once
 
-#include <mulan/rhi/device.h>
-#include <mulan/rhi/window.h>
+#include <mulan/render/runtime/render_config.h>
 
 #include <cstdint>
 #include <string>
@@ -21,7 +20,7 @@ namespace mulan::view {
 struct ViewConfig {
     engine::GraphicsBackend backend = engine::GraphicsBackend::Vulkan;
 
-    engine::RenderConfig::MSAALevel msaa = engine::RenderConfig::MSAALevel::x4;
+    engine::MSAALevel msaa = engine::MSAALevel::x4;
 
     uint8_t bufferCount = 2;
     bool vsync = true;
@@ -38,14 +37,17 @@ struct ViewConfig {
     /// 由应用壳的平台适配器提供；View 与渲染线程不感知 Qt/Win32/X11。
     engine::NativeWindowHandle window;
 
-    engine::RenderConfig toRenderConfig() const {
-        engine::RenderConfig rc;
-        rc.msaa = msaa;
-        rc.bufferCount = bufferCount;
-        rc.vsync = vsync;
+    engine::RenderSessionConfig toRenderSessionConfig() const {
+        engine::RenderSessionConfig config;
+        config.backend = backend;
+        config.enableValidation = enableValidation;
+        config.surface.window = window;
+        config.surface.msaa = msaa;
+        config.surface.bufferCount = bufferCount;
+        config.surface.vsync = vsync;
         for (int i = 0; i < 4; ++i)
-            rc.clearColor[i] = clearColor[i];
-        return rc;
+            config.surface.clearColor[i] = clearColor[i];
+        return config;
     }
 };
 

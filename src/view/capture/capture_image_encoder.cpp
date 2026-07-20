@@ -9,19 +9,17 @@
 namespace mulan::view {
 namespace {
 
-core::PixelFormat capturePixelFormat(engine::TextureFormat format) {
+core::PixelFormat capturePixelFormat(engine::RenderCapturePixelFormat format) {
     switch (format) {
-    case engine::TextureFormat::R8_UNorm: return core::PixelFormat::R8;
-    case engine::TextureFormat::RGBA8_UNorm:
-    case engine::TextureFormat::RGBA8_sRGB:
-    case engine::TextureFormat::BGRA8_UNorm:
-    case engine::TextureFormat::BGRA8_sRGB: return core::PixelFormat::RGBA8;
+    case engine::RenderCapturePixelFormat::R8: return core::PixelFormat::R8;
+    case engine::RenderCapturePixelFormat::RGBA8:
+    case engine::RenderCapturePixelFormat::BGRA8: return core::PixelFormat::RGBA8;
     default: return core::PixelFormat::Unknown;
     }
 }
 
-bool isBGRA(engine::TextureFormat format) {
-    return format == engine::TextureFormat::BGRA8_UNorm || format == engine::TextureFormat::BGRA8_sRGB;
+bool isBGRA(engine::RenderCapturePixelFormat format) {
+    return format == engine::RenderCapturePixelFormat::BGRA8;
 }
 
 }  // namespace

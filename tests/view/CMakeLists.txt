@@ -20,6 +20,8 @@ target_include_directories(ViewRuntimeTests PRIVATE
 
 target_link_libraries(ViewRuntimeTests PRIVATE
     view
+    render
+    rhi
     GTest::gtest
     GTest::gtest_main
 )

@@ -16,20 +16,23 @@
 
 namespace mulan::app {
 
-QtViewportInputAdapter::QtViewportInputAdapter(qreal devicePixelRatioF) : dpr_(devicePixelRatioF) {}
+QtViewportInputAdapter::QtViewportInputAdapter(qreal devicePixelRatioF) : dpr_(devicePixelRatioF) {
+}
 
 engine::InputEvent QtViewportInputAdapter::mousePress(const QMouseEvent& e) const {
     const QPoint p = framebufferEventPosition(e.position());
-    engine::InputEvent ev = engine::InputEvent::mousePress(p.x(), p.y(), translateButton(e.button()),
-                                                           translateButtons(e.buttons()), translateModifiers(e.modifiers()));
+    engine::InputEvent ev =
+            engine::InputEvent::mousePress(p.x(), p.y(), translateButton(e.button()), translateButtons(e.buttons()),
+                                           translateModifiers(e.modifiers()));
     ev.timestampMs = static_cast<uint64_t>(e.timestamp());
     return ev;
 }
 
 engine::InputEvent QtViewportInputAdapter::mouseRelease(const QMouseEvent& e) const {
     const QPoint p = framebufferEventPosition(e.position());
-    engine::InputEvent ev = engine::InputEvent::mouseRelease(p.x(), p.y(), translateButton(e.button()),
-                                                             translateButtons(e.buttons()), translateModifiers(e.modifiers()));
+    engine::InputEvent ev =
+            engine::InputEvent::mouseRelease(p.x(), p.y(), translateButton(e.button()), translateButtons(e.buttons()),
+                                             translateModifiers(e.modifiers()));
     ev.timestampMs = static_cast<uint64_t>(e.timestamp());
     return ev;
 }
@@ -85,7 +88,7 @@ QPointF QtViewportInputAdapter::framebufferPosition(const QPointF& logicalPos) c
 
 QPoint QtViewportInputAdapter::framebufferEventPosition(const QPointF& logicalPos) const {
     // Qt 鼠标事件给的是 widget logical coordinates；RHI swapchain、Camera::screenRay()
-    // 和 ViewCubeModel::pickFace() 使用的是 framebuffer coordinates。
+    // 和 ViewCubeModel::pickPart() 使用的是 framebuffer coordinates。
     // 高 DPI 屏幕下两者不同，必须在进入 view/engine picking 前乘 devicePixelRatioF()。
     return QPoint(qRound(logicalPos.x() * dpr_), qRound(logicalPos.y() * dpr_));
 }

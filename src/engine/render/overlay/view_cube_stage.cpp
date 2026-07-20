@@ -158,19 +158,19 @@ void ViewCubeStage::setFallbackResources(Texture* defaultWhite, Sampler* default
 }
 
 void ViewCubeStage::setSize(uint32_t size) {
-    ViewCubeLayout layout = model_.layout();
+    ViewCubeLayout layout = layout_;
     layout.size = size;
-    model_.setLayout(layout);
+    layout_ = layout;
 }
 
 void ViewCubeStage::setMargin(uint32_t margin) {
-    ViewCubeLayout layout = model_.layout();
+    ViewCubeLayout layout = layout_;
     layout.margin = margin;
-    model_.setLayout(layout);
+    layout_ = layout;
 }
 
 void ViewCubeStage::setLayout(const ViewCubeLayout& layout) {
-    model_.setLayout(layout);
+    layout_ = layout;
 }
 
 void ViewCubeStage::setInteraction(const ViewCubeInteractionState& interaction) {
@@ -184,17 +184,9 @@ void ViewCubeStage::setInteraction(const ViewCubeInteractionState& interaction) 
 }
 
 void ViewCubeStage::setCorner(ViewCubeCorner corner) {
-    ViewCubeLayout layout = model_.layout();
+    ViewCubeLayout layout = layout_;
     layout.corner = corner;
-    model_.setLayout(layout);
-}
-
-ViewCubeRect ViewCubeStage::viewportRect(uint32_t vpWidth, uint32_t vpHeight) const {
-    return model_.viewportRect(vpWidth, vpHeight);
-}
-
-ViewCubeHit ViewCubeStage::pick(int screenX, int screenY, uint32_t vpWidth, uint32_t vpHeight) const {
-    return model_.hitTest(screenX, screenY, vpWidth, vpHeight);
+    layout_ = layout;
 }
 
 void ViewCubeStage::collectLabels(TextDrawList& textDraws, const math::Mat4& mainViewMatrix, uint32_t vpWidth,
@@ -203,7 +195,7 @@ void ViewCubeStage::collectLabels(TextDrawList& textDraws, const math::Mat4& mai
         return;
     }
 
-    const ViewCubeRect cubeRect = viewportRect(vpWidth, vpHeight);
+    const ViewCubeRect cubeRect = layout_.rect(vpWidth, vpHeight);
     if (cubeRect.width <= 0 || cubeRect.height <= 0) {
         return;
     }
@@ -215,12 +207,12 @@ void ViewCubeStage::collectLabels(TextDrawList& textDraws, const math::Mat4& mai
     const math::Mat4 cubeProj = math::Mat4::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, 0.1, 10.0);
     const math::Mat4 cubeVP = cubeProj * cubeView;
 
-    for (const auto& part : ViewCubeModel::parts()) {
+    for (const auto& part : ViewCubeGeometry::parts()) {
         if (part.type != ViewCubePartType::Face) {
             continue;
         }
 
-        const math::Vec3 normal = ViewCubeModel::partNormal(part);
+        const math::Vec3 normal = ViewCubeGeometry::partNormal(part);
         const math::Vec3 center = normal * (ViewCubeStyle::CubeHalfExtent + ViewCubeStyle::LabelSurfaceOffset);
         const math::Vec3 viewNormal = rotOnly * normal;
         const math::Vec4 viewCenter4 = cubeView * math::Vec4(center, 1.0);
@@ -267,8 +259,8 @@ bool ViewCubeStage::createFaceGeometry() {
     // 绘制几何和拾取几何共用同一份拓扑定义，避免屏幕命中区域与实际显示区域不一致。
     std::vector<CubeVertex> verts;
     std::vector<uint32_t> indices;
-    verts.reserve(ViewCubeModel::kPartCount * 4);
-    indices.reserve(ViewCubeModel::kPartCount * 6);
+    verts.reserve(ViewCubeGeometry::kPartCount * 4);
+    indices.reserve(ViewCubeGeometry::kPartCount * 6);
     part_vertex_offsets_.fill(0);
     part_vertex_counts_.fill(0);
 
@@ -286,12 +278,12 @@ bool ViewCubeStage::createFaceGeometry() {
         return result;
     };
 
-    for (const auto& part : ViewCubeModel::parts()) {
-        const ViewCubePartShape shape = ViewCubeModel::partShape(part);
+    for (const auto& part : ViewCubeGeometry::parts()) {
+        const ViewCubePartShape shape = ViewCubeGeometry::partShape(part);
         if (shape.vertexCount < 3 || shape.vertexCount > 4)
             continue;
 
-        const math::Vec3 normal = ViewCubeModel::partNormal(part);
+        const math::Vec3 normal = ViewCubeGeometry::partNormal(part);
         const uint32_t base = static_cast<uint32_t>(verts.size());
         float color[3]{};
         viewCubePartBaseColor(part, color);
@@ -471,7 +463,7 @@ bool ViewCubeStage::updateInteractionGeometry() {
 
     for (uint32_t i = 0; i < kPartCount; ++i) {
         float color[3]{};
-        viewCubePartBaseColor(ViewCubeModel::parts()[i], color);
+        viewCubePartBaseColor(ViewCubeGeometry::parts()[i], color);
 
         if (i == hovered) {
             mixColor(color, color, kHoverColor, 0.58f);
@@ -507,7 +499,7 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
         return;
 
     // --- 1. 计算 ViewCube 视口（右下角）---
-    const ViewCubeRect cubeRect = viewportRect(vpWidth, vpHeight);
+    const ViewCubeRect cubeRect = layout_.rect(vpWidth, vpHeight);
 
     Viewport cubeVP{ static_cast<float>(cubeRect.x),
                      static_cast<float>(cubeRect.y),
@@ -618,15 +610,6 @@ void ViewCubeStage::render(CommandList* cmd, const math::Mat4& mainViewMatrix, u
 
     // --- 6. 恢复全屏视口 ---
     restoreFullViewport();
-}
-
-// ============================================================
-// 交互预留（空实现）
-// ============================================================
-
-bool ViewCubeStage::hitTest(int screenX, int screenY, uint32_t vpWidth, uint32_t vpHeight) const {
-    // TODO: 检测屏幕坐标是否在 ViewCube 区域内
-    return static_cast<bool>(pick(screenX, screenY, vpWidth, vpHeight));
 }
 
 }  // namespace mulan::engine

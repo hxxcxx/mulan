@@ -1,6 +1,6 @@
 #include "snap_marker_builder.h"
 
-#include <mulan/render/camera/camera.h>
+#include <mulan/interaction/camera/camera.h>
 
 #include <algorithm>
 #include <cmath>

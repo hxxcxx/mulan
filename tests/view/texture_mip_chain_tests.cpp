@@ -5,7 +5,7 @@
  * @date 2026-07-16
  */
 
-#include <mulan/render/texture_mip_chain.h>
+#include "../../src/engine/render/texture_mip_chain.h"
 
 #include <gtest/gtest.h>
 

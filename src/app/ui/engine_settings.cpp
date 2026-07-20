@@ -48,12 +48,12 @@ void EngineSettings::setBackend(GraphicsBackend b) {
 
 // --- 抗锯齿 ---
 
-RenderConfig::MSAALevel EngineSettings::msaa() const {
+MSAALevel EngineSettings::msaa() const {
     std::scoped_lock lock(mutex_);
     return msaa_;
 }
 
-void EngineSettings::setMsaa(RenderConfig::MSAALevel level) {
+void EngineSettings::setMsaa(MSAALevel level) {
     std::scoped_lock lock(mutex_);
     if (msaa_ != level) {
         msaa_ = level;
@@ -157,16 +157,16 @@ static GraphicsBackend intToBackend(int v) {
     }
 }
 
-static int msaaToInt(RenderConfig::MSAALevel l) {
+static int msaaToInt(MSAALevel l) {
     return static_cast<int>(l);
 }
-static RenderConfig::MSAALevel intToMsaa(int v) {
+static MSAALevel intToMsaa(int v) {
     switch (v) {
-    case 1: return RenderConfig::MSAALevel::None;
-    case 2: return RenderConfig::MSAALevel::x2;
-    case 4: return RenderConfig::MSAALevel::x4;
-    case 8: return RenderConfig::MSAALevel::x8;
-    default: return RenderConfig::MSAALevel::x4;
+    case 1: return MSAALevel::None;
+    case 2: return MSAALevel::x2;
+    case 4: return MSAALevel::x4;
+    case 8: return MSAALevel::x8;
+    default: return MSAALevel::x4;
     }
 }
 

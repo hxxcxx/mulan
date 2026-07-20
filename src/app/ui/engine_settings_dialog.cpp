@@ -39,10 +39,10 @@ EngineSettingsDialog::EngineSettingsDialog(QWidget* parent) : QDialog(parent) {
 
     // --- 抗锯齿 ---
     combo_msaa_ = new QComboBox(this);
-    combo_msaa_->addItem("None", static_cast<int>(RenderConfig::MSAALevel::None));
-    combo_msaa_->addItem("MSAA 2x", static_cast<int>(RenderConfig::MSAALevel::x2));
-    combo_msaa_->addItem("MSAA 4x", static_cast<int>(RenderConfig::MSAALevel::x4));
-    combo_msaa_->addItem("MSAA 8x", static_cast<int>(RenderConfig::MSAALevel::x8));
+    combo_msaa_->addItem("None", static_cast<int>(MSAALevel::None));
+    combo_msaa_->addItem("MSAA 2x", static_cast<int>(MSAALevel::x2));
+    combo_msaa_->addItem("MSAA 4x", static_cast<int>(MSAALevel::x4));
+    combo_msaa_->addItem("MSAA 8x", static_cast<int>(MSAALevel::x8));
     layout->addRow(tr("Anti-Aliasing:"), combo_msaa_);
 
     // --- 背景色 ---
@@ -95,7 +95,7 @@ void EngineSettingsDialog::onAccept() {
     mulan::view::ViewConfig config;
     s.applyTo(config);
     config.backend = static_cast<GraphicsBackend>(combo_backend_->currentData().toInt());
-    config.msaa = static_cast<RenderConfig::MSAALevel>(combo_msaa_->currentData().toInt());
+    config.msaa = static_cast<MSAALevel>(combo_msaa_->currentData().toInt());
     config.clearColor[0] = static_cast<float>(background_color_.redF());
     config.clearColor[1] = static_cast<float>(background_color_.greenF());
     config.clearColor[2] = static_cast<float>(background_color_.blueF());

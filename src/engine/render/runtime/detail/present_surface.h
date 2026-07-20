@@ -9,7 +9,7 @@
 #include "render_runtime_config.h"
 
 #include <mulan/core/result/error.h>
-#include <mulan/rhi/swap_chain.h>
+#include "../../../rhi/swap_chain.h"
 
 #include <cstdint>
 #include <memory>
@@ -18,7 +18,7 @@ namespace mulan::engine {
 class RHIDevice;
 }
 
-namespace mulan::view::detail {
+namespace mulan::engine::detail {
 
 class PresentSurface {
 public:
@@ -28,7 +28,7 @@ public:
     PresentSurface(const PresentSurface&) = delete;
     PresentSurface& operator=(const PresentSurface&) = delete;
 
-    ResultVoid init(const PresentSurfaceConfig& config, int width, int height);
+    ResultVoid init(const RenderSurfaceConfig& config, int width, int height);
     ResultVoid resize(int width, int height);
     void shutdown();
 
@@ -49,4 +49,4 @@ private:
     int height_ = 0;
 };
 
-}  // namespace mulan::view::detail
+}  // namespace mulan::engine::detail

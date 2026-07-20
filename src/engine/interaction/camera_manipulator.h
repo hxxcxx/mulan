@@ -19,7 +19,7 @@
 #pragma once
 
 #include "operator.h"
-#include "../render/camera/camera.h"
+#include "camera/camera.h"
 
 namespace mulan::engine {
 

@@ -8,6 +8,7 @@
 #pragma once
 
 #include "light_environment.h"
+#include "material/material.h"
 
 #include <mulan/math/math.h>
 
@@ -18,6 +19,57 @@
 #include <limits>
 
 namespace mulan::engine {
+
+/// 对应 shaders/common.slang 中的 Material 常量缓冲（b2）。
+struct alignas(16) MaterialGPU {
+    float baseColor[3];
+    float metallic;
+    float emissive[3];
+    float roughness;
+    float specular[3];
+    float shininess;
+    float alpha;
+    float ao;
+    float emissiveStrength;
+    float alphaCutoff;
+    uint32_t shadingModel;
+    uint32_t alphaMode;
+    uint32_t textureFlags;
+    uint32_t doubleSided;
+    float ambient[3];
+    float reserved = 0.0f;
+
+    static constexpr size_t kSize = 96;
+
+    static MaterialGPU fromMaterial(const Material& material) {
+        MaterialGPU result{};
+        result.baseColor[0] = static_cast<float>(material.baseColor.x);
+        result.baseColor[1] = static_cast<float>(material.baseColor.y);
+        result.baseColor[2] = static_cast<float>(material.baseColor.z);
+        result.metallic = static_cast<float>(std::clamp(material.metallic, 0.0, 1.0));
+        result.emissive[0] = static_cast<float>(material.emissive.x * material.emissiveStrength);
+        result.emissive[1] = static_cast<float>(material.emissive.y * material.emissiveStrength);
+        result.emissive[2] = static_cast<float>(material.emissive.z * material.emissiveStrength);
+        result.roughness = static_cast<float>(std::clamp(material.roughness, 0.04, 1.0));
+        result.specular[0] = static_cast<float>(material.specular.x);
+        result.specular[1] = static_cast<float>(material.specular.y);
+        result.specular[2] = static_cast<float>(material.specular.z);
+        result.shininess = static_cast<float>(material.shininess);
+        result.alpha = static_cast<float>(material.alpha);
+        result.ao = static_cast<float>(material.ao);
+        result.emissiveStrength = static_cast<float>(material.emissiveStrength);
+        result.alphaCutoff = static_cast<float>(material.alphaCutoff);
+        result.shadingModel = static_cast<uint32_t>(material.shadingModel);
+        result.alphaMode = static_cast<uint32_t>(material.alphaMode);
+        result.textureFlags = static_cast<uint32_t>(material.textureSlots);
+        result.doubleSided = material.doubleSided ? 1u : 0u;
+        result.ambient[0] = static_cast<float>(material.ambient.x);
+        result.ambient[1] = static_cast<float>(material.ambient.y);
+        result.ambient[2] = static_cast<float>(material.ambient.z);
+        return result;
+    }
+};
+static_assert(sizeof(MaterialGPU) == MaterialGPU::kSize, "MaterialGPU must match shaders/common.slang");
 
 static_assert(static_cast<uint32_t>(LightType::Directional) == 0u);
 static_assert(static_cast<uint32_t>(LightType::Point) == 1u);

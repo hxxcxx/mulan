@@ -1,4 +1,5 @@
 #include "render_compiler.h"
+#include "render_gpu_contract.h"
 
 #include "../asset_gpu_registry.h"
 #include "../frontend/render_contract.h"

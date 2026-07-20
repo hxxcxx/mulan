@@ -14,7 +14,7 @@
 #include "document_render_binding.h"
 #include "document_selection_bridge.h"
 
-#include <mulan/render/camera/camera.h>
+#include <mulan/interaction/camera/camera.h>
 #include <mulan/scene/entity_id.h>
 
 namespace mulan::view {

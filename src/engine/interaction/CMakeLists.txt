@@ -1,6 +1,9 @@
 # interaction - 交互层：相机操控、输入事件、工作平面、操作符。
-# 对外暴露模块，依赖 render 获取 camera 类型。
+# 对外暴露模块：相机、导航与输入操作，不依赖渲染执行层。
 add_library(interaction STATIC
+    camera/camera.cpp
+    camera/turntable_rotation.cpp
+    camera/trackball_rotation.cpp
     work_plane.cpp
 )
 
@@ -8,7 +11,8 @@ mulan_copy_public_headers(interaction interaction)
 
 target_link_libraries(interaction
     PUBLIC
-        render
+        core
+        math
 )
 
 target_precompile_headers(interaction PRIVATE

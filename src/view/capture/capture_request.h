@@ -9,7 +9,7 @@
 
 #include "../core/view_state.h"
 
-#include <mulan/render/camera/camera.h>
+#include <mulan/interaction/camera/camera.h>
 #include <mulan/render/frontend/render_capture.h>
 #include <mulan/core/result/error.h>
 

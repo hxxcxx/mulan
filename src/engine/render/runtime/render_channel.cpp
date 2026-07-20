@@ -11,13 +11,13 @@
 
 #include <utility>
 
-namespace mulan::view::detail {
+namespace mulan::engine::detail {
 
 RenderChannel::~RenderChannel() {
     shutdown();
 }
 
-ResultVoid RenderChannel::init(const ViewConfig& config, int width, int height,
+ResultVoid RenderChannel::init(const RenderSessionConfig& config, int width, int height,
                                RenderChannelEventCallback eventCallback) {
     MULAN_PROFILE_ZONE();
 
@@ -27,8 +27,10 @@ ResultVoid RenderChannel::init(const ViewConfig& config, int width, int height,
     if (thread_ || channel_ != 0) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is already attached."));
     }
-    const RenderDeviceConfig deviceConfig = RenderDeviceConfig::fromView(config);
-    const PresentSurfaceConfig presentConfig = PresentSurfaceConfig::fromView(config);
+    const RenderDeviceConfig deviceConfig = RenderDeviceConfig::fromSession(config);
+    RenderSurfaceConfig presentConfig = config.surface;
+    if (presentConfig.bufferCount == 0)
+        presentConfig.bufferCount = 2;
     auto thread = RenderThread::acquire(deviceConfig);
     if (!thread) {
         return std::unexpected(thread.error());
@@ -54,14 +56,14 @@ bool RenderChannel::isReady() const {
     return thread_ && channel_ != 0 && thread_->isReady(channel_);
 }
 
-ResultVoid RenderChannel::submitFrame(RenderSubmission submission) {
+ResultVoid RenderChannel::submitFrame(RenderFrameSubmission submission) {
     if (!thread_ || channel_ == 0) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is not ready."));
     }
     return thread_->submitFrame(channel_, std::move(submission));
 }
 
-Result<engine::RenderCaptureResult> RenderChannel::capture(RenderSubmission submission,
+Result<engine::RenderCaptureResult> RenderChannel::capture(RenderFrameSubmission submission,
                                                            engine::RenderCaptureDesc desc) {
     if (!thread_ || channel_ == 0) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is not ready."));
@@ -69,7 +71,7 @@ Result<engine::RenderCaptureResult> RenderChannel::capture(RenderSubmission subm
     return thread_->capture(channel_, std::move(submission), desc);
 }
 
-Result<PresentSurfaceState> RenderChannel::resize(int width, int height) {
+Result<RenderSurfaceState> RenderChannel::resize(int width, int height) {
     if (!thread_ || channel_ == 0) {
         return std::unexpected(Error::make(ErrorCode::InvalidArg, "Render channel is not ready."));
     }
@@ -97,8 +99,8 @@ std::optional<Error> RenderChannel::failureSnapshot() const {
     return thread_ && channel_ != 0 ? thread_->failureSnapshot(channel_) : std::nullopt;
 }
 
-PresentSurfaceState RenderChannel::presentSurfaceState() const {
-    return thread_ && channel_ != 0 ? thread_->presentSurfaceState(channel_) : PresentSurfaceState{};
+RenderSurfaceState RenderChannel::presentSurfaceState() const {
+    return thread_ && channel_ != 0 ? thread_->presentSurfaceState(channel_) : RenderSurfaceState{};
 }
 
-}  // namespace mulan::view::detail
+}  // namespace mulan::engine::detail

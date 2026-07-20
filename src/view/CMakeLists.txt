@@ -2,17 +2,12 @@
 add_library(view STATIC
     core/view_context.cpp
     core/preview_layer.cpp
+    core/view_cube_model.cpp
     capture/capture_batch.cpp
     capture/capture_image_encoder.cpp
     capture/capture_request.cpp
     capture/capture_service.cpp
-    runtime/render_device_context.cpp
-    runtime/render_thread.cpp
-    runtime/render_executor.cpp
-    runtime/render_session.cpp
-    runtime/present_surface.cpp
-    runtime/capture_target.cpp
-    runtime/render_channel.cpp
+    runtime/view_render_bridge.cpp
     scene_sync/render_item_builder.cpp
     scene_sync/render_submission_builder.cpp
     scene_sync/render_world_sync.cpp
@@ -32,6 +27,7 @@ mulan_copy_public_headers(view view
     core/view_config.h
     core/view_context.h
     core/view_state.h
+    core/view_cube_model.h
     scene_sync/render_scene.h
     scene_sync/scene_proxy.h
 )
@@ -43,7 +39,6 @@ target_include_directories(view PRIVATE
 target_link_libraries(view PUBLIC
     render
     interaction
-    rhi
     asset
     scene
 )

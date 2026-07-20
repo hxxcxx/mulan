@@ -14,13 +14,13 @@
 
 #pragma once
 
-#include "view_cube_model.h"
+#include "view_cube_contract.h"
 #include "../frame/render_frame.h"
 #include "../frame/render_target_info.h"
+#include "../gpu_scene_contract.h"
 #include "../../rhi/buffer.h"
 #include "../../rhi/bind_group.h"
 #include "../../rhi/pipeline_state.h"
-#include "../material/material.h"  // MaterialGPU
 
 #include <mulan/core/result/error.h>
 
@@ -66,14 +66,8 @@ public:
     void setLayout(const ViewCubeLayout& layout);
     void setInteraction(const ViewCubeInteractionState& interaction);
     void setCorner(ViewCubeCorner corner);
-    ViewCubeRect viewportRect(uint32_t vpWidth, uint32_t vpHeight) const;
-    ViewCubeHit pick(int screenX, int screenY, uint32_t vpWidth, uint32_t vpHeight) const;
     void collectLabels(TextDrawList& textDraws, const math::Mat4& mainViewMatrix, uint32_t vpWidth,
                        uint32_t vpHeight) const;
-
-    /// 检测屏幕坐标是否在 ViewCube 区域内（交互预留，当前空实现）
-    /// @return true 如果在区域内
-    bool hitTest(int screenX, int screenY, uint32_t vpWidth, uint32_t vpHeight) const;
 
     bool isInitialized() const { return initialized_; }
 
@@ -115,15 +109,15 @@ private:
     std::unique_ptr<Buffer> face_ib_;  // 面索引
     uint32_t face_index_count_ = 0;
     std::vector<CubeVertex> face_vertices_;
-    std::array<uint32_t, ViewCubeModel::kPartCount> part_vertex_offsets_{};
-    std::array<uint32_t, ViewCubeModel::kPartCount> part_vertex_counts_{};
+    std::array<uint32_t, ViewCubeGeometry::kPartCount> part_vertex_offsets_{};
+    std::array<uint32_t, ViewCubeGeometry::kPartCount> part_vertex_counts_{};
     std::unique_ptr<Buffer> axis_vb_;
     std::unique_ptr<Buffer> axis_ib_;
     static constexpr uint32_t kAxisCount = 3;
     static constexpr uint32_t kAxisSegments = 16;
     uint32_t axis_index_count_ = 0;
 
-    static constexpr uint32_t kPartCount = ViewCubeModel::kPartCount;
+    static constexpr uint32_t kPartCount = ViewCubeGeometry::kPartCount;
 
     // --- per-frame BindGroup（按借用 PSO 的 layout 创建，缓存在 PSO 不变期间复用）---
     std::unique_ptr<BindGroup> face_bg_;  // solid PSO (10 binding)
@@ -133,7 +127,7 @@ private:
     MaterialGPU material_{};
 
     // --- 配置 ---
-    ViewCubeModel model_;
+    ViewCubeLayout layout_;
     ViewCubeInteractionState interaction_;
     bool interaction_geometry_dirty_ = false;
     bool initialized_ = false;

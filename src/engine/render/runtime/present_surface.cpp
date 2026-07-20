@@ -9,14 +9,14 @@
 
 #include <mulan/core/log/log.h>
 #include <mulan/core/profiling/profile.h>
-#include <mulan/rhi/device.h>
+#include "../../rhi/device.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <utility>
 
-namespace mulan::view::detail {
+namespace mulan::engine::detail {
 namespace {
 
 ResultVoid waitForLastPresent(engine::RHIDevice& device) {
@@ -50,7 +50,7 @@ PresentSurface::~PresentSurface() {
     shutdown();
 }
 
-ResultVoid PresentSurface::init(const PresentSurfaceConfig& config, int width, int height) {
+ResultVoid PresentSurface::init(const RenderSurfaceConfig& config, int width, int height) {
     MULAN_PROFILE_ZONE();
 
     if (swapchain_)
@@ -65,12 +65,16 @@ ResultVoid PresentSurface::init(const PresentSurfaceConfig& config, int width, i
     desc.width = static_cast<uint32_t>(width);
     desc.height = static_cast<uint32_t>(height);
     desc.format = engine::TextureFormat::BGRA8_UNorm;
-    desc.bufferCount = config.render.bufferCount;
+    desc.bufferCount = config.bufferCount;
     const uint32_t maxSampleCount = (std::max) (device_.capabilities().maxSampleCount, 1u);
-    desc.sampleCount = (std::min) (config.render.sampleCount(), maxSampleCount);
-    desc.vsync = config.render.vsync;
-    std::memcpy(desc.clearColor, config.render.clearColor, sizeof(desc.clearColor));
-    desc.clearDepth = config.render.clearDepth;
+    desc.sampleCount = (std::min) (config.sampleCount(), maxSampleCount);
+    desc.vsync = config.vsync;
+    std::memcpy(desc.clearColor, config.clearColor, sizeof(desc.clearColor));
+    desc.clearDepth = config.clearDepth;
+    desc.hasDepth = config.depthBuffer;
+    // 保持既有交换链语义：窗口表面的深度附件固定使用 D24S8。
+    // 配置边界拆分只调整所有权，不改变传入 RHI 的附件格式。
+    desc.depthFormat = engine::TextureFormat::D24_UNorm_S8_UInt;
 
     auto swapchain = device_.createSwapChain(desc);
     if (!swapchain)
@@ -127,4 +131,4 @@ uint32_t PresentSurface::sampleCount() const {
     return swapchain_ ? swapchain_->desc().sampleCount : 1;
 }
 
-}  // namespace mulan::view::detail
+}  // namespace mulan::engine::detail

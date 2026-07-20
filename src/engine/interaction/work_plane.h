@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "../render/camera/camera.h"
+#include "camera/camera.h"
 
 #include <mulan/math/math.h>
 

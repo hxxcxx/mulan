@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "../overlay/view_cube_model.h"
+#include "../overlay/view_cube_contract.h"
 
 #include <mulan/math/math.h>
 

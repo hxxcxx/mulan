@@ -5,8 +5,8 @@
  * @date 2026-07-16
  */
 
-#include <mulan/render/draw/geometry_draw_batch.h>
-#include <mulan/render/gpu_scene_contract.h>
+#include "../../src/engine/render/draw/geometry_draw_batch.h"
+#include "../../src/engine/render/gpu_scene_contract.h"
 
 #include <gtest/gtest.h>
 

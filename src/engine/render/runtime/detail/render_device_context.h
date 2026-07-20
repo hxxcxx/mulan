@@ -10,13 +10,13 @@
 #pragma once
 
 #include <mulan/core/result/error.h>
-#include <mulan/rhi/device.h>
-#include <mulan/render/device_resource_service.h>
+#include "../../../rhi/device.h"
+#include "../../device_resource_service.h"
 #include "render_runtime_config.h"
 
 #include <memory>
 
-namespace mulan::view::detail {
+namespace mulan::engine::detail {
 
 class RenderDeviceContext {
 public:
@@ -40,4 +40,4 @@ private:
     std::unique_ptr<engine::DeviceResourceService> resource_service_;
 };
 
-}  // namespace mulan::view::detail
+}  // namespace mulan::engine::detail

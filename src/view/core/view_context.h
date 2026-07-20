@@ -7,6 +7,7 @@
 #include "view_config.h"
 #include "view_state.h"
 #include "preview_layer.h"
+#include "view_cube_model.h"
 #include "../capture/capture_batch.h"
 
 #include "mulan/core/result/error.h"
@@ -14,8 +15,7 @@
 #include "mulan/interaction/input_event.h"
 #include "mulan/interaction/operator.h"
 #include "mulan/render/light_environment.h"
-#include "mulan/render/camera/camera.h"
-#include "mulan/render/overlay/view_cube_model.h"
+#include "mulan/interaction/camera/camera.h"
 
 #include <cstdint>
 #include <expected>
@@ -32,7 +32,7 @@ class AssetLibrary;
 namespace mulan::view {
 class RenderScene;
 namespace detail {
-class RenderSession;
+class ViewRenderBridge;
 }
 }  // namespace mulan::view
 
@@ -139,7 +139,7 @@ private:
     uint32_t surfaceHeight() const;
     Result<engine::RenderCaptureResult> captureFrame(const ViewState& viewState, const engine::RenderCaptureDesc& desc);
 
-    std::unique_ptr<detail::RenderSession> render_session_;
+    std::unique_ptr<detail::ViewRenderBridge> render_bridge_;
     engine::Camera camera_{ engine::CameraMode::Trackball };
 
     std::unique_ptr<engine::Operator> default_op_;
@@ -154,7 +154,7 @@ private:
     bool show_view_cube_ = true;
     bool consuming_view_cube_click_ = false;
     engine::ViewCubeInteractionState view_cube_interaction_;
-    engine::ViewCubeModel view_cube_model_;
+    ViewCubeModel view_cube_model_;
 
     int width_ = 800;
     int height_ = 600;

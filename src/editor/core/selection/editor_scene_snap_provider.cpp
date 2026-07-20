@@ -1,6 +1,6 @@
 #include "editor_scene_snap_provider.h"
 
-#include <mulan/render/camera/camera.h>
+#include <mulan/interaction/camera/camera.h>
 
 #include <algorithm>
 #include <cmath>

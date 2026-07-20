@@ -1,14 +1,12 @@
 /**
  * @file material.h
- * @brief 材质类型系统与 GPU 数据布局
+ * @brief 渲染前端使用的材质类型系统
  * @author hxxcxx
  * @date 2026-04-17
  *
  * 设计思路：
  *  - Material 是值类型，可直接存入容器或节点
  *  - MaterialShadingModel 标识文件材质的光照语义
- *  - MaterialGPU 是跨后端一致的 GPU Uniform 数据布局
- *  - 上层通过 MaterialGPU::fromMaterial() 转换后写入瞬态 Uniform
  *  - 纹理槽位使用枚举 TextureSlot 统一索引
  */
 
@@ -207,81 +205,5 @@ struct Material {
     bool operator==(const Material& o) const { return equals(o); }
     bool operator!=(const Material& o) const { return !equals(o); }
 };
-
-// ============================================================
-// GPU 端材质常量布局 (std140 / std430 compatible)
-//
-// 与 shader 中 MaterialUBO 1:1 对应
-// 总大小 = 96 bytes (6 × vec4)
-// ============================================================
-
-struct alignas(16) MaterialGPU {
-    // --- vec4[0]: baseColor.rgb + metallic ---
-    float baseColor[3];
-    float metallic;
-
-    // --- vec4[1]: emissive.rgb + roughness ---
-    float emissive[3];
-    float roughness;
-
-    // --- vec4[2]: specular.rgb + shininess ---
-    float specular[3];
-    float shininess;
-
-    // --- vec4[3]: 标志位 ---
-    float alpha;
-    float ao;
-    float emissiveStrength;
-    float alphaCutoff;
-
-    // --- vec4[4]: shading model + alphaMode + texture flags ---
-    uint32_t shadingModel;  // MaterialShadingModel 枚举
-    uint32_t alphaMode;     // AlphaMode 枚举
-    uint32_t textureFlags;  // 位掩码: bit0..8 对应 TextureSlotFlags
-    uint32_t doubleSided;   // 0 或 1
-
-    // --- vec4[5]: 传统材质环境反射率 ---
-    float ambient[3];
-    float reserved = 0.0f;
-
-    static constexpr size_t kSize = 96;
-
-    /// 从 CPU Material 转换
-    static MaterialGPU fromMaterial(const Material& m) {
-        MaterialGPU g{};
-        g.baseColor[0] = static_cast<float>(m.baseColor.x);
-        g.baseColor[1] = static_cast<float>(m.baseColor.y);
-        g.baseColor[2] = static_cast<float>(m.baseColor.z);
-        g.metallic = static_cast<float>(std::clamp(m.metallic, 0.0, 1.0));
-
-        g.emissive[0] = static_cast<float>(m.emissive.x * m.emissiveStrength);
-        g.emissive[1] = static_cast<float>(m.emissive.y * m.emissiveStrength);
-        g.emissive[2] = static_cast<float>(m.emissive.z * m.emissiveStrength);
-        g.roughness = static_cast<float>(std::clamp(m.roughness, 0.04, 1.0));
-
-        g.specular[0] = static_cast<float>(m.specular.x);
-        g.specular[1] = static_cast<float>(m.specular.y);
-        g.specular[2] = static_cast<float>(m.specular.z);
-        g.shininess = static_cast<float>(m.shininess);
-
-        g.alpha = static_cast<float>(m.alpha);
-        g.ao = static_cast<float>(m.ao);
-        g.emissiveStrength = static_cast<float>(m.emissiveStrength);
-        g.alphaCutoff = static_cast<float>(m.alphaCutoff);
-
-        g.shadingModel = static_cast<uint32_t>(m.shadingModel);
-        g.alphaMode = static_cast<uint32_t>(m.alphaMode);
-        g.textureFlags = static_cast<uint32_t>(m.textureSlots);  // TextureSlotFlags 位定义与 shader TF_* 一致
-        g.doubleSided = m.doubleSided ? 1u : 0u;
-
-        g.ambient[0] = static_cast<float>(m.ambient.x);
-        g.ambient[1] = static_cast<float>(m.ambient.y);
-        g.ambient[2] = static_cast<float>(m.ambient.z);
-
-        return g;
-    }
-};
-
-static_assert(sizeof(MaterialGPU) == MaterialGPU::kSize, "MaterialGPU must match shaders/common.slang");
 
 }  // namespace mulan::engine

@@ -1,13 +1,13 @@
 /**
  * @file qt_native_window_handle.h
- * @brief 将 Qt 窗口转换为 RHI 原生窗口句柄
+ * @brief 将 Qt 窗口转换为平台无关的原生窗口句柄
  * @author hxxcxx
  * @date 2026-07-18
  */
 
 #pragma once
 
-#include <mulan/rhi/window.h>
+#include <mulan/core/platform/native_window_handle.h>
 
 class QWidget;
 

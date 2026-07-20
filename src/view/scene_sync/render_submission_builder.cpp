@@ -19,6 +19,32 @@ uint64_t sceneChangeDomain(const RenderScene* scene) {
     return scene ? scene->currentChangeCursor().domain : 0;
 }
 
+engine::DisplayMode toDisplayMode(RenderMode mode) {
+    switch (mode) {
+    case RenderMode::Shaded: return engine::DisplayMode::Shaded;
+    case RenderMode::ShadedWithEdges: return engine::DisplayMode::ShadedWithEdges;
+    case RenderMode::Wireframe: return engine::DisplayMode::Wireframe;
+    }
+    return engine::DisplayMode::ShadedWithEdges;
+}
+
+void applyViewState(engine::RenderFrameSubmission& submission, const ViewState& state) {
+    submission.view.viewMatrix = state.viewMatrix;
+    submission.view.projectionMatrix = state.projectionMatrix;
+    submission.view.cameraPosition = state.cameraPosition;
+    submission.view.width = static_cast<uint32_t>(state.width);
+    submission.view.height = static_cast<uint32_t>(state.height);
+    submission.options.displayMode = toDisplayMode(state.renderMode);
+    submission.options.hoveredPickId = state.hoveredPickId;
+    submission.options.selectionVisuals = state.selectionVisuals;
+    submission.options.showSurfaces = state.showFaces;
+    submission.options.showEdges = state.showEdges;
+    submission.options.showOverlays = state.showOverlays;
+    submission.options.showViewCube = state.showViewCube;
+    submission.options.viewCubeLayout = state.viewCubeLayout;
+    submission.options.viewCubeInteraction = state.viewCubeInteraction;
+}
+
 }  // namespace
 
 RenderSubmissionBuilder::RenderSubmissionBuilder()
@@ -88,12 +114,12 @@ void RenderSubmissionBuilder::setLightEnvironment(const engine::LightEnvironment
     light_environment_ = lightEnvironment;
 }
 
-RenderSubmission RenderSubmissionBuilder::build(const ViewState& viewState) {
+engine::RenderFrameSubmission RenderSubmissionBuilder::build(const ViewState& viewState) {
     MULAN_PROFILE_ZONE();
 
-    RenderSubmission submission;
-    submission.view = viewState;
-    submission.lightEnvironment = light_environment_;
+    engine::RenderFrameSubmission submission;
+    applyViewState(submission, viewState);
+    submission.lighting = light_environment_;
     if (needsSceneRebuild())
         rebuildScene(submission);
     if (needsOverlayRebuild())
@@ -151,7 +177,7 @@ bool RenderSubmissionBuilder::needsOverlayRebuild() const {
            overlay_world_sync_.referencedAssetsChanged(*assets_);
 }
 
-void RenderSubmissionBuilder::rebuildScene(RenderSubmission& submission) {
+void RenderSubmissionBuilder::rebuildScene(engine::RenderFrameSubmission& submission) {
     engine::RenderResourcePrepareList prepare;
     if (!scene_ || !assets_) {
         scene_world_sync_.rebuildEmpty(scene_world_, &prepare);
@@ -167,7 +193,7 @@ void RenderSubmissionBuilder::rebuildScene(RenderSubmission& submission) {
     scene_source_dirty_ = false;
 }
 
-void RenderSubmissionBuilder::rebuildOverlay(RenderSubmission& submission) {
+void RenderSubmissionBuilder::rebuildOverlay(engine::RenderFrameSubmission& submission) {
     engine::RenderResourcePrepareList prepare;
     overlay_world_sync_.rebuildOverlay(scene_, assets_, asset_resource_domain_, preview_resource_domain_, preview_,
                                        overlay_world_, &prepare);

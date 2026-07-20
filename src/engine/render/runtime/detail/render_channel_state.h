@@ -16,7 +16,7 @@
 #include <optional>
 #include <utility>
 
-namespace mulan::view::detail {
+namespace mulan::engine::detail {
 
 class RenderChannelState {
 public:
@@ -59,4 +59,4 @@ private:
     std::optional<Error> failure_;
 };
 
-}  // namespace mulan::view::detail
+}  // namespace mulan::engine::detail

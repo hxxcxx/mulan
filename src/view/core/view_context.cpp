@@ -1,7 +1,7 @@
 #include "view_context.h"
 #include "view_config.h"
 #include "../capture/capture_service.h"
-#include "../runtime/detail/render_session.h"
+#include "../runtime/detail/view_render_bridge.h"
 
 #include <mulan/core/profiling/profile.h>
 
@@ -31,7 +31,7 @@ math::Quat makeCameraRotation(const math::Vec3& forward, const math::Vec3& prefe
 }  // namespace
 
 ViewContext::ViewContext()
-    : render_session_(std::make_unique<detail::RenderSession>()),
+    : render_bridge_(std::make_unique<detail::ViewRenderBridge>()),
       default_op_(std::make_unique<engine::CameraManipulator>()) {
     default_op_->setState(engine::Operator::State::Active);
     default_op_->onActivate(camera_);
@@ -48,7 +48,7 @@ ViewContext::~ViewContext() {
 bool ViewContext::init(const ViewConfig& cfg, int width, int height, std::function<void()> runtimeEventCallback) {
     MULAN_PROFILE_ZONE();
 
-    if (render_session_->isReady())
+    if (render_bridge_->isReady())
         return true;
 
     width_ = width;
@@ -56,13 +56,13 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height, std::functi
     ibl_enabled_ = cfg.iblEnabled;
     hdr_path_ = cfg.hdrPath;
 
-    if (!render_session_->init(cfg, width, height, std::move(runtimeEventCallback))) {
+    if (!render_bridge_->init(cfg, width, height, std::move(runtimeEventCallback))) {
         return false;
     }
-    render_session_->setPreviewLayer(&preview_layer_);
-    render_session_->setLightEnvironment(light_env_);
+    render_bridge_->setPreviewLayer(&preview_layer_);
+    render_bridge_->setLightEnvironment(light_env_);
 
-    const auto presentState = render_session_->presentSurfaceState();
+    const auto presentState = render_bridge_->surfaceState();
     width_ = static_cast<int>(presentState.width);
     height_ = static_cast<int>(presentState.height);
 
@@ -73,28 +73,28 @@ bool ViewContext::init(const ViewConfig& cfg, int width, int height, std::functi
 }
 
 void ViewContext::shutdown() {
-    render_session_->setPreviewLayer(nullptr);
-    render_session_->shutdown();
+    render_bridge_->setPreviewLayer(nullptr);
+    render_bridge_->shutdown();
 }
 
 bool ViewContext::isReady() const {
-    return render_session_->isReady();
+    return render_bridge_->isReady();
 }
 
 ResultVoid ViewContext::consumeRenderEvents() {
-    return render_session_->consumeRuntimeEvents();
+    return render_bridge_->consumeRuntimeEvents();
 }
 
 void ViewContext::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
     clearHoveredPickId();
-    render_session_->setRenderScene(scene, assets);
+    render_bridge_->setRenderScene(scene, assets);
 }
 
 void ViewContext::enableIBL() {
     // 两层门控：全局开关 + HDR 路径有效
     if (!ibl_enabled_)
         return;
-    render_session_->enableIBL(hdr_path_);
+    render_bridge_->enableIBL(hdr_path_);
 }
 
 void ViewContext::setHoveredPickId(engine::PickId pickId) {
@@ -119,14 +119,14 @@ void ViewContext::setSceneLights(std::span<const engine::Light> lights) {
     for (const auto& light : lights) {
         light_env_.addLight(light);
     }
-    render_session_->setLightEnvironment(light_env_);
+    render_bridge_->setLightEnvironment(light_env_);
 }
 
 void ViewContext::setLightingMode(engine::LightingMode mode) {
     if (light_env_.mode == mode)
         return;
     light_env_.mode = mode;
-    render_session_->setLightEnvironment(light_env_);
+    render_bridge_->setLightEnvironment(light_env_);
 }
 
 void ViewContext::setAmbientLight(const math::Vec3& color, double intensity) {
@@ -143,7 +143,7 @@ void ViewContext::setAmbientLight(const math::Vec3& color, double intensity) {
         return;
     light_env_.ambientColor = sanitizedColor;
     light_env_.ambientIntensity = sanitizedIntensity;
-    render_session_->setLightEnvironment(light_env_);
+    render_bridge_->setLightEnvironment(light_env_);
 }
 
 void ViewContext::setExposure(double exposure) {
@@ -151,7 +151,7 @@ void ViewContext::setExposure(double exposure) {
     if (light_env_.exposure == sanitized)
         return;
     light_env_.exposure = sanitized;
-    render_session_->setLightEnvironment(light_env_);
+    render_bridge_->setLightEnvironment(light_env_);
 }
 
 void ViewContext::clearPreview() {
@@ -200,7 +200,7 @@ ResultVoid ViewContext::renderFrame() {
 }
 
 ResultVoid ViewContext::renderFrame(const ViewState& viewState) {
-    return render_session_->submitFrame(viewState);
+    return render_bridge_->submitFrame(viewState);
 }
 
 ViewState ViewContext::snapshotViewState(uint32_t width, uint32_t height) const {
@@ -253,8 +253,8 @@ ViewState ViewContext::snapshotViewState(const engine::Camera& camera, const Cap
 void ViewContext::resize(int width, int height) {
     width_ = width;
     height_ = height;
-    if (render_session_->isReady()) {
-        const auto surface = render_session_->resize(width, height);
+    if (render_bridge_->isReady()) {
+        const auto surface = render_bridge_->resize(width, height);
         width_ = static_cast<int>(surface.width);
         height_ = static_cast<int>(surface.height);
     }
@@ -349,7 +349,7 @@ void ViewContext::updateViewCubeHover(const engine::InputEvent& event) {
 }
 
 void ViewContext::setCameraToViewCubePart(const engine::ViewCubePart& part) {
-    math::Vec3 normal = engine::ViewCubeModel::partNormal(part);
+    math::Vec3 normal = ViewCubeModel::partNormal(part);
     if (normal.lengthSq() < 1.0e-12) {
         return;
     }
@@ -444,7 +444,7 @@ CaptureBatchResult ViewContext::capture(const CaptureBatch& batch) {
 
 Result<engine::RenderCaptureResult> ViewContext::captureFrame(const ViewState& viewState,
                                                               const engine::RenderCaptureDesc& desc) {
-    return render_session_->capture(viewState, desc);
+    return render_bridge_->capture(viewState, desc);
 }
 
 ViewState ViewContext::buildViewState() const {

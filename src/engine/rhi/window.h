@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <mulan/core/platform/native_window_handle.h>
+
 #include <cstdint>
 
 namespace mulan::engine {
@@ -39,65 +41,6 @@ struct RenderConfig {
 
     // 便捷
     uint32_t sampleCount() const { return static_cast<uint32_t>(msaa); }
-};
-
-// ============================================================
-// 原生窗口句柄 — 跨平台 tagged union
-//
-// 只保留 Win32 和 Linux X11 两种，其他平台按需扩展。
-// ============================================================
-
-struct NativeWindowHandle {
-    enum class Type : uint8_t {
-        Unknown = 0,
-        Win32,  // Windows: HINSTANCE + HWND
-        X11,    // Linux X11: Display* + xcb_connection_t* + Window
-    };
-
-    Type type = Type::Unknown;
-
-    union {
-        // Win32:  hInstance + hWnd
-        struct {
-            uintptr_t hInstance;
-            uintptr_t hWnd;
-        } win32;
-        // X11：Xlib Display 供 GLX 使用，XCB connection 供 Vulkan 使用。
-        struct {
-            uintptr_t display;
-            uintptr_t connection;
-            uintptr_t window;
-        } x11;
-    };
-
-    NativeWindowHandle() : type(Type::Unknown), win32{} {}
-
-    [[nodiscard]] bool valid() const noexcept {
-        switch (type) {
-        case Type::Win32: return win32.hInstance != 0 && win32.hWnd != 0;
-        case Type::X11: return x11.display != 0 && x11.connection != 0 && x11.window != 0;
-        default: return false;
-        }
-    }
-
-    // --- 便捷构造 ---
-
-    static NativeWindowHandle makeWin32(uintptr_t hInstance, uintptr_t hWnd) noexcept {
-        NativeWindowHandle h;
-        h.type = Type::Win32;
-        h.win32.hInstance = hInstance;
-        h.win32.hWnd = hWnd;
-        return h;
-    }
-
-    static NativeWindowHandle makeX11(uintptr_t display, uintptr_t connection, uintptr_t window) noexcept {
-        NativeWindowHandle h;
-        h.type = Type::X11;
-        h.x11.display = display;
-        h.x11.connection = connection;
-        h.x11.window = window;
-        return h;
-    }
 };
 
 }  // namespace mulan::engine

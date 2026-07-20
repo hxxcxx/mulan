@@ -1,9 +1,6 @@
 # render - 渲染管线：前端(frontend) + 后端(backend) + 各阶段(stages) + 文本/材质/overlay。
 # 对外暴露模块，view/app 消费。
 add_library(render STATIC
-    camera/camera.cpp
-    camera/turntable_rotation.cpp
-    camera/trackball_rotation.cpp
     asset_gpu_key.cpp
     asset_gpu_registry.cpp
     texture_mip_chain.cpp
@@ -16,8 +13,17 @@ add_library(render STATIC
     frontend/render_contract.cpp
     frontend/render_world.cpp
     frontend/render_workload.cpp
+    overlay/view_cube_contract.cpp
     backend/render_compiler.cpp
     backend/forward_renderer.cpp
+    # Render runtime
+    runtime/render_device_context.cpp
+    runtime/render_thread.cpp
+    runtime/render_executor.cpp
+    runtime/render_session.cpp
+    runtime/present_surface.cpp
+    runtime/capture_target.cpp
+    runtime/render_channel.cpp
     # Draw executors / stages
     draw/draw_fallback_resources.cpp
     draw/geometry_draw_shared_resources.cpp
@@ -38,17 +44,38 @@ add_library(render STATIC
     material/material_cache.cpp
 )
 
-mulan_copy_public_headers(render render)
+mulan_copy_public_headers(render render
+    asset_gpu_key.h
+    light_environment.h
+    material/material.h
+    overlay/view_cube_contract.h
+    frontend/pick_identity.h
+    frontend/selection_visual_state.h
+    frontend/render_handle.h
+    frontend/render_record_store.h
+    frontend/render_object.h
+    frontend/render_world_snapshot.h
+    frontend/render_world.h
+    frontend/render_resource_prepare.h
+    frontend/render_view_desc.h
+    frontend/render_request.h
+    frontend/render_contract.h
+    frontend/render_capture.h
+    frontend/render_frame_submission.h
+    runtime/render_config.h
+    runtime/render_surface_state.h
+    runtime/render_session.h
+)
 
 find_package(nlohmann_json CONFIG REQUIRED)
 
 target_link_libraries(render
     PUBLIC
-        rhi
         core
         math
         graphics
     PRIVATE
+        rhi
         mulan::profiling
         nlohmann_json::nlohmann_json
         msdfgen::msdfgen

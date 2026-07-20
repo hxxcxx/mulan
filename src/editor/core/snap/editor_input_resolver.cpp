@@ -3,7 +3,7 @@
 #include "editor_snap_collector.h"
 #include "editor_snap_resolver.h"
 
-#include <mulan/render/camera/camera.h>
+#include <mulan/interaction/camera/camera.h>
 
 #include <algorithm>
 #include <cmath>
