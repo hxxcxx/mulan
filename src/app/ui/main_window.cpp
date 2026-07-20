@@ -232,6 +232,9 @@ void MainWindow::buildRibbonHomeCategory() {
     panel_view_ = new SARibbonPanel(tr("Navigation"), category_home_);
     action_fit_all_ = createCommandAction(":/app/icons/icon/view-fit-all.svg", "view.fitAll");
     panel_view_->addLargeAction(action_fit_all_);
+    action_perspective_projection_ =
+            createCommandAction(":/app/icons/icon/view-projection.svg", "view.projection.perspective");
+    panel_view_->addLargeAction(action_perspective_projection_);
     category_home_->addPanel(panel_view_);
 
 #if defined(MULAN_PROFILER_BACKEND_BUILTIN) && defined(MULAN_ENABLE_PROFILING) && MULAN_ENABLE_PROFILING

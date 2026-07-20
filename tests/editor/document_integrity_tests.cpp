@@ -509,7 +509,7 @@ TEST(DocumentCameraClipPlanes, CommittedOffAxisSmallCircleKeepsTheCurrentComposi
 
 TEST(DocumentCameraLifecycle, EmptyDocumentBindResetsThePreviousComposition) {
     mulan::view::ViewContext view;
-    view.camera().setOrthographic(false);
+    view.camera().setProjectionMode(mulan::engine::ProjectionMode::Perspective);
     view.camera().setTarget({ 12.0, -4.0, 8.0 });
     view.camera().setDistance(42.0);
     view.camera().setClipPlanes(3.0, 90.0);

@@ -208,7 +208,8 @@ void DocumentRenderBinding::applyViewPreferences() {
     // 文档是视图相机状态的生命周期边界。空文档也必须从确定状态开始，
     // 不能继承上一个文档的 pan、zoom、裁剪面或观察方向。
     view_->resetCamera();
-    view_->camera().setOrthographic(preferences.preferOrthographic);
+    view_->camera().setProjectionMode(preferences.preferOrthographic ? engine::ProjectionMode::Orthographic
+                                                                     : engine::ProjectionMode::Perspective);
     // 每个新建、打开或切换到的文档都从世界 XY 正视图开始；后续 fit 只调整中心和距离。
     view_->setCameraToWorldXY();
     if (preferences.preferIBL) {

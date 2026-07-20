@@ -133,6 +133,21 @@ void DocumentView::setCameraToWorldXY() {
     invalidateFrame();
 }
 
+mulan::engine::ProjectionMode DocumentView::projectionMode() const {
+    return impl_->view_context.camera().projectionMode();
+}
+
+void DocumentView::setProjectionMode(mulan::engine::ProjectionMode mode) {
+    auto& camera = impl_->view_context.camera();
+    if (camera.projectionMode() == mode) {
+        return;
+    }
+
+    camera.setProjectionMode(mode);
+    impl_->editor_session.refreshGrips();
+    invalidateFrame();
+}
+
 void DocumentView::setFrameInvalidationCallback(std::function<void()> callback) {
     impl_->frame_invalidation_callback = std::move(callback);
 }

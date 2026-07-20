@@ -33,6 +33,12 @@ enum class CameraMode : uint8_t {
     Trackball,  ///< 四元数自由旋转
 };
 
+/// 相机投影模式。
+enum class ProjectionMode : uint8_t {
+    Perspective,
+    Orthographic,
+};
+
 /// 动态裁剪面的更新策略。交互过程中只允许扩大可见深度，避免连续帧抖动。
 enum class ClipPlaneFitMode : uint8_t {
     Tight,
@@ -65,15 +71,12 @@ public:
 
     void setFieldOfView(double fovY);
     void setClipPlanes(double nearZ, double farZ);
-    void setOrthographic(bool ortho) {
-        if (ortho_ != ortho) {
-            ortho_ = ortho;
-            markDepthChanged();
-        }
-    }
+    /// 切换投影模式，并保持目标平面在屏幕上的可见尺度不变。
+    void setProjectionMode(ProjectionMode mode);
 
     double fieldOfView() const { return fov_y_; }
-    bool isOrthographic() const { return ortho_; }
+    ProjectionMode projectionMode() const { return projection_mode_; }
+    bool isOrthographic() const { return projection_mode_ == ProjectionMode::Orthographic; }
     double nearPlane() const { return near_z_; }
     double farPlane() const { return far_z_; }
 
@@ -215,7 +218,7 @@ private:
     double fov_y_ = 3.14159265358979323846 / 4.0;
     double near_z_ = 0.1;
     double far_z_ = 1000.0;
-    bool ortho_ = true;
+    ProjectionMode projection_mode_ = ProjectionMode::Orthographic;
     double ortho_size_ = 5.0;
 
     // 交互速度

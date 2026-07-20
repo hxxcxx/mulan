@@ -21,6 +21,8 @@
 #include "document/document_session.h"
 #include "document/document_view.h"
 
+#include <mulan/interaction/camera/camera.h>
+
 #include <memory>
 #include <string>
 #include <utility>
@@ -92,6 +94,34 @@ CommandState transformState(const Command& command, const CommandHost& host, Tra
     }
     return commandState(command, editor->canStartTransformTool(commitMode), "No selected movable entity");
 }
+
+class TogglePerspectiveProjectionCommand final : public Command {
+public:
+    std::string_view id() const override { return "view.projection.perspective"; }
+    std::string_view title() const override { return "Perspective"; }
+    std::string_view statusText() const override { return "Toggle perspective projection"; }
+    CommandState state(const CommandHost& host) const override {
+        const DocumentView* view = host.documentView();
+        CommandState state = commandState(*this, view && view->isReady() && view->session(), "No active document view");
+        state.checkable = true;
+        state.checked = view && view->projectionMode() == mulan::engine::ProjectionMode::Perspective;
+        return state;
+    }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override {
+        DocumentView* view = host.documentView();
+        if (!view || !view->isReady() || !view->session()) {
+            return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active document view"));
+        }
+
+        const auto nextMode = view->projectionMode() == mulan::engine::ProjectionMode::Perspective
+                                      ? mulan::engine::ProjectionMode::Orthographic
+                                      : mulan::engine::ProjectionMode::Perspective;
+        view->setProjectionMode(nextMode);
+        return {};
+    }
+};
 
 class FitAllCommand final : public Command {
 public:
@@ -407,6 +437,7 @@ protected:
 }  // namespace
 
 void registerBuiltinCommands(CommandManager& manager) {
+    manager.add(std::make_unique<TogglePerspectiveProjectionCommand>());
     manager.add(std::make_unique<FitAllCommand>());
     manager.add(std::make_unique<EditUndoCommand>());
     manager.add(std::make_unique<EditRedoCommand>());

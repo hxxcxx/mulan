@@ -35,7 +35,7 @@ ViewContext::ViewContext()
       default_op_(std::make_unique<engine::CameraManipulator>()) {
     default_op_->setState(engine::Operator::State::Active);
     default_op_->onActivate(camera_);
-    camera_.setOrthographic(true);
+    camera_.setProjectionMode(engine::ProjectionMode::Orthographic);
     camera_.setOrthoSize(5.0);
     camera_.setDistance(10.0);
     setCameraToWorldXY();
@@ -183,7 +183,7 @@ void ViewContext::setViewCubeCorner(engine::ViewCubeCorner corner) {
 void ViewContext::resetCamera() {
     engine::Camera camera{ engine::CameraMode::Trackball };
     camera.setViewport(width_, height_);
-    camera.setOrthographic(true);
+    camera.setProjectionMode(engine::ProjectionMode::Orthographic);
     camera.setOrthoSize(5.0);
     camera.setDistance(10.0);
     camera.setClipPlanes(0.1, 1000.0);

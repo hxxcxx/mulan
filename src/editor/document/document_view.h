@@ -23,8 +23,9 @@ class DocumentSession;
 }
 
 namespace mulan::engine {
+enum class ProjectionMode : uint8_t;
 struct InputEvent;
-}
+}  // namespace mulan::engine
 
 namespace mulan::view {
 struct ViewConfig;
@@ -76,6 +77,9 @@ public:
     void fitAll();
     /// 切换到世界 XY 正视图，并统一刷新依赖屏幕位置的编辑器覆盖层。
     void setCameraToWorldXY();
+    mulan::engine::ProjectionMode projectionMode() const;
+    /// 切换当前视图的投影模式；相机负责保持构图尺度，本层统一刷新编辑覆盖层与帧。
+    void setProjectionMode(mulan::engine::ProjectionMode mode);
 
     /// 设置视图状态变化后的统一帧失效出口。
     void setFrameInvalidationCallback(std::function<void()> callback);

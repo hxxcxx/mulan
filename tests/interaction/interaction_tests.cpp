@@ -136,7 +136,7 @@ TEST_F(CameraManipulatorTest, WheelZooms) {
 TEST(CameraZoomTest, OrthographicZoomKeepsCursorWorldPointFixed) {
     Camera camera{ CameraMode::Trackball };
     camera.setViewport(800, 600);
-    camera.setOrthographic(true);
+    camera.setProjectionMode(ProjectionMode::Orthographic);
     camera.setOrthoSize(5.0);
     constexpr double cursorX = 620.0;
     constexpr double cursorY = 170.0;
@@ -153,7 +153,7 @@ TEST(CameraZoomTest, OrthographicZoomKeepsCursorWorldPointFixed) {
 TEST(CameraZoomTest, PerspectiveZoomKeepsCursorTargetPlanePointFixed) {
     Camera camera{ CameraMode::Trackball };
     camera.setViewport(800, 600);
-    camera.setOrthographic(false);
+    camera.setProjectionMode(ProjectionMode::Perspective);
     camera.setDistance(10.0);
     constexpr double cursorX = 610.0;
     constexpr double cursorY = 180.0;
@@ -165,6 +165,40 @@ TEST(CameraZoomTest, PerspectiveZoomKeepsCursorTargetPlanePointFixed) {
     EXPECT_NEAR(after.x, before.x, 1.0e-9);
     EXPECT_NEAR(after.y, before.y, 1.0e-9);
     EXPECT_NEAR(after.z, before.z, 1.0e-9);
+}
+
+TEST(CameraProjectionTest, SwitchingProjectionPreservesTargetPlaneComposition) {
+    Camera camera{ CameraMode::Trackball };
+    camera.setViewport(1280, 720);
+    camera.setFieldOfView(mulan::math::kPi / 3.0);
+    camera.setProjectionMode(ProjectionMode::Perspective);
+    camera.setDistance(17.0);
+    camera.pan(35.0, -20.0);
+
+    constexpr double sampleX = 970.0;
+    constexpr double sampleY = 210.0;
+    const auto perspectivePoint = cursorPointOnTargetPlane(camera, sampleX, sampleY);
+    const double expectedHalfHeight = camera.distance() * std::tan(camera.fieldOfView() * 0.5);
+    const uint64_t perspectiveRevision = camera.depthRevision();
+
+    camera.setProjectionMode(ProjectionMode::Orthographic);
+
+    EXPECT_EQ(camera.projectionMode(), ProjectionMode::Orthographic);
+    EXPECT_NEAR(camera.orthoSize(), expectedHalfHeight, 1.0e-12);
+    EXPECT_GT(camera.depthRevision(), perspectiveRevision);
+    const auto orthographicPoint = cursorPointOnTargetPlane(camera, sampleX, sampleY);
+    EXPECT_NEAR(orthographicPoint.x, perspectivePoint.x, 1.0e-9);
+    EXPECT_NEAR(orthographicPoint.y, perspectivePoint.y, 1.0e-9);
+    EXPECT_NEAR(orthographicPoint.z, perspectivePoint.z, 1.0e-9);
+
+    camera.setProjectionMode(ProjectionMode::Perspective);
+
+    EXPECT_EQ(camera.projectionMode(), ProjectionMode::Perspective);
+    EXPECT_NEAR(camera.distance(), 17.0, 1.0e-12);
+    const auto restoredPoint = cursorPointOnTargetPlane(camera, sampleX, sampleY);
+    EXPECT_NEAR(restoredPoint.x, perspectivePoint.x, 1.0e-9);
+    EXPECT_NEAR(restoredPoint.y, perspectivePoint.y, 1.0e-9);
+    EXPECT_NEAR(restoredPoint.z, perspectivePoint.z, 1.0e-9);
 }
 
 // cancel 幂等：重复调用不崩溃，清理 dragging_ 状态。
@@ -235,7 +269,7 @@ TEST(CameraClipPlanesTest, InteractiveFitExpandsButNeverShrinks) {
 
 TEST(CameraClipPlanesTest, OrthographicFitMovesEyeBehindLargeBoundsWithoutChangingScale) {
     Camera camera{ CameraMode::Trackball };
-    camera.setOrthographic(true);
+    camera.setProjectionMode(ProjectionMode::Orthographic);
     camera.setOrthoSize(150.0);
     camera.setDistance(10.0);
     const double originalOrthoSize = camera.orthoSize();
@@ -262,7 +296,7 @@ TEST(CameraDepthRevisionTest, OnlyDepthRelevantChangesAdvanceRevision) {
     const uint64_t afterTarget = camera.depthRevision();
     EXPECT_GT(afterTarget, initial);
 
-    camera.setOrthographic(false);
+    camera.setProjectionMode(ProjectionMode::Perspective);
     camera.zoom(-1.0);
     EXPECT_GT(camera.depthRevision(), afterTarget);
 }
@@ -276,12 +310,12 @@ TEST(CameraFitTest, NarrowViewportUsesHorizontalConstraint) {
     EXPECT_DOUBLE_EQ(orthographic.orthoSize(), 4.8);
 
     Camera widePerspective{ CameraMode::Trackball };
-    widePerspective.setOrthographic(false);
+    widePerspective.setProjectionMode(ProjectionMode::Perspective);
     widePerspective.setViewport(800, 400);
     widePerspective.fitToSphere(sphere, 1.2);
 
     Camera narrowPerspective{ CameraMode::Trackball };
-    narrowPerspective.setOrthographic(false);
+    narrowPerspective.setProjectionMode(ProjectionMode::Perspective);
     narrowPerspective.setViewport(400, 800);
     narrowPerspective.fitToSphere(sphere, 1.2);
     EXPECT_GT(narrowPerspective.distance(), widePerspective.distance());

@@ -80,6 +80,7 @@ private:
     QAction* action_undo_ = nullptr;
     QAction* action_redo_ = nullptr;
     QAction* action_fit_all_ = nullptr;
+    QAction* action_perspective_projection_ = nullptr;
     QAction* action_draw_line_ = nullptr;
     QAction* action_draw_polyline_ = nullptr;
     QAction* action_draw_circle_ = nullptr;

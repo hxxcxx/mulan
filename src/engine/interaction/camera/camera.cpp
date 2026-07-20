@@ -66,7 +66,7 @@ void Camera::copyFrom(const Camera& other) {
     fov_y_ = other.fov_y_;
     near_z_ = other.near_z_;
     far_z_ = other.far_z_;
-    ortho_ = other.ortho_;
+    projection_mode_ = other.projection_mode_;
     ortho_size_ = other.ortho_size_;
     pan_speed_ = other.pan_speed_;
     zoom_speed_ = other.zoom_speed_;
@@ -104,6 +104,24 @@ void Camera::setClipPlanes(double nearZ, double farZ) {
     }
     near_z_ = nearZ;
     far_z_ = farZ;
+}
+
+void Camera::setProjectionMode(ProjectionMode mode) {
+    if (projection_mode_ == mode) {
+        return;
+    }
+
+    // ortho_size_ 与 distance_ * tan(fov_y_ / 2) 都表示目标平面上的垂直半高。
+    // 在两种投影之间换算该尺度，避免切换后模型在屏幕上突然放大或缩小。
+    const double halfFovTangent = std::tan(fov_y_ * 0.5);
+    if (mode == ProjectionMode::Orthographic) {
+        ortho_size_ = std::max(distance_ * halfFovTangent, kMinOrthoSize);
+    } else {
+        distance_ = std::max(ortho_size_ / halfFovTangent, kMinOrbitDistance);
+    }
+
+    projection_mode_ = mode;
+    markDepthChanged();
 }
 
 void Camera::setTarget(const math::Point3& target) {
@@ -190,7 +208,7 @@ void Camera::pan(double dx, double dy) {
     // 这样 orbit 始终绕模型中心，平移与旋转完全解耦。
     // pan_offset_ 累积在视图空间（x=右,y=上），viewMatrix 直接叠加到平移列。
     const double viewportH = std::max(1, height_);
-    const double visibleHeight = ortho_ ? 2.0 * ortho_size_ : 2.0 * distance_ * std::tan(fov_y_ * 0.5);
+    const double visibleHeight = isOrthographic() ? 2.0 * ortho_size_ : 2.0 * distance_ * std::tan(fov_y_ * 0.5);
     const double scale = visibleHeight / viewportH * pan_speed_;
     // "抓取场景"语义：鼠标右移(dx>0) → 场景跟随向右 → 视图空间 x 增大
     //                鼠标下移(dy>0) → 场景跟随向下 → 视图空间 y 减小
@@ -218,12 +236,12 @@ void Camera::zoomAt(double delta, double screenX, double screenY) {
 
     const double ndcX = 2.0 * screenX / static_cast<double>(width_) - 1.0;
     const double ndcY = 1.0 - 2.0 * screenY / static_cast<double>(height_);
-    const double oldHalfHeight = ortho_ ? ortho_size_ : distance_ * std::tan(fov_y_ * 0.5);
+    const double oldHalfHeight = isOrthographic() ? ortho_size_ : distance_ * std::tan(fov_y_ * 0.5);
     double nextHalfHeight = oldHalfHeight;
     double nextOrthoSize = ortho_size_;
     double nextDistance = distance_;
 
-    if (ortho_) {
+    if (isOrthographic()) {
         nextOrthoSize = std::max(ortho_size_ * factor, kMinOrthoSize);
         nextHalfHeight = nextOrthoSize;
     } else {
@@ -242,7 +260,7 @@ void Camera::zoomAt(double delta, double screenX, double screenY) {
 
     pan_offset_.x = nextPanX;
     pan_offset_.y = nextPanY;
-    if (ortho_) {
+    if (isOrthographic()) {
         ortho_size_ = nextOrthoSize;
     } else {
         distance_ = nextDistance;
@@ -263,7 +281,7 @@ void Camera::fitToSphere(const math::Sphere3& sphere, double padding) {
     double nextOrthoSize = ortho_size_;
     double nextDistance = distance_;
 
-    if (ortho_) {
+    if (isOrthographic()) {
         // ortho_size_ 是垂直半高；窄视口需要按横向约束放大，才能完整容纳包围球。
         nextOrthoSize = radius * padding / std::min(1.0, aspect());
         nextDistance = radius * padding * 2.0;
@@ -349,7 +367,8 @@ void Camera::applyFittedClipPlanes(double nearZ, double farZ, ClipPlaneFitMode m
 }
 
 double Camera::moveOrthographicEyeInFront(double paddedMinDepth, double safetyNear) {
-    if (!ortho_ || !std::isfinite(paddedMinDepth) || !std::isfinite(safetyNear) || paddedMinDepth >= safetyNear) {
+    if (!isOrthographic() || !std::isfinite(paddedMinDepth) || !std::isfinite(safetyNear) ||
+        paddedMinDepth >= safetyNear) {
         return 0.0;
     }
 
@@ -432,7 +451,7 @@ math::Mat4 Camera::viewMatrix() const {
 }
 
 math::Mat4 Camera::projectionMatrix() const {
-    if (ortho_) {
+    if (isOrthographic()) {
         double h = ortho_size_;
         double w = h * aspect();
         return math::Mat4::ortho(-w, w, -h, h, near_z_, far_z_);
