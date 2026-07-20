@@ -29,6 +29,8 @@ engine::DisplayMode toDisplayMode(RenderMode mode) {
 }
 
 void applyViewState(engine::RenderFrameSubmission& submission, const ViewState& state) {
+    MULAN_PROFILE_ZONE();
+
     submission.view.viewMatrix = state.viewMatrix;
     submission.view.projectionMatrix = state.projectionMatrix;
     submission.view.cameraPosition = state.cameraPosition;
@@ -124,15 +126,7 @@ engine::RenderFrameSubmission RenderSubmissionBuilder::build(const ViewState& vi
         rebuildScene(submission);
     if (needsOverlayRebuild())
         rebuildOverlay(submission);
-
-    if (!submission.prepare.empty()) {
-        pending_prepare_.merge(submission.prepare);
-        advanceResourceBatch();
-    }
-    submission.prepare = pending_prepare_;
-    submission.resourceBatchId = pending_prepare_.empty() ? 0 : resource_batch_id_;
-    submission.sceneWorld = scene_world_snapshot_;
-    submission.overlayWorld = overlay_world_snapshot_;
+    finalizeSubmission(submission);
     return submission;
 }
 
@@ -152,6 +146,8 @@ void RenderSubmissionBuilder::invalidateResources() {
 }
 
 bool RenderSubmissionBuilder::needsSceneRebuild() const {
+    MULAN_PROFILE_ZONE();
+
     if (scene_source_dirty_)
         return true;
     const uint64_t sceneGeneration = scene_ ? scene_->generation() : 0;
@@ -161,6 +157,8 @@ bool RenderSubmissionBuilder::needsSceneRebuild() const {
 }
 
 bool RenderSubmissionBuilder::needsOverlayRebuild() const {
+    MULAN_PROFILE_ZONE();
+
     if (preview_source_dirty_ || overlay_reference_source_dirty_)
         return true;
     const uint64_t previewGeneration = preview_ ? preview_->generation() : 0;
@@ -178,6 +176,8 @@ bool RenderSubmissionBuilder::needsOverlayRebuild() const {
 }
 
 void RenderSubmissionBuilder::rebuildScene(engine::RenderFrameSubmission& submission) {
+    MULAN_PROFILE_ZONE();
+
     engine::RenderResourcePrepareList prepare;
     if (!scene_ || !assets_) {
         scene_world_sync_.rebuildEmpty(scene_world_, &prepare);
@@ -194,6 +194,8 @@ void RenderSubmissionBuilder::rebuildScene(engine::RenderFrameSubmission& submis
 }
 
 void RenderSubmissionBuilder::rebuildOverlay(engine::RenderFrameSubmission& submission) {
+    MULAN_PROFILE_ZONE();
+
     engine::RenderResourcePrepareList prepare;
     overlay_world_sync_.rebuildOverlay(scene_, assets_, asset_resource_domain_, preview_resource_domain_, preview_,
                                        overlay_world_, &prepare);
@@ -209,6 +211,19 @@ void RenderSubmissionBuilder::rebuildOverlay(engine::RenderFrameSubmission& subm
     last_overlay_scene_change_domain_ = sceneChangeDomain(scene_);
     preview_source_dirty_ = false;
     overlay_reference_source_dirty_ = false;
+}
+
+void RenderSubmissionBuilder::finalizeSubmission(engine::RenderFrameSubmission& submission) {
+    MULAN_PROFILE_ZONE();
+
+    if (!submission.prepare.empty()) {
+        pending_prepare_.merge(submission.prepare);
+        advanceResourceBatch();
+    }
+    submission.prepare = pending_prepare_;
+    submission.resourceBatchId = pending_prepare_.empty() ? 0 : resource_batch_id_;
+    submission.sceneWorld = scene_world_snapshot_;
+    submission.overlayWorld = overlay_world_snapshot_;
 }
 
 void RenderSubmissionBuilder::advanceResourceBatch() {

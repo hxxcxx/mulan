@@ -49,6 +49,7 @@ private:
     bool needsOverlayRebuild() const;
     void rebuildScene(engine::RenderFrameSubmission& submission);
     void rebuildOverlay(engine::RenderFrameSubmission& submission);
+    void finalizeSubmission(engine::RenderFrameSubmission& submission);
     void advanceResourceBatch();
 
     const RenderScene* scene_ = nullptr;
