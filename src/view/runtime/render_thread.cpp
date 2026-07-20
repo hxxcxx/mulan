@@ -151,11 +151,43 @@ Result<RenderChannelId> RenderThread::attachChannel(const RenderSurfaceConfig& c
                                                     RenderChannelEventCallback eventCallback) {
     MULAN_PROFILE_ZONE();
 
-    return createChannel(
-            [this, config, width, height](Channel& channel) -> ResultVoid {
-                return initializeChannel(channel, config, width, height);
-            },
-            std::move(eventCallback));
+    auto promise = std::make_shared<std::promise<ResultVoid>>();
+    auto future = promise->get_future();
+    RenderChannelId channelId = 0;
+    {
+        std::scoped_lock lock(mutex_);
+        if (stopping_ || state_ != State::Healthy) {
+            return std::unexpected(threadError(ErrorCode::InvalidArg, "Render thread is stopping."));
+        }
+        channelId = next_channel_++;
+        if (channelId == 0) {
+            channelId = next_channel_++;
+        }
+        auto channel = std::make_unique<Channel>(channelId, std::move(eventCallback));
+        channel->controls.push_back(ControlTask{
+                .run = [this, config, width, height](Channel& channel) -> ResultVoid {
+                    return initializeChannel(channel, config, width, height);
+                },
+                .finish = [promise](ResultVoid result) { promise->set_value(std::move(result)); },
+                .kind = ControlTask::Kind::Initialize,
+                .failurePolicy = ControlTask::FailurePolicy::Channel,
+        });
+        channels_.push_back(std::move(channel));
+    }
+    wake_.notify_one();
+
+    try {
+        ResultVoid initialized = future.get();
+        if (!initialized) {
+            detach(channelId);
+            return std::unexpected(initialized.error());
+        }
+    } catch (const std::exception& error) {
+        LOG_ERROR("[RenderThread] Channel initialization handshake failed: {}", error.what());
+        detach(channelId);
+        return std::unexpected(threadError(ErrorCode::Internal, "Render channel initialization handshake failed."));
+    }
+    return channelId;
 }
 
 ResultVoid RenderThread::initializeChannel(Channel& channel, const RenderSurfaceConfig& config, int width, int height) {
@@ -184,46 +216,6 @@ ResultVoid RenderThread::ensureDeviceContext() {
         return std::unexpected(created.error());
     device_context_ = std::move(*created);
     return {};
-}
-
-Result<RenderChannelId> RenderThread::createChannel(Initializer initialize, RenderChannelEventCallback eventCallback) {
-    MULAN_PROFILE_ZONE();
-
-    auto promise = std::make_shared<std::promise<ResultVoid>>();
-    auto future = promise->get_future();
-    RenderChannelId channelId = 0;
-    {
-        std::scoped_lock lock(mutex_);
-        if (stopping_ || state_ != State::Healthy) {
-            return std::unexpected(threadError(ErrorCode::InvalidArg, "Render thread is stopping."));
-        }
-        channelId = next_channel_++;
-        if (channelId == 0) {
-            channelId = next_channel_++;
-        }
-        auto channel = std::make_unique<Channel>(channelId, std::move(eventCallback));
-        channel->controls.push_back(ControlTask{
-                .run = std::move(initialize),
-                .finish = [promise](ResultVoid result) { promise->set_value(std::move(result)); },
-                .kind = ControlTask::Kind::Initialize,
-                .failurePolicy = ControlTask::FailurePolicy::Channel,
-        });
-        channels_.push_back(std::move(channel));
-    }
-    wake_.notify_one();
-
-    try {
-        ResultVoid initialized = future.get();
-        if (!initialized) {
-            detach(channelId);
-            return std::unexpected(initialized.error());
-        }
-    } catch (const std::exception& error) {
-        LOG_ERROR("[RenderThread] Channel initialization handshake failed: {}", error.what());
-        detach(channelId);
-        return std::unexpected(threadError(ErrorCode::Internal, "Render channel initialization handshake failed."));
-    }
-    return channelId;
 }
 
 void RenderThread::detach(RenderChannelId channelId) {
