@@ -10,6 +10,7 @@
 
 #include <QStackedWidget>
 
+#include <cstdint>
 #include <memory>
 
 namespace mulan::editor {
@@ -34,6 +35,12 @@ public:
     /// 接管文档会话的唯一所有权并添加标签；初始化失败时销毁会话并返回 nullptr。
     DocumentViewport* addDocument(std::unique_ptr<mulan::editor::DocumentSession> session, const QString& title,
                                   const mulan::view::ViewConfig& viewConfig);
+
+    /// 先建立空白渲染视图，使 Device/Surface 初始化可与后台导入并行。
+    bool beginDocumentOpen(uint64_t requestId, const QString& title, const mulan::view::ViewConfig& viewConfig);
+    DocumentViewport* completeDocumentOpen(uint64_t requestId, std::unique_ptr<mulan::editor::DocumentSession> session,
+                                           const QString& title);
+    bool failDocumentOpen(uint64_t requestId);
 
     /// 关闭指定索引的标签；用户取消丢弃未保存修改时返回 false。
     bool closeDocument(int index);
@@ -66,6 +73,9 @@ private slots:
     void onCurrentTabChanged(int index);
 
 private:
+    DocumentPage* addPage(std::unique_ptr<mulan::editor::DocumentSession> session, const QString& title,
+                          const mulan::view::ViewConfig& viewConfig, uint64_t openRequestId);
+    int indexOfOpenRequest(uint64_t requestId) const;
     bool confirmDiscard(int index);
     bool closeDocumentUnchecked(int index);
     DocumentPage* pageAt(int index) const;

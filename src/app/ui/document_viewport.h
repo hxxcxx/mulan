@@ -45,6 +45,7 @@ public:
     void shutdown();
 
     bool isReady() const;
+    bool hasDocumentSession() const;
     mulan::editor::CommandHost commandHost();
     mulan::view::RenderMode renderMode() const;
     void setRenderMode(mulan::view::RenderMode mode);

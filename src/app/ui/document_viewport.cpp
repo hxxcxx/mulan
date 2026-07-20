@@ -194,8 +194,12 @@ bool DocumentViewport::isReady() const {
     return runtime_state_ == RuntimeState::Ready && document_view_.isReady();
 }
 
+bool DocumentViewport::hasDocumentSession() const {
+    return document_view_.session() != nullptr;
+}
+
 mulan::editor::CommandHost DocumentViewport::commandHost() {
-    return isReady() ? document_view_.commandHost() : mulan::editor::CommandHost{};
+    return isReady() && hasDocumentSession() ? document_view_.commandHost() : mulan::editor::CommandHost{};
 }
 
 mulan::view::RenderMode DocumentViewport::renderMode() const {

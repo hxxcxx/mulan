@@ -82,7 +82,46 @@ DocumentViewport* DocumentWorkspace::addDocument(std::unique_ptr<mulan::editor::
         return nullptr;
     }
 
-    auto pendingPage = std::make_unique<DocumentPage>(std::move(session), viewConfig, this);
+    DocumentPage* page = addPage(std::move(session), title, viewConfig, 0);
+    return page ? page->viewport() : nullptr;
+}
+
+bool DocumentWorkspace::beginDocumentOpen(uint64_t requestId, const QString& title,
+                                          const mulan::view::ViewConfig& viewConfig) {
+    if (requestId == 0 || indexOfOpenRequest(requestId) >= 0) {
+        return false;
+    }
+    return addPage(nullptr, tr("%1 (Loading...)").arg(title), viewConfig, requestId) != nullptr;
+}
+
+DocumentViewport* DocumentWorkspace::completeDocumentOpen(uint64_t requestId,
+                                                          std::unique_ptr<mulan::editor::DocumentSession> session,
+                                                          const QString& title) {
+    const int index = indexOfOpenRequest(requestId);
+    DocumentPage* page = pageAt(index);
+    if (!page || !page->completeOpen(requestId, std::move(session))) {
+        return nullptr;
+    }
+
+    document_tab_bar_->setTabText(index, title);
+    if (document_stack_->currentIndex() == index) {
+        emit currentDocumentChanged(title);
+    }
+    return page->viewport();
+}
+
+bool DocumentWorkspace::failDocumentOpen(uint64_t requestId) {
+    const int index = indexOfOpenRequest(requestId);
+    return index >= 0 && closeDocumentUnchecked(index);
+}
+
+DocumentPage* DocumentWorkspace::addPage(std::unique_ptr<mulan::editor::DocumentSession> session, const QString& title,
+                                         const mulan::view::ViewConfig& viewConfig, uint64_t openRequestId) {
+    if (!session && openRequestId == 0) {
+        return nullptr;
+    }
+
+    auto pendingPage = std::make_unique<DocumentPage>(std::move(session), viewConfig, openRequestId, this);
     DocumentPage* page = pendingPage.get();
     DocumentViewport* viewport = page->viewport();
     connect(viewport, &DocumentViewport::commandStateInvalidated, this, [this, viewport]() {
@@ -128,7 +167,20 @@ DocumentViewport* DocumentWorkspace::addDocument(std::unique_ptr<mulan::editor::
 
     pendingPage.release();
     emit currentDocumentChanged(title);
-    return viewport;
+    return page;
+}
+
+int DocumentWorkspace::indexOfOpenRequest(uint64_t requestId) const {
+    if (requestId == 0) {
+        return -1;
+    }
+    for (int index = 0; index < document_stack_->count(); ++index) {
+        const DocumentPage* page = pageAt(index);
+        if (page && page->openRequestId() == requestId) {
+            return index;
+        }
+    }
+    return -1;
 }
 
 bool DocumentWorkspace::closeDocument(int index) {
@@ -174,13 +226,15 @@ bool DocumentWorkspace::confirmDiscard(int index) {
 
 bool DocumentWorkspace::closeDocumentUnchecked(int index) {
     DocumentPage* page = pageAt(index);
-    if (!page || !page->session() || !page->viewport())
+    if (!page || !page->viewport())
         return false;
 
-    const auto* document = page->session()->document();
-    const QString filePath = document ? QString::fromStdString(document->filePath()) : QString{};
-    if (!filePath.isEmpty()) {
-        emit documentClosing(page->viewport(), filePath);
+    if (page->session()) {
+        const auto* document = page->session()->document();
+        const QString filePath = document ? QString::fromStdString(document->filePath()) : QString{};
+        if (!filePath.isEmpty()) {
+            emit documentClosing(page->viewport(), filePath);
+        }
     }
     page->shutdown();
 
@@ -222,12 +276,13 @@ void DocumentWorkspace::onCurrentTabChanged(int index) {
 
     document_stack_->setCurrentIndex(index);
     DocumentPage* page = pageAt(index);
-    if (!page || !page->session()) {
+    if (!page) {
         emit currentDocumentChanged({});
         return;
     }
 
-    emit currentDocumentChanged(QString::fromStdString(page->session()->displayName()));
+    emit currentDocumentChanged(page->session() ? QString::fromStdString(page->session()->displayName())
+                                                : document_tab_bar_->tabText(index));
 }
 
 DocumentPage* DocumentWorkspace::pageAt(int index) const {

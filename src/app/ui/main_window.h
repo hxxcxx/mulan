@@ -6,12 +6,12 @@
  */
 #pragma once
 
+#include "../services/document_open_service.h"
 #include "../services/recent_thumbnail_service.h"
 
 #include <mulan/editor/command/command_manager.h>
 
 #include <SARibbon.h>
-#include <mulan/io/file_manager.h>
 #include <mulan/view/core/view_state.h>
 
 #include <string>
@@ -52,6 +52,8 @@ private:
     mulan::editor::CommandHost currentCommandHost() const;
     void executeCommand(std::string_view id);
     bool openFilePath(const QString& filePath, bool recordRecent = true);
+    void completeFileOpen(DocumentOpenService::RequestId requestId, QString filePath, bool recordRecent,
+                          mulan::Result<mulan::io::OpenDocumentResult> opened);
 
     void dragEnterEvent(QDragEnterEvent* e) override;
     void dropEvent(QDropEvent* e) override;
@@ -61,9 +63,9 @@ private:
     DocumentWorkspace* document_workspace_ = nullptr;
 
     // --- 文档管理 ---
-    mulan::io::FileManager file_manager_;
     mulan::editor::CommandManager command_manager_;
     RecentThumbnailService recent_thumbnail_service_;
+    DocumentOpenService document_open_service_;
 
     struct CommandActionBinding {
         std::string commandId;

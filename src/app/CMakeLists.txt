@@ -5,6 +5,8 @@ set(CMAKE_AUTORCC ON)
 set(MULAN_APP_SOURCES
     main.cpp
     bootstrap/rhi_backends.cpp
+    services/document_open_service.cpp
+    services/document_open_service.h
     services/recent_files_store.cpp
     services/recent_files_store.h
     services/recent_thumbnail_service.cpp

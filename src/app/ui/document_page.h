@@ -8,6 +8,7 @@
 
 #include <QWidget>
 
+#include <cstdint>
 #include <memory>
 
 namespace mulan::editor {
@@ -18,22 +19,27 @@ struct ViewConfig;
 }
 
 class DocumentViewport;
+class QWidget;
 
 class DocumentPage final : public QWidget {
     Q_OBJECT
 public:
     DocumentPage(std::unique_ptr<mulan::editor::DocumentSession> session, const mulan::view::ViewConfig& viewConfig,
-                 QWidget* parent = nullptr);
+                 uint64_t openRequestId = 0, QWidget* parent = nullptr);
     ~DocumentPage() override;
 
     bool init();
     void shutdown();
+    bool completeOpen(uint64_t requestId, std::unique_ptr<mulan::editor::DocumentSession> session);
 
     DocumentViewport* viewport() const { return viewport_; }
     mulan::editor::DocumentSession* session() const { return session_.get(); }
+    uint64_t openRequestId() const { return open_request_id_; }
 
 private:
     std::unique_ptr<mulan::editor::DocumentSession> session_;
     DocumentViewport* viewport_ = nullptr;
+    QWidget* loading_overlay_ = nullptr;
+    uint64_t open_request_id_ = 0;
     bool shutdown_ = false;
 };

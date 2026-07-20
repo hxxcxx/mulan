@@ -9,7 +9,6 @@
 
 #include <mulan/core/log/log.h>
 #include <mulan/core/profiling/profile.h>
-#include <mulan/io/file_manager.h>
 #include <mulan/io/import_result.h>
 
 #include <QFileDialog>
@@ -380,7 +379,7 @@ void MainWindow::onCurrentDocumentChanged(const QString& name) {
 
 void MainWindow::setCurrentRenderMode(mulan::view::RenderMode mode) {
     auto* doc = document_workspace_ ? document_workspace_->currentViewport() : nullptr;
-    if (!doc) {
+    if (!doc || !doc->hasDocumentSession()) {
         updateDisplayActions();
         return;
     }
@@ -391,7 +390,7 @@ void MainWindow::setCurrentRenderMode(mulan::view::RenderMode mode) {
 
 void MainWindow::updateDisplayActions() {
     auto* doc = document_workspace_ ? document_workspace_->currentViewport() : nullptr;
-    const bool hasDocument = doc && doc->isReady();
+    const bool hasDocument = doc && doc->isReady() && doc->hasDocumentSession();
     updateCommandActions();
 
     const bool hasVisibleDrawAction = (action_draw_line_ && action_draw_line_->isVisible()) ||
@@ -417,7 +416,7 @@ void MainWindow::updateDisplayActions() {
     if (action_show_cube_) {
         action_show_cube_->setEnabled(hasDocument);
     }
-    if (!doc)
+    if (!hasDocument)
         return;
 
     const auto mode = doc->renderMode();
@@ -463,7 +462,7 @@ void MainWindow::onNewDocument() {
 }
 
 void MainWindow::onOpenFile() {
-    auto exts = file_manager_.supportedExtensions();
+    auto exts = document_open_service_.supportedExtensions();
     QString filter = "Model Files (";
     for (const auto& ext : exts) {
         filter += QString(" *.%1").arg(QString::fromStdString(ext));
@@ -482,30 +481,59 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
     MULAN_PROFILE_ZONE();
 
     LOG_INFO("[App] Opening document: {}", filePath.toStdString());
-    statusBar()->showMessage("Loading: " + filePath);
+    mulan::view::ViewConfig viewConfig;
+    EngineSettings::instance().applyTo(viewConfig);
 
-    auto opened = file_manager_.openFile(filePath.toStdString());
-    if (!opened) {
-        LOG_ERROR("[App] Document open failed: path={}, error={}", filePath.toStdString(), opened.error().message);
-        QMessageBox::warning(this, "Import Error", QString::fromStdString(opened.error().message));
-        statusBar()->showMessage("Ready");
+    const DocumentOpenService::RequestId requestId = document_open_service_.openFile(
+            filePath, [this, recordRecent](DocumentOpenService::RequestId completedRequest, QString completedPath,
+                                           mulan::Result<mulan::io::OpenDocumentResult> opened) mutable {
+                completeFileOpen(completedRequest, std::move(completedPath), recordRecent, std::move(opened));
+            });
+    if (requestId == 0) {
         return false;
     }
 
-    logImportReport(opened->import.report);
-    auto doc = std::move(opened->document);
-    QString title = QString::fromStdString(doc->displayName());
-    auto session = std::make_unique<mulan::editor::DocumentSession>(std::move(doc),
-                                                                    importedSessionOptions(opened->import.report));
-    mulan::view::ViewConfig viewConfig;
-    EngineSettings::instance().applyTo(viewConfig);
-    DocumentViewport* viewport = document_workspace_->addDocument(std::move(session), title, viewConfig);
-    if (!viewport) {
-        LOG_ERROR("[App] Document view initialization failed after import: path={}", filePath.toStdString());
+    const QString title = QFileInfo(filePath).fileName();
+    if (!document_workspace_->beginDocumentOpen(requestId, title, viewConfig)) {
+        LOG_ERROR("[App] Loading document view initialization failed: path={}", filePath.toStdString());
         QMessageBox::warning(this, tr("Rendering Error"), tr("Failed to initialize the document rendering view."));
         statusBar()->showMessage("Ready");
         return false;
     }
+
+    statusBar()->showMessage("Loading: " + filePath);
+    return true;
+}
+
+void MainWindow::completeFileOpen(DocumentOpenService::RequestId requestId, QString filePath, bool recordRecent,
+                                  mulan::Result<mulan::io::OpenDocumentResult> opened) {
+    MULAN_PROFILE_ZONE();
+
+    if (!opened) {
+        if (!document_workspace_->failDocumentOpen(requestId)) {
+            LOG_DEBUG("[App] Discarded completed import for a closed loading page: request={}, path={}", requestId,
+                      filePath.toStdString());
+            return;
+        }
+        LOG_ERROR("[App] Document open failed: path={}, error={}", filePath.toStdString(), opened.error().message);
+        QMessageBox::warning(this, "Import Error", QString::fromStdString(opened.error().message));
+        statusBar()->showMessage("Ready");
+        updateDisplayActions();
+        return;
+    }
+
+    logImportReport(opened->import.report);
+    auto document = std::move(opened->document);
+    const QString title = QString::fromStdString(document->displayName());
+    auto session = std::make_unique<mulan::editor::DocumentSession>(std::move(document),
+                                                                    importedSessionOptions(opened->import.report));
+    DocumentViewport* viewport = document_workspace_->completeDocumentOpen(requestId, std::move(session), title);
+    if (!viewport) {
+        LOG_DEBUG("[App] Discarded completed import for a closed loading page: request={}, path={}", requestId,
+                  filePath.toStdString());
+        return;
+    }
+
     if (recordRecent) {
         document_workspace_->recordOpenedFile(filePath);
     }
@@ -514,7 +542,6 @@ bool MainWindow::openFilePath(const QString& filePath, bool recordRecent) {
 
     updateDisplayActions();
     statusBar()->showMessage(QString("Loaded: %1").arg(title));
-    return true;
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* e) {
