@@ -24,6 +24,7 @@ mulan_copy_public_headers(rhi_dx12 rhi_dx12 backend.h)
 target_link_libraries(rhi_dx12
     PRIVATE
         rhi
+        mulan::profiling
         d3d12
         dxgi
 )

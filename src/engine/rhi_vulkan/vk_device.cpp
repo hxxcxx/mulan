@@ -9,11 +9,13 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 #include <algorithm>
 #include <array>
 #include <string>
-#include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"
 #include "detail/vk_debug_name.h"
 #include "detail/vk_bind_group.h"
 #include "detail/vk_compute_pipeline.h"
+
+#include <mulan/core/result/error.h>
+#include <mulan/core/profiling/profile.h>
 
 namespace mulan::engine {
 
@@ -50,6 +52,8 @@ Result<std::unique_ptr<CommandList>> VKDevice::createCommandList() {
 }
 
 Result<std::unique_ptr<SwapChain>> VKDevice::createSwapChain(const SwapChainDesc& desc) {
+    MULAN_PROFILE_ZONE();
+
     if (!desc.window.valid()) {
         return std::unexpected(
                 makeError(EngineErrorCode::SwapChainCreateFailed, "Vulkan swap chain requires a native window handle"));

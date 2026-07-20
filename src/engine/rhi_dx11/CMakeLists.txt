@@ -15,7 +15,7 @@ add_library(rhi_dx11 STATIC
     dx11_texture.cpp
 )
 
-target_link_libraries(rhi_dx11 PRIVATE rhi d3d11 dxgi)
+target_link_libraries(rhi_dx11 PRIVATE rhi mulan::profiling d3d11 dxgi)
 mulan_copy_public_headers(rhi_dx11 rhi_dx11 backend.h)
 target_precompile_headers(rhi_dx11 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../pch.h)
 set_target_properties(rhi_dx11 PROPERTIES OUTPUT_NAME mulan_rhi_dx11)

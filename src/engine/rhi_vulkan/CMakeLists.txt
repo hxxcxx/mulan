@@ -38,6 +38,7 @@ mulan_copy_public_headers(rhi_vulkan rhi_vulkan backend.h)
 target_link_libraries(rhi_vulkan
     PRIVATE
         rhi
+        mulan::profiling
         Vulkan::Vulkan
         GPUOpen::VulkanMemoryAllocator
 )

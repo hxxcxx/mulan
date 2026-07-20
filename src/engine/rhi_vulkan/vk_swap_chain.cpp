@@ -2,16 +2,18 @@
 #include "detail/vk_texture.h"
 #include "detail/vk_device.h"
 
-#include <mulan/core/result/error.h>
 #include "../rhi/engine_error_code.h"
 #include <mulan/core/log/log.h>
-
+#include <mulan/core/result/error.h>
+#include <mulan/core/profiling/profile.h>
 #include <algorithm>
 #include <string>
 
 namespace mulan::engine {
 
 Result<std::unique_ptr<VKSwapChain>> VKSwapChain::create(const SwapChainDesc& desc, const InitParams& params) {
+    MULAN_PROFILE_ZONE();
+
     auto obj = std::unique_ptr<VKSwapChain>(new VKSwapChain(desc, params));
     if (auto e = obj->createSwapChain(); e.code != 0)
         return std::unexpected(e);

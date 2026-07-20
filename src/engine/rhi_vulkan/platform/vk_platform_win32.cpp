@@ -7,6 +7,7 @@
 
 #include "vk_platform.h"
 
+#include <mulan/core/profiling/profile.h>
 #include <array>
 
 namespace mulan::engine {
@@ -34,6 +35,8 @@ std::span<const char* const> vulkanPlatformSurfaceExtensions() noexcept {
 }
 
 vk::SurfaceKHR createVulkanPlatformSurface(vk::Instance instance, const NativeWindowHandle& window) {
+    MULAN_PROFILE_ZONE();
+
     if (!instance || window.type != NativeWindowHandle::Type::Win32 || !window.valid())
         return nullptr;
 
