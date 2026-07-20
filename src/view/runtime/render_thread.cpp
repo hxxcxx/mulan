@@ -165,9 +165,7 @@ Result<RenderChannelId> RenderThread::attachChannel(const RenderSurfaceConfig& c
         }
         auto channel = std::make_unique<Channel>(channelId, std::move(eventCallback));
         channel->controls.push_back(ControlTask{
-                .run = [this, config, width, height](Channel& channel) -> ResultVoid {
-                    return initializeChannel(channel, config, width, height);
-                },
+                .run = std::bind_front(&RenderThread::initializeChannel, this, config, width, height),
                 .finish = [promise](ResultVoid result) { promise->set_value(std::move(result)); },
                 .kind = ControlTask::Kind::Initialize,
                 .failurePolicy = ControlTask::FailurePolicy::Channel,
@@ -190,7 +188,7 @@ Result<RenderChannelId> RenderThread::attachChannel(const RenderSurfaceConfig& c
     return channelId;
 }
 
-ResultVoid RenderThread::initializeChannel(Channel& channel, const RenderSurfaceConfig& config, int width, int height) {
+ResultVoid RenderThread::initializeChannel(const RenderSurfaceConfig& config, int width, int height, Channel& channel) {
     MULAN_PROFILE_ZONE();
 
     if (auto ensured = ensureDeviceContext(); !ensured) {

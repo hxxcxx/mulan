@@ -79,7 +79,7 @@ private:
 
     explicit RenderThread(const RenderDeviceConfig& config);
 
-    ResultVoid initializeChannel(Channel& channel, const RenderSurfaceConfig& config, int width, int height);
+    ResultVoid initializeChannel(const RenderSurfaceConfig& config, int width, int height, Channel& channel);
     ResultVoid ensureDeviceContext();
     void run(std::stop_token stopToken);
     Channel* findChannelLocked(RenderChannelId channel);
