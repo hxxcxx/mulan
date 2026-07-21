@@ -145,6 +145,65 @@ protected:
     }
 };
 
+class SetRenderModeCommand final : public Command {
+public:
+    SetRenderModeCommand(std::string id, std::string title, std::string statusText, mulan::view::RenderMode mode)
+        : id_(std::move(id)), title_(std::move(title)), status_text_(std::move(statusText)), mode_(mode) {}
+
+    std::string_view id() const override { return id_; }
+    std::string_view title() const override { return title_; }
+    std::string_view statusText() const override { return status_text_; }
+    CommandState state(const CommandHost& host) const override {
+        const DocumentView* view = host.documentView();
+        CommandState state = commandState(*this, view && view->isReady() && view->session(), "No active document view");
+        state.checkable = true;
+        state.checked = view && view->renderMode() == mode_;
+        return state;
+    }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override {
+        DocumentView* view = host.documentView();
+        if (!view || !view->isReady() || !view->session()) {
+            return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active document view"));
+        }
+
+        view->setRenderMode(mode_);
+        return {};
+    }
+
+private:
+    std::string id_;
+    std::string title_;
+    std::string status_text_;
+    mulan::view::RenderMode mode_;
+};
+
+class ToggleViewCubeCommand final : public Command {
+public:
+    std::string_view id() const override { return "view.viewCube"; }
+    std::string_view title() const override { return "Show Cube"; }
+    std::string_view statusText() const override { return "Toggle the interactive ViewCube"; }
+    CommandState state(const CommandHost& host) const override {
+        const DocumentView* view = host.documentView();
+        CommandState state = commandState(*this, view && view->isReady() && view->session(), "No active document view");
+        state.checkable = true;
+        state.checked = view && view->viewCubeVisible();
+        return state;
+    }
+
+protected:
+    CommandOutcome perform(CommandHost& host) override {
+        DocumentView* view = host.documentView();
+        if (!view || !view->isReady() || !view->session()) {
+            return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active document view"));
+        }
+
+        view->setViewCubeVisible(!view->viewCubeVisible());
+        return {};
+    }
+};
+
 template <typename Tool>
 CommandOutcome startDrawTool(CommandHost& host) {
     EditorSession* editor = host.editorSession();
@@ -439,6 +498,14 @@ protected:
 void registerBuiltinCommands(CommandManager& manager) {
     manager.add(std::make_unique<TogglePerspectiveProjectionCommand>());
     manager.add(std::make_unique<FitAllCommand>());
+    manager.add(std::make_unique<SetRenderModeCommand>("view.mode.shaded", "Shaded", "Use shaded display mode",
+                                                       mulan::view::RenderMode::Shaded));
+    manager.add(std::make_unique<SetRenderModeCommand>("view.mode.shadedWithEdges", "Edges",
+                                                       "Use shaded display mode with edges",
+                                                       mulan::view::RenderMode::ShadedWithEdges));
+    manager.add(std::make_unique<SetRenderModeCommand>("view.mode.wireframe", "Wireframe", "Use wireframe display mode",
+                                                       mulan::view::RenderMode::Wireframe));
+    manager.add(std::make_unique<ToggleViewCubeCommand>());
     manager.add(std::make_unique<EditUndoCommand>());
     manager.add(std::make_unique<EditRedoCommand>());
     manager.add(std::make_unique<EditMoveCommand>());

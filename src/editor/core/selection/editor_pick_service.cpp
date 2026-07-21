@@ -9,20 +9,8 @@
 
 namespace mulan::editor {
 
-void EditorPickService::bind(DocumentSession* session, view::ViewContext* view, DocumentViewBinding* binding) {
-    session_ = session;
-    view_ = view;
-    binding_ = binding;
-}
-
-void EditorPickService::unbind() {
-    session_ = nullptr;
-    view_ = nullptr;
-    binding_ = nullptr;
-}
-
-bool EditorPickService::isBound() const {
-    return session_ != nullptr && view_ != nullptr && view_->isReady() && binding_ != nullptr;
+bool EditorPickService::isReady() const {
+    return view_.isReady();
 }
 
 bool EditorPickService::hasCursorPosition(const engine::InputEvent& event) {
@@ -40,30 +28,21 @@ bool EditorPickService::hasCursorPosition(const engine::InputEvent& event) {
 
 EditorPickInput EditorPickService::inputPick(const engine::InputEvent& event) const {
     EditorPickInput input;
-    if (!binding_) {
-        return input;
-    }
-
-    input.pickWorld.bind(binding_->renderScene());
-    if (!view_ || !hasCursorPosition(event)) {
+    input.pickWorld.bind(binding_.renderScene());
+    if (!hasCursorPosition(event)) {
         return input;
     }
 
     input.tested = true;
-    if (const auto pick =
-                binding_->pickAt(view_->camera(), static_cast<double>(event.x), static_cast<double>(event.y))) {
+    if (const auto pick = binding_.pickAt(view_.camera(), static_cast<double>(event.x), static_cast<double>(event.y))) {
         input.hit = editorPickHitFromRenderPick(*pick);
     }
-    input.pickWorld.bind(binding_->renderScene());
+    input.pickWorld.bind(binding_.renderScene());
     return input;
 }
 
 std::optional<EditorPickHit> EditorPickService::pickAtFramebuffer(double screenX, double screenY) const {
-    if (!binding_ || !view_) {
-        return std::nullopt;
-    }
-
-    const auto pick = binding_->pickAt(view_->camera(), screenX, screenY);
+    const auto pick = binding_.pickAt(view_.camera(), screenX, screenY);
     if (!pick) {
         return std::nullopt;
     }
@@ -76,7 +55,7 @@ std::optional<EditorPickHit> EditorPickService::pickAtFramebuffer(double screenX
 }
 
 std::optional<EditorSelectionHit> EditorPickService::selectionHitAtFramebuffer(double screenX, double screenY) const {
-    if (!isBound() || !session_ || !session_->document()) {
+    if (!isReady() || !session_.document()) {
         return std::nullopt;
     }
 
@@ -84,7 +63,7 @@ std::optional<EditorSelectionHit> EditorPickService::selectionHitAtFramebuffer(d
     if (!pick) {
         return std::nullopt;
     }
-    return makeEditorSelectionHit(*pick, *session_->document());
+    return makeEditorSelectionHit(*pick, *session_.document());
 }
 
 }  // namespace mulan::editor

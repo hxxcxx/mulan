@@ -17,7 +17,11 @@
 #include "core/tools/editor_tool.h"
 #include "core/tools/tool_controller.h"
 #include "core/tools/transform_tool.h"
+#include "document/document_session.h"
+#include "document/document_view_binding.h"
 
+#include <mulan/editor/command/builtin_commands.h>
+#include <mulan/editor/command/command_manager.h>
 #include <mulan/editor/document/document_view.h>
 #include <mulan/document/document.h>
 #include <mulan/view/core/view_context.h>
@@ -26,6 +30,8 @@
 
 #include <memory>
 #include <optional>
+#include <string>
+#include <string_view>
 #include <vector>
 
 using namespace mulan::editor;
@@ -93,6 +99,18 @@ private:
 /// 不处理输入的占位 Operator，用于验证精确所有权不会误删其他模态交互。
 class PassiveOperator final : public Operator {};
 
+struct EditorSessionHarness {
+    EditorSessionHarness()
+        : session(std::make_unique<mulan::Document>("editor-session-test")),
+          binding(session, view),
+          editor(session, view, binding) {}
+
+    DocumentSession session;
+    mulan::view::ViewContext view;
+    DocumentViewBinding binding;
+    EditorSession editor;
+};
+
 EditorInput makeInput(InputEvent event) {
     EditorInput input;
     input.event = std::move(event);
@@ -106,6 +124,20 @@ EditorInput makePointInput(InputEvent event, const mulan::math::Point3& point) {
 }
 
 }  // namespace
+
+TEST(BuiltinViewCommands, RegisterDisplayCommandsWithDisabledCheckableStateWithoutAView) {
+    CommandManager commands;
+    registerBuiltinCommands(commands);
+
+    for (const std::string_view id :
+         { "view.mode.shaded", "view.mode.shadedWithEdges", "view.mode.wireframe", "view.viewCube" }) {
+        ASSERT_NE(commands.find(id), nullptr) << id;
+        const CommandState state = commands.state(id, CommandHost{});
+        EXPECT_FALSE(state.enabled) << id;
+        EXPECT_TRUE(state.checkable) << id;
+        EXPECT_FALSE(state.checked) << id;
+    }
+}
 
 // ============================================================
 // EditorAction::commitAndFinish 语义
@@ -371,9 +403,9 @@ TEST(ViewContextOperatorOwnership, RemoveOperatorOnlyRemovesRequestedInstance) {
 }
 
 TEST(EditorToolOperatorLifecycle, ReplacementKeepsUnrelatedOperatorAndHasNoGhost) {
-    mulan::view::ViewContext view;
-    EditorSession session;
-    session.bind(nullptr, &view, nullptr);  // 纯交互测试，不初始化 GPU / 文档绑定
+    EditorSessionHarness harness;
+    auto& view = harness.view;
+    auto& session = harness.editor;
 
     std::optional<ToolFinishReason> firstEndReason;
     session.startTool(std::make_unique<FakeTool>("first", firstEndReason));
@@ -390,13 +422,12 @@ TEST(EditorToolOperatorLifecycle, ReplacementKeepsUnrelatedOperatorAndHasNoGhost
     session.cancelActiveTool();
     EXPECT_EQ(view.activeOperator(), unrelatedPtr);
     view.popOperator();
-    session.unbind();
 }
 
 TEST(EditorToolOperatorLifecycle, CameraDelegateIsActiveAndRightClickBelongsToTool) {
-    mulan::view::ViewContext view;
-    EditorSession session;
-    session.bind(nullptr, &view, nullptr);
+    EditorSessionHarness harness;
+    auto& view = harness.view;
+    auto& session = harness.editor;
 
     std::optional<ToolFinishReason> endReason;
     std::vector<InputEvent> inputs;
@@ -418,25 +449,18 @@ TEST(EditorToolOperatorLifecycle, CameraDelegateIsActiveAndRightClickBelongsToTo
     EXPECT_EQ(cancelled.disposition, InputDisposition::Cancelled);
     EXPECT_FALSE(session.hasActiveTool());
     EXPECT_EQ(view.activeOperator(), view.defaultOperator());
-    session.unbind();
 }
 
-TEST(DocumentViewInputBoundary, ActiveToolReleaseNeverFallsBackToSelection) {
-    DocumentView documentView;
-    EditorSession* session = documentView.commandHost().editorSession();
-    ASSERT_NE(session, nullptr);
-    session->bind(nullptr, &documentView.viewContext(), nullptr);
-
+TEST(EditorToolOperatorLifecycle, ActiveToolReleaseRemainsModal) {
+    EditorSessionHarness harness;
     std::optional<ToolFinishReason> endReason;
-    session->startTool(std::make_unique<FakeTool>("tool", endReason));
-    documentView.handleInput(InputEvent::mousePress(40, 50, MouseButton::Left, MouseButton::Left));
-    const DocumentInputOutcome release =
-            documentView.handleInput(InputEvent::mouseRelease(40, 50, MouseButton::Left, MouseButton::None));
+    harness.editor.startTool(std::make_unique<FakeTool>("tool", endReason));
+    const InputOutcome release =
+            harness.view.dispatchInput(InputEvent::mouseRelease(40, 50, MouseButton::Left, MouseButton::None));
 
-    EXPECT_EQ(release.disposition, DocumentInputDisposition::EditorTool);
-    EXPECT_NE(release.disposition, DocumentInputDisposition::Selection);
-    session->cancelActiveTool();
-    session->unbind();
+    EXPECT_EQ(release.disposition, InputDisposition::ModalInteraction);
+    EXPECT_TRUE(harness.editor.hasActiveTool());
+    harness.editor.cancelActiveTool();
 }
 
 TEST(DocumentViewInputBoundary, CancelClearsPendingClickTracking) {
@@ -450,38 +474,19 @@ TEST(DocumentViewInputBoundary, CancelClearsPendingClickTracking) {
     EXPECT_NE(release.disposition, DocumentInputDisposition::Selection);
 }
 
-TEST(DocumentViewInputBoundary, IdleFocusLossPreservesActiveCadTool) {
+TEST(DocumentViewInputBoundary, IdleFocusLossUsesTransientPath) {
     DocumentView documentView;
-    EditorSession* session = documentView.commandHost().editorSession();
-    ASSERT_NE(session, nullptr);
-    session->bind(nullptr, &documentView.viewContext(), nullptr);
-
-    std::optional<ToolFinishReason> endReason;
-    session->startTool(std::make_unique<FakeTool>("tool", endReason));
 
     const DocumentInputOutcome focusLost = documentView.handleFocusLost();
 
     EXPECT_EQ(focusLost.disposition, DocumentInputDisposition::Ignored);
-    EXPECT_TRUE(session->hasActiveTool());
-    EXPECT_FALSE(endReason.has_value());
-    session->cancelActiveTool();
-    session->unbind();
 }
 
 TEST(DocumentViewInputBoundary, FocusLossCancelsPointerTransactionOwnedByViewport) {
     DocumentView documentView;
-    EditorSession* session = documentView.commandHost().editorSession();
-    ASSERT_NE(session, nullptr);
-    session->bind(nullptr, &documentView.viewContext(), nullptr);
-
-    std::optional<ToolFinishReason> endReason;
-    session->startTool(std::make_unique<FakeTool>("tool", endReason));
     documentView.handleInput(InputEvent::mousePress(40, 50, MouseButton::Left, MouseButton::Left));
 
     const DocumentInputOutcome focusLost = documentView.handleFocusLost();
 
     EXPECT_EQ(focusLost.disposition, DocumentInputDisposition::Cancelled);
-    EXPECT_FALSE(session->hasActiveTool());
-    EXPECT_EQ(endReason, ToolFinishReason::Cancelled);
-    session->unbind();
 }

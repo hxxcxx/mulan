@@ -73,4 +73,9 @@ const std::string& DocumentSession::displayName() const {
     return document_ ? document_->displayName() : empty;
 }
 
+const std::string& DocumentSession::filePath() const {
+    static const std::string empty;
+    return document_ ? document_->filePath() : empty;
+}
+
 }  // namespace mulan::editor

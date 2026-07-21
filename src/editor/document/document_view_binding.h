@@ -7,7 +7,6 @@
  */
 #pragma once
 
-#include <functional>
 #include <optional>
 
 #include "document_pick_bridge.h"
@@ -27,18 +26,12 @@ class DocumentSession;
 
 class DocumentViewBinding {
 public:
-    DocumentViewBinding();
-    ~DocumentViewBinding();
+    DocumentViewBinding(DocumentSession& session, mulan::view::ViewContext& view,
+                        DocumentRenderBinding::FrameInvalidationCallback frameInvalidationCallback = {});
+    ~DocumentViewBinding() = default;
 
     DocumentViewBinding(const DocumentViewBinding&) = delete;
     DocumentViewBinding& operator=(const DocumentViewBinding&) = delete;
-
-    void bind(DocumentSession& session, mulan::view::ViewContext& view);
-    void unbind();
-    bool isBound() const { return render_binding_.isBound(); }
-
-    /// 设置统一帧失效回调；DocumentRenderBinding 不再深层直接渲染。
-    void setFrameInvalidationCallback(std::function<void()> callback);
 
     void refresh();
     void fitAll();

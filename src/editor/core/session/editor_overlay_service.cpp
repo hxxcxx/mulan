@@ -4,14 +4,6 @@
 
 namespace mulan::editor {
 
-void EditorOverlayService::bind(view::ViewContext* view) {
-    preview_.bind(view);
-}
-
-void EditorOverlayService::unbind() {
-    preview_.unbind();
-}
-
 void EditorOverlayService::clearAll() {
     preview_.clearAll();
 }

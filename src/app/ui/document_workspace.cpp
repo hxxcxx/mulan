@@ -230,8 +230,7 @@ bool DocumentWorkspace::closeDocumentUnchecked(int index) {
         return false;
 
     if (page->session()) {
-        const auto* document = page->session()->document();
-        const QString filePath = document ? QString::fromStdString(document->filePath()) : QString{};
+        const QString filePath = QString::fromStdString(page->session()->filePath());
         if (!filePath.isEmpty()) {
             emit documentClosing(page->viewport(), filePath);
         }

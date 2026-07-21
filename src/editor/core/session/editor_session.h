@@ -44,14 +44,11 @@ struct EditorToolDispatchResult {
 
 class EditorSession {
 public:
-    EditorSession();
+    EditorSession(DocumentSession& session, view::ViewContext& view, DocumentViewBinding& binding);
     ~EditorSession();
 
     EditorSession(const EditorSession&) = delete;
     EditorSession& operator=(const EditorSession&) = delete;
-
-    void bind(DocumentSession* session, view::ViewContext* view, DocumentViewBinding* binding);
-    void unbind();
 
     bool isReady() const;
     bool hasActiveTool() const { return tool_controller_.hasActiveTool(); }
@@ -106,10 +103,11 @@ private:
     /// 由正在分发事件的 EditorToolOperator 调用：只取消工具状态，不在其成员函数
     /// 尚未返回时销毁 Operator；随后由 ViewContext 按 finished 状态安全弹栈。
     void cancelActiveToolFromOperator();
+    void release();
 
-    DocumentSession* session_ = nullptr;
-    view::ViewContext* view_ = nullptr;
-    DocumentViewBinding* binding_ = nullptr;
+    DocumentSession& session_;
+    view::ViewContext& view_;
+    DocumentViewBinding& binding_;
     EditorInputResolver input_resolver_;
     EditorPickService pick_service_;
     EditorOverlayService overlay_service_;

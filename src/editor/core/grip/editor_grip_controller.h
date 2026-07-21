@@ -24,8 +24,9 @@ class EditorOverlayService;
 
 class EditorGripController {
 public:
-    void bind(DocumentSession* session, view::ViewContext* view, EditorOverlayService* overlays);
-    void unbind();
+    EditorGripController(DocumentSession& session, view::ViewContext& view, EditorOverlayService& overlays)
+        : session_(session), view_(view), overlays_(overlays) {}
+    ~EditorGripController();
 
     void refresh(const EditorSelectionContext& selection, bool enabled);
     void clear();
@@ -38,9 +39,9 @@ private:
     void rebuildPreview();
     const EditorGrip* gripById(EditorGripId id) const;
 
-    DocumentSession* session_ = nullptr;
-    view::ViewContext* view_ = nullptr;
-    EditorOverlayService* overlays_ = nullptr;
+    DocumentSession& session_;
+    view::ViewContext& view_;
+    EditorOverlayService& overlays_;
     EditorGripProvider provider_;
     std::vector<EditorGrip> grips_;
     std::optional<EditorGripId> hovered_;

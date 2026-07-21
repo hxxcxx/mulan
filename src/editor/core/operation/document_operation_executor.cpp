@@ -230,22 +230,12 @@ asset::AssetId restoreGeometryAsset(asset::AssetLibrary& library, const Geometry
 
 }  // namespace
 
-void DocumentOperationExecutor::bind(DocumentSession* session) {
-    session_ = session;
-    history_ = session_ ? &session_->commandHistory() : nullptr;
-}
-
-void DocumentOperationExecutor::unbind() {
-    session_ = nullptr;
-    history_ = nullptr;
+DocumentOperationExecutor::DocumentOperationExecutor(DocumentSession& session)
+    : session_(session), history_(session.commandHistory()) {
 }
 
 bool DocumentOperationExecutor::execute(DocumentOperation operation) {
     MULAN_PROFILE_ZONE();
-
-    if (!history_) {
-        return false;
-    }
 
     DocumentOperation redoOperation = operation;
     ApplyResult result = apply(std::move(operation));
@@ -254,10 +244,10 @@ bool DocumentOperationExecutor::execute(DocumentOperation operation) {
     }
 
     if (result.undoOperation) {
-        history_->record(std::move(redoOperation), std::move(*result.undoOperation));
+        history_.record(std::move(redoOperation), std::move(*result.undoOperation));
     } else {
         // 未提供可靠逆操作的未来操作仍可成功，但历史不得越过该事务边界。
-        history_->recordIrreversibleChange();
+        history_.recordIrreversibleChange();
     }
     return publish(result);
 }
@@ -265,80 +255,70 @@ bool DocumentOperationExecutor::execute(DocumentOperation operation) {
 bool DocumentOperationExecutor::undo() {
     MULAN_PROFILE_ZONE();
 
-    if (!history_) {
-        return false;
-    }
-
-    std::optional<CommandHistory::Entry> entry = history_->takeUndo();
+    std::optional<CommandHistory::Entry> entry = history_.takeUndo();
     if (!entry) {
         return false;
     }
 
     const ApplyResult result = apply(entry->undoOperation);
     if (!result.changed) {
-        history_->restoreUndo(std::move(*entry));
+        history_.restoreUndo(std::move(*entry));
         return false;
     }
 
-    history_->remapReferences(result.entityRemaps, result.assetRemaps);
+    history_.remapReferences(result.entityRemaps, result.assetRemaps);
     remapDocumentOperation(entry->redoOperation, result.entityRemaps, result.assetRemaps);
     remapDocumentOperation(entry->undoOperation, result.entityRemaps, result.assetRemaps);
     if (result.undoOperation)
         entry->redoOperation = *result.undoOperation;
-    history_->pushRedo(std::move(*entry));
+    history_.pushRedo(std::move(*entry));
     return publish(result);
 }
 
 bool DocumentOperationExecutor::redo() {
     MULAN_PROFILE_ZONE();
 
-    if (!history_) {
-        return false;
-    }
-
-    std::optional<CommandHistory::Entry> entry = history_->takeRedo();
+    std::optional<CommandHistory::Entry> entry = history_.takeRedo();
     if (!entry) {
         return false;
     }
 
     ApplyResult result = apply(entry->redoOperation);
     if (!result.changed) {
-        history_->restoreRedo(std::move(*entry));
+        history_.restoreRedo(std::move(*entry));
         return false;
     }
-    history_->remapReferences(result.entityRemaps, result.assetRemaps);
+    history_.remapReferences(result.entityRemaps, result.assetRemaps);
     remapDocumentOperation(entry->redoOperation, result.entityRemaps, result.assetRemaps);
     remapDocumentOperation(entry->undoOperation, result.entityRemaps, result.assetRemaps);
     if (result.undoOperation) {
         entry->undoOperation = std::move(*result.undoOperation);
-        history_->pushUndo(std::move(*entry));
+        history_.pushUndo(std::move(*entry));
     } else {
         // 已成功重做但无法再生成逆操作时，清空过期历史，保留当前文档结果。
-        history_->recordIrreversibleChange();
+        history_.recordIrreversibleChange();
     }
     return publish(result);
 }
 
 void DocumentOperationExecutor::clearHistory() {
-    if (history_) {
-        history_->clear();
-    }
+    history_.clear();
 }
 
 bool DocumentOperationExecutor::canUndo() const {
-    return history_ && history_->canUndo();
+    return history_.canUndo();
 }
 
 bool DocumentOperationExecutor::canRedo() const {
-    return history_ && history_->canRedo();
+    return history_.canRedo();
 }
 
 DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(DocumentOperation operation) const {
-    if (!session_ || !session_->document()) {
+    if (!session_.document()) {
         return {};
     }
 
-    Document& document = *session_->document();
+    Document& document = *session_.document();
     DocumentEditor editor(document);
     ApplyResult result;
 
@@ -642,10 +622,10 @@ DocumentOperationExecutor::ApplyResult DocumentOperationExecutor::apply(Document
 }
 
 bool DocumentOperationExecutor::publish(const ApplyResult& result) const {
-    if (!result.changed || !session_ || result.changes == DocumentChangeKind::None) {
+    if (!result.changed || result.changes == DocumentChangeKind::None) {
         return false;
     }
-    return session_->publishChange(result.changes).valid();
+    return session_.publishChange(result.changes).valid();
 }
 
 }  // namespace mulan::editor

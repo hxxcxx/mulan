@@ -30,10 +30,10 @@ struct EditorPickInput {
 
 class EditorPickService {
 public:
-    void bind(DocumentSession* session, view::ViewContext* view, DocumentViewBinding* binding);
-    void unbind();
+    EditorPickService(DocumentSession& session, view::ViewContext& view, DocumentViewBinding& binding)
+        : session_(session), view_(view), binding_(binding) {}
 
-    bool isBound() const;
+    bool isReady() const;
     static bool hasCursorPosition(const engine::InputEvent& event);
 
     EditorPickInput inputPick(const engine::InputEvent& event) const;
@@ -41,9 +41,9 @@ public:
     std::optional<EditorSelectionHit> selectionHitAtFramebuffer(double screenX, double screenY) const;
 
 private:
-    DocumentSession* session_ = nullptr;
-    view::ViewContext* view_ = nullptr;
-    DocumentViewBinding* binding_ = nullptr;
+    DocumentSession& session_;
+    view::ViewContext& view_;
+    DocumentViewBinding& binding_;
 };
 
 }  // namespace mulan::editor

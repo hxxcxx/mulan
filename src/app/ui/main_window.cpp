@@ -269,25 +269,13 @@ void MainWindow::buildRibbonViewCategory() {
 
     panel_display_ = new SARibbonPanel(tr("Display"), category_view_);
 
-    // 线框模式
-    action_display_wireframe_ = new QAction(QIcon(":/app/icons/icon/view-wireframe.svg"), tr("Wireframe"), this);
-    action_display_wireframe_->setCheckable(true);
-    connect(action_display_wireframe_, &QAction::triggered, this,
-            [this]() { setCurrentRenderMode(mulan::view::RenderMode::Wireframe); });
+    action_display_wireframe_ = createCommandAction(":/app/icons/icon/view-wireframe.svg", "view.mode.wireframe");
     panel_display_->addLargeAction(action_display_wireframe_);
 
-    // 实体模式
-    action_display_shaded_ = new QAction(QIcon(":/app/icons/icon/view-shaded.svg"), tr("Shaded"), this);
-    action_display_shaded_->setCheckable(true);
-    action_display_shaded_->setChecked(true);
-    connect(action_display_shaded_, &QAction::triggered, this,
-            [this]() { setCurrentRenderMode(mulan::view::RenderMode::Shaded); });
+    action_display_shaded_ = createCommandAction(":/app/icons/icon/view-shaded.svg", "view.mode.shaded");
     panel_display_->addLargeAction(action_display_shaded_);
 
-    action_display_edges_ = new QAction(QIcon(":/app/icons/icon/view-edges.svg"), tr("Edges"), this);
-    action_display_edges_->setCheckable(true);
-    connect(action_display_edges_, &QAction::triggered, this,
-            [this]() { setCurrentRenderMode(mulan::view::RenderMode::ShadedWithEdges); });
+    action_display_edges_ = createCommandAction(":/app/icons/icon/view-edges.svg", "view.mode.shadedWithEdges");
     panel_display_->addLargeAction(action_display_edges_);
 
     // 互斥
@@ -298,19 +286,7 @@ void MainWindow::buildRibbonViewCategory() {
 
     panel_display_->addSeparator();
 
-    action_show_cube_ = new QAction(QIcon(":/app/icons/icon/view-cube.svg"), tr("Show Cube"), this);
-    action_show_cube_->setCheckable(true);
-    action_show_cube_->setChecked(true);
-    connect(action_show_cube_, &QAction::toggled, this, [this](bool checked) {
-        auto* doc = document_workspace_ ? document_workspace_->currentViewport() : nullptr;
-        if (!doc) {
-            updateDisplayActions();
-            return;
-        }
-
-        doc->setViewCubeVisible(checked);
-        updateDisplayActions();
-    });
+    action_show_cube_ = createCommandAction(":/app/icons/icon/view-cube.svg", "view.viewCube");
     panel_display_->addSmallAction(action_show_cube_);
 
     category_view_->addPanel(panel_display_);
@@ -380,20 +356,7 @@ void MainWindow::onCurrentDocumentChanged(const QString& name) {
     updateDisplayActions();
 }
 
-void MainWindow::setCurrentRenderMode(mulan::view::RenderMode mode) {
-    auto* doc = document_workspace_ ? document_workspace_->currentViewport() : nullptr;
-    if (!doc || !doc->hasDocumentSession()) {
-        updateDisplayActions();
-        return;
-    }
-
-    doc->setRenderMode(mode);
-    updateDisplayActions();
-}
-
 void MainWindow::updateDisplayActions() {
-    auto* doc = document_workspace_ ? document_workspace_->currentViewport() : nullptr;
-    const bool hasDocument = doc && doc->isReady() && doc->hasDocumentSession();
     updateCommandActions();
 
     const bool hasVisibleDrawAction = (action_draw_line_ && action_draw_line_->isVisible()) ||
@@ -405,37 +368,6 @@ void MainWindow::updateDisplayActions() {
                                       (action_draw_face_ && action_draw_face_->isVisible());
     if (panel_draw_) {
         panel_draw_->setVisible(hasVisibleDrawAction);
-    }
-
-    if (action_display_wireframe_) {
-        action_display_wireframe_->setEnabled(hasDocument);
-    }
-    if (action_display_shaded_) {
-        action_display_shaded_->setEnabled(hasDocument);
-    }
-    if (action_display_edges_) {
-        action_display_edges_->setEnabled(hasDocument);
-    }
-    if (action_show_cube_) {
-        action_show_cube_->setEnabled(hasDocument);
-    }
-    if (!hasDocument)
-        return;
-
-    const auto mode = doc->renderMode();
-    if (action_display_wireframe_) {
-        action_display_wireframe_->setChecked(mode == mulan::view::RenderMode::Wireframe);
-    }
-    if (action_display_shaded_) {
-        action_display_shaded_->setChecked(mode == mulan::view::RenderMode::Shaded);
-    }
-    if (action_display_edges_) {
-        action_display_edges_->setChecked(mode == mulan::view::RenderMode::ShadedWithEdges);
-    }
-
-    if (action_show_cube_) {
-        const QSignalBlocker blocker(action_show_cube_);
-        action_show_cube_->setChecked(doc->viewCubeVisible());
     }
 }
 

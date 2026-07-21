@@ -211,8 +211,7 @@ TEST(DocumentOperationTransactions, RemovalIsReversibleAndPreservesEarlierHistor
     auto document = std::make_unique<Document>("reversible-removal");
     Document* documentPtr = document.get();
     DocumentSession session(std::move(document));
-    DocumentOperationExecutor executor;
-    executor.bind(&session);
+    DocumentOperationExecutor executor(session);
 
     ASSERT_TRUE(executor.execute(DocumentOperation::createCurve("Recorded", segment(1.0))));
     EntityId recorded;
@@ -244,8 +243,7 @@ TEST(DocumentOperationTransactions, RemovalRestoresEntityWithoutGeometry) {
     ASSERT_TRUE(emptyEntity);
 
     DocumentSession session(std::move(document));
-    DocumentOperationExecutor executor;
-    executor.bind(&session);
+    DocumentOperationExecutor executor(session);
     ASSERT_TRUE(executor.execute(DocumentOperation::removeEntities({ emptyEntity }, true)));
     ASSERT_EQ(documentPtr->scene()->entityCount(), 0u);
 
@@ -268,8 +266,7 @@ TEST(DocumentOperationTransactions, BooleanUndoRestoresOperandsWithoutDiscarding
     ASSERT_TRUE(tool);
 
     DocumentSession session(std::move(document));
-    DocumentOperationExecutor executor;
-    executor.bind(&session);
+    DocumentOperationExecutor executor(session);
     ASSERT_TRUE(
             executor.execute(DocumentOperation::updateEntityTransforms({ { target, Mat4::translate({ 1, 0, 0 }) } })));
     ASSERT_TRUE(
@@ -290,34 +287,23 @@ TEST(DocumentOperationTransactions, BooleanUndoRestoresOperandsWithoutDiscarding
     EXPECT_DOUBLE_EQ(restoredWorld[3].z, 0.0);
 }
 
-TEST(DocumentOperationHistoryOwnership, SurvivesUnbindRebindAndExecutorReplacement) {
+TEST(DocumentOperationHistoryOwnership, SurvivesExecutorReplacement) {
     auto document = std::make_unique<Document>("session-owned-history");
     Document* documentPtr = document.get();
     DocumentSession session(std::move(document));
 
-    DocumentOperationExecutor firstExecutor;
-    firstExecutor.bind(&session);
-    ASSERT_TRUE(firstExecutor.execute(DocumentOperation::createCurve("Recorded", segment(1.0))));
-    ASSERT_EQ(documentPtr->scene()->entityCount(), 1u);
-    ASSERT_TRUE(firstExecutor.canUndo());
+    {
+        DocumentOperationExecutor firstExecutor(session);
+        ASSERT_TRUE(firstExecutor.execute(DocumentOperation::createCurve("Recorded", segment(1.0))));
+        ASSERT_EQ(documentPtr->scene()->entityCount(), 1u);
+        ASSERT_TRUE(firstExecutor.canUndo());
+        ASSERT_TRUE(firstExecutor.undo());
+        EXPECT_EQ(documentPtr->scene()->entityCount(), 0u);
+        ASSERT_TRUE(firstExecutor.canRedo());
+    }
 
-    firstExecutor.unbind();
-    EXPECT_FALSE(firstExecutor.isBound());
-    EXPECT_FALSE(firstExecutor.canUndo());
-    EXPECT_FALSE(firstExecutor.canRedo());
-    EXPECT_FALSE(firstExecutor.undo());
-    EXPECT_EQ(documentPtr->scene()->entityCount(), 1u);
-
-    firstExecutor.bind(&session);
-    ASSERT_TRUE(firstExecutor.canUndo());
-    ASSERT_TRUE(firstExecutor.undo());
-    EXPECT_EQ(documentPtr->scene()->entityCount(), 0u);
-    ASSERT_TRUE(firstExecutor.canRedo());
-
-    // executor 不拥有历史；换一个执行器后仍能继续同一会话的 redo 分支。
-    firstExecutor.unbind();
-    DocumentOperationExecutor replacementExecutor;
-    replacementExecutor.bind(&session);
+    // executor 不拥有历史；销毁并重新构造后仍能继续同一会话的 redo 分支。
+    DocumentOperationExecutor replacementExecutor(session);
     ASSERT_TRUE(replacementExecutor.canRedo());
     ASSERT_TRUE(replacementExecutor.redo());
     EXPECT_EQ(documentPtr->scene()->entityCount(), 1u);
@@ -333,30 +319,33 @@ TEST(DocumentOperationHistoryOwnership, DifferentDocumentSessionsRemainIsolated)
     Document* secondDocumentPtr = secondDocument.get();
     DocumentSession secondSession(std::move(secondDocument));
 
-    DocumentOperationExecutor executor;
-    executor.bind(&firstSession);
-    ASSERT_TRUE(executor.execute(DocumentOperation::createCurve("First", segment(1.0))));
-    ASSERT_TRUE(executor.canUndo());
-    ASSERT_EQ(firstDocumentPtr->scene()->entityCount(), 1u);
-
-    // 直接换绑定不清空原会话，也不得把原会话的历史带入新会话。
-    executor.bind(&secondSession);
-    EXPECT_FALSE(executor.canUndo());
-    ASSERT_TRUE(executor.execute(DocumentOperation::createCurve("Second", segment(2.0))));
-    ASSERT_TRUE(executor.canUndo());
-    ASSERT_EQ(secondDocumentPtr->scene()->entityCount(), 1u);
-
-    executor.bind(&firstSession);
-    ASSERT_TRUE(executor.canUndo());
-    ASSERT_TRUE(executor.undo());
-    EXPECT_EQ(firstDocumentPtr->scene()->entityCount(), 0u);
-    EXPECT_EQ(secondDocumentPtr->scene()->entityCount(), 1u);
-
-    executor.bind(&secondSession);
-    ASSERT_TRUE(executor.canUndo());
-    ASSERT_TRUE(executor.undo());
-    EXPECT_EQ(secondDocumentPtr->scene()->entityCount(), 0u);
-    EXPECT_FALSE(executor.canUndo());
+    {
+        DocumentOperationExecutor firstExecutor(firstSession);
+        ASSERT_TRUE(firstExecutor.execute(DocumentOperation::createCurve("First", segment(1.0))));
+        ASSERT_TRUE(firstExecutor.canUndo());
+        ASSERT_EQ(firstDocumentPtr->scene()->entityCount(), 1u);
+    }
+    {
+        DocumentOperationExecutor secondExecutor(secondSession);
+        EXPECT_FALSE(secondExecutor.canUndo());
+        ASSERT_TRUE(secondExecutor.execute(DocumentOperation::createCurve("Second", segment(2.0))));
+        ASSERT_TRUE(secondExecutor.canUndo());
+        ASSERT_EQ(secondDocumentPtr->scene()->entityCount(), 1u);
+    }
+    {
+        DocumentOperationExecutor firstExecutor(firstSession);
+        ASSERT_TRUE(firstExecutor.canUndo());
+        ASSERT_TRUE(firstExecutor.undo());
+        EXPECT_EQ(firstDocumentPtr->scene()->entityCount(), 0u);
+        EXPECT_EQ(secondDocumentPtr->scene()->entityCount(), 1u);
+    }
+    {
+        DocumentOperationExecutor secondExecutor(secondSession);
+        ASSERT_TRUE(secondExecutor.canUndo());
+        ASSERT_TRUE(secondExecutor.undo());
+        EXPECT_EQ(secondDocumentPtr->scene()->entityCount(), 0u);
+        EXPECT_FALSE(secondExecutor.canUndo());
+    }
 }
 
 TEST(DocumentOperationTransactions, InvalidBatchRemovalDoesNotPartiallyCommit) {
@@ -369,8 +358,7 @@ TEST(DocumentOperationTransactions, InvalidBatchRemovalDoesNotPartiallyCommit) {
     ASSERT_TRUE(second);
 
     DocumentSession session(std::move(document));
-    DocumentOperationExecutor executor;
-    executor.bind(&session);
+    DocumentOperationExecutor executor(session);
 
     EXPECT_FALSE(executor.execute(DocumentOperation::removeEntities({ first.entity, EntityId::invalid() }, true)));
     EXPECT_TRUE(documentPtr->scene()->isValid(first.entity));
@@ -385,24 +373,24 @@ TEST(DocumentRenderInvalidation, BindingReportsFrameDemandThroughSingleCallback)
 
     DocumentSession session(std::move(document));
     mulan::view::ViewContext view;
-    mulan::editor::DocumentRenderBinding binding;
     size_t invalidationCount = 0;
-    binding.setFrameInvalidationCallback([&invalidationCount]() { ++invalidationCount; });
-    binding.bind(session, view);
+    {
+        mulan::editor::DocumentRenderBinding binding(session, view, [&invalidationCount]() { ++invalidationCount; });
 
-    binding.refresh();
-    EXPECT_EQ(invalidationCount, 1u);
+        binding.refresh();
+        EXPECT_EQ(invalidationCount, 1u);
 
-    // 仅更新裁剪面不会自行提交新帧；由实际输入结果决定是否失效。
-    binding.prepareFrame();
-    EXPECT_EQ(invalidationCount, 1u);
+        // 仅更新裁剪面不会自行提交新帧；由实际输入结果决定是否失效。
+        binding.prepareFrame();
+        EXPECT_EQ(invalidationCount, 1u);
 
-    binding.fitAll();
-    EXPECT_EQ(invalidationCount, 2u);
+        binding.fitAll();
+        EXPECT_EQ(invalidationCount, 2u);
+    }
 
-    binding.unbind();
-    binding.refresh();
-    binding.prepareFrame();
+    // Binding 析构后已经解除订阅，后续事务不能再触发旧回调。
+    DocumentOperationExecutor executor(session);
+    ASSERT_TRUE(executor.execute(DocumentOperation::createCurve("AfterDetach", segment(2.0))));
     EXPECT_EQ(invalidationCount, 2u);
 }
 
@@ -410,16 +398,13 @@ TEST(DocumentRenderInvalidation, SuccessfulTransactionsPublishOnceAndRefreshAuto
     auto document = std::make_unique<Document>("transaction-invalidation");
     DocumentSession session(std::move(document));
     mulan::view::ViewContext view;
-    mulan::editor::DocumentRenderBinding binding;
     size_t invalidationCount = 0;
     std::vector<mulan::editor::DocumentChangeStamp> changes;
-    binding.setFrameInvalidationCallback([&invalidationCount]() { ++invalidationCount; });
-    binding.bind(session, view);
+    mulan::editor::DocumentRenderBinding binding(session, view, [&invalidationCount]() { ++invalidationCount; });
     const auto subscription = session.subscribeChanges(
             [&changes](const mulan::editor::DocumentChangeStamp& change) { changes.push_back(change); });
 
-    DocumentOperationExecutor executor;
-    executor.bind(&session);
+    DocumentOperationExecutor executor(session);
     ASSERT_TRUE(executor.execute(DocumentOperation::createCurve("Line", segment(1.0))));
     ASSERT_EQ(changes.size(), 1u);
     EXPECT_EQ(changes.front().revision, 1u);
@@ -447,10 +432,8 @@ TEST(DocumentRenderInvalidation, SelectionPublishesVisualStateWithoutManualRefre
 
     DocumentSession session(std::move(document));
     mulan::view::ViewContext view;
-    DocumentViewBinding binding;
     size_t invalidationCount = 0;
-    binding.setFrameInvalidationCallback([&invalidationCount]() { ++invalidationCount; });
-    binding.bind(session, view);
+    DocumentViewBinding binding(session, view, [&invalidationCount]() { ++invalidationCount; });
 
     ASSERT_TRUE(binding.selectSingle(created.entity));
     EXPECT_EQ(invalidationCount, 1u);
@@ -470,8 +453,7 @@ TEST(DocumentCameraClipPlanes, CommittedOffAxisSmallCircleKeepsTheCurrentComposi
     Document* documentPtr = document.get();
     DocumentSession session(std::move(document));
     mulan::view::ViewContext view;
-    mulan::editor::DocumentRenderBinding binding;
-    binding.bind(session, view);
+    mulan::editor::DocumentRenderBinding binding(session, view);
 
     auto& camera = view.camera();
     camera.setTarget({ 0.0, 0.0, 0.0 });
@@ -517,8 +499,7 @@ TEST(DocumentCameraLifecycle, EmptyDocumentBindResetsThePreviousComposition) {
 
     auto document = std::make_unique<Document>("empty-camera-reset");
     DocumentSession session(std::move(document));
-    mulan::editor::DocumentRenderBinding binding;
-    binding.bind(session, view);
+    mulan::editor::DocumentRenderBinding binding(session, view);
 
     EXPECT_TRUE(view.camera().isOrthographic());
     EXPECT_EQ(view.camera().target(), mulan::math::Point3::origin());
@@ -535,8 +516,7 @@ TEST(DocumentCameraClipPlanes, InteractiveRangeTightensOnlyAfterTheInteractionSe
 
     DocumentSession session(std::move(document));
     mulan::view::ViewContext view;
-    mulan::editor::DocumentRenderBinding binding;
-    binding.bind(session, view);
+    mulan::editor::DocumentRenderBinding binding(session, view);
     view.camera().setClipPlanes(0.1, 1000.0);
     view.camera().setTarget({ 0.0, 0.0, 0.0 });
 
@@ -555,8 +535,7 @@ TEST(DocumentCameraClipPlanes, PreviewAndCommittedLargeCircleStayInFrontDuringOr
     Document* documentPtr = document.get();
     DocumentSession session(std::move(document));
     mulan::view::ViewContext view;
-    mulan::editor::DocumentRenderBinding binding;
-    binding.bind(session, view);
+    mulan::editor::DocumentRenderBinding binding(session, view);
 
     auto& camera = view.camera();
     camera.setOrthoSize(150.0);

@@ -29,7 +29,6 @@ struct InputEvent;
 
 namespace mulan::view {
 struct ViewConfig;
-class ViewContext;
 }  // namespace mulan::view
 
 namespace mulan::editor {
@@ -97,9 +96,6 @@ public:
     void setDocumentSession(DocumentSession* session);
     DocumentSession* session() const;
 
-    mulan::view::ViewContext& viewContext();
-    const mulan::view::ViewContext& viewContext() const;
-
     DocumentInputOutcome handleInput(const mulan::engine::InputEvent& event);
 
     /// 取消当前所有临时交互（工具 / grip / camera drag / ViewCube press）。
@@ -130,6 +126,7 @@ private:
     void clearClickTracking();
     bool isLeftDragExceedingThreshold(const mulan::engine::InputEvent& event) const;
     void trackPointerButtons(const mulan::engine::InputEvent& event);
+    void rebuildAttachment();
     void invalidateFrame() const;
     void onCommandCompleted();
     void updateHoverAtFramebuffer(double x, double y);

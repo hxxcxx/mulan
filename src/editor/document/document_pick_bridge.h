@@ -18,14 +18,12 @@ class DocumentRenderBinding;
 
 class DocumentPickBridge {
 public:
-    void bind(DocumentRenderBinding& renderBinding);
-    void unbind();
-    bool isBound() const { return render_binding_ != nullptr; }
+    explicit DocumentPickBridge(DocumentRenderBinding& renderBinding) : render_binding_(renderBinding) {}
 
     std::optional<view::RenderScene::PickResult> pickAt(const engine::Camera& camera, double x, double y);
 
 private:
-    DocumentRenderBinding* render_binding_ = nullptr;
+    DocumentRenderBinding& render_binding_;
 };
 
 }  // namespace mulan::editor

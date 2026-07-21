@@ -18,10 +18,7 @@ class CommandHistory;
 
 class DocumentOperationExecutor {
 public:
-    void bind(DocumentSession* session);
-    void unbind();
-
-    bool isBound() const { return session_ != nullptr; }
+    explicit DocumentOperationExecutor(DocumentSession& session);
     bool execute(DocumentOperation operation);
     bool undo();
     bool redo();
@@ -41,9 +38,9 @@ private:
     ApplyResult apply(DocumentOperation operation) const;
     bool publish(const ApplyResult& result) const;
 
-    DocumentSession* session_ = nullptr;
-    /// 非拥有指针：由当前 DocumentSession 持有，unbind 只解除借用。
-    CommandHistory* history_ = nullptr;
+    DocumentSession& session_;
+    /// 非拥有引用：DocumentOperationExecutor 的生命周期包含在 DocumentSession 挂接期内。
+    CommandHistory& history_;
 };
 
 }  // namespace mulan::editor

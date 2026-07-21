@@ -23,8 +23,8 @@ namespace mulan::editor {
 
 class EditorSelectionService {
 public:
-    void bind(view::ViewContext* view);
-    void unbind();
+    explicit EditorSelectionService(view::ViewContext& view);
+    ~EditorSelectionService();
 
     const EditorSelectionContext& context() const { return context_; }
     EditorSelectionContext& context() { return context_; }
@@ -43,7 +43,7 @@ public:
 
 private:
     EditorSelectionContext context_;
-    view::ViewContext* view_ = nullptr;
+    view::ViewContext& view_;
 };
 
 }  // namespace mulan::editor

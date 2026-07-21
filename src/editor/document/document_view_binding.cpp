@@ -4,27 +4,11 @@
 
 namespace mulan::editor {
 
-DocumentViewBinding::DocumentViewBinding() = default;
-
-DocumentViewBinding::~DocumentViewBinding() {
-    unbind();
-}
-
-void DocumentViewBinding::bind(DocumentSession& session, mulan::view::ViewContext& view) {
-    unbind();
-    render_binding_.bind(session, view);
-    pick_bridge_.bind(render_binding_);
-    selection_bridge_.bind(session);
-}
-
-void DocumentViewBinding::unbind() {
-    selection_bridge_.unbind();
-    pick_bridge_.unbind();
-    render_binding_.unbind();
-}
-
-void DocumentViewBinding::setFrameInvalidationCallback(std::function<void()> callback) {
-    render_binding_.setFrameInvalidationCallback(std::move(callback));
+DocumentViewBinding::DocumentViewBinding(DocumentSession& session, mulan::view::ViewContext& view,
+                                         DocumentRenderBinding::FrameInvalidationCallback frameInvalidationCallback)
+    : render_binding_(session, view, std::move(frameInvalidationCallback)),
+      pick_bridge_(render_binding_),
+      selection_bridge_(session) {
 }
 
 void DocumentViewBinding::refresh() {

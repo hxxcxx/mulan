@@ -22,21 +22,9 @@ double linePickToleranceWorld(const engine::Camera& camera) {
 
 }  // namespace
 
-void DocumentPickBridge::bind(DocumentRenderBinding& renderBinding) {
-    render_binding_ = &renderBinding;
-}
-
-void DocumentPickBridge::unbind() {
-    render_binding_ = nullptr;
-}
-
 std::optional<view::RenderScene::PickResult> DocumentPickBridge::pickAt(const engine::Camera& camera, double x,
                                                                         double y) {
-    if (!render_binding_ || !render_binding_->isBound()) {
-        return std::nullopt;
-    }
-
-    const view::RenderScene* scene = render_binding_->renderScene();
+    const view::RenderScene* scene = render_binding_.renderScene();
     if (!scene) {
         return std::nullopt;
     }

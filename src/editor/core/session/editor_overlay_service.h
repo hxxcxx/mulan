@@ -45,10 +45,7 @@ struct EditorOverlayReferenceSubmission {
 
 class EditorOverlayService {
 public:
-    void bind(view::ViewContext* view);
-    void unbind();
-
-    bool isBound() const { return preview_.isBound(); }
+    explicit EditorOverlayService(view::ViewContext& view) : preview_(view) {}
 
     void clearAll();
     void clear(EditorOverlayRole role);

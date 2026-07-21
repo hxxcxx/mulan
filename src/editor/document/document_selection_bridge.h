@@ -15,15 +15,13 @@ class DocumentSession;
 
 class DocumentSelectionBridge {
 public:
-    void bind(DocumentSession& session);
-    void unbind();
-    bool isBound() const { return session_ != nullptr; }
+    explicit DocumentSelectionBridge(DocumentSession& session) : session_(session) {}
 
     bool selectSingle(scene::EntityId entity);
     bool clearSelection();
 
 private:
-    DocumentSession* session_ = nullptr;
+    DocumentSession& session_;
 };
 
 }  // namespace mulan::editor

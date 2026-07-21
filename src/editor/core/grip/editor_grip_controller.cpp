@@ -41,26 +41,17 @@ std::optional<ScreenPoint> projectToScreen(const engine::Camera& camera, const m
 
 }  // namespace
 
-void EditorGripController::bind(DocumentSession* session, view::ViewContext* view, EditorOverlayService* overlays) {
-    session_ = session;
-    view_ = view;
-    overlays_ = overlays;
-}
-
-void EditorGripController::unbind() {
+EditorGripController::~EditorGripController() {
     clear();
-    session_ = nullptr;
-    view_ = nullptr;
-    overlays_ = nullptr;
 }
 
 void EditorGripController::refresh(const EditorSelectionContext& selection, bool enabled) {
-    if (!enabled || !session_ || !session_->document() || !view_ || !view_->isReady()) {
+    if (!enabled || !session_.document() || !view_.isReady()) {
         clear();
         return;
     }
 
-    grips_ = provider_.build(*session_->document(), selection);
+    grips_ = provider_.build(*session_.document(), selection);
     if (hovered_ && !gripById(*hovered_)) {
         hovered_.reset();
     }
@@ -70,14 +61,12 @@ void EditorGripController::refresh(const EditorSelectionContext& selection, bool
 void EditorGripController::clear() {
     grips_.clear();
     hovered_.reset();
-    if (overlays_) {
-        overlays_->clear(EditorOverlayRole::Grip);
-        overlays_->clear(EditorOverlayRole::GripHot);
-    }
+    overlays_.clear(EditorOverlayRole::Grip);
+    overlays_.clear(EditorOverlayRole::GripHot);
 }
 
 bool EditorGripController::updateHoverAtFramebuffer(double screenX, double screenY) {
-    if (!view_ || !view_->isReady()) {
+    if (!view_.isReady()) {
         clearHover();
         return false;
     }
@@ -100,11 +89,7 @@ void EditorGripController::clearHover() {
 }
 
 std::optional<EditorGrip> EditorGripController::pickAtFramebuffer(double screenX, double screenY) const {
-    if (!view_) {
-        return std::nullopt;
-    }
-
-    const engine::Camera& camera = view_->camera();
+    const engine::Camera& camera = view_.camera();
     std::optional<EditorGrip> best;
     double bestDistanceSq = 0.0;
     double bestDepth = 0.0;
@@ -133,23 +118,19 @@ std::optional<EditorGrip> EditorGripController::pickAtFramebuffer(double screenX
 }
 
 void EditorGripController::rebuildPreview() {
-    if (!overlays_ || !view_) {
-        return;
-    }
-
     const EditorGrip* hotGrip = hovered_ ? gripById(*hovered_) : nullptr;
 
     DraftGeometry gripGeometry = GripMarkerBuilder::build(
-            grips_, view_->camera(), hotGrip ? std::optional<EditorGripId>(hotGrip->id) : std::nullopt);
-    overlays_->submit(EditorOverlaySubmission(EditorOverlayRole::Grip, std::move(gripGeometry)));
+            grips_, view_.camera(), hotGrip ? std::optional<EditorGripId>(hotGrip->id) : std::nullopt);
+    overlays_.submit(EditorOverlaySubmission(EditorOverlayRole::Grip, std::move(gripGeometry)));
 
     if (!hotGrip) {
-        overlays_->clear(EditorOverlayRole::GripHot);
+        overlays_.clear(EditorOverlayRole::GripHot);
         return;
     }
 
-    DraftGeometry hotGeometry = GripMarkerBuilder::buildHot(*hotGrip, view_->camera());
-    overlays_->submit(EditorOverlaySubmission(EditorOverlayRole::GripHot, std::move(hotGeometry)));
+    DraftGeometry hotGeometry = GripMarkerBuilder::buildHot(*hotGrip, view_.camera());
+    overlays_.submit(EditorOverlaySubmission(EditorOverlayRole::GripHot, std::move(hotGeometry)));
 }
 
 const EditorGrip* EditorGripController::gripById(EditorGripId id) const {

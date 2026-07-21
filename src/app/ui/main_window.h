@@ -12,7 +12,6 @@
 #include <mulan/editor/command/command_manager.h>
 
 #include <SARibbon.h>
-#include <mulan/view/core/view_state.h>
 
 #include <string>
 #include <string_view>
@@ -44,7 +43,6 @@ private:
     void buildRibbonViewCategory();
     void buildQuickAccessBar();
     void buildRightButtonBar();
-    void setCurrentRenderMode(mulan::view::RenderMode mode);
     void updateDisplayActions();
     void updateCommandActions();
     QAction* createCommandAction(const QString& iconPath, std::string_view commandId);

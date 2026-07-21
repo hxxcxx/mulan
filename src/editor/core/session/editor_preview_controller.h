@@ -20,10 +20,7 @@ namespace mulan::editor {
 
 class EditorPreviewController {
 public:
-    void bind(view::ViewContext* view) { view_ = view; }
-    void unbind() { view_ = nullptr; }
-
-    bool isBound() const { return view_ != nullptr; }
+    explicit EditorPreviewController(view::ViewContext& view) : view_(view) {}
 
     void clearAll();
     void clearToolGeometry();
@@ -38,7 +35,7 @@ public:
     void setGripHotGeometry(DraftGeometry geometry);
 
 private:
-    view::ViewContext* view_ = nullptr;
+    view::ViewContext& view_;
 };
 
 }  // namespace mulan::editor

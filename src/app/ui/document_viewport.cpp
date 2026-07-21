@@ -208,26 +208,6 @@ mulan::editor::CommandHost DocumentViewport::commandHost() {
     return isReady() && hasDocumentSession() ? document_view_.commandHost() : mulan::editor::CommandHost{};
 }
 
-mulan::view::RenderMode DocumentViewport::renderMode() const {
-    return document_view_.renderMode();
-}
-
-void DocumentViewport::setRenderMode(mulan::view::RenderMode mode) {
-    if (isReady()) {
-        document_view_.setRenderMode(mode);
-    }
-}
-
-bool DocumentViewport::viewCubeVisible() const {
-    return document_view_.viewCubeVisible();
-}
-
-void DocumentViewport::setViewCubeVisible(bool visible) {
-    if (isReady()) {
-        document_view_.setViewCubeVisible(visible);
-    }
-}
-
 mulan::Result<mulan::view::CaptureImage> DocumentViewport::capture(mulan::view::CaptureRequest request) {
     return document_view_.capture(std::move(request));
 }

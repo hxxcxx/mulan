@@ -98,44 +98,34 @@ engine::SelectionVisualTarget visualTarget(const EditorSelectionReference& refer
 
 }  // namespace
 
-void EditorSelectionService::bind(view::ViewContext* view) {
-    view_ = view;
+EditorSelectionService::EditorSelectionService(view::ViewContext& view) : view_(view) {
     syncVisualState();
 }
 
-void EditorSelectionService::unbind() {
+EditorSelectionService::~EditorSelectionService() {
     clear();
-    if (view_) {
-        view_->clearSelectionVisualState();
-        view_->clearHoveredPickId();
-    }
-    view_ = nullptr;
+    view_.clearSelectionVisualState();
+    view_.clearHoveredPickId();
 }
 
 void EditorSelectionService::clear() {
     context_.clear();
-    if (view_) {
-        view_->clearHoveredPickId();
-    }
+    view_.clearHoveredPickId();
     syncVisualState();
 }
 
 void EditorSelectionService::clearHover() {
     context_.clearHover();
-    if (view_) {
-        view_->clearHoveredPickId();
-    }
+    view_.clearHoveredPickId();
     syncVisualState();
 }
 
 void EditorSelectionService::setHovered(std::optional<EditorSelectionHit> hit) {
     context_.setHovered(hit);
-    if (view_) {
-        if (hit) {
-            view_->setHoveredPickId(hit->reference.renderPickId());
-        } else {
-            view_->clearHoveredPickId();
-        }
+    if (hit) {
+        view_.setHoveredPickId(hit->reference.renderPickId());
+    } else {
+        view_.clearHoveredPickId();
     }
     syncVisualState();
 }
@@ -143,45 +133,35 @@ void EditorSelectionService::setHovered(std::optional<EditorSelectionHit> hit) {
 void EditorSelectionService::selectSingleAndHover(EditorSelectionHit hit) {
     context_.selectSingle(hit);
     context_.setHovered(hit);
-    if (view_) {
-        view_->setHoveredPickId(hit.reference.renderPickId());
-    }
+    view_.setHoveredPickId(hit.reference.renderPickId());
     syncVisualState();
 }
 
 void EditorSelectionService::clearSelectionAndHover() {
     context_.clearSelection();
     context_.clearHover();
-    if (view_) {
-        view_->clearHoveredPickId();
-    }
+    view_.clearHoveredPickId();
     syncVisualState();
 }
 
 void EditorSelectionService::setFilter(EditorSelectionFilter filter) {
     context_.setFilter(filter);
     context_.clearHover();
-    if (view_) {
-        view_->clearHoveredPickId();
-    }
+    view_.clearHoveredPickId();
     syncVisualState();
 }
 
 bool EditorSelectionService::pruneInvalid(const Document& document) {
     const bool changed = context_.pruneInvalid(document);
     if (changed) {
-        if (view_ && !context_.hovered())
-            view_->clearHoveredPickId();
+        if (!context_.hovered())
+            view_.clearHoveredPickId();
         syncVisualState();
     }
     return changed;
 }
 
 void EditorSelectionService::syncVisualState() {
-    if (!view_) {
-        return;
-    }
-
     engine::SelectionVisualState state;
     state.setActive(true);
     for (const EditorSelectionReference& selected : context_.selected()) {
@@ -190,7 +170,7 @@ void EditorSelectionService::syncVisualState() {
     if (const auto& hovered = context_.hovered(); hovered && hovered->valid()) {
         state.add(visualTarget(hovered->reference, engine::SelectionVisualRole::Hovered));
     }
-    view_->setSelectionVisualState(std::move(state));
+    view_.setSelectionVisualState(std::move(state));
 }
 
 }  // namespace mulan::editor

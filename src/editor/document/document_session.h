@@ -49,6 +49,7 @@ public:
     const mulan::Document* document() const { return document_.get(); }
 
     const std::string& displayName() const;
+    const std::string& filePath() const;
 
     const DocumentRenderPreferences& renderPreferences() const { return preferences_; }
     bool preferOrthographic() const { return preferences_.preferOrthographic; }
