@@ -29,8 +29,6 @@ engine::DisplayMode toDisplayMode(RenderMode mode) {
 }
 
 void applyViewState(engine::RenderFrameSubmission& submission, const ViewState& state) {
-    MULAN_PROFILE_ZONE();
-
     submission.view.viewMatrix = state.viewMatrix;
     submission.view.projectionMatrix = state.projectionMatrix;
     submission.view.cameraPosition = state.cameraPosition;
@@ -46,7 +44,6 @@ void applyViewState(engine::RenderFrameSubmission& submission, const ViewState& 
     submission.options.viewCubeLayout = state.viewCubeLayout;
     submission.options.viewCubeInteraction = state.viewCubeInteraction;
 }
-
 }  // namespace
 
 RenderSubmissionBuilder::RenderSubmissionBuilder()

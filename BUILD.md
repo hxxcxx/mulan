@@ -102,6 +102,18 @@ cmake --build --preset relwithdebinfo --parallel
 cmake --build --preset release --parallel
 ```
 
+需要完整观察局部变量或逐行调试时，使用隔离的可调试构建：
+
+```powershell
+cmake --preset msvc-debug
+cmake --build --preset debug --parallel
+& .\build\msvc-debug\bin\RelWithDebInfo\mulan.exe
+```
+
+该 preset 对项目代码使用 `/Od /Ob0 /Zi`，启用断言并关闭性能埋点。它仍使用
+Release ABI 的第三方依赖，避免 Windows 预编译 OCCT 与 Debug CRT 混用。性能测试应继续
+使用普通 `RelWithDebInfo` 或 `Release`。
+
 Windows preset 会在主程序链接后以 `copy_if_different` 补齐开发运行所需的 OCCT
 依赖和 Qt 插件，构建完成后可以直接运行：
 
