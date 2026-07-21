@@ -151,30 +151,6 @@ set(MULAN_QT_ICONENGINES_PLUGIN_DIR "${MULAN_QT_PLUGIN_DIR}/iconengines")
 set(MULAN_QT_IMAGEFORMATS_PLUGIN_DIR "${MULAN_QT_PLUGIN_DIR}/imageformats")
 set(MULAN_QT_PLATFORM_PLUGIN_DIR "${MULAN_QT_PLUGIN_DIR}/platforms")
 
-set(MULAN_QT_ICONENGINES_PLUGIN_DLLS)
-foreach(iconengines_plugin_name qsvgicon.dll qsvgicond.dll)
-    set(iconengines_plugin "${MULAN_QT_ICONENGINES_PLUGIN_DIR}/${iconengines_plugin_name}")
-    if(EXISTS "${iconengines_plugin}")
-        list(APPEND MULAN_QT_ICONENGINES_PLUGIN_DLLS "${iconengines_plugin}")
-    endif()
-endforeach()
-
-set(MULAN_QT_IMAGEFORMATS_PLUGIN_DLLS)
-foreach(imageformats_plugin_name qsvg.dll qsvgd.dll)
-    set(imageformats_plugin "${MULAN_QT_IMAGEFORMATS_PLUGIN_DIR}/${imageformats_plugin_name}")
-    if(EXISTS "${imageformats_plugin}")
-        list(APPEND MULAN_QT_IMAGEFORMATS_PLUGIN_DLLS "${imageformats_plugin}")
-    endif()
-endforeach()
-
-set(MULAN_QT_PLATFORM_PLUGIN_DLLS)
-foreach(platform_plugin_name qwindows.dll qwindowsd.dll)
-    set(platform_plugin "${MULAN_QT_PLATFORM_PLUGIN_DIR}/${platform_plugin_name}")
-    if(EXISTS "${platform_plugin}")
-        list(APPEND MULAN_QT_PLATFORM_PLUGIN_DLLS "${platform_plugin}")
-    endif()
-endforeach()
-
 if(TARGET Qt6::windeployqt)
     set(MULAN_WINDEPLOYQT_EXECUTABLE "$<TARGET_FILE:Qt6::windeployqt>")
 elseif(MULAN_QT_BIN_DIR)
@@ -186,7 +162,6 @@ endif()
 
 if(MULAN_ENABLE_DEV_RUNTIME_ENV)
     set(MULAN_DEV_RUNTIME_PATHS
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
         "${MULAN_QT_BIN_DIR}"
         "${OCCT_BIN_DIR}"
         ${MULAN_OCCT_3RDPARTY_RUNTIME_DIRS}
@@ -195,7 +170,6 @@ if(MULAN_ENABLE_DEV_RUNTIME_ENV)
         PATHS ${MULAN_DEV_RUNTIME_PATHS}
         QT_PLUGIN_DIR "${MULAN_QT_PLUGIN_DIR}"
         QT_PLATFORM_PLUGIN_DIR "${MULAN_QT_PLATFORM_PLUGIN_DIR}"
-        WORKING_DIRECTORY "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
     )
 endif()
 
@@ -219,43 +193,34 @@ if(TARGET Qt6::Svg)
     )
 endif()
 
-if(MULAN_QT_PLATFORM_PLUGIN_DLLS)
+if(TARGET Qt6::QWindowsIntegrationPlugin)
     list(APPEND MULAN_DEV_RUNTIME_COMMANDS
         COMMAND ${CMAKE_COMMAND} -E make_directory
             "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Qt6::QWindowsIntegrationPlugin>"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms"
     )
-    foreach(plugin IN LISTS MULAN_QT_PLATFORM_PLUGIN_DLLS)
-        list(APPEND MULAN_DEV_RUNTIME_COMMANDS
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${plugin}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms"
-        )
-    endforeach()
 endif()
 
-if(MULAN_QT_IMAGEFORMATS_PLUGIN_DLLS)
+if(TARGET Qt6::QSvgPlugin)
     list(APPEND MULAN_DEV_RUNTIME_COMMANDS
         COMMAND ${CMAKE_COMMAND} -E make_directory
             "$<TARGET_FILE_DIR:${PROJECT_NAME}>/imageformats"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Qt6::QSvgPlugin>"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/imageformats"
     )
-    foreach(plugin IN LISTS MULAN_QT_IMAGEFORMATS_PLUGIN_DLLS)
-        list(APPEND MULAN_DEV_RUNTIME_COMMANDS
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${plugin}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/imageformats"
-        )
-    endforeach()
 endif()
 
-if(MULAN_QT_ICONENGINES_PLUGIN_DLLS)
+if(TARGET Qt6::QSvgIconPlugin)
     list(APPEND MULAN_DEV_RUNTIME_COMMANDS
         COMMAND ${CMAKE_COMMAND} -E make_directory
             "$<TARGET_FILE_DIR:${PROJECT_NAME}>/iconengines"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Qt6::QSvgIconPlugin>"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/iconengines"
     )
-    foreach(plugin IN LISTS MULAN_QT_ICONENGINES_PLUGIN_DLLS)
-        list(APPEND MULAN_DEV_RUNTIME_COMMANDS
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${plugin}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/iconengines"
-        )
-    endforeach()
 endif()
 
 add_custom_target(${PROJECT_NAME}_dev_runtime
@@ -265,19 +230,12 @@ add_custom_target(${PROJECT_NAME}_dev_runtime
     VERBATIM
 )
 
-if(MULAN_ENABLE_POST_BUILD_DEPLOY)
-    mulan_copy_files_post_build(${PROJECT_NAME}
-        FILES ${MULAN_RUNTIME_DLL_FILES}
+if(MULAN_ENABLE_POST_BUILD_DEPLOY AND MULAN_DEV_RUNTIME_COMMANDS)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        ${MULAN_DEV_RUNTIME_COMMANDS}
+        COMMENT "Preparing the minimal development runtime..."
+        VERBATIM
     )
-
-    if(MULAN_DEPLOY_QT_WITH_WINDEPLOYQT AND MULAN_WINDEPLOYQT_EXECUTABLE)
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND "${MULAN_WINDEPLOYQT_EXECUTABLE}"
-                --no-translations --no-opengl-sw --no-system-d3d-compiler
-                "$<TARGET_FILE:${PROJECT_NAME}>"
-            COMMENT "Deploying Qt runtime via windeployqt..."
-        )
-    endif()
 endif()
 
 if(MULAN_ENABLE_RUNTIME_DEPLOY_TARGET)

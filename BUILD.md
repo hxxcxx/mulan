@@ -32,11 +32,12 @@ git clone https://github.com/microsoft/vcpkg.git <vcpkg-root>
 ```
 
 Windows 执行 `bootstrap-vcpkg.bat`，Linux 执行 `bootstrap-vcpkg.sh -disableMetrics`。
-配置前需要让当前终端具有 `VCPKG_ROOT`：
+配置前需要指定 vcpkg toolchain：
 
 ```powershell
 # Windows PowerShell
 $env:VCPKG_ROOT = '<vcpkg-root>'
+$env:CMAKE_TOOLCHAIN_FILE = "$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
 ```
 
 ```bash
@@ -45,8 +46,9 @@ export VCPKG_ROOT="$HOME/tools/vcpkg"
 export PATH="$VCPKG_ROOT:$PATH"
 ```
 
-Preset 通过父进程环境变量构造 vcpkg toolchain 路径，因此必须在运行
-`cmake --preset ...` 之前设置它。首次配置会由 vcpkg 自动安装依赖。
+Windows preset 直接读取父进程的 `CMAKE_TOOLCHAIN_FILE`。Visual Studio 开发
+环境可能把 `VCPKG_ROOT` 改为其内置 vcpkg，因此不能用它推导 Windows toolchain。
+Linux preset 仍通过 `VCPKG_ROOT` 构造路径。首次配置会由 vcpkg 自动安装依赖。
 
 ### vcpkg 二进制缓存
 
@@ -100,10 +102,10 @@ cmake --build --preset relwithdebinfo --parallel
 cmake --build --preset release --parallel
 ```
 
-运行前准备开发所需的 DLL 和 Qt 插件：
+Windows preset 会在主程序链接后以 `copy_if_different` 补齐开发运行所需的 OCCT
+依赖和 Qt 插件，构建完成后可以直接运行：
 
 ```powershell
-cmake --build build/msvc --config RelWithDebInfo --target mulan_dev_runtime --parallel
 & .\build\msvc\bin\RelWithDebInfo\mulan.exe
 ```
 
@@ -204,8 +206,9 @@ profiler 的 RelWithDebInfo 即可。
 
 ### Preset 报 vcpkg toolchain 不存在
 
-确认当前终端已设置 `VCPKG_ROOT`。修改环境变量后需在同一终端重新执行
-configure preset。
+Windows 确认 `CMAKE_TOOLCHAIN_FILE` 指向目标 vcpkg 的
+`scripts/buildsystems/vcpkg.cmake`；Linux 确认 `VCPKG_ROOT` 已设置。修改环境变量
+后需在同一终端重新执行 configure preset。
 
 ### Windows 找不到 OCCT
 
@@ -219,8 +222,8 @@ Linux OCCT 7.6.x，不会使用 Windows 的 OCCT 预编译包。
 
 ### Windows 运行时缺少 DLL 或 Qt platform plugin
 
-开发运行前构建 `mulan_dev_runtime`；需要完整可分发目录时构建
-`mulan_deploy_runtime`。不要在每次普通编译后运行完整部署。
+重新执行 Windows configure preset，并正常构建 `mulan`。Windows preset 会自动准备
+最小开发运行时；需要完整可分发目录时再构建 `mulan_deploy_runtime`。
 
 ### 大幅修改工具链后缓存异常
 

@@ -42,11 +42,11 @@ include(MulanHeaders)
 include(MulanDeploy)
 include(MulanShaders)
 
-# MSVC: 源文件为 UTF-8，避免 C4819 编码警告
+# MSVC: 源文件使用 UTF-8，并允许单个 target 并行编译多个翻译单元。
 if(MSVC)
-    # 即使 MSBuild 串行执行，Visual Studio 仍可能为单个 target 启动多个编译进程。
-    # /FS 用于协调项目 target 和内嵌第三方 target 对共享 PDB 文件的写入。
-    add_compile_options(/utf-8 /FS)
+    # 不指定 /MP 的进程数，由 MSVC 根据当前机器和 MSBuild 调度自行决定。
+    # /FS 用于协调并行编译进程对共享 PDB 文件的写入。
+    add_compile_options(/utf-8 /MP /FS)
 endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)

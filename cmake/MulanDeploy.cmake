@@ -108,7 +108,10 @@ function(mulan_configure_windows_debug_runtime target)
     endif()
 
     if(debug_environment)
-        set_property(TARGET ${target} PROPERTY VS_DEBUGGER_ENVIRONMENT "${debug_environment}")
+        # Visual Studio 要求每个环境变量独占一行；CMake list 的分号会被原样写入
+        # vcxproj，从而把后续的 QT_* 赋值误当成 PATH 的一部分。
+        list(JOIN debug_environment "\n" debug_environment_text)
+        set_property(TARGET ${target} PROPERTY VS_DEBUGGER_ENVIRONMENT "${debug_environment_text}")
     endif()
 
     if(ARG_WORKING_DIRECTORY)

@@ -13,9 +13,14 @@
             "generator": "Visual Studio 18 2026",
             "architecture": "x64",
             "binaryDir": "${sourceDir}/build/msvc",
-            "toolchainFile": "$penv{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+            "toolchainFile": "$penv{CMAKE_TOOLCHAIN_FILE}",
+            "environment": {
+                "VSLANG": "1033"
+            },
             "cacheVariables": {
                 "MULAN_PROFILER_BACKEND": "builtin",
+                "MULAN_ENABLE_DEV_RUNTIME_ENV": "OFF",
+                "MULAN_ENABLE_POST_BUILD_DEPLOY": "ON",
                 "VCPKG_MANIFEST_FEATURES": "windows-qt-deploy",
                 "VCPKG_OVERLAY_PORTS": "${sourceDir}/cmake/vcpkg-overlay-ports",
                 "OCCT_ROOT": {
