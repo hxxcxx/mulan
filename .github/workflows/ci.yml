@@ -98,7 +98,10 @@ jobs:
 
       # ── Configure & Build ──
       - name: Configure CMake
-        run: cmake --preset msvc
+        shell: pwsh
+        run: |
+          $env:CMAKE_TOOLCHAIN_FILE = Join-Path $env:VCPKG_ROOT "scripts/buildsystems/vcpkg.cmake"
+          cmake --preset msvc
 
       - name: Build
         run: cmake --build --preset release -- /maxcpucount
