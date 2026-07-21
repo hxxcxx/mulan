@@ -8,13 +8,13 @@
 #pragma once
 
 #include "render_item_builder.h"
+#include "render_resource_delta.h"
 
 #include <mulan/asset/asset_id.h>
 #include <mulan/asset/asset_change.h>
 #include <mulan/render/frontend/render_world.h>
 #include <mulan/render/frontend/render_resource_prepare.h>
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -76,7 +76,7 @@ public:
     bool referencedAssetsChanged(const asset::AssetLibrary& assets) const;
 
     /// 渲染线程重建后保留 CPU 差量基线，但下次 rebuild 必须完整重传当前存活资源。
-    void invalidateResources() { force_full_prepare_ = true; }
+    void invalidateResources() { resource_delta_.invalidate(); }
 
     /// 丢弃所有 world/resource 基线，仅用于上层整体 reset。
     void reset();
@@ -88,14 +88,9 @@ private:
     struct SceneState;
 
     RenderWorldSyncStats last_stats_;
-    // [0]=内容源版本（资产 revision 或 Preview generation），[1..2]=mesh 内容指纹。源版本只控制是否重算指纹，
-    // 实际上传仍以单个 subresource 的双指纹变化为准。
-    std::unordered_map<engine::RenderResourceKey, std::array<uint64_t, 3>> geometry_revisions_;
-    std::unordered_map<engine::RenderTextureResourceKey, uint64_t, engine::RenderTextureResourceKeyHash>
-            texture_revisions_;
+    detail::RenderResourceDelta resource_delta_;
     std::unordered_map<asset::AssetId, uint64_t> referenced_asset_revisions_;
     mutable asset::AssetChangeCursor asset_change_cursor_;
-    bool force_full_prepare_ = true;
     std::unique_ptr<SceneState> scene_state_;
 };
 

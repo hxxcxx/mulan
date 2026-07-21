@@ -1,7 +1,7 @@
 #include "render_world_sync.h"
-#include "render_scene.h"
-#include "scene_proxy.h"
-#include "../core/preview_layer.h"
+#include "../render_scene.h"
+#include "../scene_proxy.h"
+#include "../../core/preview_layer.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/asset/geometry_asset.h>
@@ -23,73 +23,9 @@ namespace mulan::view {
 namespace {
 
 using AssetRevisionMap = std::unordered_map<asset::AssetId, uint64_t>;
-using GeometryContentRevision = std::array<uint64_t, 3>;
-
-struct GeometryResourceCandidate {
-    const graphics::Mesh* mesh = nullptr;
-    uint64_t sourceRevision = 0;
-};
-
-using GeometryResourceCandidateMap = std::unordered_map<engine::RenderResourceKey, GeometryResourceCandidate>;
-
-struct TextureResourceCandidate {
-    std::shared_ptr<const core::Image> image;
-    uint64_t contentRevision = 0;
-};
-
-using TextureResourceCandidateMap = std::unordered_map<engine::RenderTextureResourceKey, TextureResourceCandidate,
-                                                       engine::RenderTextureResourceKeyHash>;
-using TextureRevisionMap =
-        std::unordered_map<engine::RenderTextureResourceKey, uint64_t, engine::RenderTextureResourceKeyHash>;
-
-void hashValue(uint64_t& hash, uint64_t value) {
-    constexpr uint64_t kFnvPrime = 1099511628211ull;
-    for (size_t byte = 0; byte < sizeof(value); ++byte) {
-        hash ^= (value >> (byte * 8u)) & 0xffu;
-        hash *= kFnvPrime;
-    }
-}
-
-void hashBytes(uint64_t& hash, std::span<const std::byte> bytes) {
-    constexpr uint64_t kFnvPrime = 1099511628211ull;
-    hashValue(hash, bytes.size());
-    for (const std::byte value : bytes) {
-        hash ^= std::to_integer<uint8_t>(value);
-        hash *= kFnvPrime;
-    }
-}
-
-std::pair<uint64_t, uint64_t> meshContentFingerprint(const graphics::Mesh& mesh) {
-    uint64_t primary = 14695981039346656037ull;
-    uint64_t secondary = 7809847782465536322ull;
-    auto mixValue = [&](uint64_t value) {
-        hashValue(primary, value);
-        hashValue(secondary, value ^ 0x9e3779b97f4a7c15ull);
-    };
-    auto mixBytes = [&](std::span<const std::byte> bytes) {
-        hashBytes(primary, bytes);
-        hashBytes(secondary, bytes);
-    };
-
-    mixValue(mesh.layout.stride());
-    mixValue(mesh.layout.attrCount());
-    mixValue(mesh.layout.bufferCount());
-    for (const graphics::VertexAttribute& attribute : mesh.layout.attributes()) {
-        mixValue(static_cast<uint64_t>(attribute.semantic));
-        mixValue(static_cast<uint64_t>(attribute.format));
-        mixValue(attribute.offset);
-        mixValue(attribute.bufferSlot);
-    }
-    mixValue(static_cast<uint64_t>(mesh.indexType));
-    mixValue(static_cast<uint64_t>(mesh.topology));
-    mixBytes(mesh.vertices);
-    mixBytes(mesh.indices);
-    return { primary, secondary };
-}
-
-bool geometryContentChanged(const GeometryContentRevision& previous, const GeometryContentRevision& current) {
-    return previous[1] != current[1] || previous[2] != current[2];
-}
+using detail::GeometryResourceCandidate;
+using detail::GeometryResourceCandidateMap;
+using detail::TextureResourceCandidateMap;
 
 void observeAssetReference(asset::AssetId id, const asset::Asset* source, AssetRevisionMap& revisions) {
     if (!id) {
@@ -98,38 +34,6 @@ void observeAssetReference(asset::AssetId id, const asset::Asset* source, AssetR
     // 0 是“引用存在但资产尚未出现”的等待版本；有效资产 revision 从 1 开始。
     // 这样资产创建事件只会唤醒真实等待者，无关成员变化不会触发 world 重建。
     revisions.insert_or_assign(id, source ? source->revision() : 0);
-}
-
-engine::RenderTextureResourceKey textureResourceKey(const engine::RenderTextureDesc& texture) {
-    return engine::RenderTextureResourceKey{
-        .resourceKey = texture.resourceKey,
-        .srgb = texture.srgb,
-        .generateMips = texture.generateMips,
-    };
-}
-
-void collectTextureResource(TextureResourceCandidateMap& resources, const engine::RenderTextureDesc& texture) {
-    const engine::RenderTextureResourceKey identity = textureResourceKey(texture);
-    if (!identity || !texture.image || !texture.image->valid()) {
-        return;
-    }
-    resources.insert_or_assign(identity, TextureResourceCandidate{
-                                                 .image = texture.image,
-                                                 .contentRevision = texture.contentRevision,
-                                         });
-}
-
-void collectMaterialTextureResources(TextureResourceCandidateMap& resources,
-                                     const engine::RenderMaterialDesc& material) {
-    collectTextureResource(resources, material.baseColorTexture);
-    collectTextureResource(resources, material.normalTexture);
-    collectTextureResource(resources, material.metallicRoughnessTexture);
-    collectTextureResource(resources, material.emissiveTexture);
-    collectTextureResource(resources, material.ambientOcclusionTexture);
-    collectTextureResource(resources, material.ambientTexture);
-    collectTextureResource(resources, material.specularTexture);
-    collectTextureResource(resources, material.shininessTexture);
-    collectTextureResource(resources, material.opacityTexture);
 }
 
 engine::RenderTextureDesc textureDesc(const asset::AssetLibrary& assets, asset::AssetId materialId,
@@ -405,134 +309,6 @@ void appendPreviewReferences(const PreviewLayer& preview, const RenderScene& sce
     }
 }
 
-bool resourceKeyLess(const engine::RenderResourceKey& lhs, const engine::RenderResourceKey& rhs) {
-    if (lhs.domain.value != rhs.domain.value) {
-        return lhs.domain.value < rhs.domain.value;
-    }
-    if (lhs.source != rhs.source) {
-        return lhs.source < rhs.source;
-    }
-    if (lhs.subresource != rhs.subresource) {
-        return lhs.subresource < rhs.subresource;
-    }
-    return lhs.kind < rhs.kind;
-}
-
-void buildGeometryResourceDelta(const GeometryResourceCandidateMap& current,
-                                std::unordered_map<engine::RenderResourceKey, GeometryContentRevision>& previous,
-                                bool forceFullPrepare, engine::RenderResourcePrepareList* prepare) {
-    if (!prepare) {
-        return;
-    }
-
-    std::vector<engine::RenderResourceKey> retiredKeys;
-    retiredKeys.reserve(previous.size());
-    for (const auto& [key, revision] : previous) {
-        (void) revision;
-        if (!current.contains(key)) {
-            retiredKeys.push_back(key);
-        }
-    }
-    std::ranges::sort(retiredKeys, resourceKeyLess);
-    for (const engine::RenderResourceKey key : retiredKeys) {
-        prepare->retireGeometry(key);
-    }
-
-    std::vector<engine::RenderResourceKey> currentKeys;
-    currentKeys.reserve(current.size());
-    for (const auto& [key, resource] : current) {
-        (void) resource;
-        currentKeys.push_back(key);
-    }
-    std::ranges::sort(currentKeys, resourceKeyLess);
-
-    std::unordered_map<engine::RenderResourceKey, GeometryContentRevision> next;
-    next.reserve(current.size());
-    for (const engine::RenderResourceKey key : currentKeys) {
-        const GeometryResourceCandidate& resource = current.at(key);
-        const auto previousIt = previous.find(key);
-        const bool existed = previousIt != previous.end();
-        GeometryContentRevision currentRevision{ resource.sourceRevision, 0, 0 };
-        if (existed && previousIt->second[0] == resource.sourceRevision) {
-            // transform/selection/material 等 world-only rebuild 不会扫描大网格字节；
-            // 只有新 key 或对应内容源版本变化时才重算该 key 的指纹。
-            currentRevision = previousIt->second;
-        } else {
-            const auto [primary, secondary] = meshContentFingerprint(*resource.mesh);
-            currentRevision[1] = primary;
-            currentRevision[2] = secondary;
-        }
-        const bool revisionChanged = existed && geometryContentChanged(previousIt->second, currentRevision);
-        if (forceFullPrepare || !existed || revisionChanged) {
-            // 全量恢复和内容版本变化都允许覆盖 registry 中可能存在的旧实例。
-            prepare->addGeometry(key, *resource.mesh, forceFullPrepare || revisionChanged);
-        }
-        next.emplace(key, currentRevision);
-    }
-
-    previous = std::move(next);
-}
-
-bool textureKeyLess(const engine::RenderTextureResourceKey& lhs, const engine::RenderTextureResourceKey& rhs) {
-    if (lhs.resourceKey.domain.value != rhs.resourceKey.domain.value) {
-        return lhs.resourceKey.domain.value < rhs.resourceKey.domain.value;
-    }
-    if (lhs.resourceKey.source != rhs.resourceKey.source) {
-        return lhs.resourceKey.source < rhs.resourceKey.source;
-    }
-    if (lhs.resourceKey.subresource != rhs.resourceKey.subresource) {
-        return lhs.resourceKey.subresource < rhs.resourceKey.subresource;
-    }
-    if (lhs.resourceKey.kind != rhs.resourceKey.kind) {
-        return lhs.resourceKey.kind < rhs.resourceKey.kind;
-    }
-    if (lhs.srgb != rhs.srgb) {
-        return lhs.srgb < rhs.srgb;
-    }
-    return lhs.generateMips < rhs.generateMips;
-}
-
-void buildTextureResourceDelta(const TextureResourceCandidateMap& current, TextureRevisionMap& previous,
-                               bool forceFullPrepare, engine::RenderResourcePrepareList* prepare) {
-    if (!prepare) {
-        return;
-    }
-
-    std::vector<engine::RenderTextureResourceKey> retiredKeys;
-    retiredKeys.reserve(previous.size());
-    for (const auto& [key, revision] : previous) {
-        (void) revision;
-        if (!current.contains(key)) {
-            retiredKeys.push_back(key);
-        }
-    }
-    std::ranges::sort(retiredKeys, textureKeyLess);
-    for (const engine::RenderTextureResourceKey& key : retiredKeys) {
-        prepare->retireTexture(key);
-    }
-
-    std::vector<engine::RenderTextureResourceKey> currentKeys;
-    currentKeys.reserve(current.size());
-    for (const auto& [key, resource] : current) {
-        (void) resource;
-        currentKeys.push_back(key);
-    }
-    std::ranges::sort(currentKeys, textureKeyLess);
-
-    TextureRevisionMap next;
-    next.reserve(current.size());
-    for (const engine::RenderTextureResourceKey& key : currentKeys) {
-        const TextureResourceCandidate& resource = current.at(key);
-        const auto known = previous.find(key);
-        const bool changed = known == previous.end() || known->second != resource.contentRevision;
-        if (forceFullPrepare || changed) {
-            prepare->addTexture(key, resource.image, resource.contentRevision);
-        }
-        next.emplace(key, resource.contentRevision);
-    }
-    previous = std::move(next);
-}
-
 }  // namespace
 
 struct RenderWorldSync::SceneState {
@@ -604,7 +380,7 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
         std::unordered_set<asset::AssetId> dependencies;
     };
 
-    bool resourceStateChanged = fullRebuild || force_full_prepare_;
+    bool resourceStateChanged = fullRebuild || resource_delta_.invalidated();
 
     auto removeDependencyLinks = [&](scene::EntityId entity, const SceneState::ObjectEntry& entry) {
         for (asset::AssetId dependency : entry.dependencies) {
@@ -852,7 +628,6 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
         patchEntity(entity);
     }
 
-    const bool forceFullPrepare = force_full_prepare_;
     if (resourceStateChanged) {
         GeometryResourceCandidateMap geometryResources;
         for (const auto& [key, entry] : state.geometries) {
@@ -862,13 +637,9 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
         TextureResourceCandidateMap textureResources;
         for (const auto& [key, entry] : state.materials) {
             (void) key;
-            collectMaterialTextureResources(textureResources, entry.desc);
+            detail::collectMaterialTextureResources(textureResources, entry.desc);
         }
-        buildGeometryResourceDelta(geometryResources, geometry_revisions_, forceFullPrepare, prepare);
-        buildTextureResourceDelta(textureResources, texture_revisions_, forceFullPrepare, prepare);
-    }
-    if (prepare) {
-        force_full_prepare_ = false;
+        resource_delta_.build(geometryResources, textureResources, prepare);
     }
     asset_change_cursor_ = assets.currentChangeCursor();
     state.cursor = scene.currentChangeCursor();
@@ -907,10 +678,7 @@ void RenderWorldSync::rebuildOverlay(const RenderScene* scene, const asset::Asse
         }
     }
 
-    buildGeometryResourceDelta(resources, geometry_revisions_, force_full_prepare_, prepare);
-    buildTextureResourceDelta({}, texture_revisions_, force_full_prepare_, prepare);
-    if (prepare)
-        force_full_prepare_ = false;
+    resource_delta_.build(resources, {}, prepare);
     referenced_asset_revisions_ = std::move(referencedAssets);
     asset_change_cursor_ = assets ? assets->currentChangeCursor() : asset::AssetChangeCursor{};
     last_stats_.worldObjectCount = world.objectCount();
@@ -924,19 +692,14 @@ void RenderWorldSync::rebuildEmpty(engine::RenderWorld& world, engine::RenderRes
     if (prepare) {
         prepare->clear();
     }
-    const bool forceFullPrepare = force_full_prepare_;
-    buildGeometryResourceDelta({}, geometry_revisions_, forceFullPrepare, prepare);
-    buildTextureResourceDelta({}, texture_revisions_, forceFullPrepare, prepare);
-    if (prepare) {
-        force_full_prepare_ = false;
-    }
+    resource_delta_.build({}, {}, prepare);
     referenced_asset_revisions_.clear();
     asset_change_cursor_ = {};
     *scene_state_ = {};
 }
 
 bool RenderWorldSync::referencedAssetsChanged(const asset::AssetLibrary& assets) const {
-    if (force_full_prepare_) {
+    if (resource_delta_.invalidated()) {
         return true;
     }
     const asset::AssetChangeSet changes = assets.readChanges(asset_change_cursor_);
@@ -956,11 +719,9 @@ bool RenderWorldSync::referencedAssetsChanged(const asset::AssetLibrary& assets)
 
 void RenderWorldSync::reset() {
     last_stats_.reset();
-    geometry_revisions_.clear();
-    texture_revisions_.clear();
+    resource_delta_.reset();
     referenced_asset_revisions_.clear();
     asset_change_cursor_ = {};
-    force_full_prepare_ = true;
     *scene_state_ = {};
 }
 

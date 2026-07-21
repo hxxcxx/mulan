@@ -8,7 +8,7 @@
 
 #include "../../core/view_config.h"
 #include "../../core/view_state.h"
-#include "../../scene_sync/render_submission_builder.h"
+#include "../../scene_sync/projection/render_submission_builder.h"
 
 #include <mulan/render/runtime/render_session.h>
 

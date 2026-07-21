@@ -1,6 +1,6 @@
 /**
  * @file scene_spatial_index.h
- * @brief RenderScene 可见代理的可增量更新空间索引适配层。
+ * @brief RenderScene 可见代理的增量空间索引适配层。
  * @author hxxcxx
  * @date 2026-07-16
  *

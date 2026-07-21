@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "render_scene.h"
+#include "../render_scene.h"
 
 namespace mulan::view {
 

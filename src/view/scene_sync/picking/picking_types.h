@@ -4,7 +4,7 @@
  * @author hxxcxx
  * @date 2026-07-11
  *
- * 本头文件仅供 view::scene_sync 内部拾取实现使用，不对外暴露。
+ * 本头文件仅供 view 内部拾取实现使用，不对外暴露。
  */
 #pragma once
 

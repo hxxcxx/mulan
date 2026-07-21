@@ -1,6 +1,6 @@
 /**
  * @file primitive_pick_index.cpp
- * @brief 资产图元静态拾取 BVH 的构建、查询与版本缓存实现。
+ * @brief 资产图元静态拾取 BVH 的构建、查询和版本缓存实现。
  * @author hxxcxx
  * @date 2026-07-16
  */

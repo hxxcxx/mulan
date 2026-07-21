@@ -1,6 +1,6 @@
 /**
  * @file curve_picking.cpp
- * @brief 曲线拾取实现。
+ * @brief 曲线精确拾取实现。
  * @author hxxcxx
  * @date 2026-07-11
  */

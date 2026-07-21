@@ -1,6 +1,6 @@
 /**
  * @file asset_picking.h
- * @brief 资产级拾取：遍历资产 drawable / 曲线图元，委托 mesh/curve picking。
+ * @brief 资产级拾取：遍历资产 drawable / 曲线图元并委托精确拾取。
  * @author hxxcxx
  * @date 2026-07-11
  */

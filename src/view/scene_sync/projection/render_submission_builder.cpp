@@ -6,8 +6,8 @@
  */
 
 #include "render_submission_builder.h"
-#include "render_scene.h"
-#include "../core/preview_layer.h"
+#include "../render_scene.h"
+#include "../../core/preview_layer.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/core/profiling/profile.h>
@@ -58,26 +58,28 @@ void RenderSubmissionBuilder::reset() {
     assets_ = nullptr;
     asset_resource_domain_ = {};
     preview_ = nullptr;
-    last_scene_generation_ = 0;
     bound_scene_change_domain_ = 0;
-    last_scene_change_domain_ = 0;
-    last_overlay_scene_change_domain_ = 0;
-    last_preview_generation_ = 0;
-    last_overlay_scene_generation_ = 0;
-    scene_source_dirty_ = true;
-    preview_source_dirty_ = true;
-    overlay_reference_source_dirty_ = true;
-    scene_world_.clear();
-    overlay_world_.clear();
-    scene_world_snapshot_.reset();
-    overlay_world_snapshot_.reset();
-    last_scene_sync_stats_ = {};
-    last_overlay_sync_stats_ = {};
+
+    scene_projection_.generation = 0;
+    scene_projection_.changeDomain = 0;
+    scene_projection_.sourceDirty = true;
+    scene_projection_.world.clear();
+    scene_projection_.snapshot.reset();
+    scene_projection_.stats = {};
+    scene_projection_.sync.reset();
+
+    overlay_projection_.previewGeneration = 0;
+    overlay_projection_.sceneGeneration = 0;
+    overlay_projection_.sceneChangeDomain = 0;
+    overlay_projection_.previewSourceDirty = true;
+    overlay_projection_.referenceSourceDirty = true;
+    overlay_projection_.world.clear();
+    overlay_projection_.snapshot.reset();
+    overlay_projection_.stats = {};
+    overlay_projection_.sync.reset();
+
     light_environment_ = {};
-    pending_prepare_.clear();
-    resource_batch_id_ = 0;
-    scene_world_sync_.reset();
-    overlay_world_sync_.reset();
+    resource_outbox_.reset();
 }
 
 void RenderSubmissionBuilder::setScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
@@ -98,8 +100,8 @@ void RenderSubmissionBuilder::setScene(const RenderScene* scene, const asset::As
     if (assetDomainChanged) {
         invalidateResources();
     } else {
-        scene_source_dirty_ = true;
-        overlay_reference_source_dirty_ = true;
+        scene_projection_.sourceDirty = true;
+        overlay_projection_.referenceSourceDirty = true;
     }
 }
 
@@ -108,8 +110,8 @@ void RenderSubmissionBuilder::setPreviewLayer(const PreviewLayer* preview) {
         return;
     preview_ = preview;
     // 预览 key 按角色槽位稳定复用；换源时强制覆盖当前存活的小型资源集。
-    overlay_world_sync_.invalidateResources();
-    preview_source_dirty_ = true;
+    overlay_projection_.sync.invalidateResources();
+    overlay_projection_.previewSourceDirty = true;
 }
 
 void RenderSubmissionBuilder::setLightEnvironment(const engine::LightEnvironment& lightEnvironment) {
@@ -131,48 +133,48 @@ engine::RenderFrameSubmission RenderSubmissionBuilder::build(const ViewState& vi
 }
 
 void RenderSubmissionBuilder::acknowledgeResources(uint64_t batchId) {
-    if (batchId != 0 && batchId == resource_batch_id_)
-        pending_prepare_.clear();
+    resource_outbox_.acknowledge(batchId);
 }
 
 void RenderSubmissionBuilder::invalidateResources() {
-    pending_prepare_.clear();
-    advanceResourceBatch();
-    scene_world_sync_.invalidateResources();
-    overlay_world_sync_.invalidateResources();
-    scene_source_dirty_ = true;
-    preview_source_dirty_ = true;
-    overlay_reference_source_dirty_ = true;
+    resource_outbox_.invalidate();
+    scene_projection_.sync.invalidateResources();
+    overlay_projection_.sync.invalidateResources();
+    scene_projection_.sourceDirty = true;
+    overlay_projection_.previewSourceDirty = true;
+    overlay_projection_.referenceSourceDirty = true;
 }
 
 bool RenderSubmissionBuilder::needsSceneRebuild() const {
     MULAN_PROFILE_ZONE();
 
-    if (scene_source_dirty_)
+    if (scene_projection_.sourceDirty)
         return true;
     const uint64_t sceneGeneration = scene_ ? scene_->generation() : 0;
-    if (sceneGeneration != last_scene_generation_ || sceneChangeDomain(scene_) != last_scene_change_domain_)
+    if (sceneGeneration != scene_projection_.generation ||
+        sceneChangeDomain(scene_) != scene_projection_.changeDomain) {
         return true;
-    return scene_ && assets_ && scene_world_sync_.referencedAssetsChanged(*assets_);
+    }
+    return scene_ && assets_ && scene_projection_.sync.referencedAssetsChanged(*assets_);
 }
 
 bool RenderSubmissionBuilder::needsOverlayRebuild() const {
     MULAN_PROFILE_ZONE();
 
-    if (preview_source_dirty_ || overlay_reference_source_dirty_)
+    if (overlay_projection_.previewSourceDirty || overlay_projection_.referenceSourceDirty)
         return true;
     const uint64_t previewGeneration = preview_ ? preview_->generation() : 0;
-    if (previewGeneration != last_preview_generation_)
+    if (previewGeneration != overlay_projection_.previewGeneration)
         return true;
     if (preview_ && !preview_->references().empty()) {
         const uint64_t sceneGeneration = scene_ ? scene_->generation() : 0;
-        if (sceneGeneration != last_overlay_scene_generation_ ||
-            sceneChangeDomain(scene_) != last_overlay_scene_change_domain_) {
+        if (sceneGeneration != overlay_projection_.sceneGeneration ||
+            sceneChangeDomain(scene_) != overlay_projection_.sceneChangeDomain) {
             return true;
         }
     }
     return preview_ && !preview_->references().empty() && assets_ &&
-           overlay_world_sync_.referencedAssetsChanged(*assets_);
+           overlay_projection_.sync.referencedAssetsChanged(*assets_);
 }
 
 void RenderSubmissionBuilder::rebuildScene(engine::RenderFrameSubmission& submission) {
@@ -180,55 +182,48 @@ void RenderSubmissionBuilder::rebuildScene(engine::RenderFrameSubmission& submis
 
     engine::RenderResourcePrepareList prepare;
     if (!scene_ || !assets_) {
-        scene_world_sync_.rebuildEmpty(scene_world_, &prepare);
-        scene_world_snapshot_.reset();
+        scene_projection_.sync.rebuildEmpty(scene_projection_.world, &prepare);
+        scene_projection_.snapshot.reset();
     } else {
-        scene_world_sync_.rebuildScene(*scene_, *assets_, asset_resource_domain_, scene_world_, &prepare);
-        scene_world_snapshot_ = std::make_shared<engine::RenderWorldSnapshot>(scene_world_.snapshot());
+        scene_projection_.sync.rebuildScene(*scene_, *assets_, asset_resource_domain_, scene_projection_.world,
+                                            &prepare);
+        scene_projection_.snapshot = std::make_shared<engine::RenderWorldSnapshot>(scene_projection_.world.snapshot());
     }
-    last_scene_sync_stats_ = scene_world_sync_.lastStats();
+    scene_projection_.stats = scene_projection_.sync.lastStats();
     submission.prepare.merge(prepare);
-    last_scene_generation_ = scene_ ? scene_->generation() : 0;
-    last_scene_change_domain_ = sceneChangeDomain(scene_);
-    scene_source_dirty_ = false;
+    scene_projection_.generation = scene_ ? scene_->generation() : 0;
+    scene_projection_.changeDomain = sceneChangeDomain(scene_);
+    scene_projection_.sourceDirty = false;
 }
 
 void RenderSubmissionBuilder::rebuildOverlay(engine::RenderFrameSubmission& submission) {
     MULAN_PROFILE_ZONE();
 
     engine::RenderResourcePrepareList prepare;
-    overlay_world_sync_.rebuildOverlay(scene_, assets_, asset_resource_domain_, preview_resource_domain_, preview_,
-                                       overlay_world_, &prepare);
-    if (overlay_world_.objectCount() == 0) {
-        overlay_world_snapshot_.reset();
+    overlay_projection_.sync.rebuildOverlay(scene_, assets_, asset_resource_domain_, preview_resource_domain_, preview_,
+                                            overlay_projection_.world, &prepare);
+    if (overlay_projection_.world.objectCount() == 0) {
+        overlay_projection_.snapshot.reset();
     } else {
-        overlay_world_snapshot_ = std::make_shared<engine::RenderWorldSnapshot>(overlay_world_.snapshot());
+        overlay_projection_.snapshot =
+                std::make_shared<engine::RenderWorldSnapshot>(overlay_projection_.world.snapshot());
     }
-    last_overlay_sync_stats_ = overlay_world_sync_.lastStats();
+    overlay_projection_.stats = overlay_projection_.sync.lastStats();
     submission.prepare.merge(prepare);
-    last_preview_generation_ = preview_ ? preview_->generation() : 0;
-    last_overlay_scene_generation_ = scene_ ? scene_->generation() : 0;
-    last_overlay_scene_change_domain_ = sceneChangeDomain(scene_);
-    preview_source_dirty_ = false;
-    overlay_reference_source_dirty_ = false;
+    overlay_projection_.previewGeneration = preview_ ? preview_->generation() : 0;
+    overlay_projection_.sceneGeneration = scene_ ? scene_->generation() : 0;
+    overlay_projection_.sceneChangeDomain = sceneChangeDomain(scene_);
+    overlay_projection_.previewSourceDirty = false;
+    overlay_projection_.referenceSourceDirty = false;
 }
 
 void RenderSubmissionBuilder::finalizeSubmission(engine::RenderFrameSubmission& submission) {
     MULAN_PROFILE_ZONE();
 
-    if (!submission.prepare.empty()) {
-        pending_prepare_.merge(submission.prepare);
-        advanceResourceBatch();
-    }
-    submission.prepare = pending_prepare_;
-    submission.resourceBatchId = pending_prepare_.empty() ? 0 : resource_batch_id_;
-    submission.sceneWorld = scene_world_snapshot_;
-    submission.overlayWorld = overlay_world_snapshot_;
-}
-
-void RenderSubmissionBuilder::advanceResourceBatch() {
-    if (++resource_batch_id_ == 0)
-        resource_batch_id_ = 1;
+    resource_outbox_.merge(submission.prepare);
+    resource_outbox_.attachTo(submission);
+    submission.sceneWorld = scene_projection_.snapshot;
+    submission.overlayWorld = overlay_projection_.snapshot;
 }
 
 }  // namespace mulan::view

@@ -6,10 +6,10 @@
  */
 #include "geometry_query.h"
 
-#include "detail/asset_picking.h"
-#include "detail/picking_types.h"
-#include "detail/primitive_pick_index.h"
-#include "detail/scene_spatial_index.h"
+#include "asset_picking.h"
+#include "picking_types.h"
+#include "primitive_pick_index.h"
+#include "scene_spatial_index.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/core/profiling/profile.h>

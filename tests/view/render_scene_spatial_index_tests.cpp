@@ -5,8 +5,8 @@
  * @date 2026-07-15
  */
 
-#include "scene_sync/detail/asset_picking.h"
-#include "scene_sync/detail/picking_types.h"
+#include "scene_sync/picking/asset_picking.h"
+#include "scene_sync/picking/picking_types.h"
 #include "scene_sync/render_scene.h"
 
 #include <mulan/asset/asset_library.h>

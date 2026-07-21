@@ -1,6 +1,6 @@
 /**
  * @file asset_picking.cpp
- * @brief 资产级拾取实现。
+ * @brief 资产级拾取与结果转换实现。
  * @author hxxcxx
  * @date 2026-07-11
  */

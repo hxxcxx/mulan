@@ -1,6 +1,6 @@
 /**
  * @file curve_picking.h
- * @brief 曲线拾取：圆/弧的变换与射线求交、采样曲线拾取。
+ * @brief 曲线精确拾取：圆/弧的变换与射线求交、采样曲线拾取。
  * @author hxxcxx
  * @date 2026-07-11
  */

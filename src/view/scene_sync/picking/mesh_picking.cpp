@@ -1,6 +1,6 @@
 /**
  * @file mesh_picking.cpp
- * @brief 网格拾取实现。
+ * @brief 网格精确拾取实现。
  * @author hxxcxx
  * @date 2026-07-11
  */

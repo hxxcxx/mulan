@@ -7,7 +7,8 @@
 
 #pragma once
 
-#include "../core/view_state.h"
+#include "../../core/view_state.h"
+#include "render_resource_outbox.h"
 #include "render_world_sync.h"
 
 #include <mulan/render/frontend/render_frame_submission.h>
@@ -41,43 +42,49 @@ public:
     /// 渲染线程重建或资产域切换后，强制从当前 CPU 场景重新生成资源批次。
     void invalidateResources();
 
-    const RenderWorldSyncStats& lastStats() const { return last_scene_sync_stats_; }
-    const RenderWorldSyncStats& lastOverlayStats() const { return last_overlay_sync_stats_; }
+    const RenderWorldSyncStats& lastStats() const { return scene_projection_.stats; }
+    const RenderWorldSyncStats& lastOverlayStats() const { return overlay_projection_.stats; }
 
 private:
+    struct SceneProjectionState {
+        RenderWorldSync sync;
+        engine::RenderWorld world;
+        std::shared_ptr<const engine::RenderWorldSnapshot> snapshot;
+        RenderWorldSyncStats stats;
+        uint64_t generation = 0;
+        uint64_t changeDomain = 0;
+        bool sourceDirty = true;
+    };
+
+    struct OverlayProjectionState {
+        RenderWorldSync sync;
+        engine::RenderWorld world;
+        std::shared_ptr<const engine::RenderWorldSnapshot> snapshot;
+        RenderWorldSyncStats stats;
+        uint64_t previewGeneration = 0;
+        uint64_t sceneGeneration = 0;
+        uint64_t sceneChangeDomain = 0;
+        bool previewSourceDirty = true;
+        bool referenceSourceDirty = true;
+    };
+
     bool needsSceneRebuild() const;
     bool needsOverlayRebuild() const;
     void rebuildScene(engine::RenderFrameSubmission& submission);
     void rebuildOverlay(engine::RenderFrameSubmission& submission);
     void finalizeSubmission(engine::RenderFrameSubmission& submission);
-    void advanceResourceBatch();
 
     const RenderScene* scene_ = nullptr;
     const asset::AssetLibrary* assets_ = nullptr;
     const PreviewLayer* preview_ = nullptr;
 
-    uint64_t last_scene_generation_ = 0;
-    /// 当前绑定源及两个已发布 world 各自确认的 change-domain，用于阻断同址换代 ABA。
+    /// 当前绑定来源的 change-domain，用于阻断同址换代 ABA。
     uint64_t bound_scene_change_domain_ = 0;
-    uint64_t last_scene_change_domain_ = 0;
-    uint64_t last_overlay_scene_change_domain_ = 0;
-    uint64_t last_preview_generation_ = 0;
-    uint64_t last_overlay_scene_generation_ = 0;
-    bool scene_source_dirty_ = true;
-    bool preview_source_dirty_ = true;
-    bool overlay_reference_source_dirty_ = true;
 
-    RenderWorldSync scene_world_sync_;
-    RenderWorldSync overlay_world_sync_;
-    engine::RenderWorld scene_world_;
-    engine::RenderWorld overlay_world_;
-    std::shared_ptr<const engine::RenderWorldSnapshot> scene_world_snapshot_;
-    std::shared_ptr<const engine::RenderWorldSnapshot> overlay_world_snapshot_;
-    RenderWorldSyncStats last_scene_sync_stats_;
-    RenderWorldSyncStats last_overlay_sync_stats_;
+    SceneProjectionState scene_projection_;
+    OverlayProjectionState overlay_projection_;
     engine::LightEnvironment light_environment_;
-    engine::RenderResourcePrepareList pending_prepare_;
-    uint64_t resource_batch_id_ = 0;
+    RenderResourceOutbox resource_outbox_;
     engine::ResourceDomainId asset_resource_domain_;
     engine::ResourceDomainId preview_resource_domain_;
 };

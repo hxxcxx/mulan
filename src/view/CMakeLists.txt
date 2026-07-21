@@ -8,15 +8,18 @@ add_library(view STATIC
     capture/capture_request.cpp
     capture/capture_service.cpp
     runtime/view_render_bridge.cpp
-    scene_sync/render_item_builder.cpp
-    scene_sync/render_submission_builder.cpp
-    scene_sync/render_world_sync.cpp
-    scene_sync/geometry_query.cpp
-    scene_sync/detail/mesh_picking.cpp
-    scene_sync/detail/primitive_pick_index.cpp
-    scene_sync/detail/curve_picking.cpp
-    scene_sync/detail/asset_picking.cpp
+    scene_sync/projection/render_item_builder.cpp
+    scene_sync/projection/render_resource_delta.cpp
+    scene_sync/projection/render_resource_outbox.cpp
+    scene_sync/projection/render_submission_builder.cpp
+    scene_sync/projection/render_world_sync.cpp
+    scene_sync/picking/geometry_query.cpp
+    scene_sync/picking/mesh_picking.cpp
+    scene_sync/picking/primitive_pick_index.cpp
+    scene_sync/picking/curve_picking.cpp
+    scene_sync/picking/asset_picking.cpp
     scene_sync/render_scene.cpp
+    scene_sync/render_scene_sync.cpp
 )
 
 mulan_copy_public_headers(view view

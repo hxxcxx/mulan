@@ -1,6 +1,6 @@
 /**
  * @file mesh_picking.h
- * @brief 网格拾取：三角形/线段的射线求交与候选收集。
+ * @brief 网格精确拾取：三角形/线段的射线求交与候选收集。
  * @author hxxcxx
  * @date 2026-07-11
  */

@@ -5,9 +5,9 @@
  * @date 2026-07-15
  */
 
-#include "scene_sync/render_item_builder.h"
+#include "scene_sync/projection/render_item_builder.h"
 #include "scene_sync/render_scene.h"
-#include "scene_sync/render_submission_builder.h"
+#include "scene_sync/projection/render_submission_builder.h"
 #include "core/preview_layer.h"
 
 #include <mulan/asset/asset_library.h>

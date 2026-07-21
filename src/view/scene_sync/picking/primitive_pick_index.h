@@ -1,6 +1,6 @@
 /**
  * @file primitive_pick_index.h
- * @brief 为几何资产的三角形与线段提供版本化、紧凑的静态拾取 BVH。
+ * @brief 为几何资产的三角形与线段提供版本化的静态拾取 BVH。
  * @author hxxcxx
  * @date 2026-07-16
  *

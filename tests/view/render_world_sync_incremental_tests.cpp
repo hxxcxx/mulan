@@ -6,7 +6,7 @@
  */
 
 #include "scene_sync/render_scene.h"
-#include "scene_sync/render_world_sync.h"
+#include "scene_sync/projection/render_world_sync.h"
 
 #include <mulan/asset/asset_library.h>
 #include <mulan/render/asset_gpu_key.h>
