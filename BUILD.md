@@ -5,7 +5,7 @@ Mulan 支持 Windows x64 和 Linux x64。项目使用 C++23、CMake Presets 和 
 
 | 平台 | 日常构建 | 图形后端 | OCCT |
 | --- | --- | --- | --- |
-| Windows | Visual Studio，RelWithDebInfo/Release | Vulkan、D3D12、D3D11、OpenGL | 官方预编译包 7.9.x |
+| Windows | Visual Studio，Debug/RelWithDebInfo/Release | Vulkan、D3D12、D3D11、OpenGL | 官方预编译包 7.9.x |
 | Linux | Ninja，RelWithDebInfo | Vulkan、OpenGL（X11/XCB） | 系统开发包 7.6.x |
 
 ## 1. 公共准备
@@ -102,17 +102,15 @@ cmake --build --preset relwithdebinfo --parallel
 cmake --build --preset release --parallel
 ```
 
-需要完整观察局部变量或逐行调试时，使用隔离的可调试构建：
+需要完整观察局部变量或逐行调试时，使用 Debug：
 
 ```powershell
-cmake --preset msvc-debug
 cmake --build --preset debug --parallel
-& .\build\msvc-debug\bin\RelWithDebInfo\mulan.exe
+& .\build\msvc\bin\Debug\mulan.exe
 ```
 
-该 preset 对项目代码使用 `/Od /Ob0 /Zi`，启用断言并关闭性能埋点。它仍使用
-Release ABI 的第三方依赖，避免 Windows 预编译 OCCT 与 Debug CRT 混用。性能测试应继续
-使用普通 `RelWithDebInfo` 或 `Release`。
+Debug、RelWithDebInfo 和 Release 共用 `build/msvc` 构建树，并分别输出到 `bin` 下的
+同名目录。性能测试应使用 RelWithDebInfo 或 Release。
 
 Windows preset 会在主程序链接后以 `copy_if_different` 补齐开发运行所需的 OCCT
 依赖和 Qt 插件，构建完成后可以直接运行：

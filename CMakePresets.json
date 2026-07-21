@@ -44,18 +44,6 @@
             }
         },
         {
-            "name": "msvc-debug",
-            "displayName": "MSVC x64 Debuggable",
-            "description": "Unoptimized project code with symbols and release-compatible third-party binaries.",
-            "inherits": "msvc",
-            "binaryDir": "${sourceDir}/build/msvc-debug",
-            "cacheVariables": {
-                "CMAKE_C_FLAGS_RELWITHDEBINFO": "/Zi /Od /Ob0",
-                "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "/Zi /Od /Ob0",
-                "MULAN_PROFILER_BACKEND": "none"
-            }
-        },
-        {
             "name": "linux",
             "displayName": "Linux x64 (Vulkan + OpenGL, X11/XCB)",
             "condition": {
@@ -102,8 +90,8 @@
         },
         {
             "name": "debug",
-            "configurePreset": "msvc-debug",
-            "configuration": "RelWithDebInfo"
+            "configurePreset": "msvc",
+            "configuration": "Debug"
         },
         {
             "name": "linux-relwithdebinfo",
