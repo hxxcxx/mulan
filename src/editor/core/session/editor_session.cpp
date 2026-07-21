@@ -328,6 +328,10 @@ void EditorSession::clearHover() {
     selection_service_.clearHover();
 }
 
+void EditorSession::clearSnapPreview() {
+    overlay_service_.clear(EditorOverlayRole::Snap);
+}
+
 void EditorSession::setSelectionFilter(EditorSelectionFilter filter) {
     selection_service_.setFilter(filter);
     refreshGrips();

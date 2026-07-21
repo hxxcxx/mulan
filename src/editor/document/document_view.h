@@ -103,8 +103,16 @@ public:
     DocumentInputOutcome handleInput(const mulan::engine::InputEvent& event);
 
     /// 取消当前所有临时交互（工具 / grip / camera drag / ViewCube press）。
-    /// 供 DocumentViewport 在 FocusOut / UngrabMouse / WindowDeactivate / leaveEvent 调用。
+    /// 仅在指针事务确实可能丢失后续事件时调用，例如 UngrabMouse。
     DocumentInputOutcome cancelInteraction();
+
+    /// 视口失焦入口。只有本视口仍持有未完成鼠标事务时才整体取消；
+    /// 普通焦点切换只清理 hover/snap，活动 CAD 工具保持存活。
+    DocumentInputOutcome handleFocusLost();
+
+    /// 鼠标移出视口或无鼠标键事务的失焦，只清理瞬态指针状态（click 跟踪 / hover / snap 标记）。
+    /// 活动工具与相机事务保持存活：CAD 命令可跨越失焦与鼠标移出继续，重新进入后恢复正常。
+    DocumentInputOutcome clearTransientInteraction();
 
     // ── 编辑器交互（转发，app 层不直接接触 EditorSession）──
 
@@ -121,6 +129,7 @@ private:
     bool maybeSelectOnRelease(const mulan::engine::InputEvent& event, bool allowSelection);
     void clearClickTracking();
     bool isLeftDragExceedingThreshold(const mulan::engine::InputEvent& event) const;
+    void trackPointerButtons(const mulan::engine::InputEvent& event);
     void invalidateFrame() const;
     void onCommandCompleted();
     void updateHoverAtFramebuffer(double x, double y);

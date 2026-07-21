@@ -157,15 +157,16 @@ void DocumentViewport::keyReleaseEvent(QKeyEvent* e) {
 
 void DocumentViewport::leaveEvent(QEvent* e) {
     QWidget::leaveEvent(e);
-    // 离开视口：所有临时状态在 DocumentView 的统一取消边界内清理。
+    // 鼠标移出只清理 hover/snap 等瞬态；拖拽事务期间 Qt 抓取不会投递 leave，
+    // 活动工具在鼠标重新移入后必须继续，不能在此取消（CAD 惯例）。
     if (isReady()) {
-        applyResult(document_view_.cancelInteraction());
+        applyResult(document_view_.clearTransientInteraction());
     }
 }
 
 void DocumentViewport::focusOutEvent(QFocusEvent* e) {
     if (isReady()) {
-        applyResult(document_view_.cancelInteraction());
+        applyResult(document_view_.handleFocusLost());
     }
     QWidget::focusOutEvent(e);
 }
@@ -173,8 +174,13 @@ void DocumentViewport::focusOutEvent(QFocusEvent* e) {
 bool DocumentViewport::event(QEvent* e) {
     switch (e->type()) {
     case QEvent::WindowDeactivate:
+        if (isReady()) {
+            applyResult(document_view_.handleFocusLost());
+        }
+        break;
     case QEvent::UngrabMouse:
         if (isReady()) {
+            // 抓取被抢走后不会再收到 release，指针事务必须取消。
             applyResult(document_view_.cancelInteraction());
         }
         break;

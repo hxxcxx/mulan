@@ -34,6 +34,7 @@ struct DocumentView::Impl {
     int left_press_y = 0;
     bool left_press_pending = false;
     bool left_press_dragged = false;
+    mulan::engine::MouseButton pressed_pointer_buttons = mulan::engine::MouseButton::None;
 };
 
 namespace {
@@ -63,6 +64,7 @@ DocumentView::~DocumentView() {
 
 void DocumentView::shutdown() {
     clearClickTracking();
+    impl_->pressed_pointer_buttons = mulan::engine::MouseButton::None;
     impl_->editor_session.unbind();
     impl_->view_context.clearPreview();
     impl_->binding.unbind();
@@ -212,6 +214,7 @@ void DocumentView::setDocumentSession(DocumentSession* session) {
     MULAN_PROFILE_ZONE();
 
     clearClickTracking();
+    impl_->pressed_pointer_buttons = mulan::engine::MouseButton::None;
     impl_->editor_session.unbind();
     impl_->view_context.clearPreview();
     impl_->binding.unbind();
@@ -232,6 +235,7 @@ DocumentInputOutcome DocumentView::handleInput(const mulan::engine::InputEvent& 
 
     // 取消事件优先：统一通知 editor 与 view 两端清理临时交互。
     if (event.isCancelEvent()) {
+        impl_->pressed_pointer_buttons = mulan::engine::MouseButton::None;
         clearClickTracking();
 
         // 先让栈顶 Operator 在自身调用栈内完成“标记结束”，ViewContext 会在返回后
@@ -247,6 +251,8 @@ DocumentInputOutcome DocumentView::handleInput(const mulan::engine::InputEvent& 
         result.commandStateInvalidated = hadActiveTool;
         return result;
     }
+
+    trackPointerButtons(event);
 
     // 跟踪左键 press，用于 release 时的 click-vs-drag 选择判定。
     // 活动工具拥有自己的左键事务，不应创建文档选择 click tracker。
@@ -339,6 +345,14 @@ void DocumentView::clearClickTracking() {
     impl_->left_press_dragged = false;
 }
 
+void DocumentView::trackPointerButtons(const mulan::engine::InputEvent& event) {
+    if (event.isMouseEvent()) {
+        // 只记录进入本视口输入边界的按钮状态。不能查询平台全局按钮：
+        // 点击 Ribbon 导致失焦时，全局左键按下并不代表视口仍有未完成事务。
+        impl_->pressed_pointer_buttons = event.buttons;
+    }
+}
+
 bool DocumentView::isLeftDragExceedingThreshold(const mulan::engine::InputEvent& event) const {
     // 阈值使用 framebuffer 坐标；4 像素对应原 DocumentViewport logical 阈值在 DPR=1 下的行为。
     // 后续可改为从 QtViewportInputAdapter 传入 QApplication::startDragDistance()。
@@ -360,6 +374,25 @@ DocumentInputOutcome DocumentView::cancelInteraction() {
     // FocusLost 统一走 handleInput 的生命周期路径：工具、camera delegate、默认相机、
     // ViewCube click 事务与文档 click tracker 在同一个边界内清理。
     return handleInput(mulan::engine::InputEvent::focusLost());
+}
+
+DocumentInputOutcome DocumentView::handleFocusLost() {
+    if (impl_->pressed_pointer_buttons != mulan::engine::MouseButton::None) {
+        return cancelInteraction();
+    }
+    return clearTransientInteraction();
+}
+
+DocumentInputOutcome DocumentView::clearTransientInteraction() {
+    clearClickTracking();
+    impl_->view_context.clearViewCubeHover();
+    impl_->editor_session.clearHover();
+    impl_->editor_session.clearSnapPreview();
+
+    DocumentInputOutcome result;
+    result.disposition = DocumentInputDisposition::Ignored;
+    result.frameInvalidated = true;
+    return result;
 }
 
 void DocumentView::invalidateFrame() const {

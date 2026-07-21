@@ -449,3 +449,39 @@ TEST(DocumentViewInputBoundary, CancelClearsPendingClickTracking) {
     EXPECT_EQ(cancelled.disposition, DocumentInputDisposition::Cancelled);
     EXPECT_NE(release.disposition, DocumentInputDisposition::Selection);
 }
+
+TEST(DocumentViewInputBoundary, IdleFocusLossPreservesActiveCadTool) {
+    DocumentView documentView;
+    EditorSession* session = documentView.commandHost().editorSession();
+    ASSERT_NE(session, nullptr);
+    session->bind(nullptr, &documentView.viewContext(), nullptr);
+
+    std::optional<ToolFinishReason> endReason;
+    session->startTool(std::make_unique<FakeTool>("tool", endReason));
+
+    const DocumentInputOutcome focusLost = documentView.handleFocusLost();
+
+    EXPECT_EQ(focusLost.disposition, DocumentInputDisposition::Ignored);
+    EXPECT_TRUE(session->hasActiveTool());
+    EXPECT_FALSE(endReason.has_value());
+    session->cancelActiveTool();
+    session->unbind();
+}
+
+TEST(DocumentViewInputBoundary, FocusLossCancelsPointerTransactionOwnedByViewport) {
+    DocumentView documentView;
+    EditorSession* session = documentView.commandHost().editorSession();
+    ASSERT_NE(session, nullptr);
+    session->bind(nullptr, &documentView.viewContext(), nullptr);
+
+    std::optional<ToolFinishReason> endReason;
+    session->startTool(std::make_unique<FakeTool>("tool", endReason));
+    documentView.handleInput(InputEvent::mousePress(40, 50, MouseButton::Left, MouseButton::Left));
+
+    const DocumentInputOutcome focusLost = documentView.handleFocusLost();
+
+    EXPECT_EQ(focusLost.disposition, DocumentInputDisposition::Cancelled);
+    EXPECT_FALSE(session->hasActiveTool());
+    EXPECT_EQ(endReason, ToolFinishReason::Cancelled);
+    session->unbind();
+}

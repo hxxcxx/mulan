@@ -99,6 +99,8 @@ public:
     bool showViewCube() const { return show_view_cube_; }
     void setShowViewCube(bool show) { show_view_cube_ = show; }
     bool hasHoveredViewCubeFace() const { return view_cube_interaction_.hasHoveredPart; }
+    /// 只结束悬停视觉，不破坏可能仍在等待 release 的 ViewCube 点击事务。
+    void clearViewCubeHover() { view_cube_interaction_.hasHoveredPart = false; }
     void clearViewCubeInteraction() {
         consuming_view_cube_click_ = false;
         view_cube_interaction_ = {};

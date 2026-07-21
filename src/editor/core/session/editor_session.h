@@ -86,6 +86,8 @@ public:
     bool updateHoverAtFramebuffer(double screenX, double screenY);
     void selectAtFramebuffer(double screenX, double screenY);
     void clearHover();
+    /// 只清除吸附标记覆盖层；工具橡皮筋预览属于工具状态，鼠标移出/失焦时保留。
+    void clearSnapPreview();
     void setSelectionFilter(EditorSelectionFilter filter);
     const EditorSelectionContext& selectionContext() const { return selection_service_.context(); }
     void setWorkPlane(engine::WorkPlane plane);
