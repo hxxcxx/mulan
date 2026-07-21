@@ -83,12 +83,11 @@ void FaceStage::execute(RenderFrame& frame) {
     executeTranslucentSource(ctx, overlay_commands_.translucent);
 }
 
-void FaceStage::setSceneDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> commands) {
-    updateSourceCommands(scene_commands_, revision, commands);
-}
-
-void FaceStage::setOverlayDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> commands) {
-    updateSourceCommands(overlay_commands_, revision, commands);
+void FaceStage::setDrawCommands(CommandSource source, uint64_t revision, std::span<const MeshDrawCommand> commands) {
+    switch (source) {
+    case CommandSource::Scene: updateSourceCommands(scene_commands_, revision, commands); return;
+    case CommandSource::Overlay: updateSourceCommands(overlay_commands_, revision, commands); return;
+    }
 }
 
 void FaceStage::updateSourceCommands(SourceCommands& destination, uint64_t revision,

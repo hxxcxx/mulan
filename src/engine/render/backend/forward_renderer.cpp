@@ -179,16 +179,18 @@ void ForwardRenderer::publishCompiledCommands() {
     const CompiledDrawCommandSet overlay = overlay_compiler_.drawCommands();
 
     if (face_stage_) {
-        face_stage_->setSceneDrawCommands(scene.revision, scene.surfaces);
-        face_stage_->setOverlayDrawCommands(overlay.revision, overlay.surfaces);
+        face_stage_->setDrawCommands(CommandSource::Scene, scene.revision, scene.surfaces);
+        face_stage_->setDrawCommands(CommandSource::Overlay, overlay.revision, overlay.surfaces);
     }
     if (edge_stage_) {
-        edge_stage_->setSceneDrawCommands(scene.revision, scene.edges);
-        edge_stage_->setOverlayDrawCommands(overlay.revision, overlay.edges);
+        edge_stage_->setDrawCommands(CommandSource::Scene, scene.revision, scene.edges);
+        edge_stage_->setDrawCommands(CommandSource::Overlay, overlay.revision, overlay.edges);
     }
     if (highlight_stage_) {
-        highlight_stage_->setSceneDrawCommands(scene.revision, scene.highlightSurfaces, scene.highlightEdges);
-        highlight_stage_->setOverlayDrawCommands(overlay.revision, overlay.highlightSurfaces, overlay.highlightEdges);
+        highlight_stage_->setDrawCommands(CommandSource::Scene, scene.revision, scene.highlightSurfaces,
+                                          scene.highlightEdges);
+        highlight_stage_->setDrawCommands(CommandSource::Overlay, overlay.revision, overlay.highlightSurfaces,
+                                          overlay.highlightEdges);
     }
 }
 

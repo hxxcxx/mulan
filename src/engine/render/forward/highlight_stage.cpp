@@ -49,14 +49,15 @@ void HighlightStage::execute(RenderFrame& frame) {
         edge_executor_.execute(ctx, overlay_commands_.edges);
 }
 
-void HighlightStage::setSceneDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> surfaceCommands,
-                                          std::span<const MeshDrawCommand> edgeCommands) {
-    updateSourceCommands(scene_commands_, revision, surfaceCommands, edgeCommands);
-}
-
-void HighlightStage::setOverlayDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> surfaceCommands,
-                                            std::span<const MeshDrawCommand> edgeCommands) {
-    updateSourceCommands(overlay_commands_, revision, surfaceCommands, edgeCommands);
+void HighlightStage::setDrawCommands(CommandSource source, uint64_t revision,
+                                     std::span<const MeshDrawCommand> surfaceCommands,
+                                     std::span<const MeshDrawCommand> edgeCommands) {
+    switch (source) {
+    case CommandSource::Scene: updateSourceCommands(scene_commands_, revision, surfaceCommands, edgeCommands); return;
+    case CommandSource::Overlay:
+        updateSourceCommands(overlay_commands_, revision, surfaceCommands, edgeCommands);
+        return;
+    }
 }
 
 void HighlightStage::updateSourceCommands(SourceCommands& destination, uint64_t revision,

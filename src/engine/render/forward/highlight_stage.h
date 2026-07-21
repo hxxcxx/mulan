@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "command_source.h"
 #include "../draw/geometry_draw_executor.h"
 #include "../frame/render_frame.h"
 #include "../frame/render_target_info.h"
@@ -33,10 +34,8 @@ public:
     void shutdown(RHIDevice& device);
     void execute(RenderFrame& frame);
 
-    void setSceneDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> surfaceCommands,
-                              std::span<const MeshDrawCommand> edgeCommands);
-    void setOverlayDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> surfaceCommands,
-                                std::span<const MeshDrawCommand> edgeCommands);
+    void setDrawCommands(CommandSource source, uint64_t revision, std::span<const MeshDrawCommand> surfaceCommands,
+                         std::span<const MeshDrawCommand> edgeCommands);
 
     PipelineState* surfacePipeline() const;
     PipelineState* surfaceTangentPipeline() const;

@@ -44,12 +44,11 @@ void EdgeStage::execute(RenderFrame& frame) {
         draw_executor_.execute(ctx, overlay_commands_.commands);
 }
 
-void EdgeStage::setSceneDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> commands) {
-    updateSourceCommands(scene_commands_, revision, commands);
-}
-
-void EdgeStage::setOverlayDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> commands) {
-    updateSourceCommands(overlay_commands_, revision, commands);
+void EdgeStage::setDrawCommands(CommandSource source, uint64_t revision, std::span<const MeshDrawCommand> commands) {
+    switch (source) {
+    case CommandSource::Scene: updateSourceCommands(scene_commands_, revision, commands); return;
+    case CommandSource::Overlay: updateSourceCommands(overlay_commands_, revision, commands); return;
+    }
 }
 
 void EdgeStage::updateSourceCommands(SourceCommands& destination, uint64_t revision,
