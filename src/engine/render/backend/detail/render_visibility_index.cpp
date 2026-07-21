@@ -28,27 +28,33 @@ bool indexableBounds(const math::AABB3& bounds) {
 
 }  // namespace
 
-void RenderVisibilityIndex::rebuild(std::span<const VisibilityItem> items, uint64_t sourceRevision) {
+bool RenderVisibilityIndex::sync(const RenderWorldSnapshot& snapshot) {
     MULAN_PROFILE_ZONE();
 
-    if (sourceRevision_ == sourceRevision)
-        return;
+    const RenderWorldVersion version = snapshot.version();
+    if (hasSource_ && sourceWorld_ == version.world && sourceRevision_ == version.spatialRevision)
+        return false;
 
     spatialIndex_.clear();
     uncullableObjects_.clear();
     allVisibleIds_.clear();
-    spatialIndex_.reserve(items.size());
-    allVisibleIds_.reserve(items.size());
+    spatialIndex_.reserve(snapshot.objects().size());
+    allVisibleIds_.reserve(snapshot.objects().size());
 
-    for (const VisibilityItem& item : items) {
-        allVisibleIds_.push_back(item.id);
-        if (!indexableBounds(item.bounds) || !spatialIndex_.insert(item.id, item.bounds))
-            uncullableObjects_.insert(item.id);
+    for (const RenderObjectRecord& object : snapshot.objects()) {
+        if (!object.desc.visible)
+            continue;
+        allVisibleIds_.push_back(object.id);
+        if (!indexableBounds(object.desc.worldBounds) || !spatialIndex_.insert(object.id, object.desc.worldBounds))
+            uncullableObjects_.insert(object.id);
     }
     std::sort(allVisibleIds_.begin(), allVisibleIds_.end(), objectIdLess);
     cache_.valid = false;
     cache_.ids.clear();
-    sourceRevision_ = sourceRevision;
+    sourceWorld_ = version.world;
+    sourceRevision_ = version.spatialRevision;
+    hasSource_ = true;
+    return true;
 }
 
 void RenderVisibilityIndex::clear() {
@@ -57,7 +63,9 @@ void RenderVisibilityIndex::clear() {
     allVisibleIds_.clear();
     cache_ = {};
     stats_ = {};
+    sourceWorld_ = 0;
     sourceRevision_ = 0;
+    hasSource_ = false;
 }
 
 std::span<const RenderObjectId> RenderVisibilityIndex::resolve(const RenderViewDesc* view, bool sceneFrustumCulling) {

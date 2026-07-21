@@ -14,9 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
-#include <span>
 #include <unordered_map>
-#include <vector>
 
 namespace mulan::engine::detail {
 
@@ -27,17 +25,12 @@ struct PacketCacheSyncStats {
     size_t reusedPacketCount = 0;
 };
 
-struct PacketSyncResult {
-    bool packetSetChanged = false;
-};
-
 class RenderPacketCache {
 public:
-    PacketSyncResult sync(const RenderWorldSnapshot& snapshot, RenderCompileContext& context);
+    void sync(const RenderWorldSnapshot& snapshot, RenderCompileContext& context);
     void clear();
 
     const RenderPacket* find(RenderObjectId id) const;
-    std::span<const VisibilityItem> visibilityItems() const { return visibilityItems_; }
     const PacketCacheSyncStats& lastStats() const { return stats_; }
     uint64_t revision() const { return revision_; }
     bool hasState() const { return worldVersion_.has_value(); }
@@ -67,7 +60,6 @@ private:
     std::optional<RenderWorldVersion> worldVersion_;
     ContextIdentity contextIdentity_;
     PacketMap packets_;
-    std::vector<VisibilityItem> visibilityItems_;
     PacketCacheSyncStats stats_;
     uint64_t revision_ = 1;
 };

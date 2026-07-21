@@ -14,10 +14,13 @@
 
 namespace mulan::engine {
 
-/// 唯一标识 RenderWorld 的某个已发布状态；world 区分世界，revision 区分世界内的变更。
+/// 唯一标识 RenderWorld 的某个已发布状态。revision 记录所有变化；packetRevision
+/// 与 spatialRevision 分别驱动绘制 Packet 和空间可见性索引，避免无关缓存联动失效。
 struct RenderWorldVersion {
     uint64_t world = 0;
     uint64_t revision = 0;
+    uint64_t packetRevision = 0;
+    uint64_t spatialRevision = 0;
 
     friend constexpr bool operator==(RenderWorldVersion, RenderWorldVersion) = default;
 };

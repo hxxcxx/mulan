@@ -42,15 +42,7 @@ struct CachedRenderDrawable {
 struct RenderPacket {
     RenderObjectId id;
     PickId pickId;
-    math::AABB3 worldBounds;
-    bool visible = false;
     std::vector<CachedRenderDrawable> drawables;
-};
-
-/// 可见性索引只消费对象身份和包围盒，不依赖 Packet 中的 GPU/材质内容。
-struct VisibilityItem {
-    RenderObjectId id;
-    math::AABB3 bounds;
 };
 
 }  // namespace mulan::engine::detail

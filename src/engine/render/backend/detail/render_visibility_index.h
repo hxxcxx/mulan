@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "render_packet.h"
 #include "../../frontend/render_view_desc.h"
+#include "../../frontend/render_world_snapshot.h"
 
 #include <mulan/math/spatial/dynamic_bvh.h>
 
@@ -32,7 +32,8 @@ struct VisibilityQueryStats {
 
 class RenderVisibilityIndex {
 public:
-    void rebuild(std::span<const VisibilityItem> items, uint64_t sourceRevision);
+    /// 同步快照的可见对象与 bounds；空间域未变化时保持现有 BVH 和查询缓存。
+    bool sync(const RenderWorldSnapshot& snapshot);
     void clear();
 
     std::span<const RenderObjectId> resolve(const RenderViewDesc* view, bool sceneFrustumCulling);
@@ -59,7 +60,9 @@ private:
     std::vector<RenderObjectId> allVisibleIds_;
     VisibilityCache cache_;
     VisibilityQueryStats stats_;
+    uint64_t sourceWorld_ = 0;
     uint64_t sourceRevision_ = 0;
+    bool hasSource_ = false;
 };
 
 }  // namespace mulan::engine::detail

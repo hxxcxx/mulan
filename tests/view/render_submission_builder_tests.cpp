@@ -1641,6 +1641,46 @@ TEST(RenderWorldSnapshotTests, TextureContentRevisionDefinesIdempotentMaterialUp
     EXPECT_EQ(changed.material(material)->desc.baseColorTexture.image, equivalentImage);
 }
 
+TEST(RenderWorldSnapshotTests, PacketAndSpatialRevisionsAdvanceIndependently) {
+    engine::RenderWorld world;
+    const engine::RenderWorldVersion initial = world.snapshot().version();
+
+    engine::RenderGeometryDesc geometryDesc;
+    const engine::GeometryHandle geometry = world.addGeometry(geometryDesc);
+    engine::RenderWorldVersion version = world.snapshot().version();
+    EXPECT_EQ(version.packetRevision, initial.packetRevision + 1u);
+    EXPECT_EQ(version.spatialRevision, initial.spatialRevision);
+
+    engine::RenderObjectDesc objectDesc;
+    objectDesc.worldBounds = math::AABB3{ math::Point3{ -1.0, -1.0, -1.0 }, math::Point3{ 1.0, 1.0, 1.0 } };
+    const engine::RenderObjectId object = world.addObject(objectDesc);
+    const engine::RenderWorldVersion added = world.snapshot().version();
+    EXPECT_EQ(added.packetRevision, version.packetRevision + 1u);
+    EXPECT_EQ(added.spatialRevision, version.spatialRevision + 1u);
+
+    ASSERT_TRUE(world.updateObjectSpatialState(object, objectDesc.worldTransform, objectDesc.worldBounds, false));
+    const engine::RenderWorldVersion hidden = world.snapshot().version();
+    EXPECT_EQ(hidden.packetRevision, added.packetRevision);
+    EXPECT_EQ(hidden.spatialRevision, added.spatialRevision + 1u);
+
+    objectDesc.worldTransform = math::Mat4::translate(math::Vec3{ 2.0, 0.0, 0.0 });
+    ASSERT_TRUE(world.updateObjectSpatialState(object, objectDesc.worldTransform, objectDesc.worldBounds, false));
+    const engine::RenderWorldVersion movedWhileHidden = world.snapshot().version();
+    EXPECT_EQ(movedWhileHidden.packetRevision, hidden.packetRevision + 1u);
+    EXPECT_EQ(movedWhileHidden.spatialRevision, hidden.spatialRevision);
+
+    geometryDesc.empty = false;
+    ASSERT_TRUE(world.updateGeometry(geometry, geometryDesc));
+    version = world.snapshot().version();
+    EXPECT_EQ(version.packetRevision, movedWhileHidden.packetRevision + 1u);
+    EXPECT_EQ(version.spatialRevision, movedWhileHidden.spatialRevision);
+
+    ASSERT_TRUE(world.updateObjectSpatialState(object, objectDesc.worldTransform, objectDesc.worldBounds, true));
+    const engine::RenderWorldVersion shown = world.snapshot().version();
+    EXPECT_EQ(shown.packetRevision, version.packetRevision);
+    EXPECT_EQ(shown.spatialRevision, version.spatialRevision + 1u);
+}
+
 TEST(RenderWorldSnapshotTests, PublishedSnapshotRemainsStableAcrossWorldMutations) {
     engine::RenderWorld world;
     engine::RenderGeometryDesc geometryDesc;

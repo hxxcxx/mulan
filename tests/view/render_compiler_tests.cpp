@@ -441,6 +441,7 @@ TEST_F(RenderCompilerTests, ReusesEveryPacketForAnIdenticalSnapshot) {
 
     ASSERT_TRUE(compiler_.compile(snapshot, options, context, &view, true));
     EXPECT_TRUE(compiler_.lastPacketCacheStats().fullRebuild);
+    EXPECT_TRUE(compiler_.lastPacketCacheStats().bvhRebuilt);
     EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 2u);
     ASSERT_EQ(compiler_.edgeCommands().size(), 2u);
     EXPECT_TRUE(std::ranges::all_of(compiler_.edgeCommands(),
@@ -449,6 +450,7 @@ TEST_F(RenderCompilerTests, ReusesEveryPacketForAnIdenticalSnapshot) {
     ASSERT_TRUE(compiler_.compile(snapshot, options, context, &view, true));
     const RenderPacketCacheStats& stats = compiler_.lastPacketCacheStats();
     EXPECT_FALSE(stats.fullRebuild);
+    EXPECT_FALSE(stats.bvhRebuilt);
     EXPECT_TRUE(stats.cacheHit);
     EXPECT_EQ(stats.recompiledPacketCount, 0u);
     EXPECT_EQ(stats.reusedPacketCount, 2u);
@@ -478,6 +480,7 @@ TEST_F(RenderCompilerTests, WorldChangeRebuildsPacketsAndKeepsBothCommands) {
 
     const RenderPacketCacheStats& stats = compiler_.lastPacketCacheStats();
     EXPECT_TRUE(stats.fullRebuild);
+    EXPECT_FALSE(stats.bvhRebuilt);
     EXPECT_FALSE(stats.cacheHit);
     EXPECT_EQ(stats.recompiledPacketCount, 2u);
     EXPECT_EQ(stats.reusedPacketCount, 0u);
@@ -486,6 +489,70 @@ TEST_F(RenderCompilerTests, WorldChangeRebuildsPacketsAndKeepsBothCommands) {
     ASSERT_NE(updated, nullptr);
     EXPECT_DOUBLE_EQ(updated->worldTransform[3].x, 0.5);
     EXPECT_NE(findCommandByPickId(compiler_.edgeCommands(), 11), nullptr);
+}
+
+TEST_F(RenderCompilerTests, MaterialChangeRebuildsPacketsWithoutRebuildingBvh) {
+    const RenderResourceKey geometryKey = makeAssetGpuKey(130);
+    prepareGeometry(geometryKey, makeSurfaceMesh());
+    RenderWorld world;
+    const GeometryHandle geometry = world.addGeometry(makeSurfaceGeometryDesc(geometryKey));
+    RenderMaterialDesc materialDesc;
+    materialDesc.resourceKey = makeRenderResourceKey(ResourceDomainId{ 7 }, 8, RenderResourceKind::Material);
+    const RenderMaterialHandle material = world.addMaterial(materialDesc);
+    world.addObject(makeSurfaceObjectDesc(geometry, material, 131, boundsAt(0.0)));
+    RenderCompileContext context = makeContext();
+    const RenderOptions options;
+    const RenderViewDesc view = identityView();
+
+    ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
+    ASSERT_TRUE(compiler_.lastPacketCacheStats().bvhRebuilt);
+
+    materialDesc.material.roughness = 0.2;
+    ASSERT_TRUE(world.updateMaterial(material, materialDesc));
+    ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
+
+    const RenderPacketCacheStats& stats = compiler_.lastPacketCacheStats();
+    EXPECT_TRUE(stats.fullRebuild);
+    EXPECT_FALSE(stats.cacheHit);
+    EXPECT_FALSE(stats.bvhRebuilt);
+    EXPECT_EQ(stats.recompiledPacketCount, 1u);
+    EXPECT_EQ(compiler_.surfaceCommands().size(), 1u);
+}
+
+TEST_F(RenderCompilerTests, VisibilityChangeRebuildsBvhWithoutRecompilingPackets) {
+    const RenderResourceKey key = makeAssetGpuKey(132);
+    prepareGeometry(key);
+    RenderWorld world;
+    const GeometryHandle geometry = world.addGeometry(makeEdgeGeometryDesc(key));
+    const RenderObjectDesc desc = makeEdgeObjectDesc(geometry, 133, boundsAt(0.0));
+    const RenderObjectId object = world.addObject(desc);
+    RenderCompileContext context = makeContext();
+    const RenderOptions options;
+    const RenderViewDesc view = identityView();
+
+    ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
+    ASSERT_EQ(compiler_.edgeCommands().size(), 1u);
+    const uint64_t packetRevision = world.snapshot().version().packetRevision;
+
+    ASSERT_TRUE(world.updateObjectSpatialState(object, desc.worldTransform, desc.worldBounds, false));
+    EXPECT_EQ(world.snapshot().version().packetRevision, packetRevision);
+    ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
+
+    const RenderPacketCacheStats& hiddenStats = compiler_.lastPacketCacheStats();
+    EXPECT_FALSE(hiddenStats.fullRebuild);
+    EXPECT_TRUE(hiddenStats.cacheHit);
+    EXPECT_TRUE(hiddenStats.bvhRebuilt);
+    EXPECT_EQ(hiddenStats.recompiledPacketCount, 0u);
+    EXPECT_TRUE(compiler_.edgeCommands().empty());
+
+    ASSERT_TRUE(world.updateObjectSpatialState(object, desc.worldTransform, desc.worldBounds, true));
+    ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
+    const RenderPacketCacheStats& visibleStats = compiler_.lastPacketCacheStats();
+    EXPECT_FALSE(visibleStats.fullRebuild);
+    EXPECT_TRUE(visibleStats.cacheHit);
+    EXPECT_TRUE(visibleStats.bvhRebuilt);
+    ASSERT_EQ(compiler_.edgeCommands().size(), 1u);
+    EXPECT_EQ(compiler_.edgeCommands().front().pickId, 133u);
 }
 
 TEST_F(RenderCompilerTests, CameraMovementReassemblesVisibilityWithoutRecompilingPackets) {
@@ -697,6 +764,7 @@ TEST_F(RenderCompilerTests, AnyRegistryMutationConservativelyRebuildsWorldCache)
     ASSERT_TRUE(compiler_.compile(snapshot, options, context, &view, true));
     const RenderPacketCacheStats& stats = compiler_.lastPacketCacheStats();
     EXPECT_TRUE(stats.fullRebuild);
+    EXPECT_FALSE(stats.bvhRebuilt);
     EXPECT_FALSE(stats.cacheHit);
     EXPECT_FALSE(stats.assemblyCacheHit);
     EXPECT_EQ(stats.recompiledPacketCount, 1u);

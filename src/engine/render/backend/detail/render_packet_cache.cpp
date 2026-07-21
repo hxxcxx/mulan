@@ -52,10 +52,6 @@ RenderPacket buildPacket(const RenderWorldSnapshot& snapshot, const RenderObject
     RenderPacket packet;
     packet.id = object.id;
     packet.pickId = object.desc.pickId;
-    packet.worldBounds = object.desc.worldBounds;
-    packet.visible = object.desc.visible;
-    if (!packet.visible)
-        return packet;
 
     packet.drawables.reserve(object.desc.drawables.size());
     for (const RenderObjectDrawable& drawable : object.desc.drawables) {
@@ -209,10 +205,12 @@ RenderPacketCache::ContextIdentity RenderPacketCache::ContextIdentity::capture(
              .highlightEdgePipeline = context.highlightEdgePipeline };
 }
 
-PacketSyncResult RenderPacketCache::sync(const RenderWorldSnapshot& snapshot, RenderCompileContext& context) {
+void RenderPacketCache::sync(const RenderWorldSnapshot& snapshot, RenderCompileContext& context) {
     stats_ = {};
-    const bool rebuildRequired =
-            !worldVersion_ || *worldVersion_ != snapshot.version() || !contextIdentity_.matches(context);
+    const RenderWorldVersion sourceVersion = snapshot.version();
+    const bool packetStateChanged = !worldVersion_ || worldVersion_->world != sourceVersion.world ||
+                                    worldVersion_->packetRevision != sourceVersion.packetRevision;
+    const bool rebuildRequired = packetStateChanged || !contextIdentity_.matches(context);
     stats_.fullRebuild = rebuildRequired;
     if (rebuildRequired) {
         rebuild(snapshot, context);
@@ -220,15 +218,14 @@ PacketSyncResult RenderPacketCache::sync(const RenderWorldSnapshot& snapshot, Re
     } else {
         stats_.cacheHit = true;
         stats_.reusedPacketCount = packets_.size();
+        worldVersion_ = sourceVersion;
     }
-    return { .packetSetChanged = rebuildRequired };
 }
 
 void RenderPacketCache::clear() {
     worldVersion_.reset();
     contextIdentity_ = {};
     packets_.clear();
-    visibilityItems_.clear();
     stats_ = {};
     revision_ = 1;
 }
@@ -242,14 +239,10 @@ void RenderPacketCache::rebuild(const RenderWorldSnapshot& snapshot, RenderCompi
     MULAN_PROFILE_ZONE();
 
     packets_.clear();
-    visibilityItems_.clear();
     packets_.reserve(snapshot.objects().size());
-    visibilityItems_.reserve(snapshot.objects().size());
 
     for (const RenderObjectRecord& object : snapshot.objects()) {
         RenderPacket packet = buildPacket(snapshot, object, context);
-        if (packet.visible)
-            visibilityItems_.push_back({ .id = packet.id, .bounds = packet.worldBounds });
         packets_.emplace(packet.id, std::move(packet));
     }
     worldVersion_ = snapshot.version();

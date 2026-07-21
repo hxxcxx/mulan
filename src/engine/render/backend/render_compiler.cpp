@@ -16,7 +16,7 @@ struct RenderCompiler::Impl {
     detail::DrawCommandAssembler commandAssembler;
     RenderPacketCacheStats combinedStats;
 
-    void collectStats() {
+    void collectStats(bool bvhRebuilt) {
         const detail::PacketCacheSyncStats& packet = packetCache.lastStats();
         const detail::VisibilityQueryStats& visibility = visibilityIndex.lastStats();
         const detail::AssemblyCacheStats& assembly = commandAssembler.lastCacheStats();
@@ -24,6 +24,7 @@ struct RenderCompiler::Impl {
             .cacheHit = packet.cacheHit,
             .assemblyCacheHit = assembly.cacheHit,
             .fullRebuild = packet.fullRebuild,
+            .bvhRebuilt = bvhRebuilt,
             .frustumFailOpen = visibility.frustumFailOpen,
             .recompiledPacketCount = packet.recompiledPacketCount,
             .reusedPacketCount = packet.reusedPacketCount,
@@ -48,14 +49,12 @@ ResultVoid RenderCompiler::compile(const RenderWorldSnapshot& snapshot, const Re
                                    bool sceneFrustumCulling) {
     MULAN_PROFILE_ZONE();
 
-    const detail::PacketSyncResult sync = impl_->packetCache.sync(snapshot, context);
-    if (sync.packetSetChanged) {
-        impl_->visibilityIndex.rebuild(impl_->packetCache.visibilityItems(), impl_->packetCache.revision());
-    }
+    impl_->packetCache.sync(snapshot, context);
+    const bool bvhRebuilt = impl_->visibilityIndex.sync(snapshot);
 
     const std::span<const RenderObjectId> visibleIds = impl_->visibilityIndex.resolve(view, sceneFrustumCulling);
     ResultVoid assembled = impl_->commandAssembler.assemble(impl_->packetCache, visibleIds, options, view);
-    impl_->collectStats();
+    impl_->collectStats(bvhRebuilt);
     return assembled;
 }
 

@@ -76,6 +76,18 @@ bool sameObjectDesc(const RenderObjectDesc& lhs, const RenderObjectDesc& rhs) {
            std::equal(lhs.drawables.begin(), lhs.drawables.end(), rhs.drawables.begin(), sameDrawable);
 }
 
+bool sameObjectPacketState(const RenderObjectDesc& lhs, const RenderObjectDesc& rhs) {
+    return lhs.pickId == rhs.pickId && sameMatrix(lhs.worldTransform, rhs.worldTransform) &&
+           sameBounds(lhs.worldBounds, rhs.worldBounds) && lhs.drawables.size() == rhs.drawables.size() &&
+           std::equal(lhs.drawables.begin(), lhs.drawables.end(), rhs.drawables.begin(), sameDrawable);
+}
+
+bool sameObjectSpatialState(const RenderObjectDesc& lhs, const RenderObjectDesc& rhs) {
+    if (lhs.visible != rhs.visible)
+        return false;
+    return !lhs.visible || sameBounds(lhs.worldBounds, rhs.worldBounds);
+}
+
 std::atomic<uint64_t> next_render_world_id{ 1 };
 
 uint64_t allocateRenderWorldId() {
@@ -119,20 +131,29 @@ void RenderWorld::ensureWritable() {
         storage_ = std::make_shared<RenderWorldStorage>(*storage_);
 }
 
-void RenderWorld::advanceRevision() {
-    if (version_.revision == std::numeric_limits<uint64_t>::max()) {
+void RenderWorld::advanceRevision(bool packetChanged, bool spatialChanged) {
+    const bool identityExhausted = version_.revision == std::numeric_limits<uint64_t>::max() ||
+                                   (packetChanged && version_.packetRevision == std::numeric_limits<uint64_t>::max()) ||
+                                   (spatialChanged && version_.spatialRevision == std::numeric_limits<uint64_t>::max());
+    if (identityExhausted) {
         version_.world = allocateRenderWorldId();
         version_.revision = 1;
+        version_.packetRevision = packetChanged ? 1 : 0;
+        version_.spatialRevision = spatialChanged ? 1 : 0;
         return;
     }
     ++version_.revision;
+    if (packetChanged)
+        ++version_.packetRevision;
+    if (spatialChanged)
+        ++version_.spatialRevision;
 }
 
 GeometryHandle RenderWorld::addGeometry(RenderGeometryDesc desc) {
     ensureWritable();
     const GeometryHandle handle{ .index = next_geometry_index_++, .generation = generation_ };
     storage_->geometries.set(handle.index, RenderGeometryRecord{ handle, std::move(desc) });
-    advanceRevision();
+    advanceRevision(true, false);
     return handle;
 }
 
@@ -140,15 +161,16 @@ RenderMaterialHandle RenderWorld::addMaterial(RenderMaterialDesc desc) {
     ensureWritable();
     const RenderMaterialHandle handle{ .index = next_material_index_++, .generation = generation_ };
     storage_->materials.set(handle.index, RenderMaterialRecord{ handle, std::move(desc) });
-    advanceRevision();
+    advanceRevision(true, false);
     return handle;
 }
 
 RenderObjectId RenderWorld::addObject(RenderObjectDesc desc) {
+    const bool spatialChanged = desc.visible;
     ensureWritable();
     const RenderObjectId id{ .index = next_object_index_++, .generation = generation_ };
     storage_->objects.set(id.index, RenderObjectRecord{ id, std::move(desc) });
-    advanceRevision();
+    advanceRevision(true, spatialChanged);
     return id;
 }
 
@@ -160,7 +182,7 @@ bool RenderWorld::updateGeometry(GeometryHandle handle, RenderGeometryDesc desc)
         return true;
     ensureWritable();
     storage_->geometries.set(handle.index, RenderGeometryRecord{ handle, std::move(desc) });
-    advanceRevision();
+    advanceRevision(true, false);
     return true;
 }
 
@@ -172,7 +194,7 @@ bool RenderWorld::updateMaterial(RenderMaterialHandle handle, RenderMaterialDesc
         return true;
     ensureWritable();
     storage_->materials.set(handle.index, RenderMaterialRecord{ handle, std::move(desc) });
-    advanceRevision();
+    advanceRevision(true, false);
     return true;
 }
 
@@ -182,9 +204,11 @@ bool RenderWorld::updateObject(RenderObjectId id, RenderObjectDesc desc) {
         return false;
     if (sameObjectDesc(record->desc, desc))
         return true;
+    const bool packetChanged = !sameObjectPacketState(record->desc, desc);
+    const bool spatialChanged = !sameObjectSpatialState(record->desc, desc);
     ensureWritable();
     storage_->objects.set(id.index, RenderObjectRecord{ id, std::move(desc) });
-    advanceRevision();
+    advanceRevision(packetChanged, spatialChanged);
     return true;
 }
 
@@ -202,9 +226,11 @@ bool RenderWorld::updateObjectSpatialState(RenderObjectId id, const math::Mat4& 
     desc.worldTransform = worldTransform;
     desc.worldBounds = worldBounds;
     desc.visible = visible;
+    const bool packetChanged = !sameObjectPacketState(record->desc, desc);
+    const bool spatialChanged = !sameObjectSpatialState(record->desc, desc);
     ensureWritable();
     storage_->objects.set(id.index, RenderObjectRecord{ id, std::move(desc) });
-    advanceRevision();
+    advanceRevision(packetChanged, spatialChanged);
     return true;
 }
 
@@ -214,7 +240,7 @@ bool RenderWorld::removeGeometry(GeometryHandle handle) {
         return false;
     ensureWritable();
     storage_->geometries.erase(handle.index);
-    advanceRevision();
+    advanceRevision(true, false);
     return true;
 }
 
@@ -224,7 +250,7 @@ bool RenderWorld::removeMaterial(RenderMaterialHandle handle) {
         return false;
     ensureWritable();
     storage_->materials.erase(handle.index);
-    advanceRevision();
+    advanceRevision(true, false);
     return true;
 }
 
@@ -232,20 +258,28 @@ bool RenderWorld::removeObject(RenderObjectId id) {
     const RenderObjectRecord* record = storage_->objects.find(id.index);
     if (!record || !sameHandle(record->id, id))
         return false;
+    const bool spatialChanged = record->desc.visible;
     ensureWritable();
     storage_->objects.erase(id.index);
-    advanceRevision();
+    advanceRevision(true, spatialChanged);
     return true;
 }
 
 void RenderWorld::clear() {
+    bool hadVisibleObjects = false;
+    for (const RenderObjectRecord& object : storage_->objects.records()) {
+        if (object.desc.visible) {
+            hadVisibleObjects = true;
+            break;
+        }
+    }
     storage_ = std::make_shared<RenderWorldStorage>();
     next_geometry_index_ = 0;
     next_material_index_ = 0;
     next_object_index_ = 0;
     if (++generation_ == 0)
         generation_ = 1;
-    advanceRevision();
+    advanceRevision(true, hadVisibleObjects);
 }
 
 RenderWorldSnapshot RenderWorld::snapshot() const {

@@ -41,7 +41,7 @@ public:
 
 private:
     void ensureWritable();
-    void advanceRevision();
+    void advanceRevision(bool packetChanged, bool spatialChanged);
 
     std::shared_ptr<RenderWorldStorage> storage_;
     RenderWorldVersion version_;

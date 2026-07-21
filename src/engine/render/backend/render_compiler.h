@@ -46,6 +46,7 @@ struct RenderPacketCacheStats {
     bool cacheHit = false;
     bool assemblyCacheHit = false;
     bool fullRebuild = false;
+    bool bvhRebuilt = false;
     bool frustumFailOpen = false;
     size_t recompiledPacketCount = 0;
     size_t reusedPacketCount = 0;
@@ -73,8 +74,9 @@ public:
      *
      * sceneFrustumCulling 为 true 时 view 必须描述 SceneWorld 的 CPU 视锥；非法矩阵
      * 按 fail-open 处理。OverlayWorld 传 false，保持预览、夹点和 Gizmo 的既有语义。
-     * 世界版本、GPU 资源版本或编译上下文变化时整体重建 Packet；相机和视觉状态
-     * 变化只重新查询可见性并组装命令。返回失败时命令列表为空。
+     * Packet 与 BVH 使用独立的世界版本域：材质、GPU 资源或编译上下文变化不会
+     * 重建 BVH；纯可见性变化不会重编 Packet。相机和视觉状态变化只重新查询
+     * 可见性并组装命令。返回失败时命令列表为空。
      */
     ResultVoid compile(const RenderWorldSnapshot& snapshot, const RenderOptions& options, RenderCompileContext& context,
                        const RenderViewDesc* view, bool sceneFrustumCulling);
