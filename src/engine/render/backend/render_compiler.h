@@ -61,6 +61,21 @@ struct RenderPacketCacheStats {
     void reset() { *this = {}; }
 };
 
+/**
+ * 一次成功命令组装结果的只读视图。
+ *
+ * 四个 span 均借用 RenderCompiler 内部存储，只在对应 compiler 的下一次
+ * compile()/clear() 前有效。revision 始终非零，仅在该组命令真正重新发布时变化，
+ * 使下游可以按 Scene/Overlay 来源独立更新自己的命令缓存。
+ */
+struct CompiledDrawCommandSet {
+    uint64_t revision = 0;
+    std::span<const MeshDrawCommand> surfaces;
+    std::span<const MeshDrawCommand> edges;
+    std::span<const MeshDrawCommand> highlightSurfaces;
+    std::span<const MeshDrawCommand> highlightEdges;
+};
+
 class RenderCompiler {
 public:
     RenderCompiler();
@@ -83,6 +98,7 @@ public:
 
     void clear();
 
+    CompiledDrawCommandSet drawCommands() const;
     std::span<const MeshDrawCommand> surfaceCommands() const;
     std::span<const MeshDrawCommand> edgeCommands() const;
     std::span<const MeshDrawCommand> highlightSurfaceCommands() const;
@@ -90,8 +106,6 @@ public:
     const RenderCompilerStats& lastStats() const;
     const RenderWorkloadStats& lastWorkloadStats() const;
     const RenderPacketCacheStats& lastPacketCacheStats() const;
-    /// 成功发布新的命令组装结果时推进。
-    uint64_t commandRevision() const;
 
 private:
     struct Impl;

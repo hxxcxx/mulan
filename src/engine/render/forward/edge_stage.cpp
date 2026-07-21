@@ -38,11 +38,26 @@ void EdgeStage::execute(RenderFrame& frame) {
     ctx.camera.viewMatrix = frame.view.viewMatrix;
     ctx.camera.projectionMatrix = frame.view.projectionMatrix;
     ctx.camera.eyePosition = frame.view.cameraPosition;
-    draw_executor_.execute(ctx);
+    if (!scene_commands_.commands.empty())
+        draw_executor_.execute(ctx, scene_commands_.commands);
+    if (!overlay_commands_.commands.empty())
+        draw_executor_.execute(ctx, overlay_commands_.commands);
 }
 
-void EdgeStage::setDrawCommands(std::span<const MeshDrawCommand> commands) {
-    draw_executor_.setDrawCommands(commands);
+void EdgeStage::setSceneDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> commands) {
+    updateSourceCommands(scene_commands_, revision, commands);
+}
+
+void EdgeStage::setOverlayDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> commands) {
+    updateSourceCommands(overlay_commands_, revision, commands);
+}
+
+void EdgeStage::updateSourceCommands(SourceCommands& destination, uint64_t revision,
+                                     std::span<const MeshDrawCommand> commands) {
+    if (destination.revision == revision)
+        return;
+    destination.revision = revision;
+    destination.commands = commands;
 }
 
 PipelineState* EdgeStage::pipelineState() const {

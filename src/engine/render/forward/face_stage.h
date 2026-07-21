@@ -15,6 +15,7 @@
 
 #include <mulan/core/result/error.h>
 
+#include <cstdint>
 #include <span>
 #include <vector>
 
@@ -34,7 +35,8 @@ public:
     void shutdown(RHIDevice& device);
     void execute(RenderFrame& frame);
 
-    void setDrawCommands(std::span<const MeshDrawCommand> commands);
+    void setSceneDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> commands);
+    void setOverlayDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> commands);
     void setIBLTextures(Texture* irradiance, Texture* prefilter, Texture* brdfLUT);
 
     PipelineState* acquireSurfacePipeline(const SurfacePipelineRequest& request) override;
@@ -42,6 +44,22 @@ public:
     PipelineState* viewCubePipelineState() const;
 
 private:
+    struct SourceCommands {
+        uint64_t revision = 0;
+        std::vector<MeshDrawCommand> unlit;
+        std::vector<MeshDrawCommand> unlitTangent;
+        std::vector<MeshDrawCommand> legacy;
+        std::vector<MeshDrawCommand> legacyTangent;
+        std::vector<MeshDrawCommand> pbr;
+        std::vector<MeshDrawCommand> pbrTangent;
+        std::vector<MeshDrawCommand> translucent;
+    };
+
+    static void updateSourceCommands(SourceCommands& destination, uint64_t revision,
+                                     std::span<const MeshDrawCommand> commands);
+    static void executeOpaqueSource(GeometryDrawExecutor& executor, const DrawExecutionContext& context,
+                                    std::span<const MeshDrawCommand> commands);
+    void executeTranslucentSource(const DrawExecutionContext& context, std::span<const MeshDrawCommand> commands);
     GeometryDrawExecutor& executorFor(SurfacePipelineFamily family);
 
     GeometryDrawExecutor unlit_executor_;
@@ -54,13 +72,8 @@ private:
     PipelineState* view_cube_pipeline_ = nullptr;
     RenderTargetInfo target_;
     bool initialized_ = false;
-    std::vector<MeshDrawCommand> unlit_commands_;
-    std::vector<MeshDrawCommand> unlit_tangent_commands_;
-    std::vector<MeshDrawCommand> legacy_commands_;
-    std::vector<MeshDrawCommand> legacy_tangent_commands_;
-    std::vector<MeshDrawCommand> pbr_commands_;
-    std::vector<MeshDrawCommand> pbr_tangent_commands_;
-    std::vector<MeshDrawCommand> translucent_commands_;
+    SourceCommands scene_commands_;
+    SourceCommands overlay_commands_;
 };
 
 }  // namespace mulan::engine

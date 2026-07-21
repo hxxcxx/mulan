@@ -111,10 +111,6 @@ bool GeometryDrawExecutor::createFrameBindGroup(TextureFormat, TextureFormat, bo
     return true;
 }
 
-void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx) {
-    execute(ctx, commands_);
-}
-
 void GeometryDrawExecutor::execute(const DrawExecutionContext& ctx, std::span<const MeshDrawCommand> commands) {
     execution_stats_ = {};
     if (!initialized_ || !pso_ || !ctx.cmd || !frame_bg_)

@@ -35,31 +35,47 @@ void HighlightStage::execute(RenderFrame& frame) {
     ctx.camera.projectionMatrix = frame.view.projectionMatrix;
     ctx.camera.eyePosition = frame.view.cameraPosition;
 
-    surface_executor_.execute(ctx);
-    surface_tangent_executor_.execute(ctx);
-    edge_executor_.execute(ctx);
+    if (!scene_commands_.surfaces.empty())
+        surface_executor_.execute(ctx, scene_commands_.surfaces);
+    if (!overlay_commands_.surfaces.empty())
+        surface_executor_.execute(ctx, overlay_commands_.surfaces);
+    if (!scene_commands_.tangentSurfaces.empty())
+        surface_tangent_executor_.execute(ctx, scene_commands_.tangentSurfaces);
+    if (!overlay_commands_.tangentSurfaces.empty())
+        surface_tangent_executor_.execute(ctx, overlay_commands_.tangentSurfaces);
+    if (!scene_commands_.edges.empty())
+        edge_executor_.execute(ctx, scene_commands_.edges);
+    if (!overlay_commands_.edges.empty())
+        edge_executor_.execute(ctx, overlay_commands_.edges);
 }
 
-void HighlightStage::setSurfaceDrawCommands(std::span<const MeshDrawCommand> commands) {
-    surface_executor_.setDrawCommands(std::span<const MeshDrawCommand>{});
-    surface_tangent_executor_.setDrawCommands(std::span<const MeshDrawCommand>{});
+void HighlightStage::setSceneDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> surfaceCommands,
+                                          std::span<const MeshDrawCommand> edgeCommands) {
+    updateSourceCommands(scene_commands_, revision, surfaceCommands, edgeCommands);
+}
 
-    surface_commands_.clear();
-    surface_tangent_commands_.clear();
-    for (const auto& command : commands) {
+void HighlightStage::setOverlayDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> surfaceCommands,
+                                            std::span<const MeshDrawCommand> edgeCommands) {
+    updateSourceCommands(overlay_commands_, revision, surfaceCommands, edgeCommands);
+}
+
+void HighlightStage::updateSourceCommands(SourceCommands& destination, uint64_t revision,
+                                          std::span<const MeshDrawCommand> surfaceCommands,
+                                          std::span<const MeshDrawCommand> edgeCommands) {
+    if (destination.revision == revision)
+        return;
+
+    destination.surfaces.clear();
+    destination.tangentSurfaces.clear();
+    for (const auto& command : surfaceCommands) {
         if (command.pipelineState == surface_tangent_executor_.pipelineState()) {
-            surface_tangent_commands_.push_back(command);
+            destination.tangentSurfaces.push_back(command);
         } else {
-            surface_commands_.push_back(command);
+            destination.surfaces.push_back(command);
         }
     }
-
-    surface_executor_.setDrawCommands(surface_commands_);
-    surface_tangent_executor_.setDrawCommands(surface_tangent_commands_);
-}
-
-void HighlightStage::setEdgeDrawCommands(std::span<const MeshDrawCommand> commands) {
-    edge_executor_.setDrawCommands(commands);
+    destination.edges = edgeCommands;
+    destination.revision = revision;
 }
 
 PipelineState* HighlightStage::surfacePipeline() const {

@@ -65,45 +65,72 @@ void FaceStage::execute(RenderFrame& frame) {
     ctx.camera.viewMatrix = frame.view.viewMatrix;
     ctx.camera.projectionMatrix = frame.view.projectionMatrix;
     ctx.camera.eyePosition = frame.view.cameraPosition;
-    unlit_executor_.execute(ctx);
-    unlit_tangent_executor_.execute(ctx);
-    legacy_executor_.execute(ctx);
-    legacy_tangent_executor_.execute(ctx);
-    pbr_executor_.execute(ctx);
-    pbr_tangent_executor_.execute(ctx);
-    for (const MeshDrawCommand& command : translucent_commands_) {
-        executorFor(command.surfaceFamily).execute(ctx, std::span<const MeshDrawCommand>(&command, 1));
-    }
+
+    // 保持原有 family 顺序，并在每个 family 内维持 Scene -> Overlay。
+    executeOpaqueSource(unlit_executor_, ctx, scene_commands_.unlit);
+    executeOpaqueSource(unlit_executor_, ctx, overlay_commands_.unlit);
+    executeOpaqueSource(unlit_tangent_executor_, ctx, scene_commands_.unlitTangent);
+    executeOpaqueSource(unlit_tangent_executor_, ctx, overlay_commands_.unlitTangent);
+    executeOpaqueSource(legacy_executor_, ctx, scene_commands_.legacy);
+    executeOpaqueSource(legacy_executor_, ctx, overlay_commands_.legacy);
+    executeOpaqueSource(legacy_tangent_executor_, ctx, scene_commands_.legacyTangent);
+    executeOpaqueSource(legacy_tangent_executor_, ctx, overlay_commands_.legacyTangent);
+    executeOpaqueSource(pbr_executor_, ctx, scene_commands_.pbr);
+    executeOpaqueSource(pbr_executor_, ctx, overlay_commands_.pbr);
+    executeOpaqueSource(pbr_tangent_executor_, ctx, scene_commands_.pbrTangent);
+    executeOpaqueSource(pbr_tangent_executor_, ctx, overlay_commands_.pbrTangent);
+    executeTranslucentSource(ctx, scene_commands_.translucent);
+    executeTranslucentSource(ctx, overlay_commands_.translucent);
 }
 
-void FaceStage::setDrawCommands(std::span<const MeshDrawCommand> commands) {
-    unlit_commands_.clear();
-    unlit_tangent_commands_.clear();
-    legacy_commands_.clear();
-    legacy_tangent_commands_.clear();
-    pbr_commands_.clear();
-    pbr_tangent_commands_.clear();
-    translucent_commands_.clear();
+void FaceStage::setSceneDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> commands) {
+    updateSourceCommands(scene_commands_, revision, commands);
+}
+
+void FaceStage::setOverlayDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> commands) {
+    updateSourceCommands(overlay_commands_, revision, commands);
+}
+
+void FaceStage::updateSourceCommands(SourceCommands& destination, uint64_t revision,
+                                     std::span<const MeshDrawCommand> commands) {
+    if (destination.revision == revision)
+        return;
+
+    destination.unlit.clear();
+    destination.unlitTangent.clear();
+    destination.legacy.clear();
+    destination.legacyTangent.clear();
+    destination.pbr.clear();
+    destination.pbrTangent.clear();
+    destination.translucent.clear();
     for (const auto& command : commands) {
         if (command.translucent) {
-            translucent_commands_.push_back(command);
+            destination.translucent.push_back(command);
             continue;
         }
         switch (command.surfaceFamily) {
-        case SurfacePipelineFamily::Unlit: unlit_commands_.push_back(command); break;
-        case SurfacePipelineFamily::UnlitTangent: unlit_tangent_commands_.push_back(command); break;
-        case SurfacePipelineFamily::Legacy: legacy_commands_.push_back(command); break;
-        case SurfacePipelineFamily::LegacyTangent: legacy_tangent_commands_.push_back(command); break;
-        case SurfacePipelineFamily::PBR: pbr_commands_.push_back(command); break;
-        case SurfacePipelineFamily::PBRTangent: pbr_tangent_commands_.push_back(command); break;
+        case SurfacePipelineFamily::Unlit: destination.unlit.push_back(command); break;
+        case SurfacePipelineFamily::UnlitTangent: destination.unlitTangent.push_back(command); break;
+        case SurfacePipelineFamily::Legacy: destination.legacy.push_back(command); break;
+        case SurfacePipelineFamily::LegacyTangent: destination.legacyTangent.push_back(command); break;
+        case SurfacePipelineFamily::PBR: destination.pbr.push_back(command); break;
+        case SurfacePipelineFamily::PBRTangent: destination.pbrTangent.push_back(command); break;
         }
     }
-    unlit_executor_.setDrawCommands(unlit_commands_);
-    unlit_tangent_executor_.setDrawCommands(unlit_tangent_commands_);
-    legacy_executor_.setDrawCommands(legacy_commands_);
-    legacy_tangent_executor_.setDrawCommands(legacy_tangent_commands_);
-    pbr_executor_.setDrawCommands(pbr_commands_);
-    pbr_tangent_executor_.setDrawCommands(pbr_tangent_commands_);
+    destination.revision = revision;
+}
+
+void FaceStage::executeOpaqueSource(GeometryDrawExecutor& executor, const DrawExecutionContext& context,
+                                    std::span<const MeshDrawCommand> commands) {
+    if (!commands.empty())
+        executor.execute(context, commands);
+}
+
+void FaceStage::executeTranslucentSource(const DrawExecutionContext& context,
+                                         std::span<const MeshDrawCommand> commands) {
+    for (const MeshDrawCommand& command : commands) {
+        executorFor(command.surfaceFamily).execute(context, std::span<const MeshDrawCommand>(&command, 1));
+    }
 }
 
 void FaceStage::setIBLTextures(Texture* irradiance, Texture* prefilter, Texture* brdfLUT) {

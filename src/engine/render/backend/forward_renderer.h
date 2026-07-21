@@ -25,9 +25,7 @@
 #include <mulan/core/result/error.h>
 
 #include <memory>
-#include <cstdint>
 #include <string>
-#include <vector>
 
 namespace mulan::engine {
 
@@ -55,6 +53,7 @@ public:
 
 private:
     void clearCompiledCommands();
+    void publishCompiledCommands();
     ResultVoid compile(const RenderRequest& request);
     DrawExecutionContext buildDrawContext(CommandList& cmd, const RenderFrame& frame) const;
     Result<CommandList*> beginFrame(RHIDevice& device, const RenderOutput& output, const RenderViewDesc& view);
@@ -69,14 +68,6 @@ private:
 
     RenderCompiler scene_compiler_;
     RenderCompiler overlay_compiler_;
-    // Stage 持有 span，合并命令必须由 Renderer 保持到本帧执行结束。
-    std::vector<MeshDrawCommand> surface_commands_;
-    std::vector<MeshDrawCommand> edge_commands_;
-    std::vector<MeshDrawCommand> highlight_surface_commands_;
-    std::vector<MeshDrawCommand> highlight_edge_commands_;
-    uint64_t merged_scene_command_revision_ = 0;
-    uint64_t merged_overlay_command_revision_ = 0;
-    bool merged_commands_valid_ = false;
 
     std::unique_ptr<FaceStage> face_stage_;
     std::unique_ptr<EdgeStage> edge_stage_;

@@ -167,26 +167,29 @@ ResultVoid ForwardRenderer::render(RHIDevice& device, const RenderOutput& output
 }
 
 void ForwardRenderer::clearCompiledCommands() {
-    const std::span<const MeshDrawCommand> emptyCommands;
-    if (face_stage_) {
-        face_stage_->setDrawCommands(emptyCommands);
-    }
-    if (edge_stage_) {
-        edge_stage_->setDrawCommands(emptyCommands);
-    }
-    if (highlight_stage_) {
-        highlight_stage_->setSurfaceDrawCommands(emptyCommands);
-        highlight_stage_->setEdgeDrawCommands(emptyCommands);
-    }
     scene_compiler_.clear();
     overlay_compiler_.clear();
-    surface_commands_.clear();
-    edge_commands_.clear();
-    highlight_surface_commands_.clear();
-    highlight_edge_commands_.clear();
-    merged_scene_command_revision_ = 0;
-    merged_overlay_command_revision_ = 0;
-    merged_commands_valid_ = false;
+    publishCompiledCommands();
+}
+
+void ForwardRenderer::publishCompiledCommands() {
+    // Compiler 拥有命令内存；Stage 只借用无需分组的 span，并复制自身确实需要
+    // 按 pipeline family 拆分的表面命令。两个来源的 revision 独立判定更新。
+    const CompiledDrawCommandSet scene = scene_compiler_.drawCommands();
+    const CompiledDrawCommandSet overlay = overlay_compiler_.drawCommands();
+
+    if (face_stage_) {
+        face_stage_->setSceneDrawCommands(scene.revision, scene.surfaces);
+        face_stage_->setOverlayDrawCommands(overlay.revision, overlay.surfaces);
+    }
+    if (edge_stage_) {
+        edge_stage_->setSceneDrawCommands(scene.revision, scene.edges);
+        edge_stage_->setOverlayDrawCommands(overlay.revision, overlay.edges);
+    }
+    if (highlight_stage_) {
+        highlight_stage_->setSceneDrawCommands(scene.revision, scene.highlightSurfaces, scene.highlightEdges);
+        highlight_stage_->setOverlayDrawCommands(overlay.revision, overlay.highlightSurfaces, overlay.highlightEdges);
+    }
 }
 
 ResultVoid ForwardRenderer::compile(const RenderRequest& request) {
@@ -227,48 +230,7 @@ ResultVoid ForwardRenderer::compile(const RenderRequest& request) {
         overlay_compiler_.clear();
     }
 
-    const uint64_t sceneCommandRevision = scene_compiler_.commandRevision();
-    const uint64_t overlayCommandRevision = overlay_compiler_.commandRevision();
-    if (merged_commands_valid_ && merged_scene_command_revision_ == sceneCommandRevision &&
-        merged_overlay_command_revision_ == overlayCommandRevision) {
-        return {};
-    }
-
-    const auto mergeCommands = [](std::vector<MeshDrawCommand>& destination,
-                                  std::span<const MeshDrawCommand> sceneCommands,
-                                  std::span<const MeshDrawCommand> overlayCommands) {
-        destination.clear();
-        destination.reserve(sceneCommands.size() + overlayCommands.size());
-        destination.insert(destination.end(), sceneCommands.begin(), sceneCommands.end());
-        destination.insert(destination.end(), overlayCommands.begin(), overlayCommands.end());
-    };
-    mergeCommands(surface_commands_, scene_compiler_.surfaceCommands(), overlay_compiler_.surfaceCommands());
-    mergeCommands(edge_commands_, scene_compiler_.edgeCommands(), overlay_compiler_.edgeCommands());
-    mergeCommands(highlight_surface_commands_, scene_compiler_.highlightSurfaceCommands(),
-                  overlay_compiler_.highlightSurfaceCommands());
-    mergeCommands(highlight_edge_commands_, scene_compiler_.highlightEdgeCommands(),
-                  overlay_compiler_.highlightEdgeCommands());
-
-    const std::span<const MeshDrawCommand> emptyCommands;
-    if (face_stage_) {
-        face_stage_->setDrawCommands(!surface_commands_.empty() ? std::span<const MeshDrawCommand>(surface_commands_)
-                                                                : emptyCommands);
-    }
-    if (edge_stage_) {
-        edge_stage_->setDrawCommands(!edge_commands_.empty() ? std::span<const MeshDrawCommand>(edge_commands_)
-                                                             : emptyCommands);
-    }
-    if (highlight_stage_) {
-        highlight_stage_->setSurfaceDrawCommands(!highlight_surface_commands_.empty()
-                                                         ? std::span<const MeshDrawCommand>(highlight_surface_commands_)
-                                                         : emptyCommands);
-        highlight_stage_->setEdgeDrawCommands(!highlight_edge_commands_.empty()
-                                                      ? std::span<const MeshDrawCommand>(highlight_edge_commands_)
-                                                      : emptyCommands);
-    }
-    merged_scene_command_revision_ = sceneCommandRevision;
-    merged_overlay_command_revision_ = overlayCommandRevision;
-    merged_commands_valid_ = true;
+    publishCompiledCommands();
     return {};
 }
 

@@ -13,6 +13,7 @@
 
 #include <mulan/core/result/error.h>
 
+#include <cstdint>
 #include <span>
 #include <vector>
 
@@ -32,19 +33,31 @@ public:
     void shutdown(RHIDevice& device);
     void execute(RenderFrame& frame);
 
-    void setSurfaceDrawCommands(std::span<const MeshDrawCommand> commands);
-    void setEdgeDrawCommands(std::span<const MeshDrawCommand> commands);
+    void setSceneDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> surfaceCommands,
+                              std::span<const MeshDrawCommand> edgeCommands);
+    void setOverlayDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> surfaceCommands,
+                                std::span<const MeshDrawCommand> edgeCommands);
 
     PipelineState* surfacePipeline() const;
     PipelineState* surfaceTangentPipeline() const;
     PipelineState* edgePipeline() const;
 
 private:
+    struct SourceCommands {
+        uint64_t revision = 0;
+        std::vector<MeshDrawCommand> surfaces;
+        std::vector<MeshDrawCommand> tangentSurfaces;
+        std::span<const MeshDrawCommand> edges;
+    };
+
+    void updateSourceCommands(SourceCommands& destination, uint64_t revision,
+                              std::span<const MeshDrawCommand> surfaceCommands,
+                              std::span<const MeshDrawCommand> edgeCommands);
     GeometryDrawExecutor surface_executor_;
     GeometryDrawExecutor surface_tangent_executor_;
     GeometryDrawExecutor edge_executor_;
-    std::vector<MeshDrawCommand> surface_commands_;
-    std::vector<MeshDrawCommand> surface_tangent_commands_;
+    SourceCommands scene_commands_;
+    SourceCommands overlay_commands_;
 };
 
 }  // namespace mulan::engine

@@ -13,6 +13,7 @@
 
 #include <mulan/core/result/error.h>
 
+#include <cstdint>
 #include <span>
 
 namespace mulan::engine {
@@ -31,14 +32,24 @@ public:
     void shutdown(RHIDevice& device);
     void execute(RenderFrame& frame);
 
-    void setDrawCommands(std::span<const MeshDrawCommand> commands);
+    void setSceneDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> commands);
+    void setOverlayDrawCommands(uint64_t revision, std::span<const MeshDrawCommand> commands);
     PipelineState* pipelineState() const;
     PipelineState* viewCubePipelineState() const;
 
 private:
+    struct SourceCommands {
+        uint64_t revision = 0;
+        std::span<const MeshDrawCommand> commands;
+    };
+
+    static void updateSourceCommands(SourceCommands& destination, uint64_t revision,
+                                     std::span<const MeshDrawCommand> commands);
     GeometryDrawExecutor draw_executor_;
     DevicePipelineLibrary& pipeline_library_;
     PipelineState* view_cube_pipeline_ = nullptr;
+    SourceCommands scene_commands_;
+    SourceCommands overlay_commands_;
 };
 
 }  // namespace mulan::engine

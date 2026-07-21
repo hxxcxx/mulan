@@ -50,10 +50,7 @@ public:
                          RenderTechnique technique);
 
     bool init(TextureFormat colorFmt, TextureFormat depthFmt, bool hasDepth, uint32_t sampleCount);
-    void execute(const DrawExecutionContext& ctx);
     void execute(const DrawExecutionContext& ctx, std::span<const MeshDrawCommand> commands);
-
-    void setDrawCommands(std::span<const MeshDrawCommand> cmds) { commands_ = cmds; }
 
     PipelineState* pipelineState() const { return pso_; }
     bool ownsPipeline(const PipelineState* pipeline) const { return pipeline && pipeline == pso_; }
@@ -89,7 +86,6 @@ private:
     Texture* ibl_prefilter_ = nullptr;
     Texture* ibl_brdf_lut_ = nullptr;
 
-    std::span<const MeshDrawCommand> commands_;
     std::vector<GeometryDrawBatchRange> batch_plan_;
     GeometryDrawExecutionStats execution_stats_;
     bool initialized_ = false;

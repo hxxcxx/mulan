@@ -68,6 +68,16 @@ void RenderCompiler::clear() {
     impl_->combinedStats.reset();
 }
 
+CompiledDrawCommandSet RenderCompiler::drawCommands() const {
+    return {
+        .revision = impl_->commandAssembler.commandRevision(),
+        .surfaces = impl_->commandAssembler.surfaceCommands(),
+        .edges = impl_->commandAssembler.edgeCommands(),
+        .highlightSurfaces = impl_->commandAssembler.highlightSurfaceCommands(),
+        .highlightEdges = impl_->commandAssembler.highlightEdgeCommands(),
+    };
+}
+
 std::span<const MeshDrawCommand> RenderCompiler::surfaceCommands() const {
     return impl_->commandAssembler.surfaceCommands();
 }
@@ -94,10 +104,6 @@ const RenderWorkloadStats& RenderCompiler::lastWorkloadStats() const {
 
 const RenderPacketCacheStats& RenderCompiler::lastPacketCacheStats() const {
     return impl_->combinedStats;
-}
-
-uint64_t RenderCompiler::commandRevision() const {
-    return impl_->commandAssembler.commandRevision();
 }
 
 }  // namespace mulan::engine
