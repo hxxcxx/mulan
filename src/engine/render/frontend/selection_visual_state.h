@@ -55,9 +55,6 @@ struct SelectionVisualTarget {
 
 class SelectionVisualState {
 public:
-    bool active() const { return active_; }
-    void setActive(bool active) { active_ = active; }
-
     bool empty() const { return targets_.empty(); }
     std::span<const SelectionVisualTarget> targets() const { return targets_; }
 
@@ -65,19 +62,12 @@ public:
         if (!target.valid()) {
             return;
         }
-        active_ = true;
         targets_.push_back(target);
     }
 
-    void clearTargets() { targets_.clear(); }
-
-    void clear() {
-        active_ = false;
-        targets_.clear();
-    }
+    void clear() { targets_.clear(); }
 
 private:
-    bool active_ = false;
     std::vector<SelectionVisualTarget> targets_;
 };
 

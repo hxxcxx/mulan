@@ -19,26 +19,14 @@ uint64_t sceneChangeDomain(const RenderScene* scene) {
     return scene ? scene->currentChangeCursor().domain : 0;
 }
 
-engine::DisplayMode toDisplayMode(RenderMode mode) {
-    switch (mode) {
-    case RenderMode::Shaded: return engine::DisplayMode::Shaded;
-    case RenderMode::ShadedWithEdges: return engine::DisplayMode::ShadedWithEdges;
-    case RenderMode::Wireframe: return engine::DisplayMode::Wireframe;
-    }
-    return engine::DisplayMode::ShadedWithEdges;
-}
-
 void applyViewState(engine::RenderFrameSubmission& submission, const ViewState& state) {
     submission.view.viewMatrix = state.viewMatrix;
     submission.view.projectionMatrix = state.projectionMatrix;
     submission.view.cameraPosition = state.cameraPosition;
     submission.view.width = static_cast<uint32_t>(state.width);
     submission.view.height = static_cast<uint32_t>(state.height);
-    submission.options.displayMode = toDisplayMode(state.renderMode);
-    submission.options.hoveredPickId = state.hoveredPickId;
+    submission.options.displayMode = state.displayMode;
     submission.options.selectionVisuals = state.selectionVisuals;
-    submission.options.showSurfaces = state.showFaces;
-    submission.options.showEdges = state.showEdges;
     submission.options.showOverlays = state.showOverlays;
     submission.options.showViewCube = state.showViewCube;
     submission.options.viewCubeLayout = state.viewCubeLayout;

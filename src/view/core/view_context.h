@@ -58,8 +58,6 @@ public:
     ResultVoid renderFrame();
     void resize(int width, int height);
 
-    /// 兼容入口：仅返回是否处理。需要判断导航/覆盖层/模态语义时使用 dispatchInput。
-    bool handleInput(const engine::InputEvent& event);
     engine::InputOutcome dispatchInput(const engine::InputEvent& event);
 
     void pushOperator(std::unique_ptr<engine::Operator> op);
@@ -88,11 +86,9 @@ public:
     const PreviewLayer& previewLayer() const { return preview_layer_; }
     void clearPreview();
 
-    RenderMode renderMode() const { return render_mode_; }
-    void setRenderMode(RenderMode mode) { render_mode_ = mode; }
+    engine::DisplayMode displayMode() const { return display_mode_; }
+    void setDisplayMode(engine::DisplayMode mode) { display_mode_ = mode; }
 
-    void setHoveredPickId(engine::PickId pickId);
-    void clearHoveredPickId();
     void setSelectionVisualState(engine::SelectionVisualState state);
     void clearSelectionVisualState();
 
@@ -149,8 +145,7 @@ private:
 
     engine::LightEnvironment light_env_;
     PreviewLayer preview_layer_;
-    RenderMode render_mode_ = RenderMode::ShadedWithEdges;
-    engine::PickId hovered_pick_id_;
+    engine::DisplayMode display_mode_ = engine::DisplayMode::ShadedWithEdges;
     engine::SelectionVisualState selection_visual_state_;
     bool show_overlays_ = true;
     bool show_view_cube_ = true;

@@ -83,7 +83,6 @@ struct RenderObjectDesc {
     math::AABB3 worldBounds;
     std::vector<RenderObjectDrawable> drawables;
     bool visible = true;
-    bool selected = false;
 };
 
 struct RenderGeometryRecord {

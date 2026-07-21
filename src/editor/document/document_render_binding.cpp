@@ -74,8 +74,8 @@ void DocumentRenderBinding::refresh() {
 }
 
 void DocumentRenderBinding::refreshVisualState() {
-    syncRenderCache();
-    injectRenderCache();
+    // 选择与悬停由 ViewState::selectionVisuals 直接提交；Scene 中的选择组件
+    // 仍供编辑命令使用，但不再复制到 RenderScene/RenderWorld。
     invalidateFrame();
 }
 

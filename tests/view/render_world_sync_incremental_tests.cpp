@@ -333,7 +333,6 @@ TEST(RenderWorldSpatialPatchTests, PreservesStableFieldsAndPublishedSnapshots) {
     engine::RenderWorld world;
     engine::RenderObjectDesc desc;
     desc.pickId = engine::PickId::fromValue(17);
-    desc.selected = true;
     desc.visible = true;
     desc.drawables.push_back(
             { engine::GeometryHandle{ 4, 2 }, engine::RenderMaterialHandle{ 5, 3 }, engine::RenderBucket::Edge, 9 });
@@ -347,7 +346,6 @@ TEST(RenderWorldSpatialPatchTests, PreservesStableFieldsAndPublishedSnapshots) {
     const engine::RenderObjectRecord* updated = current.object(object);
     ASSERT_NE(updated, nullptr);
     EXPECT_EQ(updated->desc.pickId, desc.pickId);
-    EXPECT_TRUE(updated->desc.selected);
     EXPECT_FALSE(updated->desc.visible);
     ASSERT_EQ(updated->desc.drawables.size(), 1u);
     EXPECT_EQ(updated->desc.drawables.front().geometry, desc.drawables.front().geometry);

@@ -441,7 +441,6 @@ void RenderWorldSync::rebuildScene(const RenderScene& scene, const asset::AssetL
         // 错误剔除一帧；纯位姿快路径仍只使用 SceneProxy 缓存，不触碰资产。
         pending.object.worldBounds = geometry->localBounds().transformed(proxy->worldTransform);
         pending.object.visible = proxy->visible;
-        pending.object.selected = false;
         pending.dependencies.insert(geometry->id());
 
         std::vector<asset::Drawable> drawables;

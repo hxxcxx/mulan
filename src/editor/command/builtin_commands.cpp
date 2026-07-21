@@ -145,9 +145,9 @@ protected:
     }
 };
 
-class SetRenderModeCommand final : public Command {
+class SetDisplayModeCommand final : public Command {
 public:
-    SetRenderModeCommand(std::string id, std::string title, std::string statusText, mulan::view::RenderMode mode)
+    SetDisplayModeCommand(std::string id, std::string title, std::string statusText, mulan::engine::DisplayMode mode)
         : id_(std::move(id)), title_(std::move(title)), status_text_(std::move(statusText)), mode_(mode) {}
 
     std::string_view id() const override { return id_; }
@@ -157,7 +157,7 @@ public:
         const DocumentView* view = host.documentView();
         CommandState state = commandState(*this, view && view->isReady() && view->session(), "No active document view");
         state.checkable = true;
-        state.checked = view && view->renderMode() == mode_;
+        state.checked = view && view->displayMode() == mode_;
         return state;
     }
 
@@ -168,7 +168,7 @@ protected:
             return std::unexpected(Error::make(ErrorCode::InvalidArg, "No active document view"));
         }
 
-        view->setRenderMode(mode_);
+        view->setDisplayMode(mode_);
         return {};
     }
 
@@ -176,7 +176,7 @@ private:
     std::string id_;
     std::string title_;
     std::string status_text_;
-    mulan::view::RenderMode mode_;
+    mulan::engine::DisplayMode mode_;
 };
 
 class ToggleViewCubeCommand final : public Command {
@@ -498,13 +498,13 @@ protected:
 void registerBuiltinCommands(CommandManager& manager) {
     manager.add(std::make_unique<TogglePerspectiveProjectionCommand>());
     manager.add(std::make_unique<FitAllCommand>());
-    manager.add(std::make_unique<SetRenderModeCommand>("view.mode.shaded", "Shaded", "Use shaded display mode",
-                                                       mulan::view::RenderMode::Shaded));
-    manager.add(std::make_unique<SetRenderModeCommand>("view.mode.shadedWithEdges", "Edges",
-                                                       "Use shaded display mode with edges",
-                                                       mulan::view::RenderMode::ShadedWithEdges));
-    manager.add(std::make_unique<SetRenderModeCommand>("view.mode.wireframe", "Wireframe", "Use wireframe display mode",
-                                                       mulan::view::RenderMode::Wireframe));
+    manager.add(std::make_unique<SetDisplayModeCommand>("view.mode.shaded", "Shaded", "Use shaded display mode",
+                                                        mulan::engine::DisplayMode::Shaded));
+    manager.add(std::make_unique<SetDisplayModeCommand>("view.mode.shadedWithEdges", "Edges",
+                                                        "Use shaded display mode with edges",
+                                                        mulan::engine::DisplayMode::ShadedWithEdges));
+    manager.add(std::make_unique<SetDisplayModeCommand>(
+            "view.mode.wireframe", "Wireframe", "Use wireframe display mode", mulan::engine::DisplayMode::Wireframe));
     manager.add(std::make_unique<ToggleViewCubeCommand>());
     manager.add(std::make_unique<EditUndoCommand>());
     manager.add(std::make_unique<EditRedoCommand>());

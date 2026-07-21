@@ -86,7 +86,6 @@ ResultVoid ViewContext::consumeRenderEvents() {
 }
 
 void ViewContext::setRenderScene(const RenderScene* scene, const asset::AssetLibrary* assets) {
-    clearHoveredPickId();
     render_bridge_->setRenderScene(scene, assets);
 }
 
@@ -95,14 +94,6 @@ void ViewContext::enableIBL() {
     if (!ibl_enabled_)
         return;
     render_bridge_->enableIBL(hdr_path_);
-}
-
-void ViewContext::setHoveredPickId(engine::PickId pickId) {
-    hovered_pick_id_ = pickId;
-}
-
-void ViewContext::clearHoveredPickId() {
-    hovered_pick_id_ = engine::PickId::invalid();
 }
 
 void ViewContext::setSelectionVisualState(engine::SelectionVisualState state) {
@@ -230,22 +221,9 @@ ViewState ViewContext::snapshotViewState(const engine::Camera& camera, const Cap
     state.viewCubeInteraction = view_cube_interaction_;
 
     switch (visual.style) {
-    case CaptureRenderStyle::Shaded:
-        state.renderMode = RenderMode::Shaded;
-        state.showFaces = true;
-        state.showEdges = false;
-        break;
-    case CaptureRenderStyle::ShadedWithEdges:
-        state.renderMode = RenderMode::ShadedWithEdges;
-        state.showFaces = true;
-        state.showEdges = true;
-        break;
-    case CaptureRenderStyle::Wireframe:
-    case CaptureRenderStyle::EdgesOnly:
-        state.renderMode = RenderMode::Wireframe;
-        state.showFaces = false;
-        state.showEdges = true;
-        break;
+    case CaptureRenderStyle::Shaded: state.displayMode = engine::DisplayMode::Shaded; break;
+    case CaptureRenderStyle::ShadedWithEdges: state.displayMode = engine::DisplayMode::ShadedWithEdges; break;
+    case CaptureRenderStyle::Wireframe: state.displayMode = engine::DisplayMode::Wireframe; break;
     }
     return state;
 }
@@ -259,10 +237,6 @@ void ViewContext::resize(int width, int height) {
         height_ = static_cast<int>(surface.height);
     }
     camera_.setViewport(width_, height_);
-}
-
-bool ViewContext::handleInput(const engine::InputEvent& event) {
-    return dispatchInput(event).handled();
 }
 
 bool ViewContext::isCameraNavigating() const {
@@ -454,11 +428,8 @@ ViewState ViewContext::buildViewState() const {
     state.cameraPosition = camera_.eyePosition();
     state.width = width_;
     state.height = height_;
-    state.renderMode = render_mode_;
-    state.hoveredPickId = hovered_pick_id_;
+    state.displayMode = display_mode_;
     state.selectionVisuals = selection_visual_state_;
-    state.showFaces = render_mode_ != RenderMode::Wireframe;
-    state.showEdges = render_mode_ != RenderMode::Shaded;
     state.showOverlays = show_overlays_;
     state.showViewCube = show_view_cube_;
     state.viewCubeLayout = view_cube_model_.layout();

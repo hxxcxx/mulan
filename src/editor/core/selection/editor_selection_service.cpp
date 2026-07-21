@@ -105,57 +105,44 @@ EditorSelectionService::EditorSelectionService(view::ViewContext& view) : view_(
 EditorSelectionService::~EditorSelectionService() {
     clear();
     view_.clearSelectionVisualState();
-    view_.clearHoveredPickId();
 }
 
 void EditorSelectionService::clear() {
     context_.clear();
-    view_.clearHoveredPickId();
     syncVisualState();
 }
 
 void EditorSelectionService::clearHover() {
     context_.clearHover();
-    view_.clearHoveredPickId();
     syncVisualState();
 }
 
 void EditorSelectionService::setHovered(std::optional<EditorSelectionHit> hit) {
     context_.setHovered(hit);
-    if (hit) {
-        view_.setHoveredPickId(hit->reference.renderPickId());
-    } else {
-        view_.clearHoveredPickId();
-    }
     syncVisualState();
 }
 
 void EditorSelectionService::selectSingleAndHover(EditorSelectionHit hit) {
     context_.selectSingle(hit);
     context_.setHovered(hit);
-    view_.setHoveredPickId(hit.reference.renderPickId());
     syncVisualState();
 }
 
 void EditorSelectionService::clearSelectionAndHover() {
     context_.clearSelection();
     context_.clearHover();
-    view_.clearHoveredPickId();
     syncVisualState();
 }
 
 void EditorSelectionService::setFilter(EditorSelectionFilter filter) {
     context_.setFilter(filter);
     context_.clearHover();
-    view_.clearHoveredPickId();
     syncVisualState();
 }
 
 bool EditorSelectionService::pruneInvalid(const Document& document) {
     const bool changed = context_.pruneInvalid(document);
     if (changed) {
-        if (!context_.hovered())
-            view_.clearHoveredPickId();
         syncVisualState();
     }
     return changed;
@@ -163,7 +150,6 @@ bool EditorSelectionService::pruneInvalid(const Document& document) {
 
 void EditorSelectionService::syncVisualState() {
     engine::SelectionVisualState state;
-    state.setActive(true);
     for (const EditorSelectionReference& selected : context_.selected()) {
         state.add(visualTarget(selected, engine::SelectionVisualRole::Selected));
     }

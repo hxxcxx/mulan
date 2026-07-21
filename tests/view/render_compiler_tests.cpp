@@ -527,7 +527,11 @@ TEST_F(RenderCompilerTests, HoverStateReassemblesHighlightsWithoutInvalidatingPa
     ASSERT_TRUE(compiler_.compile(snapshot, options, context, &view, true));
     EXPECT_TRUE(compiler_.highlightEdgeCommands().empty());
 
-    options.hoveredPickId = PickId::fromValue(22);
+    options.selectionVisuals.add({
+            .pickId = PickId::fromValue(22),
+            .role = SelectionVisualRole::Hovered,
+            .domain = SelectionVisualDomain::Entity,
+    });
     ASSERT_TRUE(compiler_.compile(snapshot, options, context, &view, true));
     const RenderPacketCacheStats& stats = compiler_.lastPacketCacheStats();
     EXPECT_TRUE(stats.cacheHit);
@@ -608,7 +612,7 @@ TEST_F(RenderCompilerTests, GeometryResourceRevisionInvalidatesWorldLevelCache) 
     const RenderObjectId firstObject = world.addObject(makeEdgeObjectDesc(geometry, 45, boundsAt(0.0)));
     RenderCompileContext context = makeContext();
     RenderOptions options;
-    options.showEdges = false;
+    options.displayMode = DisplayMode::Shaded;
     const RenderViewDesc view = identityView();
 
     // 禁用 pass 时允许缓存缺失状态，资源版本变化后整体刷新缓存。
@@ -622,7 +626,7 @@ TEST_F(RenderCompilerTests, GeometryResourceRevisionInvalidatesWorldLevelCache) 
     EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 0u);
 
     world.addObject(makeEdgeObjectDesc(geometry, 46, boundsAt(0.0)));
-    options.showEdges = true;
+    options.displayMode = DisplayMode::ShadedWithEdges;
     ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
     EXPECT_TRUE(compiler_.lastPacketCacheStats().fullRebuild);
     EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 1u);
@@ -650,7 +654,7 @@ TEST_F(RenderCompilerTests, TextureResourceRevisionInvalidatesWorldLevelCache) {
     const RenderObjectId firstObject = world.addObject(makeSurfaceObjectDesc(geometry, material, 47, boundsAt(0.0)));
     RenderCompileContext context = makeContext();
     RenderOptions options;
-    options.showSurfaces = false;
+    options.displayMode = DisplayMode::Wireframe;
     const RenderViewDesc view = identityView();
 
     ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
@@ -666,7 +670,7 @@ TEST_F(RenderCompilerTests, TextureResourceRevisionInvalidatesWorldLevelCache) {
     EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 0u);
 
     world.addObject(makeSurfaceObjectDesc(geometry, material, 48, boundsAt(0.0)));
-    options.showSurfaces = true;
+    options.displayMode = DisplayMode::ShadedWithEdges;
     ASSERT_TRUE(compiler_.compile(world.snapshot(), options, context, &view, true));
     EXPECT_TRUE(compiler_.lastPacketCacheStats().fullRebuild);
     EXPECT_EQ(compiler_.lastPacketCacheStats().recompiledPacketCount, 1u);
@@ -758,13 +762,13 @@ TEST_F(RenderCompilerTests, MissingGeometryIsDeferredWhilePassIsDisabledAndFails
     const RenderWorldSnapshot snapshot = world.snapshot();
     RenderCompileContext context = makeContext();
     RenderOptions options;
-    options.showEdges = false;
+    options.displayMode = DisplayMode::Shaded;
     const RenderViewDesc view = identityView();
 
     ASSERT_TRUE(compiler_.compile(snapshot, options, context, &view, true));
     EXPECT_TRUE(compiler_.edgeCommands().empty());
 
-    options.showEdges = true;
+    options.displayMode = DisplayMode::ShadedWithEdges;
     const ResultVoid missing = compiler_.compile(snapshot, options, context, &view, true);
     EXPECT_FALSE(missing);
     EXPECT_FALSE(compiler_.lastPacketCacheStats().fullRebuild);

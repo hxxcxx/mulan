@@ -37,9 +37,9 @@ struct RenderVisualMatch {
 /**
  * 计算 drawable 的选择与悬停语义。
  *
- * defaultSelected 仅在没有显式 SelectionVisualState 时生效。
+ * SelectionVisualState 是选择与悬停视觉的唯一输入。
  */
 RenderVisualMatch renderVisualMatch(RenderBucket bucket, PickId pickId, size_t sourceDrawableIndex,
-                                    bool defaultSelected, const RenderOptions& options);
+                                    const RenderOptions& options);
 
 }  // namespace mulan::engine

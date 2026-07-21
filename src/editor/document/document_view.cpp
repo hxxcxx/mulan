@@ -200,15 +200,15 @@ bool DocumentView::isReady() const {
     return impl_->view_context.isReady();
 }
 
-mulan::view::RenderMode DocumentView::renderMode() const {
-    return impl_->view_context.renderMode();
+mulan::engine::DisplayMode DocumentView::displayMode() const {
+    return impl_->view_context.displayMode();
 }
 
-void DocumentView::setRenderMode(mulan::view::RenderMode mode) {
-    if (impl_->view_context.renderMode() == mode) {
+void DocumentView::setDisplayMode(mulan::engine::DisplayMode mode) {
+    if (impl_->view_context.displayMode() == mode) {
         return;
     }
-    impl_->view_context.setRenderMode(mode);
+    impl_->view_context.setDisplayMode(mode);
     invalidateFrame();
 }
 

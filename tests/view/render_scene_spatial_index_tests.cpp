@@ -385,7 +385,8 @@ TEST(RenderSceneSpatialIndexTests, JournalOverflowRestoresTheCompleteCurrentStat
     RenderScene renderScene;
     renderScene.sync(source, assets);
 
-    // 三次发布超过容量；Selection 已离开保留窗口，增量读取必须拒绝残缺结果并全量恢复。
+    // 三次发布超过容量；最早的 Selection 变化离开保留窗口后，增量读取必须拒绝残缺结果并全量恢复。
+    // Selection 属于编辑状态，不进入 SceneProxy；这里用最终空间状态验证恢复结果。
     ASSERT_TRUE(source.setSelected(entity, true));
     ASSERT_TRUE(source.setName(entity, "Renamed"));
     ASSERT_TRUE(source.setWorldTransform(entity, math::Mat4::translate(math::Vec3(6.0, 0.0, 0.0))));
@@ -393,7 +394,6 @@ TEST(RenderSceneSpatialIndexTests, JournalOverflowRestoresTheCompleteCurrentStat
 
     const SceneProxy* proxy = renderScene.proxy(entity);
     ASSERT_NE(proxy, nullptr);
-    EXPECT_TRUE(proxy->selected);
     EXPECT_TRUE(renderScene.pick(verticalRay(6.0), 0.01));
     EXPECT_FALSE(renderScene.pick(verticalRay(0.0), 0.01));
 }

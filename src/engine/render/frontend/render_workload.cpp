@@ -49,21 +49,15 @@ bool targetMatchesDrawable(const SelectionVisualTarget& target, RenderBucket buc
 }  // namespace
 
 RenderVisualMatch renderVisualMatch(RenderBucket bucket, PickId pickId, size_t sourceDrawableIndex,
-                                    bool defaultSelected, const RenderOptions& options) {
+                                    const RenderOptions& options) {
     RenderVisualMatch match;
-    if (options.selectionVisuals.active()) {
-        for (const SelectionVisualTarget& target : options.selectionVisuals.targets()) {
-            if (!targetMatchesDrawable(target, bucket, pickId, sourceDrawableIndex)) {
-                continue;
-            }
-            match.selected = match.selected || targetRoleMatches(target, SelectionVisualRole::Selected);
-            match.hovered = match.hovered || targetRoleMatches(target, SelectionVisualRole::Hovered);
+    for (const SelectionVisualTarget& target : options.selectionVisuals.targets()) {
+        if (!targetMatchesDrawable(target, bucket, pickId, sourceDrawableIndex)) {
+            continue;
         }
-        return match;
+        match.selected = match.selected || targetRoleMatches(target, SelectionVisualRole::Selected);
+        match.hovered = match.hovered || targetRoleMatches(target, SelectionVisualRole::Hovered);
     }
-
-    match.selected = defaultSelected;
-    match.hovered = options.hoveredPickId.valid() && pickId == options.hoveredPickId;
     return match;
 }
 

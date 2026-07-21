@@ -448,7 +448,11 @@ TEST(RenderSubmissionBuilderTests, PreviewAndViewChangesReuseSceneWorld) {
     EXPECT_EQ(previewChanged.sceneWorld, stableSceneWorld);
     EXPECT_NE(previewChanged.overlayWorld, first.overlayWorld);
 
-    view.hoveredPickId = engine::PickId{ 7 };
+    view.selectionVisuals.add({
+            .pickId = engine::PickId{ 7 },
+            .role = engine::SelectionVisualRole::Hovered,
+            .domain = engine::SelectionVisualDomain::Entity,
+    });
     const engine::RenderFrameSubmission viewChanged = builder.build(view);
     EXPECT_EQ(viewChanged.sceneWorld, stableSceneWorld);
     EXPECT_EQ(viewChanged.overlayWorld, previewChanged.overlayWorld);
@@ -1566,9 +1570,24 @@ TEST(RenderWorldSnapshotTests, WorldVersionsAreUniqueAndAdvanceOnlyForSuccessful
     EXPECT_FALSE(world.updateObject(staleObject, desc));
     EXPECT_EQ(world.snapshot().version(), beforeFailedUpdate);
 
+    const engine::RenderWorldSnapshot beforeEquivalentUpdates = world.snapshot();
     ASSERT_TRUE(world.updateGeometry(geometry, {}));
-    EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
     ASSERT_TRUE(world.updateMaterial(material, {}));
+    ASSERT_TRUE(world.updateObject(object, desc));
+    ASSERT_TRUE(world.updateObjectSpatialState(object, desc.worldTransform, desc.worldBounds, desc.visible));
+    const engine::RenderWorldSnapshot afterEquivalentUpdates = world.snapshot();
+    EXPECT_EQ(world.snapshot().version(), beforeEquivalentUpdates.version());
+    EXPECT_EQ(afterEquivalentUpdates.geometry(geometry), beforeEquivalentUpdates.geometry(geometry));
+    EXPECT_EQ(afterEquivalentUpdates.material(material), beforeEquivalentUpdates.material(material));
+    EXPECT_EQ(afterEquivalentUpdates.object(object), beforeEquivalentUpdates.object(object));
+
+    engine::RenderGeometryDesc geometryDesc;
+    geometryDesc.empty = false;
+    ASSERT_TRUE(world.updateGeometry(geometry, geometryDesc));
+    EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
+    engine::RenderMaterialDesc materialDesc;
+    materialDesc.material.roughness = 0.25;
+    ASSERT_TRUE(world.updateMaterial(material, materialDesc));
     EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
     desc.visible = false;
     ASSERT_TRUE(world.updateObject(object, desc));
@@ -1590,6 +1609,36 @@ TEST(RenderWorldSnapshotTests, WorldVersionsAreUniqueAndAdvanceOnlyForSuccessful
     world.clear();
     EXPECT_EQ(world.snapshot().version().revision, ++expectedRevision);
     EXPECT_EQ(expectedRevision, beforeClear.revision + 1u);
+}
+
+TEST(RenderWorldSnapshotTests, TextureContentRevisionDefinesIdempotentMaterialUpdates) {
+    const auto firstImage = core::Image::create(1, 1, core::PixelFormat::RGBA8);
+    const auto equivalentImage = core::Image::create(1, 1, core::PixelFormat::RGBA8);
+    ASSERT_TRUE(firstImage);
+    ASSERT_TRUE(equivalentImage);
+
+    engine::RenderMaterialDesc desc;
+    desc.baseColorTexture.resourceKey = engine::makeAssetGpuKey(501);
+    desc.baseColorTexture.image = firstImage;
+    desc.baseColorTexture.contentRevision = 7;
+
+    engine::RenderWorld world;
+    const engine::RenderMaterialHandle material = world.addMaterial(desc);
+    const engine::RenderWorldSnapshot published = world.snapshot();
+
+    // 图片对象可以在生产链路中重新包装；稳定 key + contentRevision 才是渲染内容身份。
+    desc.baseColorTexture.image = equivalentImage;
+    ASSERT_TRUE(world.updateMaterial(material, desc));
+    const engine::RenderWorldSnapshot equivalent = world.snapshot();
+    EXPECT_EQ(equivalent.version(), published.version());
+    EXPECT_EQ(equivalent.material(material), published.material(material));
+
+    ++desc.baseColorTexture.contentRevision;
+    ASSERT_TRUE(world.updateMaterial(material, desc));
+    const engine::RenderWorldSnapshot changed = world.snapshot();
+    EXPECT_EQ(changed.version().revision, published.version().revision + 1u);
+    ASSERT_NE(changed.material(material), nullptr);
+    EXPECT_EQ(changed.material(material)->desc.baseColorTexture.image, equivalentImage);
 }
 
 TEST(RenderWorldSnapshotTests, PublishedSnapshotRemainsStableAcrossWorldMutations) {

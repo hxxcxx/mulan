@@ -58,7 +58,6 @@ struct SceneProxy {
     math::AABB3 localBounds;
     math::AABB3 worldBounds;
     bool visible = true;
-    bool selected = false;
 };
 
 }  // namespace mulan::view

@@ -161,7 +161,6 @@ std::optional<SceneProxy> buildProxy(const scene::Scene& scene, const asset::Ass
     }
 
     const auto* render = scene.render(id);
-    const auto* selection = scene.selection(id);
     const auto* transform = scene.transform(id);
 
     SceneProxy proxy;
@@ -170,7 +169,6 @@ std::optional<SceneProxy> buildProxy(const scene::Scene& scene, const asset::Ass
     proxy.geometryKind = asset->kind();
     proxy.materialSlots = render ? render->material_slots : std::vector<asset::AssetId>{};
     proxy.visible = render ? render->visible : true;
-    proxy.selected = selection ? selection->selected : false;
     proxy.worldTransform = transform ? transform->world : math::Mat4{ 1.0 };
     // worldBounds = local asset bounds transformed into world space.
     proxy.localBounds = geomAsset->localBounds();
@@ -425,20 +423,6 @@ void RenderScene::sync(const scene::Scene& scene, const asset::AssetLibrary& ass
     }
     if (lightChanged) {
         selectLights(all_lights_, lights_);
-    }
-
-    // Selection 由 ViewState 单独驱动，不属于 RenderWorld 变更；但 SceneProxy 的
-    // 只读诊断字段仍保持当前值，避免增量路径与 journal 溢出后的全量结果不一致。
-    for (const auto& [id, flags] : entityChanges) {
-        if (!scene::hasAnyDirty(flags, scene::EntityDirty::Selection) || !scene.isValid(id)) {
-            continue;
-        }
-        const auto proxy = proxies_.find(id);
-        if (proxy == proxies_.end()) {
-            continue;
-        }
-        const auto* selection = scene.selection(id);
-        proxy->second.selected = selection ? selection->selected : false;
     }
 
     // 销毁记录保留发布时的完整 generation；先移除旧代理，再处理仍有效实体的最终状态。

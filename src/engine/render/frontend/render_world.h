@@ -20,10 +20,11 @@ public:
     GeometryHandle addGeometry(RenderGeometryDesc desc);
     RenderMaterialHandle addMaterial(RenderMaterialDesc desc);
     RenderObjectId addObject(RenderObjectDesc desc);
+    /// update* 对有效句柄是幂等操作；描述未变化时返回 true，但不复制存储、不推进 revision。
     bool updateGeometry(GeometryHandle handle, RenderGeometryDesc desc);
     bool updateMaterial(RenderMaterialHandle handle, RenderMaterialDesc desc);
     bool updateObject(RenderObjectId id, RenderObjectDesc desc);
-    /// 仅更新对象的空间状态，保留 PickId、drawable、选择状态及资源句柄。
+    /// 仅更新对象的空间状态，保留 PickId、drawable 及资源句柄。
     /// 句柄失效时返回 false；内容未变化时成功但不推进 world revision。
     bool updateObjectSpatialState(RenderObjectId id, const math::Mat4& worldTransform, const math::AABB3& worldBounds,
                                   bool visible);

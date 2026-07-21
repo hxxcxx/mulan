@@ -1,5 +1,6 @@
 #include "render_world.h"
 
+#include <algorithm>
 #include <atomic>
 #include <exception>
 #include <limits>
@@ -25,6 +26,54 @@ bool sameBounds(const math::AABB3& lhs, const math::AABB3& rhs) {
     if (lhs.isEmpty() || rhs.isEmpty())
         return lhs.isEmpty() == rhs.isEmpty();
     return lhs.min == rhs.min && lhs.max == rhs.max;
+}
+
+bool sameVertexLayout(const graphics::VertexLayout& lhs, const graphics::VertexLayout& rhs) {
+    if (lhs.stride() != rhs.stride() || lhs.attrCount() != rhs.attrCount() || lhs.bufferCount() != rhs.bufferCount()) {
+        return false;
+    }
+    for (uint8_t index = 0; index < lhs.attrCount(); ++index) {
+        if (!(lhs[index] == rhs[index]))
+            return false;
+    }
+    return true;
+}
+
+bool sameTextureDesc(const RenderTextureDesc& lhs, const RenderTextureDesc& rhs) {
+    const bool lhsHasImage = lhs.image && lhs.image->valid();
+    const bool rhsHasImage = rhs.image && rhs.image->valid();
+    return lhs.resourceKey == rhs.resourceKey && lhs.contentRevision == rhs.contentRevision && lhs.srgb == rhs.srgb &&
+           lhs.generateMips == rhs.generateMips && lhsHasImage == rhsHasImage;
+}
+
+bool sameGeometryDesc(const RenderGeometryDesc& lhs, const RenderGeometryDesc& rhs) {
+    return lhs.resourceKey == rhs.resourceKey && lhs.topology == rhs.topology &&
+           sameVertexLayout(lhs.vertexLayout, rhs.vertexLayout) && lhs.empty == rhs.empty;
+}
+
+bool sameMaterialDesc(const RenderMaterialDesc& lhs, const RenderMaterialDesc& rhs) {
+    return lhs.resourceKey == rhs.resourceKey && lhs.material == rhs.material &&
+           sameTextureDesc(lhs.baseColorTexture, rhs.baseColorTexture) &&
+           sameTextureDesc(lhs.normalTexture, rhs.normalTexture) &&
+           sameTextureDesc(lhs.metallicRoughnessTexture, rhs.metallicRoughnessTexture) &&
+           sameTextureDesc(lhs.emissiveTexture, rhs.emissiveTexture) &&
+           sameTextureDesc(lhs.ambientOcclusionTexture, rhs.ambientOcclusionTexture) &&
+           sameTextureDesc(lhs.ambientTexture, rhs.ambientTexture) &&
+           sameTextureDesc(lhs.specularTexture, rhs.specularTexture) &&
+           sameTextureDesc(lhs.shininessTexture, rhs.shininessTexture) &&
+           sameTextureDesc(lhs.opacityTexture, rhs.opacityTexture);
+}
+
+bool sameDrawable(const RenderObjectDrawable& lhs, const RenderObjectDrawable& rhs) {
+    return lhs.geometry == rhs.geometry && lhs.material == rhs.material && lhs.bucket == rhs.bucket &&
+           lhs.sourceDrawableIndex == rhs.sourceDrawableIndex;
+}
+
+bool sameObjectDesc(const RenderObjectDesc& lhs, const RenderObjectDesc& rhs) {
+    return lhs.pickId == rhs.pickId && sameMatrix(lhs.worldTransform, rhs.worldTransform) &&
+           sameBounds(lhs.worldBounds, rhs.worldBounds) && lhs.visible == rhs.visible &&
+           lhs.drawables.size() == rhs.drawables.size() &&
+           std::equal(lhs.drawables.begin(), lhs.drawables.end(), rhs.drawables.begin(), sameDrawable);
 }
 
 std::atomic<uint64_t> next_render_world_id{ 1 };
@@ -107,6 +156,8 @@ bool RenderWorld::updateGeometry(GeometryHandle handle, RenderGeometryDesc desc)
     const RenderGeometryRecord* record = storage_->geometries.find(handle.index);
     if (!record || !sameHandle(record->handle, handle))
         return false;
+    if (sameGeometryDesc(record->desc, desc))
+        return true;
     ensureWritable();
     storage_->geometries.set(handle.index, RenderGeometryRecord{ handle, std::move(desc) });
     advanceRevision();
@@ -117,6 +168,8 @@ bool RenderWorld::updateMaterial(RenderMaterialHandle handle, RenderMaterialDesc
     const RenderMaterialRecord* record = storage_->materials.find(handle.index);
     if (!record || !sameHandle(record->handle, handle))
         return false;
+    if (sameMaterialDesc(record->desc, desc))
+        return true;
     ensureWritable();
     storage_->materials.set(handle.index, RenderMaterialRecord{ handle, std::move(desc) });
     advanceRevision();
@@ -127,6 +180,8 @@ bool RenderWorld::updateObject(RenderObjectId id, RenderObjectDesc desc) {
     const RenderObjectRecord* record = storage_->objects.find(id.index);
     if (!record || !sameHandle(record->id, id))
         return false;
+    if (sameObjectDesc(record->desc, desc))
+        return true;
     ensureWritable();
     storage_->objects.set(id.index, RenderObjectRecord{ id, std::move(desc) });
     advanceRevision();

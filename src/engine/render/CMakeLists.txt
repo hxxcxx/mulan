@@ -15,6 +15,9 @@ add_library(render STATIC
     frontend/render_workload.cpp
     overlay/view_cube_contract.cpp
     backend/render_compiler.cpp
+    backend/detail/render_packet_cache.cpp
+    backend/detail/render_visibility_index.cpp
+    backend/detail/draw_command_assembler.cpp
     backend/forward_renderer.cpp
     # Render runtime
     runtime/render_device_context.cpp
@@ -49,6 +52,7 @@ mulan_copy_public_headers(render render
     light_environment.h
     material/material.h
     overlay/view_cube_contract.h
+    frontend/display_mode.h
     frontend/pick_identity.h
     frontend/selection_visual_state.h
     frontend/render_handle.h

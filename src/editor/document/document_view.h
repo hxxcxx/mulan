@@ -10,8 +10,8 @@
 #include "../command/command.h"
 
 #include <mulan/interaction/work_plane.h>
+#include <mulan/render/frontend/display_mode.h>
 #include <mulan/view/capture/capture_request.h>
-#include <mulan/view/core/view_state.h>
 
 #include <cstdint>
 #include <functional>
@@ -85,8 +85,8 @@ public:
 
     bool isReady() const;
 
-    mulan::view::RenderMode renderMode() const;
-    void setRenderMode(mulan::view::RenderMode mode);
+    mulan::engine::DisplayMode displayMode() const;
+    void setDisplayMode(mulan::engine::DisplayMode mode);
     bool viewCubeVisible() const;
     void setViewCubeVisible(bool visible);
     /// 使用当前文档视图相机执行截图，调用方不能注入陈旧相机快照。

@@ -6,15 +6,14 @@
  */
 #pragma once
 
-#include <mulan/render/overlay/view_cube_contract.h>
-#include <mulan/render/frontend/selection_visual_state.h>
 #include <mulan/math/math.h>
+#include <mulan/render/frontend/display_mode.h>
+#include <mulan/render/frontend/selection_visual_state.h>
+#include <mulan/render/overlay/view_cube_contract.h>
 
 #include <cstdint>
 
 namespace mulan::view {
-
-enum class RenderMode { Shaded, ShadedWithEdges, Wireframe };
 
 struct ViewState {
     math::Mat4 viewMatrix = math::Mat4(1.0);
@@ -23,13 +22,9 @@ struct ViewState {
 
     int width = 0;
     int height = 0;
-    float dpiScale = 1.0f;
 
-    RenderMode renderMode = RenderMode::ShadedWithEdges;
-    engine::PickId hoveredPickId;
+    engine::DisplayMode displayMode = engine::DisplayMode::ShadedWithEdges;
     engine::SelectionVisualState selectionVisuals;
-    bool showFaces = true;
-    bool showEdges = true;
     bool showOverlays = true;
     bool showViewCube = true;
     engine::ViewCubeLayout viewCubeLayout;
